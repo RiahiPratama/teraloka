@@ -221,3 +221,139 @@ export async function departQueue(
 
   return departure;
 }
+
+// ============================================================
+// PHASE 1: Create Seat Claim (FASE 5)
+// ============================================================
+export async function createSeatClaim(
+  queueEntryId: string,
+  passengerId: string,
+  passengerName: string,
+  passengerPhone: string,
+) {
+  const supabase = await createClient();
+
+  // Verify queue entry exists and is active
+  const { data: entry } = await supabase
+    .from('queue_entries')
+    .select('*, operator:operators!operator_id(capacity)')
+    .eq('id', queueEntryId)
+    .in('status', ['queuing', 'boarding'])
+    .single();
+
+  if (!entry) throw new Error('Speed tidak tersedia');
+
+  // Check capacity (walk-in + digital claims)
+  const { count: claimCount } = await supabase
+    .from('seat_claims')
+    .select('id', { count: 'exact', head: true })
+    .eq('queue_entry_id', queueEntryId)
+    .eq('status', 'active');
+
+  const totalOccupied = entry.passenger_count + (claimCount ?? 0);
+  if (totalOccupied >= entry.operator.capacity) {
+    throw new Error('Seat sudah penuh');
+  }
+
+  // Check duplicate claim
+  const { data: existing } = await supabase
+    .from('seat_claims')
+    .select('id')
+    .eq('queue_entry_id', queueEntryId)
+    .eq('passenger_id', passengerId)
+    .eq('status', 'active')
+    .single();
+
+  if (existing) throw new Error('Kamu sudah claim seat di speed ini');
+
+  // Create claim — NO expires_at, NO cancel button
+  const { data: claim, error } = await supabase
+    .from('seat_claims')
+    .insert({
+      queue_entry_id: queueEntryId,
+      passenger_id: passengerId,
+      passenger_name: passengerName,
+      passenger_phone: passengerPhone,
+      status: 'active',
+    })
+    .select()
+    .single();
+
+  if (error) throw error;
+  return claim;
+}
+
+// ============================================================
+// OPERATOR: Confirm boarding ([✅ NAIK] / [❌ TIDAK ADA])
+// ============================================================
+export async function confirmBoarding(
+  claimId: string,
+  action: 'boarded' | 'no_show',
+  operatorUserId: string,
+) {
+  const supabase = await createClient();
+
+  // Verify operator owns the queue
+  const { data: claim } = await supabase
+    .from('seat_claims')
+    .select('*, queue_entry:queue_entries!queue_entry_id(operator:operators!operator_id(user_id))')
+    .eq('id', claimId)
+    .eq('status', 'active')
+    .single();
+
+  if (!claim) throw new Error('Claim not found');
+  if (claim.queue_entry?.operator?.user_id !== operatorUserId) throw new Error('Not your queue');
+
+  const update = action === 'boarded'
+    ? { status: 'boarded', boarded_at: new Date().toISOString() }
+    : { status: 'expired', expired_at: new Date().toISOString(), expired_reason: 'no_show' };
+
+  const { data } = await supabase
+    .from('seat_claims')
+    .update(update)
+    .eq('id', claimId)
+    .select()
+    .single();
+
+  return data;
+}
+
+// ============================================================
+// Check if departure is blocked (unresolved claims)
+// ============================================================
+export async function checkDepartureBlocked(queueEntryId: string): Promise<{
+  blocked: boolean;
+  unresolvedCount: number;
+}> {
+  const supabase = await createClient();
+
+  const { count } = await supabase
+    .from('seat_claims')
+    .select('id', { count: 'exact', head: true })
+    .eq('queue_entry_id', queueEntryId)
+    .eq('status', 'active');
+
+  return {
+    blocked: (count ?? 0) > 0,
+    unresolvedCount: count ?? 0,
+  };
+}
+
+// ============================================================
+// Generate manifest for departure (SAR safety)
+// ============================================================
+export async function generateManifest(queueEntryId: string) {
+  const supabase = await createClient();
+
+  const { data: claims } = await supabase
+    .from('seat_claims')
+    .select('passenger_name, passenger_phone, status')
+    .eq('queue_entry_id', queueEntryId)
+    .eq('status', 'boarded');
+
+  return (claims ?? []).map((c) => ({
+    name: c.passenger_name,
+    phone: c.passenger_phone,
+    type: 'digital' as const,
+  }));
+}
