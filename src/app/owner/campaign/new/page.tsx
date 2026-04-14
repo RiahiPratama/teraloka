@@ -266,7 +266,7 @@ export default function NewCampaignPage() {
             bucket="campaigns"
             label="Foto Campaign (opsional)"
             onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
-            existingUrl={coverUrl}
+            existingUrls={coverUrl ? [coverUrl] : []}
           />
 
           <div>

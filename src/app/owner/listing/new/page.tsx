@@ -311,7 +311,7 @@ function NewListingContent() {
               bucket="listings"
               label="Foto Cover"
               onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
-              existingUrl={coverUrl}
+              existingUrls={coverUrl ? [coverUrl] : []}
             />
           </div>
 
