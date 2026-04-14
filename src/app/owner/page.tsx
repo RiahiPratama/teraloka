@@ -8,7 +8,7 @@ import { formatRupiah } from '@/utils/format';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const LISTING_TYPES = [
-  { key: 'kos', label: 'Kos-kosan', icon: '🏠', href: '/owner/listing/new?type=kos' },
+  { key: 'kos', label: 'Kos-kosan', icon: '🏠', href: '/owner/listing/new/kos' },
   { key: 'properti', label: 'Properti', icon: '🏢', href: '/owner/listing/new?type=properti' },
   { key: 'kendaraan', label: 'Kendaraan', icon: '🚗', href: '/owner/listing/new?type=kendaraan' },
   { key: 'jasa', label: 'Jasa', icon: '🔧', href: '/owner/listing/new?type=jasa' },
