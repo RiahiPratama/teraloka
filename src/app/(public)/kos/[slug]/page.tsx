@@ -261,7 +261,11 @@ export default function KosDetailPage() {
 
           {listing.nearby_landmarks && (
             <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>
-              🏛️ {listing.nearby_landmarks.split('Dekat').filter(Boolean).map(s => 'Dekat' + s.trim()).join(' · ')}
+              🏛️ {Array.isArray(listing.nearby_landmarks)
+                ? listing.nearby_landmarks.join(' · ')
+                : typeof listing.nearby_landmarks === 'string'
+                ? listing.nearby_landmarks.split('Dekat').filter(Boolean).map((s: string) => 'Dekat' + s.trim()).join(' · ')
+                : listing.nearby_landmarks}
             </p>
           )}
         </div>
