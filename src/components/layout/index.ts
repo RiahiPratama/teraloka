@@ -1,3 +1,3 @@
 export { Header } from './header';
-export { Ticker } from './Ticker';
+export { default as Ticker } from './Ticker';
 export { BottomNav } from './bottom-nav';
