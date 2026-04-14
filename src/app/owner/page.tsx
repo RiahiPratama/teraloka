@@ -50,13 +50,11 @@ export default function OwnerDashboard() {
     </div>
   );
 
-  const activeListings = listings.filter(l => l.status === 'active').length;
   const totalViews = listings.reduce((sum, l) => sum + (l.view_count ?? 0), 0);
   const totalContacts = listings.reduce((sum, l) => sum + (l.contact_count ?? 0), 0);
 
   return (
     <div className="mx-auto max-w-lg px-4 py-6">
-      {/* Header */}
       <div className="mb-5">
         <h1 className="text-xl font-bold text-[#1B6B4A]">Portal Mitra</h1>
         <p className="text-sm text-gray-500">Halo, {user.name ?? '+' + user.phone} 👋</p>
@@ -92,7 +90,7 @@ export default function OwnerDashboard() {
         </div>
       </div>
 
-      {/* List listing milik owner */}
+      {/* List listing */}
       <div>
         <p className="mb-3 text-sm font-medium text-gray-700">Listing kamu:</p>
         {fetching ? (
@@ -111,6 +109,7 @@ export default function OwnerDashboard() {
                     <p className="mt-0.5 text-xs text-gray-500">
                       {item.price ? formatRupiah(item.price) : 'Harga negosiasi'}
                       {item.price_period ? `/${item.price_period}` : ''}
+                      {item.is_negotiable && <span className="ml-1 text-[#1B6B4A]">(nego)</span>}
                     </p>
                   </div>
                   <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
@@ -121,15 +120,35 @@ export default function OwnerDashboard() {
                     {item.status === 'active' ? 'Aktif' : item.status === 'draft' ? 'Draft' : item.status}
                   </span>
                 </div>
+
                 {item.listing_tier && (
                   <p className="mt-1 text-xs text-gray-400">
                     Tier: {item.listing_tier} · {item.listing_fee > 0 ? formatRupiah(item.listing_fee) + '/bln' : 'Gratis'}
                   </p>
                 )}
+
                 <div className="mt-2 flex gap-4 text-xs text-gray-400">
                   <span>👁 {item.view_count ?? 0} views</span>
                   <span>💬 {item.contact_count ?? 0} kontak</span>
                   {item.rating_avg > 0 && <span>⭐ {item.rating_avg}</span>}
+                </div>
+
+                {/* Tombol aksi */}
+                <div className="mt-3 flex gap-2">
+                  {item.type === 'kos' && (
+                    <Link
+                      href={`/owner/listing/${item.id}/rooms`}
+                      className="flex-1 rounded-lg bg-[#1B6B4A] py-2 text-center text-xs font-medium text-white"
+                    >
+                      🛏️ Kelola Kamar
+                    </Link>
+                  )}
+                  <Link
+                    href={`/owner/listing/${item.id}/edit`}
+                    className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600"
+                  >
+                    Edit
+                  </Link>
                 </div>
               </div>
             ))}
