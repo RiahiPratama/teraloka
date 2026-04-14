@@ -301,7 +301,7 @@ export default function RoomTypesPage() {
           <ImageUpload
             bucket="listings"
             label="Foto Kamar"
-            onUpload={urls => setForm(p => ({ ...p, photos: urls }))}
+            onUpload={(urls: string[]) => setForm(p => ({ ...p, photos: urls }))}
             existingUrls={form.photos}
             maxFiles={5}
           />
