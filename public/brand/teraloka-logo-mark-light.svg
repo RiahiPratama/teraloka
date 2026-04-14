@@ -1,0 +1,18 @@
+<svg viewBox="-10 -40 300 260" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wave-gradient" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0891B2"/>
+      <stop offset="60%" stop-color="#0891B2"/>
+      <stop offset="92%" stop-color="#E8963A"/>
+    </linearGradient>
+  </defs>
+  <!-- Wave (L) with gradient transition to sun -->
+  <path d="M90 140 Q90 192 130 192 Q158 192 180 178 Q202 164 224 154"
+        fill="none" stroke="url(#wave-gradient)" stroke-width="32" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Sun (O) — slightly larger than wave -->
+  <circle cx="232" cy="150" r="22" fill="#E8963A"/>
+  <!-- T crossbar (daratan) -->
+  <rect x="0" y="0" width="200" height="32" rx="6" fill="#1B6B4A"/>
+  <!-- T stem (daratan) -->
+  <rect x="74" y="0" width="32" height="145" rx="0 0 2 2" fill="#1B6B4A"/>
+</svg>

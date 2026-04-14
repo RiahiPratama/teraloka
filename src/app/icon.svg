@@ -1,0 +1,18 @@
+<svg viewBox="-10 -40 300 260" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="wf" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0891B2"/>
+      <stop offset="55%" stop-color="#0891B2"/>
+      <stop offset="92%" stop-color="#E8963A"/>
+    </linearGradient>
+  </defs>
+  <!-- Wave — slightly thicker for small sizes -->
+  <path d="M90 140 Q90 192 130 192 Q158 192 180 178 Q202 164 224 154"
+        fill="none" stroke="url(#wf)" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Sun — slightly larger for visibility at small sizes -->
+  <circle cx="232" cy="150" r="26" fill="#E8963A"/>
+  <!-- T crossbar -->
+  <rect x="0" y="0" width="200" height="36" rx="6" fill="#1B6B4A"/>
+  <!-- T stem -->
+  <rect x="72" y="0" width="36" height="148" rx="0 0 2 2" fill="#1B6B4A"/>
+</svg>
