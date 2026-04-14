@@ -92,6 +92,10 @@ export default function Navbar() {
 
               {dropdownOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-gray-100 bg-white py-1 shadow-lg">
+                  <Link href="/profile" onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                    👤 Profil Saya
+                  </Link>
                   <Link href="/owner" onClick={() => setDropdownOpen(false)}
                     className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
                     🏠 Portal Mitra
