@@ -257,7 +257,7 @@ export default function NewArticlePage() {
         <ImageUpload
           bucket="articles"
           label="Foto Cover Artikel"
-          onUpload={url => setCoverImageUrl(url)}
+          onUpload={(urls: string[]) => setCoverImageUrl(urls[0] ?? '')}
           existingUrl={coverImageUrl}
         />
 

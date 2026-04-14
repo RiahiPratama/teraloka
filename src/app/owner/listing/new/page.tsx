@@ -310,7 +310,7 @@ function NewListingContent() {
             <ImageUpload
               bucket="listings"
               label="Foto Cover"
-              onUpload={url => setCoverUrl(url)}
+              onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
               existingUrl={coverUrl}
             />
           </div>

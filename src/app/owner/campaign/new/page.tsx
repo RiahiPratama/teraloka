@@ -265,7 +265,7 @@ export default function NewCampaignPage() {
           <ImageUpload
             bucket="campaigns"
             label="Foto Campaign (opsional)"
-            onUpload={url => setCoverUrl(url)}
+            onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
             existingUrl={coverUrl}
           />
 
