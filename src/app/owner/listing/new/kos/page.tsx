@@ -175,8 +175,8 @@ function KosFormContent() {
 
       const listingId = listingData.data?.id;
 
-      await Promise.all(rooms.map(r =>
-        fetch(`${API}/listings/${listingId}/rooms`, {
+      await Promise.all(rooms.map(async r => {
+        const res = await fetch(`${API}/listings/${listingId}/rooms`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({
@@ -190,8 +190,11 @@ function KosFormContent() {
             facilities: r.facilities,
             photos: r.photos,
           }),
-        })
-      ));
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message ?? 'Gagal simpan tipe kamar');
+        return data;
+      }));
 
       setSubmitted(true);
     } catch {
