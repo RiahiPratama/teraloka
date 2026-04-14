@@ -5,36 +5,45 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
+// roles: kosong = semua admin, diisi = hanya role tersebut
 const NAV_SECTIONS = [
   {
     label: 'Utama',
     items: [
-      { href: '/admin', label: 'Overview', icon: '⚡', exact: true },
-      { href: '/admin/content', label: 'BAKABAR', sub: 'Artikel berita', icon: '📰' },
-      { href: '/admin/reports', label: 'BALAPOR', sub: 'Laporan warga', icon: '🚨' },
-      { href: '/admin/listings', label: 'Listing', sub: 'Kos, Properti, dll', icon: '🏠' },
-      { href: '/admin/funding', label: 'BASUMBANG', sub: 'Kampanye donasi', icon: '❤️' },
-      { href: '/admin/users', label: 'Users', sub: 'Manajemen akun', icon: '👥' },
+      { href: '/admin', label: 'Overview', icon: '⚡', exact: true, roles: ['super_admin'] },
+      { href: '/admin/content', label: 'BAKABAR', sub: 'Artikel berita', icon: '📰', roles: [] },
+      { href: '/admin/reports', label: 'BALAPOR', sub: 'Laporan warga', icon: '🚨', roles: ['super_admin'] },
+      { href: '/admin/listings', label: 'Listing', sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
+      { href: '/admin/funding', label: 'BASUMBANG', sub: 'Kampanye donasi', icon: '❤️', roles: ['super_admin'] },
+      { href: '/admin/users', label: 'Users', sub: 'Manajemen akun', icon: '👥', roles: ['super_admin'] },
     ],
   },
   {
     label: 'Operasional',
     items: [
-      { href: '/admin/transport', label: 'Transport', sub: 'Kapal & Speed', icon: '🚢' },
-      { href: '/admin/ticker', label: 'Ticker', sub: 'Running text', icon: '📡' },
-      { href: '/admin/notifications', label: 'Notifikasi', sub: 'Push & WA blast', icon: '🔔' },
+      { href: '/admin/transport', label: 'Transport', sub: 'Kapal & Speed', icon: '🚢', roles: ['super_admin'] },
+      { href: '/admin/ticker', label: 'Ticker', sub: 'Running text', icon: '📡', roles: ['super_admin'] },
+      { href: '/admin/notifications', label: 'Notifikasi', sub: 'Push & WA blast', icon: '🔔', roles: ['super_admin'] },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { href: '/admin/analytics', label: 'Analytics', sub: 'Trafik & engagement', icon: '📊' },
-      { href: '/admin/financial', label: 'Finansial', sub: 'Revenue & transaksi', icon: '💰' },
-      { href: '/admin/system-health', label: 'System Health', sub: 'Server & API', icon: '🔧' },
-      { href: '/admin/trust-safety', label: 'Trust & Safety', sub: 'Fraud & abuse', icon: '🛡️' },
+      { href: '/admin/analytics', label: 'Analytics', sub: 'Trafik & engagement', icon: '📊', roles: ['super_admin'] },
+      { href: '/admin/financial', label: 'Finansial', sub: 'Revenue & transaksi', icon: '💰', roles: ['super_admin'] },
+      { href: '/admin/system-health', label: 'System Health', sub: 'Server & API', icon: '🔧', roles: ['super_admin'] },
+      { href: '/admin/trust-safety', label: 'Trust & Safety', sub: 'Fraud & abuse', icon: '🛡️', roles: ['super_admin'] },
     ],
   },
 ];
+
+const ROLE_LABEL: Record<string, string> = {
+  super_admin: 'Super Admin',
+  admin_content: 'Admin Konten',
+  admin_transport: 'Admin Transport',
+  admin_listing: 'Admin Listing',
+  admin_funding: 'Admin Funding',
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
@@ -155,7 +164,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Nav */}
         <nav style={{ flex: 1, padding: '16px 12px', overflowY: 'auto' }}>
-          {NAV_SECTIONS.map((section) => (
+          {NAV_SECTIONS.filter(section =>
+            section.items.some(item => !item.roles?.length || item.roles.includes(user.role || ''))
+          ).map((section) => (
             <div key={section.label} style={{ marginBottom: 24 }}>
               <div style={{
                 color: '#4B5563',
@@ -168,7 +179,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               }}>
                 {section.label}
               </div>
-              {section.items.map((item) => {
+              {section.items.filter(item => !item.roles?.length || item.roles.includes(user.role || '')).map((item) => {
                 const active = isActive(item.href, item.exact);
                 return (
                   <Link
@@ -243,7 +254,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {user.name || 'Admin'}
               </div>
               <div style={{ color: '#1B6B4A', fontSize: 11, fontWeight: 500 }}>
-                Super Admin
+                {ROLE_LABEL[user.role || ''] || user.role}
               </div>
             </div>
             <button
