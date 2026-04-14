@@ -1,8 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+@import "tailwindcss";
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* ─── Tailwind v4 Theme ─── */
+@theme {
+  --font-sora: 'Sora', sans-serif;
+  --font-jakarta: 'Plus Jakarta Sans', sans-serif;
+  --color-primary: #3525cd;
+  --color-primary-light: #4f46e5;
+  --color-primary-dim: #c3c0ff;
+  --color-cyan: #0891B2;
+  --color-orange: #E8963A;
+  --color-green: #1B6B4A;
+}
 
 /* ─── CSS Variables ─── */
 :root {
