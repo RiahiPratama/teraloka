@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -253,26 +254,12 @@ export default function NewArticlePage() {
         </div>
 
         {/* Cover image */}
-        <div>
-          <label className="text-sm font-medium text-gray-700">
-            URL Foto Cover <span className="text-gray-400">(opsional)</span>
-          </label>
-          <input
-            type="url"
-            value={coverImageUrl}
-            onChange={e => setCoverImageUrl(e.target.value)}
-            placeholder="https://..."
-            className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#1B6B4A]"
-          />
-          {coverImageUrl && (
-            <img
-              src={coverImageUrl}
-              alt="Preview"
-              className="mt-2 h-32 w-full rounded-lg object-cover"
-              onError={e => (e.currentTarget.style.display = 'none')}
-            />
-          )}
-        </div>
+        <ImageUpload
+          bucket="articles"
+          label="Foto Cover Artikel"
+          onUpload={url => setCoverImageUrl(url)}
+          existingUrl={coverImageUrl}
+        />
 
         {/* Body */}
         <div>

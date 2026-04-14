@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Suspense } from 'react';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -306,10 +307,12 @@ function NewListingContent() {
           </div>
 
           <div>
-            <label className="text-sm font-medium text-gray-700">URL Foto Cover <span className="text-gray-400">(opsional)</span></label>
-            <input type="url" value={coverUrl} onChange={e => setCoverUrl(e.target.value)} placeholder="https://..."
-              className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#1B6B4A]" />
-            {coverUrl && <img src={coverUrl} alt="preview" className="mt-2 h-28 w-full rounded-lg object-cover" onError={e => (e.currentTarget.style.display = 'none')} />}
+            <ImageUpload
+              bucket="listings"
+              label="Foto Cover"
+              onUpload={url => setCoverUrl(url)}
+              existingUrl={coverUrl}
+            />
           </div>
 
           <div>

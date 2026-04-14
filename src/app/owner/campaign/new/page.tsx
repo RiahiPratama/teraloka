@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -25,6 +26,8 @@ export default function NewCampaignPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  const [coverUrl, setCoverUrl] = useState('');
 
   // Step 0 — Data penerima
   const [beneficiaryName, setBeneficiaryName] = useState('');
@@ -107,6 +110,7 @@ export default function NewCampaignPage() {
           title,
           description,
           category,
+          cover_image_url: coverUrl || null,
           beneficiary_name: beneficiaryName,
           beneficiary_relation: beneficiaryRelation,
           target_amount: Number(targetAmount.replace(/\D/g, '')),
@@ -257,6 +261,13 @@ export default function NewCampaignPage() {
               />
             </div>
           </div>
+
+          <ImageUpload
+            bucket="campaigns"
+            label="Foto Campaign (opsional)"
+            onUpload={url => setCoverUrl(url)}
+            existingUrl={coverUrl}
+          />
 
           <div>
             <label className="text-sm font-medium text-gray-700">Batas Waktu <span className="text-gray-400">(opsional)</span></label>
