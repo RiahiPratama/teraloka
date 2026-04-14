@@ -333,6 +333,17 @@ export default function AdminContentPage() {
                       onClick={() => updateArticleStatus(a.id, 'draft', a.title)}
                     />
                   )}
+                  <a
+                    href={`/news/${a.slug}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{
+                      padding: '4px 10px', borderRadius: 6, fontSize: 11, fontWeight: 700,
+                      background: 'rgba(107,114,128,0.08)', color: '#6B7280', textDecoration: 'none',
+                    }}
+                  >
+                    Lihat
+                  </a>
                   <Link
                     href={`/admin/content/${a.id}/edit`}
                     style={{
