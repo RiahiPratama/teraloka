@@ -20,12 +20,12 @@ interface Article {
 interface Report {
   id: string;
   title: string;
-  content: string | null;
   status: string;
   category: string | null;
   anonymity_level: string | null;
   risk_score: number | null;
-  location_name: string | null;
+  location: string | null;
+  body: string | null;
   created_at: string;
 }
 
@@ -125,6 +125,29 @@ export default function AdminContentPage() {
       if (!data.success) throw new Error(data.error?.message);
       showToast(`"${title.slice(0, 30)}..." → ${ARTICLE_STATUS[status]?.label ?? status}`);
       fetchArticles();
+    } catch (err: any) {
+      showToast(err.message || 'Gagal update', false);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const updateReportStatus = async (id: string, action: 'verified' | 'rejected', title: string) => {
+    if (!token) return;
+    setActionLoading(id + action);
+    try {
+      const endpoint = action === 'verified'
+        ? `${API_URL}/admin/reports/${id}/verify`
+        : `${API_URL}/admin/reports/${id}/reject`;
+      const res = await fetch(endpoint, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message);
+      showToast(action === 'verified' ? `Laporan diverifikasi ✓` : `Laporan ditolak`);
+      fetchReports();
     } catch (err: any) {
       showToast(err.message || 'Gagal update', false);
     } finally {
@@ -374,12 +397,28 @@ export default function AdminContentPage() {
                       fontSize: 12, color: '#6B7280',
                       overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                     }}>
-                      {r.content?.slice(0, 100) || '—'}
+                      {r.body?.slice(0, 100) || '—'}
                     </p>
                     <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 3 }}>
-                      {r.category || '—'} · {r.anonymity_level || '—'} · Risk: {r.risk_score ?? '?'} · {r.location_name || '—'} · {timeAgo(r.created_at)}
+                      {r.category || '—'} · {r.anonymity_level || '—'} · Risk: {r.risk_score ?? '?'} · {r.location || '—'} · {timeAgo(r.created_at)}
                     </p>
                   </div>
+                  {r.status === 'pending' && (
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0, alignItems: 'center' }}>
+                      <ActionBtn
+                        label="✓ Verifikasi"
+                        color="#10B981"
+                        loading={actionLoading === r.id + 'verified'}
+                        onClick={() => updateReportStatus(r.id, 'verified', r.title)}
+                      />
+                      <ActionBtn
+                        label="✕ Tolak"
+                        color="#EF4444"
+                        loading={actionLoading === r.id + 'rejected'}
+                        onClick={() => updateReportStatus(r.id, 'rejected', r.title)}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
             );
