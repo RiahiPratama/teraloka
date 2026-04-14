@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -40,6 +41,7 @@ export default function ReportsPage() {
   const [tosAccepted, setTosAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
 
   // Login via WA OTP
   const [phone, setPhone] = useState('');
@@ -73,6 +75,7 @@ export default function ReportsPage() {
           title,
           body,
           category,
+          photos,
         }),
       });
       const data = await res.json();
@@ -130,7 +133,7 @@ export default function ReportsPage() {
   const resetForm = () => {
     setStep('form');
     setTitle(''); setBody(''); setCategory('');
-    setTosAccepted(false); setError('');
+    setTosAccepted(false); setError(''); setPhotos([]);
     setPhone(''); setOtp(''); setOtpSent(false);
   };
 
@@ -222,14 +225,7 @@ export default function ReportsPage() {
                 </button>
               ))}
             </div>
-            {photoRequired && category && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2">
-                <span className="text-sm">📷</span>
-                <p className="text-xs text-amber-700">
-                  Kategori ini memerlukan minimal 1 foto sebagai bukti.
-                </p>
-              </div>
-            )}
+
           </div>
 
           {/* Title */}
@@ -257,9 +253,22 @@ export default function ReportsPage() {
             <p className="mt-1 text-right text-xs text-gray-400">{body.length} karakter</p>
           </div>
 
+          {/* Upload Foto */}
+          <ImageUpload
+            bucket="reports"
+            onUpload={(urls) => setPhotos(urls)}
+            label={photoRequired ? 'Foto Bukti (Wajib — min. 1 foto)' : 'Foto Bukti (Opsional)'}
+            maxFiles={3}
+          />
+          {photoRequired && photos.length === 0 && (
+            <p className="text-xs text-amber-600 -mt-2">
+              ⚠️ Kategori ini memerlukan minimal 1 foto sebagai bukti
+            </p>
+          )}
+
           <button
             onClick={() => setStep('tos')}
-            disabled={!title.trim() || !body.trim() || !category}
+            disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0)}
             className="w-full rounded-xl bg-[#1B6B4A] py-3 text-sm font-semibold text-white disabled:opacity-40"
           >
             Lanjut ke Syarat & Ketentuan →
