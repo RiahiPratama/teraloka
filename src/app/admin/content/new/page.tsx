@@ -8,6 +8,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/
 
 const CATEGORIES = [
   { key: 'berita', label: 'Berita' },
+  { key: 'viral', label: 'Viral' },
   { key: 'politik', label: 'Politik' },
   { key: 'ekonomi', label: 'Ekonomi' },
   { key: 'sosial', label: 'Sosial' },
@@ -15,6 +16,16 @@ const CATEGORIES = [
   { key: 'olahraga', label: 'Olahraga' },
   { key: 'budaya', label: 'Budaya' },
   { key: 'teknologi', label: 'Teknologi' },
+];
+
+const PLATFORMS = [
+  { key: 'instagram', label: 'Instagram' },
+  { key: 'tiktok', label: 'TikTok' },
+  { key: 'facebook', label: 'Facebook' },
+  { key: 'twitter', label: 'Twitter / X' },
+  { key: 'youtube', label: 'YouTube' },
+  { key: 'whatsapp', label: 'WhatsApp' },
+  { key: 'lainnya', label: 'Lainnya' },
 ];
 
 export default function NewArticlePage() {
@@ -25,13 +36,13 @@ export default function NewArticlePage() {
   const [body, setBody] = useState('');
   const [category, setCategory] = useState('');
   const [coverImageUrl, setCoverImageUrl] = useState('');
+  const [sourceUrl, setSourceUrl] = useState('');
+  const [sourcePlatform, setSourcePlatform] = useState('');
   const [publishNow, setPublishNow] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [articleId, setArticleId] = useState('');
 
-  // Guard — hanya admin
   if (!user || !token) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center px-4">
@@ -62,7 +73,6 @@ export default function NewArticlePage() {
     setError('');
 
     try {
-      // 1. Buat artikel (draft dulu)
       const res = await fetch(`${API}/content/articles`, {
         method: 'POST',
         headers: {
@@ -74,6 +84,8 @@ export default function NewArticlePage() {
           body,
           category,
           cover_image_url: coverImageUrl || null,
+          source_url: sourceUrl || null,
+          source_platform: sourcePlatform || null,
         }),
       });
 
@@ -85,9 +97,7 @@ export default function NewArticlePage() {
       }
 
       const id = data.data?.id;
-      setArticleId(id);
 
-      // 2. Publish langsung kalau diminta
       if (publishNow && id) {
         await fetch(`${API}/content/articles/${id}/publish`, {
           method: 'POST',
@@ -116,9 +126,7 @@ export default function NewArticlePage() {
             Artikel {publishNow ? 'Dipublish!' : 'Disimpan sebagai Draft!'}
           </h2>
           <p className="mt-2 text-sm text-gray-500">
-            {publishNow
-              ? 'Artikel sudah live di BAKABAR.'
-              : 'Artikel tersimpan sebagai draft. Publish kapan saja dari admin panel.'}
+            {publishNow ? 'Artikel sudah live di BAKABAR.' : 'Artikel tersimpan sebagai draft.'}
           </p>
           <div className="mt-5 flex gap-2">
             <button
@@ -134,8 +142,9 @@ export default function NewArticlePage() {
                 setBody('');
                 setCategory('');
                 setCoverImageUrl('');
+                setSourceUrl('');
+                setSourcePlatform('');
                 setPublishNow(false);
-                setArticleId('');
               }}
               className="flex-1 rounded-xl bg-[#1B6B4A] py-2.5 text-sm font-semibold text-white"
             >
@@ -149,10 +158,10 @@ export default function NewArticlePage() {
 
   const wordCount = body.trim().split(/\s+/).filter(Boolean).length;
   const readTime = Math.max(1, Math.ceil(wordCount / 200));
+  const isViral = category === 'viral';
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6">
-      {/* Header */}
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold text-[#1B6B4A]">Tulis Artikel</h1>
@@ -175,15 +184,59 @@ export default function NewArticlePage() {
                 onClick={() => setCategory(cat.key)}
                 className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
                   category === cat.key
-                    ? 'bg-[#1B6B4A] text-white'
+                    ? cat.key === 'viral'
+                      ? 'bg-orange-500 text-white'
+                      : 'bg-[#1B6B4A] text-white'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                {cat.label}
+                {cat.key === 'viral' ? '🔥 ' : ''}{cat.label}
               </button>
             ))}
           </div>
         </div>
+
+        {/* Sumber viral — muncul kalau kategori Viral dipilih */}
+        {isViral && (
+          <div className="rounded-xl border border-orange-200 bg-orange-50 p-4 space-y-3">
+            <p className="text-xs font-medium text-orange-800">
+              🔥 Berita Viral — Tambahkan sumber asli dari media sosial
+            </p>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">Platform</label>
+              <div className="mt-1.5 flex flex-wrap gap-2">
+                {PLATFORMS.map(p => (
+                  <button
+                    key={p.key}
+                    onClick={() => setSourcePlatform(p.key)}
+                    className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                      sourcePlatform === p.key
+                        ? 'bg-orange-500 text-white'
+                        : 'bg-white border border-orange-200 text-orange-700 hover:bg-orange-100'
+                    }`}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm font-medium text-gray-700">Link Postingan Asli</label>
+              <input
+                type="url"
+                value={sourceUrl}
+                onChange={e => setSourceUrl(e.target.value)}
+                placeholder="https://www.instagram.com/p/..."
+                className="mt-1.5 w-full rounded-xl border border-orange-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-orange-400"
+              />
+              <p className="mt-1 text-xs text-orange-600">
+                Link ini akan ditampilkan sebagai sumber di bawah artikel
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Judul */}
         <div>
@@ -199,7 +252,7 @@ export default function NewArticlePage() {
           <p className="mt-1 text-right text-xs text-gray-400">{title.length} / 150</p>
         </div>
 
-        {/* Cover image URL */}
+        {/* Cover image */}
         <div>
           <label className="text-sm font-medium text-gray-700">
             URL Foto Cover <span className="text-gray-400">(opsional)</span>
@@ -219,9 +272,6 @@ export default function NewArticlePage() {
               onError={e => (e.currentTarget.style.display = 'none')}
             />
           )}
-          <p className="mt-1 text-xs text-gray-400">
-            Upload foto ke sini sementara, nanti kita integrasikan Supabase Storage
-          </p>
         </div>
 
         {/* Body */}
@@ -230,7 +280,9 @@ export default function NewArticlePage() {
           <textarea
             value={body}
             onChange={e => setBody(e.target.value)}
-            placeholder="Tulis isi artikel di sini. Gunakan paragraf yang jelas dan informatif..."
+            placeholder={isViral
+              ? 'Tulis ringkasan kenapa konten ini viral, konteks, dan reaksi warga Malut...'
+              : 'Tulis isi artikel di sini. Gunakan paragraf yang jelas dan informatif...'}
             rows={14}
             className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#1B6B4A]"
           />
@@ -248,7 +300,7 @@ export default function NewArticlePage() {
             <div>
               <p className="text-sm font-medium text-gray-800">Publish sekarang</p>
               <p className="text-xs text-gray-500">
-                Artikel langsung tampil di BAKABAR. Kalau tidak dicentang, artikel tersimpan sebagai draft.
+                Artikel langsung tampil di BAKABAR. Kalau tidak dicentang, tersimpan sebagai draft.
               </p>
             </div>
           </label>
@@ -258,7 +310,6 @@ export default function NewArticlePage() {
           <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
         )}
 
-        {/* Submit */}
         <div className="flex gap-2">
           <button
             onClick={() => router.back()}
