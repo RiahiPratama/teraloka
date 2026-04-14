@@ -45,7 +45,7 @@ export default function ProfilePage() {
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
-      await updateProfile({ name: name.trim() });
+      await updateProfile(name.trim());
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch (err: any) {
