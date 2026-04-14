@@ -1,39 +1,131 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── CSS Variables ─── */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  --primary: #1B6B4A;
-  --secondary: #E8963A;
-  --accent: #2196F3;
+  --primary: #3525cd;
+  --primary-light: #4f46e5;
+  --primary-dim: #c3c0ff;
+  --cyan: #0891B2;
+  --orange: #E8963A;
+  --green: #1B6B4A;
+  --surface: #f7f9fb;
+  --surface-low: #f2f4f6;
+  --border: rgba(53, 37, 205, 0.08);
+  --border-light: #e2e8f0;
+  --text: #191c1e;
+  --text-muted: #64748b;
+  --text-light: #94a3b8;
+  --error: #dc2626;
+  --success: #16a34a;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-primary: var(--primary);
-  --color-secondary: var(--secondary);
-  --color-accent: var(--accent);
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+/* ─── Base ─── */
+html {
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: 16px;
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background-color: var(--surface);
+  color: var(--text);
   -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
-.pb-safe {
-  padding-bottom: env(safe-area-inset-bottom, 0px);
+h1, h2, h3, h4, .font-sora {
+  font-family: 'Sora', sans-serif;
 }
 
-@keyframes marquee {
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #f1f5f9; }
+::-webkit-scrollbar-thumb { background: #c3c0ff; border-radius: 99px; }
+
+/* ─── Animations ─── */
+@keyframes ticker {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
 
-.animate-marquee {
-  animation: marquee 30s linear infinite;
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(0.8); }
+}
+
+@keyframes live-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }
+  50% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.05); }
+}
+
+/* ─── Ticker ─── */
+.ticker-track {
+  animation: ticker 28s linear infinite;
+}
+.ticker-track:hover {
+  animation-play-state: paused;
+}
+
+/* ─── Hero Badge Dot ─── */
+.badge-dot {
+  animation: pulse-dot 2s infinite;
+}
+
+/* ─── Live Dot ─── */
+.live-dot {
+  animation: live-pulse 2s infinite;
+}
+
+/* ─── Service Carousel ─── */
+.service-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+}
+.service-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* ─── Glass Nav ─── */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+/* ─── Hero gradient text ─── */
+.gradient-text {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--cyan) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ─── Stats dark background ─── */
+.stats-dark-bg {
+  background: linear-gradient(135deg, #0f0a3c 0%, #1a1060 50%, #0e3d4d 100%);
+}
+
+/* ─── Editorial shadow ─── */
+.editorial-shadow {
+  box-shadow: 0 40px 40px -15px rgba(53, 37, 205, 0.04);
+}
+
+/* ─── Responsive helpers ─── */
+@media (max-width: 900px) {
+  .bento-full { grid-column: span 12; }
+}
+
+/* ─── Nav active link ─── */
+.nav-links a.active {
+  background: rgba(53,37,205,0.08);
+  color: var(--primary);
+}
+.nav-links a:hover {
+  background: var(--surface-low);
+  color: var(--primary);
 }
