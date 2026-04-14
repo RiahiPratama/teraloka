@@ -6,15 +6,6 @@ const config: Config = {
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  safelist: [
-    'col-span-12',
-    'md:col-span-5',
-    'md:col-span-7',
-    'grid-cols-12',
-    'grid-cols-2',
-    'grid-cols-4',
-    'md:grid-cols-4',
-  ],
   theme: {
     extend: {
       fontFamily: {
