@@ -67,6 +67,8 @@ export default function AdminReportsPage() {
     reportId: string; reportTitle: string;
   } | null>(null);
   const [identityReason, setIdentityReason] = useState('');
+  const [convertLoading, setConvertLoading] = useState<string | null>(null);
+  const [convertResult, setConvertResult] = useState<{ id: string; title: string; slug: string } | null>(null);
   const [identityLoading, setIdentityLoading] = useState(false);
   const [identityResult, setIdentityResult] = useState<{
     identity: Identity | null; message?: string; reason: string;
@@ -141,6 +143,28 @@ export default function AdminReportsPage() {
     }
   };
 
+  const convertToArticle = async (reportId: string, reportTitle: string) => {
+    if (!token) return;
+    if (!confirm(`Convert laporan "${reportTitle.slice(0, 40)}..." jadi draft artikel via AI?\n\nProses ini membutuhkan 5-10 detik.`)) return;
+    setConvertLoading(reportId);
+    try {
+      const res = await fetch(`${API_URL}/admin/reports/${reportId}/convert`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message);
+      setConvertResult(data.data.article);
+      showToast('Draft artikel berhasil dibuat! ✨');
+      fetchReports();
+    } catch (err: any) {
+      showToast(err.message || 'Gagal convert ke artikel', false);
+    } finally {
+      setConvertLoading(null);
+    }
+  };
+
   const closeIdentityModal = () => {
     setIdentityModal(null);
     setIdentityReason('');
@@ -167,6 +191,46 @@ export default function AdminReportsPage() {
           boxShadow: '0 4px 16px rgba(0,0,0,0.15)', animation: 'fadeIn 0.2s ease',
         }}>
           {toast.ok ? '✓' : '✗'} {toast.msg}
+        </div>
+      )}
+
+      {/* Convert Result Notification */}
+      {convertResult && (
+        <div style={{
+          position: 'fixed', bottom: 20, right: 20, zIndex: 99,
+          background: '#fff', borderRadius: 14, padding: '16px 20px',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
+          border: '1px solid rgba(8,145,178,0.2)',
+          maxWidth: 340, animation: 'fadeIn 0.3s ease',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+            <span style={{ fontSize: 24 }}>✨</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: 13, color: '#111827', marginBottom: 4 }}>
+                Draft Artikel Dibuat!
+              </div>
+              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
+                "{convertResult.title.slice(0, 60)}..."
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <a
+                  href={`/admin/content`}
+                  style={{
+                    padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+                    background: '#0891B2', color: '#fff', textDecoration: 'none',
+                  }}
+                >
+                  Lihat di BAKABAR
+                </a>
+                <button
+                  onClick={() => setConvertResult(null)}
+                  style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', cursor: 'pointer' }}
+                >
+                  Tutup
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 
@@ -409,6 +473,24 @@ export default function AdminReportsPage() {
                       >
                         🔍 Buka Identitas
                       </button>
+
+                      {/* Convert ke artikel — hanya untuk verified */}
+                      {r.status === 'verified' && (
+                        <button
+                          onClick={() => convertToArticle(r.id, r.title)}
+                          disabled={convertLoading === r.id}
+                          style={{
+                            padding: '7px 14px', borderRadius: 8,
+                            border: '1px solid rgba(8,145,178,0.3)',
+                            background: 'rgba(8,145,178,0.08)', color: '#0891B2',
+                            fontSize: 12, fontWeight: 700, cursor: convertLoading === r.id ? 'wait' : 'pointer',
+                            display: 'flex', alignItems: 'center', gap: 6,
+                            opacity: convertLoading === r.id ? 0.6 : 1,
+                          }}
+                        >
+                          {convertLoading === r.id ? '⏳ AI sedang nulis...' : '📰 Jadikan Artikel'}
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
