@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
  */
 
 export default function OperatorSpeedPage() {
-  const { user, loading } = useAuth();
+  const { user, isLoading: loading } = useAuth();
   const [passengerCount, setPassengerCount] = useState(0);
   const [capacity] = useState(12);
   const [status, setStatus] = useState<'idle' | 'queuing' | 'boarding'>('idle');

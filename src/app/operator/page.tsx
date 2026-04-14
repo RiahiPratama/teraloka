@@ -9,7 +9,7 @@ import { useAuth } from '@/hooks/useAuth';
  */
 
 export default function OperatorDashboard() {
-  const { user, loading } = useAuth();
+  const { user, isLoading: loading } = useAuth();
   const [stats, setStats] = useState({
     totalTrips: 0,
     totalPassengers: 0,

@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/utils/format';
 
 export default function OwnerDashboard() {
-  const { user, loading } = useAuth();
+  const { user, isLoading: loading } = useAuth();
   const [listings] = useState<any[]>([]);
 
   if (loading) return <div className="flex min-h-[60vh] items-center justify-center"><p>Memuat...</p></div>;
