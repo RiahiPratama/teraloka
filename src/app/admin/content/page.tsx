@@ -224,24 +224,11 @@ export default function AdminContentPage() {
         padding: '14px 16px', marginBottom: 20,
         display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap',
       }}>
-        {/* Tab toggle */}
+        {/* Tab — hanya artikel, BALAPOR dipindah ke /admin/reports */}
         <div style={{ display: 'flex', gap: 4, background: '#F3F4F6', borderRadius: 10, padding: 3 }}>
-          {(['articles', 'reports'] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => { setTab(t); setStatusFilter(''); }}
-              style={{
-                padding: '6px 14px', borderRadius: 8, border: 'none',
-                cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                background: tab === t ? '#fff' : 'transparent',
-                color: tab === t ? '#111827' : '#6B7280',
-                boxShadow: tab === t ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s',
-              }}
-            >
-              {t === 'articles' ? '📰 Artikel' : '🚨 BALAPOR'}
-            </button>
-          ))}
+          <div style={{ padding: '6px 14px', borderRadius: 8, background: '#fff', fontSize: 12, fontWeight: 600, color: '#111827', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' }}>
+            📰 Artikel
+          </div>
         </div>
 
         <div style={{ width: 1, height: 24, background: '#E5E7EB' }} />

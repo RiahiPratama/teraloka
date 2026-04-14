@@ -10,7 +10,8 @@ const NAV_SECTIONS = [
     label: 'Utama',
     items: [
       { href: '/admin', label: 'Overview', icon: '⚡', exact: true },
-      { href: '/admin/content', label: 'BAKABAR', sub: 'Artikel & Laporan', icon: '📰' },
+      { href: '/admin/content', label: 'BAKABAR', sub: 'Artikel berita', icon: '📰' },
+      { href: '/admin/reports', label: 'BALAPOR', sub: 'Laporan warga', icon: '🚨' },
       { href: '/admin/listings', label: 'Listing', sub: 'Kos, Properti, dll', icon: '🏠' },
       { href: '/admin/funding', label: 'BASUMBANG', sub: 'Kampanye donasi', icon: '❤️' },
       { href: '/admin/users', label: 'Users', sub: 'Manajemen akun', icon: '👥' },
