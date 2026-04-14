@@ -261,7 +261,7 @@ export default function KosDetailPage() {
 
           {listing.nearby_landmarks && (
             <p style={{ fontSize: 12, color: '#9CA3AF', marginTop: 4 }}>
-              🏛️ Dekat: {listing.nearby_landmarks}
+              🏛️ {listing.nearby_landmarks.split(/(?=Dekat\s)/g).filter(Boolean).join(" · ")}
             </p>
           )}
         </div>
