@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -31,6 +32,14 @@ async function getStats() {
     const data = await res.json();
     return data.data ?? null;
   } catch { return null; }
+}
+
+async function getRecentReports() {
+  try {
+    const res = await fetch(`${API}/public/reports/recent`, { next: { revalidate: 120 } });
+    const data = await res.json();
+    return data.data ?? [];
+  } catch { return []; }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -104,56 +113,120 @@ function InArticleAd() {
 }
 
 // ================================================================
-// Context-aware service grid — urutan berubah sesuai kategori artikel
+// Context CTA Banner — 1 banner dominan sesuai kategori artikel
 // ================================================================
-const ALL_SERVICES = [
-  {
-    id: 'bapasiar',
-    icon: '🚢',
-    color: '#0891B2',
-    bg: '#E0F2FE',
-    label: 'Cek Jadwal Speed',
-    desc: 'Lihat jadwal speedboat Ternate – Tidore',
-    href: '/transport',
-    categories: ['transportasi', 'pelayaran', 'travel'],
+const CONTEXT_CTA: Record<string, {
+  badge: string; headline: string; sub: string;
+  cta: string; href: string; bg: string; accent: string; emoji: string;
+}> = {
+  transportasi: {
+    badge: '🚢 Rekomendasi untukmu', headline: 'Pesan speedboat Ternate – Tidore sekarang!',
+    sub: 'Jadwal lengkap, harga terbaik, pesan mudah di BAPASIAR.',
+    cta: 'Lihat Jadwal →', href: '/transport', bg: '#0C4A6E', accent: '#38BDF8', emoji: '🚢',
   },
-  {
-    id: 'basumbang',
-    icon: '🤲',
-    color: '#059669',
-    bg: '#D1FAE5',
-    label: 'Baku Bantu Donasi',
-    desc: 'Bantu sesama warga Maluku Utara',
-    href: '/fundraising',
-    categories: ['sosial', 'kemanusiaan', 'kesehatan', 'bencana'],
+  pelayaran: {
+    badge: '🚢 Rekomendasi untukmu', headline: 'Pesan speedboat Ternate – Tidore sekarang!',
+    sub: 'Jadwal lengkap, harga terbaik, pesan mudah di BAPASIAR.',
+    cta: 'Lihat Jadwal →', href: '/transport', bg: '#0C4A6E', accent: '#38BDF8', emoji: '🚢',
   },
-  {
-    id: 'bakos',
-    icon: '📢',
-    color: '#D97706',
-    bg: '#FEF3C7',
-    label: 'Promosi Usaha',
-    desc: 'Pasang iklan & jangkau lebih banyak warga',
-    href: '/listings',
-    categories: ['ekonomi', 'umkm', 'bisnis', 'properti'],
+  sosial: {
+    badge: '🤲 Bantuan lagi dibutuhkan', headline: 'Mari bantu, sekecil apapun berarti',
+    sub: 'Banyak warga Maluku Utara yang butuh uluran tangan torang.',
+    cta: 'Donasi Sekarang →', href: '/fundraising', bg: '#064E3B', accent: '#34D399', emoji: '❤️',
   },
-  {
-    id: 'balapor',
-    icon: '📋',
-    color: '#DC2626',
-    bg: '#FEE2E2',
-    label: 'Lapor Kejadian',
-    desc: 'Laporkan kejadian di sekitar torang',
-    href: '/reports',
-    categories: ['kriminal', 'infrastruktur', 'lingkungan', 'politik'],
+  kemanusiaan: {
+    badge: '🤲 Bantuan lagi dibutuhkan', headline: 'Mari bantu, sekecil apapun berarti',
+    sub: 'Banyak warga Maluku Utara yang butuh uluran tangan torang.',
+    cta: 'Donasi Sekarang →', href: '/fundraising', bg: '#064E3B', accent: '#34D399', emoji: '❤️',
   },
-];
+  kesehatan: {
+    badge: '🤲 Bantuan lagi dibutuhkan', headline: 'Mari bantu, sekecil apapun berarti',
+    sub: 'Bantu warga Maluku Utara yang membutuhkan biaya kesehatan.',
+    cta: 'Donasi Sekarang →', href: '/fundraising', bg: '#064E3B', accent: '#34D399', emoji: '❤️',
+  },
+  ekonomi: {
+    badge: '💼 Promosikan usahamu', headline: 'Jangkau ribuan warga Maluku Utara!',
+    sub: 'Daftarkan bisnis kamu di BAKOS dan pasang iklan di BAKABAR.',
+    cta: 'Daftar Sekarang →', href: '/listings', bg: '#78350F', accent: '#FCD34D', emoji: '📢',
+  },
+  umkm: {
+    badge: '💼 Promosikan usahamu', headline: 'Jangkau ribuan warga Maluku Utara!',
+    sub: 'Daftarkan bisnis kamu di BAKOS dan pasang iklan di BAKABAR.',
+    cta: 'Daftar Sekarang →', href: '/listings', bg: '#78350F', accent: '#FCD34D', emoji: '📢',
+  },
+};
 
-function getOrderedServices(category: string) {
+const DEFAULT_CTA = {
+  badge: '📢 Ada kejadian di sekitarmu?', headline: 'Laporkan via BALAPOR sekarang!',
+  sub: 'Identitasmu terlindungi. Laporanmu bisa jadi artikel di BAKABAR.',
+  cta: 'Lapor Sekarang →', href: '/reports', bg: '#1F2937', accent: '#F87171', emoji: '🚨',
+};
+
+function ContextCTABanner({ category }: { category: string }) {
   const cat = (category || '').toLowerCase();
-  const primary = ALL_SERVICES.find(s => s.categories.some(c => cat.includes(c)));
-  if (!primary) return ALL_SERVICES;
-  return [primary, ...ALL_SERVICES.filter(s => s.id !== primary.id)];
+  const cta = Object.entries(CONTEXT_CTA).find(([key]) => cat.includes(key))?.[1] ?? DEFAULT_CTA;
+  return (
+    <div className="mt-10 rounded-2xl p-6 relative overflow-hidden" style={{ background: cta.bg }}>
+      <div className="absolute top-0 right-4 text-8xl opacity-10 leading-none select-none">{cta.emoji}</div>
+      <span className="inline-block text-xs font-bold px-3 py-1 rounded-full mb-3"
+        style={{ background: `${cta.accent}22`, color: cta.accent, border: `1px solid ${cta.accent}44` }}>
+        {cta.badge}
+      </span>
+      <h3 className="text-white font-black text-lg leading-snug mb-2">{cta.headline}</h3>
+      <p className="text-sm mb-5 leading-relaxed" style={{ color: `${cta.accent}cc` }}>{cta.sub}</p>
+      <Link href={cta.href}
+        className="inline-block text-sm font-black px-6 py-3 rounded-xl transition-opacity hover:opacity-90"
+        style={{ background: cta.accent, color: cta.bg }}>
+        {cta.cta}
+      </Link>
+    </div>
+  );
+}
+
+// ================================================================
+// Mini BALAPOR Feed
+// ================================================================
+const CATEGORY_ICON: Record<string, string> = {
+  infrastruktur: '🏗️', keamanan: '🚨', lingkungan: '🌿',
+  sosial: '👥', kesehatan: '🏥', pendidikan: '📚',
+  transportasi: '🚗', ekonomi: '💰',
+};
+
+function MiniBALAPORFeed({ reports }: { reports: any[] }) {
+  if (!reports.length) return null;
+  return (
+    <div className="mt-5 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-bold text-gray-800">🚨 Warga lagi melapor</p>
+        <Link href="/reports" className="text-xs font-semibold text-[#003526] hover:underline">Lihat semua →</Link>
+      </div>
+      <div className="space-y-2.5">
+        {reports.slice(0, 3).map((r: any) => (
+          <div key={r.id} className="flex items-start gap-2">
+            <span className="text-sm shrink-0 mt-0.5">{CATEGORY_ICON[r.category] || '📋'}</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">{r.title}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">
+                {(() => {
+                  const diff = Date.now() - new Date(r.created_at).getTime();
+                  const h = Math.floor(diff / 3600000);
+                  const d = Math.floor(diff / 86400000);
+                  if (h < 1) return 'Baru saja';
+                  if (h < 24) return `${h} jam lalu`;
+                  return `${d} hari lalu`;
+                })()}
+              </p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Link href="/reports/new"
+        className="block mt-3 text-center text-xs font-bold py-2 rounded-xl"
+        style={{ background: '#003526', color: '#fff' }}>
+        + Laporkan Kejadian
+      </Link>
+    </div>
+  );
 }
 
 // ================================================================
@@ -195,34 +268,7 @@ function RelatedArticles({ articles }: { articles: any[] }) {
   );
 }
 
-function ServiceGrid({ category }: { category: string }) {
-  const services = getOrderedServices(category);
-  return (
-    <div className="mt-10 bg-[#F9FAFB] rounded-2xl p-5">
-      <p className="text-sm font-bold text-gray-800 mb-1">
-        Butuh sesuatu? <span className="text-[#003526]">Teraloka ada untuk torang</span> 🤝
-      </p>
-      <p className="text-xs text-gray-400 mb-4">Semua layanan warga Maluku Utara dalam satu platform</p>
-      <div className="grid grid-cols-2 gap-3">
-        {services.map((s) => (
-          <Link key={s.id} href={s.href}
-            className="flex flex-col gap-2 bg-white rounded-xl p-3 border border-gray-100 hover:border-[#003526]/20 hover:shadow-sm transition-all group">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-              style={{ background: s.bg }}>
-              {s.icon}
-            </div>
-            <div>
-              <p className="text-xs font-bold text-gray-800 leading-tight group-hover:text-[#003526] transition-colors">
-                {s.label}
-              </p>
-              <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.desc}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
-}
+// ServiceGrid diganti ContextCTABanner di atas
 
 function SocialProof({ stats }: { stats: any }) {
   const items = [
@@ -294,9 +340,10 @@ function NativeAd() {
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const [article, stats] = await Promise.all([
+  const [article, stats, recentReports] = await Promise.all([
     getArticle(slug),
     getStats(),
+    getRecentReports(),
   ]);
   if (!article) notFound();
 
@@ -433,9 +480,13 @@ export default async function ArticlePage({ params }: Props) {
 
             {/* ── BOTTOM SECTION ── */}
             <RelatedArticles articles={relatedArticles} />
-            <ServiceGrid category={article.category} />
+            <ContextCTABanner category={article.category} />
+            <MiniBALAPORFeed reports={recentReports} />
             <SocialProof stats={stats} />
             <BasumbangCTA />
+            <div className="mt-5">
+              <WANewsletterWidget />
+            </div>
             <NativeAd />
 
             <div className="mt-8 text-center">
