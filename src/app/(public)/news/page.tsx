@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 const API     = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL  || 'https://teraloka.com';
@@ -50,11 +51,8 @@ function shareFB(slug: string) {
   window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
 }
 
-// Track share ke backend
 async function trackShare(articleId: string) {
-  try {
-    await fetch(`${API}/content/articles/${articleId}/share`, { method: 'POST' });
-  } catch {}
+  try { await fetch(`${API}/content/articles/${articleId}/share`, { method: 'POST' }); } catch {}
 }
 
 // ── Ad Slots ──────────────────────────────────────────────────────
@@ -77,16 +75,13 @@ function AdNative() {
   return (
     <div className="flex items-center gap-3 rounded-xl p-4 my-3"
       style={{ background: 'linear-gradient(to right, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0"
-        style={{ background: '#D1FAE5' }}>📢</div>
+      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: '#D1FAE5' }}>📢</div>
       <div className="flex-1 min-w-0">
         <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra</p>
         <p className="text-sm font-semibold text-gray-700 mt-0.5">Pasang iklan di BAKABAR TeraLoka</p>
         <p className="text-xs text-gray-400">Jangkau warga Maluku Utara setiap hari</p>
       </div>
-      <a href="mailto:ads@teraloka.com"
-        className="shrink-0 text-xs font-bold text-white px-4 py-2 rounded-full"
-        style={{ background: '#003526' }}>Pasang</a>
+      <a href="mailto:ads@teraloka.com" className="shrink-0 text-xs font-bold text-white px-4 py-2 rounded-full" style={{ background: '#003526' }}>Pasang</a>
     </div>
   );
 }
@@ -100,14 +95,11 @@ function AdSidebar({ height = 260, label = '300 × 250' }: { height?: number; la
         <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra</p>
         <p className="text-xs text-gray-400 mt-0.5">{label}</p>
       </div>
-      <a href="mailto:ads@teraloka.com"
-        className="text-xs font-bold text-white px-4 py-1.5 rounded-full"
-        style={{ background: '#003526' }}>Pasang Iklan →</a>
+      <a href="mailto:ads@teraloka.com" className="text-xs font-bold text-white px-4 py-1.5 rounded-full" style={{ background: '#003526' }}>Pasang Iklan →</a>
     </div>
   );
 }
 
-// ── Share buttons ─────────────────────────────────────────────────
 function ShareButtons({ id, title, slug, className = '' }: { id?: string; title: string; slug: string; className?: string }) {
   return (
     <div className={`flex items-center gap-2.5 ${className}`}>
@@ -130,30 +122,135 @@ function ShareButtons({ id, title, slug, className = '' }: { id?: string; title:
   );
 }
 
+// ── BMKG Widget ────────────────────────────────────────────────────
+
+function BMKGWidget({ data }: { data: any }) {
+  if (!data) return (
+    <div className="rounded-xl px-4 py-3 mb-3 flex items-center justify-between"
+      style={{ background: '#F0F9FF', border: '1px solid #BAE6FD' }}>
+      <div className="flex items-center gap-2">
+        <span className="text-lg">🌤️</span>
+        <div>
+          <p className="text-xs font-bold text-[#0369A1]">Cuaca Perairan Ternate</p>
+          <p className="text-xs text-gray-400">Data tidak tersedia</p>
+        </div>
+      </div>
+      <a href="https://www.bmkg.go.id/cuaca/maritim.bmkg" target="_blank" rel="noopener noreferrer"
+        className="text-xs font-bold text-[#0369A1] hover:underline">Lihat BMKG →</a>
+    </div>
+  );
+
+  const statusColor = { aman: '#059669', waspada: '#D97706', berbahaya: '#DC2626' }[data.status as string] || '#059669';
+  const statusBg    = { aman: '#F0FDF4', waspada: '#FFFBEB', berbahaya: '#FEF2F2' }[data.status as string] || '#F0FDF4';
+  const statusBorder = { aman: '#BBF7D0', waspada: '#FDE68A', berbahaya: '#FECACA' }[data.status as string] || '#BBF7D0';
+
+  return (
+    <div className="rounded-xl px-4 py-3 mb-3" style={{ background: statusBg, border: `1px solid ${statusBorder}` }}>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 flex-1 min-w-0">
+          <span className="text-2xl shrink-0">{data.cuaca?.icon || '🌤️'}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <p className="text-xs font-bold" style={{ color: statusColor }}>
+                Cuaca Perairan Ternate
+              </p>
+              <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: statusColor, fontSize: 10 }}>
+                {data.status_label}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+              <span className="text-xs text-gray-600">{data.cuaca?.label}</span>
+              {data.suhu && <span className="text-xs text-gray-500">🌡️ {data.suhu}°C</span>}
+              {data.angin?.kecepatan && (
+                <span className="text-xs text-gray-500">💨 {data.angin.kecepatan} km/j {data.angin.arah || ''}</span>
+              )}
+            </div>
+          </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-[10px] text-gray-400">Sumber: BMKG</p>
+          <a href="https://www.bmkg.go.id/cuaca/maritim.bmkg" target="_blank" rel="noopener noreferrer"
+            className="text-[10px] font-bold hover:underline" style={{ color: statusColor }}>
+            Detail →
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Live BALAPOR Feed ──────────────────────────────────────────────
+
+const CATEGORY_ICON: Record<string, string> = {
+  infrastruktur: '🏗️', keamanan: '🚨', lingkungan: '🌿',
+  sosial: '👥', kesehatan: '🏥', pendidikan: '📚',
+  transportasi: '🚗', ekonomi: '💰', default: '📋',
+};
+
+function LiveBALAPORFeed({ reports }: { reports: any[] }) {
+  if (!reports.length) return null;
+  return (
+    <div className="rounded-2xl p-4 my-4" style={{ background: '#F9FAFB', border: '1px solid #F3F4F6' }}>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-sm font-bold text-gray-800">
+          🚨 Warga lagi melapor
+        </p>
+        <Link href="/reports" className="text-xs font-semibold text-[#003526] hover:underline">
+          Lihat semua →
+        </Link>
+      </div>
+      <div className="space-y-2">
+        {reports.map((r: any) => (
+          <div key={r.id} className="flex items-start gap-2.5">
+            <span className="text-base shrink-0 mt-0.5">
+              {CATEGORY_ICON[r.category] || CATEGORY_ICON.default}
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">{r.title}</p>
+              <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(r.created_at)}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      <Link href="/reports/new"
+        className="block mt-3 text-center text-xs font-bold py-2 rounded-xl"
+        style={{ background: '#003526', color: '#fff' }}>
+        + Laporkan Kejadian
+      </Link>
+    </div>
+  );
+}
+
 // ── Main component ────────────────────────────────────────────────
 
 function NewsPageContent() {
   const searchParams = useSearchParams();
-  const router       = useRouter();
 
-  const [articles,    setArticles]    = useState<any[]>([]);
-  const [loading,     setLoading]     = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore,     setHasMore]     = useState(false);
-  const [page,        setPage]        = useState(1);
+  const [articles,      setArticles]      = useState<any[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [loadingMore,   setLoadingMore]   = useState(false);
+  const [hasMore,       setHasMore]       = useState(false);
+  const [page,          setPage]          = useState(1);
+  const [weather,       setWeather]       = useState<any>(null);
+  const [recentReports, setRecentReports] = useState<any[]>([]);
 
-  // ── Params dari URL (set oleh CategoryTabs 2-layer) ──────
   const type     = searchParams.get('type')     || 'terbaru';
   const location = searchParams.get('location') || 'all';
   const q        = searchParams.get('q')        || '';
+
+  // Fetch BMKG + recent reports on mount
+  useEffect(() => {
+    fetch(`${API}/public/weather`).then(r => r.json()).then(d => { if (d.success) setWeather(d.data); }).catch(() => {});
+    fetch(`${API}/public/reports/recent`).then(r => r.json()).then(d => { if (d.success) setRecentReports(d.data ?? []); }).catch(() => {});
+  }, []);
 
   const fetchArticles = useCallback(async (reset = true) => {
     reset ? setLoading(true) : setLoadingMore(true);
     try {
       const p = new URLSearchParams({ limit: '12', page: String(reset ? 1 : page) });
-      if (type !== 'terbaru')  p.set('type', type);
-      if (location !== 'all')  p.set('location', location);
-      if (q)                   p.set('q', q);
+      if (type !== 'terbaru') p.set('type', type);
+      if (location !== 'all') p.set('location', location);
+      if (q)                  p.set('q', q);
 
       const res  = await fetch(`${API}/content/articles?${p}`);
       const data = await res.json();
@@ -178,12 +275,10 @@ function NewsPageContent() {
   const featuredExcerpt = featured ? parseExcerpt(featured.excerpt, featured.body) : '';
   const breaking        = articles.filter(a => a.is_breaking);
 
-  // ── Page title berdasarkan filter aktif ──────────────────
   const pageTitle = (() => {
     if (type === 'viral')    return '🔥 Viral di Maluku Utara';
     if (type === 'nasional') return '🗞️ Berita Nasional';
     if (location !== 'all') {
-      // Cari nama lokasi dari artikel yang ada
       const loc = articles.find(a => a.location?.slug === location)?.location;
       return loc ? `📍 ${loc.name}` : `📍 ${location}`;
     }
@@ -209,16 +304,18 @@ function NewsPageContent() {
 
       <div className="max-w-4xl mx-auto px-4">
 
+        {/* BMKG Widget — selalu tampil */}
+        <div className="pt-3">
+          <BMKGWidget data={weather} />
+        </div>
+
         <AdBanner />
 
-        {/* Page title kalau ada filter aktif */}
         {pageTitle && (
           <div className="mb-4">
             <h2 className="text-lg font-black text-gray-900">{pageTitle}</h2>
             {location !== 'all' && (
-              <p className="text-xs text-gray-400 mt-0.5">
-                Menampilkan berita {type === 'viral' ? 'viral ' : ''}dari wilayah ini
-              </p>
+              <p className="text-xs text-gray-400 mt-0.5">Menampilkan berita {type === 'viral' ? 'viral ' : ''}dari wilayah ini</p>
             )}
           </div>
         )}
@@ -246,7 +343,7 @@ function NewsPageContent() {
             <p className="font-bold text-gray-700 text-lg">
               {type === 'viral' ? 'Belum ada berita viral' :
                type === 'nasional' ? 'Belum ada berita nasional' :
-               location !== 'all' ? `Belum ada berita dari wilayah ini` :
+               location !== 'all' ? 'Belum ada berita dari wilayah ini' :
                q ? `Tidak ada hasil untuk "${q}"` : 'Belum ada artikel'}
             </p>
             {type === 'viral' && (
@@ -299,11 +396,6 @@ function NewsPageContent() {
                         {featured.category}
                       </span>
                     )}
-                    {featured.location && (
-                      <span className="text-xs font-semibold text-gray-400 flex items-center gap-0.5">
-                        📍 {featured.location.name}
-                      </span>
-                    )}
                     {featured.source === 'balapor' && <span className="text-xs text-[#0891B2] font-semibold">📢 Laporan Warga</span>}
                   </div>
 
@@ -334,7 +426,7 @@ function NewsPageContent() {
 
               <div className="h-px bg-gray-100 mb-4" />
 
-              {/* Article list */}
+              {/* Article list — injeksi widget di posisi strategis */}
               <div className="space-y-0">
                 {rest.map((article, idx) => {
                   const excerpt  = parseExcerpt(article.excerpt, article.body);
@@ -343,7 +435,20 @@ function NewsPageContent() {
 
                   return (
                     <div key={article.id}>
+                      {/* Native ad setiap 4 artikel */}
                       {idx > 0 && idx % 4 === 0 && <AdNative />}
+
+                      {/* Live BALAPOR feed setelah artikel ke-4 */}
+                      {idx === 4 && recentReports.length > 0 && (
+                        <LiveBALAPORFeed reports={recentReports} />
+                      )}
+
+                      {/* WA Newsletter setelah artikel ke-8 */}
+                      {idx === 8 && (
+                        <div className="my-4">
+                          <WANewsletterWidget />
+                        </div>
+                      )}
 
                       <Link href={href} target={isRSS ? '_blank' : undefined}
                         className="group flex gap-3 py-4 border-b border-gray-50 hover:bg-gray-50/60 -mx-2 px-2 rounded-xl transition-colors">
@@ -363,15 +468,12 @@ function NewsPageContent() {
                             {article.is_breaking && <span className="text-xs font-bold text-red-500">🔴</span>}
                             {article.is_viral    && <span className="text-xs font-bold text-orange-500">🔥</span>}
                             {article.category    && <span className="text-xs font-bold text-[#003526] uppercase tracking-wide">{article.category}</span>}
-                            {article.location    && <span className="text-xs text-gray-400">📍 {article.location.name}</span>}
                             {isRSS               && <span className="text-xs text-gray-400">🗞️ Nasional</span>}
                             {article.source === 'balapor' && <span className="text-xs text-[#0891B2]">📢</span>}
                           </div>
-
                           <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-3 group-hover:text-[#003526] transition-colors mb-1.5">
                             {article.title}
                           </h3>
-
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-gray-400">
                               {isRSS ? (article.source_name || 'Media Nasional') : timeAgo(article.published_at)}
@@ -389,6 +491,13 @@ function NewsPageContent() {
                 })}
               </div>
 
+              {/* WA Newsletter di bawah kalau artikel < 8 */}
+              {rest.length < 8 && (
+                <div className="mt-4">
+                  <WANewsletterWidget />
+                </div>
+              )}
+
               {hasMore && (
                 <button onClick={() => fetchArticles(false)} disabled={loadingMore}
                   className="w-full mt-6 py-3 border border-gray-200 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 disabled:opacity-50">
@@ -401,6 +510,8 @@ function NewsPageContent() {
             <div className="hidden lg:block lg:col-span-4">
               <div className="sticky top-44 space-y-5">
                 <AdSidebar height={260} label="300 × 250" />
+
+                {/* Terpopuler */}
                 <div className="bg-gray-50 rounded-2xl p-4">
                   <p className="text-xs font-black text-gray-800 uppercase tracking-widest mb-3">🔥 Terpopuler</p>
                   {articles.slice(0, 5).map((a, i) => (
@@ -411,7 +522,8 @@ function NewsPageContent() {
                     </Link>
                   ))}
                 </div>
-                <AdSidebar height={210} label="300 × 200" />
+
+                {/* BALAPOR CTA */}
                 <div className="bg-[#003526] rounded-2xl p-5 text-center">
                   <p className="text-white font-bold text-sm mb-1">Ada berita di sekitarmu?</p>
                   <p className="text-xs mb-3" style={{ color: '#95d3ba' }}>Laporkan via BALAPOR.</p>
@@ -419,6 +531,24 @@ function NewsPageContent() {
                     Lapor Sekarang →
                   </Link>
                 </div>
+
+                {/* Live BALAPOR sidebar */}
+                {recentReports.length > 0 && (
+                  <div className="bg-gray-50 rounded-2xl p-4">
+                    <p className="text-xs font-black text-gray-800 uppercase tracking-widest mb-3">🚨 Laporan Terbaru</p>
+                    {recentReports.slice(0, 3).map((r: any) => (
+                      <div key={r.id} className="flex items-start gap-2 py-2 border-b border-gray-100 last:border-0">
+                        <span className="text-sm shrink-0">{CATEGORY_ICON[r.category] || '📋'}</span>
+                        <div>
+                          <p className="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">{r.title}</p>
+                          <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(r.created_at)}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <AdSidebar height={210} label="300 × 200" />
               </div>
             </div>
           </div>
