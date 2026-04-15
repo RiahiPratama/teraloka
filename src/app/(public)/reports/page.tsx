@@ -1,68 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import ImageUpload from '@/components/ui/ImageUpload';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const CATEGORIES = [
-  {
-    key: 'keamanan',
-    label: 'Keamanan',
-    icon: 'security',
-    color: 'bg-emerald-50 text-emerald-700',
-    desc: 'Kamtibmas, pencurian, tindak kriminal, atau aktivitas mencurigakan di lingkungan.',
-  },
-  {
-    key: 'infrastruktur',
-    label: 'Infrastruktur',
-    icon: 'construction',
-    color: 'bg-blue-50 text-blue-700',
-    desc: 'Jalan rusak, lampu mati, jembatan, drainase, atau fasilitas umum yang perlu perbaikan.',
-  },
-  {
-    key: 'lingkungan',
-    label: 'Lingkungan',
-    icon: 'park',
-    color: 'bg-green-50 text-green-700',
-    desc: 'Pembuangan sampah liar, pencemaran air atau udara, penebangan liar, kerusakan alam.',
-  },
-  {
-    key: 'layanan_publik',
-    label: 'Layanan Publik',
-    icon: 'account_balance',
-    color: 'bg-purple-50 text-purple-700',
-    desc: 'Pelayanan pemerintah yang buruk, pungli, antrian tidak wajar, atau birokrasi bermasalah.',
-  },
-  {
-    key: 'kesehatan',
-    label: 'Kesehatan',
-    icon: 'local_hospital',
-    color: 'bg-red-50 text-red-700',
-    desc: 'Fasilitas kesehatan rusak, penolakan pasien, makanan berbahaya, atau wabah penyakit.',
-  },
-  {
-    key: 'pendidikan',
-    label: 'Pendidikan',
-    icon: 'school',
-    color: 'bg-yellow-50 text-yellow-700',
-    desc: 'Gedung sekolah rusak, pungutan liar, diskriminasi, atau kualitas pendidikan yang rendah.',
-  },
-  {
-    key: 'transportasi',
-    label: 'Transportasi',
-    icon: 'directions_boat',
-    color: 'bg-cyan-50 text-cyan-700',
-    desc: 'Speedboat atau kapal tidak layak, tarif tidak wajar, pelabuhan bermasalah, atau keselamatan pelayaran.',
-  },
-  {
-    key: 'lainnya',
-    label: 'Lainnya',
-    icon: 'more_horiz',
-    color: 'bg-gray-50 text-gray-600',
-    desc: 'Laporan yang tidak masuk kategori di atas namun tetap perlu perhatian publik.',
-  },
+  { key: 'keamanan',       label: 'Keamanan',       icon: 'security',        color: 'bg-emerald-100 text-emerald-700', desc: 'Kamtibmas, pencurian, aktivitas mencurigakan.' },
+  { key: 'infrastruktur',  label: 'Infrastruktur',  icon: 'construction',    color: 'bg-blue-100 text-blue-700',     desc: 'Jalan rusak, lampu mati, fasilitas umum.' },
+  { key: 'lingkungan',     label: 'Lingkungan',     icon: 'park',            color: 'bg-green-100 text-green-700',   desc: 'Sampah liar, pencemaran, kerusakan alam.' },
+  { key: 'layanan_publik', label: 'Layanan Publik', icon: 'account_balance', color: 'bg-purple-100 text-purple-700', desc: 'Pungli, birokrasi bermasalah, pelayanan buruk.' },
+  { key: 'kesehatan',      label: 'Kesehatan',      icon: 'local_hospital',  color: 'bg-red-100 text-red-700',       desc: 'Fasilitas rusak, penolakan pasien, wabah.' },
+  { key: 'pendidikan',     label: 'Pendidikan',     icon: 'school',          color: 'bg-yellow-100 text-yellow-700', desc: 'Gedung rusak, pungutan liar, diskriminasi.' },
+  { key: 'transportasi',   label: 'Transportasi',   icon: 'directions_boat', color: 'bg-cyan-100 text-cyan-700',     desc: 'Speedboat/kapal tidak layak, tarif tidak wajar.' },
+  { key: 'lainnya',        label: 'Lainnya',        icon: 'more_horiz',      color: 'bg-gray-100 text-gray-600',     desc: 'Hal lain yang perlu perhatian publik.' },
 ];
 
 const PHOTO_REQUIRED = ['infrastruktur', 'lingkungan'];
@@ -77,9 +29,9 @@ const TOS_ITEMS = [
 ];
 
 const ANONYMITY = [
-  { key: 'anonim',      label: 'Anonim',       icon: 'masks',        desc: 'Identitasmu tersembunyi sepenuhnya dari publik.' },
-  { key: 'pseudonym',   label: 'Nama Samaran', icon: 'person_outline', desc: 'Nama samaran ditampilkan, bukan nama asli.' },
-  { key: 'nama_terang', label: 'Nama Terang',  icon: 'badge',        desc: 'Namamu akan ditampilkan di laporan.' },
+  { key: 'anonim',      label: 'Anonim',        icon: 'masks',        desc: 'Identitasmu tersembunyi sepenuhnya.', inputLabel: '' },
+  { key: 'pseudonym',   label: 'Nama Samaran',  icon: 'person_outline', desc: 'Nama samaran ditampilkan.', inputLabel: 'Nama Samaran' },
+  { key: 'nama_terang', label: 'Nama Lengkap',  icon: 'badge',        desc: 'Nama lengkapmu akan ditampilkan.', inputLabel: 'Nama Lengkap' },
 ] as const;
 
 export default function ReportsPage() {
@@ -88,10 +40,14 @@ export default function ReportsPage() {
   type Step = 'form' | 'tos' | 'login' | 'otp' | 'success';
   const [step, setStep]             = useState<Step>('form');
   const [anonymity, setAnonymity]   = useState<'anonim' | 'pseudonym' | 'nama_terang'>('anonim');
-  const [pseudonym, setPseudonym]   = useState('');
+  const [identityName, setIdentityName] = useState(''); // untuk pseudonym & nama_terang
   const [category, setCategory]     = useState('');
   const [title, setTitle]           = useState('');
   const [body, setBody]             = useState('');
+  const [location, setLocation]     = useState('');
+  const [coords, setCoords]         = useState<{ lat: number; lng: number } | null>(null);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError]     = useState('');
   const [photos, setPhotos]         = useState<string[]>([]);
   const [notifOptIn, setNotifOptIn] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
@@ -103,11 +59,35 @@ export default function ReportsPage() {
   const [otpLoading, setOtpLoading] = useState(false);
 
   const photoRequired = PHOTO_REQUIRED.includes(category);
-  const selectedCat = CATEGORIES.find(c => c.key === category);
+  const selectedAnonimity = ANONYMITY.find(a => a.key === anonymity)!;
+  const needsIdentityInput = anonymity !== 'anonim';
 
   useEffect(() => {
     if (user && token && step === 'otp') handleSubmit(token);
   }, [user, token]);
+
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setGeoError('Browser tidak mendukung geolokasi.');
+      return;
+    }
+    setGeoLoading(true);
+    setGeoError('');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords;
+        setCoords({ lat, lng });
+        setGeoLoading(false);
+      },
+      (err) => {
+        setGeoError('Gagal deteksi lokasi. Izin ditolak atau GPS tidak aktif.');
+        setGeoLoading(false);
+      },
+      { timeout: 10000, enableHighAccuracy: true }
+    );
+  };
+
+  const clearCoords = () => { setCoords(null); setGeoError(''); };
 
   const handleSubmit = async (authToken?: string) => {
     const tkn = authToken || token;
@@ -119,8 +99,12 @@ export default function ReportsPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tkn}` },
         body: JSON.stringify({
           anonymity_level: anonymity,
-          pseudonym: anonymity === 'pseudonym' ? pseudonym.trim() : undefined,
-          title, body, category, photos,
+          pseudonym: needsIdentityInput ? identityName.trim() : undefined,
+          title, body, category,
+          location: location.trim() || undefined,
+          latitude: coords?.lat,
+          longitude: coords?.lng,
+          photos,
           notification_opt_in: notifOptIn,
         }),
       });
@@ -155,11 +139,11 @@ export default function ReportsPage() {
 
   const resetForm = () => {
     setStep('form'); setTitle(''); setBody(''); setCategory(''); setPhotos([]);
-    setPseudonym(''); setTosAccepted(false); setError(''); setNotifOptIn(false);
-    setPhone(''); setOtp(''); setOtpSent(false);
+    setIdentityName(''); setTosAccepted(false); setError(''); setNotifOptIn(false);
+    setPhone(''); setOtp(''); setOtpSent(false); setLocation(''); setCoords(null);
   };
 
-  // ── SUCCESS ──────────────────────────────────────────────────
+  // SUCCESS
   if (step === 'success') return (
     <div className="flex min-h-[70vh] items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
@@ -186,8 +170,12 @@ export default function ReportsPage() {
       {/* Hero */}
       <div className="bg-[#003526] px-6 pt-8 pb-10">
         <div className="mx-auto max-w-lg">
-          <h1 className="text-2xl font-extrabold tracking-tight text-white">BALAPOR</h1>
-          <p className="mt-1 text-sm text-[#95d3ba] leading-relaxed">Sampaikan laporan secara aman dan terpercaya untuk Maluku Utara yang lebih baik.</p>
+          <h1 className="text-2xl font-extrabold tracking-tight text-white leading-tight">
+            Dari Netizen,<br />Oleh Netizen,<br />Untuk Warga Maluku Utara
+          </h1>
+          <p className="mt-2 text-sm text-[#95d3ba] leading-relaxed">
+            Sampaikan laporan secara aman dan terpercaya untuk Maluku Utara yang lebih baik.
+          </p>
           {user && (
             <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
               <span className="material-symbols-outlined text-[#95d3ba] text-sm">verified_user</span>
@@ -221,46 +209,44 @@ export default function ReportsPage() {
                   ))}
                 </div>
                 <div className="mt-2 rounded-xl bg-emerald-50 px-3 py-2">
-                  <p className="text-xs text-emerald-700">{ANONYMITY.find(a => a.key === anonymity)?.desc}</p>
+                  <p className="text-xs text-emerald-700">{selectedAnonimity.desc}</p>
                   <p className="text-xs text-emerald-600 mt-1 flex items-center gap-1">
                     <span className="material-symbols-outlined text-xs">lock</span>
                     Nomor WA tidak pernah ditampilkan ke publik.
                   </p>
                 </div>
-                {anonymity === 'pseudonym' && (
-                  <input type="text" value={pseudonym} onChange={(e) => setPseudonym(e.target.value)}
-                    placeholder="Tulis nama samaranmu..."
+                {/* Input nama untuk pseudonym / nama_terang */}
+                {needsIdentityInput && (
+                  <input type="text" value={identityName} onChange={(e) => setIdentityName(e.target.value)}
+                    placeholder={`Tulis ${selectedAnonimity.inputLabel.toLowerCase()} kamu...`}
                     className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#003526]" />
                 )}
               </div>
 
-              {/* Kategori — dengan deskripsi */}
+              {/* Kategori — 2 kolom compact */}
               <div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Kategori Laporan</p>
-                <div className="grid grid-cols-1 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((cat) => {
                     const [bg, text] = cat.color.split(' ');
                     const isSelected = category === cat.key;
                     return (
                       <button key={cat.key} onClick={() => setCategory(cat.key)}
-                        className={`flex items-start gap-4 rounded-xl p-4 text-left transition-all border-2 ${
+                        className={`flex items-start gap-2.5 rounded-xl p-3 text-left transition-all border-2 ${
                           isSelected ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
                         }`}>
-                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'bg-[#003526]' : bg}`}>
-                          <span className={`material-symbols-outlined text-xl ${isSelected ? 'text-white' : text}`}>{cat.icon}</span>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'bg-[#003526]' : bg}`}>
+                          <span className={`material-symbols-outlined text-base ${isSelected ? 'text-white' : text}`}>{cat.icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <span className={`text-sm font-bold ${isSelected ? 'text-[#003526]' : 'text-gray-800'}`}>{cat.label}</span>
-                            {cat.key === category && (
-                              <span className="material-symbols-outlined text-[#003526] text-lg">check_circle</span>
-                            )}
+                          <div className="flex items-center justify-between gap-1">
+                            <span className={`text-xs font-bold ${isSelected ? 'text-[#003526]' : 'text-gray-800'}`}>{cat.label}</span>
+                            {isSelected && <span className="material-symbols-outlined text-[#003526] text-sm shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
                           </div>
-                          <p className={`text-xs mt-0.5 leading-relaxed ${isSelected ? 'text-[#003526]/70' : 'text-gray-400'}`}>{cat.desc}</p>
+                          <p className={`text-xs mt-0.5 leading-tight ${isSelected ? 'text-[#003526]/60' : 'text-gray-400'}`}>{cat.desc}</p>
                           {PHOTO_REQUIRED.includes(cat.key) && (
-                            <span className="mt-1 inline-flex items-center gap-1 text-xs text-amber-600">
-                              <span className="material-symbols-outlined text-xs">photo_camera</span>
-                              Foto wajib
+                            <span className="text-xs text-amber-500 flex items-center gap-0.5 mt-0.5">
+                              <span className="material-symbols-outlined text-xs">photo_camera</span> Foto wajib
                             </span>
                           )}
                         </div>
@@ -274,17 +260,63 @@ export default function ReportsPage() {
               <div>
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Judul Laporan</label>
                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                  placeholder={selectedCat ? `Contoh: ${selectedCat.label} di...` : 'Berikan judul singkat dan jelas...'}
+                  placeholder="Berikan judul singkat dan jelas..."
                   className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] transition-colors" />
               </div>
 
-              {/* Body */}
+              {/* Deskripsi */}
               <div>
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Deskripsi Kejadian</label>
                 <textarea value={body} onChange={(e) => setBody(e.target.value)}
-                  placeholder="Ceritakan detail kejadian: lokasi spesifik, waktu, dan dampaknya..."
+                  placeholder="Ceritakan detail kejadian: apa yang terjadi, kapan, dampaknya..."
                   rows={5} className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] transition-colors resize-none" />
                 <p className="mt-1 text-right text-xs text-gray-400">{body.length} karakter</p>
+              </div>
+
+              {/* Lokasi Kejadian */}
+              <div>
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Lokasi Kejadian <span className="text-gray-300 font-normal">(Opsional)</span>
+                </label>
+                <input type="text" value={location} onChange={(e) => setLocation(e.target.value)}
+                  placeholder="Contoh: Jl. Sultan Baab RT 03, Kel. Soa-Sio, Ternate Utara"
+                  className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] transition-colors" />
+
+                {/* Geolocation */}
+                <div className="mt-2">
+                  {!coords ? (
+                    <button onClick={detectLocation} disabled={geoLoading}
+                      className="flex items-center gap-2 text-xs text-[#003526] font-semibold bg-[#003526]/5 hover:bg-[#003526]/10 px-3 py-2 rounded-xl transition-colors disabled:opacity-60">
+                      {geoLoading ? (
+                        <span className="w-3.5 h-3.5 border-2 border-[#003526] border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <span className="material-symbols-outlined text-sm">my_location</span>
+                      )}
+                      {geoLoading ? 'Mendeteksi...' : '📍 Deteksi Lokasi via GPS (Opsional)'}
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
+                          <span className="material-symbols-outlined text-sm">location_on</span>
+                          Lokasi GPS terdeteksi ({coords.lat.toFixed(5)}, {coords.lng.toFixed(5)})
+                        </p>
+                        <button onClick={clearCoords} className="text-xs text-gray-400 hover:text-red-500">Hapus</button>
+                      </div>
+                      {/* OpenStreetMap iframe — tanpa API key */}
+                      <div className="rounded-xl overflow-hidden border border-gray-200 h-36">
+                        <iframe
+                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.005},${coords.lat - 0.005},${coords.lng + 0.005},${coords.lat + 0.005}&layer=mapnik&marker=${coords.lat},${coords.lng}`}
+                          width="100%" height="100%"
+                          style={{ border: 0 }}
+                          title="Lokasi kejadian"
+                        />
+                      </div>
+                      <p className="text-xs text-gray-400">Peta menampilkan koordinat GPS kamu. Data ini membantu tim verifikasi.</p>
+                    </div>
+                  )}
+                  {geoError && <p className="mt-1 text-xs text-red-500">{geoError}</p>}
+                </div>
               </div>
 
               {/* Foto */}
@@ -309,8 +341,12 @@ export default function ReportsPage() {
               </div>
 
               <button onClick={() => setStep('tos')}
-                disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0) || (anonymity === 'pseudonym' && !pseudonym.trim())}
-                className="w-full rounded-xl bg-[#003526] py-3.5 text-sm font-bold text-white disabled:opacity-40">
+                disabled={
+                  !title.trim() || !body.trim() || !category ||
+                  (photoRequired && photos.length === 0) ||
+                  (needsIdentityInput && !identityName.trim())
+                }
+                className="w-full rounded-xl bg-[#003526] py-3.5 text-sm font-bold text-white disabled:opacity-40 transition-opacity">
                 Lanjut ke Syarat & Ketentuan →
               </button>
             </div>
@@ -334,7 +370,7 @@ export default function ReportsPage() {
               </div>
               <label className="flex cursor-pointer items-start gap-3">
                 <input type="checkbox" checked={tosAccepted} onChange={(e) => setTosAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#003526]" />
-                <span className="text-sm text-gray-700">Saya menyetujui syarat & ketentuan di atas dan bertanggung jawab atas isi laporan ini.</span>
+                <span className="text-sm text-gray-700">Saya menyetujui syarat & ketentuan dan bertanggung jawab atas isi laporan.</span>
               </label>
               {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
               <div className="flex gap-2">
