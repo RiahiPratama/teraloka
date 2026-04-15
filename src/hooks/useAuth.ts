@@ -28,7 +28,7 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) return { user: null, token: null, isLoading: true, requestOtp: async () => ({ success: false, message: "Not initialized" }), verifyOtp: async () => ({ success: false, message: "Not initialized" }), updateProfile: async () => false, logout: () => {} };
+  if (!ctx) return { user: null, token: null, isLoading: true, requestOtp: async () => ({ success: false, message: "Not initialized" }), verifyOtp: async () => ({ success: false, message: "Not initialized", is_new: false }), updateProfile: async () => false, logout: () => {} };
   return ctx;
 }
 
