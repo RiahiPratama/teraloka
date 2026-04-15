@@ -1,0 +1,190 @@
+import Link from 'next/link'
+
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1'
+
+async function getCampaignStats() {
+  try {
+    const res = await fetch(`${API}/funding/campaigns?status=active&limit=1`, {
+      next: { revalidate: 300 },
+    })
+    const data = await res.json()
+    if (data.success) return { count: data.meta?.total ?? 0 }
+    return { count: 0 }
+  } catch {
+    return { count: 0 }
+  }
+}
+
+function formatRupiah(n: number) {
+  if (n >= 1000000) return `Rp ${(n / 1000000).toFixed(1).replace('.0', '')} jt`
+  if (n >= 1000) return `Rp ${(n / 1000).toFixed(0)} rb`
+  return `Rp ${n}`
+}
+
+export default async function ContextualServices() {
+  const campaignStats = await getCampaignStats()
+
+  return (
+    <section style={{
+      background: 'var(--surface-low)',
+      borderTop: '1px solid var(--border-light)',
+      borderBottom: '1px solid var(--border-light)',
+      padding: '56px 24px',
+    }}>
+      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: 28 }}>
+          <h2 className="font-sora" style={{
+            fontSize: 'clamp(22px, 3vw, 28px)',
+            fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)',
+          }}>
+            Butuh sesuatu hari ini?
+          </h2>
+          <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
+            Layanan yang paling relevan untukmu saat ini.
+          </p>
+        </div>
+
+        {/* 3 cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+
+          {/* Card 1: Speedboat */}
+          <div style={{
+            background: '#fff', borderRadius: 20,
+            border: '1px solid var(--border-light)', overflow: 'hidden',
+          }}>
+            <div style={{ padding: '20px 20px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12,
+                  background: 'rgba(8,145,178,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#0891B2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 16c3-3.5 7-5 12-4.5l7 1.5-1 5H2z"/><path d="M2 16h20"/><path d="M3 19.5c4.5-1 9-1 13 0"/>
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Jadwal Speedboat Hari Ini</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Ternate ⇌ Sidangoli</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div style={{ background: 'var(--surface-low)', borderRadius: 10, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Berangkat hari ini</p>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>14:00 WIT</p>
+                </div>
+                <div style={{ background: 'var(--surface-low)', borderRadius: 10, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Mulai dari</p>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: 'var(--text)' }}>Rp 75.000</p>
+                </div>
+              </div>
+            </div>
+
+            <Link href="/speed" style={{
+              display: 'block', textDecoration: 'none',
+              background: 'var(--surface-low)',
+              borderTop: '1px solid var(--border-light)',
+              padding: '12px 20px',
+              fontSize: 13, fontWeight: 700, color: 'var(--primary)',
+              textAlign: 'center',
+            }}>
+              Lihat Jadwal →
+            </Link>
+          </div>
+
+          {/* Card 2: Kos */}
+          <div style={{
+            background: 'var(--primary)', borderRadius: 20, overflow: 'hidden',
+          }}>
+            <div style={{ padding: '20px 20px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12,
+                  background: 'rgba(255,255,255,0.15)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Kos Tersedia di Akehuda</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>8+ kos siap huni</p>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', marginBottom: 4 }}>Mulai dari</p>
+                <p style={{ fontSize: 28, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+                  Rp 450.000<span style={{ fontSize: 14, fontWeight: 500, color: 'rgba(255,255,255,0.7)' }}>/bulan</span>
+                </p>
+              </div>
+            </div>
+
+            <Link href="/kos" style={{
+              display: 'block', textDecoration: 'none',
+              background: '#fff',
+              padding: '12px 20px',
+              fontSize: 13, fontWeight: 800, color: 'var(--primary)',
+              textAlign: 'center',
+            }}>
+              Cari Kos →
+            </Link>
+          </div>
+
+          {/* Card 3: Donasi */}
+          <div style={{
+            background: '#fff', borderRadius: 20,
+            border: '1px solid var(--border-light)', overflow: 'hidden',
+          }}>
+            <div style={{ padding: '20px 20px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12,
+                  background: 'rgba(232,150,58,0.1)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}>
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#E8963A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Donasi Aktif</p>
+                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bantu warga yang membutuhkan</p>
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }}>
+                <div style={{ background: 'var(--surface-low)', borderRadius: 10, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Kampanye Aktif</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: '#E8963A' }}>
+                    {campaignStats.count > 0 ? campaignStats.count : '—'}
+                  </p>
+                </div>
+                <div style={{ background: 'var(--surface-low)', borderRadius: 10, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Total Terkumpul</p>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>
+                    {formatRupiah(24850000)}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Link href="/fundraising" style={{
+              display: 'block', textDecoration: 'none',
+              background: '#FFF7ED', borderTop: '1px solid #FED7AA',
+              padding: '12px 20px',
+              fontSize: 13, fontWeight: 700, color: '#C2410C',
+              textAlign: 'center',
+            }}>
+              Lihat Donasi →
+            </Link>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}

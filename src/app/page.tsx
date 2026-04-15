@@ -1,43 +1,47 @@
 import Ticker from '@/components/layout/Ticker'
 import Navbar from '@/components/layout/Navbar'
 import Hero from '@/components/home/Hero'
-import ServiceCarousel from '@/components/home/ServiceCarousel'
-import BentoGrid from '@/components/home/BentoGrid'
-import AllServices from '@/components/home/AllServices'
-import StatsDark from '@/components/home/StatsDark'
+import PersonalizedNews from '@/components/home/PersonalizedNews'
+import ContextualServices from '@/components/home/ContextualServices'
+import ServicesEcosystem from '@/components/home/ServicesEcosystem'
+import SocialProof from '@/components/home/SocialProof'
+import CTASection from '@/components/home/CTASection'
 import Footer from '@/components/layout/Footer'
 import Fab from '@/components/layout/Fab'
 
 export default function HomePage() {
   return (
     <>
-      {/* ── Ticker berjalan ── */}
+      {/* 01 — Ticker berjalan */}
       <Ticker />
 
-      {/* ── Navigasi ── */}
+      {/* 02 — Navigasi */}
       <Navbar />
 
-      {/* ── Hero + search ── */}
       <main>
+        {/* 03 — Hero: split layout foto Ternate + search */}
         <Hero />
 
-        {/* ── Service carousel (manual swipe) ── */}
-        <ServiceCarousel />
+        {/* 04 — Untukmu Hari Ini: live articles */}
+        <PersonalizedNews />
 
-        {/* ── Bento layanan unggulan ── */}
-        <BentoGrid />
+        {/* 05 — Butuh sesuatu hari ini? contextual services */}
+        <ContextualServices />
 
-        {/* ── Grid semua layanan ── */}
-        <AllServices />
+        {/* 06 — Layanan TeraLoka: services ecosystem grid */}
+        <ServicesEcosystem />
 
-        {/* ── Stats kepercayaan warga ── */}
-        <StatsDark />
+        {/* 07 — Dipercaya oleh Warga Maluku Utara: social proof */}
+        <SocialProof />
+
+        {/* 08 — CTA: Jadi Bagian dari Gerakan Digital Maluku Utara */}
+        <CTASection />
       </main>
 
-      {/* ── Footer ── */}
+      {/* 09 — Footer */}
       <Footer />
 
-      {/* ── FAB laporan ── */}
+      {/* 10 — FAB laporan */}
       <Fab />
     </>
   )

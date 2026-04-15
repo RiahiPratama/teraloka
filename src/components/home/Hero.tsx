@@ -1,4 +1,10 @@
+'use client'
+
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
+
+const HERO_PHOTO_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
 
 const POPULAR_TAGS = [
   { label: 'Speedboat Ternate–Sidangoli', href: '/speed' },
@@ -7,188 +13,243 @@ const POPULAR_TAGS = [
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
 
-// Admin bisa ganti via Vercel Dashboard → Environment Variables
-// NEXT_PUBLIC_HERO_BG_URL = URL foto atau video .mp4
-// NEXT_PUBLIC_HERO_BG_TYPE = 'image' | 'video' (default: 'image')
-const HERO_BG_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
-const HERO_BG_TYPE = process.env.NEXT_PUBLIC_HERO_BG_TYPE || 'image'
+// Floating service cards di atas foto hero
+const FLOAT_CARDS = [
+  {
+    icon: '📰',
+    label: 'BAKABAR',
+    sub: 'Berita Lokal',
+    href: '/news',
+    style: { top: '12%', right: '8%' },
+    delay: '0s',
+  },
+  {
+    icon: '💚',
+    label: 'BASUMBANG',
+    sub: 'Donasi Kemanusiaan',
+    href: '/fundraising',
+    style: { top: '48%', right: '-4%' },
+    delay: '1.2s',
+  },
+  {
+    icon: '🏠',
+    label: 'BAKOS',
+    sub: 'Kos & Properti',
+    href: '/kos',
+    style: { bottom: '16%', right: '12%' },
+    delay: '2.4s',
+  },
+]
 
 export default function Hero() {
-  const hasCustomBg = !!HERO_BG_URL
+  const router = useRouter()
+  const [search, setSearch] = useState('')
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (search.trim()) router.push(`/news?q=${encodeURIComponent(search.trim())}`)
+  }
 
   return (
     <section
-      className="relative flex flex-col items-center justify-center overflow-hidden"
-      style={{ padding: '110px 24px 52px' }}
+      style={{
+        minHeight: '88vh',
+        display: 'flex',
+        alignItems: 'center',
+        paddingTop: 80,
+        overflow: 'hidden',
+        position: 'relative',
+        background: 'var(--surface)',
+      }}
     >
-      {/* ── Background ── */}
-      <div className="absolute inset-0 z-0">
+      <div
+        className="hero-grid"
+        style={{
+          maxWidth: 1200,
+          margin: '0 auto',
+          padding: '40px 24px 60px',
+          width: '100%',
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: 56,
+          alignItems: 'center',
+        }}
+      >
 
-        {/* Custom photo dari Vercel env var */}
-        {hasCustomBg && HERO_BG_TYPE === 'image' && (
-          <>
-            <img
-              src={HERO_BG_URL}
-              alt=""
-              aria-hidden
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ objectPosition: 'center 60%' }}
-            />
-            {/* Overlay gelap supaya teks tetap terbaca */}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.25) 40%, rgba(0,0,0,0.55) 100%)' }} />
-            {/* Overlay warna brand di atas foto */}
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(8,145,178,0.25) 0%, rgba(27,107,74,0.2) 100%)' }} />
-          </>
-        )}
+        {/* ── LEFT: Text content ── */}
+        <div>
+          {/* Badge */}
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8,
+            background: 'rgba(0,53,38,0.07)', border: '1px solid rgba(0,53,38,0.12)',
+            borderRadius: 99, padding: '6px 14px', marginBottom: 22,
+          }}>
+            <span className="badge-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: '#E8963A' }} />
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--primary)' }}>
+              Digital Curator of the Archipelago
+            </span>
+          </div>
 
-        {/* Video loop seperti JAKI — aktif kalau HERO_BG_TYPE=video */}
-        {hasCustomBg && HERO_BG_TYPE === 'video' && (
-          <>
-            <video
-              autoPlay muted loop playsInline
-              className="absolute inset-0 w-full h-full object-cover"
-              style={{ objectPosition: 'center 60%' }}
-            >
-              <source src={HERO_BG_URL} type="video/mp4" />
-            </video>
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, rgba(0,0,0,0.5) 0%, rgba(0,0,0,0.3) 40%, rgba(0,0,0,0.6) 100%)' }} />
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, rgba(8,145,178,0.2) 0%, rgba(27,107,74,0.15) 100%)' }} />
-          </>
-        )}
+          {/* H1 */}
+          <h1
+            className="font-sora"
+            style={{
+              fontSize: 'clamp(38px, 5vw, 64px)',
+              fontWeight: 800,
+              lineHeight: 1.06,
+              letterSpacing: '-0.02em',
+              color: 'var(--text)',
+              marginBottom: 16,
+            }}
+          >
+            Temukan Apa Saja
+            <br />
+            di <span style={{ color: 'var(--cyan)' }}>Maluku Utara</span>
+          </h1>
 
-        {/* Default gradient — aktif kalau tidak ada env var */}
-        {!hasCustomBg && (
-          <>
-            <svg
-              viewBox="0 0 1440 580"
-              preserveAspectRatio="xMidYMid slice"
-              xmlns="http://www.w3.org/2000/svg"
-              className="absolute inset-0 w-full h-full"
-              style={{ opacity: 0.12 }}
-              aria-hidden
-            >
-              <defs>
-                <radialGradient id="rg1" cx="30%" cy="40%">
-                  <stop offset="0%" stopColor="#0891B2" stopOpacity=".5" />
-                  <stop offset="100%" stopColor="#0891B2" stopOpacity="0" />
-                </radialGradient>
-                <radialGradient id="rg2" cx="80%" cy="60%">
-                  <stop offset="0%" stopColor="#1B6B4A" stopOpacity=".4" />
-                  <stop offset="100%" stopColor="#1B6B4A" stopOpacity="0" />
-                </radialGradient>
-              </defs>
-              <rect width="1440" height="580" fill="#dff0f5" />
-              <ellipse cx="200" cy="240" rx="320" ry="190" fill="url(#rg1)" />
-              <ellipse cx="1100" cy="340" rx="280" ry="170" fill="url(#rg2)" />
-              <path d="M0 420 Q250 350 500 375 Q750 400 1000 330 Q1200 275 1440 310 L1440 580 L0 580Z" fill="#0891B2" opacity=".08" />
-            </svg>
-            <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, var(--surface) 0%, transparent 25%, transparent 75%, var(--surface) 100%)' }} />
-            <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(8,145,178,0.06) 0%, transparent 70%)' }} />
-          </>
-        )}
+          {/* Subtitle */}
+          <p style={{
+            fontSize: 16, lineHeight: 1.65,
+            color: 'var(--text-muted)',
+            marginBottom: 32, maxWidth: 420,
+          }}>
+            Berita, transportasi, kos, hingga bantuan —
+            <br />semua dalam satu pencarian.
+          </p>
 
-        {/* Fade bottom ke content di bawah — selalu ada */}
-        <div className="absolute bottom-0 left-0 right-0 h-20"
-          style={{ background: 'linear-gradient(to top, var(--surface) 0%, transparent 100%)' }} />
-      </div>
-
-      {/* ── Content ── */}
-      <div className="relative z-10 max-w-[820px] w-full text-center">
-
-        {/* Badge */}
-        <div
-          className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-[11px] font-bold tracking-[0.1em] uppercase mb-4"
-          style={{
-            background: hasCustomBg ? 'rgba(255,255,255,0.15)' : 'rgba(53,37,205,0.08)',
-            border: hasCustomBg ? '1px solid rgba(255,255,255,0.25)' : '1px solid rgba(53,37,205,0.15)',
-            color: hasCustomBg ? '#fff' : 'var(--primary)',
-            backdropFilter: hasCustomBg ? 'blur(8px)' : 'none',
-          }}
-        >
-          <span className="w-1.5 h-1.5 rounded-full" style={{ background: hasCustomBg ? '#fff' : 'var(--orange)' }} />
-          Digital Curator of the Archipelago
-        </div>
-
-        {/* Title */}
-        <h1
-          className="font-sora font-extrabold leading-[1.08] tracking-tight mb-3.5"
-          style={{
-            fontSize: 'clamp(32px, 5.5vw, 62px)',
-            color: hasCustomBg ? '#fff' : 'var(--text)',
-            textShadow: hasCustomBg ? '0 2px 20px rgba(0,0,0,0.3)' : 'none',
-          }}
-        >
-          Gerbang Digital
-          <br />
-          <span className={hasCustomBg ? 'text-[#7DD3FA]' : 'gradient-text'}>
-            Maluku Utara
-          </span>
-        </h1>
-
-        {/* Subtitle */}
-        <p
-          className="max-w-[460px] mx-auto mb-7 leading-relaxed"
-          style={{
-            fontSize: 15,
-            color: hasCustomBg ? 'rgba(255,255,255,0.85)' : 'var(--text-muted)',
-            textShadow: hasCustomBg ? '0 1px 8px rgba(0,0,0,0.4)' : 'none',
-          }}
-        >
-          Satu platform untuk berita lokal, transportasi laut, kos & properti,
-          hingga donasi kemanusiaan.
-        </p>
-
-        {/* Search */}
-        <div
-          className="flex items-center gap-3 max-w-[560px] mx-auto mb-4 rounded-full pl-6 pr-1.5 py-1.5"
-          style={{
-            background: hasCustomBg ? 'rgba(255,255,255,0.92)' : '#fff',
+          {/* Search bar */}
+          <form onSubmit={handleSearch} style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            background: '#fff', borderRadius: 99,
+            padding: '6px 6px 6px 22px',
             border: '1.5px solid var(--border-light)',
-            boxShadow: hasCustomBg
-              ? '0 20px 60px rgba(0,0,0,0.25)'
-              : '0 16px 48px rgba(53,37,205,0.10)',
-            backdropFilter: hasCustomBg ? 'blur(12px)' : 'none',
-          }}
-        >
-          <svg width="17" height="17" viewBox="0 0 24 24" fill="none"
-            stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
-            className="flex-shrink-0" aria-hidden>
-            <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
-          </svg>
-          <input
-            type="search"
-            placeholder="Cari speedboat, kos, berita, atau layanan lain..."
-            className="flex-1 border-none outline-none bg-transparent text-[14px]"
-            style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", color: 'var(--text)' }}
-          />
-          <button type="submit"
-            className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 transition-all duration-200 hover:scale-105 active:scale-95"
-            style={{ background: 'var(--primary)' }} aria-label="Cari">
-            <svg viewBox="0 0 24 24" width="17" height="17" fill="none"
-              stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
+            boxShadow: '0 8px 32px rgba(0,53,38,0.10)',
+            marginBottom: 18, maxWidth: 520,
+          }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+              stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
             </svg>
-          </button>
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              type="search"
+              placeholder="Cari speedboat, kos, berita, atau layanan..."
+              style={{
+                flex: 1, border: 'none', outline: 'none',
+                background: 'transparent', fontSize: 14,
+                color: 'var(--text)', fontFamily: 'inherit',
+              }}
+            />
+            <button type="submit" style={{
+              width: 42, height: 42, borderRadius: 99, flexShrink: 0,
+              background: 'var(--primary)', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              transition: 'opacity 0.2s',
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              </svg>
+            </button>
+          </form>
+
+          {/* Popular tags */}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+            <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-light)' }}>Populer:</span>
+            {POPULAR_TAGS.map(tag => (
+              <Link key={tag.href} href={tag.href} style={{
+                fontSize: 12, fontWeight: 500, color: 'var(--text-muted)',
+                background: '#fff', border: '1px solid var(--border-light)',
+                borderRadius: 99, padding: '5px 12px', textDecoration: 'none',
+              }}>
+                {tag.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
-        {/* Popular tags */}
-        <div className="flex flex-wrap justify-center gap-2 text-[12px]">
-          <span className="self-center font-semibold text-[11px]"
-            style={{ color: hasCustomBg ? 'rgba(255,255,255,0.6)' : 'var(--text-light)' }}>
-            Populer:
-          </span>
-          {POPULAR_TAGS.map((tag) => (
-            <Link key={tag.href} href={tag.href}
-              className="px-3 py-1 rounded-full font-medium transition-all duration-200"
-              style={{
-                background: hasCustomBg ? 'rgba(255,255,255,0.15)' : '#fff',
-                border: hasCustomBg ? '1px solid rgba(255,255,255,0.2)' : '1px solid var(--border-light)',
-                color: hasCustomBg ? '#fff' : 'var(--text-muted)',
-                backdropFilter: hasCustomBg ? 'blur(8px)' : 'none',
+        {/* ── RIGHT: Photo + floating cards ── */}
+        <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
+
+          {/* Photo container */}
+          <div style={{
+            width: '100%', height: '100%',
+            borderRadius: 28, overflow: 'hidden',
+            background: 'linear-gradient(135deg, #003526, #0891B2)',
+            boxShadow: '0 32px 80px rgba(0,53,38,0.2)',
+          }}>
+            {HERO_PHOTO_URL ? (
+              <img
+                src={HERO_PHOTO_URL}
+                alt="Maluku Utara"
+                style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%' }}
+              />
+            ) : (
+              /* Fallback gradient kalau belum ada foto */
+              <div style={{
+                width: '100%', height: '100%',
+                background: 'linear-gradient(160deg, #003526 0%, #1B6B4A 40%, #0891B2 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                flexDirection: 'column', gap: 12,
               }}>
-              {tag.label}
+                <span style={{ fontSize: 72, opacity: 0.4 }}>🌊</span>
+                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600 }}>
+                  Set NEXT_PUBLIC_HERO_BG_URL untuk foto Ternate
+                </p>
+              </div>
+            )}
+            {/* Subtle overlay */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              background: 'linear-gradient(to bottom, transparent 50%, rgba(0,20,10,0.35) 100%)',
+              borderRadius: 28,
+            }} />
+          </div>
+
+          {/* Floating service cards */}
+          {FLOAT_CARDS.map((card) => (
+            <Link
+              key={card.label}
+              href={card.href}
+              className="float-card"
+              style={{
+                position: 'absolute',
+                ...card.style,
+                animationDelay: card.delay,
+                textDecoration: 'none',
+                background: 'rgba(255,255,255,0.95)',
+                backdropFilter: 'blur(16px)',
+                WebkitBackdropFilter: 'blur(16px)',
+                borderRadius: 16,
+                padding: '10px 14px',
+                display: 'flex', alignItems: 'center', gap: 10,
+                boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(255,255,255,0.9)',
+                zIndex: 10,
+                minWidth: 160,
+              }}
+            >
+              <span style={{ fontSize: 22 }}>{card.icon}</span>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text)', letterSpacing: '0.02em' }}>
+                  {card.label}
+                </div>
+                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>
+                  {card.sub}
+                </div>
+              </div>
+              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--primary)', fontWeight: 700 }}>→</span>
             </Link>
           ))}
+
+          {/* Decorative orb */}
+          <div style={{
+            position: 'absolute', bottom: -40, left: -40,
+            width: 200, height: 200, borderRadius: '50%',
+            background: 'rgba(0,53,38,0.08)', filter: 'blur(50px)',
+            pointerEvents: 'none', zIndex: 0,
+          }} />
         </div>
       </div>
     </section>

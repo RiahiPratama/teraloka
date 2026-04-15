@@ -5,9 +5,9 @@
 @theme {
   --font-sora: 'Sora', sans-serif;
   --font-jakarta: 'Plus Jakarta Sans', sans-serif;
-  --color-primary: #3525cd;
-  --color-primary-light: #4f46e5;
-  --color-primary-dim: #c3c0ff;
+  --color-primary: #003526;
+  --color-primary-light: #1B6B4A;
+  --color-primary-dim: #95d3ba;
   --color-cyan: #0891B2;
   --color-orange: #E8963A;
   --color-green: #1B6B4A;
@@ -15,15 +15,15 @@
 
 /* ─── CSS Variables ─── */
 :root {
-  --primary: #3525cd;
-  --primary-light: #4f46e5;
-  --primary-dim: #c3c0ff;
+  --primary: #003526;
+  --primary-light: #1B6B4A;
+  --primary-dim: #95d3ba;
   --cyan: #0891B2;
   --orange: #E8963A;
   --green: #1B6B4A;
   --surface: #f7f9fb;
   --surface-low: #f2f4f6;
-  --border: rgba(53, 37, 205, 0.08);
+  --border: rgba(0, 53, 38, 0.08);
   --border-light: #e2e8f0;
   --text: #191c1e;
   --text-muted: #64748b;
@@ -33,9 +33,7 @@
 }
 
 /* ─── Base ─── */
-html {
-  scroll-behavior: smooth;
-}
+html { scroll-behavior: smooth; }
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -45,14 +43,12 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, .font-sora {
-  font-family: 'Sora', sans-serif;
-}
+h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
 
 /* ─── Scrollbar ─── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; }
-::-webkit-scrollbar-thumb { background: #c3c0ff; border-radius: 99px; }
+::-webkit-scrollbar-thumb { background: var(--primary-dim); border-radius: 99px; }
 
 /* ─── Animations ─── */
 @keyframes ticker {
@@ -70,23 +66,25 @@ h1, h2, h3, h4, .font-sora {
   50% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.05); }
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
 /* ─── Ticker ─── */
-.ticker-track {
-  animation: ticker 28s linear infinite;
-}
-.ticker-track:hover {
-  animation-play-state: paused;
-}
+.ticker-track { animation: ticker 28s linear infinite; }
+.ticker-track:hover { animation-play-state: paused; }
 
-/* ─── Hero Badge Dot ─── */
-.badge-dot {
-  animation: pulse-dot 2s infinite;
-}
+/* ─── Badge dot ─── */
+.badge-dot { animation: pulse-dot 2s infinite; }
 
-/* ─── Live Dot ─── */
-.live-dot {
-  animation: live-pulse 2s infinite;
-}
+/* ─── Live dot ─── */
+.live-dot { animation: live-pulse 2s infinite; }
+
+/* ─── Float animation ─── */
+.float-card { animation: float 4s ease-in-out infinite; }
+.float-card:nth-child(2) { animation-delay: -1s; }
+.float-card:nth-child(3) { animation-delay: -2s; }
 
 /* ─── Service Carousel ─── */
 .service-scroll {
@@ -95,9 +93,7 @@ h1, h2, h3, h4, .font-sora {
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
 }
-.service-scroll::-webkit-scrollbar {
-  display: none;
-}
+.service-scroll::-webkit-scrollbar { display: none; }
 
 /* ─── Glass Nav ─── */
 .glass-nav {
@@ -108,7 +104,7 @@ h1, h2, h3, h4, .font-sora {
 
 /* ─── Hero gradient text ─── */
 .gradient-text {
-  background: linear-gradient(135deg, var(--primary) 0%, var(--cyan) 100%);
+  background: linear-gradient(135deg, #003526 0%, #0891B2 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -116,22 +112,29 @@ h1, h2, h3, h4, .font-sora {
 
 /* ─── Stats dark background ─── */
 .stats-dark-bg {
-  background: linear-gradient(135deg, #0f0a3c 0%, #1a1060 50%, #0e3d4d 100%);
+  background: linear-gradient(135deg, #001a11 0%, #003526 60%, #0a3d30 100%);
+}
+
+/* ─── CTA section ─── */
+.cta-bg {
+  background: linear-gradient(135deg, #003526 0%, #1B6B4A 50%, #0891B2 100%);
 }
 
 /* ─── Editorial shadow ─── */
 .editorial-shadow {
-  box-shadow: 0 40px 40px -15px rgba(53, 37, 205, 0.04);
+  box-shadow: 0 40px 40px -15px rgba(0, 53, 38, 0.06);
 }
 
 /* ─── Responsive helpers ─── */
 @media (max-width: 900px) {
   .bento-full { grid-column: span 12; }
+  .hero-grid { grid-template-columns: 1fr !important; }
+  .hero-photo { display: none; }
 }
 
 /* ─── Nav active link ─── */
 .nav-links a.active {
-  background: rgba(53,37,205,0.08);
+  background: rgba(0,53,38,0.08);
   color: var(--primary);
 }
 .nav-links a:hover {
