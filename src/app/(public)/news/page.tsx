@@ -231,16 +231,14 @@ function NewsPageContent() {
   const [loadingMore,   setLoadingMore]   = useState(false);
   const [hasMore,       setHasMore]       = useState(false);
   const [page,          setPage]          = useState(1);
-  const [weather,       setWeather]       = useState<any>(null);
   const [recentReports, setRecentReports] = useState<any[]>([]);
 
   const type     = searchParams.get('type')     || 'terbaru';
   const location = searchParams.get('location') || 'all';
   const q        = searchParams.get('q')        || '';
 
-  // Fetch BMKG + recent reports on mount
+  // Fetch recent reports on mount
   useEffect(() => {
-    fetch(`${API}/public/weather`).then(r => r.json()).then(d => { if (d.success) setWeather(d.data); }).catch(() => {});
     fetch(`${API}/public/reports/recent`).then(r => r.json()).then(d => { if (d.success) setRecentReports(d.data ?? []); }).catch(() => {});
   }, []);
 
@@ -304,12 +302,9 @@ function NewsPageContent() {
 
       <div className="max-w-4xl mx-auto px-4">
 
-        {/* BMKG Widget — selalu tampil */}
         <div className="pt-3">
-          <BMKGWidget data={weather} />
+          <AdBanner />
         </div>
-
-        <AdBanner />
 
         {pageTitle && (
           <div className="mb-4">
