@@ -89,21 +89,23 @@ export default function Footer() {
                   title={s.label}
                   style={{
                     width: 34, height: 34, borderRadius: 10,
-                    background: 'var(--surface-low)',
-                    border: '1px solid var(--border-light)',
+                    background: 'var(--primary)',
+                    border: '1px solid var(--primary)',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: 'var(--text-muted)', textDecoration: 'none',
+                    color: '#fff', textDecoration: 'none',
                     transition: 'all 0.2s',
                   }}
                   onMouseEnter={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'var(--primary)'
-                    ;(e.currentTarget as HTMLElement).style.color = '#fff'
-                    ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--primary)'
+                    const el = e.currentTarget as HTMLElement
+                    el.style.background = '#E8963A'
+                    el.style.borderColor = '#E8963A'
+                    el.style.transform = 'scale(1.1)'
                   }}
                   onMouseLeave={e => {
-                    (e.currentTarget as HTMLElement).style.background = 'var(--surface-low)'
-                    ;(e.currentTarget as HTMLElement).style.color = 'var(--text-muted)'
-                    ;(e.currentTarget as HTMLElement).style.borderColor = 'var(--border-light)'
+                    const el = e.currentTarget as HTMLElement
+                    el.style.background = 'var(--primary)'
+                    el.style.borderColor = 'var(--primary)'
+                    el.style.transform = 'scale(1)'
                   }}
                 >
                   {s.icon}

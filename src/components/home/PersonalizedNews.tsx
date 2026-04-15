@@ -2,16 +2,21 @@ import Link from 'next/link'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1'
 
-async function getRecentArticles() {
+async function getData() {
   try {
-    const res = await fetch(`${API}/content/articles?limit=4`, {
-      next: { revalidate: 300 },
-    })
-    const data = await res.json()
-    if (data.success) return data.data ?? []
-    return []
+    const [articlesRes, statsRes] = await Promise.all([
+      fetch(`${API}/content/articles?limit=2`, { next: { revalidate: 300 } }),
+      fetch(`${API}/public/stats`, { next: { revalidate: 300 } }),
+    ])
+    const articlesData = await articlesRes.json()
+    const statsData    = await statsRes.json()
+    return {
+      articles:     articlesData.success ? (articlesData.data ?? []) : [],
+      latestReport: statsData.success ? statsData.data?.reports?.latest : null,
+      totalReports: statsData.success ? (statsData.data?.reports?.total ?? 0) : 0,
+    }
   } catch {
-    return []
+    return { articles: [], latestReport: null, totalReports: 0 }
   }
 }
 
@@ -43,11 +48,11 @@ function parseExcerpt(excerpt?: string | null, body?: string | null): string {
 }
 
 export default async function PersonalizedNews() {
-  const articles = await getRecentArticles()
+  const { articles, latestReport, totalReports } = await getData()
   if (articles.length === 0) return null
 
   const featured = articles[0]
-  const side = articles.slice(1, 4)
+  const article2 = articles[1] ?? null  // artikel 2 — full width
 
   return (
     <section style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 24px' }}>
@@ -66,55 +71,33 @@ export default async function PersonalizedNews() {
           </p>
         </div>
         <Link href="/news" style={{
-          fontSize: 13, fontWeight: 700, color: 'var(--primary)',
-          textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 4,
+          fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none',
         }}>
           Lihat Semua →
         </Link>
       </div>
 
-      {/* Grid: featured kiri (60%) + 3 artikel kanan (40%) */}
+      {/* Grid: featured kiri (60%) + kolom kanan (40%) */}
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
 
-        {/* Featured */}
+        {/* ── Featured article ── */}
         <Link href={`/news/${featured.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-          <div style={{
-            borderRadius: 20, overflow: 'hidden', position: 'relative',
-            height: 380, cursor: 'pointer',
-          }}>
-            {/* Image */}
+          <div style={{ borderRadius: 20, overflow: 'hidden', position: 'relative', height: 380 }}>
             {featured.cover_image_url ? (
-              <img
-                src={featured.cover_image_url}
-                alt={featured.title}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-              />
+              <img src={featured.cover_image_url} alt={featured.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <div style={{
-                width: '100%', height: '100%',
-                background: 'linear-gradient(135deg, #003526, #0891B2)',
-              }} />
+              <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #003526, #0891B2)' }} />
             )}
-            {/* Overlay */}
             <div style={{
               position: 'absolute', inset: 0,
               background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)',
             }} />
-            {/* Content */}
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 24px 20px' }}>
-              <div style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
-                background: 'rgba(0,53,38,0.9)', borderRadius: 99,
-                padding: '3px 10px', marginBottom: 10,
-              }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#95d3ba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  BERITA UTAMA
-                </span>
+              <div style={{ display: 'inline-flex', background: 'rgba(0,53,38,0.9)', borderRadius: 99, padding: '3px 10px', marginBottom: 10 }}>
+                <span style={{ fontSize: 10, fontWeight: 800, color: '#95d3ba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>BERITA UTAMA</span>
               </div>
-              <h3 className="font-sora" style={{
-                fontSize: 20, fontWeight: 800, color: '#fff',
-                lineHeight: 1.3, marginBottom: 8,
-              }}>
+              <h3 className="font-sora" style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 8 }}>
                 {featured.title}
               </h3>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, marginBottom: 10, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -129,66 +112,105 @@ export default async function PersonalizedNews() {
           </div>
         </Link>
 
-        {/* Side articles */}
+        {/* ── Kolom kanan ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {side.map((article: any) => (
-            <Link key={article.id} href={`/news/${article.slug}`}
-              style={{ textDecoration: 'none', display: 'block', flex: 1 }}>
+
+          {/* Artikel 1 — full width */}
+          {article2 && (
+            <Link href={`/news/${article2.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
               <div style={{
-                display: 'flex', gap: 14, alignItems: 'flex-start',
+                display: 'flex', gap: 12, alignItems: 'flex-start',
                 background: '#fff', borderRadius: 16, padding: '14px',
                 border: '1px solid var(--border-light)',
-                height: '100%',
               }}>
-                {/* Thumbnail */}
-                <div style={{
-                  width: 72, height: 72, borderRadius: 12,
-                  overflow: 'hidden', flexShrink: 0,
-                  background: 'var(--surface-low)',
-                }}>
-                  {article.cover_image_url ? (
-                    <img src={article.cover_image_url} alt={article.title}
+                <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-low)' }}>
+                  {article2.cover_image_url ? (
+                    <img src={article2.cover_image_url} alt={article2.title}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
-                    <div style={{
-                      width: '100%', height: '100%',
-                      background: 'linear-gradient(135deg, rgba(0,53,38,0.1), rgba(8,145,178,0.1))',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 24,
-                    }}>📰</div>
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'linear-gradient(135deg, rgba(0,53,38,0.08), rgba(8,145,178,0.08))' }}>📰</div>
                   )}
                 </div>
-
-                {/* Text */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {article.category && (
-                    <span style={{
-                      fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
-                      letterSpacing: '0.5px', color: 'var(--primary)',
-                    }}>
-                      {article.category}
+                  {article2.category && (
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)' }}>
+                      {article2.category}
                     </span>
                   )}
-                  <h4 style={{
-                    fontSize: 14, fontWeight: 700, color: 'var(--text)',
-                    lineHeight: 1.4, marginTop: 3, marginBottom: 6,
-                    display: '-webkit-box', WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                  }}>
-                    {article.title}
+                  <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4, marginTop: 3, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {article2.title}
                   </h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-light)' }}>
-                    <span>BAKABAR</span>
-                    <span>·</span>
-                    <span>{timeAgo(article.published_at)}</span>
-                  </div>
+                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>
+                    BAKABAR · {timeAgo(article2.published_at)}
+                  </span>
                 </div>
-
-                {/* Arrow */}
                 <span style={{ color: 'var(--text-light)', fontSize: 14, flexShrink: 0, alignSelf: 'center' }}>→</span>
               </div>
             </Link>
-          ))}
+          )}
+
+          {/* Artikel 2 — full width */}
+          {/* (slot ketiga jika ada artikel ke-2 lagi — diisi dari index 1) */}
+
+          {/* BALAPOR card — full width di slot ke-3 */}
+          <Link href="/reports" style={{ textDecoration: 'none', display: 'block' }}>
+              <div style={{
+                background: 'rgba(220,38,38,0.03)',
+                border: '1.5px solid rgba(220,38,38,0.12)',
+                borderRadius: 16, height: '100%',
+                display: 'flex', flexDirection: 'column',
+                overflow: 'hidden',
+              }}>
+                {/* Header */}
+                <div style={{ padding: '12px 14px 10px', flex: 1 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                    <div style={{
+                      width: 30, height: 30, borderRadius: 9,
+                      background: 'rgba(220,38,38,0.1)',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                    }}>
+                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="m3 11 19-9-9 19-2-8-8-2z"/>
+                      </svg>
+                    </div>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: '#dc2626' }}>BALAPOR</span>
+                  </div>
+
+                  {latestReport ? (
+                    <div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }} />
+                        <span style={{ fontSize: 9, fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Terbaru</span>
+                      </div>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {latestReport.title}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Laporan diproses</p>
+                      <p style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>
+                        {totalReports > 0 ? `${totalReports}+` : '—'}
+                      </p>
+                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+                        Suarakan aspirasi. Identitasmu terlindungi.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* CTA */}
+                <div style={{
+                  background: 'rgba(220,38,38,0.07)',
+                  borderTop: '1px solid rgba(220,38,38,0.1)',
+                  padding: '8px 14px',
+                  fontSize: 11, fontWeight: 800, color: '#dc2626',
+                  textAlign: 'center',
+                }}>
+                  Lapor Sekarang →
+                </div>
+              </div>
+            </Link>
         </div>
       </div>
     </section>
