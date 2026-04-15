@@ -102,7 +102,7 @@ export default async function FundraisingPage({
               <h1 className="text-2xl font-extrabold text-white tracking-tight">BASUMBANG</h1>
               <p className="text-sm text-[#95d3ba] mt-1">Galang dana kemanusiaan Maluku Utara</p>
             </div>
-            <Link href="/owner/campaign/new"
+            <Link href="/owner/campaign/new/info"
               className="flex items-center gap-1.5 bg-white/15 hover:bg-white/20 transition-colors text-white text-xs font-semibold px-3 py-2 rounded-xl">
               <span className="material-symbols-outlined text-sm">add</span>
               Galang Dana
@@ -206,7 +206,7 @@ export default async function FundraisingPage({
             <p className="text-4xl mb-3">💚</p>
             <p className="font-semibold text-gray-700">Belum ada kampanye aktif</p>
             <p className="text-sm text-gray-400 mt-1">Jadilah yang pertama menggalang dana</p>
-            <Link href="/owner/campaign/new"
+            <Link href="/owner/campaign/new/info"
               className="mt-4 inline-block bg-[#003526] text-white text-sm font-bold px-5 py-2.5 rounded-xl">
               Mulai Galang Dana
             </Link>
@@ -260,7 +260,7 @@ export default async function FundraisingPage({
         <div className="mt-8 bg-gradient-to-r from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-center">
           <p className="text-white font-bold mb-1">Punya kebutuhan mendesak?</p>
           <p className="text-[#95d3ba] text-sm mb-4">Galang dana sekarang dan dapatkan dukungan dari warga Maluku Utara</p>
-          <Link href="/owner/campaign/new"
+          <Link href="/owner/campaign/new/info"
             className="inline-flex items-center gap-2 bg-white text-[#003526] font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
             <span className="material-symbols-outlined text-sm">volunteer_activism</span>
             Mulai Galang Dana
