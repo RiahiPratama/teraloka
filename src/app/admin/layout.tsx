@@ -11,6 +11,7 @@ const NAV_SECTIONS = [
     items: [
       { href: '/admin', label: 'Overview', icon: '⚡', exact: true, roles: ['super_admin'] },
       { href: '/admin/content', label: 'BAKABAR', sub: 'Artikel berita', icon: '📰', roles: [] },
+      { href: '/admin/rss', label: 'RSS Nasional', sub: 'Review & approve feed', icon: '📡', roles: [] },
       { href: '/admin/reports', label: 'BALAPOR', sub: 'Laporan warga', icon: '🚨', roles: ['super_admin'] },
       { href: '/admin/listings', label: 'Listing', sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
       { href: '/admin/funding', label: 'BASUMBANG', sub: 'Kampanye donasi', icon: '❤️', roles: ['super_admin'] },
@@ -51,7 +52,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(true);
 
-  // Load saved theme from localStorage
   useEffect(() => {
     const saved = localStorage.getItem('tl_admin_theme');
     if (saved === 'light') setDark(false);
@@ -65,12 +65,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/admin');
-    if (!isLoading && user && user.role === 'admin_content' && !pathname.startsWith('/admin/content')) {
+    if (!isLoading && user && user.role === 'admin_content' && !pathname.startsWith('/admin/content') && !pathname.startsWith('/admin/rss')) {
       router.replace('/admin/content');
     }
   }, [user, isLoading, router, pathname]);
 
-  // Theme colors
   const t = dark ? {
     bg: '#0D1117',
     sidebar: '#0D1117',
@@ -134,7 +133,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         }
       `}</style>
 
-      {/* Overlay mobile */}
       {sidebarOpen && (
         <div onClick={() => setSidebarOpen(false)}
           style={{ display: 'none', position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 39 }}
@@ -208,7 +206,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Top Bar */}
         <header style={{ height: 58, background: t.topbar, borderBottom: `1px solid ${t.topbarBorder}`, display: 'flex', alignItems: 'center', padding: '0 20px', position: 'sticky', top: 0, zIndex: 30, gap: 10, transition: 'background 0.2s, border-color 0.2s' }}>
-          {/* Hamburger mobile */}
           <button onClick={() => setSidebarOpen(!sidebarOpen)} className="tl-hamburger"
             style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 19, color: t.textMuted, padding: 4, alignItems: 'center', justifyContent: 'center' }}>
             ☰
@@ -221,7 +218,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            {/* Dark/Light toggle */}
             <button onClick={toggleTheme}
               style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textMuted, transition: 'all 0.2s' }}
               title="Toggle mode terang/gelap">
@@ -229,7 +225,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <span>{dark ? 'Terang' : 'Gelap'}</span>
             </button>
 
-            {/* API status */}
             <div style={{ padding: '4px 10px', background: dark ? 'rgba(27,107,74,0.12)' : 'rgba(27,107,74,0.08)', border: `1px solid rgba(27,107,74,0.25)`, borderRadius: 20, fontSize: 11.5, fontWeight: 600, color: '#1B6B4A', display: 'flex', alignItems: 'center', gap: 5 }}>
               <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
               API Live
