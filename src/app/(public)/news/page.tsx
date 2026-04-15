@@ -61,6 +61,11 @@ function timeAgo(dateStr: string) {
   return d < 7 ? `${d} hari lalu` : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
+function shareToFB(slug: string) {
+  const url = `${APP_URL}/news/${slug}`;
+  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "width=600,height=400");
+}
+
 function shareToWA(title: string, slug: string) {
   const url = `${APP_URL}/news/${slug}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(`📰 ${title}\n\n${url}`)}`, '_blank');
