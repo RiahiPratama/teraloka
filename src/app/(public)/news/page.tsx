@@ -61,11 +61,6 @@ function timeAgo(dateStr: string) {
   return d < 7 ? `${d} hari lalu` : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
-function shareToFB(slug: string) {
-  const url = `${APP_URL}/news/${slug}`;
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "width=600,height=400");
-}
-
 function shareToWA(title: string, slug: string) {
   const url = `${APP_URL}/news/${slug}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(`📰 ${title}\n\n${url}`)}`, '_blank');
@@ -126,16 +121,13 @@ function NewsPageContent() {
   return (
     <div className="min-h-screen bg-white">
 
-      {/* ── Top Nav — kumparan style ── */}
-      <header className="bg-white border-b border-gray-100 sticky top-0 z-30">
+      {/* ── BAKABAR sub-nav: search + category tabs ── */}
+      {/* Sticky di bawah main Navbar (top-[64px] = tinggi Navbar utama) */}
+      <div className="bg-white border-b border-gray-100 sticky top-[64px] z-20">
         <div className="max-w-4xl mx-auto">
-          {/* Top row */}
-          <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50">
-            <Link href="/" className="text-xl font-black text-[#003526] tracking-tight shrink-0">
-              Tera<span className="text-[#0891B2]">Loka</span>
-            </Link>
-            <span className="text-gray-200">|</span>
-            <span className="text-sm font-bold text-[#003526]">BAKABAR</span>
+          {/* Search + label */}
+          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50">
+            <span className="text-xs font-black text-[#003526] tracking-widest uppercase shrink-0">BAKABAR</span>
             <form onSubmit={handleSearch} className="flex-1 flex gap-1.5 max-w-xs ml-auto">
               <div className="relative flex-1">
                 <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
@@ -163,7 +155,7 @@ function NewsPageContent() {
             ))}
           </div>
         </div>
-      </header>
+      </div>
 
       <div className="max-w-4xl mx-auto px-4">
 
