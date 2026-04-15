@@ -121,41 +121,7 @@ function NewsPageContent() {
   return (
     <div className="min-h-screen bg-white">
 
-      {/* ── BAKABAR sub-nav: search + category tabs ── */}
-      {/* Sticky di bawah main Navbar (top-[64px] = tinggi Navbar utama) */}
-      <div className="bg-white border-b border-gray-100 sticky top-[64px] z-20">
-        <div className="max-w-4xl mx-auto">
-          {/* Search + label */}
-          <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-50">
-            <span className="text-xs font-black text-[#003526] tracking-widest uppercase shrink-0">BAKABAR</span>
-            <form onSubmit={handleSearch} className="flex-1 flex gap-1.5 max-w-xs ml-auto">
-              <div className="relative flex-1">
-                <span className="material-symbols-outlined absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">search</span>
-                <input value={searchInput} onChange={e => setSearchInput(e.target.value)}
-                  placeholder="Cari berita..."
-                  className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-200 rounded-xl bg-gray-50 outline-none focus:border-[#003526]" />
-              </div>
-              {searchInput && (
-                <button type="button" onClick={() => { setSearchInput(''); setSearch(''); router.push('/news'); }}
-                  className="text-gray-400 px-1 text-sm">✕</button>
-              )}
-            </form>
-          </div>
-          {/* Category tabs */}
-          <div className="flex gap-0 overflow-x-auto scrollbar-none">
-            {CATEGORIES.map(cat => (
-              <button key={cat.key} onClick={() => setCategory(cat.key)}
-                className={`px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all ${
-                  category === cat.key
-                    ? 'border-[#003526] text-[#003526]'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}>
-                {cat.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+
 
       <div className="max-w-4xl mx-auto px-4">
 
