@@ -138,12 +138,8 @@ export default async function PersonalizedNews() {
                 display: 'flex', gap: 14, alignItems: 'flex-start',
                 background: '#fff', borderRadius: 16, padding: '14px',
                 border: '1px solid var(--border-light)',
-                transition: 'box-shadow 0.2s',
                 height: '100%',
-              }}
-                onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,53,38,0.08)')}
-                onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
-              >
+              }}>
                 {/* Thumbnail */}
                 <div style={{
                   width: 72, height: 72, borderRadius: 12,

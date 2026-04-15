@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import { SERVICES } from '@/lib/data/services'
 
