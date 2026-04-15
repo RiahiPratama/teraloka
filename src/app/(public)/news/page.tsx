@@ -50,6 +50,20 @@ function AdSlot({ type = 'banner' }: { type?: 'banner' | 'native' }) {
   );
 }
 
+// Parse excerpt — handle raw JSON dari artikel Groq lama
+function parseExcerpt(excerpt: string | null | undefined, body?: string): string {
+  const raw = excerpt || body || '';
+  if (!raw) return '';
+  // Coba parse JSON
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed?.content) return parsed.content.slice(0, 150) + '...';
+    if (parsed?.excerpt) return parsed.excerpt.slice(0, 150) + '...';
+  } catch {}
+  // Kalau bukan JSON, pakai langsung
+  return raw.slice(0, 150) + (raw.length > 150 ? '...' : '');
+}
+
 function timeAgo(dateStr: string) {
   if (!dateStr) return '—';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -204,7 +218,7 @@ function NewsPageContent() {
                     {featured.source === 'balapor' && <span className="text-xs text-[#0891B2] font-semibold">📢 Laporan Warga</span>}
                   </div>
                   <h2 className="text-xl font-black text-gray-900 leading-snug group-hover:text-[#003526] transition-colors">{featured.title}</h2>
-                  {featured.excerpt && <p className="text-sm text-gray-500 mt-1.5 leading-relaxed line-clamp-2">{featured.excerpt}</p>}
+                  {featured.excerpt && <p className="text-sm text-gray-500 mt-1.5 leading-relaxed line-clamp-2">{parseExcerpt(featured.excerpt, featured.body)}</p>}
                   <div className="flex items-center justify-between mt-2">
                     <span className="text-xs text-gray-400">{featured.author?.name || 'Redaksi'} · {timeAgo(featured.published_at)}</span>
                     <button onClick={e => { e.preventDefault(); shareToWA(featured.title, featured.slug); }}
