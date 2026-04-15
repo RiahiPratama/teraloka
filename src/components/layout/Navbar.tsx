@@ -1,163 +1,146 @@
-'use client'
+'use client';
 
-import { useState } from 'react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
-import { useAuth } from '@/hooks/useAuth'
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect } from 'react';
+import Logo from '@/components/ui/Logo';
+import { useAuth } from '@/hooks/useAuth';
+
+const NAV_LINKS = [
+  { label: 'BAKABAR', href: '/news' },
+  { label: 'BALAPOR', href: '/reports' },
+  { label: 'BAPASIAR', href: '/speed' },
+  { label: 'BAKOS', href: '/kos' },
+  { label: 'BASUMBANG', href: '/fundraising' },
+];
 
 export default function Navbar() {
-  const { user, logout } = useAuth()
-  const pathname = usePathname()
-  const [menuOpen, setMenuOpen] = useState(false)
+  const router = useRouter();
+  const { user, logout, isLoading } = useAuth();
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isAdmin = user?.role === 'super_admin' || user?.role?.startsWith('admin_')
+  // Tutup dropdown kalau klik di luar
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   function handleLogout() {
-    logout()
-    setMenuOpen(false)
-    window.location.href = '/'
+    logout();
+    setDropdownOpen(false);
+    router.push('/');
   }
 
-  return (
-    <nav className="bg-white border-b sticky top-0 z-50">
-      <div className="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
-        {/* Logo */}
-        <Link href="/" onClick={() => setMenuOpen(false)}>
-          <span className="text-xl font-black">
-            <span className="text-green-700">Tera</span>
-            <span className="text-teal-500">Loka</span>
-          </span>
-        </Link>
+  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin_content';
 
-        {/* Nav links — desktop */}
-        <div className="hidden sm:flex items-center gap-4 text-sm">
-          <Link href="/news"
-            className={`font-medium transition-colors ${pathname.startsWith('/news') ? 'text-green-700' : 'text-gray-600 hover:text-gray-900'}`}>
-            BAKABAR
+  return (
+    <header className="fixed top-8 left-0 right-0 z-50 px-6">
+      <nav
+        className="glass-nav max-w-[1200px] mx-auto flex items-center justify-between rounded-full px-6 py-2.5 pr-2.5"
+        style={{
+          border: '1px solid var(--border)',
+          boxShadow: '0 8px 32px rgba(53,37,205,0.08)',
+        }}
+      >
+        {/* Left: Logo + Links */}
+        <div className="flex items-center">
+          <Link href="/" aria-label="TeraLoka Home">
+            <Logo height={26} />
           </Link>
-          <Link href="/fundraising"
-            className={`font-medium transition-colors ${pathname.startsWith('/fundraising') ? 'text-green-700' : 'text-gray-600 hover:text-gray-900'}`}>
-            BASUMBANG
-          </Link>
-          <Link href="/kos"
-            className={`font-medium transition-colors ${pathname.startsWith('/kos') ? 'text-green-700' : 'text-gray-600 hover:text-gray-900'}`}>
-            BAKOS
-          </Link>
-          <Link href="/reports"
-            className={`font-medium transition-colors ${pathname === '/reports' ? 'text-orange-600' : 'text-gray-600 hover:text-gray-900'}`}>
-            BALAPOR
-          </Link>
+
+          <div className="hidden md:flex items-center gap-1 ml-6">
+            {NAV_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="px-3.5 py-1.5 rounded-full text-[13px] font-semibold transition-all duration-200 whitespace-nowrap"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
         </div>
 
-        {/* Auth area */}
+        {/* Right: Auth */}
         <div className="flex items-center gap-2">
-          {user ? (
-            <div className="relative">
+          {isLoading ? (
+            <div className="h-8 w-20 animate-pulse rounded-full bg-gray-100" />
+          ) : user ? (
+            <div className="relative" ref={dropdownRef}>
               <button
-                onClick={() => setMenuOpen(!menuOpen)}
-                className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                onClick={() => setDropdownOpen(v => !v)}
+                className="flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
+                style={{ color: 'var(--text-muted)' }}
               >
-                <div className="w-6 h-6 bg-green-600 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                  {user.name?.charAt(0)?.toUpperCase() || '?'}
+                <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B6B4A] text-xs font-bold text-white">
+                  {user.name ? user.name[0].toUpperCase() : '+'}
                 </div>
-                <span className="max-w-20 truncate">{user.name?.split(' ')[0] || 'Profil'}</span>
-                <svg className={`w-3.5 h-3.5 transition-transform ${menuOpen ? 'rotate-180' : ''}`}
-                  fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                <span className="hidden md:block max-w-[100px] truncate">
+                  {user.name ?? '+' + user.phone?.slice(-4)}
+                </span>
+                <svg className={`h-3.5 w-3.5 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
                 </svg>
               </button>
 
-              {/* Dropdown menu */}
-              {menuOpen && (
-                <div className="absolute right-0 top-full mt-2 w-52 bg-white border border-gray-100 rounded-2xl shadow-lg overflow-hidden z-50">
-                  {/* User info */}
-                  <div className="px-4 py-3 border-b border-gray-50">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{user.name}</p>
-                    <p className="text-xs text-gray-400 truncate">{user.phone}</p>
-                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full mt-1 inline-block">
-                      {user.role?.replace('_', ' ')}
-                    </span>
-                  </div>
-
-                  {/* Menu items */}
-                  <div className="py-1">
-                    <Link href="/profile"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                      <span>👤</span> Profil Saya
+              {dropdownOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-gray-100 bg-white py-1 shadow-lg">
+                  <Link href="/profile" onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                    👤 Profil Saya
+                  </Link>
+                  <Link href="/owner" onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                    🏠 Portal Mitra
+                  </Link>
+                  {isAdmin && (
+                    <Link href="/admin" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                      ⚙️ Admin Dashboard
                     </Link>
-                    <Link href="/my-reports"
-                      onClick={() => setMenuOpen(false)}
-                      className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                      <span>📋</span> Laporan Saya
-                    </Link>
-                    {user.role === 'owner_listing' || isAdmin ? (
-                      <Link href="/owner"
-                        onClick={() => setMenuOpen(false)}
-                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                        <span>🏠</span> Portal Owner
-                      </Link>
-                    ) : null}
-
-                    {/* Admin link */}
-                    {isAdmin && (
-                      <>
-                        <div className="border-t border-gray-50 my-1" />
-                        <Link href="/admin"
-                          onClick={() => setMenuOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-green-700 font-medium hover:bg-green-50">
-                          <span>⚙️</span> Admin Panel
-                        </Link>
-                      </>
-                    )}
-
-                    <div className="border-t border-gray-50 my-1" />
-                    <button
-                      onClick={handleLogout}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 text-left"
-                    >
-                      <span>🚪</span> Keluar
-                    </button>
-                  </div>
+                  )}
+                  <Link href="/owner/campaign/new" onClick={() => setDropdownOpen(false)}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+                    💚 Ajukan Campaign
+                  </Link>
+                  <div className="my-1 border-t border-gray-100" />
+                  <button onClick={handleLogout}
+                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
+                    🚪 Keluar
+                  </button>
                 </div>
               )}
             </div>
           ) : (
-            <Link href="/login"
-              className="bg-green-600 text-white text-sm font-semibold px-4 py-1.5 rounded-xl hover:bg-green-700 transition-colors">
-              Masuk
-            </Link>
+            <>
+              <Link
+                href="/login"
+                className="px-4 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:bg-gray-100/70"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Masuk
+              </Link>
+              <Link
+                href="/login"
+                className="px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: 'var(--primary)',
+                  boxShadow: '0 4px 16px rgba(53,37,205,0.25)',
+                }}
+              >
+                Daftar Gratis
+              </Link>
+            </>
           )}
         </div>
-      </div>
-
-      {/* Mobile bottom nav */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 bg-white border-t z-40">
-        <div className="flex">
-          {[
-            { href: '/', icon: '🏠', label: 'Beranda' },
-            { href: '/news', icon: '📰', label: 'Berita' },
-            { href: '/reports', icon: '📢', label: 'Lapor' },
-            { href: '/fundraising', icon: '💚', label: 'Donasi' },
-            { href: user ? '/my-reports' : '/login', icon: '📋', label: user ? 'Laporanku' : 'Masuk' }
-          ].map(item => (
-            <Link key={item.href} href={item.href}
-              className={`flex-1 flex flex-col items-center py-2 text-center transition-colors ${
-                pathname === item.href || pathname.startsWith(item.href + '/') && item.href !== '/'
-                  ? 'text-green-600'
-                  : 'text-gray-400'
-              }`}>
-              <span className="text-lg">{item.icon}</span>
-              <span className="text-xs mt-0.5">{item.label}</span>
-            </Link>
-          ))}
-        </div>
-      </div>
-
-      {/* Overlay untuk tutup dropdown */}
-      {menuOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-      )}
-    </nav>
-  )
+      </nav>
+    </header>
+  );
 }

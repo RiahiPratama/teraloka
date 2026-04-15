@@ -1,386 +1,430 @@
-'use client'
+'use client';
 
-export const dynamic = 'force-dynamic'
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
+import ImageUpload from '@/components/ui/ImageUpload';
 
-import { useState, useEffect, Suspense } from 'react'
-import { useAuth } from '@/hooks/useAuth'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL!
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const CATEGORIES = [
-  { key: 'infrastruktur', label: '🏗️ Infrastruktur', requirePhoto: true, desc: 'Jalan rusak, jembatan, drainase, fasilitas umum' },
-  { key: 'lingkungan', label: '🌿 Lingkungan', requirePhoto: true, desc: 'Sampah liar, pencemaran, penebangan liar' },
-  { key: 'keamanan', label: '🚨 Keamanan', requirePhoto: false, desc: 'Kejahatan, gangguan ketertiban, kondisi berbahaya' },
-  { key: 'sosial', label: '👥 Sosial', requirePhoto: false, desc: 'Masalah sosial, konflik komunitas, layanan publik' },
-  { key: 'ekonomi', label: '💰 Ekonomi', requirePhoto: false, desc: 'Harga tidak wajar, penipuan, UMKM bermasalah' },
-  { key: 'lainnya', label: '📋 Lainnya', requirePhoto: false, desc: 'Laporan yang tidak masuk kategori di atas' }
-]
+  { key: 'infrastruktur', label: '🏗️ Infrastruktur' },
+  { key: 'layanan_publik', label: '🏛️ Layanan Publik' },
+  { key: 'lingkungan', label: '🌿 Lingkungan' },
+  { key: 'keamanan', label: '🔒 Keamanan' },
+  { key: 'kesehatan', label: '🏥 Kesehatan' },
+  { key: 'pendidikan', label: '📚 Pendidikan' },
+  { key: 'transportasi', label: '🚤 Transportasi' },
+  { key: 'lainnya', label: '📋 Lainnya' },
+];
 
-function BalaporFormContent() {
-  const { user, token, isLoading } = useAuth()
-  const router = useRouter()
+// Kategori yang wajib foto
+const PHOTO_REQUIRED = ['infrastruktur', 'lingkungan'];
 
-  const [step, setStep] = useState(1) // 1: form, 2: preview, 3: sukses
-  const [submitting, setSubmitting] = useState(false)
+const TOS_ITEMS = [
+  'Laporan berisi fakta, bukan opini atau fitnah.',
+  'Saya bertanggung jawab atas isi laporan (UU ITE).',
+  'TeraLoka berhak menolak/menghapus laporan yang melanggar.',
+  'Laporan bisa dijadikan artikel BAKABAR (dengan izin).',
+  'Data pribadimu bersifat rahasia dan dilindungi oleh hukum.',
+  'Takedown request diproses maksimal 1×24 jam.',
+];
 
-  // Form state
-  const [title, setTitle] = useState('')
-  const [category, setCategory] = useState('')
-  const [location, setLocation] = useState('')
-  const [content, setContent] = useState('')
-  const [photoFiles, setPhotoFiles] = useState<File[]>([])
-  const [photoPreviews, setPhotoPreviews] = useState<string[]>([])
-  const [uploadedPhotoUrls, setUploadedPhotoUrls] = useState<string[]>([])
-  const [uploadingPhotos, setUploadingPhotos] = useState(false)
-  const [notificationOptIn, setNotificationOptIn] = useState(false)
-  const [submittedId, setSubmittedId] = useState('')
+export default function ReportsPage() {
+  const { user, token, requestOtp, verifyOtp } = useAuth();
 
-  const selectedCategory = CATEGORIES.find(c => c.key === category)
+  type Step = 'form' | 'tos' | 'login' | 'otp' | 'success';
+  const [step, setStep] = useState<Step>('form');
+  const [anonymity, setAnonymity] = useState<'anonim' | 'pseudonym' | 'nama_terang'>('anonim');
+  const [category, setCategory] = useState('');
+  const [title, setTitle] = useState('');
+  const [body, setBody] = useState('');
+  const [tosAccepted, setTosAccepted] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [photos, setPhotos] = useState<string[]>([]);
 
+  // Login via WA OTP
+  const [phone, setPhone] = useState('');
+  const [otp, setOtp] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+
+  const photoRequired = PHOTO_REQUIRED.includes(category);
+
+  // Kalau user sudah login setelah dari step login, otomatis submit
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login?redirect=/reports')
+    if (user && token && step === 'otp') {
+      handleSubmit(token);
     }
-  }, [user, isLoading, router])
+  }, [user, token]);
 
-  function handlePhotoChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files || [])
-    if (files.length + photoFiles.length > 5) {
-      alert('Maksimal 5 foto')
-      return
-    }
-    const newFiles = [...photoFiles, ...files]
-    setPhotoFiles(newFiles)
-    const previews = newFiles.map(f => URL.createObjectURL(f))
-    setPhotoPreviews(previews)
-  }
-
-  function removePhoto(index: number) {
-    const newFiles = photoFiles.filter((_, i) => i !== index)
-    const newPreviews = photoPreviews.filter((_, i) => i !== index)
-    setPhotoFiles(newFiles)
-    setPhotoPreviews(newPreviews)
-  }
-
-  async function uploadPhotos(): Promise<string[]> {
-    if (photoFiles.length === 0) return []
-    setUploadingPhotos(true)
-    const urls: string[] = []
+  const handleSubmit = async (authToken?: string) => {
+    const tkn = authToken || token;
+    if (!tkn) return;
+    setLoading(true);
+    setError('');
     try {
-      for (const file of photoFiles) {
-        const formData = new FormData()
-        formData.append('file', file)
-        const res = await fetch(`${API_URL}/upload/reports`, {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-          body: formData
-        })
-        if (res.ok) {
-          const data = await res.json()
-          urls.push(data.url)
-        }
-      }
-    } finally {
-      setUploadingPhotos(false)
-    }
-    return urls
-  }
-
-  async function handleSubmit() {
-    setSubmitting(true)
-    try {
-      // Upload foto dulu
-      const photoUrls = await uploadPhotos()
-
-      const res = await fetch(`${API_URL}/content/reports`, {
+      const res = await fetch(`${API}/content/reports`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`
+          'Authorization': `Bearer ${tkn}`,
         },
         body: JSON.stringify({
+          anonymity_level: anonymity,
           title,
-          content,
+          body,
           category,
-          location: location || undefined,
-          photo_urls: photoUrls,
-          notification_opt_in: notificationOptIn
-        })
-      })
-
-      const data = await res.json()
-      if (!res.ok) {
-        alert(data.error || 'Gagal mengirim laporan')
-        return
+          photos,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setStep('success');
+      } else {
+        setError(data.error?.message ?? 'Gagal mengirim laporan.');
       }
-
-      setSubmittedId(data.report?.id || '')
-      setStep(3)
     } catch {
-      alert('Gagal terhubung ke server')
+      setError('Koneksi bermasalah. Coba lagi.');
     } finally {
-      setSubmitting(false)
+      setLoading(false);
     }
-  }
+  };
 
-  function isFormValid() {
-    if (!title.trim() || !category || !content.trim()) return false
-    if (selectedCategory?.requirePhoto && photoFiles.length === 0) return false
-    return true
-  }
+  const handleTosNext = () => {
+    if (!tosAccepted) return;
+    if (user && token) {
+      // Sudah login — langsung kirim
+      handleSubmit();
+    } else {
+      // Belum login — minta login dulu
+      setStep('login');
+    }
+  };
 
-  if (isLoading || !user) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
-    </div>
-  )
+  const handleRequestOtp = async () => {
+    if (!phone.trim()) return;
+    setOtpLoading(true);
+    setError('');
+    try {
+      await requestOtp(phone.trim());
+      setOtpSent(true);
+    } catch (err: any) {
+      setError(err.message || 'Gagal kirim OTP.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
-  // Step 3 — Sukses
-  if (step === 3) return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
-        <div className="text-5xl mb-4">✅</div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">Laporan Terkirim!</h2>
-        <p className="text-sm text-gray-500 mb-4 leading-relaxed">
-          Terima kasih sudah melapor. Tim kami akan meninjau laporan kamu dan memverifikasi sebelum dipublikasikan.
-        </p>
+  const handleVerifyOtp = async () => {
+    if (!otp.trim()) return;
+    setOtpLoading(true);
+    setError('');
+    try {
+      await verifyOtp(phone.trim(), otp.trim());
+      setStep('otp'); // trigger useEffect untuk auto-submit
+    } catch (err: any) {
+      setError(err.message || 'OTP salah atau expired.');
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
-        <div className="bg-blue-50 rounded-xl p-4 text-left text-sm mb-5">
-          <p className="font-medium text-blue-800 mb-2">🔒 Privasimu terlindungi</p>
-          <p className="text-blue-700 text-xs leading-relaxed">
-            Nomor WA kamu <strong>tidak akan dipublikasikan</strong>. Hanya admin tertentu yang bisa mengakses identitasmu, dan setiap akses dicatat dalam audit log.
-          </p>
-        </div>
+  const resetForm = () => {
+    setStep('form');
+    setTitle(''); setBody(''); setCategory('');
+    setTosAccepted(false); setError(''); setPhotos([]);
+    setPhone(''); setOtp(''); setOtpSent(false);
+  };
 
-        {notificationOptIn && (
-          <div className="bg-green-50 rounded-xl p-3 text-sm text-green-700 mb-4">
-            📲 Kamu akan dapat notifikasi WA saat laporan diproses
+  // ── SUCCESS ──────────────────────────────────────────────────────
+  if (step === 'success') {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
+        <div className="text-center">
+          <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
+            <svg className="h-8 w-8 text-[#1B6B4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M20 6L9 17l-5-5" />
+            </svg>
           </div>
-        )}
-
-        <div className="space-y-2">
-          <Link href="/my-reports"
-            className="block w-full bg-orange-500 text-white py-2.5 rounded-xl font-medium text-sm">
-            Pantau Status Laporan →
-          </Link>
-          <Link href="/"
-            className="block w-full bg-gray-100 text-gray-700 py-2.5 rounded-xl font-medium text-sm">
-            Kembali ke Beranda
-          </Link>
+          <h2 className="text-lg font-semibold text-gray-900">Laporan Terkirim!</h2>
+          <p className="mt-1 text-sm text-gray-500">Tim moderasi akan meninjau dalam 1×24 jam.</p>
+          <p className="mt-1 text-xs text-gray-400">
+            🔒 Identitasmu dilindungi sesuai pilihan anonimitas yang kamu pilih.
+          </p>
+          <button onClick={resetForm} className="mt-4 rounded-lg bg-[#1B6B4A] px-5 py-2 text-sm font-medium text-white">
+            Buat Laporan Lagi
+          </button>
         </div>
       </div>
-    </div>
-  )
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="mx-auto max-w-lg px-4 py-6">
       {/* Header */}
-      <div className="bg-white border-b sticky top-0 z-10">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href="/" className="text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </Link>
-          <div>
-            <h1 className="text-lg font-bold text-gray-900">BALAPOR</h1>
-            <p className="text-xs text-gray-400">Laporan Warga Maluku Utara</p>
-          </div>
-        </div>
+      <div className="mb-4">
+        <h1 className="text-xl font-bold text-[#1B6B4A]">BALAPOR</h1>
+        <p className="text-sm text-gray-500">Laporkan masalah di sekitarmu</p>
+        {user && (
+          <p className="mt-1 text-xs text-[#1B6B4A]">
+            ✓ Login sebagai +{user.phone}
+          </p>
+        )}
       </div>
 
-      <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
+      {/* ── STEP 1: FORM ── */}
+      {step === 'form' && (
+        <div className="space-y-4">
 
-        {/* Privacy notice — di atas form */}
-        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-          <div className="flex gap-3">
-            <span className="text-xl">🔒</span>
-            <div>
-              <p className="font-semibold text-blue-800 text-sm mb-1">Identitasmu dilindungi</p>
-              <p className="text-xs text-blue-700 leading-relaxed">
-                Nomor WA kamu <strong>tidak akan dipublikasikan</strong>. Laporan yang disetujui akan ditulis ulang oleh tim editor sebelum jadi artikel berita. Identitas hanya bisa diakses oleh Super Admin dengan audit log.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Form */}
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-5">
-
-          {/* Kategori */}
+          {/* Anonymity */}
           <div>
-            <label className="text-sm font-semibold text-gray-800 block mb-2">
-              Kategori Laporan <span className="text-red-500">*</span>
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map(cat => (
+            <label className="text-sm font-medium text-gray-700">Tingkat Identitas</label>
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              {(['anonim', 'pseudonym', 'nama_terang'] as const).map((level) => (
                 <button
-                  key={cat.key}
-                  type="button"
-                  onClick={() => setCategory(cat.key)}
-                  className={`text-left p-3 rounded-xl border transition-colors ${
-                    category === cat.key
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-gray-200 hover:border-gray-300'
+                  key={level}
+                  onClick={() => setAnonymity(level)}
+                  className={`rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                    anonymity === level ? 'bg-[#1B6B4A] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  <p className="text-sm font-medium text-gray-800">{cat.label}</p>
-                  <p className="text-xs text-gray-400 mt-0.5 leading-tight">{cat.desc}</p>
-                  {cat.requirePhoto && (
-                    <span className="text-xs text-orange-500 mt-1 block">📷 Foto wajib</span>
-                  )}
+                  {level === 'anonim' ? '🕵️ Anonim' : level === 'pseudonym' ? '✏️ Nama Samaran' : '👤 Nama Terang'}
                 </button>
               ))}
             </div>
+            <p className="mt-1 text-xs text-gray-400">
+              {anonymity === 'anonim'
+                ? 'Identitasmu tersembunyi dari publik.'
+                : anonymity === 'pseudonym'
+                ? 'Nama samaran ditampilkan, bukan nama asli.'
+                : 'Namamu akan ditampilkan di laporan.'}
+            </p>
+            {/* Privacy notice */}
+            <div className="mt-2 flex items-start gap-2 rounded-lg bg-green-50 px-3 py-2">
+              <span className="text-sm">🔒</span>
+              <p className="text-xs text-green-700">
+                Apapun pilihanmu, nomor WA kamu tidak pernah ditampilkan ke publik.
+              </p>
+            </div>
           </div>
 
-          {/* Judul */}
+          {/* Category */}
           <div>
-            <label className="text-sm font-semibold text-gray-800 block mb-1.5">
-              Judul Laporan <span className="text-red-500">*</span>
-            </label>
+            <label className="text-sm font-medium text-gray-700">Kategori</label>
+            <div className="mt-1.5 grid grid-cols-2 gap-2">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat.key}
+                  onClick={() => setCategory(cat.key)}
+                  className={`rounded-lg px-3 py-2.5 text-left text-xs font-medium transition-colors ${
+                    category === cat.key ? 'bg-[#1B6B4A] text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
+            </div>
+
+          </div>
+
+          {/* Title */}
+          <div>
+            <label className="text-sm font-medium text-gray-700">Judul Laporan</label>
             <input
               type="text"
               value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Contoh: Jalan rusak parah di depan SDN 5 Ternate"
-              maxLength={150}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-400"
-            />
-            <p className="text-xs text-gray-400 mt-1 text-right">{title.length}/150</p>
-          </div>
-
-          {/* Lokasi */}
-          <div>
-            <label className="text-sm font-semibold text-gray-800 block mb-1.5">
-              Lokasi Kejadian
-              <span className="text-xs text-gray-400 font-normal ml-2">
-                (semakin detail, semakin mudah ditindaklanjuti)
-              </span>
-            </label>
-            <input
-              type="text"
-              value={location}
-              onChange={e => setLocation(e.target.value)}
-              placeholder="Contoh: Jl. Sultan Baab RT 03, Kel. Soa-Sio, Ternate Utara"
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-orange-400"
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Contoh: Jalan rusak di depan RSUD Ternate"
+              className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[#1B6B4A]"
             />
           </div>
 
-          {/* Isi laporan */}
+          {/* Body */}
           <div>
-            <label className="text-sm font-semibold text-gray-800 block mb-1.5">
-              Isi Laporan <span className="text-red-500">*</span>
-            </label>
+            <label className="text-sm font-medium text-gray-700">Isi Laporan</label>
             <textarea
-              value={content}
-              onChange={e => setContent(e.target.value)}
-              placeholder="Ceritakan apa yang terjadi, sejak kapan, dampaknya seperti apa, dan harapanmu..."
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Jelaskan masalah dengan detail: lokasi, waktu, dampak yang dirasakan..."
               rows={5}
-              maxLength={2000}
-              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-orange-400"
+              className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none transition-colors focus:border-[#1B6B4A]"
             />
-            <p className="text-xs text-gray-400 mt-1 text-right">{content.length}/2000</p>
+            <p className="mt-1 text-right text-xs text-gray-400">{body.length} karakter</p>
           </div>
 
-          {/* Upload foto */}
-          <div>
-            <label className="text-sm font-semibold text-gray-800 block mb-1.5">
-              Foto Bukti
-              {selectedCategory?.requirePhoto
-                ? <span className="text-red-500 ml-1">* (wajib untuk kategori ini)</span>
-                : <span className="text-gray-400 font-normal ml-2">(opsional, maks 5 foto)</span>
-              }
-            </label>
-            <div className="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center">
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={handlePhotoChange}
-                className="hidden"
-                id="photo-upload"
-              />
-              <label htmlFor="photo-upload" className="cursor-pointer">
-                <div className="text-2xl mb-1">📷</div>
-                <p className="text-sm text-gray-500">Tap untuk upload foto</p>
-                <p className="text-xs text-gray-400">JPG, PNG, maks 5MB per foto</p>
-              </label>
-            </div>
+          {/* Upload Foto */}
+          <ImageUpload
+            bucket="reports"
+            onUpload={(urls) => setPhotos(urls)}
+            label={photoRequired ? 'Foto Bukti (Wajib — min. 1 foto)' : 'Foto Bukti (Opsional)'}
+            maxFiles={3}
+          />
+          {photoRequired && photos.length === 0 && (
+            <p className="text-xs text-amber-600 -mt-2">
+              ⚠️ Kategori ini memerlukan minimal 1 foto sebagai bukti
+            </p>
+          )}
 
-            {photoPreviews.length > 0 && (
-              <div className="flex gap-2 mt-3 overflow-x-auto">
-                {photoPreviews.map((src, i) => (
-                  <div key={i} className="relative shrink-0">
-                    <img src={src} alt={`Foto ${i + 1}`}
-                      className="w-20 h-20 rounded-xl object-cover" />
-                    <button
-                      onClick={() => removePhoto(i)}
-                      className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs"
-                    >×</button>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Notifikasi opt-in */}
-          <div className="border border-gray-100 rounded-xl p-4 bg-gray-50">
-            <div className="flex items-start gap-3">
-              <button
-                type="button"
-                onClick={() => setNotificationOptIn(!notificationOptIn)}
-                className={`mt-0.5 relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${
-                  notificationOptIn ? 'bg-orange-500' : 'bg-gray-300'
-                }`}
-              >
-                <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                  notificationOptIn ? 'translate-x-5' : 'translate-x-0'
-                }`} />
-              </button>
-              <div>
-                <p className="text-sm font-medium text-gray-800">Notifikasi WA</p>
-                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
-                  {notificationOptIn
-                    ? 'Aktif — kamu akan dapat update via WA saat laporan diproses. Nomor WA kamu akan tercatat di sistem notifikasi kami, namun tidak dipublikasikan.'
-                    : 'Nonaktif — status laporan bisa dipantau di halaman "Laporan Saya" tanpa notifikasi WA.'}
-                </p>
-              </div>
-            </div>
-          </div>
-
+          <button
+            onClick={() => setStep('tos')}
+            disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0)}
+            className="w-full rounded-xl bg-[#1B6B4A] py-3 text-sm font-semibold text-white disabled:opacity-40"
+          >
+            Lanjut ke Syarat & Ketentuan →
+          </button>
         </div>
+      )}
 
-        {/* Submit */}
-        <button
-          onClick={handleSubmit}
-          disabled={!isFormValid() || submitting || uploadingPhotos}
-          className="w-full bg-orange-500 text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {submitting || uploadingPhotos
-            ? <span className="flex items-center justify-center gap-2">
-                <span className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                {uploadingPhotos ? 'Mengupload foto...' : 'Mengirim laporan...'}
-              </span>
-            : '📢 Kirim Laporan'}
-        </button>
+      {/* ── STEP 2: TOS ── */}
+      {step === 'tos' && (
+        <div className="space-y-4">
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+            <h3 className="font-semibold text-gray-900">Syarat & Ketentuan BALAPOR</h3>
+            <ol className="mt-3 space-y-2">
+              {TOS_ITEMS.map((item, i) => (
+                <li key={i} className="flex gap-2 text-sm text-gray-600">
+                  <span className="shrink-0 font-medium text-[#1B6B4A]">{i + 1}.</span>
+                  {item}
+                </li>
+              ))}
+            </ol>
+          </div>
 
-        <p className="text-xs text-gray-400 text-center pb-4">
-          Dengan mengirim laporan, kamu menyetujui bahwa laporan akan ditinjau tim sebelum dipublikasikan.
-        </p>
-      </div>
+          <label className="flex cursor-pointer items-start gap-3">
+            <input
+              type="checkbox"
+              checked={tosAccepted}
+              onChange={(e) => setTosAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[#1B6B4A]"
+            />
+            <span className="text-sm text-gray-700">
+              Saya menyetujui syarat & ketentuan di atas dan bertanggung jawab atas isi laporan ini.
+            </span>
+          </label>
+
+          {error && (
+            <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => setStep('form')}
+              className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600"
+            >
+              ← Kembali
+            </button>
+            <button
+              onClick={handleTosNext}
+              disabled={!tosAccepted || loading}
+              className="flex-1 rounded-xl bg-[#1B6B4A] py-3 text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {loading ? 'Mengirim...' : user ? 'Kirim Laporan' : 'Lanjut →'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── STEP 3: LOGIN (belum login) ── */}
+      {step === 'login' && (
+        <div className="space-y-4">
+          {/* Info card */}
+          <div className="rounded-xl border border-[#1B6B4A]/20 bg-green-50 p-4 text-center">
+            <div className="mb-2 text-3xl">📱</div>
+            <h3 className="font-semibold text-gray-900">Satu langkah lagi!</h3>
+            <p className="mt-1 text-sm text-gray-600">
+              Login via WhatsApp untuk mengirim laporanmu.
+              <strong> Data laporan kamu sudah tersimpan, tidak akan hilang.</strong>
+            </p>
+            <div className="mt-3 flex items-start gap-2 rounded-lg bg-white px-3 py-2 text-left">
+              <span className="text-sm">🔒</span>
+              <p className="text-xs text-gray-500">
+                Nomor WA mu tidak dipublish dan identitasmu dilindungi sesuai tingkat anonimitas yang kamu pilih tadi.
+              </p>
+            </div>
+          </div>
+
+          {!otpSent ? (
+            <>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Nomor WhatsApp</label>
+                <div className="mt-1.5 flex gap-2">
+                  <span className="flex items-center rounded-xl border border-gray-200 bg-gray-50 px-3 text-sm text-gray-500">
+                    +62
+                  </span>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleRequestOtp()}
+                    placeholder="8123456789"
+                    className="flex-1 rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#1B6B4A]"
+                  />
+                </div>
+              </div>
+
+              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+              <div className="flex gap-2">
+                <button onClick={() => setStep('tos')} className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600">
+                  ← Kembali
+                </button>
+                <button
+                  onClick={handleRequestOtp}
+                  disabled={!phone.trim() || otpLoading}
+                  className="flex-1 rounded-xl bg-[#1B6B4A] py-3 text-sm font-semibold text-white disabled:opacity-40"
+                >
+                  {otpLoading ? 'Mengirim...' : 'Kirim OTP via WA'}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div>
+                <label className="text-sm font-medium text-gray-700">Kode OTP</label>
+                <p className="text-xs text-gray-400">Dikirim ke WhatsApp +62{phone}</p>
+                <input
+                  type="text"
+                  value={otp}
+                  onChange={(e) => setOtp(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
+                  placeholder="6 digit kode OTP"
+                  maxLength={6}
+                  className="mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-center text-lg font-bold tracking-widest outline-none focus:border-[#1B6B4A]"
+                  autoFocus
+                />
+              </div>
+
+              {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
+
+              <button
+                onClick={handleVerifyOtp}
+                disabled={otp.length < 4 || otpLoading}
+                className="w-full rounded-xl bg-[#1B6B4A] py-3 text-sm font-semibold text-white disabled:opacity-40"
+              >
+                {otpLoading ? 'Memverifikasi...' : 'Verifikasi & Kirim Laporan'}
+              </button>
+
+              <button
+                onClick={() => { setOtpSent(false); setOtp(''); setError(''); }}
+                className="w-full text-center text-xs text-gray-400"
+              >
+                Ganti nomor atau kirim ulang OTP
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* ── STEP OTP (auto-submit loading) ── */}
+      {step === 'otp' && (
+        <div className="flex min-h-[40vh] items-center justify-center">
+          <div className="text-center">
+            <div className="mx-auto mb-3 h-10 w-10 animate-spin rounded-full border-4 border-[#1B6B4A] border-t-transparent" />
+            <p className="text-sm text-gray-500">Mengirim laporan...</p>
+          </div>
+        </div>
+      )}
     </div>
-  )
-}
-
-export default function BalaporPage() {
-  return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-orange-500" />
-    </div>}>
-      <BalaporFormContent />
-    </Suspense>
-  )
+  );
 }
