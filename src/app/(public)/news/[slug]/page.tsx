@@ -16,6 +16,23 @@ async function getArticle(slug: string) {
   } catch { return null; }
 }
 
+async function getRelatedArticles(category: string, currentSlug: string) {
+  try {
+    const res = await fetch(`${API}/content/articles?category=${category}&limit=4`, { next: { revalidate: 120 } });
+    const data = await res.json();
+    if (!data.success) return [];
+    return (data.data ?? []).filter((a: any) => a.slug !== currentSlug).slice(0, 3);
+  } catch { return []; }
+}
+
+async function getStats() {
+  try {
+    const res = await fetch(`${API}/public/stats`, { next: { revalidate: 60 } });
+    const data = await res.json();
+    return data.data ?? null;
+  } catch { return null; }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
@@ -37,7 +54,16 @@ function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-// Fix: handle raw JSON from old Groq
+function timeAgo(dateStr: string) {
+  if (!dateStr) return '';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const h = Math.floor(diff / 3600000);
+  const d = Math.floor(diff / 86400000);
+  if (h < 1) return 'Baru saja';
+  if (h < 24) return `${h} jam lalu`;
+  return `${d} hari lalu`;
+}
+
 function parseBody(raw: string): string {
   if (!raw) return '';
   try {
@@ -61,7 +87,6 @@ function renderBody(raw: string): string {
   return body.split(/\n\n+/).filter(p => p.trim()).map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
 }
 
-// In-article ad (server component version — no interactivity needed)
 function InArticleAd() {
   return (
     <div className="my-6 bg-gray-50 border border-dashed border-gray-200 rounded-xl p-4 flex items-center justify-between gap-4">
@@ -78,15 +103,204 @@ function InArticleAd() {
   );
 }
 
-function shareToFB(url: string) {
-  const fbUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
-  window.open(fbUrl, '_blank', 'width=600,height=400');
+// ================================================================
+// Context-aware service grid — urutan berubah sesuai kategori artikel
+// ================================================================
+const ALL_SERVICES = [
+  {
+    id: 'bapasiar',
+    icon: '🚢',
+    color: '#0891B2',
+    bg: '#E0F2FE',
+    label: 'Cek Jadwal Speed',
+    desc: 'Lihat jadwal speedboat Ternate – Tidore',
+    href: '/transport',
+    categories: ['transportasi', 'pelayaran', 'travel'],
+  },
+  {
+    id: 'basumbang',
+    icon: '🤲',
+    color: '#059669',
+    bg: '#D1FAE5',
+    label: 'Baku Bantu Donasi',
+    desc: 'Bantu sesama warga Maluku Utara',
+    href: '/fundraising',
+    categories: ['sosial', 'kemanusiaan', 'kesehatan', 'bencana'],
+  },
+  {
+    id: 'bakos',
+    icon: '📢',
+    color: '#D97706',
+    bg: '#FEF3C7',
+    label: 'Promosi Usaha',
+    desc: 'Pasang iklan & jangkau lebih banyak warga',
+    href: '/listings',
+    categories: ['ekonomi', 'umkm', 'bisnis', 'properti'],
+  },
+  {
+    id: 'balapor',
+    icon: '📋',
+    color: '#DC2626',
+    bg: '#FEE2E2',
+    label: 'Lapor Kejadian',
+    desc: 'Laporkan kejadian di sekitar torang',
+    href: '/reports',
+    categories: ['kriminal', 'infrastruktur', 'lingkungan', 'politik'],
+  },
+];
+
+function getOrderedServices(category: string) {
+  const cat = (category || '').toLowerCase();
+  const primary = ALL_SERVICES.find(s => s.categories.some(c => cat.includes(c)));
+  if (!primary) return ALL_SERVICES;
+  return [primary, ...ALL_SERVICES.filter(s => s.id !== primary.id)];
 }
+
+// ================================================================
+// Bottom Section Components
+// ================================================================
+
+function RelatedArticles({ articles }: { articles: any[] }) {
+  if (!articles.length) return null;
+  return (
+    <div className="mt-10 border-t border-gray-100 pt-8">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
+          📰 Masih ada kabar penting lainnya...
+        </h3>
+        <Link href="/news" className="text-xs text-[#003526] font-semibold hover:underline">
+          Lihat semua →
+        </Link>
+      </div>
+      <div className="flex flex-col gap-3">
+        {articles.map((a: any) => (
+          <Link key={a.id} href={`/news/${a.slug}`}
+            className="flex gap-3 items-start group hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors">
+            <div className="w-20 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
+              {a.cover_image_url
+                ? <img src={a.cover_image_url} alt={a.title} className="w-full h-full object-cover" />
+                : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl">📰</div>
+              }
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2 group-hover:text-[#003526] transition-colors">
+                {a.title}
+              </p>
+              <p className="text-xs text-gray-400 mt-1">{timeAgo(a.published_at)}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ServiceGrid({ category }: { category: string }) {
+  const services = getOrderedServices(category);
+  return (
+    <div className="mt-10 bg-[#F9FAFB] rounded-2xl p-5">
+      <p className="text-sm font-bold text-gray-800 mb-1">
+        Butuh sesuatu? <span className="text-[#003526]">Teraloka ada untuk torang</span> 🤝
+      </p>
+      <p className="text-xs text-gray-400 mb-4">Semua layanan warga Maluku Utara dalam satu platform</p>
+      <div className="grid grid-cols-2 gap-3">
+        {services.map((s) => (
+          <Link key={s.id} href={s.href}
+            className="flex flex-col gap-2 bg-white rounded-xl p-3 border border-gray-100 hover:border-[#003526]/20 hover:shadow-sm transition-all group">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+              style={{ background: s.bg }}>
+              {s.icon}
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-800 leading-tight group-hover:text-[#003526] transition-colors">
+                {s.label}
+              </p>
+              <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{s.desc}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function SocialProof({ stats }: { stats: any }) {
+  const items = [
+    { value: stats?.donations_today ? `${stats.donations_today.toLocaleString('id-ID')}+` : '—', label: 'Orang bantu hari ini', icon: '👥' },
+    { value: stats?.reports_this_week ? `${stats.reports_this_week}` : '—', label: 'Laporan masuk minggu ini', icon: '📋' },
+    { value: stats?.transport_checks_today ? `${stats.transport_checks_today}+` : '500+', label: 'Cek jadwal hari ini', icon: '🚢' },
+  ];
+  return (
+    <div className="mt-5 bg-white border border-gray-100 rounded-2xl p-5">
+      <p className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-1">
+        👥 Torang samua lagi bergerak <span className="text-[#003526]">💚</span>
+      </p>
+      <div className="grid grid-cols-3 gap-3 text-center">
+        {items.map((item, i) => (
+          <div key={i}>
+            <p className="text-lg font-black text-[#003526]">{item.value}</p>
+            <p className="text-[10px] text-gray-400 leading-tight mt-0.5">{item.label}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function BasumbangCTA() {
+  return (
+    <div className="mt-5 bg-[#003526] rounded-2xl p-5 relative overflow-hidden">
+      <div className="absolute top-0 right-0 text-6xl opacity-10 leading-none">🤲</div>
+      <p className="text-white font-bold text-base mb-1">Mari bantu, sekecil apapun berarti</p>
+      <p className="text-[#95d3ba] text-xs mb-4 leading-relaxed">
+        Banyak yang butuh uluran tangan di sekitar torang.
+      </p>
+      <Link href="/fundraising"
+        className="block text-center bg-white text-[#003526] text-sm font-black px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
+        Baku Bantu Sekarang →
+      </Link>
+    </div>
+  );
+}
+
+function NativeAd() {
+  return (
+    <div className="mt-5 bg-white border border-gray-100 rounded-2xl p-4">
+      <div className="flex items-start gap-3">
+        <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center text-2xl shrink-0">📦</div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-[10px] font-black text-[#003526] border border-[#003526]/30 px-1.5 py-0.5 rounded-full">Mitra</span>
+          </div>
+          <p className="text-sm font-bold text-gray-800 leading-snug">
+            Iklankan Bisnis Kamu di BAKABAR TeraLoka
+          </p>
+          <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+            Jangkau ribuan warga Maluku Utara setiap hari melalui platform berita lokal terpercaya.
+          </p>
+          <a href="mailto:ads@teraloka.com"
+            className="inline-block mt-2 text-xs font-bold text-[#003526] hover:underline">
+            Hubungi kami → ads@teraloka.com
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ================================================================
+// Main Page
+// ================================================================
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const article = await getArticle(slug);
+  const [article, stats] = await Promise.all([
+    getArticle(slug),
+    getStats(),
+  ]);
   if (!article) notFound();
+
+  const relatedArticles = await getRelatedArticles(article.category, slug);
 
   const shareUrl = `${APP_URL}/news/${slug}`;
   const shareText = encodeURIComponent(`📰 ${article.title}\n\n${shareUrl}`);
@@ -102,18 +316,16 @@ export default async function ArticlePage({ params }: Props) {
         .article-body h3 { font-size: 1.1em; font-weight: 600; color: #222; margin: 1.5em 0 0.5em; }
         .article-body strong { color: #111; font-weight: 600; }
         .article-body a { color: #003526; text-decoration: underline; }
+        .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       `}</style>
-
-      {/* Breadcrumb sederhana — tidak sticky, Navbar utama yang handle navigasi */}
 
       <div className="max-w-4xl mx-auto px-4">
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
 
-          {/* Main content */}
+          {/* ── Main content ── */}
           <article className="lg:col-span-8 pt-28 pb-16">
 
-  
-          {/* Category + badges */}
+            {/* Category + badges */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {article.is_breaking && (
                 <span className="flex items-center gap-1 text-xs font-black text-red-600 bg-red-50 px-3 py-1 rounded-full">
@@ -121,10 +333,14 @@ export default async function ArticlePage({ params }: Props) {
                 </span>
               )}
               {article.category && (
-                <span className="text-xs font-bold uppercase tracking-wider text-[#003526] bg-[#003526]/8 px-3 py-1 rounded-full">{article.category}</span>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#003526] bg-[#003526]/8 px-3 py-1 rounded-full">
+                  {article.category}
+                </span>
               )}
               {article.source === 'balapor' && (
-                <span className="text-xs font-semibold text-[#0891B2] bg-[#0891B2]/8 px-3 py-1 rounded-full">📢 Laporan Warga</span>
+                <span className="text-xs font-semibold text-[#0891B2] bg-[#0891B2]/8 px-3 py-1 rounded-full">
+                  📢 Laporan Warga
+                </span>
               )}
             </div>
 
@@ -142,7 +358,9 @@ export default async function ArticlePage({ params }: Props) {
               <span className="font-semibold text-gray-700">{article.author?.name || 'Redaksi TeraLoka'}</span>
               <span>·</span>
               <span>{formatDate(article.published_at || article.created_at)}</span>
-              {article.view_count > 0 && <><span>·</span><span>{article.view_count.toLocaleString('id-ID')} views</span></>}
+              {article.view_count > 0 && (
+                <><span>·</span><span>{article.view_count.toLocaleString('id-ID')} views</span></>
+              )}
             </div>
 
             {/* Cover */}
@@ -175,7 +393,9 @@ export default async function ArticlePage({ params }: Props) {
             {article.tags?.length > 0 && (
               <div className="mt-6 flex flex-wrap gap-2">
                 {article.tags.map((tag: string) => (
-                  <span key={tag} className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1.5 rounded-full">#{tag}</span>
+                  <span key={tag} className="bg-gray-100 text-gray-500 text-xs font-semibold px-3 py-1.5 rounded-full">
+                    #{tag}
+                  </span>
                 ))}
               </div>
             )}
@@ -193,7 +413,7 @@ export default async function ArticlePage({ params }: Props) {
             {/* Share */}
             <div className="mt-8 bg-gray-50 rounded-2xl p-5 text-center">
               <p className="text-sm font-semibold text-gray-700 mb-3">Bagikan artikel ini</p>
-              <div className="flex gap-2 justify-center">
+              <div className="flex gap-2 justify-center flex-wrap">
                 <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-green-500 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-green-600 transition-colors">
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
@@ -211,12 +431,21 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             </div>
 
-            <div className="mt-6 text-center">
-              <Link href="/news" className="text-sm text-[#003526] font-semibold hover:underline">← Baca berita lainnya di BAKABAR</Link>
+            {/* ── BOTTOM SECTION ── */}
+            <RelatedArticles articles={relatedArticles} />
+            <ServiceGrid category={article.category} />
+            <SocialProof stats={stats} />
+            <BasumbangCTA />
+            <NativeAd />
+
+            <div className="mt-8 text-center">
+              <Link href="/news" className="text-sm text-[#003526] font-semibold hover:underline">
+                ← Baca berita lainnya di BAKABAR
+              </Link>
             </div>
           </article>
 
-          {/* Sidebar */}
+          {/* ── Sidebar ── */}
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-24 py-6 space-y-5">
               {/* Sidebar ad */}
@@ -231,12 +460,37 @@ export default async function ArticlePage({ params }: Props) {
                   </a>
                 </div>
               </div>
+
               {/* CTA BALAPOR */}
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
                 <p className="text-[#95d3ba] text-xs mb-3 leading-relaxed">Laporkan via BALAPOR. Identitasmu terlindungi.</p>
-                <Link href="/reports" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">Lapor Sekarang →</Link>
+                <Link href="/reports" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">
+                  Lapor Sekarang →
+                </Link>
               </div>
+
+              {/* Social proof sidebar */}
+              {stats && (
+                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
+                  <p className="text-xs font-bold text-gray-700 mb-3">👥 Torang samua lagi bergerak 💚</p>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Donasi hari ini</span>
+                      <span className="text-xs font-bold text-[#003526]">{stats.donations_today ?? '—'}+</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Laporan minggu ini</span>
+                      <span className="text-xs font-bold text-[#003526]">{stats.reports_this_week ?? '—'}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-xs text-gray-500">Total artikel</span>
+                      <span className="text-xs font-bold text-[#003526]">{stats.total_articles ?? '—'}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Second ad */}
               <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl h-52 flex items-center justify-center">
                 <div className="text-center">
