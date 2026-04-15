@@ -18,8 +18,11 @@ const CATEGORIES = [
   { key: 'viral',        label: 'Viral' },
 ];
 
-// Navbar fixed top-8 (32px) + navbar height ~52px + sedikit gap = 88px
+// Navbar fixed top-8 (32px) + navbar height ~52px = ~88px
 const NAVBAR_OFFSET = 88;
+
+// Threshold scroll progress untuk "near end of article"
+const NEAR_END_THRESHOLD = 70; // persen
 
 function CategoryTabsInner() {
   const pathname     = usePathname();
@@ -30,26 +33,43 @@ function CategoryTabsInner() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [atTop,       setAtTop]       = useState(true);
 
-  const isNewsPage = pathname === '/news';
-  const category   = searchParams.get('category') || 'all';
+  // Aktif di semua halaman BAKABAR: list & artikel
+  const isNewsPage    = pathname === '/news';
+  const isArticlePage = pathname.startsWith('/news/');
+  const showTabs      = isNewsPage || isArticlePage;
 
-  // ── Scroll-aware behavior ─────────────────────────────────
+  // ── Context-aware scroll logic ────────────────────────────
   useEffect(() => {
-    if (!isNewsPage) return;
+    if (!showTabs) return;
 
     function onScroll() {
-      const currentY = window.scrollY;
+      const currentY  = window.scrollY;
+      const docHeight = document.documentElement.scrollHeight;
+      const winHeight = window.innerHeight;
+
+      // Progress baca artikel (0–100%)
+      const scrollProgress = docHeight > winHeight
+        ? (currentY / (docHeight - winHeight)) * 100
+        : 100;
+
+      const nearEnd     = scrollProgress >= NEAR_END_THRESHOLD;
+      const scrollingUp = currentY < lastScrollY - 4;
+      const scrollingDn = currentY > lastScrollY + 4;
 
       setAtTop(currentY < 60);
 
-      if (currentY < 60) {
-        // Di atas — selalu tampil
+      if (nearEnd) {
+        // ── Fase EXPLORE: mendekati akhir artikel ──────────
+        // Tampilkan selalu, bahkan tanpa scroll up
         setVisible(true);
-      } else if (currentY > lastScrollY + 4) {
-        // Scroll down — sembunyikan
+      } else if (scrollingUp) {
+        // ── Fase NAVIGASI: user cari arah lagi ────────────
+        setVisible(true);
+      } else if (scrollingDn && currentY > 120) {
+        // ── Fase READING: user fokus baca ─────────────────
         setVisible(false);
-      } else if (currentY < lastScrollY - 4) {
-        // Scroll up — tampilkan
+      } else if (currentY < 60) {
+        // Di atas halaman — selalu tampil
         setVisible(true);
       }
 
@@ -58,30 +78,29 @@ function CategoryTabsInner() {
 
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [lastScrollY, isNewsPage]);
+  }, [lastScrollY, showTabs]);
 
-  // Hanya render di halaman /news
-  if (!isNewsPage) return null;
+  if (!showTabs) return null;
 
   function setCategory(key: string) {
-    const p = new URLSearchParams(searchParams.toString());
-    if (key === 'all') p.delete('category');
-    else p.set('category', key);
-    // Hapus query search kalau ganti kategori
-    const q = p.get('q');
+    const p = new URLSearchParams();
+    if (key !== 'all') p.set('category', key);
     router.push(`/news?${p.toString()}`);
   }
 
+  const category = searchParams.get('category') || 'all';
+
   return (
     <div
-      className="bg-white border-b border-gray-100"
       style={{
         position: 'sticky',
         top: NAVBAR_OFFSET,
         zIndex: 30,
+        background: '#fff',
+        borderBottom: '1px solid #F3F4F6',
         transform: visible ? 'translateY(0)' : `translateY(calc(-100% - ${NAVBAR_OFFSET}px))`,
         transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: atTop ? 'none' : '0 2px 12px rgba(0,0,0,0.06)',
+        boxShadow: atTop ? 'none' : '0 2px 12px rgba(0,0,0,0.05)',
       }}
     >
       <div className="max-w-4xl mx-auto">
@@ -94,7 +113,7 @@ function CategoryTabsInner() {
               key={cat.key}
               onClick={() => setCategory(cat.key)}
               className={`px-4 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${
-                category === cat.key
+                isNewsPage && category === cat.key
                   ? 'border-[#003526] text-[#003526]'
                   : 'border-transparent text-gray-500 hover:text-gray-800'
               }`}
@@ -108,7 +127,6 @@ function CategoryTabsInner() {
   );
 }
 
-// Wraps in Suspense karena pakai useSearchParams
 export default function CategoryTabs() {
   return (
     <Suspense fallback={null}>
