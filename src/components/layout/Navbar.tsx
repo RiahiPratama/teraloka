@@ -275,8 +275,20 @@ export default function Navbar() {
                 Masuk
               </Link>
               <Link href="/login"
-                className="px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap"
-                style={{ background: 'var(--primary)', boxShadow: '0 4px 16px rgba(53,37,205,0.25)' }}>
+                className="px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-all duration-200 active:scale-[0.96] whitespace-nowrap"
+                style={{ background: 'var(--primary)', boxShadow: '0 4px 16px rgba(0,53,38,0.25)' }}
+                onMouseEnter={e => {
+                  const el = e.currentTarget
+                  el.style.background = '#0891B2'
+                  el.style.boxShadow = '0 6px 24px rgba(8,145,178,0.4)'
+                  el.style.transform = 'translateY(-1px)'
+                }}
+                onMouseLeave={e => {
+                  const el = e.currentTarget
+                  el.style.background = 'var(--primary)'
+                  el.style.boxShadow = '0 4px 16px rgba(0,53,38,0.25)'
+                  el.style.transform = 'none'
+                }}>
                 Daftar Gratis
               </Link>
             </>

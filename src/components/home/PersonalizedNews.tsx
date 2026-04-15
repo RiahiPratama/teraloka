@@ -5,7 +5,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/
 async function getData() {
   try {
     const [articlesRes, statsRes] = await Promise.all([
-      fetch(`${API}/content/articles?limit=2`, { next: { revalidate: 300 } }),
+      fetch(`${API}/content/articles?limit=3`, { next: { revalidate: 300 } }),
       fetch(`${API}/public/stats`, { next: { revalidate: 300 } }),
     ])
     const articlesData = await articlesRes.json()
@@ -52,7 +52,8 @@ export default async function PersonalizedNews() {
   if (articles.length === 0) return null
 
   const featured = articles[0]
-  const article2 = articles[1] ?? null  // artikel 2 — full width
+  const article2 = articles[1] ?? null  // artikel 1 di kolom kanan
+  const article3 = articles[2] ?? null  // artikel 2 di kolom kanan
 
   return (
     <section style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 24px' }}>
@@ -151,6 +152,40 @@ export default async function PersonalizedNews() {
 
           {/* Artikel 2 — full width */}
           {/* (slot ketiga jika ada artikel ke-2 lagi — diisi dari index 1) */}
+
+          {/* Artikel 2 — full width */}
+          {article3 && (
+            <Link href={`/news/${article3.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+              <div style={{
+                display: 'flex', gap: 12, alignItems: 'flex-start',
+                background: '#fff', borderRadius: 16, padding: '14px',
+                border: '1px solid var(--border-light)',
+              }}>
+                <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-low)' }}>
+                  {article3.cover_image_url ? (
+                    <img src={article3.cover_image_url} alt={article3.title}
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'linear-gradient(135deg, rgba(0,53,38,0.08), rgba(8,145,178,0.08))' }}>📰</div>
+                  )}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  {article3.category && (
+                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)' }}>
+                      {article3.category}
+                    </span>
+                  )}
+                  <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4, marginTop: 3, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {article3.title}
+                  </h4>
+                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>
+                    BAKABAR · {timeAgo(article3.published_at)}
+                  </span>
+                </div>
+                <span style={{ color: 'var(--text-light)', fontSize: 14, flexShrink: 0, alignSelf: 'center' }}>→</span>
+              </div>
+            </Link>
+          )}
 
           {/* BALAPOR card — full width di slot ke-3 */}
           <Link href="/reports" style={{ textDecoration: 'none', display: 'block' }}>

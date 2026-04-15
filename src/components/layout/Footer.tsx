@@ -97,8 +97,8 @@ export default function Footer() {
                   }}
                   onMouseEnter={e => {
                     const el = e.currentTarget as HTMLElement
-                    el.style.background = '#E8963A'
-                    el.style.borderColor = '#E8963A'
+                    el.style.background = '#0891B2'
+                    el.style.borderColor = '#0891B2'
                     el.style.transform = 'scale(1.1)'
                   }}
                   onMouseLeave={e => {
