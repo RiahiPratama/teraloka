@@ -1,299 +1,266 @@
-'use client';
+'use client'
 
-import { useEffect, useState, useCallback, Suspense } from 'react';
-import { useSearchParams, useRouter } from 'next/navigation';
-import Link from 'next/link';
+export const dynamic = 'force-dynamic'
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+import { useState, useEffect, Suspense } from 'react'
+import Link from 'next/link'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL!
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com'
+
+interface Article {
+  id: string
+  title: string
+  slug: string
+  excerpt: string
+  category: string
+  photo_url?: string
+  source: string
+  published_at: string
+  author?: { name: string }
+}
 
 const CATEGORIES = [
   { key: 'all', label: 'Semua' },
-  { key: 'berita', label: 'Berita' },
-  { key: 'politik', label: 'Politik' },
-  { key: 'ekonomi', label: 'Ekonomi' },
-  { key: 'sosial', label: 'Sosial' },
-  { key: 'transportasi', label: 'Transportasi' },
-  { key: 'kesehatan', label: 'Kesehatan' },
-  { key: 'pendidikan', label: 'Pendidikan' },
-  { key: 'olahraga', label: 'Olahraga' },
-  { key: 'budaya', label: 'Budaya' },
-  { key: 'teknologi', label: 'Teknologi' },
-];
+  { key: 'infrastruktur', label: '🏗️ Infrastruktur' },
+  { key: 'lingkungan', label: '🌿 Lingkungan' },
+  { key: 'keamanan', label: '🚨 Keamanan' },
+  { key: 'sosial', label: '👥 Sosial' },
+  { key: 'ekonomi', label: '💰 Ekonomi' },
+  { key: 'umum', label: '📋 Umum' }
+]
 
-function timeAgo(dateStr: string) {
-  if (!dateStr) return '—';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m} menit lalu`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} jam lalu`;
-  const d = Math.floor(h / 24);
-  if (d < 7) return `${d} hari lalu`;
-  return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+function shareToWA(title: string, slug: string) {
+  const url = `${APP_URL}/news/${slug}`
+  const text = encodeURIComponent(`📰 ${title}\n\nBaca di TeraLoka:\n${url}`)
+  window.open(`https://wa.me/?text=${text}`, '_blank')
 }
 
-function NewsPageContent() {
-  const searchParams = useSearchParams();
-  const router = useRouter();
+function NewsContent() {
+  const [articles, setArticles] = useState<Article[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [category, setCategory] = useState('all')
+  const [page, setPage] = useState(1)
+  const [hasNext, setHasNext] = useState(false)
+  const [totalArticles, setTotalArticles] = useState(0)
 
-  const [articles, setArticles] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
-  const [search, setSearch] = useState(searchParams.get('q') || '');
-  const category = searchParams.get('category') || 'all';
+  useEffect(() => {
+    setArticles([])
+    setPage(1)
+    fetchArticles(1, category, true)
+  }, [category])
 
-  const fetchArticles = useCallback(async () => {
-    setLoading(true);
+  async function fetchArticles(p: number, cat: string, reset = false) {
+    if (p === 1) setLoading(true)
+    else setLoadingMore(true)
+
     try {
-      const params = new URLSearchParams({ limit: '30' });
-      if (category !== 'all') params.set('category', category);
-      if (search) params.set('q', search);
+      const res = await fetch(`${API_URL}/content/articles?category=${cat}&page=${p}&limit=10`)
+      const data = await res.json()
+      const newArticles = data.articles || []
 
-      const res = await fetch(`${API}/content/articles?${params}`);
-      const data = await res.json();
-      if (data.success) setArticles(data.data ?? []);
+      if (reset) {
+        setArticles(newArticles)
+      } else {
+        setArticles(prev => [...prev, ...newArticles])
+      }
+
+      setHasNext(data.pagination?.has_next || false)
+      setTotalArticles(data.pagination?.total || 0)
+      setPage(p)
     } catch {
-      setArticles([]);
+      if (reset) setArticles([])
     } finally {
-      setLoading(false);
+      setLoading(false)
+      setLoadingMore(false)
     }
-  }, [category, search]);
+  }
 
-  useEffect(() => { fetchArticles(); }, [fetchArticles]);
-
-  const setCategory = (key: string) => {
-    const params = new URLSearchParams();
-    if (key !== 'all') params.set('category', key);
-    if (search) params.set('q', search);
-    router.push(`/news?${params.toString()}`);
-  };
-
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    setSearch(searchInput);
-    const params = new URLSearchParams();
-    if (category !== 'all') params.set('category', category);
-    if (searchInput) params.set('q', searchInput);
-    router.push(`/news?${params.toString()}`);
-  };
-
-  // Breaking news — artikel terbaru dengan is_breaking
-  const breaking = articles.filter(a => a.is_breaking);
-  const regular = articles.filter(a => !a.is_breaking);
+  function loadMore() {
+    fetchArticles(page + 1, category)
+  }
 
   return (
-    <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 16px 60px', fontFamily: "'Outfit', system-ui" }}>
-      <style>{`@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap'); @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }`}</style>
-
+    <div className="min-h-screen bg-gray-50">
       {/* Header */}
-      <div style={{ padding: '20px 0 16px' }}>
-        <h1 style={{ fontSize: 24, fontWeight: 800, color: '#1B6B4A', letterSpacing: '-0.5px' }}>
-          BAKABAR
-        </h1>
-        <p style={{ fontSize: 13, color: '#9CA3AF', marginTop: 2 }}>
-          Berita & informasi terkini Maluku Utara
-        </p>
-      </div>
-
-      {/* Search */}
-      <form onSubmit={handleSearch} style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <input
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          placeholder="Cari berita..."
-          style={{
-            flex: 1, padding: '10px 14px', borderRadius: 20,
-            border: '1px solid #E5E7EB', fontSize: 13, outline: 'none',
-            background: '#F9FAFB',
-          }}
-        />
-        {searchInput && (
-          <button
-            type="button"
-            onClick={() => { setSearchInput(''); setSearch(''); router.push('/news'); }}
-            style={{ padding: '10px 14px', borderRadius: 20, border: '1px solid #E5E7EB', background: '#fff', fontSize: 13, cursor: 'pointer', color: '#6B7280' }}
-          >✕</button>
-        )}
-      </form>
-
-      {/* Category filter */}
-      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 12, marginBottom: 16 }}>
-        {CATEGORIES.map((cat) => (
-          <button
-            key={cat.key}
-            onClick={() => setCategory(cat.key)}
-            style={{
-              padding: '6px 16px', borderRadius: 20, border: 'none',
-              cursor: 'pointer', fontSize: 12, fontWeight: 600,
-              whiteSpace: 'nowrap', flexShrink: 0,
-              background: category === cat.key ? '#1B6B4A' : '#F3F4F6',
-              color: category === cat.key ? '#fff' : '#374151',
-              transition: 'all 0.15s',
-            }}
-          >
-            {cat.label}
-          </button>
-        ))}
-      </div>
-
-      {/* Breaking news */}
-      {breaking.length > 0 && (
-        <div style={{
-          background: '#FEF2F2', border: '1px solid #FECACA',
-          borderRadius: 12, padding: '12px 14px', marginBottom: 20,
-        }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#DC2626', marginBottom: 8, letterSpacing: '0.5px' }}>
-            🔴 BREAKING
-          </div>
-          {breaking.map((item) => (
-            <Link key={item.id} href={`/news/${item.slug}`} style={{ display: 'block', textDecoration: 'none' }}>
-              <p style={{ fontSize: 14, fontWeight: 600, color: '#111827', lineHeight: 1.4 }}>
-                {item.title}
+      <div className="bg-white border-b sticky top-0 z-10">
+        <div className="max-w-3xl mx-auto px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <h1 className="text-lg font-bold text-gray-900">BAKABAR</h1>
+              <p className="text-xs text-gray-400">
+                {totalArticles > 0 ? `${totalArticles} artikel` : 'Berita lokal Maluku Utara'}
               </p>
-            </Link>
-          ))}
-        </div>
-      )}
-
-      {/* Loading skeleton */}
-      {loading && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {[1,2,3,4].map(i => (
-            <div key={i} style={{ display: 'flex', gap: 12, padding: '12px', borderRadius: 12, border: '1px solid #F3F4F6' }}>
-              <div style={{ width: 80, height: 80, borderRadius: 10, background: '#F3F4F6', flexShrink: 0, animation: 'pulse 1.5s infinite' }} />
-              <div style={{ flex: 1 }}>
-                <div style={{ height: 14, background: '#F3F4F6', borderRadius: 6, marginBottom: 8, animation: 'pulse 1.5s infinite' }} />
-                <div style={{ height: 12, width: '70%', background: '#F3F4F6', borderRadius: 6, animation: 'pulse 1.5s infinite' }} />
-              </div>
             </div>
-          ))}
+            <Link href="/" className="text-xs text-gray-400 hover:text-gray-600">← Beranda</Link>
+          </div>
+          {/* Category filter */}
+          <div className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+            {CATEGORIES.map(cat => (
+              <button
+                key={cat.key}
+                onClick={() => setCategory(cat.key)}
+                className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors ${
+                  category === cat.key
+                    ? 'bg-green-600 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {cat.label}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* Empty state */}
-      {!loading && regular.length === 0 && (
-        <div style={{ textAlign: 'center', padding: '60px 24px', background: '#F9FAFB', borderRadius: 16 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📰</div>
-          <p style={{ fontWeight: 700, color: '#374151', fontSize: 16 }}>Belum ada berita</p>
-          <p style={{ color: '#9CA3AF', fontSize: 13, marginTop: 4 }}>
-            {search ? `Tidak ada hasil untuk "${search}"` : 'Belum ada artikel yang dipublish'}
-          </p>
-          <Link href="/reports" style={{
-            display: 'inline-block', marginTop: 16,
-            padding: '10px 20px', borderRadius: 20,
-            background: '#1B6B4A', color: '#fff',
-            fontSize: 13, fontWeight: 600, textDecoration: 'none',
-          }}>
-            Jadi yang pertama melapor →
-          </Link>
-        </div>
-      )}
-
-      {/* Article list */}
-      {!loading && regular.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {regular.map((article, idx) => (
-            <Link
-              key={article.id}
-              href={`/news/${article.slug}`}
-              style={{
-                display: 'flex', gap: 12, textDecoration: 'none',
-                padding: '12px', borderRadius: 14,
-                border: '1px solid #F3F4F6',
-                background: '#fff',
-                transition: 'all 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = '#E5E7EB';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.06)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = '#F3F4F6';
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-            >
-              {/* Cover image */}
-              {article.cover_image_url ? (
-                <div style={{ width: 90, height: 90, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: '#F3F4F6' }}>
-                  <img src={article.cover_image_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                </div>
-              ) : (
-                <div style={{
-                  width: 90, height: 90, borderRadius: 10, flexShrink: 0,
-                  background: 'linear-gradient(135deg, rgba(27,107,74,0.1), rgba(8,145,178,0.1))',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 28,
-                }}>📰</div>
-              )}
-
-              {/* Content */}
-              <div style={{ flex: 1, minWidth: 0 }}>
-                {/* Category badge */}
-                {article.category && (
-                  <span style={{
-                    fontSize: 10, fontWeight: 700, color: '#1B6B4A',
-                    background: 'rgba(27,107,74,0.08)',
-                    padding: '2px 8px', borderRadius: 10,
-                    display: 'inline-block', marginBottom: 5,
-                    textTransform: 'uppercase', letterSpacing: '0.5px',
-                  }}>
-                    {article.category}
-                  </span>
-                )}
-
-                <p style={{
-                  fontSize: 14, fontWeight: 700, color: '#111827',
-                  lineHeight: 1.4, marginBottom: 4,
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical',
-                  overflow: 'hidden',
-                }}>
-                  {article.title}
-                </p>
-
-                {article.excerpt && (
-                  <p style={{
-                    fontSize: 12, color: '#6B7280', lineHeight: 1.5,
-                    display: '-webkit-box',
-                    WebkitLineClamp: 2,
-                    WebkitBoxOrient: 'vertical',
-                    overflow: 'hidden',
-                    marginBottom: 6,
-                  }}>
-                    {article.excerpt}
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, color: '#9CA3AF' }}>
-                  <span>{article.author?.name || 'Redaksi'}</span>
-                  <span>·</span>
-                  <span>{timeAgo(article.published_at)}</span>
-                  {article.source === 'balapor' && (
-                    <>
-                      <span>·</span>
-                      <span style={{ color: '#0891B2', fontWeight: 600 }}>📢 Laporan Warga</span>
-                    </>
-                  )}
+      <div className="max-w-3xl mx-auto px-4 py-5">
+        {loading ? (
+          <div className="space-y-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="bg-white rounded-2xl overflow-hidden animate-pulse">
+                <div className="h-40 bg-gray-200" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-gray-200 rounded w-3/4" />
+                  <div className="h-3 bg-gray-200 rounded w-full" />
+                  <div className="h-3 bg-gray-200 rounded w-2/3" />
                 </div>
               </div>
-            </Link>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        ) : articles.length === 0 ? (
+          <div className="text-center py-16 text-gray-400">
+            <div className="text-4xl mb-2">📰</div>
+            <p>Belum ada artikel di kategori ini</p>
+          </div>
+        ) : (
+          <>
+            {/* Artikel pertama — featured */}
+            {articles[0] && (
+              <div className="bg-white rounded-2xl overflow-hidden mb-4 border border-gray-100">
+                {articles[0].photo_url ? (
+                  <img src={articles[0].photo_url} alt={articles[0].title}
+                    className="w-full h-48 object-cover" />
+                ) : (
+                  <div className="w-full h-32 bg-gradient-to-br from-green-500 to-teal-600 flex items-center justify-center">
+                    <span className="text-4xl">📰</span>
+                  </div>
+                )}
+                <div className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full capitalize">
+                      {articles[0].category}
+                    </span>
+                    {articles[0].source === 'balapor' && (
+                      <span className="text-xs bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full">Laporan Warga</span>
+                    )}
+                  </div>
+                  <Link href={`/news/${articles[0].slug}`}>
+                    <h2 className="font-bold text-gray-900 text-lg leading-snug mb-2 hover:text-green-700 transition-colors">
+                      {articles[0].title}
+                    </h2>
+                  </Link>
+                  <p className="text-sm text-gray-500 line-clamp-2 mb-3">{articles[0].excerpt}</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-gray-400">
+                      {new Date(articles[0].published_at).toLocaleDateString('id-ID', {
+                        day: 'numeric', month: 'long', year: 'numeric'
+                      })}
+                    </span>
+                    <button
+                      onClick={() => shareToWA(articles[0].title, articles[0].slug)}
+                      className="flex items-center gap-1.5 text-xs text-green-600 hover:text-green-700 font-medium"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                      </svg>
+                      Bagikan
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Artikel lainnya */}
+            <div className="space-y-3">
+              {articles.slice(1).map(article => (
+                <div key={article.id} className="bg-white rounded-2xl border border-gray-100 p-4 flex gap-3">
+                  {article.photo_url ? (
+                    <img src={article.photo_url} alt={article.title}
+                      className="w-20 h-20 rounded-xl object-cover shrink-0" />
+                  ) : (
+                    <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-green-100 to-teal-100 flex items-center justify-center shrink-0">
+                      <span className="text-2xl">📰</span>
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full capitalize">
+                        {article.category}
+                      </span>
+                      {article.source === 'balapor' && (
+                        <span className="text-xs text-orange-500">⚡ Laporan</span>
+                      )}
+                    </div>
+                    <Link href={`/news/${article.slug}`}>
+                      <p className="font-semibold text-gray-900 text-sm leading-snug line-clamp-2 hover:text-green-700 transition-colors">
+                        {article.title}
+                      </p>
+                    </Link>
+                    <div className="flex items-center justify-between mt-1.5">
+                      <span className="text-xs text-gray-400">
+                        {new Date(article.published_at).toLocaleDateString('id-ID', {
+                          day: 'numeric', month: 'short'
+                        })}
+                      </span>
+                      <button
+                        onClick={() => shareToWA(article.title, article.slug)}
+                        className="text-xs text-green-600 hover:text-green-700 font-medium"
+                      >
+                        Bagikan →
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Load more */}
+            {hasNext && (
+              <div className="text-center mt-6">
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  className="bg-white border border-gray-200 text-gray-700 px-6 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 disabled:opacity-50 transition-colors"
+                >
+                  {loadingMore ? (
+                    <span className="flex items-center gap-2">
+                      <span className="animate-spin rounded-full h-3 w-3 border-b border-gray-500" />
+                      Memuat...
+                    </span>
+                  ) : 'Muat lebih banyak'}
+                </button>
+              </div>
+            )}
+
+            {!hasNext && articles.length > 0 && (
+              <p className="text-center text-xs text-gray-400 mt-6">
+                Sudah menampilkan semua {totalArticles} artikel
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </div>
-  );
+  )
 }
 
 export default function NewsPage() {
   return (
-    <Suspense fallback={
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh' }}>
-        <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid #1B6B4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
-        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-      </div>
-    }>
-      <NewsPageContent />
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />
+    </div>}>
+      <NewsContent />
     </Suspense>
-  );
+  )
 }
