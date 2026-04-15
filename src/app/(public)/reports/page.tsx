@@ -7,14 +7,62 @@ import ImageUpload from '@/components/ui/ImageUpload';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const CATEGORIES = [
-  { key: 'keamanan',       label: 'Keamanan',      icon: 'security',        color: 'bg-emerald-50 text-emerald-700' },
-  { key: 'infrastruktur',  label: 'Infrastruktur',  icon: 'construction',    color: 'bg-blue-50 text-blue-700' },
-  { key: 'lingkungan',     label: 'Lingkungan',     icon: 'park',            color: 'bg-green-50 text-green-700' },
-  { key: 'layanan_publik', label: 'Layanan Publik', icon: 'account_balance', color: 'bg-purple-50 text-purple-700' },
-  { key: 'kesehatan',      label: 'Kesehatan',      icon: 'local_hospital',  color: 'bg-red-50 text-red-700' },
-  { key: 'pendidikan',     label: 'Pendidikan',     icon: 'school',          color: 'bg-yellow-50 text-yellow-700' },
-  { key: 'transportasi',   label: 'Transportasi',   icon: 'directions_boat', color: 'bg-cyan-50 text-cyan-700' },
-  { key: 'lainnya',        label: 'Lainnya',        icon: 'more_horiz',      color: 'bg-gray-50 text-gray-600' },
+  {
+    key: 'keamanan',
+    label: 'Keamanan',
+    icon: 'security',
+    color: 'bg-emerald-50 text-emerald-700',
+    desc: 'Kamtibmas, pencurian, tindak kriminal, atau aktivitas mencurigakan di lingkungan.',
+  },
+  {
+    key: 'infrastruktur',
+    label: 'Infrastruktur',
+    icon: 'construction',
+    color: 'bg-blue-50 text-blue-700',
+    desc: 'Jalan rusak, lampu mati, jembatan, drainase, atau fasilitas umum yang perlu perbaikan.',
+  },
+  {
+    key: 'lingkungan',
+    label: 'Lingkungan',
+    icon: 'park',
+    color: 'bg-green-50 text-green-700',
+    desc: 'Pembuangan sampah liar, pencemaran air atau udara, penebangan liar, kerusakan alam.',
+  },
+  {
+    key: 'layanan_publik',
+    label: 'Layanan Publik',
+    icon: 'account_balance',
+    color: 'bg-purple-50 text-purple-700',
+    desc: 'Pelayanan pemerintah yang buruk, pungli, antrian tidak wajar, atau birokrasi bermasalah.',
+  },
+  {
+    key: 'kesehatan',
+    label: 'Kesehatan',
+    icon: 'local_hospital',
+    color: 'bg-red-50 text-red-700',
+    desc: 'Fasilitas kesehatan rusak, penolakan pasien, makanan berbahaya, atau wabah penyakit.',
+  },
+  {
+    key: 'pendidikan',
+    label: 'Pendidikan',
+    icon: 'school',
+    color: 'bg-yellow-50 text-yellow-700',
+    desc: 'Gedung sekolah rusak, pungutan liar, diskriminasi, atau kualitas pendidikan yang rendah.',
+  },
+  {
+    key: 'transportasi',
+    label: 'Transportasi',
+    icon: 'directions_boat',
+    color: 'bg-cyan-50 text-cyan-700',
+    desc: 'Speedboat atau kapal tidak layak, tarif tidak wajar, pelabuhan bermasalah, atau keselamatan pelayaran.',
+  },
+  {
+    key: 'lainnya',
+    label: 'Lainnya',
+    icon: 'more_horiz',
+    color: 'bg-gray-50 text-gray-600',
+    desc: 'Laporan yang tidak masuk kategori di atas namun tetap perlu perhatian publik.',
+  },
 ];
 
 const PHOTO_REQUIRED = ['infrastruktur', 'lingkungan'];
@@ -29,9 +77,9 @@ const TOS_ITEMS = [
 ];
 
 const ANONYMITY = [
-  { key: 'anonim',      label: 'Anonim',        icon: 'masks',        desc: 'Identitasmu tersembunyi sepenuhnya.' },
-  { key: 'pseudonym',   label: 'Nama Samaran',  icon: 'person_outline', desc: 'Nama samaran ditampilkan.' },
-  { key: 'nama_terang', label: 'Nama Terang',   icon: 'badge',        desc: 'Namamu ditampilkan di laporan.' },
+  { key: 'anonim',      label: 'Anonim',       icon: 'masks',        desc: 'Identitasmu tersembunyi sepenuhnya dari publik.' },
+  { key: 'pseudonym',   label: 'Nama Samaran', icon: 'person_outline', desc: 'Nama samaran ditampilkan, bukan nama asli.' },
+  { key: 'nama_terang', label: 'Nama Terang',  icon: 'badge',        desc: 'Namamu akan ditampilkan di laporan.' },
 ] as const;
 
 export default function ReportsPage() {
@@ -55,6 +103,7 @@ export default function ReportsPage() {
   const [otpLoading, setOtpLoading] = useState(false);
 
   const photoRequired = PHOTO_REQUIRED.includes(category);
+  const selectedCat = CATEGORIES.find(c => c.key === category);
 
   useEffect(() => {
     if (user && token && step === 'otp') handleSubmit(token);
@@ -63,12 +112,11 @@ export default function ReportsPage() {
   const handleSubmit = async (authToken?: string) => {
     const tkn = authToken || token;
     if (!tkn) return;
-    setLoading(true);
-    setError('');
+    setLoading(true); setError('');
     try {
       const res = await fetch(`${API}/content/reports`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${tkn}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tkn}` },
         body: JSON.stringify({
           anonymity_level: anonymity,
           pseudonym: anonymity === 'pseudonym' ? pseudonym.trim() : undefined,
@@ -79,11 +127,8 @@ export default function ReportsPage() {
       const data = await res.json();
       if (res.ok) setStep('success');
       else setError(data.error?.message ?? 'Gagal mengirim laporan.');
-    } catch {
-      setError('Koneksi bermasalah. Coba lagi.');
-    } finally {
-      setLoading(false);
-    }
+    } catch { setError('Koneksi bermasalah. Coba lagi.'); }
+    finally { setLoading(false); }
   };
 
   const handleTosNext = () => {
@@ -95,23 +140,17 @@ export default function ReportsPage() {
   const handleRequestOtp = async () => {
     if (!phone.trim()) return;
     setOtpLoading(true); setError('');
-    try {
-      await requestOtp(phone.trim());
-      setOtpSent(true);
-    } catch (err: any) {
-      setError(err.message || 'Gagal kirim OTP.');
-    } finally { setOtpLoading(false); }
+    try { await requestOtp(phone.trim()); setOtpSent(true); }
+    catch (err: any) { setError(err.message || 'Gagal kirim OTP.'); }
+    finally { setOtpLoading(false); }
   };
 
   const handleVerifyOtp = async () => {
     if (!otp.trim()) return;
     setOtpLoading(true); setError('');
-    try {
-      await verifyOtp(phone.trim(), otp.trim());
-      setStep('otp');
-    } catch (err: any) {
-      setError(err.message || 'OTP salah atau expired.');
-    } finally { setOtpLoading(false); }
+    try { await verifyOtp(phone.trim(), otp.trim()); setStep('otp'); }
+    catch (err: any) { setError(err.message || 'OTP salah atau expired.'); }
+    finally { setOtpLoading(false); }
   };
 
   const resetForm = () => {
@@ -120,7 +159,7 @@ export default function ReportsPage() {
     setPhone(''); setOtp(''); setOtpSent(false);
   };
 
-  // SUCCESS
+  // ── SUCCESS ──────────────────────────────────────────────────
   if (step === 'success') return (
     <div className="flex min-h-[70vh] items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
@@ -136,12 +175,8 @@ export default function ReportsPage() {
           </p>
         </div>
         {notifOptIn && <p className="mt-2 text-xs text-gray-400">📲 Notifikasi WA akan dikirim saat laporan diproses.</p>}
-        <button onClick={resetForm} className="mt-6 w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white">
-          Buat Laporan Lagi
-        </button>
-        <a href="/my-reports" className="mt-2 block text-center text-sm text-[#003526] font-medium hover:underline">
-          Pantau status laporan →
-        </a>
+        <button onClick={resetForm} className="mt-6 w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white">Buat Laporan Lagi</button>
+        <a href="/my-reports" className="mt-2 block text-center text-sm text-[#003526] font-medium hover:underline">Pantau status laporan →</a>
       </div>
     </div>
   );
@@ -152,9 +187,7 @@ export default function ReportsPage() {
       <div className="bg-[#003526] px-6 pt-8 pb-10">
         <div className="mx-auto max-w-lg">
           <h1 className="text-2xl font-extrabold tracking-tight text-white">BALAPOR</h1>
-          <p className="mt-1 text-sm text-[#95d3ba] leading-relaxed">
-            Sampaikan laporan secara aman dan terpercaya untuk Maluku Utara yang lebih baik.
-          </p>
+          <p className="mt-1 text-sm text-[#95d3ba] leading-relaxed">Sampaikan laporan secara aman dan terpercaya untuk Maluku Utara yang lebih baik.</p>
           {user && (
             <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
               <span className="material-symbols-outlined text-[#95d3ba] text-sm">verified_user</span>
@@ -201,38 +234,47 @@ export default function ReportsPage() {
                 )}
               </div>
 
-              {/* Kategori */}
+              {/* Kategori — dengan deskripsi */}
               <div>
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Kategori Laporan</p>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   {CATEGORIES.map((cat) => {
                     const [bg, text] = cat.color.split(' ');
+                    const isSelected = category === cat.key;
                     return (
                       <button key={cat.key} onClick={() => setCategory(cat.key)}
-                        className={`flex items-center gap-3 rounded-xl p-3 text-left transition-all border-2 ${
-                          category === cat.key ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                        className={`flex items-start gap-4 rounded-xl p-4 text-left transition-all border-2 ${
+                          isSelected ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
                         }`}>
-                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${category === cat.key ? 'bg-[#003526]' : bg}`}>
-                          <span className={`material-symbols-outlined text-lg ${category === cat.key ? 'text-white' : text}`}>{cat.icon}</span>
+                        <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'bg-[#003526]' : bg}`}>
+                          <span className={`material-symbols-outlined text-xl ${isSelected ? 'text-white' : text}`}>{cat.icon}</span>
                         </div>
-                        <span className={`text-xs font-bold ${category === cat.key ? 'text-[#003526]' : 'text-gray-700'}`}>{cat.label}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between">
+                            <span className={`text-sm font-bold ${isSelected ? 'text-[#003526]' : 'text-gray-800'}`}>{cat.label}</span>
+                            {cat.key === category && (
+                              <span className="material-symbols-outlined text-[#003526] text-lg">check_circle</span>
+                            )}
+                          </div>
+                          <p className={`text-xs mt-0.5 leading-relaxed ${isSelected ? 'text-[#003526]/70' : 'text-gray-400'}`}>{cat.desc}</p>
+                          {PHOTO_REQUIRED.includes(cat.key) && (
+                            <span className="mt-1 inline-flex items-center gap-1 text-xs text-amber-600">
+                              <span className="material-symbols-outlined text-xs">photo_camera</span>
+                              Foto wajib
+                            </span>
+                          )}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
-                {photoRequired && (
-                  <p className="mt-1.5 text-xs text-amber-600 flex items-center gap-1">
-                    <span className="material-symbols-outlined text-xs">photo_camera</span>
-                    Kategori ini wajib upload foto bukti
-                  </p>
-                )}
               </div>
 
               {/* Judul */}
               <div>
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Judul Laporan</label>
                 <input type="text" value={title} onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Contoh: Jalan rusak di depan RSUD Ternate"
+                  placeholder={selectedCat ? `Contoh: ${selectedCat.label} di...` : 'Berikan judul singkat dan jelas...'}
                   className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] transition-colors" />
               </div>
 
@@ -241,8 +283,7 @@ export default function ReportsPage() {
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Deskripsi Kejadian</label>
                 <textarea value={body} onChange={(e) => setBody(e.target.value)}
                   placeholder="Ceritakan detail kejadian: lokasi spesifik, waktu, dan dampaknya..."
-                  rows={5}
-                  className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] transition-colors resize-none" />
+                  rows={5} className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] transition-colors resize-none" />
                 <p className="mt-1 text-right text-xs text-gray-400">{body.length} karakter</p>
               </div>
 
@@ -257,9 +298,7 @@ export default function ReportsPage() {
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-gray-800">Notifikasi WhatsApp</p>
                     <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
-                      {notifOptIn
-                        ? 'Aktif — kamu akan dapat update via WA saat laporan diproses. Nomormu tidak dipublikasikan.'
-                        : 'Nonaktif — pantau status di halaman "Laporan Saya" tanpa notifikasi WA.'}
+                      {notifOptIn ? 'Aktif — kamu akan dapat update via WA. Nomor tidak dipublikasikan.' : 'Nonaktif — pantau status di "Laporan Saya".'}
                     </p>
                   </div>
                   <button type="button" onClick={() => setNotifOptIn(!notifOptIn)}
@@ -271,7 +310,7 @@ export default function ReportsPage() {
 
               <button onClick={() => setStep('tos')}
                 disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0) || (anonymity === 'pseudonym' && !pseudonym.trim())}
-                className="w-full rounded-xl bg-[#003526] py-3.5 text-sm font-bold text-white disabled:opacity-40 transition-opacity">
+                className="w-full rounded-xl bg-[#003526] py-3.5 text-sm font-bold text-white disabled:opacity-40">
                 Lanjut ke Syarat & Ketentuan →
               </button>
             </div>
@@ -288,18 +327,14 @@ export default function ReportsPage() {
                 <ol className="space-y-3">
                   {TOS_ITEMS.map((item, i) => (
                     <li key={i} className="flex gap-2.5 text-sm text-gray-600">
-                      <span className="shrink-0 font-bold text-[#003526]">{i + 1}.</span>
-                      {item}
+                      <span className="shrink-0 font-bold text-[#003526]">{i + 1}.</span>{item}
                     </li>
                   ))}
                 </ol>
               </div>
               <label className="flex cursor-pointer items-start gap-3">
-                <input type="checkbox" checked={tosAccepted} onChange={(e) => setTosAccepted(e.target.checked)}
-                  className="mt-0.5 h-4 w-4 accent-[#003526]" />
-                <span className="text-sm text-gray-700">
-                  Saya menyetujui syarat & ketentuan di atas dan bertanggung jawab atas isi laporan ini.
-                </span>
+                <input type="checkbox" checked={tosAccepted} onChange={(e) => setTosAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#003526]" />
+                <span className="text-sm text-gray-700">Saya menyetujui syarat & ketentuan di atas dan bertanggung jawab atas isi laporan ini.</span>
               </label>
               {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
               <div className="flex gap-2">
@@ -318,16 +353,12 @@ export default function ReportsPage() {
               <div className="rounded-xl bg-emerald-50 p-4 text-center">
                 <div className="text-3xl mb-2">📱</div>
                 <h3 className="font-bold text-gray-900">Satu langkah lagi!</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Login via WhatsApp untuk mengirim laporanmu.
-                  <strong> Data laporan sudah tersimpan, tidak akan hilang.</strong>
-                </p>
+                <p className="mt-1 text-sm text-gray-600">Login via WhatsApp untuk mengirim laporanmu. <strong>Data laporan sudah tersimpan.</strong></p>
                 <div className="mt-3 flex items-start gap-2 rounded-xl bg-white px-3 py-2 text-left">
                   <span className="material-symbols-outlined text-[#003526] text-sm shrink-0">lock</span>
                   <p className="text-xs text-gray-500">Nomor WA tidak dipublish. Identitasmu dilindungi sesuai pilihan anonimitas tadi.</p>
                 </div>
               </div>
-
               {!otpSent ? (
                 <>
                   <div>
@@ -357,8 +388,7 @@ export default function ReportsPage() {
                     <input type="text" value={otp} onChange={(e) => setOtp(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleVerifyOtp()}
                       placeholder="______" maxLength={6}
-                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-4 text-center text-2xl font-bold tracking-[0.5em] outline-none focus:border-[#003526]"
-                      autoFocus />
+                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-4 text-center text-2xl font-bold tracking-[0.5em] outline-none focus:border-[#003526]" autoFocus />
                   </div>
                   {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
                   <button onClick={handleVerifyOtp} disabled={otp.length < 4 || otpLoading}
@@ -366,15 +396,12 @@ export default function ReportsPage() {
                     {otpLoading ? 'Memverifikasi...' : 'Verifikasi & Kirim Laporan'}
                   </button>
                   <button onClick={() => { setOtpSent(false); setOtp(''); setError(''); }}
-                    className="w-full text-center text-xs text-gray-400 py-1">
-                    Ganti nomor atau kirim ulang OTP
-                  </button>
+                    className="w-full text-center text-xs text-gray-400 py-1">Ganti nomor atau kirim ulang OTP</button>
                 </>
               )}
             </div>
           )}
 
-          {/* OTP loading */}
           {step === 'otp' && (
             <div className="flex min-h-[40vh] items-center justify-center p-5">
               <div className="text-center">
@@ -388,9 +415,7 @@ export default function ReportsPage() {
         {user && (
           <p className="mt-4 text-center text-xs text-gray-400">
             Sudah lapor sebelumnya?{' '}
-            <a href="/my-reports" className="text-[#003526] font-semibold hover:underline">
-              Pantau status laporan →
-            </a>
+            <a href="/my-reports" className="text-[#003526] font-semibold hover:underline">Pantau status laporan →</a>
           </p>
         )}
       </div>
