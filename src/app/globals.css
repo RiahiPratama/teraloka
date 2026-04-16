@@ -35,7 +35,7 @@
 /* ─── Base ─── */
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 96px; /* navbar height + top-8 gap + buffer */
+  scroll-padding-top: 96px;
 }
 
 body {
@@ -133,6 +133,14 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   .bento-full { grid-column: span 12; }
   .hero-grid { grid-template-columns: 1fr !important; }
   .hero-photo { display: none; }
+
+  /* Hero mobile: hapus minHeight tinggi karena foto sudah hidden */
+  .hero-section {
+    min-height: auto !important;
+    padding-top: 100px !important;
+    padding-bottom: 48px !important;
+    align-items: flex-start !important;
+  }
 }
 
 /* ─── Nav active link ─── */

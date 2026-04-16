@@ -1,35 +1,8 @@
-// SocialProof.tsx — Section 05: Dipercaya oleh Warga Maluku Utara
-// Simpan ke: src/components/home/SocialProof.tsx
-
 const STATS = [
-  {
-    icon: '👥',
-    num: '10.000+',
-    label: 'Pengguna Terdaftar',
-    color: '#0891B2',
-    bg: 'rgba(8,145,178,0.1)',
-  },
-  {
-    icon: '📢',
-    num: '500+',
-    label: 'Laporan Warga',
-    color: '#003526',
-    bg: 'rgba(0,53,38,0.08)',
-  },
-  {
-    icon: '🏪',
-    num: '200+',
-    label: 'UMKM Terhubung',
-    color: '#E8963A',
-    bg: 'rgba(232,150,58,0.1)',
-  },
-  {
-    icon: '💚',
-    num: '50+',
-    label: 'Kampanye Donasi',
-    color: '#16a34a',
-    bg: 'rgba(22,163,74,0.1)',
-  },
+  { icon: '👥', num: '10.000+', label: 'Pengguna Terdaftar', bg: 'rgba(8,145,178,0.1)' },
+  { icon: '📢', num: '500+',    label: 'Laporan Warga',      bg: 'rgba(0,53,38,0.08)' },
+  { icon: '🏪', num: '200+',    label: 'UMKM Terhubung',     bg: 'rgba(232,150,58,0.1)' },
+  { icon: '💚', num: '50+',     label: 'Kampanye Donasi',    bg: 'rgba(22,163,74,0.1)' },
 ]
 
 export default function SocialProof() {
@@ -38,7 +11,6 @@ export default function SocialProof() {
       className="stats-dark-bg"
       style={{ padding: '72px 24px', position: 'relative', overflow: 'hidden' }}
     >
-      {/* Glow orbs */}
       <div style={{
         position: 'absolute', top: -60, right: -60,
         width: 320, height: 320, borderRadius: '50%',
@@ -51,8 +23,6 @@ export default function SocialProof() {
       }} />
 
       <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-
-        {/* Header */}
         <div style={{ textAlign: 'center', marginBottom: 48 }}>
           <h2 className="font-sora" style={{
             fontSize: 'clamp(22px, 3.5vw, 36px)',
@@ -65,8 +35,8 @@ export default function SocialProof() {
           </p>
         </div>
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+        {/* Fix: grid-cols-2 mobile, grid-cols-4 desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {STATS.map(stat => (
             <div key={stat.label} style={{
               textAlign: 'center',
@@ -84,7 +54,8 @@ export default function SocialProof() {
                 {stat.icon}
               </div>
               <div className="font-sora" style={{
-                fontSize: 36, fontWeight: 800, color: '#fff',
+                fontSize: 'clamp(24px, 5vw, 36px)',
+                fontWeight: 800, color: '#fff',
                 letterSpacing: '-0.03em', marginBottom: 4,
               }}>
                 {stat.num}
