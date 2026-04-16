@@ -1,18 +1,17 @@
-import Ticker            from '@/components/layout/Ticker'
-import Navbar            from '@/components/layout/Navbar'
-import Hero              from '@/components/home/Hero'
-import HeroMobile        from '@/components/home/HeroMobile'
-import SpeedboatCard     from '@/components/home/SpeedboatCard'
-import ServiceShortcuts  from '@/components/home/ServiceShortcuts'
-import StatsBar          from '@/components/home/StatsBar'
-import PWAInstallBanner  from '@/components/pwa/PWAInstallBanner'
-import PersonalizedNews  from '@/components/home/PersonalizedNews'
+import Ticker             from '@/components/layout/Ticker'
+import Navbar             from '@/components/layout/Navbar'
+import Hero               from '@/components/home/Hero'
+import SpeedboatCard      from '@/components/home/SpeedboatCard'
+import ServiceShortcuts   from '@/components/home/ServiceShortcuts'
+import StatsBar           from '@/components/home/StatsBar'
+import PWAInstallBanner   from '@/components/pwa/PWAInstallBanner'
+import PersonalizedNews   from '@/components/home/PersonalizedNews'
 import ContextualServices from '@/components/home/ContextualServices'
-import ServicesEcosystem from '@/components/home/ServicesEcosystem'
-import SocialProof       from '@/components/home/SocialProof'
-import CTASection        from '@/components/home/CTASection'
-import Footer            from '@/components/layout/Footer'
-import Fab               from '@/components/layout/Fab'
+import ServicesEcosystem  from '@/components/home/ServicesEcosystem'
+import SocialProof        from '@/components/home/SocialProof'
+import CTASection         from '@/components/home/CTASection'
+import Footer             from '@/components/layout/Footer'
+import Fab                from '@/components/layout/Fab'
 
 export default function HomePage() {
   return (
@@ -24,15 +23,10 @@ export default function HomePage() {
       <Navbar />
 
       <main>
-        {/* 03a — Hero Desktop: split layout foto Ternate + search */}
-        <div className="hidden md:block">
-          <Hero />
-        </div>
+        {/* 03 — Hero: desktop split layout + mobile 1 kolom (handled di globals.css) */}
+        <Hero />
 
-        {/* 03b — Hero Mobile: foto background + tagline saja */}
-        <HeroMobile />
-
-        {/* 04 — Speedboat Card: di bawah Hero, mobile only */}
+        {/* 04 — Speedboat Card: mobile only, di bawah Hero */}
         <div className="md:hidden" style={{ padding: '0 16px 12px' }}>
           <SpeedboatCard />
         </div>
@@ -41,8 +35,10 @@ export default function HomePage() {
         <div
           className="md:hidden"
           style={{
-            display: 'grid', gridTemplateColumns: '1fr 1fr',
-            gap: 10, padding: '0 16px 12px',
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: 10,
+            padding: '0 16px 12px',
           }}
         >
           {/* BAKOS */}
@@ -50,7 +46,8 @@ export default function HomePage() {
             <div style={{
               background: '#fff',
               border: '1.5px solid rgba(27,107,74,0.15)',
-              borderRadius: 16, padding: '14px',
+              borderRadius: 16,
+              padding: '14px',
               boxShadow: '0 4px 16px rgba(27,107,74,0.08)',
             }}>
               <span style={{
@@ -78,7 +75,8 @@ export default function HomePage() {
             <div style={{
               background: '#fff',
               border: '1.5px solid rgba(232,150,58,0.15)',
-              borderRadius: 16, padding: '14px',
+              borderRadius: 16,
+              padding: '14px',
               boxShadow: '0 4px 16px rgba(232,150,58,0.08)',
             }}>
               <span style={{
