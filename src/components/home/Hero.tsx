@@ -14,12 +14,6 @@ const POPULAR_TAGS = [
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
 
-const FLOAT_CARDS = [
-  { icon: '📰', label: 'BAKABAR',   sub: 'Berita Lokal',       href: '/news',        style: { top: '10%', right: '6%' },     delay: '0s' },
-  { icon: '💚', label: 'BASUMBANG', sub: 'Donasi Kemanusiaan', href: '/fundraising', style: { top: '46%', right: '-3%' },    delay: '1.2s' },
-  { icon: '🏠', label: 'BAKOS',     sub: 'Kos & Properti',     href: '/kos',         style: { bottom: '14%', right: '10%' }, delay: '2.4s' },
-]
-
 const FALLBACK_SPOTS = [
   { emoji: '🌊', label: 'Laut Maluku', pos: { top: '18%', left: '22%' } },
   { emoji: '🏝️', label: 'Tidore',      pos: { top: '58%', left: '15%' } },
@@ -32,7 +26,6 @@ export default function Hero() {
   const [search, setSearch]               = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [weather, setWeather]             = useState<any>(null)
-  const [imgLoaded, setImgLoaded]         = useState(false)
 
   useEffect(() => {
     fetch(`${API}/public/weather`)
@@ -59,7 +52,7 @@ export default function Hero() {
       background: 'var(--surface)',
     }}>
 
-      {/* ── Photo/Fallback background — selalu render ── */}
+      {/* ── Photo/Fallback background ── */}
       <div className="hero-photo-bg" style={{
         position: 'absolute',
         top: 0, right: 0, bottom: 0,
@@ -67,35 +60,23 @@ export default function Hero() {
         zIndex: 0,
       }}>
         {HERO_PHOTO_URL ? (
-          /* Foto asli kalau env var sudah di-set */
-          <>
-            <img
-              src={HERO_PHOTO_URL}
-              alt="Ternate, Maluku Utara"
-              onLoad={() => setImgLoaded(true)}
-              style={{
-                width: '100%', height: '100%',
-                objectFit: 'cover', objectPosition: 'center 30%',
-                opacity: imgLoaded ? 1 : 0,
-                transition: 'opacity 0.6s ease',
-              }}
-            />
-            {/* Gradient fallback saat foto loading */}
-            {!imgLoaded && (
-              <div style={{
-                position: 'absolute', inset: 0,
-                background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0a7a9c 65%, #0891B2 100%)',
-              }} />
-            )}
-          </>
+          /* Foto asli — NO imgLoaded logic, tampil langsung */
+          <img
+            src={HERO_PHOTO_URL}
+            alt="Ternate, Maluku Utara"
+            style={{
+              width: '100%', height: '100%',
+              objectFit: 'cover', objectPosition: 'center 30%',
+              display: 'block',
+            }}
+          />
         ) : (
-          /* Fallback premium kalau belum ada foto — SELALU terlihat */
+          /* Fallback premium — gradient Maluku */
           <div style={{
             width: '100%', height: '100%',
             background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0a7a9c 65%, #0891B2 100%)',
             position: 'relative', overflow: 'hidden',
           }}>
-            {/* Wave lines */}
             {[...Array(6)].map((_, i) => (
               <div key={i} style={{
                 position: 'absolute', width: '140%', height: 1,
@@ -104,11 +85,10 @@ export default function Hero() {
                 transform: `rotate(${-3 + i * 1.5}deg)`,
               }} />
             ))}
-            {/* Center icon */}
             <div style={{
-              position: 'absolute', inset: 0,
+              position: 'absolute', inset: 0, zIndex: 2,
               display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center', zIndex: 2,
+              alignItems: 'center', justifyContent: 'center',
             }}>
               <div style={{ fontSize: 56, marginBottom: 12, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}>🌊</div>
               <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
@@ -118,7 +98,6 @@ export default function Hero() {
                 Set NEXT_PUBLIC_HERO_BG_URL di Vercel
               </p>
             </div>
-            {/* Location dots */}
             {FALLBACK_SPOTS.map((spot, i) => (
               <div key={i} style={{ position: 'absolute', ...spot.pos, zIndex: 3 }}>
                 <div style={{
@@ -135,18 +114,16 @@ export default function Hero() {
           </div>
         )}
 
-        {/* Desktop overlay: fade halus ke kiri */}
+        {/* Overlay desktop: fade halus ke kiri */}
         <div className="hero-overlay-desktop" style={{
-          position: 'absolute', inset: 0,
+          position: 'absolute', inset: 0, pointerEvents: 'none',
           background: 'linear-gradient(to right, var(--surface) 0%, rgba(247,249,251,0.75) 18%, rgba(247,249,251,0.2) 40%, transparent 65%)',
-          pointerEvents: 'none',
         }} />
 
-        {/* Mobile overlay: gelap di bawah agar teks terbaca */}
+        {/* Overlay mobile: fade ke bawah agar teks terbaca */}
         <div className="hero-overlay-mobile" style={{
-          position: 'absolute', inset: 0,
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(247,249,251,0.7) 55%, var(--surface) 80%)',
-          pointerEvents: 'none',
+          position: 'absolute', inset: 0, pointerEvents: 'none',
+          background: 'linear-gradient(to bottom, rgba(247,249,251,0.1) 0%, rgba(247,249,251,0.65) 55%, var(--surface) 80%)',
         }} />
       </div>
 
@@ -174,7 +151,6 @@ export default function Hero() {
             </span>
           </div>
 
-          {/* H1 */}
           <h1 className="font-sora" style={{
             fontSize: 'clamp(30px, 4.5vw, 56px)', fontWeight: 800,
             lineHeight: 1.06, letterSpacing: '-0.02em',
@@ -185,7 +161,6 @@ export default function Hero() {
             <span style={{ color: 'var(--cyan)' }}>Maluku Utara</span>
           </h1>
 
-          {/* Subtitle */}
           <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--text-muted)', marginBottom: 20, maxWidth: 380 }}>
             Berita, transportasi, kos, hingga bantuan —
             <br />semua dalam satu pencarian.
@@ -239,38 +214,116 @@ export default function Hero() {
                 fontSize: 12, fontWeight: 500, color: 'var(--text-muted)',
                 background: '#fff', border: '1px solid var(--border-light)',
                 borderRadius: 99, padding: '4px 11px', textDecoration: 'none',
-              }}>
+                transition: 'all 0.15s',
+              }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,53,38,0.3)'; e.currentTarget.style.color = 'var(--primary)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+              >
                 {tag.label}
               </Link>
             ))}
           </div>
         </div>
 
-        {/* RIGHT — floating cards desktop only */}
+        {/* RIGHT — hierarchy floating cards (desktop only) */}
         <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
-          {FLOAT_CARDS.map((card) => (
-            <Link key={card.label} href={card.href} className="float-card"
-              style={{
-                position: 'absolute', ...card.style, animationDelay: card.delay,
-                textDecoration: 'none', background: 'rgba(255,255,255,0.96)',
-                backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
-                borderRadius: 18, padding: '11px 15px',
-                display: 'flex', alignItems: 'center', gap: 10,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
-                border: '1px solid rgba(255,255,255,0.9)',
-                zIndex: 10, minWidth: 165,
-                transition: 'transform 0.2s ease',
-              }}
-              onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
-              onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
-              <span style={{ fontSize: 22 }}>{card.icon}</span>
+
+          {/* ── Card UTAMA — Speedboat (besar, dominan) ── */}
+          <Link href="/speed" className="float-card" style={{
+            position: 'absolute', top: '6%', left: '0%',
+            textDecoration: 'none',
+            background: 'rgba(255,255,255,0.97)',
+            backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
+            borderRadius: 22, padding: '18px 22px',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
+            border: '1px solid rgba(255,255,255,0.95)',
+            minWidth: 230, zIndex: 10,
+            animationDelay: '0s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
+          >
+            <div style={{ marginBottom: 12 }}>
+              <span style={{
+                fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
+                background: '#0891B2', color: '#fff', padding: '3px 10px', borderRadius: 99,
+              }}>UTAMA · BAPASIAR</span>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
+              <div style={{
+                width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                background: 'rgba(8,145,178,0.1)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
+              }}>⛵</div>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 800, color: 'var(--text)' }}>{card.label}</div>
-                <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{card.sub}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Speedboat Hari Ini</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Ternate → Sidangoli</div>
               </div>
-              <span style={{ marginLeft: 'auto', fontSize: 12, color: 'var(--primary)', fontWeight: 700 }}>→</span>
-            </Link>
-          ))}
+            </div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>🕐 14:00 WIT</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: '#0891B2', letterSpacing: '-0.02em', marginBottom: 12 }}>
+              Rp 75.000
+            </div>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              background: 'rgba(8,145,178,0.08)', borderRadius: 10, padding: '8px 12px',
+            }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#0891B2' }}>Lihat Jadwal</span>
+              <span style={{ fontSize: 14, color: '#0891B2' }}>→</span>
+            </div>
+          </Link>
+
+          {/* ── Card Sekunder — BAKOS ── */}
+          <Link href="/kos" className="float-card" style={{
+            position: 'absolute', top: '42%', right: '-2%',
+            textDecoration: 'none',
+            background: 'rgba(255,255,255,0.95)',
+            backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
+            borderRadius: 18, padding: '14px 18px',
+            boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
+            border: '1px solid rgba(255,255,255,0.92)',
+            minWidth: 190, zIndex: 10,
+            animationDelay: '-1.5s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
+          >
+            <span style={{
+              fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em',
+              color: '#1B6B4A', background: 'rgba(27,107,74,0.1)',
+              padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 8,
+            }}>BAKOS</span>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>Kos Akehuda</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>Mulai Rp 450rb/bulan</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#1B6B4A' }}>Cari Kos →</div>
+          </Link>
+
+          {/* ── Card Kecil — BASUMBANG ── */}
+          <Link href="/fundraising" className="float-card" style={{
+            position: 'absolute', bottom: '8%', right: '5%',
+            textDecoration: 'none',
+            background: 'rgba(255,255,255,0.90)',
+            backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
+            borderRadius: 16, padding: '12px 16px',
+            boxShadow: '0 10px 32px rgba(0,0,0,0.12)',
+            border: '1px solid rgba(255,255,255,0.88)',
+            minWidth: 168, zIndex: 10,
+            animationDelay: '-3s',
+          }}
+            onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
+          >
+            <span style={{
+              fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em',
+              color: '#E8963A', background: 'rgba(232,150,58,0.1)',
+              padding: '2px 7px', borderRadius: 99, display: 'inline-block', marginBottom: 7,
+            }}>BASUMBANG</span>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Donasi Aktif</div>
+            <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>
+              Bantu warga yang membutuhkan
+            </div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#E8963A' }}>Lihat Donasi →</div>
+          </Link>
         </div>
       </div>
     </section>
