@@ -46,10 +46,11 @@ const buildNav = (): NavSection[] => [
         icon: '📝',
         badgePath: 'articles.draft',
         children: [
-          { href: '/admin/bakabar/hub',                label: 'Draft',             icon: '📝', badgePath: 'articles.draft' },
-          { href: '/admin/bakabar/hub?status=review',  label: 'Review',            icon: '🔍' },
-          { href: '/admin/bakabar/hub?status=published',label: 'Publikasi',        icon: '✅' },
-          { href: '/admin/bakabar/hub?status=archived', label: 'Archived',         icon: '🗂️' },
+          { href: '/admin/bakabar/hub',                 label: 'Draft',    icon: '📝', badgePath: 'articles.draft' },
+          { href: '/admin/bakabar/hub?status=review',   label: 'Review',   icon: '🔍' },
+          { href: '/admin/bakabar/hub?status=published', label: 'Publikasi', icon: '✅' },
+          { href: '/admin/bakabar/hub?status=archived',  label: 'Archived', icon: '🗂️' },
+          { href: '/admin/rss',                          label: 'RSS Feed', icon: '📡' },
         ],
       },
     ],
@@ -88,7 +89,6 @@ const buildNav = (): NavSection[] => [
     items: [
       { href: '/admin/notifications', label: 'Push Notification', icon: '🔔' },
       { href: '/admin/notifications', label: 'WA Blast',          icon: '💬' },
-      { href: '/admin/rss',           label: 'RSS Feed',          icon: '📡' },
       { href: '/admin/ticker',        label: 'Ticker',            icon: '📺' },
     ],
   },
