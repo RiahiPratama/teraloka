@@ -25,12 +25,12 @@ const PLACEHOLDERS = [
 ];
 
 const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  super_admin:     { label: 'Super Admin',    color: '#fff',     bg: '#E8963A' },
-  admin_content:   { label: 'Admin Konten',   color: '#fff',     bg: '#0891B2' },
+  super_admin:     { label: 'Super Admin',     color: '#fff',    bg: '#E8963A' },
+  admin_content:   { label: 'Admin Konten',    color: '#fff',    bg: '#0891B2' },
   admin_transport: { label: 'Admin Transport', color: '#fff',    bg: '#6366F1' },
-  admin_listing:   { label: 'Admin Listing',  color: '#fff',     bg: '#8B5CF6' },
-  admin_funding:   { label: 'Admin Funding',  color: '#fff',     bg: '#1B6B4A' },
-  user:            { label: 'Pengguna',       color: '#374151',  bg: '#E5E7EB' },
+  admin_listing:   { label: 'Admin Listing',   color: '#fff',    bg: '#8B5CF6' },
+  admin_funding:   { label: 'Admin Funding',   color: '#fff',    bg: '#1B6B4A' },
+  user:            { label: 'Pengguna',        color: '#374151', bg: '#E5E7EB' },
 };
 
 export default function Navbar() {
@@ -46,13 +46,11 @@ export default function Navbar() {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchWrapRef  = useRef<HTMLDivElement>(null);
 
-  // Rotate placeholder
   useEffect(() => {
     const t = setInterval(() => setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length), 3000);
     return () => clearInterval(t);
   }, []);
 
-  // Close on outside click
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -66,16 +64,11 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
-
-      if (e.key === '/' && !inInput) {
-        e.preventDefault();
-        openSearch();
-      }
+      if (e.key === '/' && !inInput) { e.preventDefault(); openSearch(); }
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setSearchOpen(prev => {
@@ -83,11 +76,7 @@ export default function Navbar() {
           return !prev;
         });
       }
-      if (e.key === 'Escape') {
-        setSearchOpen(false);
-        setSearchQuery('');
-        setDropdownOpen(false);
-      }
+      if (e.key === 'Escape') { setSearchOpen(false); setSearchQuery(''); setDropdownOpen(false); }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
@@ -114,7 +103,6 @@ export default function Navbar() {
     router.push('/');
   }
 
-  // Semua role admin bisa akses /admin
   const isAdmin = user?.role === 'super_admin' || (user?.role ?? '').startsWith('admin_');
   const roleMeta = ROLE_META[user?.role ?? 'user'] ?? ROLE_META.user;
 
@@ -175,9 +163,7 @@ export default function Navbar() {
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif", minWidth: 0 }}
               />
-              <kbd className="hidden sm:flex text-[10px] text-gray-400 font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200 shrink-0">
-                ESC
-              </kbd>
+              <kbd className="hidden sm:flex text-[10px] text-gray-400 font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200 shrink-0">ESC</kbd>
               <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
                 className="shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded-full hover:bg-gray-100">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -198,22 +184,21 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Auth section */}
+        {/* Auth section — overflow TIDAK diset hidden, biar dropdown bisa keluar */}
         <div
           className="flex items-center gap-2 shrink-0"
           style={{
             opacity: searchOpen ? 0 : 1,
-            maxWidth: searchOpen ? 0 : 300,
-            overflow: 'hidden',
-            transition: 'opacity 0.2s ease, max-width 0.3s ease',
+            transition: 'opacity 0.2s ease',
             pointerEvents: searchOpen ? 'none' : 'auto',
+            // TIDAK ada overflow:hidden di sini — ini root cause dropdown terclip
           }}
         >
           {isLoading ? (
             <div className="h-8 w-20 animate-pulse rounded-full bg-gray-100" />
           ) : user ? (
             <div className="relative" ref={dropdownRef}>
-              {/* Trigger button */}
+              {/* Trigger */}
               <button
                 onClick={() => setDropdownOpen(v => !v)}
                 className="flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
@@ -231,12 +216,13 @@ export default function Navbar() {
                 </svg>
               </button>
 
-              {/* Dropdown */}
+              {/* Dropdown panel */}
               {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-gray-100 bg-white shadow-xl z-50 overflow-hidden"
-                  style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)' }}>
-
-                  {/* ── User info header ── */}
+                <div
+                  className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-gray-100 bg-white z-[999] overflow-hidden"
+                  style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)' }}
+                >
+                  {/* User info header */}
                   <div className="px-4 py-3 border-b border-gray-100"
                     style={{ background: 'linear-gradient(135deg, #f8fffe 0%, #f0fdf9 100%)' }}>
                     <div className="flex items-center gap-3">
@@ -252,7 +238,6 @@ export default function Navbar() {
                         </p>
                       </div>
                     </div>
-                    {/* Role badge */}
                     <div className="mt-2.5">
                       <span
                         className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold"
@@ -263,7 +248,7 @@ export default function Navbar() {
                     </div>
                   </div>
 
-                  {/* ── Menu items ── */}
+                  {/* Menu items */}
                   <div className="py-1">
                     <Link href="/profile" onClick={() => setDropdownOpen(false)}
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
@@ -282,7 +267,6 @@ export default function Navbar() {
                       <span className="text-base">💚</span> Ajukan Campaign
                     </Link>
 
-                    {/* Admin link — semua admin role */}
                     {isAdmin && (
                       <>
                         <div className="mx-3 my-1 border-t border-gray-100" />
@@ -296,7 +280,7 @@ export default function Navbar() {
                     )}
                   </div>
 
-                  {/* ── Logout ── */}
+                  {/* Logout */}
                   <div className="border-t border-gray-100 py-1">
                     <button onClick={handleLogout}
                       className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
