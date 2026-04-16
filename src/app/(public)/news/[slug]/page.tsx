@@ -73,6 +73,16 @@ function timeAgo(dateStr: string) {
   return `${d} hari lalu`;
 }
 
+// ── Reading time estimator ────────────────────────────────────────
+function readingTime(body: string): number {
+  if (!body) return 1;
+  // Strip HTML tags kalau ada
+  const plainText = body.replace(/<[^>]*>/g, ' ')
+  const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
+  // Rata-rata 200 kata/menit untuk pembaca Indonesia
+  return Math.max(1, Math.ceil(wordCount / 200));
+}
+
 function parseBody(raw: string): string {
   if (!raw) return '';
   try {
@@ -112,9 +122,6 @@ function InArticleAd() {
   );
 }
 
-// ================================================================
-// Context CTA Banner — 1 banner dominan sesuai kategori artikel
-// ================================================================
 const CONTEXT_CTA: Record<string, {
   badge: string; headline: string; sub: string;
   cta: string; href: string; bg: string; accent: string; emoji: string;
@@ -183,9 +190,6 @@ function ContextCTABanner({ category }: { category: string }) {
   );
 }
 
-// ================================================================
-// Mini BALAPOR Feed
-// ================================================================
 const CATEGORY_ICON: Record<string, string> = {
   infrastruktur: '🏗️', keamanan: '🚨', lingkungan: '🌿',
   sosial: '👥', kesehatan: '🏥', pendidikan: '📚',
@@ -229,10 +233,6 @@ function MiniBALAPORFeed({ reports }: { reports: any[] }) {
   );
 }
 
-// ================================================================
-// Bottom Section Components
-// ================================================================
-
 function RelatedArticles({ articles }: { articles: any[] }) {
   if (!articles.length) return null;
   return (
@@ -267,8 +267,6 @@ function RelatedArticles({ articles }: { articles: any[] }) {
     </div>
   );
 }
-
-// ServiceGrid diganti ContextCTABanner di atas
 
 function SocialProof({ stats }: { stats: any }) {
   const items = [
@@ -334,10 +332,6 @@ function NativeAd() {
   );
 }
 
-// ================================================================
-// Main Page
-// ================================================================
-
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const [article, stats, recentReports] = await Promise.all([
@@ -352,6 +346,10 @@ export default async function ArticlePage({ params }: Props) {
   const shareUrl = `${APP_URL}/news/${slug}`;
   const shareText = encodeURIComponent(`📰 ${article.title}\n\n${shareUrl}`);
   const bodyHtml = renderBody(article.body || '');
+
+  // Hitung reading time dari body mentah (sebelum di-render ke HTML)
+  const parsedBody = parseBody(article.body || '');
+  const menit = readingTime(parsedBody);
 
   return (
     <div className="min-h-screen bg-white">
@@ -397,15 +395,18 @@ export default async function ArticlePage({ params }: Props) {
               {article.title}
             </h1>
 
-            {/* Meta */}
-            <div className="flex items-center gap-2 text-xs text-gray-400 mb-5 pb-5 border-b border-gray-100">
+            {/* Meta — author · tanggal · reading time */}
+            <div className="flex items-center gap-2 text-xs text-gray-400 mb-5 pb-5 border-b border-gray-100 flex-wrap">
               <div className="w-6 h-6 rounded-full bg-[#003526] flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {(article.author?.name || 'R').charAt(0).toUpperCase()}
               </div>
               <span className="font-semibold text-gray-700">{article.author?.name || 'Redaksi TeraLoka'}</span>
               <span>·</span>
               <span>{formatDate(article.published_at || article.created_at)}</span>
-
+              <span>·</span>
+              <span className="flex items-center gap-1">
+                ☕ {menit} menit baca
+              </span>
             </div>
 
             {/* Cover */}
@@ -431,7 +432,6 @@ export default async function ArticlePage({ params }: Props) {
               <p className="text-gray-400 italic text-sm">Konten artikel belum tersedia.</p>
             )}
 
-            {/* Mid-article ad */}
             <InArticleAd />
 
             {/* Tags */}
@@ -476,7 +476,6 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             </div>
 
-            {/* ── BOTTOM SECTION ── */}
             <RelatedArticles articles={relatedArticles} />
             <ContextCTABanner category={article.category} />
             <MiniBALAPORFeed reports={recentReports} />
@@ -497,7 +496,6 @@ export default async function ArticlePage({ params }: Props) {
           {/* ── Sidebar ── */}
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-[108px] py-6 space-y-5">
-              {/* Sidebar ad */}
               <div className="rounded-xl overflow-hidden" style={{ border: '1.5px dashed #D1D5DB', background: '#F9FAFB' }}>
                 <div className="flex flex-col items-center justify-center h-64 gap-2">
                   <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center text-gray-400 text-lg">📢</div>
@@ -510,7 +508,6 @@ export default async function ArticlePage({ params }: Props) {
                 </div>
               </div>
 
-              {/* CTA BALAPOR */}
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
                 <p className="text-[#95d3ba] text-xs mb-3 leading-relaxed">Laporkan via BALAPOR. Identitasmu terlindungi.</p>
@@ -519,7 +516,6 @@ export default async function ArticlePage({ params }: Props) {
                 </Link>
               </div>
 
-              {/* Social proof sidebar */}
               {stats && (
                 <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
                   <p className="text-xs font-bold text-gray-700 mb-3">👥 Torang samua lagi bergerak 💚</p>
@@ -540,7 +536,6 @@ export default async function ArticlePage({ params }: Props) {
                 </div>
               )}
 
-              {/* Second ad */}
               <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl h-52 flex items-center justify-center">
                 <div className="text-center">
                   <p className="text-xs text-gray-400 font-bold uppercase">IKLAN MITRA</p>
