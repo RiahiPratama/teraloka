@@ -36,11 +36,11 @@ export default function Navbar() {
   const router = useRouter();
   const { user, logout, isLoading } = useAuth();
 
-  const [dropdownOpen, setDropdownOpen]       = useState(false);
-  const [searchOpen, setSearchOpen]           = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen]   = useState(false);
-  const [searchQuery, setSearchQuery]         = useState('');
-  const [placeholderIdx, setPlaceholderIdx]   = useState(0);
+  const [dropdownOpen, setDropdownOpen]     = useState(false);
+  const [searchOpen, setSearchOpen]         = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery]       = useState('');
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
 
   const dropdownRef    = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -80,7 +80,6 @@ export default function Navbar() {
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // Cegah body scroll saat mobile menu terbuka
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
@@ -109,26 +108,26 @@ export default function Navbar() {
 
   return (
     <>
-      <header className="fixed top-4 sm:top-8 left-0 right-0 z-50 px-3 sm:px-6">
+      {/* top-[44px] = ticker(36px) + gap(8px) mobile
+          sm:top-[52px] = ticker(36px) + gap(16px) desktop
+          z-[60] — di bawah ticker(z-70) tapi di atas konten */}
+      <header className="fixed top-[44px] sm:top-[52px] left-0 right-0 z-[60] px-3 sm:px-6">
         <nav
           className="glass-nav max-w-[1200px] mx-auto flex items-center rounded-full px-3 sm:px-4 py-2 pr-2"
           style={{ border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(53,37,205,0.08)', gap: 6 }}
         >
-          {/* Logo */}
-          <div
-            className="flex items-center shrink-0"
+          {/* Logo + Nav links */}
+          <div className="flex items-center shrink-0"
             style={{
               maxWidth: searchOpen ? 0 : 600,
               overflow: 'hidden',
               opacity: searchOpen ? 0 : 1,
               transition: 'max-width 0.3s ease, opacity 0.2s ease',
               pointerEvents: searchOpen ? 'none' : 'auto',
-            }}
-          >
+            }}>
             <Link href="/" aria-label="TeraLoka Home" className="shrink-0">
               <Logo height={26} />
             </Link>
-            {/* Nav links — desktop only */}
             <div className="hidden md:flex items-center gap-0.5 ml-5">
               {NAV_LINKS.map(link => (
                 <Link key={link.href} href={link.href}
@@ -157,8 +156,7 @@ export default function Navbar() {
                   onChange={e => setSearchQuery(e.target.value)}
                   placeholder={PLACEHOLDERS[placeholderIdx]}
                   className="flex-1 bg-transparent text-sm outline-none"
-                  style={{ color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif", minWidth: 0 }}
-                />
+                  style={{ color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif", minWidth: 0 }} />
                 <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
                   className="shrink-0 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -178,14 +176,14 @@ export default function Navbar() {
             )}
           </div>
 
-          {/* Auth section */}
+          {/* Auth */}
           <div className="flex items-center gap-1.5 shrink-0"
             style={{ opacity: searchOpen ? 0 : 1, transition: 'opacity 0.2s ease', pointerEvents: searchOpen ? 'none' : 'auto' }}>
             {isLoading ? (
               <div className="h-8 w-16 animate-pulse rounded-full bg-gray-100" />
             ) : user ? (
               <>
-                {/* Desktop: avatar dropdown */}
+                {/* Desktop dropdown */}
                 <div className="relative hidden md:block" ref={dropdownRef}>
                   <button onClick={() => setDropdownOpen(v => !v)}
                     className="flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
@@ -254,8 +252,7 @@ export default function Navbar() {
                     </div>
                   )}
                 </div>
-
-                {/* Mobile: avatar circle saja → buka mobile menu */}
+                {/* Mobile avatar */}
                 <button onClick={() => setMobileMenuOpen(v => !v)}
                   className="flex md:hidden h-8 w-8 items-center justify-center rounded-full bg-[#1B6B4A] text-xs font-bold text-white shrink-0">
                   {user.name ? user.name[0].toUpperCase() : '+'}
@@ -276,34 +273,28 @@ export default function Navbar() {
               </>
             )}
 
-            {/* Hamburger — mobile only, hanya tampil kalau tidak login */}
-            {!user && (
-              <button
-                onClick={() => setMobileMenuOpen(v => !v)}
-                className="flex md:hidden flex-col items-center justify-center w-9 h-9 gap-1.5 rounded-full hover:bg-gray-100/80 transition-colors ml-1"
-                aria-label="Menu"
-              >
-                <span className={`block w-4.5 h-0.5 bg-gray-600 rounded transition-all duration-200 ${mobileMenuOpen ? 'rotate-45 translate-y-2' : ''}`} style={{ width: 18 }} />
-                <span className={`block h-0.5 bg-gray-600 rounded transition-all duration-200 ${mobileMenuOpen ? 'opacity-0' : ''}`} style={{ width: 18 }} />
-                <span className={`block h-0.5 bg-gray-600 rounded transition-all duration-200 ${mobileMenuOpen ? '-rotate-45 -translate-y-2' : ''}`} style={{ width: 18 }} />
-              </button>
-            )}
+            {/* Hamburger mobile */}
+            <button
+              onClick={() => setMobileMenuOpen(v => !v)}
+              className="flex md:hidden flex-col items-center justify-center w-9 h-9 gap-1.5 rounded-full hover:bg-gray-100/80 transition-colors ml-1"
+              aria-label="Menu"
+            >
+              <span className="block h-0.5 bg-gray-600 rounded transition-all duration-200" style={{ width: 18, transform: mobileMenuOpen ? 'rotate(45deg) translateY(6px)' : 'none' }} />
+              <span className="block h-0.5 bg-gray-600 rounded transition-all duration-200" style={{ width: 18, opacity: mobileMenuOpen ? 0 : 1 }} />
+              <span className="block h-0.5 bg-gray-600 rounded transition-all duration-200" style={{ width: 18, transform: mobileMenuOpen ? 'rotate(-45deg) translateY(-6px)' : 'none' }} />
+            </button>
           </div>
         </nav>
       </header>
 
-      {/* ── Mobile Menu Overlay ── */}
+      {/* Mobile Menu Overlay */}
       {mobileMenuOpen && (
-        <div
-          className="fixed inset-0 z-40 md:hidden"
+        <div className="fixed inset-0 z-[65] md:hidden"
           onClick={() => setMobileMenuOpen(false)}
-          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}
-        >
-          <div
-            className="absolute top-0 left-0 right-0 bg-white pt-24 pb-8 px-6 rounded-b-3xl shadow-2xl"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Nav links */}
+          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
+          <div className="absolute top-0 left-0 right-0 bg-white pb-8 px-6 rounded-b-3xl shadow-2xl"
+            style={{ paddingTop: 'calc(44px + 60px + 16px)' }}
+            onClick={e => e.stopPropagation()}>
             <div className="grid grid-cols-2 gap-2 mb-6">
               {NAV_LINKS.map(link => (
                 <Link key={link.href} href={link.href}
@@ -314,9 +305,7 @@ export default function Navbar() {
                 </Link>
               ))}
             </div>
-
-            {/* User info kalau sudah login */}
-            {user && (
+            {user ? (
               <>
                 <div className="border-t border-gray-100 pt-4 mb-3">
                   <div className="flex items-center gap-3 mb-3">
@@ -338,8 +327,7 @@ export default function Navbar() {
                       { href: '/owner', icon: '🏠', label: 'Portal Mitra' },
                       { href: '/owner/campaign/new/info', icon: '💚', label: 'Ajukan Campaign' },
                     ].map(item => (
-                      <Link key={item.href} href={item.href}
-                        onClick={() => setMobileMenuOpen(false)}
+                      <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
                         <span>{item.icon}</span> {item.label}
                       </Link>
@@ -347,7 +335,7 @@ export default function Navbar() {
                     {isAdmin && (
                       <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
                         className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold col-span-2 border"
-                        style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}10` }}>
+                        style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}15` }}>
                         <span>⚙️</span> Admin Dashboard
                       </Link>
                     )}
@@ -358,10 +346,7 @@ export default function Navbar() {
                   🚪 Keluar
                 </button>
               </>
-            )}
-
-            {/* Kalau belum login */}
-            {!user && (
+            ) : (
               <div className="flex gap-3">
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)}
                   className="flex-1 py-3 rounded-2xl text-sm font-semibold text-center border border-gray-200 hover:bg-gray-50"
