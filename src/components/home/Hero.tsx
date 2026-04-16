@@ -156,9 +156,7 @@ export default function Hero() {
             lineHeight: 1.06, letterSpacing: '-0.02em',
             color: 'var(--text)', marginBottom: 12,
           }}>
-            Temukan Apa Saja di
-            <br />
-            <span style={{ color: 'var(--cyan)' }}>Maluku Utara</span>
+            Temukan Apa Saja di <span style={{ color: 'var(--cyan)' }}>Maluku Utara</span>
           </h1>
 
           <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--text-muted)', marginBottom: 20, maxWidth: 380 }}>
