@@ -1,77 +1,196 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useContext, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import Link from 'next/link';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+// Maluku Utara center
+const MAP_CENTER = { lat: 1.5, lng: 127.8 };
 
 interface Report {
   id: string;
   title: string;
-  body: string | null;
   status: string;
   category: string | null;
-  anonymity_level: string | null;
-  risk_score: number | null;
-  reporter_id: string | null;
   location: string | null;
-  photos: string[] | null;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
+  priority: 'urgent' | 'high' | 'normal';
+  is_spam: boolean;
+  forwarded_at: string | null;
+  photos: string[] | null;
 }
 
-interface Identity {
-  phone: string;
-  name: string | null;
-  joined_at: string;
-}
-
-const REPORT_STATUS: Record<string, { bg: string; color: string; label: string }> = {
-  pending:  { bg: 'rgba(245,158,11,0.1)',  color: '#F59E0B', label: 'Pending' },
-  verified: { bg: 'rgba(16,185,129,0.1)',  color: '#10B981', label: 'Verified' },
-  rejected: { bg: 'rgba(239,68,68,0.1)',   color: '#EF4444', label: 'Ditolak' },
-  archived: { bg: 'rgba(107,114,128,0.1)', color: '#9CA3AF', label: 'Arsip' },
+const PRIORITY_COLOR = {
+  urgent: '#EF4444',
+  high:   '#F59E0B',
+  normal: '#10B981',
 };
 
-const ANON_LABEL: Record<string, string> = {
-  anonim: '🕵️ Anonim',
-  pseudonym: '✏️ Nama Samaran',
-  nama_terang: '👤 Nama Terang',
+const PRIORITY_LABEL = {
+  urgent: '🔴 Urgent',
+  high:   '🟠 High',
+  normal: '🟢 Normal',
 };
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
-  const d = Math.floor(diff / 86400000);
-  if (d === 0) return 'Hari ini';
-  if (d === 1) return 'Kemarin';
-  return `${d} hari lalu`;
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m} mnt lalu`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} jam lalu`;
+  return `${Math.floor(h / 24)} hari lalu`;
 }
 
-function formatPhone(phone: string) {
-  if (phone.startsWith('62')) return '+62 ' + phone.slice(2);
-  return phone;
+function isUnhandled(r: Report) {
+  const diff = Date.now() - new Date(r.created_at).getTime();
+  return r.status === 'pending' && diff > 2 * 3600 * 1000;
 }
 
+// ── Leaflet Map Component ──────────────────────────────────────────
+function BalaporMap({ reports, t }: { reports: Report[]; t: any }) {
+  const mapRef    = useRef<HTMLDivElement>(null);
+  const mapInstance = useRef<any>(null);
+
+  useEffect(() => {
+    if (!mapRef.current || mapInstance.current) return;
+
+    // Load Leaflet CSS
+    if (!document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id   = 'leaflet-css';
+      link.rel  = 'stylesheet';
+      link.href = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+      document.head.appendChild(link);
+    }
+
+    // Load Leaflet JS
+    const loadLeaflet = () => {
+      if ((window as any).L) {
+        initMap();
+        return;
+      }
+      const script = document.createElement('script');
+      script.src   = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+      script.onload = initMap;
+      document.head.appendChild(script);
+    };
+
+    const initMap = () => {
+      const L = (window as any).L;
+      if (!mapRef.current || mapInstance.current) return;
+
+      const map = L.map(mapRef.current, {
+        center: [MAP_CENTER.lat, MAP_CENTER.lng],
+        zoom: 8,
+        zoomControl: true,
+        attributionControl: false,
+      });
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 18,
+      }).addTo(map);
+
+      mapInstance.current = map;
+
+      // Add markers
+      addMarkers(L, map, reports);
+    };
+
+    loadLeaflet();
+
+    return () => {
+      if (mapInstance.current) {
+        mapInstance.current.remove();
+        mapInstance.current = null;
+      }
+    };
+  }, []);
+
+  // Update markers saat reports berubah
+  useEffect(() => {
+    if (!mapInstance.current || !(window as any).L) return;
+    const L   = (window as any).L;
+    const map = mapInstance.current;
+    // Clear existing markers
+    map.eachLayer((layer: any) => { if (layer instanceof L.Marker || layer instanceof L.CircleMarker) map.removeLayer(layer); });
+    addMarkers(L, map, reports);
+  }, [reports]);
+
+  const addMarkers = (L: any, map: any, reports: Report[]) => {
+    reports
+      .filter(r => r.latitude && r.longitude)
+      .forEach(r => {
+        const color = PRIORITY_COLOR[r.priority] ?? '#10B981';
+        const marker = L.circleMarker([r.latitude, r.longitude], {
+          radius: r.priority === 'urgent' ? 12 : r.priority === 'high' ? 9 : 7,
+          fillColor: color,
+          color: '#fff',
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.85,
+        });
+
+        marker.bindPopup(`
+          <div style="font-family: system-ui; min-width: 180px;">
+            <div style="font-weight: 800; font-size: 13px; margin-bottom: 4px;">${r.title}</div>
+            <div style="font-size: 11px; color: #6B7280; margin-bottom: 6px;">${r.location || '—'} · ${timeAgo(r.created_at)}</div>
+            <span style="background: ${color}22; color: ${color}; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 20px;">
+              ${PRIORITY_LABEL[r.priority]}
+            </span>
+          </div>
+        `);
+
+        marker.addTo(map);
+      });
+  };
+
+  const withCoords = reports.filter(r => r.latitude && r.longitude).length;
+
+  return (
+    <div style={{ position: 'relative' }}>
+      <div ref={mapRef} style={{ width: '100%', height: 380, borderRadius: 14, overflow: 'hidden', border: `1px solid ${t.sidebarBorder}`, background: '#1a1a2e' }} />
+
+      {/* Map legend */}
+      <div style={{ position: 'absolute', bottom: 12, left: 12, background: 'rgba(0,0,0,0.7)', borderRadius: 8, padding: '8px 12px', display: 'flex', gap: 12, zIndex: 999 }}>
+        {Object.entries(PRIORITY_COLOR).map(([p, c]) => (
+          <div key={p} style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: '50%', background: c, border: '2px solid #fff' }} />
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#fff', textTransform: 'capitalize' }}>{p}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* No coords notice */}
+      {withCoords === 0 && (
+        <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.4)', borderRadius: 14, zIndex: 998 }}>
+          <div style={{ background: 'rgba(0,0,0,0.8)', borderRadius: 12, padding: '16px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 28, marginBottom: 6 }}>📍</div>
+            <p style={{ color: '#fff', fontSize: 13, fontWeight: 600 }}>Belum ada laporan dengan koordinat GPS</p>
+            <p style={{ color: '#9CA3AF', fontSize: 11, marginTop: 4 }}>Pin akan muncul saat user izinkan akses lokasi</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Main Page ──────────────────────────────────────────────────────
 export default function AdminReportsPage() {
   const { token } = useAuth();
-  const [reports, setReports] = useState<Report[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
-  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const { t }     = useContext(AdminThemeContext);
 
-  const [identityModal, setIdentityModal] = useState<{
-    reportId: string; reportTitle: string;
-  } | null>(null);
-  const [identityReason, setIdentityReason] = useState('');
-  const [convertLoading, setConvertLoading] = useState<string | null>(null);
-  const [convertResult, setConvertResult] = useState<{ id: string; title: string; slug: string } | null>(null);
-  const [identityLoading, setIdentityLoading] = useState(false);
-  const [identityResult, setIdentityResult] = useState<{
-    identity: Identity | null; message?: string; reason: string;
-  } | null>(null);
+  const [reports, setReports]     = useState<Report[]>([]);
+  const [total, setTotal]         = useState(0);
+  const [loading, setLoading]     = useState(true);
+  const [activeTab, setTab]       = useState<'overview' | 'live' | 'deepdive'>('overview');
+  const [priorityFilter, setPriority] = useState('');
+  const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
+  const [actionLoading, setAction]= useState<string | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -82,429 +201,374 @@ export default function AdminReportsPage() {
     if (!token) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ limit: '50' });
-      if (statusFilter) params.set('status', statusFilter);
-      const res = await fetch(`${API_URL}/admin/reports?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const params = new URLSearchParams({ limit: '100' });
+      if (priorityFilter) params.set('priority', priorityFilter);
+      const res  = await fetch(`${API}/admin/reports?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
       setReports(data.data.data);
       setTotal(data.data.total);
     } catch (err: any) {
-      showToast(err.message || 'Gagal memuat laporan', false);
+      showToast(err.message || 'Gagal memuat', false);
     } finally {
       setLoading(false);
     }
-  }, [token, statusFilter]);
+  }, [token, priorityFilter]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
-  const updateStatus = async (id: string, action: 'verified' | 'rejected', title: string) => {
+  // Auto-refresh setiap 60 detik
+  useEffect(() => {
+    const interval = setInterval(fetchReports, 60000);
+    return () => clearInterval(interval);
+  }, [fetchReports]);
+
+  const setPriorityAction = async (id: string, priority: string, title: string) => {
     if (!token) return;
-    setActionLoading(id + action);
+    setAction(id + 'priority');
     try {
-      const res = await fetch(`${API_URL}/admin/reports/${id}/${action === 'verified' ? 'verify' : 'reject'}`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
+      const res  = await fetch(`${API}/admin/reports/${id}/priority`, {
+        method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ priority }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
-      showToast(action === 'verified' ? `"${title.slice(0,30)}" diverifikasi ✓` : `"${title.slice(0,30)}" ditolak`);
+      showToast(`Priority "${title.slice(0,25)}" → ${priority}`);
       fetchReports();
-    } catch (err: any) {
-      showToast(err.message || 'Gagal update', false);
-    } finally {
-      setActionLoading(null);
-    }
+    } catch (err: any) { showToast(err.message || 'Gagal', false); }
+    finally { setAction(null); }
   };
 
-  // ── Hapus laporan permanen ──────────────────────────────────────
-  const deleteReport = async (id: string, title: string) => {
-    if (!token) return;
-    const confirmed = confirm(
-      `Hapus laporan "${title.slice(0, 50)}" secara permanen?\n\nTindakan ini tidak bisa dibatalkan.`
-    );
-    if (!confirmed) return;
+  // Stats
+  const urgentCount    = reports.filter(r => r.priority === 'urgent').length;
+  const highCount      = reports.filter(r => r.priority === 'high').length;
+  const unhandledCount = reports.filter(isUnhandled).length;
+  const pendingCount   = reports.filter(r => r.status === 'pending').length;
 
-    setActionLoading(id + 'delete');
-    try {
-      const res = await fetch(`${API_URL}/admin/reports/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
-      showToast(`Laporan "${title.slice(0, 30)}" dihapus permanen`);
-      setExpandedId(null);
-      fetchReports();
-    } catch (err: any) {
-      showToast(err.message || 'Gagal hapus laporan', false);
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const openIdentity = async () => {
-    if (!token || !identityModal || identityReason.trim().length < 5) return;
-    setIdentityLoading(true);
-    try {
-      const params = new URLSearchParams({ reason: identityReason.trim() });
-      const res = await fetch(`${API_URL}/admin/reports/${identityModal.reportId}/identity?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
-      setIdentityResult({
-        identity: data.data.identity,
-        message: data.data.message,
-        reason: identityReason.trim(),
-      });
-    } catch (err: any) {
-      showToast(err.message || 'Gagal buka identitas', false);
-    } finally {
-      setIdentityLoading(false);
-    }
-  };
-
-  const convertToArticle = async (reportId: string, reportTitle: string) => {
-    if (!token) return;
-    if (!confirm(`Convert laporan "${reportTitle.slice(0, 40)}..." jadi draft artikel via AI?\n\nProses ini membutuhkan 5-10 detik.`)) return;
-    setConvertLoading(reportId);
-    try {
-      const res = await fetch(`${API_URL}/admin/reports/${reportId}/convert`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
-      setConvertResult(data.data.article);
-      showToast('Draft artikel berhasil dibuat! ✨');
-      fetchReports();
-    } catch (err: any) {
-      showToast(err.message || 'Gagal convert ke artikel', false);
-    } finally {
-      setConvertLoading(null);
-    }
-  };
-
-  const closeIdentityModal = () => {
-    setIdentityModal(null);
-    setIdentityReason('');
-    setIdentityResult(null);
-  };
-
-  const STATUS_FILTERS = [
-    { value: '', label: 'Semua' },
-    { value: 'pending', label: 'Pending' },
-    { value: 'verified', label: 'Verified' },
-    { value: 'rejected', label: 'Ditolak' },
-  ];
+  // Top incidents — urgent dulu, lalu high, sort by created_at
+  const topIncidents = [...reports]
+    .sort((a, b) => {
+      const pOrder = { urgent: 0, high: 1, normal: 2 };
+      if (pOrder[a.priority] !== pOrder[b.priority]) return pOrder[a.priority] - pOrder[b.priority];
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    })
+    .slice(0, 5);
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
+    <div style={{ maxWidth: 1200, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
       <style>{`
         @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
-        @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes spin   { to { transform: rotate(360deg); } }
+        @keyframes pulse  { 0%,100% { opacity:1; } 50% { opacity:0.5; } }
+        .tab-btn:hover { background: ${t.navHover} !important; }
+        .row-hover:hover { background: ${t.navHover} !important; }
       `}</style>
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 99,
-          background: toast.ok ? '#10B981' : '#EF4444', color: '#fff',
-          padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.15)', animation: 'fadeIn 0.2s ease',
-        }}>
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 99, background: toast.ok ? '#10B981' : '#EF4444', color: '#fff', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, animation: 'fadeIn 0.2s ease' }}>
           {toast.ok ? '✓' : '✗'} {toast.msg}
-        </div>
-      )}
-
-      {/* Convert Result */}
-      {convertResult && (
-        <div style={{
-          position: 'fixed', bottom: 20, right: 20, zIndex: 99,
-          background: '#fff', borderRadius: 14, padding: '16px 20px',
-          boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-          border: '1px solid rgba(8,145,178,0.2)',
-          maxWidth: 340, animation: 'fadeIn 0.3s ease',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-            <span style={{ fontSize: 24 }}>✨</span>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 700, fontSize: 13, color: '#111827', marginBottom: 4 }}>
-                Draft Artikel Dibuat!
-              </div>
-              <div style={{ fontSize: 12, color: '#6B7280', marginBottom: 10 }}>
-                "{convertResult.title.slice(0, 60)}..."
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <a href="/admin/content" style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: '#0891B2', color: '#fff', textDecoration: 'none' }}>
-                  Lihat di BAKABAR
-                </a>
-                <button onClick={() => setConvertResult(null)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', cursor: 'pointer' }}>
-                  Tutup
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Identity Modal */}
-      {identityModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 16, padding: 24, maxWidth: 440, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-            {!identityResult ? (
-              <>
-                <div style={{ fontSize: 32, textAlign: 'center', marginBottom: 8 }}>🔍</div>
-                <h3 style={{ fontWeight: 800, fontSize: 16, color: '#111827', textAlign: 'center', marginBottom: 4 }}>Buka Identitas Pelapor</h3>
-                <p style={{ color: '#6B7280', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>
-                  Laporan: <strong>"{identityModal.reportTitle.slice(0, 50)}"</strong>
-                </p>
-                <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#EF4444' }}>
-                  ⚠️ <strong>Tindakan ini akan dicatat dalam audit log.</strong>
-                </div>
-                <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>
-                  Alasan <span style={{ color: '#EF4444' }}>*</span>
-                </label>
-                <textarea
-                  value={identityReason}
-                  onChange={(e) => setIdentityReason(e.target.value)}
-                  placeholder="Contoh: Laporan mengandung fitnah, perlu konfirmasi identitas..."
-                  rows={3}
-                  autoFocus
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #E5E7EB', fontSize: 13, outline: 'none', marginBottom: 6, boxSizing: 'border-box', resize: 'vertical' }}
-                />
-                <p style={{ fontSize: 11, color: identityReason.trim().length < 5 ? '#EF4444' : '#10B981', marginBottom: 16 }}>
-                  {identityReason.trim().length}/5 karakter minimum
-                </p>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={closeIdentityModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
-                  <button
-                    onClick={openIdentity}
-                    disabled={identityLoading || identityReason.trim().length < 5}
-                    style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: identityReason.trim().length >= 5 ? '#EF4444' : '#9CA3AF', color: '#fff', fontWeight: 700, fontSize: 13, cursor: identityReason.trim().length >= 5 ? 'pointer' : 'not-allowed' }}
-                  >
-                    {identityLoading ? 'Membuka...' : '🔓 Buka Identitas'}
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div style={{ fontSize: 32, textAlign: 'center', marginBottom: 8 }}>
-                  {identityResult.identity ? '👤' : '🕵️'}
-                </div>
-                <h3 style={{ fontWeight: 800, fontSize: 16, color: '#111827', textAlign: 'center', marginBottom: 16 }}>
-                  {identityResult.identity ? 'Identitas Pelapor' : 'Pelapor Anonim Murni'}
-                </h3>
-                {identityResult.identity ? (
-                  <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 16 }}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                      <div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>NOMOR WA</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginTop: 2 }}>{formatPhone(identityResult.identity.phone)}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>NAMA</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginTop: 2 }}>{identityResult.identity.name || 'Belum isi nama'}</div>
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>BERGABUNG</div>
-                        <div style={{ fontSize: 13, color: '#374151', marginTop: 2 }}>
-                          {new Date(identityResult.identity.joined_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 16, textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
-                    {identityResult.message || 'Laporan dikirim tanpa akun.'}
-                  </div>
-                )}
-                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#92400E' }}>
-                  📋 Alasan dicatat: <em>"{identityResult.reason}"</em>
-                </div>
-                <button onClick={closeIdentityModal} style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
-                  Tutup
-                </button>
-              </>
-            )}
-          </div>
         </div>
       )}
 
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.4px' }}>🚨 BALAPOR</h1>
-          <p style={{ color: '#6B7280', fontSize: 13, marginTop: 3 }}>{total} laporan · Super Admin only</p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>
+            🚨 BALAPOR Command Center
+          </h1>
+          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>
+            {total} total laporan
+            {unhandledCount > 0 && <span style={{ color: '#EF4444', fontWeight: 700 }}> · {unhandledCount} belum ditangani {'>'} 2 jam</span>}
+          </p>
         </div>
-        <Link href="/admin" style={{ fontSize: 13, color: '#1B6B4A', fontWeight: 500, textDecoration: 'none', padding: '6px 12px', background: 'rgba(27,107,74,0.08)', borderRadius: 8 }}>← Overview</Link>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={fetchReports} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: t.sidebar, color: t.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            🔄 Refresh
+          </button>
+          <Link href="/office/newsroom/balapor" style={{ padding: '7px 16px', borderRadius: 8, background: '#1B6B4A', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+            + Global Broadcast
+          </Link>
+        </div>
       </div>
 
-      {/* Security notice */}
-      <div style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-        <span style={{ fontSize: 18 }}>🔒</span>
-        <div>
-          <div style={{ fontWeight: 700, fontSize: 13, color: '#EF4444' }}>Area Terbatas — Super Admin Only</div>
-          <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-            Data pelapor bersifat rahasia. Setiap aksi buka identitas dicatat dalam audit log.
-          </div>
-        </div>
-      </div>
-
-      {/* Filter */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: '12px 16px', marginBottom: 20, display: 'flex', gap: 8 }}>
-        {STATUS_FILTERS.map((f) => (
-          <button key={f.value} onClick={() => setStatusFilter(f.value)} style={{ padding: '5px 14px', borderRadius: 20, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: statusFilter === f.value ? '#EF4444' : '#F3F4F6', color: statusFilter === f.value ? '#fff' : '#374151', transition: 'all 0.15s' }}>
-            {f.label}
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${t.sidebarBorder}` }}>
+        {[
+          { key: 'overview', label: 'Overview' },
+          { key: 'live',     label: 'Live Incidents' },
+          { key: 'deepdive', label: 'Deep Dive' },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setTab(tab.key as any)}
+            className="tab-btn"
+            style={{ padding: '8px 18px', fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500, color: activeTab === tab.key ? '#1B6B4A' : t.textDim, background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: activeTab === tab.key ? '2px solid #1B6B4A' : '2px solid transparent', marginBottom: -1, transition: 'all 0.15s' }}>
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Loading */}
-      {loading && (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: '#9CA3AF' }}>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: t.textDim }}>
           <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid #EF4444', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          Memuat laporan...
+          Memuat data...
         </div>
-      )}
+      ) : (
+        <>
+          {/* ── OVERVIEW TAB ── */}
+          {activeTab === 'overview' && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 16 }}>
 
-      {/* Empty */}
-      {!loading && reports.length === 0 && (
-        <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', padding: '60px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
-          <p style={{ color: '#6B7280', fontSize: 13 }}>Tidak ada laporan</p>
-        </div>
-      )}
+              {/* Left column */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-      {/* Reports list */}
-      {!loading && reports.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {reports.map((r) => {
-            const st = REPORT_STATUS[r.status] ?? { bg: '#F3F4F6', color: '#6B7280', label: r.status };
-            const isExpanded = expandedId === r.id;
-            return (
-              <div key={r.id} style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-                {/* Header row */}
-                <div
-                  onClick={() => setExpandedId(isExpanded ? null : r.id)}
-                  style={{ padding: '14px 16px', cursor: 'pointer', display: 'flex', alignItems: 'flex-start', gap: 12 }}
-                >
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                      <span style={{ fontWeight: 700, fontSize: 14, color: '#111827' }}>{r.title}</span>
-                      <span style={{ background: st.bg, color: st.color, fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>{st.label}</span>
-                      {r.photos && r.photos.length > 0 && (
-                        <span style={{ background: 'rgba(8,145,178,0.1)', color: '#0891B2', fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20 }}>
-                          📷 {r.photos.length} foto
-                        </span>
-                      )}
+                {/* Stats row */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                  {[
+                    { label: 'Total Hari Ini', value: total,         color: '#1B6B4A', bg: 'rgba(27,107,74,0.08)'  },
+                    { label: 'Urgent',         value: urgentCount,   color: '#EF4444', bg: 'rgba(239,68,68,0.08)'  },
+                    { label: 'High',           value: highCount,     color: '#F59E0B', bg: 'rgba(245,158,11,0.08)' },
+                    { label: 'Belum Ditangani',value: unhandledCount,color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)' },
+                  ].map(s => (
+                    <div key={s.label} style={{ background: s.bg, borderRadius: 12, padding: '14px 16px', border: `1px solid ${s.color}22` }}>
+                      <div style={{ fontSize: 26, fontWeight: 800, color: s.color, letterSpacing: '-0.03em' }}>{s.value}</div>
+                      <div style={{ fontSize: 11, color: t.textDim, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
                     </div>
-                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>
-                      {r.category || '—'} · {ANON_LABEL[r.anonymity_level || ''] || r.anonymity_level || '—'} · {r.location || '—'} · {timeAgo(r.created_at)}
-                    </div>
-                  </div>
-                  <span style={{ color: '#9CA3AF', fontSize: 12, flexShrink: 0 }}>{isExpanded ? '▲' : '▼'}</span>
+                  ))}
                 </div>
 
-                {/* Expanded content */}
-                {isExpanded && (
-                  <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 16px' }}>
-                    {r.body && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 6 }}>ISI LAPORAN</div>
-                        <p style={{ fontSize: 13, color: '#374151', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>{r.body}</p>
-                      </div>
-                    )}
-
-                    {r.photos && r.photos.length > 0 && (
-                      <div style={{ marginBottom: 16 }}>
-                        <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>FOTO BUKTI</div>
-                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {r.photos.map((p, i) => (
-                            <a key={i} href={p} target="_blank" rel="noopener noreferrer">
-                              <img src={p} alt={`Foto ${i+1}`} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E7EB' }} />
-                            </a>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                      {r.status === 'pending' && (
-                        <>
-                          <button
-                            onClick={() => updateStatus(r.id, 'verified', r.title)}
-                            disabled={actionLoading === r.id + 'verified'}
-                            style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'rgba(16,185,129,0.1)', color: '#10B981', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                          >
-                            {actionLoading === r.id + 'verified' ? '...' : '✓ Verifikasi'}
-                          </button>
-                          <button
-                            onClick={() => updateStatus(r.id, 'rejected', r.title)}
-                            disabled={actionLoading === r.id + 'rejected'}
-                            style={{ padding: '7px 14px', borderRadius: 8, border: 'none', background: 'rgba(239,68,68,0.1)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                          >
-                            {actionLoading === r.id + 'rejected' ? '...' : '✕ Tolak'}
-                          </button>
-                        </>
-                      )}
-
-                      <button
-                        onClick={() => { setIdentityModal({ reportId: r.id, reportTitle: r.title }); setIdentityResult(null); setIdentityReason(''); }}
-                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
-                      >
-                        🔍 Buka Identitas
-                      </button>
-
-                      {r.status === 'verified' && (
-                        <button
-                          onClick={() => convertToArticle(r.id, r.title)}
-                          disabled={convertLoading === r.id}
-                          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(8,145,178,0.3)', background: 'rgba(8,145,178,0.08)', color: '#0891B2', fontSize: 12, fontWeight: 700, cursor: convertLoading === r.id ? 'wait' : 'pointer', opacity: convertLoading === r.id ? 0.6 : 1 }}
-                        >
-                          {convertLoading === r.id ? '⏳ AI sedang nulis...' : '📰 Jadikan Artikel'}
+                {/* Peta */}
+                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>🗺️ Peta Laporan Maluku Utara</span>
+                    <div style={{ display: 'flex', gap: 6 }}>
+                      {['', 'urgent', 'high', 'normal'].map(p => (
+                        <button key={p} onClick={() => setPriority(p)}
+                          style={{ padding: '3px 10px', borderRadius: 20, border: `1px solid ${priorityFilter === p ? '#1B6B4A' : t.sidebarBorder}`, background: priorityFilter === p ? '#1B6B4A' : 'transparent', color: priorityFilter === p ? '#fff' : t.textDim, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                          {p === '' ? 'Semua' : p.charAt(0).toUpperCase() + p.slice(1)}
                         </button>
-                      )}
-
-                      {/* Hapus permanen — selalu tersedia */}
-                      <button
-                        onClick={() => deleteReport(r.id, r.title)}
-                        disabled={actionLoading === r.id + 'delete'}
-                        style={{
-                          marginLeft: 'auto',
-                          padding: '7px 14px', borderRadius: 8,
-                          border: '1px solid rgba(239,68,68,0.2)',
-                          background: 'transparent', color: '#9CA3AF',
-                          fontSize: 12, fontWeight: 700,
-                          cursor: actionLoading === r.id + 'delete' ? 'wait' : 'pointer',
-                          transition: 'all 0.15s',
-                        }}
-                        onMouseEnter={e => {
-                          ;(e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'
-                          ;(e.currentTarget as HTMLElement).style.color = '#EF4444'
-                          ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.4)'
-                        }}
-                        onMouseLeave={e => {
-                          ;(e.currentTarget as HTMLElement).style.background = 'transparent'
-                          ;(e.currentTarget as HTMLElement).style.color = '#9CA3AF'
-                          ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.2)'
-                        }}
-                      >
-                        {actionLoading === r.id + 'delete' ? '...' : '🗑 Hapus'}
-                      </button>
+                      ))}
                     </div>
+                  </div>
+                  <BalaporMap reports={reports} t={t} />
+
+                  {/* Map stats */}
+                  <div style={{ display: 'flex', gap: 16, marginTop: 12, padding: '10px 12px', background: t.mainBg, borderRadius: 10 }}>
+                    {[
+                      { label: 'Urgent', count: urgentCount, color: '#EF4444' },
+                      { label: 'High',   count: highCount,   color: '#F59E0B' },
+                      { label: 'Normal', count: reports.filter(r => r.priority === 'normal').length, color: '#10B981' },
+                    ].map(s => (
+                      <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <div style={{ width: 10, height: 10, borderRadius: '50%', background: s.color }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: s.color }}>{s.count} {s.label}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Live Incidents table */}
+                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
+                  <div style={{ padding: '14px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#EF4444', display: 'inline-block', animation: 'pulse 2s infinite' }} />
+                      <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>Live Incidents</span>
+                    </div>
+                    <button onClick={() => setTab('live')} style={{ fontSize: 11, color: '#1B6B4A', fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer' }}>
+                      See All →
+                    </button>
+                  </div>
+
+                  {/* Table header */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', padding: '8px 16px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}` }}>
+                    <span>Incident</span><span>Status</span><span>Lokasi</span><span>Waktu</span>
+                  </div>
+
+                  {topIncidents.map((r, idx) => {
+                    const pc = PRIORITY_COLOR[r.priority];
+                    return (
+                      <div key={r.id} className="row-hover"
+                        style={{ display: 'grid', gridTemplateColumns: '1fr 100px 120px 80px', padding: '10px 16px', alignItems: 'center', borderBottom: idx < topIncidents.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', transition: 'background 0.15s' }}>
+                        <div style={{ minWidth: 0, paddingRight: 12 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                            <span style={{ width: 8, height: 8, borderRadius: '50%', background: pc, flexShrink: 0 }} />
+                            <span style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</span>
+                          </div>
+                          <div style={{ fontSize: 10, color: t.textDim, paddingLeft: 14 }}>{r.category || '—'}</div>
+                        </div>
+                        <div>
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, background: `${pc}22`, color: pc }}>
+                            {r.priority === 'urgent' ? '🔴' : r.priority === 'high' ? '🟠' : '🟢'} {r.priority}
+                          </span>
+                        </div>
+                        <div style={{ fontSize: 11, color: t.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          📍 {r.location || '—'}
+                        </div>
+                        <div style={{ fontSize: 11, color: t.textDim }}>{timeAgo(r.created_at)}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Right column */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+                {/* Total counter */}
+                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <span style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary }}>{total}</span>
+                    <span style={{ fontSize: 12, color: t.textDim }}>Total Laporan Hari Ini ∨</span>
+                  </div>
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#EF4444' }}>{urgentCount}</div>
+                      <div style={{ fontSize: 10, color: t.textDim }}>Urgent</div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 20, fontWeight: 800, color: '#F59E0B' }}>{unhandledCount}</div>
+                      <div style={{ fontSize: 10, color: t.textDim }}>Belum Ditangani {'>'} 2 Jam</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Top Incidents */}
+                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '16px 20px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>Top Incidents</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {topIncidents.map(r => {
+                      const pc = PRIORITY_COLOR[r.priority];
+                      return (
+                        <div key={r.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                          <div style={{ width: 8, height: 8, borderRadius: '50%', background: pc, flexShrink: 0 }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
+                            <p style={{ fontSize: 10, color: t.textDim }}>{r.location || '—'} · {timeAgo(r.created_at)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Alert lonjakan */}
+                {urgentCount > 0 && (
+                  <div style={{ background: 'rgba(239,68,68,0.06)', borderRadius: 14, border: '1px solid rgba(239,68,68,0.2)', padding: '16px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                      <span style={{ fontSize: 16 }}>🚨</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: '#EF4444' }}>Alert</span>
+                    </div>
+                    <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.6 }}>
+                      Ada <strong>{urgentCount} laporan URGENT</strong> yang perlu segera ditangani.
+                    </p>
+                    <button onClick={() => { setPriority('urgent'); setTab('live'); }}
+                      style={{ marginTop: 10, padding: '6px 14px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'transparent', color: '#EF4444', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      Lihat Urgent →
+                    </button>
+                  </div>
+                )}
+
+                {/* Quick link ke office */}
+                <Link href="/office/newsroom/balapor" style={{ display: 'block', background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '14px 18px', textDecoration: 'none' }}>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>📋 Incident Management</div>
+                  <div style={{ fontSize: 11, color: t.textDim }}>Buka portal wartawan untuk verifikasi dan tindak laporan</div>
+                  <div style={{ fontSize: 11, color: '#1B6B4A', fontWeight: 600, marginTop: 6 }}>Buka Portal →</div>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* ── LIVE INCIDENTS TAB ── */}
+          {activeTab === 'live' && (
+            <div>
+              {/* Priority filter */}
+              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+                {[
+                  { value: '',        label: '📋 Semua',   count: total },
+                  { value: 'urgent',  label: '🔴 Urgent',  count: urgentCount },
+                  { value: 'high',    label: '🟠 High',    count: highCount },
+                  { value: 'normal',  label: '🟢 Normal',  count: reports.filter(r => r.priority === 'normal').length },
+                ].map(f => (
+                  <button key={f.value} onClick={() => setPriority(f.value)}
+                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: `1px solid ${priorityFilter === f.value ? '#1B6B4A' : t.sidebarBorder}`, background: priorityFilter === f.value ? '#1B6B4A' : t.sidebar, color: priorityFilter === f.value ? '#fff' : t.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                    {f.label}
+                    {f.count > 0 && <span style={{ fontSize: 10, fontWeight: 800, padding: '0 5px', borderRadius: 99, background: priorityFilter === f.value ? 'rgba(255,255,255,0.25)' : '#EF4444', color: '#fff' }}>{f.count}</span>}
+                  </button>
+                ))}
+              </div>
+
+              {/* Full table */}
+              <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '4px 1fr 110px 130px 90px 120px', padding: '10px 16px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, gap: 12 }}>
+                  <span></span><span>Incident</span><span>Priority</span><span>Lokasi</span><span>Waktu</span><span>Aksi Priority</span>
+                </div>
+
+                {reports.map((r, idx) => {
+                  const pc = PRIORITY_COLOR[r.priority];
+                  return (
+                    <div key={r.id} className="row-hover"
+                      style={{ display: 'grid', gridTemplateColumns: '4px 1fr 110px 130px 90px 120px', padding: '11px 16px', alignItems: 'center', gap: 12, borderBottom: idx < reports.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', transition: 'background 0.15s' }}>
+
+                      {/* Priority bar */}
+                      <div style={{ width: 4, height: 36, borderRadius: 4, background: pc }} />
+
+                      {/* Title */}
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{r.title}</p>
+                        <p style={{ fontSize: 10, color: t.textDim }}>{r.category || '—'} {r.forwarded_at ? '· ✈️ Diteruskan' : ''}</p>
+                      </div>
+
+                      {/* Priority badge */}
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 20, background: `${pc}22`, color: pc, display: 'inline-block', width: 'fit-content' }}>
+                        {PRIORITY_LABEL[r.priority]}
+                      </span>
+
+                      {/* Lokasi */}
+                      <div style={{ fontSize: 11, color: t.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        📍 {r.location || '—'}
+                      </div>
+
+                      {/* Waktu */}
+                      <div style={{ fontSize: 11, color: isUnhandled(r) ? '#EF4444' : t.textDim, fontWeight: isUnhandled(r) ? 700 : 400 }}>
+                        {timeAgo(r.created_at)}
+                        {isUnhandled(r) && <div style={{ fontSize: 9, color: '#EF4444' }}>⚠️ Belum ditangani</div>}
+                      </div>
+
+                      {/* Quick priority */}
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        {(['urgent', 'high', 'normal'] as const).map(p => (
+                          <button key={p} onClick={() => setPriorityAction(r.id, p, r.title)}
+                            disabled={r.priority === p || actionLoading === r.id + 'priority'}
+                            title={`Set ${p}`}
+                            style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${r.priority === p ? PRIORITY_COLOR[p] : t.sidebarBorder}`, background: r.priority === p ? PRIORITY_COLOR[p] + '22' : 'transparent', cursor: r.priority === p ? 'default' : 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            {p === 'urgent' ? '🔴' : p === 'high' ? '🟠' : '🟢'}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {reports.length === 0 && (
+                  <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+                    <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
+                    <p style={{ color: t.textDim, fontSize: 13 }}>Tidak ada laporan</p>
                   </div>
                 )}
               </div>
-            );
-          })}
-        </div>
+            </div>
+          )}
+
+          {/* ── DEEP DIVE TAB ── */}
+          {activeTab === 'deepdive' && (
+            <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '40px 24px', textAlign: 'center' }}>
+              <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
+              <p style={{ color: t.textPrimary, fontSize: 15, fontWeight: 700 }}>Deep Dive Analytics</p>
+              <p style={{ color: t.textDim, fontSize: 13, marginTop: 6 }}>Coming soon — Session 7</p>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
