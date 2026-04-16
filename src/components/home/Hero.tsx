@@ -226,9 +226,9 @@ export default function Hero() {
         {/* RIGHT — hierarchy floating cards (desktop only) */}
         <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
 
-          {/* ── Card UTAMA — Speedboat (besar, dominan) ── */}
+          {/* ── Card UTAMA — Speedboat (kiri bawah, sejajar BASUMBANG) ── */}
           <Link href="/speed" className="float-card" style={{
-            position: 'absolute', top: '6%', left: '0%',
+            position: 'absolute', bottom: '2%', left: '0%',
             textDecoration: 'none',
             background: 'rgba(255,255,255,0.97)',
             backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
