@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import Link from 'next/link';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 interface Article {
   id: string;
@@ -12,36 +13,14 @@ interface Article {
   slug: string;
   status: string;
   category: string | null;
-  author_id: string | null;
   author_name: string;
-  cover_image_url: string | null;
-  created_at: string;
-  published_at: string | null;
   view_count: number;
-  share_count: number;
   viral_score: number;
   is_viral: boolean;
   is_breaking: boolean;
-  source: string;
+  published_at: string | null;
+  created_at: string;
 }
-
-const STATUS_TABS = [
-  { value: '',          label: 'Semua',            color: '#6B7280' },
-  { value: 'draft',     label: 'Draft',             color: '#F59E0B' },
-  { value: 'published', label: 'Publikasi Terkini', color: '#10B981' },
-  { value: 'archived',  label: 'Arsip',             color: '#9CA3AF' },
-];
-
-const CATEGORIES = [
-  'berita', 'transportasi', 'sosial', 'kesehatan',
-  'pendidikan', 'ekonomi', 'lingkungan', 'olahraga',
-];
-
-const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
-  published: { bg: 'rgba(16,185,129,0.12)',  color: '#059669', label: 'Published' },
-  draft:     { bg: 'rgba(245,158,11,0.12)',  color: '#D97706', label: 'Draft'     },
-  archived:  { bg: 'rgba(107,114,128,0.12)', color: '#6B7280', label: 'Arsip'     },
-};
 
 function timeAgo(dateStr: string) {
   if (!dateStr) return '—';
@@ -50,579 +29,202 @@ function timeAgo(dateStr: string) {
   if (m < 60) return `${m} mnt lalu`;
   const h = Math.floor(m / 60);
   if (h < 24) return `${h} jam lalu`;
-  const d = Math.floor(h / 24);
-  return d < 7 ? `${d} hari lalu`
-    : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  return `${Math.floor(h / 24)} hari lalu`;
 }
 
 function AuthorAvatar({ name }: { name: string }) {
   const initial = (name || 'A').charAt(0).toUpperCase();
-  const colors = ['#1B6B4A', '#0891B2', '#7C3AED', '#DB2777', '#D97706'];
-  const color = colors[initial.charCodeAt(0) % colors.length];
+  const colors  = ['#1B6B4A', '#0891B2', '#7C3AED', '#DB2777', '#D97706'];
+  const color   = colors[initial.charCodeAt(0) % colors.length];
   return (
-    <div title={name} style={{
-      width: 28, height: 28, borderRadius: '50%', background: color,
-      display: 'flex', alignItems: 'center', justifyContent: 'center',
-      fontSize: 11, fontWeight: 800, color: '#fff', flexShrink: 0,
-    }}>
+    <div title={name} style={{ width: 26, height: 26, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
       {initial}
     </div>
   );
 }
 
-function TrendingWidget({ articles }: { articles: Article[] }) {
-  const trending = articles
-    .filter(a => a.status === 'published')
-    .sort((a, b) => b.viral_score - a.viral_score)
-    .slice(0, 2);
-
-  if (!trending.length) return null;
-
-  return (
-    <div style={{
-      background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB',
-      padding: '16px 20px', flex: 1,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#111827' }}>🔥 Trending Hari Ini</span>
-        <Link href="/admin/analytics" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>
-          Lihat semua →
-        </Link>
-      </div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {trending.map(a => (
-          <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-            <div style={{
-              width: 8, height: 8, borderRadius: '50%', background: '#F97316', flexShrink: 0,
-            }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={{
-                fontSize: 13, fontWeight: 700, color: '#111827',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                marginBottom: 2,
-              }}>
-                {a.title}
-              </p>
-              <p style={{ fontSize: 11, color: '#6B7280' }}>
-                +{a.view_count.toLocaleString('id-ID')} views · score {a.viral_score}
-              </p>
-            </div>
-            <a
-              href={`/news/${a.slug}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{
-                padding: '5px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
-                background: '#003526', color: '#fff', textDecoration: 'none', flexShrink: 0,
-              }}
-            >
-              Lihat →
-            </a>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PerluPerhatianWidget({ articles }: { articles: Article[] }) {
-  const now = Date.now();
-  const stale = articles.filter(a => {
-    if (a.status !== 'draft') return false;
-    const age = now - new Date(a.created_at).getTime();
-    return age > 24 * 3600 * 1000;
-  });
-
-  const breaking = articles.filter(a => a.is_breaking && a.status === 'published');
-
-  const items: string[] = [];
-  if (stale.length > 0) items.push(`${stale.length} draft belum dipublish > 24 jam`);
-  if (breaking.length > 0) items.push(`${breaking.length} artikel breaking news aktif`);
-
-  return (
-    <div style={{
-      background: 'linear-gradient(135deg, #FFFBEB, #fff)',
-      borderRadius: 14, border: '1px solid #FDE68A',
-      padding: '16px 20px', flex: 1,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: '#92400E' }}>⚠️ Perlu Perhatian</span>
-        {items.length === 0 && (
-          <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>✓ Semua oke</span>
-        )}
-      </div>
-      {items.length === 0 ? (
-        <p style={{ fontSize: 12, color: '#6B7280' }}>Tidak ada yang perlu ditindaklanjuti.</p>
-      ) : (
-        <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
-          {items.map((item, i) => (
-            <li key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92400E' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-              {item}
-            </li>
-          ))}
-        </ul>
-      )}
-      {stale.length > 0 && (
-        <button
-          onClick={() => {}}
-          style={{
-            marginTop: 12, width: '100%', padding: '7px', borderRadius: 8,
-            border: '1px solid #FCD34D', background: 'rgba(245,158,11,0.08)',
-            color: '#92400E', fontSize: 11, fontWeight: 700, cursor: 'pointer',
-          }}
-        >
-          Review Draft →
-        </button>
-      )}
-    </div>
-  );
-}
-
-export default function AdminContentPage() {
+export default function BakabarCommandPage() {
   const { token } = useAuth();
-  const [articles, setArticles]     = useState<Article[]>([]);
-  const [total, setTotal]           = useState(0);
-  const [loading, setLoading]       = useState(true);
-  const [actionLoading, setAction]  = useState<string | null>(null);
-  const [statusFilter, setStatus]   = useState('');
-  const [categoryFilter, setCategory] = useState('');
-  const [search, setSearch]         = useState('');
-  const [searchInput, setSearchInput] = useState('');
-  const [page, setPage]             = useState(1);
-  const [toast, setToast]           = useState<{ msg: string; ok: boolean } | null>(null);
-  const limit = 20;
-  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { t }     = useContext(AdminThemeContext);
+  const [articles, setArticles] = useState<Article[]>([]);
+  const [loading, setLoading]   = useState(true);
 
-  const showToast = (msg: string, ok = true) => {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  };
-
-  const fetchArticles = useCallback(async () => {
+  useEffect(() => {
     if (!token) return;
-    setLoading(true);
-    try {
-      const params = new URLSearchParams({ limit: String(limit), page: String(page) });
-      if (statusFilter)   params.set('status', statusFilter);
-      if (categoryFilter) params.set('category', categoryFilter);
-      if (search)         params.set('q', search);
+    fetch(`${API}/admin/articles?limit=50`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.success) setArticles(d.data.data); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [token]);
 
-      const res  = await fetch(`${API_URL}/admin/articles?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
-      setArticles(data.data.data);
-      setTotal(data.data.total);
-    } catch (err: any) {
-      showToast(err.message || 'Gagal memuat artikel', false);
-    } finally {
-      setLoading(false);
-    }
-  }, [token, statusFilter, categoryFilter, search, page]);
+  const published   = articles.filter(a => a.status === 'published');
+  const drafts      = articles.filter(a => a.status === 'draft');
+  const totalViews  = published.reduce((s, a) => s + (a.view_count || 0), 0);
+  const now         = Date.now();
+  const staleDrafts = drafts.filter(a => now - new Date(a.created_at).getTime() > 3 * 3600 * 1000);
+  const trending    = [...published].sort((a, b) => b.viral_score - a.viral_score).slice(0, 5);
+  const recent      = [...published]
+    .sort((a, b) => new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime())
+    .slice(0, 5);
 
-  useEffect(() => { fetchArticles(); }, [fetchArticles]);
-
-  // Debounce search
-  const handleSearchInput = (val: string) => {
-    setSearchInput(val);
-    if (searchTimer.current) clearTimeout(searchTimer.current);
-    searchTimer.current = setTimeout(() => {
-      setSearch(val);
-      setPage(1);
-    }, 400);
-  };
-
-  const updateStatus = async (id: string, status: string, title: string) => {
-    if (!token) return;
-    setAction(id + status);
-    try {
-      const res  = await fetch(`${API_URL}/admin/articles/${id}/status`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
-      });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
-      showToast(`"${title.slice(0, 28)}..." → ${STATUS_STYLE[status]?.label ?? status}`);
-      fetchArticles();
-    } catch (err: any) {
-      showToast(err.message || 'Gagal update', false);
-    } finally {
-      setAction(null);
-    }
-  };
-
-  const totalPages = Math.ceil(total / limit);
+  const StatCard = ({ label, value, sub, color = '#1B6B4A' }: { label: string; value: string | number; sub?: string; color?: string }) => (
+    <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px', flex: 1 }}>
+      <div style={{ fontSize: 12, color: t.textDim, fontWeight: 500, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: '-0.03em', marginBottom: 2 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11, color: t.textDim }}>{sub}</div>}
+    </div>
+  );
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
-      <style>{`
-        @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
-        @keyframes spin   { to { transform: rotate(360deg); } }
-        .row-hover:hover { background: #F9FAFB !important; }
-        .action-btn:hover { opacity: 0.8; }
-      `}</style>
 
-      {/* Toast */}
-      {toast && (
-        <div style={{
-          position: 'fixed', top: 20, right: 20, zIndex: 99,
-          background: toast.ok ? '#10B981' : '#EF4444', color: '#fff',
-          padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600,
-          boxShadow: '0 4px 16px rgba(0,0,0,0.15)', animation: 'fadeIn 0.2s ease',
-        }}>
-          {toast.ok ? '✓' : '✗'} {toast.msg}
-        </div>
-      )}
-
-      {/* ── Header ── */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.4px' }}>
-            📰 Editorial Command Center
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>
+            📰 BAKABAR Command Center
           </h1>
-          <p style={{ color: '#6B7280', fontSize: 13, marginTop: 3 }}>
-            {total} artikel · halaman {page} dari {totalPages || 1}
-          </p>
+          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>Overview performa konten hari ini</p>
         </div>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <Link href="/admin/content/new" style={{
-            fontSize: 13, color: '#fff', fontWeight: 700, textDecoration: 'none',
-            padding: '8px 16px', background: '#1B6B4A', borderRadius: 10,
-          }}>
-            + Tulis Cepat
-          </Link>
-          <Link href="/admin" style={{
-            fontSize: 13, color: '#1B6B4A', fontWeight: 500, textDecoration: 'none',
-            padding: '7px 12px', background: 'rgba(27,107,74,0.08)', borderRadius: 10,
-          }}>
-            ← Overview
-          </Link>
-        </div>
+        <Link href="/admin/bakabar/hub" style={{ padding: '8px 16px', borderRadius: 10, background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+          Editorial Hub →
+        </Link>
       </div>
 
-      {/* ── Widgets Row ── */}
-      {!loading && articles.length > 0 && (
-        <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
-          <TrendingWidget articles={articles} />
-          <PerluPerhatianWidget articles={articles} />
-        </div>
-      )}
-
-      {/* ── Toolbar ── */}
-      <div style={{
-        background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB',
-        padding: '12px 16px', marginBottom: 16,
-        display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap',
-      }}>
-        {/* Search */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: '#F9FAFB', borderRadius: 8, padding: '6px 12px',
-          border: '1px solid #E5E7EB', flex: '1', minWidth: 180,
-        }}>
-          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#9CA3AF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-          </svg>
-          <input
-            value={searchInput}
-            onChange={e => handleSearchInput(e.target.value)}
-            placeholder="Cari judul artikel..."
-            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: '#111827', width: '100%' }}
-          />
-        </div>
-
-        {/* Status tabs */}
-        <div style={{ display: 'flex', gap: 4, background: '#F3F4F6', borderRadius: 8, padding: 3 }}>
-          {STATUS_TABS.map(tab => (
-            <button
-              key={tab.value}
-              onClick={() => { setStatus(tab.value); setPage(1); }}
-              style={{
-                padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
-                fontSize: 11, fontWeight: 700,
-                background: statusFilter === tab.value ? '#fff' : 'transparent',
-                color: statusFilter === tab.value ? tab.color : '#9CA3AF',
-                boxShadow: statusFilter === tab.value ? '0 1px 4px rgba(0,0,0,0.1)' : 'none',
-                transition: 'all 0.15s',
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Category filter */}
-        <select
-          value={categoryFilter}
-          onChange={e => { setCategory(e.target.value); setPage(1); }}
-          style={{
-            padding: '6px 10px', borderRadius: 8, border: '1px solid #E5E7EB',
-            fontSize: 11, color: '#374151', background: '#fff', cursor: 'pointer', outline: 'none',
-          }}
-        >
-          <option value="">Semua Kategori</option>
-          {CATEGORIES.map(c => (
-            <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>
-          ))}
-        </select>
+      {/* Tab bar */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${t.sidebarBorder}`, paddingBottom: 0 }}>
+        {['Overview', 'Newsroom Analytics', 'Distribution Metrics'].map((tab, i) => (
+          <div key={tab} style={{ padding: '8px 16px', fontSize: 13, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#1B6B4A' : t.textDim, cursor: 'pointer', borderBottom: i === 0 ? '2px solid #1B6B4A' : '2px solid transparent', marginBottom: -1 }}>
+            {tab}
+          </div>
+        ))}
       </div>
 
-      {/* ── Table ── */}
-      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #E5E7EB', overflow: 'hidden' }}>
-
-        {/* Table header */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '100px 1fr 80px 80px 110px 90px 140px',
-          padding: '10px 16px',
-          background: '#F9FAFB', borderBottom: '1px solid #E5E7EB',
-          fontSize: 10, fontWeight: 800, color: '#9CA3AF',
-          textTransform: 'uppercase', letterSpacing: '0.06em',
-        }}>
-          <span>Status</span>
-          <span>Judul</span>
-          <span style={{ textAlign: 'right' }}>Score</span>
-          <span style={{ textAlign: 'right' }}>Views</span>
-          <span>Updated</span>
-          <span>Editor</span>
-          <span>Aksi</span>
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: '60px 0', color: t.textDim }}>
+          <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #1B6B4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+          Memuat data...
         </div>
-
-        {/* Loading */}
-        {loading && (
-          <div style={{ padding: '60px 0', textAlign: 'center', color: '#9CA3AF' }}>
-            <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #1B6B4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
-            Memuat artikel...
+      ) : (
+        <>
+          {/* Stats row */}
+          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+            <StatCard label="Artikel Terbit Hari Ini" value={published.length} sub="artikel published" color="#1B6B4A" />
+            <StatCard label="Total Views Hari Ini" value={totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews} sub="dari semua artikel" color="#0891B2" />
+            <StatCard
+              label="Draft Perlu Perhatian"
+              value={staleDrafts.length}
+              sub="belum dipublish > 3 jam"
+              color={staleDrafts.length > 0 ? '#F59E0B' : '#10B981'}
+            />
           </div>
-        )}
 
-        {/* Empty */}
-        {!loading && articles.length === 0 && (
-          <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
-            <p style={{ color: '#6B7280', fontSize: 13 }}>
-              {search ? `Tidak ada hasil untuk "${search}"` : 'Tidak ada artikel'}
-            </p>
-          </div>
-        )}
-
-        {/* Rows */}
-        {!loading && articles.map((a, idx) => {
-          const st = STATUS_STYLE[a.status] ?? { bg: '#F3F4F6', color: '#6B7280', label: a.status };
-          return (
-            <div
-              key={a.id}
-              className="row-hover"
-              style={{
-                display: 'grid',
-                gridTemplateColumns: '100px 1fr 80px 80px 110px 90px 140px',
-                padding: '12px 16px', alignItems: 'center',
-                borderBottom: idx < articles.length - 1 ? '1px solid #F3F4F6' : 'none',
-                background: 'transparent', transition: 'background 0.1s',
-              }}
-            >
-              {/* Status */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <span style={{
-                  background: st.bg, color: st.color,
-                  fontSize: 10, fontWeight: 800, padding: '2px 8px',
-                  borderRadius: 20, display: 'inline-block', width: 'fit-content',
-                }}>
-                  {st.label}
-                </span>
-                {a.is_viral && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#F97316' }}>🔥 Viral</span>
-                )}
-                {a.is_breaking && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444' }}>🔴 Breaking</span>
-                )}
+          {/* Trending + Perlu Perhatian */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
+            {/* Trending */}
+            <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>🔥 Trending Hari Ini</span>
+                <Link href="/admin/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>See All →</Link>
               </div>
-
-              {/* Judul */}
-              <div style={{ minWidth: 0, paddingRight: 16 }}>
-                <p style={{
-                  fontWeight: 700, fontSize: 13, color: '#111827',
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  marginBottom: 2,
-                }}>
-                  {a.title}
-                </p>
-                <p style={{ fontSize: 11, color: '#9CA3AF' }}>
-                  {a.category || 'Umum'}
-                  {a.source === 'balapor' && ' · 📢 BALAPOR'}
-                  {a.source === 'rss' && ' · 🗞️ RSS'}
-                </p>
-              </div>
-
-              {/* Score */}
-              <div style={{ textAlign: 'right' }}>
-                <span style={{
-                  fontSize: 13, fontWeight: 800,
-                  color: a.viral_score > 100 ? '#F97316' : '#374151',
-                }}>
-                  {a.viral_score ?? 0}
-                </span>
-              </div>
-
-              {/* Views */}
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>
-                  {a.view_count >= 1000
-                    ? `${(a.view_count / 1000).toFixed(1)}k`
-                    : a.view_count ?? 0}
-                </span>
-              </div>
-
-              {/* Updated */}
-              <div>
-                <p style={{ fontSize: 11, color: '#6B7280' }}>
-                  {timeAgo(a.published_at || a.created_at)}
-                </p>
-              </div>
-
-              {/* Editor */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <AuthorAvatar name={a.author_name} />
-                <span style={{
-                  fontSize: 11, color: '#374151', fontWeight: 600,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                  maxWidth: 56,
-                }}>
-                  {a.author_name?.split(' ')[0]}
-                </span>
-              </div>
-
-              {/* Aksi */}
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                {a.status === 'draft' && (
-                  <button
-                    className="action-btn"
-                    onClick={() => updateStatus(a.id, 'published', a.title)}
-                    disabled={actionLoading === a.id + 'published'}
-                    style={{
-                      padding: '4px 8px', borderRadius: 6, border: 'none',
-                      background: 'rgba(16,185,129,0.12)', color: '#059669',
-                      fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    {actionLoading === a.id + 'published' ? '...' : 'Publish'}
-                  </button>
-                )}
-                {a.status === 'published' && (
-                  <button
-                    className="action-btn"
-                    onClick={() => updateStatus(a.id, 'archived', a.title)}
-                    disabled={actionLoading === a.id + 'archived'}
-                    style={{
-                      padding: '4px 8px', borderRadius: 6, border: 'none',
-                      background: 'rgba(107,114,128,0.1)', color: '#6B7280',
-                      fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    {actionLoading === a.id + 'archived' ? '...' : 'Arsip'}
-                  </button>
-                )}
-                {a.status === 'archived' && (
-                  <button
-                    className="action-btn"
-                    onClick={() => updateStatus(a.id, 'draft', a.title)}
-                    disabled={actionLoading === a.id + 'draft'}
-                    style={{
-                      padding: '4px 8px', borderRadius: 6, border: 'none',
-                      background: 'rgba(245,158,11,0.1)', color: '#D97706',
-                      fontSize: 11, fontWeight: 700, cursor: 'pointer',
-                    }}
-                  >
-                    {actionLoading === a.id + 'draft' ? '...' : 'Draft'}
-                  </button>
-                )}
-                <a
-                  href={`/news/${a.slug}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="action-btn"
-                  style={{
-                    padding: '4px 8px', borderRadius: 6,
-                    background: 'rgba(107,114,128,0.08)', color: '#6B7280',
-                    fontSize: 11, fontWeight: 700, textDecoration: 'none',
-                  }}
-                >
-                  Lihat
-                </a>
-                <Link
-                  href={`/admin/content/${a.id}/edit`}
-                  className="action-btn"
-                  style={{
-                    padding: '4px 8px', borderRadius: 6,
-                    background: 'rgba(8,145,178,0.08)', color: '#0891B2',
-                    fontSize: 11, fontWeight: 700, textDecoration: 'none',
-                  }}
-                >
-                  Edit
-                </Link>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                {trending.slice(0, 2).map(a => (
+                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', flexShrink: 0 }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>{a.title}</p>
+                      <p style={{ fontSize: 11, color: t.textDim }}>+{a.view_count.toLocaleString('id-ID')} views (+{a.viral_score} score)</p>
+                    </div>
+                    <a href={`/news/${a.slug}`} target="_blank" rel="noopener noreferrer"
+                      style={{ padding: '5px 10px', borderRadius: 8, background: '#1B6B4A', color: '#fff', fontSize: 11, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>
+                      Push →
+                    </a>
+                  </div>
+                ))}
               </div>
             </div>
-          );
-        })}
-      </div>
 
-      {/* ── Pagination ── */}
-      {totalPages > 1 && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginTop: 16, padding: '0 4px',
-        }}>
-          <p style={{ fontSize: 12, color: '#6B7280' }}>
-            Menampilkan {(page - 1) * limit + 1}–{Math.min(page * limit, total)} dari {total} artikel
-          </p>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page === 1}
-              style={{
-                padding: '6px 14px', borderRadius: 8, border: '1px solid #E5E7EB',
-                background: page === 1 ? '#F9FAFB' : '#fff', color: page === 1 ? '#9CA3AF' : '#374151',
-                fontSize: 12, fontWeight: 600, cursor: page === 1 ? 'default' : 'pointer',
-              }}
-            >
-              ← Prev
-            </button>
-            {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-              const p = page <= 3 ? i + 1 : page - 2 + i;
-              if (p < 1 || p > totalPages) return null;
-              return (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  style={{
-                    width: 34, height: 34, borderRadius: 8,
-                    border: p === page ? 'none' : '1px solid #E5E7EB',
-                    background: p === page ? '#1B6B4A' : '#fff',
-                    color: p === page ? '#fff' : '#374151',
-                    fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                  }}
-                >
-                  {p}
-                </button>
-              );
-            })}
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page === totalPages}
-              style={{
-                padding: '6px 14px', borderRadius: 8, border: '1px solid #E5E7EB',
-                background: page === totalPages ? '#F9FAFB' : '#fff',
-                color: page === totalPages ? '#9CA3AF' : '#374151',
-                fontSize: 12, fontWeight: 600, cursor: page === totalPages ? 'default' : 'pointer',
-              }}
-            >
-              Next →
-            </button>
+            {/* Perlu Perhatian */}
+            <div style={{ background: staleDrafts.length > 0 ? 'rgba(245,158,11,0.03)' : t.sidebar, borderRadius: 14, border: `1px solid ${staleDrafts.length > 0 ? '#FDE68A' : t.sidebarBorder}`, padding: '18px 20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>⚠️ Perlu Perhatian</span>
+                <Link href="/admin/bakabar/hub" style={{ fontSize: 11, color: '#F59E0B', textDecoration: 'none', fontWeight: 600 }}>Review →</Link>
+              </div>
+              {staleDrafts.length === 0 ? (
+                <p style={{ fontSize: 12, color: t.textDim }}>✓ Semua artikel sudah diproses dengan baik.</p>
+              ) : (
+                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92400E' }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
+                    {staleDrafts.length} draft belum dipublish {'>'} 3 jam
+                  </li>
+                  {drafts.length > 0 && (
+                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92400E' }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F97316', flexShrink: 0 }} />
+                      {drafts.length} total draft menunggu review
+                    </li>
+                  )}
+                </ul>
+              )}
+            </div>
           </div>
-        </div>
+
+          {/* Editorial Dashboard */}
+          <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <span style={{ fontSize: 15, fontWeight: 800, color: t.textPrimary }}>Editorial Dashboard</span>
+              <Link href="/admin/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>Buka Hub →</Link>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+              {/* Trending table */}
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>Artikel Trending</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
+                  <span>Artikel</span>
+                  <span style={{ textAlign: 'right' }}>Score</span>
+                  <span style={{ textAlign: 'right' }}>Views</span>
+                </div>
+                {trending.map((a, i) => (
+                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                    <div style={{ minWidth: 0, paddingRight: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: '50%', background: i < 2 ? '#F97316' : t.sidebarBorder, color: i < 2 ? '#fff' : t.textDim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
+                      </div>
+                      <div style={{ fontSize: 10, color: t.textDim, paddingLeft: 22 }}>{a.category} · {timeAgo(a.published_at || a.created_at)}</div>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: a.viral_score > 100 ? '#F97316' : t.textPrimary }}>{a.viral_score}</div>
+                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 600, color: t.textMuted }}>{a.view_count >= 1000 ? `${(a.view_count / 1000).toFixed(1)}k` : a.view_count}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Artikel Baru */}
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>Artikel Baru</div>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 50px 28px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
+                  <span>Status</span><span>Updated</span>
+                  <span style={{ textAlign: 'right' }}>Views</span>
+                  <span></span>
+                </div>
+                {recent.map(a => (
+                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 50px 28px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#059669', display: 'inline-block', width: 'fit-content' }}>Published</span>
+                    <div style={{ minWidth: 0, paddingLeft: 8, paddingRight: 8 }}>
+                      <p style={{ fontSize: 10, color: t.textDim, marginBottom: 1 }}>{timeAgo(a.published_at || a.created_at)}</p>
+                      <p style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.textMuted }}>{a.view_count >= 1000 ? `${(a.view_count / 1000).toFixed(1)}k` : a.view_count}</div>
+                    <div style={{ display: 'flex', justifyContent: 'center' }}><AuthorAvatar name={a.author_name} /></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

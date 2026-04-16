@@ -9,21 +9,21 @@ import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/A
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const BAKABAR_CHILDREN = [
-  { href: '/admin/bakabar/hub',                  label: 'Editor Hub',  icon: '📰', primary: true },
-  { href: '/admin/bakabar/hub',                  label: 'Draft',       icon: '📝', badgeKey: 'draft' },
-  { href: '/admin/bakabar/hub?status=review',    label: 'Review',      icon: '🔍' },
-  { href: '/admin/bakabar/hub?status=published', label: 'Publikasi',   icon: '✅' },
-  { href: '/admin/bakabar/hub?status=archived',  label: 'Archived',    icon: '🗂️' },
-  { href: '/admin/rss',                          label: 'RSS Feed',    icon: '📡' },
+  { href: '/admin/bakabar-command',              label: 'Command Center', icon: '📊', primary: true },
+  { href: '/admin/bakabar/hub',                  label: 'Editor Hub',     icon: '📰' },
+  { href: '/admin/bakabar/hub',                  label: 'Draft',          icon: '📝', badgeKey: 'draft' },
+  { href: '/admin/bakabar/hub?status=review',    label: 'Review',         icon: '🔍' },
+  { href: '/admin/bakabar/hub?status=published', label: 'Publikasi',      icon: '✅' },
+  { href: '/admin/bakabar/hub?status=archived',  label: 'Archived',       icon: '🗂️' },
+  { href: '/admin/rss',                          label: 'RSS Feed',       icon: '📡' },
 ];
 
-// Urutan nav: Overview → BAKABAR (dropdown) → BALAPOR → BASUMBANG → Listing → Users
 const NAV_SECTIONS = [
   {
     label: 'Utama',
     items: [
       { href: '/admin',          label: 'Overview',   icon: '⚡', exact: true, roles: ['super_admin'] },
-      // BAKABAR dihandle sebagai dropdown khusus di JSX, posisi setelah Overview
+      // BAKABAR dropdown dihandle terpisah setelah Overview
       { href: '/admin/reports',  label: 'BALAPOR',    sub: 'Laporan warga',      icon: '🚨', roles: ['super_admin'] },
       { href: '/admin/funding',  label: 'BASUMBANG',  sub: 'Kampanye donasi',    icon: '❤️', roles: ['super_admin'] },
       { href: '/admin/listings', label: 'Listing',    sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
@@ -67,14 +67,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [bakabarOpen, setBakabarOpen]   = useState(false);
   const [articleDraft, setArticleDraft] = useState(0);
 
-  // Semua hooks WAJIB dipanggil tanpa kondisi
   useEffect(() => {
     const saved = localStorage.getItem('tl_admin_theme');
     if (saved === 'light') setDark(false);
   }, []);
 
   useEffect(() => {
-    if (pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss')) {
+    // Auto-expand BAKABAR dropdown kalau sedang di halaman terkait
+    if (pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss') || pathname === '/admin/bakabar-command') {
       setBakabarOpen(true);
     }
   }, [pathname]);
@@ -106,7 +106,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const t = dark ? DARK_THEME : LIGHT_THEME;
 
-  // ── Loading state ──
   if (isLoading) return (
     <div style={{ minHeight: '100vh', background: '#0D1117', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
@@ -121,19 +120,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
-  const isBakabarActive = pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss');
 
-  // ── BAKABAR portal: pass-through, layout ditangani bakabar/layout.tsx ──
-  // Conditional di JSX (bukan early return) agar hooks tidak broken
-  const isBakabarRoute = pathname.startsWith('/admin/bakabar');
+  const isBakabarActive = pathname === '/admin/bakabar-command' ||
+    pathname.startsWith('/admin/bakabar/') ||
+    pathname === '/admin/bakabar' ||
+    pathname.startsWith('/admin/rss');
+
+  // BAKABAR portal (/admin/bakabar/*) punya layout sendiri — pass-through
+  // /admin/bakabar-command tetap pakai admin layout (bukan bakabar portal)
+  const isBakabarPortalRoute = pathname === '/admin/bakabar' ||
+    pathname.startsWith('/admin/bakabar/');
 
   return (
     <AdminThemeContext.Provider value={{ dark, t }}>
-      {isBakabarRoute ? (
-        // BAKABAR punya layout sendiri — render children langsung
+      {isBakabarPortalRoute ? (
         <>{children}</>
       ) : (
-        // Super Admin full layout
         <div style={{ display: 'flex', minHeight: '100vh', background: t.mainBg, fontFamily: "'Outfit', system-ui, sans-serif", transition: 'background 0.2s' }}>
           <style>{`
             @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
@@ -141,6 +143,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             ::-webkit-scrollbar { width: 4px; }
             ::-webkit-scrollbar-track { background: transparent; }
             ::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+            .tl-nav-hover:hover { background: ${t.navHover} !important; color: ${t.accent} !important; }
             @media (max-width: 768px) {
               .tl-sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
               .tl-sidebar.open { transform: translateX(0); }
@@ -185,11 +188,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         const active = isActive(item.href, item.exact);
                         return (
                           <div key={item.href}>
-                            {/* Nav item */}
                             <Link href={item.href} onClick={() => setSidebarOpen(false)}
-                              style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}
-                              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = t.navHover; e.currentTarget.style.color = t.accent; } }}
-                              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; } }}>
+                              className="tl-nav-hover"
+                              style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}>
                               <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
                               <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{item.label}</div>
@@ -198,25 +199,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, flexShrink: 0 }} />}
                             </Link>
 
-                            {/* Inject BAKABAR dropdown setelah Overview (index 0 di section Utama) */}
+                            {/* BAKABAR dropdown — inject setelah Overview (idx === 0, section Utama) */}
                             {section.label === 'Utama' && idx === 0 && (
                               <div style={{ marginBottom: 1 }}>
-                                {/* BAKABAR toggle */}
+                                {/* Toggle BAKABAR */}
                                 <div
                                   onClick={() => setBakabarOpen(o => !o)}
-                                  style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, cursor: 'pointer', background: isBakabarActive ? t.navActive : 'transparent', borderLeft: `2px solid ${isBakabarActive ? t.accentDim : 'transparent'}`, color: isBakabarActive ? t.accent : t.textMuted, transition: 'all 0.15s' }}
-                                  onMouseEnter={e => { if (!isBakabarActive) { (e.currentTarget as HTMLElement).style.background = t.navHover; (e.currentTarget as HTMLElement).style.color = t.accent; } }}
-                                  onMouseLeave={e => { if (!isBakabarActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = t.textMuted; } }}
-                                >
+                                  className="tl-nav-hover"
+                                  style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, cursor: 'pointer', background: isBakabarActive ? t.navActive : 'transparent', borderLeft: `2px solid ${isBakabarActive ? t.accentDim : 'transparent'}`, color: isBakabarActive ? t.accent : t.textMuted, transition: 'all 0.15s' }}>
                                   <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>📰</span>
                                   <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ fontSize: 12.5, fontWeight: isBakabarActive ? 600 : 400, lineHeight: 1.2 }}>BAKABAR</div>
                                     <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>Portal berita lokal</div>
                                   </div>
                                   {articleDraft > 0 && (
-                                    <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#EF4444', color: '#fff', marginRight: 4 }}>
-                                      {articleDraft}
-                                    </span>
+                                    <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#EF4444', color: '#fff', marginRight: 4 }}>{articleDraft}</span>
                                   )}
                                   <span style={{ fontSize: 10, color: t.textDim, flexShrink: 0, transform: bakabarOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                                 </div>
@@ -226,23 +223,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                   <div style={{ marginLeft: 16, marginBottom: 4 }}>
                                     {BAKABAR_CHILDREN.map(child => {
                                       const childActive = pathname === child.href.split('?')[0] ||
+                                        (child.href === '/admin/bakabar-command' && pathname === '/admin/bakabar-command') ||
                                         (child.href === '/admin/rss' && pathname.startsWith('/admin/rss'));
                                       const badge = child.badgeKey === 'draft' ? articleDraft : null;
                                       return (
                                         <Link key={child.href + child.label} href={child.href} onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none' }}>
-                                          <div style={{
-                                            display: 'flex', alignItems: 'center', gap: 8,
-                                            padding: child.primary ? '7px 10px' : '5px 10px',
-                                            borderRadius: 8, marginBottom: 1,
-                                            background: childActive ? t.navActive : 'transparent',
-                                            color: childActive ? t.accent : t.textDim,
-                                            fontSize: child.primary ? 12.5 : 12,
-                                            fontWeight: child.primary ? 700 : (childActive ? 600 : 400),
-                                            transition: 'all 0.15s', cursor: 'pointer',
-                                          }}
-                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.navHover; (e.currentTarget as HTMLElement).style.color = t.accent; }}
-                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = childActive ? t.navActive : 'transparent'; (e.currentTarget as HTMLElement).style.color = childActive ? t.accent : t.textDim; }}
-                                          >
+                                          <div
+                                            className="tl-nav-hover"
+                                            style={{ display: 'flex', alignItems: 'center', gap: 8, padding: child.primary ? '7px 10px' : '5px 10px', borderRadius: 8, marginBottom: 1, background: childActive ? t.navActive : 'transparent', color: childActive ? t.accent : t.textDim, fontSize: child.primary ? 12.5 : 12, fontWeight: child.primary ? 700 : (childActive ? 600 : 400), transition: 'all 0.15s', cursor: 'pointer' }}>
                                             <span style={{ fontSize: child.primary ? 14 : 12 }}>{child.icon}</span>
                                             <span style={{ flex: 1 }}>{child.label}</span>
                                             {badge !== null && badge > 0 && (
@@ -285,9 +273,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="tl-main" style={{ marginLeft: 256, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             <header style={{ height: 58, background: t.topbar, borderBottom: `1px solid ${t.topbarBorder}`, display: 'flex', alignItems: 'center', padding: '0 20px', position: 'sticky', top: 0, zIndex: 30, gap: 10 }}>
               <button onClick={() => setSidebarOpen(!sidebarOpen)} className="tl-hamburger"
-                style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 19, color: t.textMuted, padding: 4, alignItems: 'center', justifyContent: 'center' }}>
-                ☰
-              </button>
+                style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 19, color: t.textMuted, padding: 4, alignItems: 'center', justifyContent: 'center' }}>☰</button>
               <div style={{ flex: 1 }}>
                 <span style={{ fontSize: 12, color: t.textMuted }}>
                   {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
@@ -303,7 +289,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 API Live
               </div>
             </header>
-
             <main style={{ flex: 1, padding: '20px', overflowX: 'hidden' }}>
               {children}
             </main>
