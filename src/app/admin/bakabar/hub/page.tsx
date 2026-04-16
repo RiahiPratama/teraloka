@@ -288,11 +288,14 @@ function HubContent() {
       <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
 
         {/* Header row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px 110px 90px 140px', padding: '10px 16px', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-          <span>Status</span><span>Judul</span>
+        <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 70px 70px 100px 100px 150px', padding: '10px 16px', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', gap: 8 }}>
+          <span>Status</span>
+          <span>Judul</span>
           <span style={{ textAlign: 'right' }}>Score</span>
           <span style={{ textAlign: 'right' }}>Views</span>
-          <span>Updated</span><span>Editor</span><span>Aksi</span>
+          <span>Updated</span>
+          <span>Editor</span>
+          <span>Aksi</span>
         </div>
 
         {loading && (
@@ -312,7 +315,7 @@ function HubContent() {
         {!loading && articles.map((a, idx) => {
           const st = STATUS_STYLE[a.status] ?? { bg: t.navHover, color: t.textDim, label: a.status };
           return (
-            <div key={a.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '100px 1fr 80px 80px 110px 90px 140px', padding: '12px 16px', alignItems: 'center', borderBottom: idx < articles.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', background: 'transparent', transition: 'background 0.1s' }}>
+            <div key={a.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '110px 1fr 70px 70px 100px 100px 150px', gap: 8, padding: '12px 16px', alignItems: 'center', borderBottom: idx < articles.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', background: 'transparent', transition: 'background 0.1s' }}>
 
               {/* Status */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
