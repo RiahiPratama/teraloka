@@ -71,17 +71,10 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   50% { transform: translateY(-6px); }
 }
 
-/* ─── Ticker ─── */
 .ticker-track { animation: ticker 28s linear infinite; }
 .ticker-track:hover { animation-play-state: paused; }
-
-/* ─── Badge dot ─── */
 .badge-dot { animation: pulse-dot 2s infinite; }
-
-/* ─── Live dot ─── */
 .live-dot { animation: live-pulse 2s infinite; }
-
-/* ─── Float ─── */
 .float-card { animation: float 4s ease-in-out infinite; }
 .float-card:nth-child(2) { animation-delay: -1s; }
 .float-card:nth-child(3) { animation-delay: -2s; }
@@ -110,17 +103,14 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   background-clip: text;
 }
 
-/* ─── Stats dark ─── */
 .stats-dark-bg {
   background: linear-gradient(135deg, #001a11 0%, #003526 60%, #0a3d30 100%);
 }
 
-/* ─── CTA ─── */
 .cta-bg {
   background: linear-gradient(135deg, #003526 0%, #1B6B4A 50%, #0891B2 100%);
 }
 
-/* ─── Editorial shadow ─── */
 .editorial-shadow {
   box-shadow: 0 40px 40px -15px rgba(0, 53, 38, 0.06);
 }
@@ -133,29 +123,33 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   }
 }
 
+/* ─── Desktop: overlay kiri visible, overlay mobile hidden ─── */
+.hero-overlay-mobile { display: none; }
+
 /* ─── Responsive ─── */
 @media (max-width: 900px) {
   .bento-full { grid-column: span 12; }
-
-  /* Hero: grid jadi 1 kolom */
   .hero-grid { grid-template-columns: 1fr !important; }
 
-  /* Floating cards (desktop) tetap hidden di mobile */
+  /* Floating cards (desktop right column) hidden di mobile */
   .hero-photo { display: none; }
 
-  /* Photo overlay desktop — hidden di mobile */
-  .hero-photo-overlay-desktop { display: none !important; }
+  /* Desktop overlay hidden di mobile */
+  .hero-overlay-desktop { display: none !important; }
 
-  /* Photo background — tampil di mobile sebagai subtle backdrop */
+  /* Mobile overlay tampil */
+  .hero-overlay-mobile { display: block !important; }
+
+  /* Photo bg: full width di mobile, opacity lebih kuat */
   .hero-photo-bg {
-    width: 100% !important;    /* full width */
-    opacity: 0.18;              /* sangat subtle agar teks tetap terbaca */
+    width: 100% !important;
+    opacity: 0.5; /* cukup terlihat tapi tidak ganggu teks */
   }
 
-  /* Hero section mobile */
+  /* Hero section padding mobile */
   .hero-section {
     padding-top: 72px !important;
-    padding-bottom: 20px !important;  /* gap dikurangi signifikan */
+    padding-bottom: 20px !important;
   }
 }
 

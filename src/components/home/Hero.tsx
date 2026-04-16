@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1'
-
 const HERO_PHOTO_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
 
 const POPULAR_TAGS = [
@@ -16,9 +15,16 @@ const POPULAR_TAGS = [
 ]
 
 const FLOAT_CARDS = [
-  { icon: '📰', label: 'BAKABAR',   sub: 'Berita Lokal',       href: '/news',        style: { top: '10%', right: '6%' },    delay: '0s' },
-  { icon: '💚', label: 'BASUMBANG', sub: 'Donasi Kemanusiaan', href: '/fundraising', style: { top: '46%', right: '-3%' },   delay: '1.2s' },
+  { icon: '📰', label: 'BAKABAR',   sub: 'Berita Lokal',       href: '/news',        style: { top: '10%', right: '6%' },     delay: '0s' },
+  { icon: '💚', label: 'BASUMBANG', sub: 'Donasi Kemanusiaan', href: '/fundraising', style: { top: '46%', right: '-3%' },    delay: '1.2s' },
   { icon: '🏠', label: 'BAKOS',     sub: 'Kos & Properti',     href: '/kos',         style: { bottom: '14%', right: '10%' }, delay: '2.4s' },
+]
+
+const FALLBACK_SPOTS = [
+  { emoji: '🌊', label: 'Laut Maluku', pos: { top: '18%', left: '22%' } },
+  { emoji: '🏝️', label: 'Tidore',      pos: { top: '58%', left: '15%' } },
+  { emoji: '⛵', label: 'Ternate',     pos: { top: '72%', left: '62%' } },
+  { emoji: '🌺', label: 'Halmahera',  pos: { top: '25%', left: '68%' } },
 ]
 
 export default function Hero() {
@@ -45,74 +51,115 @@ export default function Hero() {
     : '☁️ Hari ini'
 
   return (
-    <section
-      className="hero-section"
-      style={{
-        position: 'relative',
-        overflow: 'hidden',
-        paddingTop: 100,
-        paddingBottom: 48,
-        background: 'var(--surface)',
-      }}
-    >
-      {/* ── Photo background ── */}
-      {HERO_PHOTO_URL && (
-        <div
-          className="hero-photo-bg"
-          style={{
-            position: 'absolute',
-            top: 0, right: 0, bottom: 0,
-            width: '58%',
-            zIndex: 0,
-          }}
-        >
-          <img
-            src={HERO_PHOTO_URL}
-            alt="Ternate, Maluku Utara"
-            onLoad={() => setImgLoaded(true)}
-            style={{
-              width: '100%', height: '100%',
-              objectFit: 'cover', objectPosition: 'center 30%',
-              opacity: imgLoaded ? 1 : 0,
-              transition: 'opacity 0.6s ease',
-            }}
-          />
-          {/* Gradient desktop: fade ke kiri */}
-          <div className="hero-photo-overlay-desktop" style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to right, var(--surface) 0%, rgba(247,249,251,0.8) 20%, rgba(247,249,251,0.2) 45%, transparent 65%)',
-            pointerEvents: 'none',
-          }} />
-          {/* Gradient mobile: overlay gelap agar teks terbaca */}
-          <div className="hero-photo-overlay-mobile" style={{
-            position: 'absolute', inset: 0,
-            background: 'linear-gradient(to bottom, rgba(247,249,251,0.15) 0%, rgba(247,249,251,0.6) 50%, var(--surface) 80%)',
-            pointerEvents: 'none',
-          }} />
-        </div>
-      )}
+    <section className="hero-section" style={{
+      position: 'relative',
+      overflow: 'hidden',
+      paddingTop: 100,
+      paddingBottom: 48,
+      background: 'var(--surface)',
+    }}>
 
-      {/* Fallback gradient kalau belum ada foto */}
-      {!HERO_PHOTO_URL && (
-        <div className="hero-photo-bg" style={{
-          position: 'absolute', top: 0, right: 0, bottom: 0, width: '58%', zIndex: 0,
-          background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0891B2 100%)',
-          opacity: 0.25,
+      {/* ── Photo/Fallback background — selalu render ── */}
+      <div className="hero-photo-bg" style={{
+        position: 'absolute',
+        top: 0, right: 0, bottom: 0,
+        width: '58%',
+        zIndex: 0,
+      }}>
+        {HERO_PHOTO_URL ? (
+          /* Foto asli kalau env var sudah di-set */
+          <>
+            <img
+              src={HERO_PHOTO_URL}
+              alt="Ternate, Maluku Utara"
+              onLoad={() => setImgLoaded(true)}
+              style={{
+                width: '100%', height: '100%',
+                objectFit: 'cover', objectPosition: 'center 30%',
+                opacity: imgLoaded ? 1 : 0,
+                transition: 'opacity 0.6s ease',
+              }}
+            />
+            {/* Gradient fallback saat foto loading */}
+            {!imgLoaded && (
+              <div style={{
+                position: 'absolute', inset: 0,
+                background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0a7a9c 65%, #0891B2 100%)',
+              }} />
+            )}
+          </>
+        ) : (
+          /* Fallback premium kalau belum ada foto — SELALU terlihat */
+          <div style={{
+            width: '100%', height: '100%',
+            background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0a7a9c 65%, #0891B2 100%)',
+            position: 'relative', overflow: 'hidden',
+          }}>
+            {/* Wave lines */}
+            {[...Array(6)].map((_, i) => (
+              <div key={i} style={{
+                position: 'absolute', width: '140%', height: 1,
+                background: 'rgba(255,255,255,0.05)',
+                top: `${15 + i * 14}%`, left: '-20%',
+                transform: `rotate(${-3 + i * 1.5}deg)`,
+              }} />
+            ))}
+            {/* Center icon */}
+            <div style={{
+              position: 'absolute', inset: 0,
+              display: 'flex', flexDirection: 'column',
+              alignItems: 'center', justifyContent: 'center', zIndex: 2,
+            }}>
+              <div style={{ fontSize: 56, marginBottom: 12, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}>🌊</div>
+              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Maluku Utara
+              </p>
+              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 4 }}>
+                Set NEXT_PUBLIC_HERO_BG_URL di Vercel
+              </p>
+            </div>
+            {/* Location dots */}
+            {FALLBACK_SPOTS.map((spot, i) => (
+              <div key={i} style={{ position: 'absolute', ...spot.pos, zIndex: 3 }}>
+                <div style={{
+                  background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  borderRadius: 10, padding: '5px 10px',
+                  display: 'flex', alignItems: 'center', gap: 5,
+                }}>
+                  <span style={{ fontSize: 13 }}>{spot.emoji}</span>
+                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{spot.label}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Desktop overlay: fade halus ke kiri */}
+        <div className="hero-overlay-desktop" style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to right, var(--surface) 0%, rgba(247,249,251,0.75) 18%, rgba(247,249,251,0.2) 40%, transparent 65%)',
+          pointerEvents: 'none',
         }} />
-      )}
+
+        {/* Mobile overlay: gelap di bawah agar teks terbaca */}
+        <div className="hero-overlay-mobile" style={{
+          position: 'absolute', inset: 0,
+          background: 'linear-gradient(to bottom, rgba(0,0,0,0.05) 0%, rgba(247,249,251,0.7) 55%, var(--surface) 80%)',
+          pointerEvents: 'none',
+        }} />
+      </div>
 
       {/* ── Content ── */}
-      <div
-        className="hero-grid"
-        style={{
-          position: 'relative', zIndex: 1,
-          maxWidth: 1200, margin: '0 auto',
-          padding: '0 24px',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: 48, alignItems: 'center',
-        }}
-      >
+      <div className="hero-grid" style={{
+        position: 'relative', zIndex: 1,
+        maxWidth: 1200, margin: '0 auto',
+        padding: '0 24px',
+        display: 'grid',
+        gridTemplateColumns: '1fr 1fr',
+        gap: 48, alignItems: 'center',
+      }}>
+
         {/* LEFT */}
         <div>
           {/* Badge */}
@@ -192,18 +239,14 @@ export default function Hero() {
                 fontSize: 12, fontWeight: 500, color: 'var(--text-muted)',
                 background: '#fff', border: '1px solid var(--border-light)',
                 borderRadius: 99, padding: '4px 11px', textDecoration: 'none',
-                transition: 'all 0.15s ease',
-              }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(0,53,38,0.3)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-              >
+              }}>
                 {tag.label}
               </Link>
             ))}
           </div>
         </div>
 
-        {/* RIGHT — floating cards (desktop only) */}
+        {/* RIGHT — floating cards desktop only */}
         <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
           {FLOAT_CARDS.map((card) => (
             <Link key={card.label} href={card.href} className="float-card"
@@ -213,8 +256,10 @@ export default function Hero() {
                 backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
                 borderRadius: 18, padding: '11px 15px',
                 display: 'flex', alignItems: 'center', gap: 10,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.14)', border: '1px solid rgba(255,255,255,0.9)',
-                zIndex: 10, minWidth: 165, transition: 'transform 0.2s ease',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.14)',
+                border: '1px solid rgba(255,255,255,0.9)',
+                zIndex: 10, minWidth: 165,
+                transition: 'transform 0.2s ease',
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}>
