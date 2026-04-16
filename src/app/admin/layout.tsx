@@ -6,24 +6,36 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/AdminThemeContext';
 
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+// ── BAKABAR dropdown children ─────────────────────────────────────
+const BAKABAR_CHILDREN = [
+  { href: '/admin/bakabar/hub',                  label: 'Editor Hub',  icon: '📰', primary: true },
+  { href: '/admin/bakabar/hub',                  label: 'Draft',       icon: '📝', badgeKey: 'draft' },
+  { href: '/admin/bakabar/hub?status=review',    label: 'Review',      icon: '🔍' },
+  { href: '/admin/bakabar/hub?status=published', label: 'Publikasi',   icon: '✅' },
+  { href: '/admin/bakabar/hub?status=archived',  label: 'Archived',    icon: '🗂️' },
+  { href: '/admin/rss',                          label: 'RSS Feed',    icon: '📡' },
+];
+
 const NAV_SECTIONS = [
   {
     label: 'Utama',
     items: [
-      { href: '/admin',          label: 'Overview',    icon: '⚡', exact: true, roles: ['super_admin'] },
-      { href: '/admin/bakabar',  label: 'BAKABAR',     sub: 'Portal berita lokal',  icon: '📰', roles: [] },
-      { href: '/admin/reports',  label: 'BALAPOR',     sub: 'Laporan warga',        icon: '🚨', roles: ['super_admin'] },
-      { href: '/admin/listings', label: 'Listing',     sub: 'Kos, Properti, dll',   icon: '🏠', roles: ['super_admin'] },
-      { href: '/admin/funding',  label: 'BASUMBANG',   sub: 'Kampanye donasi',      icon: '❤️', roles: ['super_admin'] },
-      { href: '/admin/users',    label: 'Users',       sub: 'Manajemen akun',       icon: '👥', roles: ['super_admin'] },
+      { href: '/admin', label: 'Overview', icon: '⚡', exact: true, roles: ['super_admin'] },
+      // BAKABAR — handled separately as dropdown
+      { href: '/admin/reports',  label: 'BALAPOR',   sub: 'Laporan warga',      icon: '🚨', roles: ['super_admin'] },
+      { href: '/admin/listings', label: 'Listing',   sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
+      { href: '/admin/funding',  label: 'BASUMBANG', sub: 'Kampanye donasi',    icon: '❤️', roles: ['super_admin'] },
+      { href: '/admin/users',    label: 'Users',     sub: 'Manajemen akun',     icon: '👥', roles: ['super_admin'] },
     ],
   },
   {
     label: 'Operasional',
     items: [
-      { href: '/admin/transport',     label: 'Transport',    sub: 'Kapal & Speed',      icon: '🚢', roles: ['super_admin'] },
-      { href: '/admin/ticker',        label: 'Ticker',       sub: 'Running text',        icon: '📡', roles: ['super_admin'] },
-      { href: '/admin/notifications', label: 'Notifikasi',   sub: 'Push & WA blast',    icon: '🔔', roles: ['super_admin'] },
+      { href: '/admin/transport',     label: 'Transport',  sub: 'Kapal & Speed',   icon: '🚢', roles: ['super_admin'] },
+      { href: '/admin/ticker',        label: 'Ticker',     sub: 'Running text',     icon: '📡', roles: ['super_admin'] },
+      { href: '/admin/notifications', label: 'Notifikasi', sub: 'Push & WA blast', icon: '🔔', roles: ['super_admin'] },
     ],
   },
   {
@@ -51,12 +63,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const router   = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dark, setDark] = useState(true);
+  const [dark, setDark]               = useState(true);
+  const [bakabarOpen, setBakabarOpen] = useState(false);
+  const [articleDraft, setArticleDraft] = useState<number>(0);
 
   useEffect(() => {
     const saved = localStorage.getItem('tl_admin_theme');
     if (saved === 'light') setDark(false);
-  }, []);
+    // Auto-expand BAKABAR kalau sedang di halaman bakabar
+    if (pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss')) {
+      setBakabarOpen(true);
+    }
+  }, [pathname]);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -66,13 +84,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/admin');
-    // admin_content → redirect ke BAKABAR portal
     if (!isLoading && user && user.role === 'admin_content') {
       if (!pathname.startsWith('/admin/bakabar') && !pathname.startsWith('/admin/rss')) {
         router.replace('/admin/bakabar');
       }
     }
   }, [user, isLoading, router, pathname]);
+
+  // Fetch draft count untuk badge
+  useEffect(() => {
+    if (!user) return;
+    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    if (!token) return;
+    fetch(`${API}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => { if (d.success) setArticleDraft(d.data.articles?.draft ?? 0); })
+      .catch(() => {});
+  }, [user]);
 
   const t = dark ? DARK_THEME : LIGHT_THEME;
 
@@ -91,6 +119,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
 
+  const isBakabarActive = pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss');
+
   return (
     <AdminThemeContext.Provider value={{ dark, t }}>
       <div style={{ display: 'flex', minHeight: '100vh', background: t.mainBg, fontFamily: "'Outfit', system-ui, sans-serif", transition: 'background 0.2s' }}>
@@ -100,6 +130,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           ::-webkit-scrollbar { width: 4px; }
           ::-webkit-scrollbar-track { background: transparent; }
           ::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+          .tl-nav-item:hover { background: ${t.navHover} !important; color: ${t.accent} !important; }
           @media (max-width: 768px) {
             .tl-sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
             .tl-sidebar.open { transform: translateX(0); }
@@ -122,7 +153,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#fff', boxShadow: '0 0 16px rgba(27,107,74,0.35)' }}>T</div>
               <div>
-                <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px', transition: 'color 0.2s' }}>TeraLoka</div>
+                <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px' }}>TeraLoka</div>
                 <div style={{ color: t.accentDim, fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>Super Admin</div>
               </div>
             </div>
@@ -132,19 +163,90 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
             {NAV_SECTIONS
               .filter(s => s.items.some(i => !i.roles?.length || i.roles.includes(user.role || '')))
-              .map(section => (
+              .map((section, sIdx) => (
                 <div key={section.label} style={{ marginBottom: 20 }}>
                   <div style={{ color: t.textDim, fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 4 }}>
                     {section.label}
                   </div>
+
+                  {/* Inject BAKABAR dropdown setelah Overview (index 0 di section Utama) */}
+                  {section.label === 'Utama' && (
+                    <div style={{ marginBottom: 1 }}>
+                      {/* BAKABAR toggle button */}
+                      <div
+                        onClick={() => setBakabarOpen(o => !o)}
+                        className="tl-nav-item"
+                        style={{
+                          display: 'flex', alignItems: 'center', gap: 9,
+                          padding: '8px 10px', borderRadius: 8, marginBottom: 1,
+                          cursor: 'pointer',
+                          background: isBakabarActive ? t.navActive : 'transparent',
+                          borderLeft: `2px solid ${isBakabarActive ? t.accentDim : 'transparent'}`,
+                          color: isBakabarActive ? t.accent : t.textMuted,
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>📰</span>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: isBakabarActive ? 600 : 400, lineHeight: 1.2 }}>BAKABAR</div>
+                          <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>Portal berita lokal</div>
+                        </div>
+                        {articleDraft > 0 && (
+                          <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#EF4444', color: '#fff', marginRight: 4 }}>
+                            {articleDraft}
+                          </span>
+                        )}
+                        <span style={{
+                          fontSize: 10, color: t.textDim, flexShrink: 0,
+                          transform: bakabarOpen ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 0.2s',
+                        }}>▼</span>
+                      </div>
+
+                      {/* BAKABAR dropdown children */}
+                      {bakabarOpen && (
+                        <div style={{ marginLeft: 16, marginBottom: 6 }}>
+                          {BAKABAR_CHILDREN.map(child => {
+                            const childActive = pathname === child.href.split('?')[0] ||
+                              (child.href === '/admin/bakabar/hub' && !child.primary && pathname === '/admin/bakabar/hub') ||
+                              (child.href === '/admin/rss' && pathname.startsWith('/admin/rss'));
+                            const badge = child.badgeKey === 'draft' ? articleDraft : null;
+                            return (
+                              <Link key={child.href + child.label} href={child.href} onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none' }}>
+                                <div
+                                  className="tl-nav-item"
+                                  style={{
+                                    display: 'flex', alignItems: 'center', gap: 8,
+                                    padding: child.primary ? '7px 10px' : '5px 10px',
+                                    borderRadius: 8, marginBottom: 1,
+                                    background: childActive ? t.navActive : 'transparent',
+                                    color: childActive ? t.accent : t.textDim,
+                                    fontSize: child.primary ? 12.5 : 12,
+                                    fontWeight: child.primary ? 700 : (childActive ? 600 : 400),
+                                    transition: 'all 0.15s',
+                                  }}
+                                >
+                                  <span style={{ fontSize: child.primary ? 14 : 12 }}>{child.icon}</span>
+                                  <span style={{ flex: 1 }}>{child.label}</span>
+                                  {badge !== null && badge > 0 && (
+                                    <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>
+                                      {badge}
+                                    </span>
+                                  )}
+                                </div>
+                              </Link>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Regular nav items */}
                   {section.items
                     .filter(i => !i.roles?.length || i.roles.includes(user.role || ''))
                     .map(item => {
                       const active = isActive(item.href, item.exact);
-
-                      // BAKABAR — tampilkan badge "Portal" untuk super admin
-                      const isBakabarPortal = item.href === '/admin/bakabar';
-
                       return (
                         <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
                           style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}
@@ -155,17 +257,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                             <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{item.label}</div>
                             {item.sub && <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>{item.sub}</div>}
                           </div>
-                          {/* Badge "Portal" untuk entry ke sub-portal */}
-                          {isBakabarPortal && !active && (
-                            <span style={{
-                              fontSize: 8, fontWeight: 800, padding: '1px 5px',
-                              borderRadius: 99, background: 'rgba(27,107,74,0.15)',
-                              color: '#1B6B4A', letterSpacing: '0.05em',
-                            }}>PORTAL</span>
-                          )}
-                          {active && (
-                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, boxShadow: `0 0 5px ${t.accentDim}`, flexShrink: 0 }} />
-                          )}
+                          {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, boxShadow: `0 0 5px ${t.accentDim}`, flexShrink: 0 }} />}
                         </Link>
                       );
                     })}
@@ -205,7 +297,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <button onClick={toggleTheme}
-                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textMuted, transition: 'all 0.2s' }}>
+                style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textMuted }}>
                 <span style={{ fontSize: 14 }}>{dark ? '☀️' : '🌙'}</span>
                 <span>{dark ? 'Terang' : 'Gelap'}</span>
               </button>

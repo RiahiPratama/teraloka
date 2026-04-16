@@ -40,19 +40,11 @@ const buildNav = (): NavSection[] => [
     section: 'Teraft HUB',
     sectionIcon: '📰',
     items: [
-      {
-        href: '/admin/bakabar/hub',
-        label: 'Draft',
-        icon: '📝',
-        badgePath: 'articles.draft',
-        children: [
-          { href: '/admin/bakabar/hub',                 label: 'Draft',    icon: '📝', badgePath: 'articles.draft' },
-          { href: '/admin/bakabar/hub?status=review',   label: 'Review',   icon: '🔍' },
-          { href: '/admin/bakabar/hub?status=published', label: 'Publikasi', icon: '✅' },
-          { href: '/admin/bakabar/hub?status=archived',  label: 'Archived', icon: '🗂️' },
-          { href: '/admin/rss',                          label: 'RSS Feed', icon: '📡' },
-        ],
-      },
+      { href: '/admin/bakabar/hub',                  label: 'Draft',    icon: '📝', badgePath: 'articles.draft' },
+      { href: '/admin/bakabar/hub?status=review',    label: 'Review',   icon: '🔍' },
+      { href: '/admin/bakabar/hub?status=published', label: 'Publikasi',icon: '✅' },
+      { href: '/admin/bakabar/hub?status=archived',  label: 'Archived', icon: '🗂️' },
+      { href: '/admin/rss',                          label: 'RSS Feed', icon: '📡' },
     ],
   },
   {
