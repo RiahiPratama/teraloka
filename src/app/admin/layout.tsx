@@ -10,46 +10,45 @@ const NAV_SECTIONS = [
   {
     label: 'Utama',
     items: [
-      { href: '/admin', label: 'Overview', icon: '⚡', exact: true, roles: ['super_admin'] },
-      { href: '/admin/content', label: 'BAKABAR', sub: 'Artikel berita', icon: '📰', roles: [] },
-      { href: '/admin/rss', label: 'RSS Nasional', sub: 'Review & approve feed', icon: '📡', roles: [] },
-      { href: '/admin/reports', label: 'BALAPOR', sub: 'Laporan warga', icon: '🚨', roles: ['super_admin'] },
-      { href: '/admin/listings', label: 'Listing', sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
-      { href: '/admin/funding', label: 'BASUMBANG', sub: 'Kampanye donasi', icon: '❤️', roles: ['super_admin'] },
-      { href: '/admin/users', label: 'Users', sub: 'Manajemen akun', icon: '👥', roles: ['super_admin'] },
+      { href: '/admin',          label: 'Overview',    icon: '⚡', exact: true, roles: ['super_admin'] },
+      { href: '/admin/bakabar',  label: 'BAKABAR',     sub: 'Portal berita lokal',  icon: '📰', roles: [] },
+      { href: '/admin/reports',  label: 'BALAPOR',     sub: 'Laporan warga',        icon: '🚨', roles: ['super_admin'] },
+      { href: '/admin/listings', label: 'Listing',     sub: 'Kos, Properti, dll',   icon: '🏠', roles: ['super_admin'] },
+      { href: '/admin/funding',  label: 'BASUMBANG',   sub: 'Kampanye donasi',      icon: '❤️', roles: ['super_admin'] },
+      { href: '/admin/users',    label: 'Users',       sub: 'Manajemen akun',       icon: '👥', roles: ['super_admin'] },
     ],
   },
   {
     label: 'Operasional',
     items: [
-      { href: '/admin/transport', label: 'Transport', sub: 'Kapal & Speed', icon: '🚢', roles: ['super_admin'] },
-      { href: '/admin/ticker', label: 'Ticker', sub: 'Running text', icon: '📡', roles: ['super_admin'] },
-      { href: '/admin/notifications', label: 'Notifikasi', sub: 'Push & WA blast', icon: '🔔', roles: ['super_admin'] },
+      { href: '/admin/transport',     label: 'Transport',    sub: 'Kapal & Speed',      icon: '🚢', roles: ['super_admin'] },
+      { href: '/admin/ticker',        label: 'Ticker',       sub: 'Running text',        icon: '📡', roles: ['super_admin'] },
+      { href: '/admin/notifications', label: 'Notifikasi',   sub: 'Push & WA blast',    icon: '🔔', roles: ['super_admin'] },
     ],
   },
   {
     label: 'Intelligence',
     items: [
-      { href: '/admin/analytics', label: 'Analytics', sub: 'Trafik & engagement', icon: '📊', roles: ['super_admin'] },
-      { href: '/admin/financial', label: 'Finansial', sub: 'Revenue & transaksi', icon: '💰', roles: ['super_admin'] },
-      { href: '/admin/ads', label: 'Ads', sub: 'Iklan & performa', icon: '📢', roles: ['super_admin'] },
-      { href: '/admin/system-health', label: 'System Health', sub: 'Server & API', icon: '🔧', roles: ['super_admin'] },
-      { href: '/admin/trust-safety', label: 'Trust & Safety', sub: 'Fraud & abuse', icon: '🛡️', roles: ['super_admin'] },
+      { href: '/admin/analytics',     label: 'Analytics',     sub: 'Trafik & engagement', icon: '📊', roles: ['super_admin'] },
+      { href: '/admin/financial',     label: 'Finansial',     sub: 'Revenue & transaksi', icon: '💰', roles: ['super_admin'] },
+      { href: '/admin/ads',           label: 'Ads',           sub: 'Iklan & performa',    icon: '📢', roles: ['super_admin'] },
+      { href: '/admin/system-health', label: 'System Health', sub: 'Server & API',        icon: '🔧', roles: ['super_admin'] },
+      { href: '/admin/trust-safety',  label: 'Trust & Safety',sub: 'Fraud & abuse',       icon: '🛡️', roles: ['super_admin'] },
     ],
   },
 ];
 
 const ROLE_LABEL: Record<string, string> = {
-  super_admin: 'Super Admin',
-  admin_content: 'Admin Konten',
-  admin_transport: 'Admin Transport',
-  admin_listing: 'Admin Listing',
-  admin_funding: 'Admin Funding',
+  super_admin:    'Super Admin',
+  admin_content:  'Admin Konten',
+  admin_transport:'Admin Transport',
+  admin_listing:  'Admin Listing',
+  admin_funding:  'Admin Funding',
 };
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
-  const router = useRouter();
+  const router   = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(true);
@@ -67,8 +66,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/admin');
-    if (!isLoading && user && user.role === 'admin_content' && !pathname.startsWith('/admin/content') && !pathname.startsWith('/admin/rss')) {
-      router.replace('/admin/content');
+    // admin_content → redirect ke BAKABAR portal
+    if (!isLoading && user && user.role === 'admin_content') {
+      if (!pathname.startsWith('/admin/bakabar') && !pathname.startsWith('/admin/rss')) {
+        router.replace('/admin/bakabar');
+      }
     }
   }, [user, isLoading, router, pathname]);
 
@@ -115,42 +117,63 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}
           style={{ width: 256, minHeight: '100vh', background: t.sidebar, borderRight: `1px solid ${t.sidebarBorder}`, display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40, overflowY: 'auto', transition: 'background 0.2s, border-color 0.2s' }}>
 
+          {/* Brand */}
           <div style={{ padding: '22px 18px 18px', borderBottom: `1px solid ${t.sidebarBorder}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#fff', boxShadow: '0 0 16px rgba(27,107,74,0.35)' }}>T</div>
               <div>
                 <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px', transition: 'color 0.2s' }}>TeraLoka</div>
-                <div style={{ color: t.accentDim, fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>Admin Portal</div>
+                <div style={{ color: t.accentDim, fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>Super Admin</div>
               </div>
             </div>
           </div>
 
+          {/* Nav */}
           <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
-            {NAV_SECTIONS.filter(s => s.items.some(i => !i.roles?.length || i.roles.includes(user.role || ''))).map(section => (
-              <div key={section.label} style={{ marginBottom: 20 }}>
-                <div style={{ color: t.textDim, fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 4 }}>
-                  {section.label}
+            {NAV_SECTIONS
+              .filter(s => s.items.some(i => !i.roles?.length || i.roles.includes(user.role || '')))
+              .map(section => (
+                <div key={section.label} style={{ marginBottom: 20 }}>
+                  <div style={{ color: t.textDim, fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 4 }}>
+                    {section.label}
+                  </div>
+                  {section.items
+                    .filter(i => !i.roles?.length || i.roles.includes(user.role || ''))
+                    .map(item => {
+                      const active = isActive(item.href, item.exact);
+
+                      // BAKABAR — tampilkan badge "Portal" untuk super admin
+                      const isBakabarPortal = item.href === '/admin/bakabar';
+
+                      return (
+                        <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}
+                          onMouseEnter={e => { if (!active) { e.currentTarget.style.background = t.navHover; e.currentTarget.style.color = t.accent; } }}
+                          onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; } }}>
+                          <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{item.label}</div>
+                            {item.sub && <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>{item.sub}</div>}
+                          </div>
+                          {/* Badge "Portal" untuk entry ke sub-portal */}
+                          {isBakabarPortal && !active && (
+                            <span style={{
+                              fontSize: 8, fontWeight: 800, padding: '1px 5px',
+                              borderRadius: 99, background: 'rgba(27,107,74,0.15)',
+                              color: '#1B6B4A', letterSpacing: '0.05em',
+                            }}>PORTAL</span>
+                          )}
+                          {active && (
+                            <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, boxShadow: `0 0 5px ${t.accentDim}`, flexShrink: 0 }} />
+                          )}
+                        </Link>
+                      );
+                    })}
                 </div>
-                {section.items.filter(i => !i.roles?.length || i.roles.includes(user.role || '')).map(item => {
-                  const active = isActive(item.href, item.exact);
-                  return (
-                    <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
-                      style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}
-                      onMouseEnter={(e) => { if (!active) { e.currentTarget.style.background = t.navHover; e.currentTarget.style.color = t.accent; } }}
-                      onMouseLeave={(e) => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; } }}>
-                      <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{item.label}</div>
-                        {item.sub && <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>{item.sub}</div>}
-                      </div>
-                      {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, boxShadow: `0 0 5px ${t.accentDim}`, flexShrink: 0 }} />}
-                    </Link>
-                  );
-                })}
-              </div>
-            ))}
+              ))}
           </nav>
 
+          {/* User card */}
           <div style={{ padding: '14px', borderTop: `1px solid ${t.sidebarBorder}` }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', background: t.userCard, borderRadius: 10 }}>
               <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
@@ -162,8 +185,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </div>
               <button onClick={logout} title="Logout"
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textDim, fontSize: 15, padding: 4, borderRadius: 6 }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = '#EF4444')}
-                onMouseLeave={(e) => (e.currentTarget.style.color = t.textDim)}>⏻</button>
+                onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                onMouseLeave={e => (e.currentTarget.style.color = t.textDim)}>⏻</button>
             </div>
           </div>
         </aside>
