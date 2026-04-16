@@ -4,10 +4,12 @@ export default function Fab() {
   return (
     <Link
       href="/balapor/buat"
-      className="fixed bottom-6 right-6 w-[52px] h-[52px] rounded-full flex items-center justify-center z-40 transition-all duration-200 hover:-translate-y-1 hover:scale-105 active:scale-95"
+      // bottom-20 di mobile (80px) — di atas bottom nav (60px)
+      // bottom-6 di desktop — posisi normal
+      className="fixed bottom-20 md:bottom-6 right-4 md:right-6 w-[52px] h-[52px] rounded-full flex items-center justify-center z-40 transition-all duration-200 hover:-translate-y-1 hover:scale-105 active:scale-95"
       style={{
         background: 'var(--primary)',
-        boxShadow: '0 8px 28px rgba(53,37,205,0.35)',
+        boxShadow: '0 8px 28px rgba(0,53,38,0.3)',
       }}
       title="Buat Laporan"
       aria-label="Buat laporan baru"

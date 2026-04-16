@@ -128,15 +128,25 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   box-shadow: 0 40px 40px -15px rgba(0, 53, 38, 0.06);
 }
 
-/* ─── Responsive ─── */
+/* ─── Bottom nav padding utility ─── */
+/* Tambahkan padding bawah di mobile agar konten tidak tertutup BottomNav (60px) + safe area */
+.pb-nav {
+  padding-bottom: 0;
+}
+
+@media (max-width: 768px) {
+  .pb-nav {
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 16px));
+  }
+}
+
+/* ─── Responsive helpers ─── */
 @media (max-width: 900px) {
   .bento-full { grid-column: span 12; }
   .hero-grid { grid-template-columns: 1fr !important; }
   .hero-photo { display: none; }
+  .hero-photo-bg { display: none; }
 
-  /* Mobile hero:
-     spacer(36) sudah ada, navbar-top(44) + navbar-height(52) = 96px dari top viewport
-     content butuh mulai di ~96px, hero mulai di 36px → paddingTop = 96-36+12 = 72px */
   .hero-section {
     padding-top: 72px !important;
     padding-bottom: 40px !important;
