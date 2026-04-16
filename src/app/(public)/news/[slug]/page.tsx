@@ -405,9 +405,7 @@ export default async function ArticlePage({ params }: Props) {
               <span className="font-semibold text-gray-700">{article.author?.name || 'Redaksi TeraLoka'}</span>
               <span>·</span>
               <span>{formatDate(article.published_at || article.created_at)}</span>
-              {article.view_count > 0 && (
-                <><span>·</span><span>{article.view_count.toLocaleString('id-ID')} views</span></>
-              )}
+
             </div>
 
             {/* Cover */}
