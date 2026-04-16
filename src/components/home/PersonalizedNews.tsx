@@ -56,10 +56,11 @@ export default async function PersonalizedNews() {
   const article3 = articles[2] ?? null
 
   return (
-    <section style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 24px' }}>
+    // Padding top dikurangi 64 → 32 untuk hilangkan gap besar dengan hero
+    <section style={{ maxWidth: 1200, margin: '0 auto', padding: '32px 24px 64px' }}>
 
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 24 }}>
         <div>
           <h2 className="font-sora" style={{
             fontSize: 'clamp(22px, 3vw, 30px)',
@@ -76,10 +77,10 @@ export default async function PersonalizedNews() {
         </Link>
       </div>
 
-      {/* Fix: 1 kolom mobile → 3fr 2fr desktop */}
+      {/* Grid */}
       <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4">
 
-        {/* Featured article */}
+        {/* Featured */}
         <Link href={`/news/${featured.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
           <div style={{ borderRadius: 20, overflow: 'hidden', position: 'relative', height: 'clamp(240px, 40vw, 380px)' }}>
             {featured.cover_image_url ? (
@@ -88,10 +89,7 @@ export default async function PersonalizedNews() {
             ) : (
               <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #003526, #0891B2)' }} />
             )}
-            <div style={{
-              position: 'absolute', inset: 0,
-              background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)',
-            }} />
+            <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)' }} />
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 24px 20px' }}>
               <div style={{ display: 'inline-flex', background: 'rgba(0,53,38,0.9)', borderRadius: 99, padding: '3px 10px', marginBottom: 10 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: '#95d3ba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>BERITA UTAMA</span>
@@ -116,31 +114,20 @@ export default async function PersonalizedNews() {
 
           {article2 && (
             <Link href={`/news/${article2.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-                background: '#fff', borderRadius: 16, padding: '14px',
-                border: '1px solid var(--border-light)',
-              }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#fff', borderRadius: 16, padding: '14px', border: '1px solid var(--border-light)' }}>
                 <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-low)' }}>
                   {article2.cover_image_url ? (
-                    <img src={article2.cover_image_url} alt={article2.title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={article2.cover_image_url} alt={article2.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'linear-gradient(135deg, rgba(0,53,38,0.08), rgba(8,145,178,0.08))' }}>📰</div>
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {article2.category && (
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)' }}>
-                      {article2.category}
-                    </span>
-                  )}
+                  {article2.category && <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)' }}>{article2.category}</span>}
                   <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4, marginTop: 3, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {article2.title}
                   </h4>
-                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>
-                    BAKABAR · {timeAgo(article2.published_at)}
-                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>BAKABAR · {timeAgo(article2.published_at)}</span>
                 </div>
                 <span style={{ color: 'var(--text-light)', fontSize: 14, flexShrink: 0, alignSelf: 'center' }}>→</span>
               </div>
@@ -149,31 +136,20 @@ export default async function PersonalizedNews() {
 
           {article3 && (
             <Link href={`/news/${article3.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{
-                display: 'flex', gap: 12, alignItems: 'flex-start',
-                background: '#fff', borderRadius: 16, padding: '14px',
-                border: '1px solid var(--border-light)',
-              }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#fff', borderRadius: 16, padding: '14px', border: '1px solid var(--border-light)' }}>
                 <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-low)' }}>
                   {article3.cover_image_url ? (
-                    <img src={article3.cover_image_url} alt={article3.title}
-                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={article3.cover_image_url} alt={article3.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                   ) : (
                     <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22, background: 'linear-gradient(135deg, rgba(0,53,38,0.08), rgba(8,145,178,0.08))' }}>📰</div>
                   )}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  {article3.category && (
-                    <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)' }}>
-                      {article3.category}
-                    </span>
-                  )}
+                  {article3.category && <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--primary)' }}>{article3.category}</span>}
                   <h4 style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4, marginTop: 3, marginBottom: 6, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
                     {article3.title}
                   </h4>
-                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>
-                    BAKABAR · {timeAgo(article3.published_at)}
-                  </span>
+                  <span style={{ fontSize: 11, color: 'var(--text-light)' }}>BAKABAR · {timeAgo(article3.published_at)}</span>
                 </div>
                 <span style={{ color: 'var(--text-light)', fontSize: 14, flexShrink: 0, alignSelf: 'center' }}>→</span>
               </div>
@@ -182,20 +158,10 @@ export default async function PersonalizedNews() {
 
           {/* BALAPOR card */}
           <Link href="/reports" style={{ textDecoration: 'none', display: 'block', flex: 1 }}>
-            <div style={{
-              background: 'rgba(220,38,38,0.03)',
-              border: '1.5px solid rgba(220,38,38,0.12)',
-              borderRadius: 16,
-              display: 'flex', flexDirection: 'column',
-              overflow: 'hidden', height: '100%',
-            }}>
+            <div style={{ background: 'rgba(220,38,38,0.03)', border: '1.5px solid rgba(220,38,38,0.12)', borderRadius: 16, display: 'flex', flexDirection: 'column', overflow: 'hidden', height: '100%' }}>
               <div style={{ padding: '12px 14px 10px', flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                  <div style={{
-                    width: 30, height: 30, borderRadius: 9,
-                    background: 'rgba(220,38,38,0.1)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>
+                  <div style={{ width: 30, height: 30, borderRadius: 9, background: 'rgba(220,38,38,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                     <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="m3 11 19-9-9 19-2-8-8-2z"/>
                     </svg>
@@ -215,22 +181,12 @@ export default async function PersonalizedNews() {
                 ) : (
                   <div>
                     <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Laporan diproses</p>
-                    <p style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>
-                      {totalReports > 0 ? `${totalReports}+` : '—'}
-                    </p>
-                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-                      Suarakan aspirasi. Identitasmu terlindungi.
-                    </p>
+                    <p style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>{totalReports > 0 ? `${totalReports}+` : '—'}</p>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>Suarakan aspirasi. Identitasmu terlindungi.</p>
                   </div>
                 )}
               </div>
-              <div style={{
-                background: 'rgba(220,38,38,0.07)',
-                borderTop: '1px solid rgba(220,38,38,0.1)',
-                padding: '8px 14px',
-                fontSize: 11, fontWeight: 800, color: '#dc2626',
-                textAlign: 'center',
-              }}>
+              <div style={{ background: 'rgba(220,38,38,0.07)', borderTop: '1px solid rgba(220,38,38,0.1)', padding: '8px 14px', fontSize: 11, fontWeight: 800, color: '#dc2626', textAlign: 'center' }}>
                 Lapor Sekarang →
               </div>
             </div>

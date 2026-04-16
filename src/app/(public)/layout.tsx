@@ -9,9 +9,15 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
     <>
       <Ticker />
       <Navbar />
-      {/* CategoryTabs otomatis hanya muncul di /news — logic ada di dalam komponen */}
-      <CategoryTabs />
-      <main>{children}</main>
+      {/*
+        paddingTop = navbar-top(44) + navbar-height(52) - ticker-spacer(36) = 60px
+        Ini mendorong CategoryTabs & konten turun agar tidak tertutup navbar fixed.
+        Homepage (page.tsx) handle sendiri via Hero paddingTop — tidak kena efek ini.
+      */}
+      <div style={{ paddingTop: 60 }}>
+        <CategoryTabs />
+        <main>{children}</main>
+      </div>
       <Footer />
       <Fab />
     </>
