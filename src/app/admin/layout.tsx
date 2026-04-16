@@ -9,12 +9,12 @@ import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/A
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const BAKABAR_CHILDREN = [
-  { href: '/admin/bakabar-command',              label: 'Command Center', icon: '📊', primary: true },
-  { href: '/admin/bakabar/hub',                  label: 'Editor Hub',     icon: '📰' },
-  { href: '/admin/bakabar/hub',                  label: 'Draft',          icon: '📝', badgeKey: 'draft' },
-  { href: '/admin/bakabar/hub?status=review',    label: 'Review',         icon: '🔍' },
-  { href: '/admin/bakabar/hub?status=published', label: 'Publikasi',      icon: '✅' },
-  { href: '/admin/bakabar/hub?status=archived',  label: 'Archived',       icon: '🗂️' },
+  { href: '/admin/content',                      label: 'Command Center',  icon: '📊', primary: true },
+  { href: '/office/newsroom/bakabar/hub',                  label: 'Editor Hub',     icon: '📰' },
+  { href: '/office/newsroom/bakabar/hub',                  label: 'Draft',          icon: '📝', badgeKey: 'draft' },
+  { href: '/office/newsroom/bakabar/hub?status=review',    label: 'Review',         icon: '🔍' },
+  { href: '/office/newsroom/bakabar/hub?status=published', label: 'Publikasi',      icon: '✅' },
+  { href: '/office/newsroom/bakabar/hub?status=archived',  label: 'Archived',       icon: '🗂️' },
   { href: '/admin/rss',                          label: 'RSS Feed',       icon: '📡' },
 ];
 
@@ -74,7 +74,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     // Auto-expand BAKABAR dropdown kalau sedang di halaman terkait
-    if (pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss') || pathname === '/admin/bakabar-command') {
+    if (pathname.startsWith('/office/newsroom/bakabar') || pathname.startsWith('/admin/rss') || pathname === '/admin/content') {
       setBakabarOpen(true);
     }
   }, [pathname]);
@@ -82,8 +82,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/admin');
     if (!isLoading && user && user.role === 'admin_content') {
-      if (!pathname.startsWith('/admin/bakabar') && !pathname.startsWith('/admin/rss')) {
-        router.replace('/admin/bakabar');
+      if (!pathname.startsWith('/office/newsroom/bakabar') && !pathname.startsWith('/admin/rss')) {
+        router.replace('/office/newsroom/bakabar');
       }
     }
   }, [user, isLoading, router, pathname]);
@@ -121,15 +121,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
 
-  const isBakabarActive = pathname === '/admin/bakabar-command' ||
-    pathname.startsWith('/admin/bakabar/') ||
-    pathname === '/admin/bakabar' ||
+  const isBakabarActive = pathname === '/admin/content' ||
+    pathname.startsWith('/office/newsroom/bakabar/') ||
+    pathname === '/office/newsroom/bakabar' ||
     pathname.startsWith('/admin/rss');
 
-  // BAKABAR portal (/admin/bakabar/*) punya layout sendiri — pass-through
-  // /admin/bakabar-command tetap pakai admin layout (bukan bakabar portal)
-  const isBakabarPortalRoute = pathname === '/admin/bakabar' ||
-    pathname.startsWith('/admin/bakabar/');
+  // BAKABAR portal (/office/newsroom/bakabar/*) punya layout sendiri — pass-through
+  const isBakabarPortalRoute = pathname === '/office/newsroom/bakabar' ||
+    pathname.startsWith('/office/newsroom/bakabar/');
 
   return (
     <AdminThemeContext.Provider value={{ dark, t }}>
@@ -223,7 +222,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                                   <div style={{ marginLeft: 16, marginBottom: 4 }}>
                                     {BAKABAR_CHILDREN.map(child => {
                                       const childActive = pathname === child.href.split('?')[0] ||
-                                        (child.href === '/admin/bakabar-command' && pathname === '/admin/bakabar-command') ||
+                                        (child.href === '/admin/content' && pathname === '/admin/content') ||
                                         (child.href === '/admin/rss' && pathname.startsWith('/admin/rss'));
                                       const badge = child.badgeKey === 'draft' ? articleDraft : null;
                                       return (
