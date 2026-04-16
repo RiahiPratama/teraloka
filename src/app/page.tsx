@@ -26,19 +26,17 @@ export default function HomePage() {
         {/* 03 — Hero: desktop split layout + mobile 1 kolom */}
         <Hero />
 
-        {/* 04 — Kapal Lokal Card: di bawah Hero, desktop + mobile */}
-        <div style={{ padding: '16px 16px 12px', maxWidth: 640, margin: '0 auto' }}
-          className="md:max-w-none md:px-6"
-        >
+        {/* 04 — Kapal Lokal Card: MOBILE ONLY */}
+        <div className="md:hidden" style={{ padding: '12px 16px' }}>
           <KapalLokalCard />
         </div>
 
-        {/* 05 — Service Pills: 4 pills scrollable, desktop + mobile */}
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+        {/* 05 — Service Pills: MOBILE ONLY */}
+        <div className="md:hidden">
           <ServicePills />
         </div>
 
-        {/* 06 — Stats Bar: jadwal, berita, pengguna (tanpa cuaca — sudah ada di Hero + Ticker) */}
+        {/* 06 — Stats Bar: jadwal, berita, pengguna */}
         <StatsBar />
 
         {/* 07 — PWA Install Banner (mobile only, muncul kunjungan ke-2) */}
@@ -56,7 +54,7 @@ export default function HomePage() {
         {/* 11 — Dipercaya oleh Warga Maluku Utara: social proof */}
         <SocialProof />
 
-        {/* 12 — CTA: Jadi Bagian dari Gerakan Digital Maluku Utara */}
+        {/* 12 — CTA */}
         <CTASection />
       </main>
 
