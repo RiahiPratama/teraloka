@@ -141,9 +141,9 @@ function PerluPerhatianWidget({ articles }: { articles: Article[] }) {
 
   return (
     <div style={{
-      background: '#fff', borderRadius: 14, border: '1px solid #FDE68A',
-      padding: '16px 20px', flex: 1,
       background: 'linear-gradient(135deg, #FFFBEB, #fff)',
+      borderRadius: 14, border: '1px solid #FDE68A',
+      padding: '16px 20px', flex: 1,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
         <span style={{ fontSize: 13, fontWeight: 800, color: '#92400E' }}>⚠️ Perlu Perhatian</span>
