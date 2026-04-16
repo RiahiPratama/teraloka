@@ -305,7 +305,7 @@ export default function BalaporPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>🚨 BALAPOR Incident Management</h1>
-          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>{total} laporan masuk</p>
+          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>{total} laporan masuk · {user?.role || 'loading...'}</p>
         </div>
         <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 13, color: '#fff', fontWeight: 700, textDecoration: 'none', padding: '8px 16px', background: '#1B6B4A', borderRadius: 10 }}>
           + Tulis Cepat
