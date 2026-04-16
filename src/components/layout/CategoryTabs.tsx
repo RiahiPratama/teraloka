@@ -13,8 +13,23 @@ const TYPE_TABS = [
 // ── Location chips (Layer 2) ──────────────────────────────────
 const LOCATION_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-const NAVBAR_OFFSET = 100; // ticker(36) + navbar-top(44) + navbar-height(52) - spacer(36) + buffer = ~100px
+const NAVBAR_OFFSET = 100; // ticker(36) + navbar-top(44~52) + navbar-height(52) - spacer(36) ≈ 100px
 const NEAR_END      = 70; // % scroll untuk reveal
+
+// Urutan tampil location chips — urutan resmi 11 kabupaten/kota Maluku Utara
+const LOCATION_ORDER = [
+  'ternate',
+  'tidore-kepulauan',
+  'sofifi',
+  'halmahera-tengah',
+  'halmahera-utara',
+  'halmahera-barat',
+  'halmahera-selatan',
+  'halmahera-timur',
+  'kepulauan-morotai',
+  'kepulauan-sula',
+  'pulau-taliabu',
+];
 
 type Location = { id: string; name: string; slug: string; type: string };
 
@@ -29,8 +44,7 @@ function CategoryTabsInner() {
   const [locations,   setLocations]   = useState<Location[]>([]);
 
   const isNewsPage    = pathname === '/news';
-  const isArticlePage = pathname.startsWith('/news/');
-  const showTabs      = isNewsPage || isArticlePage;
+  const showTabs      = isNewsPage; // tabs HANYA di /news, tidak di artikel slug
 
   const currentType     = searchParams.get('type')     || 'terbaru';
   const currentLocation = searchParams.get('location') || 'all';
@@ -39,7 +53,20 @@ function CategoryTabsInner() {
   useEffect(() => {
     fetch(`${LOCATION_API}/locations`)
       .then(r => r.json())
-      .then(d => { if (d.success) setLocations(d.data); })
+      .then(d => {
+        if (d.success) {
+          // Sort sesuai LOCATION_ORDER, sisanya di belakang
+          const sorted = [...d.data].sort((a: Location, b: Location) => {
+            const ai = LOCATION_ORDER.indexOf(a.slug);
+            const bi = LOCATION_ORDER.indexOf(b.slug);
+            if (ai === -1 && bi === -1) return 0;
+            if (ai === -1) return 1;
+            if (bi === -1) return -1;
+            return ai - bi;
+          });
+          setLocations(sorted);
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -156,17 +183,17 @@ function CategoryTabsInner() {
 
             {/* Fallback kalau API belum ready */}
             {locations.length === 0 && [
-              { slug: 'ternate', name: 'Ternate' },
-              { slug: 'tidore',  name: 'Tidore' },
-              { slug: 'sofifi',  name: 'Sofifi' },
-              { slug: 'halsel',  name: 'Halsel' },
-              { slug: 'halbar',  name: 'Halbar' },
-              { slug: 'halut',   name: 'Halut' },
-              { slug: 'halteng', name: 'Halteng' },
-              { slug: 'haltim',  name: 'Haltim' },
-              { slug: 'sula',    name: 'Sula' },
-              { slug: 'taliabu', name: 'Taliabu' },
-              { slug: 'morotai', name: 'Morotai' },
+              { slug: 'ternate',            name: 'Ternate' },
+              { slug: 'tidore-kepulauan',   name: 'Tidore Kepulauan' },
+              { slug: 'sofifi',             name: 'Sofifi' },
+              { slug: 'halmahera-tengah',   name: 'Halmahera Tengah' },
+              { slug: 'halmahera-utara',    name: 'Halmahera Utara' },
+              { slug: 'halmahera-barat',    name: 'Halmahera Barat' },
+              { slug: 'halmahera-selatan',  name: 'Halmahera Selatan' },
+              { slug: 'halmahera-timur',    name: 'Halmahera Timur' },
+              { slug: 'kepulauan-morotai',  name: 'Kepulauan Morotai' },
+              { slug: 'kepulauan-sula',     name: 'Kepulauan Sula' },
+              { slug: 'pulau-taliabu',      name: 'Pulau Taliabu' },
             ].map(loc => (
               <button key={loc.slug} onClick={() => setLocation(loc.slug)}
                 className={`flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full transition-all ${
