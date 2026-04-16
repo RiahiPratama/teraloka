@@ -370,7 +370,7 @@ export default async function ArticlePage({ params }: Props) {
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
 
           {/* ── Main content ── */}
-          <article className="lg:col-span-8 pt-28 pb-16">
+          <article className="lg:col-span-8 pt-6 pb-16">
 
             {/* Category + badges */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -498,7 +498,7 @@ export default async function ArticlePage({ params }: Props) {
 
           {/* ── Sidebar ── */}
           <aside className="hidden lg:block lg:col-span-4">
-            <div className="sticky top-24 py-6 space-y-5">
+            <div className="sticky top-[108px] py-6 space-y-5">
               {/* Sidebar ad */}
               <div className="rounded-xl overflow-hidden" style={{ border: '1.5px dashed #D1D5DB', background: '#F9FAFB' }}>
                 <div className="flex flex-col items-center justify-center h-64 gap-2">

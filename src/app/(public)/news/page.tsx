@@ -302,7 +302,7 @@ function NewsPageContent() {
 
       <div className="max-w-4xl mx-auto px-4">
 
-        <div className="pt-24">
+        <div className="pt-2">
           <AdBanner />
         </div>
 
@@ -503,7 +503,7 @@ function NewsPageContent() {
 
             {/* Sidebar */}
             <div className="hidden lg:block lg:col-span-4">
-              <div className="sticky top-44 space-y-5">
+              <div className="sticky top-[108px] space-y-5">
                 <AdSidebar height={260} label="300 × 250" />
 
                 {/* Terpopuler */}

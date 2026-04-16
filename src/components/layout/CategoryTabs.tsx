@@ -13,7 +13,7 @@ const TYPE_TABS = [
 // ── Location chips (Layer 2) ──────────────────────────────────
 const LOCATION_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-const NAVBAR_OFFSET = 88; // fixed top-8 (32px) + navbar height ~56px
+const NAVBAR_OFFSET = 100; // ticker(36) + navbar-top(44) + navbar-height(52) - spacer(36) + buffer = ~100px
 const NEAR_END      = 70; // % scroll untuk reveal
 
 type Location = { id: string; name: string; slug: string; type: string };
