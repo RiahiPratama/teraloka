@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { AuthProvider } from '@/components/providers/AuthProvider'
+import ConditionalBottomNav from '@/components/layout/ConditionalBottomNav'
 
 export const metadata: Metadata = {
   title: 'TeraLoka — Gerbang Digital Maluku Utara',
@@ -17,7 +18,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body suppressHydrationWarning={true}>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <ConditionalBottomNav />
+        </AuthProvider>
       </body>
     </html>
   )
