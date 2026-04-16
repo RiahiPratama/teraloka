@@ -239,9 +239,8 @@ export default function Hero() {
             ))}
           </div>
 
-          {/* ── Service Pills — desktop only, di bawah popular tags ── */}
-          <div className="hero-service-pills" style={{
-            display: 'grid',
+          {/* ── Service Pills — DESKTOP ONLY ── */}
+          <div className="hidden md:grid" style={{
             gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 10,
             maxWidth: 480,
@@ -293,10 +292,10 @@ export default function Hero() {
           </div>
         </div>
 
-        {/* RIGHT — hierarchy floating cards (desktop only) */}
+        {/* RIGHT — floating cards (desktop only) */}
         <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
 
-          {/* ── Card UTAMA — Speedboat ── */}
+          {/* Card UTAMA — Speedboat */}
           <Link href="/speed" className="float-card" style={{
             position: 'absolute', bottom: '2%', left: '-8%',
             textDecoration: 'none',
@@ -305,8 +304,7 @@ export default function Hero() {
             borderRadius: 22, padding: '18px 22px',
             boxShadow: '0 24px 64px rgba(0,0,0,0.18), 0 4px 16px rgba(0,0,0,0.08)',
             border: '1px solid rgba(255,255,255,0.95)',
-            minWidth: 230, zIndex: 10,
-            animationDelay: '0s',
+            minWidth: 230, zIndex: 10, animationDelay: '0s',
           }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
@@ -341,7 +339,7 @@ export default function Hero() {
             </div>
           </Link>
 
-          {/* ── Card Sekunder — BAKOS ── */}
+          {/* Card Sekunder — BAKOS */}
           <Link href="/kos" className="float-card" style={{
             position: 'absolute', top: '60%', right: '-8%',
             textDecoration: 'none',
@@ -350,8 +348,7 @@ export default function Hero() {
             borderRadius: 18, padding: '14px 18px',
             boxShadow: '0 16px 48px rgba(0,0,0,0.15)',
             border: '1px solid rgba(255,255,255,0.92)',
-            minWidth: 190, zIndex: 10,
-            animationDelay: '-1.5s',
+            minWidth: 190, zIndex: 10, animationDelay: '-1.5s',
           }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
@@ -366,7 +363,7 @@ export default function Hero() {
             <div style={{ fontSize: 12, fontWeight: 700, color: '#1B6B4A' }}>Cari Kos →</div>
           </Link>
 
-          {/* ── Card Kecil — BASUMBANG ── */}
+          {/* Card Kecil — BASUMBANG */}
           <Link href="/fundraising" className="float-card" style={{
             position: 'absolute', bottom: '-4%', right: '-2%',
             textDecoration: 'none',
@@ -375,8 +372,7 @@ export default function Hero() {
             borderRadius: 16, padding: '12px 16px',
             boxShadow: '0 10px 32px rgba(0,0,0,0.12)',
             border: '1px solid rgba(255,255,255,0.88)',
-            minWidth: 168, zIndex: 10,
-            animationDelay: '-3s',
+            minWidth: 168, zIndex: 10, animationDelay: '-3s',
           }}
             onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-2px)'; }}
             onMouseLeave={e => { e.currentTarget.style.transform = 'none'; }}
