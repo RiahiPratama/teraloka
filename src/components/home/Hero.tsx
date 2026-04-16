@@ -273,7 +273,7 @@ export default function Hero() {
 
           {/* ── Card Sekunder — BAKOS ── */}
           <Link href="/kos" className="float-card" style={{
-            position: 'absolute', top: '52%', right: '-2%',
+            position: 'absolute', top: '60%', right: '-8%',
             textDecoration: 'none',
             background: 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(18px)', WebkitBackdropFilter: 'blur(18px)',
@@ -298,7 +298,7 @@ export default function Hero() {
 
           {/* ── Card Kecil — BASUMBANG ── */}
           <Link href="/fundraising" className="float-card" style={{
-            position: 'absolute', bottom: '2%', right: '5%',
+            position: 'absolute', bottom: '-4%', right: '-2%',
             textDecoration: 'none',
             background: 'rgba(255,255,255,0.90)',
             backdropFilter: 'blur(14px)', WebkitBackdropFilter: 'blur(14px)',
