@@ -9,8 +9,7 @@ import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/A
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const BAKABAR_CHILDREN = [
-  { href: '/admin/content',                      label: 'Command Center',  icon: '📊', primary: true },
-  { href: '/office/newsroom/bakabar/hub',                  label: 'Editor Hub',     icon: '📰' },
+  { href: '/office/newsroom/bakabar/hub',                  label: 'Editor Hub',     icon: '📰', primary: true },
   { href: '/office/newsroom/bakabar/hub',                  label: 'Draft',          icon: '📝', badgeKey: 'draft' },
   { href: '/office/newsroom/bakabar/hub?status=review',    label: 'Review',         icon: '🔍' },
   { href: '/office/newsroom/bakabar/hub?status=published', label: 'Publikasi',      icon: '✅' },
@@ -203,7 +202,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                               <div style={{ marginBottom: 1 }}>
                                 {/* Toggle BAKABAR */}
                                 <div
-                                  onClick={() => setBakabarOpen(o => !o)}
+                                  onClick={() => { setBakabarOpen(o => !o); router.push('/admin/content'); }}
                                   className="tl-nav-hover"
                                   style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, cursor: 'pointer', background: isBakabarActive ? t.navActive : 'transparent', borderLeft: `2px solid ${isBakabarActive ? t.accentDim : 'transparent'}`, color: isBakabarActive ? t.accent : t.textMuted, transition: 'all 0.15s' }}>
                                   <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>📰</span>
