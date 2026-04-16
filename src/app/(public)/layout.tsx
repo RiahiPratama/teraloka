@@ -14,7 +14,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         Ini mendorong CategoryTabs & konten turun agar tidak tertutup navbar fixed.
         Homepage (page.tsx) handle sendiri via Hero paddingTop — tidak kena efek ini.
       */}
-      <div style={{ paddingTop: 60 }}>
+      <div style={{ paddingTop: 72 }}>
         <CategoryTabs />
         <main>{children}</main>
       </div>
