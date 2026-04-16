@@ -65,15 +65,11 @@ export default function Footer() {
     }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
 
-        {/* Top grid: brand + 3 link columns */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: '2fr 1fr 1fr 1fr',
-          gap: 40, marginBottom: 40,
-        }}>
+        {/* Fix: brand full width mobile, 2 kolom tablet, 4 kolom desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-[2fr_1fr_1fr_1fr] gap-8 md:gap-10 mb-10">
 
-          {/* Brand */}
-          <div>
+          {/* Brand — full width di mobile */}
+          <div className="col-span-2 md:col-span-1">
             <Logo height={22} />
             <p style={{
               marginTop: 12, fontSize: 13, lineHeight: 1.7,
@@ -82,7 +78,6 @@ export default function Footer() {
               Digital Curator of the Archipelago.
               Menghubungkan Maluku Utara dalam satu genggaman.
             </p>
-            {/* Social links */}
             <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
               {SOCIAL.map(s => (
                 <a key={s.label} href={s.href} target="_blank" rel="noopener noreferrer"
@@ -122,13 +117,9 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {FOOTER_LINKS.layanan.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} style={{
-                    fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none',
-                    transition: 'color 0.15s',
-                  }}
+                  <Link href={l.href} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-                  >
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
                     {l.label}
                   </Link>
                 </li>
@@ -144,13 +135,9 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {FOOTER_LINKS.perusahaan.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} style={{
-                    fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none',
-                    transition: 'color 0.15s',
-                  }}
+                  <Link href={l.href} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-                  >
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
                     {l.label}
                   </Link>
                 </li>
@@ -166,13 +153,9 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {FOOTER_LINKS.legal.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} style={{
-                    fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none',
-                    transition: 'color 0.15s',
-                  }}
+                  <Link href={l.href} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
-                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}
-                  >
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
                     {l.label}
                   </Link>
                 </li>

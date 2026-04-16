@@ -52,8 +52,8 @@ export default async function PersonalizedNews() {
   if (articles.length === 0) return null
 
   const featured = articles[0]
-  const article2 = articles[1] ?? null  // artikel 1 di kolom kanan
-  const article3 = articles[2] ?? null  // artikel 2 di kolom kanan
+  const article2 = articles[1] ?? null
+  const article3 = articles[2] ?? null
 
   return (
     <section style={{ maxWidth: 1200, margin: '0 auto', padding: '64px 24px' }}>
@@ -71,19 +71,17 @@ export default async function PersonalizedNews() {
             Berita terkini dari Maluku Utara
           </p>
         </div>
-        <Link href="/news" style={{
-          fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none',
-        }}>
+        <Link href="/news" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
           Lihat Semua →
         </Link>
       </div>
 
-      {/* Grid: featured kiri (60%) + kolom kanan (40%) */}
-      <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
+      {/* Fix: 1 kolom mobile → 3fr 2fr desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4">
 
-        {/* ── Featured article ── */}
+        {/* Featured article */}
         <Link href={`/news/${featured.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
-          <div style={{ borderRadius: 20, overflow: 'hidden', position: 'relative', height: 380 }}>
+          <div style={{ borderRadius: 20, overflow: 'hidden', position: 'relative', height: 'clamp(240px, 40vw, 380px)' }}>
             {featured.cover_image_url ? (
               <img src={featured.cover_image_url} alt={featured.title}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -98,7 +96,7 @@ export default async function PersonalizedNews() {
               <div style={{ display: 'inline-flex', background: 'rgba(0,53,38,0.9)', borderRadius: 99, padding: '3px 10px', marginBottom: 10 }}>
                 <span style={{ fontSize: 10, fontWeight: 800, color: '#95d3ba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>BERITA UTAMA</span>
               </div>
-              <h3 className="font-sora" style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 8 }}>
+              <h3 className="font-sora" style={{ fontSize: 'clamp(16px, 3vw, 20px)', fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 8 }}>
                 {featured.title}
               </h3>
               <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)', lineHeight: 1.5, marginBottom: 10, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -113,10 +111,9 @@ export default async function PersonalizedNews() {
           </div>
         </Link>
 
-        {/* ── Kolom kanan ── */}
+        {/* Kolom kanan */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-          {/* Artikel 1 — full width */}
           {article2 && (
             <Link href={`/news/${article2.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
               <div style={{
@@ -150,10 +147,6 @@ export default async function PersonalizedNews() {
             </Link>
           )}
 
-          {/* Artikel 2 — full width */}
-          {/* (slot ketiga jika ada artikel ke-2 lagi — diisi dari index 1) */}
-
-          {/* Artikel 2 — full width */}
           {article3 && (
             <Link href={`/news/${article3.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
               <div style={{
@@ -187,65 +180,61 @@ export default async function PersonalizedNews() {
             </Link>
           )}
 
-          {/* BALAPOR card — full width di slot ke-3 */}
-          <Link href="/reports" style={{ textDecoration: 'none', display: 'block' }}>
-              <div style={{
-                background: 'rgba(220,38,38,0.03)',
-                border: '1.5px solid rgba(220,38,38,0.12)',
-                borderRadius: 16, height: '100%',
-                display: 'flex', flexDirection: 'column',
-                overflow: 'hidden',
-              }}>
-                {/* Header */}
-                <div style={{ padding: '12px 14px 10px', flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                    <div style={{
-                      width: 30, height: 30, borderRadius: 9,
-                      background: 'rgba(220,38,38,0.1)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                    }}>
-                      <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="m3 11 19-9-9 19-2-8-8-2z"/>
-                      </svg>
-                    </div>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: '#dc2626' }}>BALAPOR</span>
+          {/* BALAPOR card */}
+          <Link href="/reports" style={{ textDecoration: 'none', display: 'block', flex: 1 }}>
+            <div style={{
+              background: 'rgba(220,38,38,0.03)',
+              border: '1.5px solid rgba(220,38,38,0.12)',
+              borderRadius: 16,
+              display: 'flex', flexDirection: 'column',
+              overflow: 'hidden', height: '100%',
+            }}>
+              <div style={{ padding: '12px 14px 10px', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                  <div style={{
+                    width: 30, height: 30, borderRadius: 9,
+                    background: 'rgba(220,38,38,0.1)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <svg viewBox="0 0 24 24" width={15} height={15} fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="m3 11 19-9-9 19-2-8-8-2z"/>
+                    </svg>
                   </div>
-
-                  {latestReport ? (
-                    <div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
-                        <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }} />
-                        <span style={{ fontSize: 9, fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Terbaru</span>
-                      </div>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {latestReport.title}
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Laporan diproses</p>
-                      <p style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>
-                        {totalReports > 0 ? `${totalReports}+` : '—'}
-                      </p>
-                      <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
-                        Suarakan aspirasi. Identitasmu terlindungi.
-                      </p>
-                    </div>
-                  )}
+                  <span style={{ fontSize: 11, fontWeight: 800, color: '#dc2626' }}>BALAPOR</span>
                 </div>
-
-                {/* CTA */}
-                <div style={{
-                  background: 'rgba(220,38,38,0.07)',
-                  borderTop: '1px solid rgba(220,38,38,0.1)',
-                  padding: '8px 14px',
-                  fontSize: 11, fontWeight: 800, color: '#dc2626',
-                  textAlign: 'center',
-                }}>
-                  Lapor Sekarang →
-                </div>
+                {latestReport ? (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 5 }}>
+                      <span style={{ width: 5, height: 5, borderRadius: '50%', background: '#dc2626', flexShrink: 0 }} />
+                      <span style={{ fontSize: 9, fontWeight: 800, color: '#dc2626', textTransform: 'uppercase', letterSpacing: '0.4px' }}>Terbaru</span>
+                    </div>
+                    <p style={{ fontSize: 11, fontWeight: 600, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {latestReport.title}
+                    </p>
+                  </div>
+                ) : (
+                  <div>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 4 }}>Laporan diproses</p>
+                    <p style={{ fontSize: 22, fontWeight: 800, color: '#dc2626' }}>
+                      {totalReports > 0 ? `${totalReports}+` : '—'}
+                    </p>
+                    <p style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 6, lineHeight: 1.5 }}>
+                      Suarakan aspirasi. Identitasmu terlindungi.
+                    </p>
+                  </div>
+                )}
               </div>
-            </Link>
+              <div style={{
+                background: 'rgba(220,38,38,0.07)',
+                borderTop: '1px solid rgba(220,38,38,0.1)',
+                padding: '8px 14px',
+                fontSize: 11, fontWeight: 800, color: '#dc2626',
+                textAlign: 'center',
+              }}>
+                Lapor Sekarang →
+              </div>
+            </div>
+          </Link>
         </div>
       </div>
     </section>
