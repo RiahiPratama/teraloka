@@ -8,7 +8,6 @@ import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/A
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-// ── BAKABAR dropdown children ─────────────────────────────────────
 const BAKABAR_CHILDREN = [
   { href: '/admin/bakabar/hub',                  label: 'Editor Hub',  icon: '📰', primary: true },
   { href: '/admin/bakabar/hub',                  label: 'Draft',       icon: '📝', badgeKey: 'draft' },
@@ -18,16 +17,17 @@ const BAKABAR_CHILDREN = [
   { href: '/admin/rss',                          label: 'RSS Feed',    icon: '📡' },
 ];
 
+// Urutan nav: Overview → BAKABAR (dropdown) → BALAPOR → BASUMBANG → Listing → Users
 const NAV_SECTIONS = [
   {
     label: 'Utama',
     items: [
-      { href: '/admin', label: 'Overview', icon: '⚡', exact: true, roles: ['super_admin'] },
-      // BAKABAR — handled separately as dropdown
-      { href: '/admin/reports',  label: 'BALAPOR',   sub: 'Laporan warga',      icon: '🚨', roles: ['super_admin'] },
-      { href: '/admin/listings', label: 'Listing',   sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
-      { href: '/admin/funding',  label: 'BASUMBANG', sub: 'Kampanye donasi',    icon: '❤️', roles: ['super_admin'] },
-      { href: '/admin/users',    label: 'Users',     sub: 'Manajemen akun',     icon: '👥', roles: ['super_admin'] },
+      { href: '/admin',          label: 'Overview',   icon: '⚡', exact: true, roles: ['super_admin'] },
+      // BAKABAR dihandle sebagai dropdown khusus di JSX, posisi setelah Overview
+      { href: '/admin/reports',  label: 'BALAPOR',    sub: 'Laporan warga',      icon: '🚨', roles: ['super_admin'] },
+      { href: '/admin/funding',  label: 'BASUMBANG',  sub: 'Kampanye donasi',    icon: '❤️', roles: ['super_admin'] },
+      { href: '/admin/listings', label: 'Listing',    sub: 'Kos, Properti, dll', icon: '🏠', roles: ['super_admin'] },
+      { href: '/admin/users',    label: 'Users',      sub: 'Manajemen akun',     icon: '👥', roles: ['super_admin'] },
     ],
   },
   {
@@ -62,25 +62,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const { user, isLoading, logout } = useAuth();
   const router   = useRouter();
   const pathname = usePathname();
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [dark, setDark]               = useState(true);
-  const [bakabarOpen, setBakabarOpen] = useState(false);
-  const [articleDraft, setArticleDraft] = useState<number>(0);
+  const [sidebarOpen, setSidebarOpen]   = useState(false);
+  const [dark, setDark]                 = useState(true);
+  const [bakabarOpen, setBakabarOpen]   = useState(false);
+  const [articleDraft, setArticleDraft] = useState(0);
 
+  // Semua hooks WAJIB dipanggil tanpa kondisi
   useEffect(() => {
     const saved = localStorage.getItem('tl_admin_theme');
     if (saved === 'light') setDark(false);
-    // Auto-expand BAKABAR kalau sedang di halaman bakabar
+  }, []);
+
+  useEffect(() => {
     if (pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss')) {
       setBakabarOpen(true);
     }
   }, [pathname]);
-
-  const toggleTheme = () => {
-    const next = !dark;
-    setDark(next);
-    localStorage.setItem('tl_admin_theme', next ? 'dark' : 'light');
-  };
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/admin');
@@ -91,7 +88,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     }
   }, [user, isLoading, router, pathname]);
 
-  // Fetch draft count untuk badge
   useEffect(() => {
     if (!user) return;
     const token = localStorage.getItem('token') || sessionStorage.getItem('token');
@@ -102,8 +98,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       .catch(() => {});
   }, [user]);
 
+  const toggleTheme = () => {
+    const next = !dark;
+    setDark(next);
+    localStorage.setItem('tl_admin_theme', next ? 'dark' : 'light');
+  };
+
   const t = dark ? DARK_THEME : LIGHT_THEME;
 
+  // ── Loading state ──
   if (isLoading) return (
     <div style={{ minHeight: '100vh', background: '#0D1117', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div style={{ textAlign: 'center' }}>
@@ -118,184 +121,178 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isActive = (href: string, exact?: boolean) =>
     exact ? pathname === href : pathname.startsWith(href);
-
   const isBakabarActive = pathname.startsWith('/admin/bakabar') || pathname.startsWith('/admin/rss');
+
+  // ── BAKABAR portal: pass-through, layout ditangani bakabar/layout.tsx ──
+  // Conditional di JSX (bukan early return) agar hooks tidak broken
+  const isBakabarRoute = pathname.startsWith('/admin/bakabar');
 
   return (
     <AdminThemeContext.Provider value={{ dark, t }}>
-      <div style={{ display: 'flex', minHeight: '100vh', background: t.mainBg, fontFamily: "'Outfit', system-ui, sans-serif", transition: 'background 0.2s' }}>
-        <style>{`
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
-          * { box-sizing: border-box; }
-          ::-webkit-scrollbar { width: 4px; }
-          ::-webkit-scrollbar-track { background: transparent; }
-          ::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
-          .tl-nav-item:hover { background: ${t.navHover} !important; color: ${t.accent} !important; }
-          @media (max-width: 768px) {
-            .tl-sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
-            .tl-sidebar.open { transform: translateX(0); }
-            .tl-main { margin-left: 0 !important; }
-            .tl-hamburger { display: flex !important; }
-          }
-        `}</style>
+      {isBakabarRoute ? (
+        // BAKABAR punya layout sendiri — render children langsung
+        <>{children}</>
+      ) : (
+        // Super Admin full layout
+        <div style={{ display: 'flex', minHeight: '100vh', background: t.mainBg, fontFamily: "'Outfit', system-ui, sans-serif", transition: 'background 0.2s' }}>
+          <style>{`
+            @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
+            * { box-sizing: border-box; }
+            ::-webkit-scrollbar { width: 4px; }
+            ::-webkit-scrollbar-track { background: transparent; }
+            ::-webkit-scrollbar-thumb { background: #374151; border-radius: 2px; }
+            @media (max-width: 768px) {
+              .tl-sidebar { transform: translateX(-100%); transition: transform 0.25s ease; }
+              .tl-sidebar.open { transform: translateX(0); }
+              .tl-main { margin-left: 0 !important; }
+              .tl-hamburger { display: flex !important; }
+            }
+          `}</style>
 
-        {sidebarOpen && (
-          <div onClick={() => setSidebarOpen(false)}
-            style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 39 }} />
-        )}
+          {sidebarOpen && (
+            <div onClick={() => setSidebarOpen(false)}
+              style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 39 }} />
+          )}
 
-        {/* ── SIDEBAR ── */}
-        <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}
-          style={{ width: 256, minHeight: '100vh', background: t.sidebar, borderRight: `1px solid ${t.sidebarBorder}`, display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40, overflowY: 'auto', transition: 'background 0.2s, border-color 0.2s' }}>
+          {/* ── SIDEBAR ── */}
+          <aside className={`tl-sidebar ${sidebarOpen ? 'open' : ''}`}
+            style={{ width: 256, minHeight: '100vh', background: t.sidebar, borderRight: `1px solid ${t.sidebarBorder}`, display: 'flex', flexDirection: 'column', position: 'fixed', top: 0, left: 0, bottom: 0, zIndex: 40, overflowY: 'auto', transition: 'background 0.2s' }}>
 
-          {/* Brand */}
-          <div style={{ padding: '22px 18px 18px', borderBottom: `1px solid ${t.sidebarBorder}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#fff', boxShadow: '0 0 16px rgba(27,107,74,0.35)' }}>T</div>
-              <div>
-                <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px' }}>TeraLoka</div>
-                <div style={{ color: t.accentDim, fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>Super Admin</div>
+            {/* Brand */}
+            <div style={{ padding: '22px 18px 18px', borderBottom: `1px solid ${t.sidebarBorder}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 36, height: 36, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, fontWeight: 800, color: '#fff', boxShadow: '0 0 16px rgba(27,107,74,0.35)' }}>T</div>
+                <div>
+                  <div style={{ color: t.textPrimary, fontWeight: 700, fontSize: 15, letterSpacing: '-0.3px' }}>TeraLoka</div>
+                  <div style={{ color: t.accentDim, fontSize: 10, fontWeight: 600, letterSpacing: '0.8px', textTransform: 'uppercase' }}>Super Admin</div>
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Nav */}
-          <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
-            {NAV_SECTIONS
-              .filter(s => s.items.some(i => !i.roles?.length || i.roles.includes(user.role || '')))
-              .map((section, sIdx) => (
-                <div key={section.label} style={{ marginBottom: 20 }}>
-                  <div style={{ color: t.textDim, fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 4 }}>
-                    {section.label}
-                  </div>
+            {/* Nav */}
+            <nav style={{ flex: 1, padding: '14px 10px', overflowY: 'auto' }}>
+              {NAV_SECTIONS
+                .filter(s => s.items.some(i => !i.roles?.length || i.roles.includes(user.role || '')))
+                .map(section => (
+                  <div key={section.label} style={{ marginBottom: 20 }}>
+                    <div style={{ color: t.textDim, fontSize: 9.5, fontWeight: 700, letterSpacing: '1.2px', textTransform: 'uppercase', padding: '0 8px', marginBottom: 4 }}>
+                      {section.label}
+                    </div>
 
-                  {/* Inject BAKABAR dropdown setelah Overview (index 0 di section Utama) */}
-                  {section.label === 'Utama' && (
-                    <div style={{ marginBottom: 1 }}>
-                      {/* BAKABAR toggle button */}
-                      <div
-                        onClick={() => setBakabarOpen(o => !o)}
-                        className="tl-nav-item"
-                        style={{
-                          display: 'flex', alignItems: 'center', gap: 9,
-                          padding: '8px 10px', borderRadius: 8, marginBottom: 1,
-                          cursor: 'pointer',
-                          background: isBakabarActive ? t.navActive : 'transparent',
-                          borderLeft: `2px solid ${isBakabarActive ? t.accentDim : 'transparent'}`,
-                          color: isBakabarActive ? t.accent : t.textMuted,
-                          transition: 'all 0.15s',
-                        }}
-                      >
-                        <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>📰</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: isBakabarActive ? 600 : 400, lineHeight: 1.2 }}>BAKABAR</div>
-                          <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>Portal berita lokal</div>
-                        </div>
-                        {articleDraft > 0 && (
-                          <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#EF4444', color: '#fff', marginRight: 4 }}>
-                            {articleDraft}
-                          </span>
-                        )}
-                        <span style={{
-                          fontSize: 10, color: t.textDim, flexShrink: 0,
-                          transform: bakabarOpen ? 'rotate(180deg)' : 'none',
-                          transition: 'transform 0.2s',
-                        }}>▼</span>
-                      </div>
+                    {section.items
+                      .filter(i => !i.roles?.length || i.roles.includes(user.role || ''))
+                      .map((item, idx) => {
+                        const active = isActive(item.href, item.exact);
+                        return (
+                          <div key={item.href}>
+                            {/* Nav item */}
+                            <Link href={item.href} onClick={() => setSidebarOpen(false)}
+                              style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}
+                              onMouseEnter={e => { if (!active) { e.currentTarget.style.background = t.navHover; e.currentTarget.style.color = t.accent; } }}
+                              onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; } }}>
+                              <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{item.label}</div>
+                                {item.sub && <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>{item.sub}</div>}
+                              </div>
+                              {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, flexShrink: 0 }} />}
+                            </Link>
 
-                      {/* BAKABAR dropdown children */}
-                      {bakabarOpen && (
-                        <div style={{ marginLeft: 16, marginBottom: 6 }}>
-                          {BAKABAR_CHILDREN.map(child => {
-                            const childActive = pathname === child.href.split('?')[0] ||
-                              (child.href === '/admin/bakabar/hub' && !child.primary && pathname === '/admin/bakabar/hub') ||
-                              (child.href === '/admin/rss' && pathname.startsWith('/admin/rss'));
-                            const badge = child.badgeKey === 'draft' ? articleDraft : null;
-                            return (
-                              <Link key={child.href + child.label} href={child.href} onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none' }}>
+                            {/* Inject BAKABAR dropdown setelah Overview (index 0 di section Utama) */}
+                            {section.label === 'Utama' && idx === 0 && (
+                              <div style={{ marginBottom: 1 }}>
+                                {/* BAKABAR toggle */}
                                 <div
-                                  className="tl-nav-item"
-                                  style={{
-                                    display: 'flex', alignItems: 'center', gap: 8,
-                                    padding: child.primary ? '7px 10px' : '5px 10px',
-                                    borderRadius: 8, marginBottom: 1,
-                                    background: childActive ? t.navActive : 'transparent',
-                                    color: childActive ? t.accent : t.textDim,
-                                    fontSize: child.primary ? 12.5 : 12,
-                                    fontWeight: child.primary ? 700 : (childActive ? 600 : 400),
-                                    transition: 'all 0.15s',
-                                  }}
+                                  onClick={() => setBakabarOpen(o => !o)}
+                                  style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, cursor: 'pointer', background: isBakabarActive ? t.navActive : 'transparent', borderLeft: `2px solid ${isBakabarActive ? t.accentDim : 'transparent'}`, color: isBakabarActive ? t.accent : t.textMuted, transition: 'all 0.15s' }}
+                                  onMouseEnter={e => { if (!isBakabarActive) { (e.currentTarget as HTMLElement).style.background = t.navHover; (e.currentTarget as HTMLElement).style.color = t.accent; } }}
+                                  onMouseLeave={e => { if (!isBakabarActive) { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = t.textMuted; } }}
                                 >
-                                  <span style={{ fontSize: child.primary ? 14 : 12 }}>{child.icon}</span>
-                                  <span style={{ flex: 1 }}>{child.label}</span>
-                                  {badge !== null && badge > 0 && (
-                                    <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>
-                                      {badge}
+                                  <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>📰</span>
+                                  <div style={{ flex: 1, minWidth: 0 }}>
+                                    <div style={{ fontSize: 12.5, fontWeight: isBakabarActive ? 600 : 400, lineHeight: 1.2 }}>BAKABAR</div>
+                                    <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>Portal berita lokal</div>
+                                  </div>
+                                  {articleDraft > 0 && (
+                                    <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#EF4444', color: '#fff', marginRight: 4 }}>
+                                      {articleDraft}
                                     </span>
                                   )}
+                                  <span style={{ fontSize: 10, color: t.textDim, flexShrink: 0, transform: bakabarOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                                 </div>
-                              </Link>
-                            );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
-                  {/* Regular nav items */}
-                  {section.items
-                    .filter(i => !i.roles?.length || i.roles.includes(user.role || ''))
-                    .map(item => {
-                      const active = isActive(item.href, item.exact);
-                      return (
-                        <Link key={item.href} href={item.href} onClick={() => setSidebarOpen(false)}
-                          style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '8px 10px', borderRadius: 8, marginBottom: 1, textDecoration: 'none', background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s' }}
-                          onMouseEnter={e => { if (!active) { e.currentTarget.style.background = t.navHover; e.currentTarget.style.color = t.accent; } }}
-                          onMouseLeave={e => { if (!active) { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = t.textMuted; } }}>
-                          <span style={{ fontSize: 15, width: 20, textAlign: 'center' }}>{item.icon}</span>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 12.5, fontWeight: active ? 600 : 400, lineHeight: 1.2 }}>{item.label}</div>
-                            {item.sub && <div style={{ fontSize: 10.5, color: t.textDim, marginTop: 1 }}>{item.sub}</div>}
+                                {/* BAKABAR children */}
+                                {bakabarOpen && (
+                                  <div style={{ marginLeft: 16, marginBottom: 4 }}>
+                                    {BAKABAR_CHILDREN.map(child => {
+                                      const childActive = pathname === child.href.split('?')[0] ||
+                                        (child.href === '/admin/rss' && pathname.startsWith('/admin/rss'));
+                                      const badge = child.badgeKey === 'draft' ? articleDraft : null;
+                                      return (
+                                        <Link key={child.href + child.label} href={child.href} onClick={() => setSidebarOpen(false)} style={{ textDecoration: 'none' }}>
+                                          <div style={{
+                                            display: 'flex', alignItems: 'center', gap: 8,
+                                            padding: child.primary ? '7px 10px' : '5px 10px',
+                                            borderRadius: 8, marginBottom: 1,
+                                            background: childActive ? t.navActive : 'transparent',
+                                            color: childActive ? t.accent : t.textDim,
+                                            fontSize: child.primary ? 12.5 : 12,
+                                            fontWeight: child.primary ? 700 : (childActive ? 600 : 400),
+                                            transition: 'all 0.15s', cursor: 'pointer',
+                                          }}
+                                            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = t.navHover; (e.currentTarget as HTMLElement).style.color = t.accent; }}
+                                            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = childActive ? t.navActive : 'transparent'; (e.currentTarget as HTMLElement).style.color = childActive ? t.accent : t.textDim; }}
+                                          >
+                                            <span style={{ fontSize: child.primary ? 14 : 12 }}>{child.icon}</span>
+                                            <span style={{ flex: 1 }}>{child.label}</span>
+                                            {badge !== null && badge > 0 && (
+                                              <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>{badge}</span>
+                                            )}
+                                          </div>
+                                        </Link>
+                                      );
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
-                          {active && <div style={{ width: 5, height: 5, borderRadius: '50%', background: t.accentDim, boxShadow: `0 0 5px ${t.accentDim}`, flexShrink: 0 }} />}
-                        </Link>
-                      );
-                    })}
+                        );
+                      })}
+                  </div>
+                ))}
+            </nav>
+
+            {/* User card */}
+            <div style={{ padding: '14px', borderTop: `1px solid ${t.sidebarBorder}` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', background: t.userCard, borderRadius: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
+                  {user.name?.charAt(0)?.toUpperCase() || '?'}
                 </div>
-              ))}
-          </nav>
-
-          {/* User card */}
-          <div style={{ padding: '14px', borderTop: `1px solid ${t.sidebarBorder}` }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 9, padding: '9px 11px', background: t.userCard, borderRadius: 10 }}>
-              <div style={{ width: 32, height: 32, borderRadius: '50%', background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 13, fontWeight: 700, color: '#fff', flexShrink: 0 }}>
-                {user.name?.charAt(0)?.toUpperCase() || '?'}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ color: t.textPrimary, fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || 'Admin'}</div>
+                  <div style={{ color: t.accentDim, fontSize: 10.5, fontWeight: 500 }}>{ROLE_LABEL[user.role || ''] || user.role}</div>
+                </div>
+                <button onClick={logout} title="Logout"
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textDim, fontSize: 15, padding: 4, borderRadius: 6 }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
+                  onMouseLeave={e => (e.currentTarget.style.color = t.textDim)}>⏻</button>
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ color: t.textPrimary, fontSize: 12.5, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name || 'Admin'}</div>
-                <div style={{ color: t.accentDim, fontSize: 10.5, fontWeight: 500 }}>{ROLE_LABEL[user.role || ''] || user.role}</div>
-              </div>
-              <button onClick={logout} title="Logout"
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textDim, fontSize: 15, padding: 4, borderRadius: 6 }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#EF4444')}
-                onMouseLeave={e => (e.currentTarget.style.color = t.textDim)}>⏻</button>
             </div>
-          </div>
-        </aside>
+          </aside>
 
-        {/* ── MAIN ── */}
-        <div className="tl-main" style={{ marginLeft: 256, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-          <header style={{ height: 58, background: t.topbar, borderBottom: `1px solid ${t.topbarBorder}`, display: 'flex', alignItems: 'center', padding: '0 20px', position: 'sticky', top: 0, zIndex: 30, gap: 10, transition: 'background 0.2s, border-color 0.2s' }}>
-            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="tl-hamburger"
-              style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 19, color: t.textMuted, padding: 4, alignItems: 'center', justifyContent: 'center' }}>
-              ☰
-            </button>
-            <div style={{ flex: 1 }}>
-              <span style={{ fontSize: 12, color: t.textMuted, fontWeight: 400 }}>
-                {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {/* ── MAIN ── */}
+          <div className="tl-main" style={{ marginLeft: 256, flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+            <header style={{ height: 58, background: t.topbar, borderBottom: `1px solid ${t.topbarBorder}`, display: 'flex', alignItems: 'center', padding: '0 20px', position: 'sticky', top: 0, zIndex: 30, gap: 10 }}>
+              <button onClick={() => setSidebarOpen(!sidebarOpen)} className="tl-hamburger"
+                style={{ display: 'none', background: 'none', border: 'none', cursor: 'pointer', fontSize: 19, color: t.textMuted, padding: 4, alignItems: 'center', justifyContent: 'center' }}>
+                ☰
+              </button>
+              <div style={{ flex: 1 }}>
+                <span style={{ fontSize: 12, color: t.textMuted }}>
+                  {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </span>
+              </div>
               <button onClick={toggleTheme}
                 style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textMuted }}>
                 <span style={{ fontSize: 14 }}>{dark ? '☀️' : '🌙'}</span>
@@ -305,14 +302,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981', display: 'inline-block' }} />
                 API Live
               </div>
-            </div>
-          </header>
+            </header>
 
-          <main style={{ flex: 1, padding: '20px', overflowX: 'hidden', transition: 'background 0.2s' }}>
-            {children}
-          </main>
+            <main style={{ flex: 1, padding: '20px', overflowX: 'hidden' }}>
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      )}
     </AdminThemeContext.Provider>
   );
 }
