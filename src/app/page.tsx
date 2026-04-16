@@ -1,13 +1,17 @@
-import Ticker from '@/components/layout/Ticker'
-import Navbar from '@/components/layout/Navbar'
-import Hero from '@/components/home/Hero'
+import Ticker          from '@/components/layout/Ticker'
+import Navbar          from '@/components/layout/Navbar'
+import Hero            from '@/components/home/Hero'
+import HeroMobile      from '@/components/home/HeroMobile'
+import ServiceShortcuts from '@/components/home/ServiceShortcuts'
+import StatsBar        from '@/components/home/StatsBar'
+import PWAInstallBanner from '@/components/pwa/PWAInstallBanner'
 import PersonalizedNews from '@/components/home/PersonalizedNews'
 import ContextualServices from '@/components/home/ContextualServices'
 import ServicesEcosystem from '@/components/home/ServicesEcosystem'
-import SocialProof from '@/components/home/SocialProof'
-import CTASection from '@/components/home/CTASection'
-import Footer from '@/components/layout/Footer'
-import Fab from '@/components/layout/Fab'
+import SocialProof     from '@/components/home/SocialProof'
+import CTASection      from '@/components/home/CTASection'
+import Footer          from '@/components/layout/Footer'
+import Fab             from '@/components/layout/Fab'
 
 export default function HomePage() {
   return (
@@ -19,29 +23,45 @@ export default function HomePage() {
       <Navbar />
 
       <main>
-        {/* 03 — Hero: split layout foto Ternate + search */}
-        <Hero />
+        {/* 03a — Hero Desktop: split layout foto Ternate + search */}
+        <div className="hidden md:block">
+          <Hero />
+        </div>
 
-        {/* 04 — Untukmu Hari Ini: live articles */}
+        {/* 03b — Hero Mobile: card speedboat besar + 2 card sekunder */}
+        <HeroMobile />
+
+        {/* 04 — Service Pills horizontal scroll (mobile only) */}
+        <div className="md:hidden">
+          <ServiceShortcuts />
+        </div>
+
+        {/* 05 — Stats Bar: cuaca, jadwal, berita, pengguna */}
+        <StatsBar />
+
+        {/* 06 — PWA Install Banner (mobile only, muncul kunjungan ke-2) */}
+        <PWAInstallBanner />
+
+        {/* 07 — Untukmu Hari Ini: live articles */}
         <PersonalizedNews />
 
-        {/* 05 — Butuh sesuatu hari ini? contextual services */}
+        {/* 08 — Butuh sesuatu hari ini? contextual services */}
         <ContextualServices />
 
-        {/* 06 — Layanan TeraLoka: services ecosystem grid */}
+        {/* 09 — Layanan TeraLoka: services ecosystem grid */}
         <ServicesEcosystem />
 
-        {/* 07 — Dipercaya oleh Warga Maluku Utara: social proof */}
+        {/* 10 — Dipercaya oleh Warga Maluku Utara: social proof */}
         <SocialProof />
 
-        {/* 08 — CTA: Jadi Bagian dari Gerakan Digital Maluku Utara */}
+        {/* 11 — CTA: Jadi Bagian dari Gerakan Digital Maluku Utara */}
         <CTASection />
       </main>
 
-      {/* 09 — Footer */}
+      {/* 12 — Footer */}
       <Footer />
 
-      {/* 10 — FAB laporan */}
+      {/* 13 — FAB laporan */}
       <Fab />
     </>
   )
