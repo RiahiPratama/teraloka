@@ -33,7 +33,6 @@ export default function EditArticlePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Form fields
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [category, setCategory] = useState('berita');
@@ -42,7 +41,6 @@ export default function EditArticlePage() {
   const [slug, setSlug] = useState('');
   const [sourceReportId, setSourceReportId] = useState<string | null>(null);
 
-  // Fetch artikel
   useEffect(() => {
     if (!token || !id) return;
     const fetch_ = async () => {
@@ -52,15 +50,10 @@ export default function EditArticlePage() {
         });
         const data = await res.json();
         if (!data.success) throw new Error(data.error?.message);
-        
-        // Cari artikel by id
-        const article = data.data.data.find((a: any) => a.id === id);
-        if (!article) {
-          setError('Artikel tidak ditemukan.');
-          return;
-        }
 
-        // Fetch detail artikel via slug
+        const article = data.data.data.find((a: any) => a.id === id);
+        if (!article) { setError('Artikel tidak ditemukan.'); return; }
+
         const detailRes = await fetch(`${API}/content/articles/${article.slug}`);
         const detailData = await detailRes.json();
         if (detailData.success && detailData.data) {
@@ -73,7 +66,6 @@ export default function EditArticlePage() {
           setSlug(a.slug || '');
           setSourceReportId(a.source_report_id || null);
         } else {
-          // Fallback ke data list
           setTitle(article.title || '');
           setCategory(article.category || 'berita');
           setStatus(article.status || 'draft');
@@ -88,6 +80,9 @@ export default function EditArticlePage() {
     fetch_();
   }, [token, id]);
 
+  // ── handleSave ────────────────────────────────────────────────
+  // publishNow = true  → simpan konten lalu publish (untuk draft)
+  // publishNow = false → simpan konten saja, status TIDAK berubah
   const handleSave = async (publishNow = false) => {
     if (!title.trim() || !body.trim()) {
       setError('Judul dan isi artikel wajib diisi.');
@@ -97,6 +92,7 @@ export default function EditArticlePage() {
     setError('');
     setSuccess('');
     try {
+      // 1. Update konten — backend TIDAK ubah status via PUT
       const payload: any = {
         title: title.trim(),
         body: body.trim(),
@@ -104,7 +100,6 @@ export default function EditArticlePage() {
         category,
         cover_image_url: coverImageUrl || null,
       };
-      if (publishNow) payload.status = 'published';
 
       const res = await fetch(`${API}/content/articles/${id}`, {
         method: 'PUT',
@@ -117,18 +112,25 @@ export default function EditArticlePage() {
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
 
+      // 2. Kalau publishNow → panggil endpoint publish terpisah
       if (publishNow) {
-        // Publish artikel
-        await fetch(`${API}/content/articles/${id}/publish`, {
+        const pubRes = await fetch(`${API}/content/articles/${id}/publish`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
-        setSuccess('Artikel berhasil dipublish! ✅');
+        const pubData = await pubRes.json();
+        if (!pubData.success) throw new Error(pubData.error?.message);
         setStatus('published');
+        setSuccess('Artikel berhasil dipublish! 🚀');
       } else {
-        setSuccess('Perubahan tersimpan ✓');
+        // Status tetap seperti semula
+        setSuccess(
+          status === 'published'
+            ? 'Perubahan tersimpan ✓ (tetap published)'
+            : 'Draft tersimpan ✓'
+        );
       }
-      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => setSuccess(''), 3500);
     } catch (err: any) {
       setError(err.message || 'Gagal menyimpan');
     } finally {
@@ -149,7 +151,6 @@ export default function EditArticlePage() {
     <div style={{ maxWidth: 780, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
       <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }`}</style>
 
-      {/* Toast */}
       {success && (
         <div style={{
           position: 'fixed', top: 20, right: 20, zIndex: 99,
@@ -168,11 +169,16 @@ export default function EditArticlePage() {
           <div style={{ display: 'flex', gap: 8, marginTop: 4, alignItems: 'center' }}>
             <span style={{
               fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20,
-              background: status === 'published' ? 'rgba(16,185,129,0.1)' : status === 'draft' ? 'rgba(107,114,128,0.1)' : 'rgba(107,114,128,0.1)',
+              background: status === 'published' ? 'rgba(16,185,129,0.1)' : 'rgba(107,114,128,0.1)',
               color: status === 'published' ? '#10B981' : '#6B7280',
             }}>
-              {status === 'published' ? 'Published' : status === 'draft' ? 'Draft' : 'Arsip'}
+              {status === 'published' ? '✅ Published' : status === 'draft' ? 'Draft' : 'Arsip'}
             </span>
+            {status === 'published' && (
+              <span style={{ fontSize: 11, color: '#6B7280' }}>
+                Perubahan akan langsung live setelah disimpan
+              </span>
+            )}
             {sourceReportId && (
               <span style={{ fontSize: 11, color: '#0891B2', background: 'rgba(8,145,178,0.08)', padding: '2px 8px', borderRadius: 20, fontWeight: 600 }}>
                 🤖 AI Generated dari BALAPOR
@@ -307,18 +313,29 @@ export default function EditArticlePage() {
             </a>
           )}
 
+          {/* Tombol simpan — label sesuai status artikel */}
           <button
             onClick={() => handleSave(false)}
             disabled={saving}
             style={{
-              padding: '10px 20px', borderRadius: 10, border: '1px solid #E5E7EB',
-              background: '#fff', color: '#374151', fontSize: 13, fontWeight: 600,
+              padding: '10px 20px', borderRadius: 10,
+              border: status === 'published' ? 'none' : '1px solid #E5E7EB',
+              background: status === 'published' ? '#1B6B4A' : '#fff',
+              color: status === 'published' ? '#fff' : '#374151',
+              fontSize: 13, fontWeight: 600,
               cursor: saving ? 'wait' : 'pointer', opacity: saving ? 0.6 : 1,
+              boxShadow: status === 'published' ? '0 4px 12px rgba(27,107,74,0.2)' : 'none',
             }}
           >
-            {saving ? 'Menyimpan...' : '💾 Simpan Draft'}
+            {saving
+              ? 'Menyimpan...'
+              : status === 'published'
+                ? '💾 Simpan Perubahan'
+                : '💾 Simpan Draft'
+            }
           </button>
 
+          {/* Tombol publish — hanya untuk non-published */}
           {status !== 'published' && (
             <button
               onClick={() => handleSave(true)}
@@ -332,12 +349,6 @@ export default function EditArticlePage() {
             >
               {saving ? 'Memproses...' : '🚀 Publish Sekarang'}
             </button>
-          )}
-
-          {status === 'published' && (
-            <div style={{ fontSize: 13, color: '#10B981', fontWeight: 600 }}>
-              ✅ Sudah Published
-            </div>
           )}
         </div>
       </div>
