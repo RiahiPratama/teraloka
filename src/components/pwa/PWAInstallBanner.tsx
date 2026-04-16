@@ -7,15 +7,15 @@ export default function PWAInstallBanner() {
   const [deferredPrompt, setDeferred] = useState<any>(null)
 
   useEffect(() => {
+    // Sudah install native? Jangan tampil
+    if (window.matchMedia('(display-mode: standalone)').matches) return
+
+    // User sudah klik "Pasang" sebelumnya? Jangan tampil
+    if (localStorage.getItem('tl_pwa_installed')) return
+
     // Hitung kunjungan
     const count = parseInt(localStorage.getItem('tl_visit_count') || '0', 10) + 1
     localStorage.setItem('tl_visit_count', String(count))
-
-    // Sudah dismiss? Jangan tampil lagi
-    if (localStorage.getItem('tl_pwa_dismissed')) return
-
-    // Sudah install? Jangan tampil
-    if (window.matchMedia('(display-mode: standalone)').matches) return
 
     // Tampil setelah kunjungan ke-2+
     if (count >= 2) setShow(true)
@@ -34,17 +34,25 @@ export default function PWAInstallBanner() {
       deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') {
-        localStorage.setItem('tl_pwa_dismissed', '1')
+        // Sudah install → simpan permanen, tidak muncul lagi
+        localStorage.setItem('tl_pwa_installed', '1')
         setShow(false)
       }
+      // Kalau ditolak di native prompt → banner tetap hilang session ini
+      // tapi muncul lagi next refresh (tidak simpan apapun ke localStorage)
+      setShow(false)
     } else {
-      // iOS / browser lain: arahkan ke instruksi manual
+      // iOS / browser lain: instruksi manual
       alert('Buka menu browser kamu, lalu pilih "Tambahkan ke Layar Utama" / "Add to Home Screen".')
+      // Anggap sudah tahu caranya → simpan sebagai installed
+      localStorage.setItem('tl_pwa_installed', '1')
+      setShow(false)
     }
   }
 
   const handleDismiss = () => {
-    localStorage.setItem('tl_pwa_dismissed', '1')
+    // "Nanti" = hilang session ini saja, tidak simpan ke localStorage
+    // Banner muncul lagi saat refresh
     setShow(false)
   }
 
@@ -60,7 +68,6 @@ export default function PWAInstallBanner() {
         padding: '14px 16px',
         display: 'flex', alignItems: 'center', gap: 12,
         boxShadow: '0 4px 20px rgba(0,53,38,0.2)',
-        position: 'relative',
       }}
     >
       {/* Icon */}
