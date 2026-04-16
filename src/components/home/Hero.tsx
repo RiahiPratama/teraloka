@@ -228,7 +228,7 @@ export default function Hero() {
 
           {/* ── Card UTAMA — Speedboat (kiri bawah, sejajar BASUMBANG) ── */}
           <Link href="/speed" className="float-card" style={{
-            position: 'absolute', bottom: '2%', left: '0%',
+            position: 'absolute', bottom: '2%', left: '-8%',
             textDecoration: 'none',
             background: 'rgba(255,255,255,0.97)',
             backdropFilter: 'blur(24px)', WebkitBackdropFilter: 'blur(24px)',
