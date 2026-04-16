@@ -13,18 +13,17 @@ const POPULAR_TAGS = [
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
 
-// Service shortcut pills — muncul di bawah popular tags
 const SERVICE_PILLS = [
-  { icon: '📰', label: 'BAKABAR', sub: 'Berita Lokal', href: '/news', stroke: '#003526', bg: 'rgba(0,53,38,0.06)' },
-  { icon: '⛵', label: 'SPEEDBOAT', sub: 'Jadwal & Tiket', href: '/speed', stroke: '#0891B2', bg: 'rgba(8,145,178,0.06)' },
-  { icon: '🏠', label: 'KOS', sub: 'Cari & Sewa Kos', href: '/kos', stroke: '#1B6B4A', bg: 'rgba(27,107,74,0.06)' },
-  { icon: '💚', label: 'DONASI', sub: 'Bantu Sesama', href: '/fundraising', stroke: '#E8963A', bg: 'rgba(232,150,58,0.06)' },
+  { icon: '📰', label: 'BAKABAR',   sub: 'Berita Lokal',    href: '/news',        stroke: '#003526', bg: 'rgba(0,53,38,0.06)' },
+  { icon: '⛵', label: 'SPEEDBOAT', sub: 'Jadwal & Tiket',  href: '/speed',       stroke: '#0891B2', bg: 'rgba(8,145,178,0.06)' },
+  { icon: '🏠', label: 'KOS',       sub: 'Cari & Sewa Kos', href: '/kos',         stroke: '#1B6B4A', bg: 'rgba(27,107,74,0.06)' },
+  { icon: '💚', label: 'DONASI',    sub: 'Bantu Sesama',    href: '/fundraising', stroke: '#E8963A', bg: 'rgba(232,150,58,0.06)' },
 ]
 
 const FLOAT_CARDS = [
-  { icon: '📰', label: 'BAKABAR', sub: 'Berita Lokal', href: '/news', style: { top: '10%', right: '6%' }, delay: '0s' },
-  { icon: '💚', label: 'BASUMBANG', sub: 'Donasi Kemanusiaan', href: '/fundraising', style: { top: '46%', right: '-3%' }, delay: '1.2s' },
-  { icon: '🏠', label: 'BAKOS', sub: 'Kos & Properti', href: '/kos', style: { bottom: '14%', right: '10%' }, delay: '2.4s' },
+  { icon: '📰', label: 'BAKABAR',   sub: 'Berita Lokal',       href: '/news',        style: { top: '10%', right: '6%' },    delay: '0s' },
+  { icon: '💚', label: 'BASUMBANG', sub: 'Donasi Kemanusiaan', href: '/fundraising', style: { top: '46%', right: '-3%' },   delay: '1.2s' },
+  { icon: '🏠', label: 'BAKOS',     sub: 'Kos & Properti',     href: '/kos',         style: { bottom: '14%', right: '10%' }, delay: '2.4s' },
 ]
 
 const FALLBACK_SPOTS = [
@@ -48,11 +47,14 @@ export default function Hero() {
     <section
       className="hero-section"
       style={{
-        minHeight: '88vh',
+        /* minHeight dihapus — biarkan konten yang tentukan tinggi section */
         display: 'flex',
         alignItems: 'center',
-        /* paddingTop account: ticker(36) + gap(8) + navbar-top(44) + navbar-height(52) + gap(20) = ~160px */
-        paddingTop: 160,
+        /* paddingTop: spacer(36) sudah handle ticker,
+           sisanya: gap(8) + navbar-top(44) + navbar-height(52) - spacer(36) + gap(16) = 84
+           pakai 100 biar ada sedikit breathing room */
+        paddingTop: 100,
+        paddingBottom: 64,
         overflow: 'hidden',
         position: 'relative',
         background: 'var(--surface)',
@@ -70,7 +72,7 @@ export default function Hero() {
 
       <div className="hero-grid" style={{
         maxWidth: 1200, margin: '0 auto',
-        padding: '0 24px 60px',
+        padding: '0 24px',
         width: '100%',
         display: 'grid', gridTemplateColumns: '1fr 1fr',
         gap: 56, alignItems: 'center',
@@ -82,7 +84,7 @@ export default function Hero() {
           <div style={{
             display: 'inline-flex', alignItems: 'center', gap: 8,
             background: 'rgba(0,53,38,0.07)', border: '1px solid rgba(0,53,38,0.12)',
-            borderRadius: 99, padding: '6px 14px', marginBottom: 22,
+            borderRadius: 99, padding: '6px 14px', marginBottom: 20,
           }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E8963A', display: 'inline-block' }} />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--primary)' }}>
@@ -93,7 +95,7 @@ export default function Hero() {
           {/* H1 */}
           <h1 className="font-sora" style={{
             fontSize: 'clamp(32px, 5vw, 64px)', fontWeight: 800,
-            lineHeight: 1.06, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 16,
+            lineHeight: 1.06, letterSpacing: '-0.02em', color: 'var(--text)', marginBottom: 14,
           }}>
             Temukan Apa Saja
             <br />
@@ -101,7 +103,7 @@ export default function Hero() {
           </h1>
 
           {/* Subtitle */}
-          <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-muted)', marginBottom: 28, maxWidth: 420 }}>
+          <p style={{ fontSize: 16, lineHeight: 1.65, color: 'var(--text-muted)', marginBottom: 24, maxWidth: 420 }}>
             Berita, transportasi, kos, hingga bantuan —
             <br />semua dalam satu pencarian.
           </p>
@@ -113,7 +115,7 @@ export default function Hero() {
             padding: '6px 6px 6px 22px',
             border: searchFocused ? '1.5px solid rgba(0,53,38,0.35)' : '1.5px solid var(--border-light)',
             boxShadow: searchFocused ? '0 8px 40px rgba(0,53,38,0.15)' : '0 8px 32px rgba(0,53,38,0.10)',
-            marginBottom: 16, maxWidth: 520, transition: 'all 0.2s ease',
+            marginBottom: 14, maxWidth: 520, transition: 'all 0.2s ease',
           }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
               stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -137,7 +139,7 @@ export default function Hero() {
           </form>
 
           {/* Popular tags */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 28 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 24 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-light)' }}>Populer:</span>
             {POPULAR_TAGS.map(tag => (
               <Link key={tag.href} href={tag.href} style={{
@@ -158,22 +160,13 @@ export default function Hero() {
               <Link key={svc.href} href={svc.href} style={{
                 display: 'flex', alignItems: 'center', gap: 10,
                 background: '#fff', border: '1.5px solid var(--border-light)',
-                borderRadius: 14, padding: '10px 14px', textDecoration: 'none',
-                transition: 'all 0.2s ease',
+                borderRadius: 14, padding: '10px 14px', textDecoration: 'none', transition: 'all 0.2s ease',
               }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.borderColor = svc.stroke
-                  e.currentTarget.style.background = svc.bg
-                  e.currentTarget.style.transform = 'translateY(-1px)'
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.borderColor = 'var(--border-light)'
-                  e.currentTarget.style.background = '#fff'
-                  e.currentTarget.style.transform = 'none'
-                }}>
+                onMouseEnter={e => { e.currentTarget.style.borderColor = svc.stroke; e.currentTarget.style.background = svc.bg; e.currentTarget.style.transform = 'translateY(-1px)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--border-light)'; e.currentTarget.style.background = '#fff'; e.currentTarget.style.transform = 'none'; }}>
                 <span style={{ fontSize: 18, flexShrink: 0 }}>{svc.icon}</span>
                 <div style={{ minWidth: 0 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: svc.stroke, letterSpacing: '0.02em' }}>{svc.label}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: svc.stroke }}>{svc.label}</div>
                   <div style={{ fontSize: 10, color: 'var(--text-muted)', marginTop: 1 }}>{svc.sub}</div>
                 </div>
                 <span style={{ marginLeft: 'auto', fontSize: 11, color: 'var(--text-light)', flexShrink: 0 }}>→</span>
@@ -183,7 +176,7 @@ export default function Hero() {
         </div>
 
         {/* RIGHT: Photo */}
-        <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
+        <div className="hero-photo" style={{ position: 'relative', height: 520 }}>
           <div style={{
             width: '100%', height: '100%', borderRadius: 28, overflow: 'hidden',
             background: 'linear-gradient(135deg, #003526, #0891B2)',
@@ -208,17 +201,13 @@ export default function Hero() {
                 ))}
                 <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
                   <div style={{ fontSize: 64, marginBottom: 16, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}>🌊</div>
-                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>
-                    Maluku Utara
-                  </p>
-                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 6 }}>
-                    Set NEXT_PUBLIC_HERO_BG_URL di Vercel
-                  </p>
+                  <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase' }}>Maluku Utara</p>
+                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 6 }}>Set NEXT_PUBLIC_HERO_BG_URL di Vercel</p>
                 </div>
                 {FALLBACK_SPOTS.map((spot, i) => {
-                  const positions = [{ top: '18%', left: '22%' }, { top: '58%', left: '15%' }, { top: '72%', left: '62%' }, { top: '25%', left: '68%' }]
+                  const pos = [{ top: '18%', left: '22%' }, { top: '58%', left: '15%' }, { top: '72%', left: '62%' }, { top: '25%', left: '68%' }]
                   return (
-                    <div key={i} style={{ position: 'absolute', ...positions[i], zIndex: 2 }}>
+                    <div key={i} style={{ position: 'absolute', ...pos[i], zIndex: 2 }}>
                       <div style={{ background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: 10, padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                         <span style={{ fontSize: 14 }}>{spot.emoji}</span>
                         <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{spot.label}</span>
@@ -231,7 +220,6 @@ export default function Hero() {
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,20,10,0.4) 100%)', borderRadius: 28, pointerEvents: 'none' }} />
           </div>
 
-          {/* Floating cards */}
           {FLOAT_CARDS.map((card) => (
             <Link key={card.label} href={card.href} className="float-card"
               style={{
@@ -240,9 +228,8 @@ export default function Hero() {
                 backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
                 borderRadius: 18, padding: '11px 15px',
                 display: 'flex', alignItems: 'center', gap: 10,
-                boxShadow: '0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
-                border: '1px solid rgba(255,255,255,0.9)', zIndex: 10, minWidth: 165,
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.14)', border: '1px solid rgba(255,255,255,0.9)',
+                zIndex: 10, minWidth: 165, transition: 'transform 0.2s ease, box-shadow 0.2s ease',
               }}
               onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = '0 20px 48px rgba(0,0,0,0.18)'; }}
               onMouseLeave={e => { e.currentTarget.style.transform = 'none'; e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.14)'; }}>

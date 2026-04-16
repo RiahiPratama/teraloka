@@ -35,7 +35,7 @@
 /* ─── Base ─── */
 html {
   scroll-behavior: smooth;
-  scroll-padding-top: 120px; /* ticker + navbar + buffer */
+  scroll-padding-top: 120px;
 }
 
 body {
@@ -128,18 +128,18 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   box-shadow: 0 40px 40px -15px rgba(0, 53, 38, 0.06);
 }
 
-/* ─── Responsive helpers ─── */
+/* ─── Responsive ─── */
 @media (max-width: 900px) {
   .bento-full { grid-column: span 12; }
   .hero-grid { grid-template-columns: 1fr !important; }
   .hero-photo { display: none; }
 
-  /* Hero mobile: account ticker(36) + gap(8) + navbar-top(44) + navbar-height(52) + gap(16) */
+  /* Mobile hero:
+     spacer(36) sudah ada, navbar-top(44) + navbar-height(52) = 96px dari top viewport
+     content butuh mulai di ~96px, hero mulai di 36px → paddingTop = 96-36+12 = 72px */
   .hero-section {
-    min-height: auto !important;
-    padding-top: 156px !important;
-    padding-bottom: 48px !important;
-    align-items: flex-start !important;
+    padding-top: 72px !important;
+    padding-bottom: 40px !important;
   }
 }
 
