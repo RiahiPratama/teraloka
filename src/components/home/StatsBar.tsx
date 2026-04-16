@@ -1,35 +1,12 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1'
+const STATS = [
+  { icon: '⛵', label: 'Jadwal Terdekat',  value: 'Cek Antrian',   sub: 'Ternate → Sidangoli' },
+  { icon: '📰', label: 'Berita Terbaru',   value: 'Update Hari Ini', sub: 'BAKABAR'            },
+  { icon: '👥', label: 'Pengguna Aktif',   value: '10.000+',        sub: 'Orang'               },
+]
 
 export default function StatsBar() {
-  const [weather, setWeather] = useState<{
-    suhu?: number
-    cuaca?: { label?: string; icon?: string }
-  } | null>(null)
-
-  useEffect(() => {
-    fetch(`${API}/public/weather`)
-      .then(r => r.json())
-      .then(d => { if (d.success) setWeather(d.data) })
-      .catch(() => {})
-  }, [])
-
-  const STATS = [
-    {
-      icon: weather?.cuaca?.icon ?? '☁️',
-      label: 'Cuaca Ternate',
-      value: weather
-        ? `${weather.suhu ?? 27}°C · ${weather.cuaca?.label ?? 'Berawan'}`
-        : '—',
-    },
-    { icon: '⛵', label: 'Jadwal Terdekat',  value: 'Cek Antrian'   },
-    { icon: '📰', label: 'Berita Hari Ini',  value: 'Update Terbaru' },
-    { icon: '👥', label: 'Pengguna Aktif',   value: '10.000+'       },
-  ]
-
   return (
     <div
       style={{
@@ -40,16 +17,20 @@ export default function StatsBar() {
       }}
       className="service-scroll"
     >
-      <div style={{ display: 'flex', minWidth: '100%', width: 'max-content' }}>
+      <div style={{
+        display: 'flex',
+        minWidth: '100%',
+        width: 'max-content',
+      }}>
         {STATS.map((stat, i) => (
           <div
             key={stat.label}
             style={{
               flex: '1 0 auto',
-              minWidth: 150,
-              padding: '10px 18px',
+              minWidth: 160,
+              padding: '10px 20px',
               borderRight: i < STATS.length - 1 ? '1px solid var(--border-light)' : 'none',
-              display: 'flex', flexDirection: 'column', gap: 3,
+              display: 'flex', flexDirection: 'column', gap: 2,
             }}
           >
             <div style={{
@@ -58,8 +39,11 @@ export default function StatsBar() {
             }}>
               {stat.icon} {stat.label}
             </div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>
               {stat.value}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--text-light)' }}>
+              {stat.sub}
             </div>
           </div>
         ))}
