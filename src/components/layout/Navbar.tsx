@@ -14,7 +14,6 @@ const NAV_LINKS = [
   { label: 'BASUMBANG', href: '/fundraising' },
 ];
 
-// Smart placeholders — terasa lokal & relevan
 const PLACEHOLDERS = [
   'Cari berita di Ternate...',
   'Kos murah di Akehuda...',
@@ -25,26 +24,35 @@ const PLACEHOLDERS = [
   'Pungli di instansi pemerintah...',
 ];
 
+const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
+  super_admin:     { label: 'Super Admin',    color: '#fff',     bg: '#E8963A' },
+  admin_content:   { label: 'Admin Konten',   color: '#fff',     bg: '#0891B2' },
+  admin_transport: { label: 'Admin Transport', color: '#fff',    bg: '#6366F1' },
+  admin_listing:   { label: 'Admin Listing',  color: '#fff',     bg: '#8B5CF6' },
+  admin_funding:   { label: 'Admin Funding',  color: '#fff',     bg: '#1B6B4A' },
+  user:            { label: 'Pengguna',       color: '#374151',  bg: '#E5E7EB' },
+};
+
 export default function Navbar() {
   const router = useRouter();
   const { user, logout, isLoading } = useAuth();
 
-  const [dropdownOpen, setDropdownOpen]   = useState(false);
-  const [searchOpen, setSearchOpen]       = useState(false);
-  const [searchQuery, setSearchQuery]     = useState('');
+  const [dropdownOpen, setDropdownOpen]     = useState(false);
+  const [searchOpen, setSearchOpen]         = useState(false);
+  const [searchQuery, setSearchQuery]       = useState('');
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
 
-  const dropdownRef      = useRef<HTMLDivElement>(null);
-  const searchInputRef   = useRef<HTMLInputElement>(null);
-  const searchWrapRef    = useRef<HTMLDivElement>(null);
+  const dropdownRef    = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchWrapRef  = useRef<HTMLDivElement>(null);
 
-  // ── Rotate placeholder setiap 3 detik ────────────────────
+  // Rotate placeholder
   useEffect(() => {
     const t = setInterval(() => setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length), 3000);
     return () => clearInterval(t);
   }, []);
 
-  // ── Close dropdown & search on outside click ─────────────
+  // Close on outside click
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
@@ -58,19 +66,16 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', onClickOutside);
   }, []);
 
-  // ── Keyboard shortcuts ────────────────────────────────────
+  // Keyboard shortcuts
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const target = e.target as HTMLElement;
       const inInput = target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable;
 
-      // "/" — focus search (hanya kalau tidak sedang di input lain)
       if (e.key === '/' && !inInput) {
         e.preventDefault();
         openSearch();
       }
-
-      // ⌘K / Ctrl+K — toggle search
       if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
         e.preventDefault();
         setSearchOpen(prev => {
@@ -78,25 +83,21 @@ export default function Navbar() {
           return !prev;
         });
       }
-
-      // Escape — tutup search
       if (e.key === 'Escape') {
         setSearchOpen(false);
         setSearchQuery('');
+        setDropdownOpen(false);
       }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, []);
 
-  // ── Auto-focus saat search terbuka ───────────────────────
   useEffect(() => {
     if (searchOpen) setTimeout(() => searchInputRef.current?.focus(), 80);
   }, [searchOpen]);
 
-  function openSearch() {
-    setSearchOpen(true);
-  }
+  function openSearch() { setSearchOpen(true); }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
@@ -113,7 +114,9 @@ export default function Navbar() {
     router.push('/');
   }
 
-  const isAdmin = user?.role === 'super_admin' || user?.role === 'admin_content';
+  // Semua role admin bisa akses /admin
+  const isAdmin = user?.role === 'super_admin' || (user?.role ?? '').startsWith('admin_');
+  const roleMeta = ROLE_META[user?.role ?? 'user'] ?? ROLE_META.user;
 
   return (
     <header className="fixed top-8 left-0 right-0 z-50 px-6">
@@ -122,7 +125,7 @@ export default function Navbar() {
         style={{ border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(53,37,205,0.08)', gap: 8 }}
       >
 
-        {/* ── Logo + Nav links — tersembunyi saat search terbuka ── */}
+        {/* Logo + Nav links */}
         <div
           className="flex items-center shrink-0"
           style={{
@@ -147,19 +150,15 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* ── Spacer ── */}
+        {/* Spacer */}
         <div className="flex-1" />
 
-        {/* ── Search ── */}
+        {/* Search */}
         <div ref={searchWrapRef}
           className="flex items-center"
-          style={{
-            flex: searchOpen ? 1 : '0 0 auto',
-            transition: 'flex 0.3s ease',
-          }}
+          style={{ flex: searchOpen ? 1 : '0 0 auto', transition: 'flex 0.3s ease' }}
         >
           {searchOpen ? (
-            // ── Expanded search bar ──────────────────────────────
             <form onSubmit={handleSearch}
               className="flex items-center gap-2 w-full rounded-full px-4 py-2"
               style={{ background: 'rgba(53,37,205,0.05)', border: '1.5px solid rgba(53,37,205,0.2)' }}>
@@ -176,11 +175,9 @@ export default function Navbar() {
                 className="flex-1 bg-transparent text-sm outline-none"
                 style={{ color: 'var(--text)', fontFamily: "'Plus Jakarta Sans', sans-serif", minWidth: 0 }}
               />
-              {/* Shortcut hint */}
               <kbd className="hidden sm:flex text-[10px] text-gray-400 font-mono bg-white px-1.5 py-0.5 rounded border border-gray-200 shrink-0">
                 ESC
               </kbd>
-              {/* Close button */}
               <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
                 className="shrink-0 text-gray-400 hover:text-gray-600 transition-colors p-0.5 rounded-full hover:bg-gray-100">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -189,7 +186,6 @@ export default function Navbar() {
               </button>
             </form>
           ) : (
-            // ── Search icon button ────────────────────────────────
             <button onClick={openSearch}
               className="group relative flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-200 hover:bg-gray-100/80"
               title="Cari (/)">
@@ -197,13 +193,12 @@ export default function Navbar() {
                 stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
               </svg>
-              {/* Keyboard hint — muncul saat hover di desktop */}
               <span className="hidden lg:block text-[10px] text-gray-300 font-mono opacity-0 group-hover:opacity-100 transition-opacity">/</span>
             </button>
           )}
         </div>
 
-        {/* ── Auth section ── */}
+        {/* Auth section */}
         <div
           className="flex items-center gap-2 shrink-0"
           style={{
@@ -218,6 +213,7 @@ export default function Navbar() {
             <div className="h-8 w-20 animate-pulse rounded-full bg-gray-100" />
           ) : user ? (
             <div className="relative" ref={dropdownRef}>
+              {/* Trigger button */}
               <button
                 onClick={() => setDropdownOpen(v => !v)}
                 className="flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
@@ -235,35 +231,78 @@ export default function Navbar() {
                 </svg>
               </button>
 
+              {/* Dropdown */}
               {dropdownOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 rounded-2xl border border-gray-100 bg-white py-1 shadow-lg z-50">
-                  <Link href="/profile" onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                    👤 Profil Saya
-                  </Link>
-                  <Link href="/my-reports" onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                    📢 Laporan Saya
-                  </Link>
-                  <Link href="/owner" onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                    🏠 Portal Mitra
-                  </Link>
-                  <Link href="/owner/campaign/new/info" onClick={() => setDropdownOpen(false)}
-                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                    💚 Ajukan Campaign
-                  </Link>
-                  {isAdmin && (
-                    <Link href="/admin" onClick={() => setDropdownOpen(false)}
-                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
-                      ⚙️ Admin Dashboard
+                <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-gray-100 bg-white shadow-xl z-50 overflow-hidden"
+                  style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.06)' }}>
+
+                  {/* ── User info header ── */}
+                  <div className="px-4 py-3 border-b border-gray-100"
+                    style={{ background: 'linear-gradient(135deg, #f8fffe 0%, #f0fdf9 100%)' }}>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1B6B4A] text-sm font-bold text-white shrink-0">
+                        {user.name ? user.name[0].toUpperCase() : '+'}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-800 truncate leading-tight">
+                          {user.name ?? 'Pengguna'}
+                        </p>
+                        <p className="text-[11px] text-gray-400 truncate leading-tight mt-0.5">
+                          +{user.phone}
+                        </p>
+                      </div>
+                    </div>
+                    {/* Role badge */}
+                    <div className="mt-2.5">
+                      <span
+                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: roleMeta.bg, color: roleMeta.color }}
+                      >
+                        {roleMeta.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ── Menu items ── */}
+                  <div className="py-1">
+                    <Link href="/profile" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <span className="text-base">👤</span> Profil Saya
                     </Link>
-                  )}
-                  <div className="my-1 border-t border-gray-100" />
-                  <button onClick={handleLogout}
-                    className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50">
-                    🚪 Keluar
-                  </button>
+                    <Link href="/my-reports" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <span className="text-base">📢</span> Laporan Saya
+                    </Link>
+                    <Link href="/owner" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <span className="text-base">🏠</span> Portal Mitra
+                    </Link>
+                    <Link href="/owner/campaign/new/info" onClick={() => setDropdownOpen(false)}
+                      className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
+                      <span className="text-base">💚</span> Ajukan Campaign
+                    </Link>
+
+                    {/* Admin link — semua admin role */}
+                    {isAdmin && (
+                      <>
+                        <div className="mx-3 my-1 border-t border-gray-100" />
+                        <Link href="/admin" onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors"
+                          style={{ color: roleMeta.bg }}
+                        >
+                          <span className="text-base">⚙️</span> Admin Dashboard
+                        </Link>
+                      </>
+                    )}
+                  </div>
+
+                  {/* ── Logout ── */}
+                  <div className="border-t border-gray-100 py-1">
+                    <button onClick={handleLogout}
+                      className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
+                      <span className="text-base">🚪</span> Keluar
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -278,16 +317,16 @@ export default function Navbar() {
                 className="px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-all duration-200 active:scale-[0.96] whitespace-nowrap"
                 style={{ background: 'var(--primary)', boxShadow: '0 4px 16px rgba(0,53,38,0.25)' }}
                 onMouseEnter={e => {
-                  const el = e.currentTarget
-                  el.style.background = '#0891B2'
-                  el.style.boxShadow = '0 6px 24px rgba(8,145,178,0.4)'
-                  el.style.transform = 'translateY(-1px)'
+                  const el = e.currentTarget;
+                  el.style.background = '#0891B2';
+                  el.style.boxShadow = '0 6px 24px rgba(8,145,178,0.4)';
+                  el.style.transform = 'translateY(-1px)';
                 }}
                 onMouseLeave={e => {
-                  const el = e.currentTarget
-                  el.style.background = 'var(--primary)'
-                  el.style.boxShadow = '0 4px 16px rgba(0,53,38,0.25)'
-                  el.style.transform = 'none'
+                  const el = e.currentTarget;
+                  el.style.background = 'var(--primary)';
+                  el.style.boxShadow = '0 4px 16px rgba(0,53,38,0.25)';
+                  el.style.transform = 'none';
                 }}>
                 Daftar Gratis
               </Link>

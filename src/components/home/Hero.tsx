@@ -13,14 +13,13 @@ const POPULAR_TAGS = [
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
 
-// Floating service cards di atas foto hero
 const FLOAT_CARDS = [
   {
     icon: '📰',
     label: 'BAKABAR',
     sub: 'Berita Lokal',
     href: '/news',
-    style: { top: '12%', right: '8%' },
+    style: { top: '10%', right: '6%' },
     delay: '0s',
   },
   {
@@ -28,7 +27,7 @@ const FLOAT_CARDS = [
     label: 'BASUMBANG',
     sub: 'Donasi Kemanusiaan',
     href: '/fundraising',
-    style: { top: '48%', right: '-4%' },
+    style: { top: '46%', right: '-3%' },
     delay: '1.2s',
   },
   {
@@ -36,14 +35,23 @@ const FLOAT_CARDS = [
     label: 'BAKOS',
     sub: 'Kos & Properti',
     href: '/kos',
-    style: { bottom: '16%', right: '12%' },
+    style: { bottom: '14%', right: '10%' },
     delay: '2.4s',
   },
+]
+
+// Spot warna fallback per area Maluku Utara
+const FALLBACK_SPOTS = [
+  { emoji: '🌊', label: 'Laut Maluku' },
+  { emoji: '🏝️', label: 'Tidore' },
+  { emoji: '⛵', label: 'Ternate' },
+  { emoji: '🌺', label: 'Halmahera' },
 ]
 
 export default function Hero() {
   const router = useRouter()
   const [search, setSearch] = useState('')
+  const [searchFocused, setSearchFocused] = useState(false)
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,6 +70,20 @@ export default function Hero() {
         background: 'var(--surface)',
       }}
     >
+      {/* Subtle background glow */}
+      <div style={{
+        position: 'absolute', top: '10%', right: '5%',
+        width: 500, height: 500, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(8,145,178,0.06) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '5%', left: '2%',
+        width: 400, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(27,107,74,0.05) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+
       <div
         className="hero-grid"
         style={{
@@ -75,7 +97,6 @@ export default function Hero() {
           alignItems: 'center',
         }}
       >
-
         {/* ── LEFT: Text content ── */}
         <div>
           {/* Badge */}
@@ -84,7 +105,7 @@ export default function Hero() {
             background: 'rgba(0,53,38,0.07)', border: '1px solid rgba(0,53,38,0.12)',
             borderRadius: 99, padding: '6px 14px', marginBottom: 22,
           }}>
-            <span className="badge-dot" style={{ width: 6, height: 6, borderRadius: '50%', background: '#E8963A' }} />
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#E8963A', display: 'inline-block' }} />
             <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--primary)' }}>
               Digital Curator of the Archipelago
             </span>
@@ -122,9 +143,14 @@ export default function Hero() {
             display: 'flex', alignItems: 'center', gap: 8,
             background: '#fff', borderRadius: 99,
             padding: '6px 6px 6px 22px',
-            border: '1.5px solid var(--border-light)',
-            boxShadow: '0 8px 32px rgba(0,53,38,0.10)',
+            border: searchFocused
+              ? '1.5px solid rgba(0,53,38,0.35)'
+              : '1.5px solid var(--border-light)',
+            boxShadow: searchFocused
+              ? '0 8px 40px rgba(0,53,38,0.15)'
+              : '0 8px 32px rgba(0,53,38,0.10)',
             marginBottom: 18, maxWidth: 520,
+            transition: 'all 0.2s ease',
           }}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
               stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
@@ -133,6 +159,8 @@ export default function Hero() {
             <input
               value={search}
               onChange={e => setSearch(e.target.value)}
+              onFocus={() => setSearchFocused(true)}
+              onBlur={() => setSearchFocused(false)}
               type="search"
               placeholder="Cari speedboat, kos, berita, atau layanan..."
               style={{
@@ -146,7 +174,10 @@ export default function Hero() {
               background: 'var(--primary)', border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
               transition: 'opacity 0.2s',
-            }}>
+            }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '0.85')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+            >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
@@ -162,7 +193,17 @@ export default function Hero() {
                 fontSize: 12, fontWeight: 500, color: 'var(--text-muted)',
                 background: '#fff', border: '1px solid var(--border-light)',
                 borderRadius: 99, padding: '5px 12px', textDecoration: 'none',
-              }}>
+                transition: 'all 0.15s ease',
+              }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.borderColor = 'rgba(0,53,38,0.25)'
+                  e.currentTarget.style.color = 'var(--primary)'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.borderColor = 'var(--border-light)'
+                  e.currentTarget.style.color = 'var(--text-muted)'
+                }}
+              >
                 {tag.label}
               </Link>
             ))}
@@ -178,6 +219,7 @@ export default function Hero() {
             borderRadius: 28, overflow: 'hidden',
             background: 'linear-gradient(135deg, #003526, #0891B2)',
             boxShadow: '0 32px 80px rgba(0,53,38,0.2)',
+            position: 'relative',
           }}>
             {HERO_PHOTO_URL ? (
               <img
@@ -186,24 +228,78 @@ export default function Hero() {
                 style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center 40%' }}
               />
             ) : (
-              /* Fallback gradient kalau belum ada foto */
+              /* Fallback premium — visual map-like kalau foto belum diset */
               <div style={{
                 width: '100%', height: '100%',
-                background: 'linear-gradient(160deg, #003526 0%, #1B6B4A 40%, #0891B2 100%)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                flexDirection: 'column', gap: 12,
+                background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0a7a9c 65%, #0891B2 100%)',
+                display: 'flex', flexDirection: 'column',
+                alignItems: 'center', justifyContent: 'center',
+                gap: 0, position: 'relative', overflow: 'hidden',
               }}>
-                <span style={{ fontSize: 72, opacity: 0.4 }}>🌊</span>
-                <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: 13, fontWeight: 600 }}>
-                  Set NEXT_PUBLIC_HERO_BG_URL untuk foto Ternate
-                </p>
+                {/* Faux wave lines */}
+                {[...Array(6)].map((_, i) => (
+                  <div key={i} style={{
+                    position: 'absolute',
+                    width: '140%', height: 1,
+                    background: 'rgba(255,255,255,0.04)',
+                    top: `${15 + i * 14}%`,
+                    left: '-20%',
+                    borderRadius: 99,
+                    transform: `rotate(${-3 + i * 1.5}deg)`,
+                  }} />
+                ))}
+
+                {/* Center icon */}
+                <div style={{ position: 'relative', zIndex: 2, textAlign: 'center' }}>
+                  <div style={{ fontSize: 64, marginBottom: 16, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}>
+                    🌊
+                  </div>
+                  <p style={{
+                    color: 'rgba(255,255,255,0.7)', fontSize: 13, fontWeight: 700,
+                    letterSpacing: '0.05em', textTransform: 'uppercase',
+                  }}>
+                    Maluku Utara
+                  </p>
+                  <p style={{ color: 'rgba(255,255,255,0.35)', fontSize: 11, marginTop: 6 }}>
+                    Set NEXT_PUBLIC_HERO_BG_URL untuk foto Ternate
+                  </p>
+                </div>
+
+                {/* Mini location dots */}
+                {FALLBACK_SPOTS.map((spot, i) => {
+                  const positions = [
+                    { top: '18%', left: '22%' },
+                    { top: '58%', left: '15%' },
+                    { top: '72%', left: '62%' },
+                    { top: '25%', left: '68%' },
+                  ]
+                  return (
+                    <div key={i} style={{
+                      position: 'absolute',
+                      ...positions[i],
+                      zIndex: 2,
+                    }}>
+                      <div style={{
+                        background: 'rgba(255,255,255,0.12)',
+                        backdropFilter: 'blur(8px)',
+                        border: '1px solid rgba(255,255,255,0.2)',
+                        borderRadius: 10, padding: '6px 10px',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}>
+                        <span style={{ fontSize: 14 }}>{spot.emoji}</span>
+                        <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{spot.label}</span>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )}
-            {/* Subtle overlay */}
+
+            {/* Bottom overlay */}
             <div style={{
               position: 'absolute', inset: 0,
-              background: 'linear-gradient(to bottom, transparent 50%, rgba(0,20,10,0.35) 100%)',
-              borderRadius: 28,
+              background: 'linear-gradient(to bottom, transparent 50%, rgba(0,20,10,0.4) 100%)',
+              borderRadius: 28, pointerEvents: 'none',
             }} />
           </div>
 
@@ -218,16 +314,25 @@ export default function Hero() {
                 ...card.style,
                 animationDelay: card.delay,
                 textDecoration: 'none',
-                background: 'rgba(255,255,255,0.95)',
-                backdropFilter: 'blur(16px)',
-                WebkitBackdropFilter: 'blur(16px)',
-                borderRadius: 16,
-                padding: '10px 14px',
+                background: 'rgba(255,255,255,0.96)',
+                backdropFilter: 'blur(20px)',
+                WebkitBackdropFilter: 'blur(20px)',
+                borderRadius: 18,
+                padding: '11px 15px',
                 display: 'flex', alignItems: 'center', gap: 10,
-                boxShadow: '0 8px 32px rgba(0,0,0,0.12), 0 2px 8px rgba(0,0,0,0.08)',
+                boxShadow: '0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)',
                 border: '1px solid rgba(255,255,255,0.9)',
                 zIndex: 10,
-                minWidth: 160,
+                minWidth: 165,
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-3px)'
+                e.currentTarget.style.boxShadow = '0 20px 48px rgba(0,0,0,0.18), 0 4px 12px rgba(0,0,0,0.1)'
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'none'
+                e.currentTarget.style.boxShadow = '0 12px 40px rgba(0,0,0,0.14), 0 2px 8px rgba(0,0,0,0.08)'
               }}
             >
               <span style={{ fontSize: 22 }}>{card.icon}</span>
