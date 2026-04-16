@@ -14,6 +14,25 @@ const POPULAR_TAGS = [
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
 
+const SERVICE_PILLS = [
+  {
+    icon: '📰', label: 'BAKABAR', sub: 'Berita Lokal',
+    href: '/news', color: '#4F46E5', bg: 'rgba(79,70,229,0.07)', border: 'rgba(79,70,229,0.15)',
+  },
+  {
+    icon: '⛵', label: 'SPEEDBOAT', sub: 'Jadwal & Tiket',
+    href: '/speed', color: '#0891B2', bg: 'rgba(8,145,178,0.07)', border: 'rgba(8,145,178,0.15)',
+  },
+  {
+    icon: '🏠', label: 'KOS', sub: 'Cari & Sewa Kos',
+    href: '/kos', color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)', border: 'rgba(27,107,74,0.15)',
+  },
+  {
+    icon: '💚', label: 'DONASI', sub: 'Bantu Sesama',
+    href: '/fundraising', color: '#E8963A', bg: 'rgba(232,150,58,0.07)', border: 'rgba(232,150,58,0.15)',
+  },
+]
+
 const FALLBACK_SPOTS = [
   { emoji: '🌊', label: 'Laut Maluku', pos: { top: '18%', left: '22%' } },
   { emoji: '🏝️', label: 'Tidore',      pos: { top: '58%', left: '15%' } },
@@ -60,7 +79,6 @@ export default function Hero() {
         zIndex: 0,
       }}>
         {HERO_PHOTO_URL ? (
-          /* Foto asli — NO imgLoaded logic, tampil langsung */
           <img
             src={HERO_PHOTO_URL}
             alt="Ternate, Maluku Utara"
@@ -71,7 +89,6 @@ export default function Hero() {
             }}
           />
         ) : (
-          /* Fallback premium — gradient Maluku */
           <div style={{
             width: '100%', height: '100%',
             background: 'linear-gradient(160deg, #002a1e 0%, #1B6B4A 35%, #0a7a9c 65%, #0891B2 100%)',
@@ -114,13 +131,13 @@ export default function Hero() {
           </div>
         )}
 
-        {/* Overlay desktop: fade halus ke kiri */}
+        {/* Overlay desktop */}
         <div className="hero-overlay-desktop" style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
           background: 'linear-gradient(to right, var(--surface) 0%, rgba(247,249,251,0.75) 18%, rgba(247,249,251,0.2) 40%, transparent 65%)',
         }} />
 
-        {/* Overlay mobile: fade ke bawah agar teks terbaca */}
+        {/* Overlay mobile */}
         <div className="hero-overlay-mobile" style={{
           position: 'absolute', inset: 0, pointerEvents: 'none',
           background: 'linear-gradient(to bottom, rgba(247,249,251,0.1) 0%, rgba(247,249,251,0.65) 55%, var(--surface) 80%)',
@@ -205,7 +222,7 @@ export default function Hero() {
           </div>
 
           {/* Popular tags */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center', marginBottom: 24 }}>
             <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-light)' }}>🔥 Populer:</span>
             {POPULAR_TAGS.map(tag => (
               <Link key={tag.href} href={tag.href} style={{
@@ -221,12 +238,65 @@ export default function Hero() {
               </Link>
             ))}
           </div>
+
+          {/* ── Service Pills — desktop only, di bawah popular tags ── */}
+          <div className="hero-service-pills" style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 10,
+            maxWidth: 480,
+          }}>
+            {SERVICE_PILLS.map(pill => (
+              <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
+                <div
+                  style={{
+                    background: '#fff',
+                    border: `1.5px solid ${pill.border}`,
+                    borderRadius: 14,
+                    padding: '12px 10px',
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                    boxShadow: '0 2px 8px rgba(0,53,38,0.05)',
+                    transition: 'all 0.15s',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => {
+                    ;(e.currentTarget as HTMLElement).style.background = pill.bg
+                    ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
+                    ;(e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,53,38,0.1)'
+                  }}
+                  onMouseLeave={e => {
+                    ;(e.currentTarget as HTMLElement).style.background = '#fff'
+                    ;(e.currentTarget as HTMLElement).style.transform = 'none'
+                    ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,53,38,0.05)'
+                  }}
+                >
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    background: pill.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 16,
+                  }}>
+                    {pill.icon}
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: pill.color, lineHeight: 1.2 }}>
+                      {pill.label}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 1 }}>
+                      {pill.sub}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: pill.color }}>→</div>
+                </div>
+              </Link>
+            ))}
+          </div>
         </div>
 
         {/* RIGHT — hierarchy floating cards (desktop only) */}
         <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
 
-          {/* ── Card UTAMA — Speedboat (kiri bawah, sejajar BASUMBANG) ── */}
+          {/* ── Card UTAMA — Speedboat ── */}
           <Link href="/speed" className="float-card" style={{
             position: 'absolute', bottom: '2%', left: '-8%',
             textDecoration: 'none',
