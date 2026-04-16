@@ -4,15 +4,11 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/
 
 async function getPublicStats() {
   try {
-    const res = await fetch(`${API}/public/stats`, {
-      next: { revalidate: 300 },
-    })
+    const res = await fetch(`${API}/public/stats`, { next: { revalidate: 300 } })
     const data = await res.json()
     if (data.success) return data.data
     return null
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 function timeAgo(dateStr: string) {
@@ -37,30 +33,28 @@ export default async function BentoGrid() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 28 }}>
         <div>
           <h2 className="font-sora" style={{ fontSize: 'clamp(22px,3vw,30px)', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)' }}>
-            Layanan Unggulan
+            Untukmu Hari Ini
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-            Semua yang kamu butuhkan, dalam satu genggaman.
+            Berita terkini dari Maluku Utara
           </p>
         </div>
-        <Link href="/layanan" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        <Link href="/news" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
           Lihat Semua →
         </Link>
       </div>
 
-      {/* ROW 1 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '7fr 5fr', gap: 14, marginBottom: 14 }}>
+      {/* ROW 1 — 1 kolom mobile, 7:5 desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-[7fr_5fr] gap-4 mb-4">
 
-        {/* ── BAKABAR ─────────────────────────────────────────── */}
+        {/* BAKABAR */}
         <Link href="/news" style={{
           position: 'relative', borderRadius: 18, overflow: 'hidden',
           background: '#fff', border: '1px solid var(--border-light)',
-          minHeight: 220, padding: 24, textDecoration: 'none',
+          minHeight: 200, padding: 24, textDecoration: 'none',
           display: 'flex', flexDirection: 'column', gap: 14,
         }}>
           <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(135deg,rgba(53,37,205,.03) 0%,transparent 60%)', pointerEvents: 'none' }} />
-
-          {/* Icon + Label sejajar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, position: 'relative', zIndex: 1 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(53,37,205,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="var(--primary)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -71,13 +65,11 @@ export default async function BentoGrid() {
               📰 BAKABAR · Berita
             </span>
           </div>
-
-          {/* Headline terbaru */}
           <div style={{ flex: 1, position: 'relative', zIndex: 1 }}>
             {latestArticle ? (
               <div style={{ background: 'var(--surface-low)', borderRadius: 12, padding: '12px 14px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <span style={{ width: 6, height: 6, background: '#10B981', borderRadius: '50%', flexShrink: 0, animation: 'pulse 2s infinite' }} />
+                  <span style={{ width: 6, height: 6, background: '#10B981', borderRadius: '50%', flexShrink: 0 }} />
                   <span style={{ fontSize: 10, fontWeight: 800, color: '#10B981', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                     {timeAgo(latestArticle.published_at)}
                   </span>
@@ -92,19 +84,17 @@ export default async function BentoGrid() {
               </p>
             )}
           </div>
-
           <span style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', position: 'relative', zIndex: 1 }}>
             Baca Berita Utama →
           </span>
         </Link>
 
-        {/* ── BALAPOR ─────────────────────────────────────────── */}
+        {/* BALAPOR */}
         <Link href="/reports" style={{
           borderRadius: 18, background: '#fff', border: '1px solid var(--border-light)',
-          minHeight: 220, padding: 24, textDecoration: 'none',
+          minHeight: 200, padding: 24, textDecoration: 'none',
           display: 'flex', flexDirection: 'column', gap: 14,
         }}>
-          {/* Icon + Label sejajar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(220,38,38,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="var(--error)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -115,15 +105,13 @@ export default async function BentoGrid() {
               📣 BALAPOR · Laporan
             </span>
           </div>
-
-          {/* Laporan terbaru */}
           <div style={{ flex: 1 }}>
             {latestReport ? (
               <div style={{ background: 'rgba(220,38,38,.04)', borderRadius: 12, padding: '12px 14px', border: '1px solid rgba(220,38,38,.08)' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-                  <span style={{ width: 6, height: 6, background: 'var(--error)', borderRadius: '50%', flexShrink: 0, animation: 'pulse 2s infinite' }} />
+                  <span style={{ width: 6, height: 6, background: 'var(--error)', borderRadius: '50%', flexShrink: 0 }} />
                   <span style={{ fontSize: 10, fontWeight: 800, color: 'var(--error)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    Laporan Terbaru · {timeAgo(latestReport.created_at)}
+                    Terbaru · {timeAgo(latestReport.created_at)}
                   </span>
                 </div>
                 <p style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', lineHeight: 1.4, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -136,8 +124,6 @@ export default async function BentoGrid() {
               </p>
             )}
           </div>
-
-          {/* Stats + CTA */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
             {totalReports > 0 && (
               <div style={{ padding: '8px 12px', background: 'var(--surface-low)', borderRadius: 9, display: 'flex', alignItems: 'center', gap: 7, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
@@ -152,11 +138,14 @@ export default async function BentoGrid() {
         </Link>
       </div>
 
-      {/* ROW 2 */}
-      <div style={{ display: 'grid', gridTemplateColumns: '5fr 7fr', gap: 14 }}>
+      {/* ROW 2 — 1 kolom mobile, 5:7 desktop */}
+      <div className="grid grid-cols-1 md:grid-cols-[5fr_7fr] gap-4">
 
         {/* BAPASIAR */}
-        <Link href="/speed" style={{ borderRadius: 18, background: '#fff', border: '1px solid var(--border-light)', minHeight: 216, padding: 24, textDecoration: 'none', display: 'flex', flexDirection: 'column' }}>
+        <Link href="/speed" style={{
+          borderRadius: 18, background: '#fff', border: '1px solid var(--border-light)',
+          minHeight: 200, padding: 24, textDecoration: 'none', display: 'flex', flexDirection: 'column',
+        }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
             <div style={{ width: 38, height: 38, borderRadius: 10, background: 'rgba(8,145,178,.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <svg viewBox="0 0 24 24" width={18} height={18} fill="none" stroke="#0891B2" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -170,7 +159,7 @@ export default async function BentoGrid() {
           <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--text-muted)', marginBottom: 14 }}>
             Antrian & jadwal real-time speedboat, kapal lokal, feri, dan Pelni.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginTop: 'auto' }}>
+          <div className="grid grid-cols-2 gap-2 mt-auto">
             {['⚡ Speedboat','🚢 Kapal Lokal','⛴️ Feri','🛳️ Pelni'].map(c => (
               <span key={c} style={{ fontSize: 11, fontWeight: 700, textAlign: 'center', borderRadius: 9, padding: '8px 10px', background: 'var(--surface-low)', color: 'var(--text-muted)' }}>{c}</span>
             ))}
@@ -178,7 +167,11 @@ export default async function BentoGrid() {
         </Link>
 
         {/* MARKETPLACE */}
-        <Link href="/kos" style={{ position: 'relative', borderRadius: 18, overflow: 'hidden', background: 'var(--primary)', minHeight: 216, padding: 26, textDecoration: 'none', display: 'flex', flexDirection: 'column' }}>
+        <Link href="/kos" style={{
+          position: 'relative', borderRadius: 18, overflow: 'hidden',
+          background: 'var(--primary)', minHeight: 200, padding: 26,
+          textDecoration: 'none', display: 'flex', flexDirection: 'column',
+        }}>
           <div style={{ position: 'absolute', top: -40, right: -40, width: 160, height: 160, background: 'rgba(195,192,255,.18)', borderRadius: '50%', filter: 'blur(40px)', pointerEvents: 'none' }}/>
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
