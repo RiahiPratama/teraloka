@@ -3,9 +3,10 @@
   "short_name": "TeraLoka",
   "description": "Semua yang kamu butuhkan di Maluku Utara, ADA di sini.",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
-  "theme_color": "#1B6B4A",
+  "theme_color": "#003526",
   "orientation": "portrait",
   "icons": [
     {
@@ -17,6 +18,35 @@
       "src": "/icons/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Speedboat",
+      "short_name": "Speedboat",
+      "description": "Cek jadwal speedboat hari ini",
+      "url": "/speed",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Berita",
+      "short_name": "BAKABAR",
+      "description": "Berita terbaru Maluku Utara",
+      "url": "/news",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Donasi",
+      "short_name": "BASUMBANG",
+      "description": "Kampanye donasi aktif",
+      "url": "/fundraising",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }
