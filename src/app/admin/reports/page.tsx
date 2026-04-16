@@ -62,7 +62,6 @@ export default function AdminReportsPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  // Identity modal state
   const [identityModal, setIdentityModal] = useState<{
     reportId: string; reportTitle: string;
   } | null>(null);
@@ -116,6 +115,32 @@ export default function AdminReportsPage() {
       fetchReports();
     } catch (err: any) {
       showToast(err.message || 'Gagal update', false);
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // ── Hapus laporan permanen ──────────────────────────────────────
+  const deleteReport = async (id: string, title: string) => {
+    if (!token) return;
+    const confirmed = confirm(
+      `Hapus laporan "${title.slice(0, 50)}" secara permanen?\n\nTindakan ini tidak bisa dibatalkan.`
+    );
+    if (!confirmed) return;
+
+    setActionLoading(id + 'delete');
+    try {
+      const res = await fetch(`${API_URL}/admin/reports/${id}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message);
+      showToast(`Laporan "${title.slice(0, 30)}" dihapus permanen`);
+      setExpandedId(null);
+      fetchReports();
+    } catch (err: any) {
+      showToast(err.message || 'Gagal hapus laporan', false);
     } finally {
       setActionLoading(null);
     }
@@ -180,7 +205,10 @@ export default function AdminReportsPage() {
 
   return (
     <div style={{ maxWidth: 900, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
-      <style>{`@keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } } @keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      <style>{`
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+      `}</style>
 
       {/* Toast */}
       {toast && (
@@ -194,7 +222,7 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      {/* Convert Result Notification */}
+      {/* Convert Result */}
       {convertResult && (
         <div style={{
           position: 'fixed', bottom: 20, right: 20, zIndex: 99,
@@ -213,19 +241,10 @@ export default function AdminReportsPage() {
                 "{convertResult.title.slice(0, 60)}..."
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <a
-                  href={`/admin/content`}
-                  style={{
-                    padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
-                    background: '#0891B2', color: '#fff', textDecoration: 'none',
-                  }}
-                >
+                <a href="/admin/content" style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600, background: '#0891B2', color: '#fff', textDecoration: 'none' }}>
                   Lihat di BAKABAR
                 </a>
-                <button
-                  onClick={() => setConvertResult(null)}
-                  style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', cursor: 'pointer' }}
-                >
+                <button onClick={() => setConvertResult(null)} style={{ padding: '5px 12px', borderRadius: 8, fontSize: 12, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', cursor: 'pointer' }}>
                   Tutup
                 </button>
               </div>
@@ -245,18 +264,16 @@ export default function AdminReportsPage() {
                 <p style={{ color: '#6B7280', fontSize: 12, textAlign: 'center', marginBottom: 16 }}>
                   Laporan: <strong>"{identityModal.reportTitle.slice(0, 50)}"</strong>
                 </p>
-
                 <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 16, fontSize: 12, color: '#EF4444' }}>
-                  ⚠️ <strong>Tindakan ini akan dicatat dalam audit log.</strong> Identitas pelapor hanya boleh dibuka untuk keperluan hukum atau klarifikasi mendesak.
+                  ⚠️ <strong>Tindakan ini akan dicatat dalam audit log.</strong>
                 </div>
-
                 <label style={{ fontSize: 12, fontWeight: 700, color: '#374151', display: 'block', marginBottom: 6 }}>
-                  Alasan Buka Identitas <span style={{ color: '#EF4444' }}>*</span>
+                  Alasan <span style={{ color: '#EF4444' }}>*</span>
                 </label>
                 <textarea
                   value={identityReason}
                   onChange={(e) => setIdentityReason(e.target.value)}
-                  placeholder="Contoh: Laporan mengandung fitnah terhadap pejabat, perlu konfirmasi identitas pelapor untuk proses hukum..."
+                  placeholder="Contoh: Laporan mengandung fitnah, perlu konfirmasi identitas..."
                   rows={3}
                   autoFocus
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #E5E7EB', fontSize: 13, outline: 'none', marginBottom: 6, boxSizing: 'border-box', resize: 'vertical' }}
@@ -264,7 +281,6 @@ export default function AdminReportsPage() {
                 <p style={{ fontSize: 11, color: identityReason.trim().length < 5 ? '#EF4444' : '#10B981', marginBottom: 16 }}>
                   {identityReason.trim().length}/5 karakter minimum
                 </p>
-
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={closeIdentityModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button
@@ -284,21 +300,16 @@ export default function AdminReportsPage() {
                 <h3 style={{ fontWeight: 800, fontSize: 16, color: '#111827', textAlign: 'center', marginBottom: 16 }}>
                   {identityResult.identity ? 'Identitas Pelapor' : 'Pelapor Anonim Murni'}
                 </h3>
-
                 {identityResult.identity ? (
                   <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 16 }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                       <div>
                         <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>NOMOR WA</div>
-                        <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginTop: 2 }}>
-                          {formatPhone(identityResult.identity.phone)}
-                        </div>
+                        <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginTop: 2 }}>{formatPhone(identityResult.identity.phone)}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>NAMA</div>
-                        <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginTop: 2 }}>
-                          {identityResult.identity.name || 'Belum isi nama'}
-                        </div>
+                        <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginTop: 2 }}>{identityResult.identity.name || 'Belum isi nama'}</div>
                       </div>
                       <div>
                         <div style={{ fontSize: 11, color: '#9CA3AF', fontWeight: 600 }}>BERGABUNG</div>
@@ -310,14 +321,12 @@ export default function AdminReportsPage() {
                   </div>
                 ) : (
                   <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 16, textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
-                    {identityResult.message || 'Laporan dikirim tanpa akun — tidak ada identitas tersimpan.'}
+                    {identityResult.message || 'Laporan dikirim tanpa akun.'}
                   </div>
                 )}
-
                 <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 16, fontSize: 12, color: '#92400E' }}>
                   📋 Alasan dicatat: <em>"{identityResult.reason}"</em>
                 </div>
-
                 <button onClick={closeIdentityModal} style={{ width: '100%', padding: 10, borderRadius: 10, border: '1px solid #E5E7EB', background: '#fff', color: '#374151', fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
                   Tutup
                 </button>
@@ -330,27 +339,19 @@ export default function AdminReportsPage() {
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.4px' }}>
-            🚨 BALAPOR
-          </h1>
-          <p style={{ color: '#6B7280', fontSize: 13, marginTop: 3 }}>
-            {total} laporan · Hanya Super Admin yang bisa akses halaman ini
-          </p>
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#111827', letterSpacing: '-0.4px' }}>🚨 BALAPOR</h1>
+          <p style={{ color: '#6B7280', fontSize: 13, marginTop: 3 }}>{total} laporan · Super Admin only</p>
         </div>
         <Link href="/admin" style={{ fontSize: 13, color: '#1B6B4A', fontWeight: 500, textDecoration: 'none', padding: '6px 12px', background: 'rgba(27,107,74,0.08)', borderRadius: 8 }}>← Overview</Link>
       </div>
 
       {/* Security notice */}
-      <div style={{
-        background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)',
-        borderRadius: 12, padding: '12px 16px', marginBottom: 20,
-        display: 'flex', alignItems: 'flex-start', gap: 10,
-      }}>
+      <div style={{ background: 'rgba(239,68,68,0.04)', border: '1px solid rgba(239,68,68,0.15)', borderRadius: 12, padding: '12px 16px', marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <span style={{ fontSize: 18 }}>🔒</span>
         <div>
           <div style={{ fontWeight: 700, fontSize: 13, color: '#EF4444' }}>Area Terbatas — Super Admin Only</div>
           <div style={{ fontSize: 12, color: '#6B7280', marginTop: 2 }}>
-            Data pelapor bersifat rahasia. Setiap aksi buka identitas dicatat dalam audit log. Gunakan fitur ini hanya untuk keperluan hukum atau klarifikasi mendesak.
+            Data pelapor bersifat rahasia. Setiap aksi buka identitas dicatat dalam audit log.
           </div>
         </div>
       </div>
@@ -413,7 +414,6 @@ export default function AdminReportsPage() {
                 {/* Expanded content */}
                 {isExpanded && (
                   <div style={{ borderTop: '1px solid #F3F4F6', padding: '14px 16px' }}>
-                    {/* Body */}
                     {r.body && (
                       <div style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 6 }}>ISI LAPORAN</div>
@@ -421,14 +421,13 @@ export default function AdminReportsPage() {
                       </div>
                     )}
 
-                    {/* Photos */}
                     {r.photos && r.photos.length > 0 && (
                       <div style={{ marginBottom: 16 }}>
                         <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', marginBottom: 8 }}>FOTO BUKTI</div>
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                           {r.photos.map((p, i) => (
                             <a key={i} href={p} target="_blank" rel="noopener noreferrer">
-                              <img src={p} alt={`Foto ${i+1}`} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, cursor: 'pointer', border: '1px solid #E5E7EB' }} />
+                              <img src={p} alt={`Foto ${i+1}`} style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 8, border: '1px solid #E5E7EB' }} />
                             </a>
                           ))}
                         </div>
@@ -436,7 +435,7 @@ export default function AdminReportsPage() {
                     )}
 
                     {/* Actions */}
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
                       {r.status === 'pending' && (
                         <>
                           <button
@@ -456,41 +455,49 @@ export default function AdminReportsPage() {
                         </>
                       )}
 
-                      {/* Buka identitas — always available */}
                       <button
-                        onClick={() => {
-                          setIdentityModal({ reportId: r.id, reportTitle: r.title });
-                          setIdentityResult(null);
-                          setIdentityReason('');
-                        }}
-                        style={{
-                          padding: '7px 14px', borderRadius: 8,
-                          border: '1px solid rgba(239,68,68,0.3)',
-                          background: 'rgba(239,68,68,0.06)', color: '#EF4444',
-                          fontSize: 12, fontWeight: 700, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: 6,
-                        }}
+                        onClick={() => { setIdentityModal({ reportId: r.id, reportTitle: r.title }); setIdentityResult(null); setIdentityReason(''); }}
+                        style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(239,68,68,0.3)', background: 'rgba(239,68,68,0.06)', color: '#EF4444', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
                       >
                         🔍 Buka Identitas
                       </button>
 
-                      {/* Convert ke artikel — hanya untuk verified */}
                       {r.status === 'verified' && (
                         <button
                           onClick={() => convertToArticle(r.id, r.title)}
                           disabled={convertLoading === r.id}
-                          style={{
-                            padding: '7px 14px', borderRadius: 8,
-                            border: '1px solid rgba(8,145,178,0.3)',
-                            background: 'rgba(8,145,178,0.08)', color: '#0891B2',
-                            fontSize: 12, fontWeight: 700, cursor: convertLoading === r.id ? 'wait' : 'pointer',
-                            display: 'flex', alignItems: 'center', gap: 6,
-                            opacity: convertLoading === r.id ? 0.6 : 1,
-                          }}
+                          style={{ padding: '7px 14px', borderRadius: 8, border: '1px solid rgba(8,145,178,0.3)', background: 'rgba(8,145,178,0.08)', color: '#0891B2', fontSize: 12, fontWeight: 700, cursor: convertLoading === r.id ? 'wait' : 'pointer', opacity: convertLoading === r.id ? 0.6 : 1 }}
                         >
                           {convertLoading === r.id ? '⏳ AI sedang nulis...' : '📰 Jadikan Artikel'}
                         </button>
                       )}
+
+                      {/* Hapus permanen — selalu tersedia */}
+                      <button
+                        onClick={() => deleteReport(r.id, r.title)}
+                        disabled={actionLoading === r.id + 'delete'}
+                        style={{
+                          marginLeft: 'auto',
+                          padding: '7px 14px', borderRadius: 8,
+                          border: '1px solid rgba(239,68,68,0.2)',
+                          background: 'transparent', color: '#9CA3AF',
+                          fontSize: 12, fontWeight: 700,
+                          cursor: actionLoading === r.id + 'delete' ? 'wait' : 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => {
+                          ;(e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'
+                          ;(e.currentTarget as HTMLElement).style.color = '#EF4444'
+                          ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.4)'
+                        }}
+                        onMouseLeave={e => {
+                          ;(e.currentTarget as HTMLElement).style.background = 'transparent'
+                          ;(e.currentTarget as HTMLElement).style.color = '#9CA3AF'
+                          ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(239,68,68,0.2)'
+                        }}
+                      >
+                        {actionLoading === r.id + 'delete' ? '...' : '🗑 Hapus'}
+                      </button>
                     </div>
                   </div>
                 )}
