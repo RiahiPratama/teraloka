@@ -58,17 +58,14 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
 }
-
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; transform: scale(1); }
   50% { opacity: 0.6; transform: scale(0.8); }
 }
-
 @keyframes live-pulse {
   0%, 100% { box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15); }
   50% { box-shadow: 0 0 0 6px rgba(22, 163, 74, 0.05); }
 }
-
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
   50% { transform: translateY(-6px); }
@@ -84,7 +81,7 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
 /* ─── Live dot ─── */
 .live-dot { animation: live-pulse 2s infinite; }
 
-/* ─── Float animation ─── */
+/* ─── Float ─── */
 .float-card { animation: float 4s ease-in-out infinite; }
 .float-card:nth-child(2) { animation-delay: -1s; }
 .float-card:nth-child(3) { animation-delay: -2s; }
@@ -113,12 +110,12 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   background-clip: text;
 }
 
-/* ─── Stats dark background ─── */
+/* ─── Stats dark ─── */
 .stats-dark-bg {
   background: linear-gradient(135deg, #001a11 0%, #003526 60%, #0a3d30 100%);
 }
 
-/* ─── CTA section ─── */
+/* ─── CTA ─── */
 .cta-bg {
   background: linear-gradient(135deg, #003526 0%, #1B6B4A 50%, #0891B2 100%);
 }
@@ -128,28 +125,37 @@ h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
   box-shadow: 0 40px 40px -15px rgba(0, 53, 38, 0.06);
 }
 
-/* ─── Bottom nav padding utility ─── */
-/* Tambahkan padding bawah di mobile agar konten tidak tertutup BottomNav (60px) + safe area */
-.pb-nav {
-  padding-bottom: 0;
-}
-
+/* ─── Bottom nav padding ─── */
+.pb-nav { padding-bottom: 0; }
 @media (max-width: 768px) {
   .pb-nav {
     padding-bottom: calc(60px + env(safe-area-inset-bottom, 16px));
   }
 }
 
-/* ─── Responsive helpers ─── */
+/* ─── Responsive ─── */
 @media (max-width: 900px) {
   .bento-full { grid-column: span 12; }
-  .hero-grid { grid-template-columns: 1fr !important; }
-  .hero-photo { display: none; }
-  .hero-photo-bg { display: none; }
 
+  /* Hero: grid jadi 1 kolom */
+  .hero-grid { grid-template-columns: 1fr !important; }
+
+  /* Floating cards (desktop) tetap hidden di mobile */
+  .hero-photo { display: none; }
+
+  /* Photo overlay desktop — hidden di mobile */
+  .hero-photo-overlay-desktop { display: none !important; }
+
+  /* Photo background — tampil di mobile sebagai subtle backdrop */
+  .hero-photo-bg {
+    width: 100% !important;    /* full width */
+    opacity: 0.18;              /* sangat subtle agar teks tetap terbaca */
+  }
+
+  /* Hero section mobile */
   .hero-section {
     padding-top: 72px !important;
-    padding-bottom: 40px !important;
+    padding-bottom: 20px !important;  /* gap dikurangi signifikan */
   }
 }
 
