@@ -33,7 +33,10 @@
 }
 
 /* ─── Base ─── */
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 96px; /* navbar height + top-8 gap + buffer */
+}
 
 body {
   font-family: 'Plus Jakarta Sans', sans-serif;
