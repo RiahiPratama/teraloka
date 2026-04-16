@@ -53,12 +53,10 @@ export default function Navbar() {
 
   useEffect(() => {
     function onClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node))
         setDropdownOpen(false);
-      }
-      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node)) {
+      if (searchWrapRef.current && !searchWrapRef.current.contains(e.target as Node))
         setSearchOpen(false);
-      }
     }
     document.addEventListener('mousedown', onClickOutside);
     return () => document.removeEventListener('mousedown', onClickOutside);
@@ -107,10 +105,10 @@ export default function Navbar() {
   const roleMeta = ROLE_META[user?.role ?? 'user'] ?? ROLE_META.user;
 
   return (
-    <header className="fixed top-8 left-0 right-0 z-50 px-6">
+    <header className="fixed top-8 left-0 right-0 z-50 px-4 sm:px-6">
       <nav
-        className="glass-nav max-w-[1200px] mx-auto flex items-center rounded-full px-4 py-2 pr-2"
-        style={{ border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(53,37,205,0.08)', gap: 8 }}
+        className="glass-nav max-w-[1200px] mx-auto flex items-center rounded-full px-3 sm:px-4 py-2 pr-2"
+        style={{ border: '1px solid var(--border)', boxShadow: '0 8px 32px rgba(53,37,205,0.08)', gap: 6 }}
       >
 
         {/* Logo + Nav links */}
@@ -148,7 +146,7 @@ export default function Navbar() {
         >
           {searchOpen ? (
             <form onSubmit={handleSearch}
-              className="flex items-center gap-2 w-full rounded-full px-4 py-2"
+              className="flex items-center gap-2 w-full rounded-full px-3 sm:px-4 py-2"
               style={{ background: 'rgba(53,37,205,0.05)', border: '1.5px solid rgba(53,37,205,0.2)' }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
                 stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
@@ -173,7 +171,7 @@ export default function Navbar() {
             </form>
           ) : (
             <button onClick={openSearch}
-              className="group relative flex items-center gap-2 px-3 py-2 rounded-full transition-all duration-200 hover:bg-gray-100/80"
+              className="group flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-full transition-all duration-200 hover:bg-gray-100/80"
               title="Cari (/)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -184,24 +182,23 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* Auth section — overflow TIDAK diset hidden, biar dropdown bisa keluar */}
+        {/* Auth section — tanpa overflow:hidden agar dropdown tidak terclip */}
         <div
-          className="flex items-center gap-2 shrink-0"
+          className="flex items-center gap-1.5 shrink-0"
           style={{
             opacity: searchOpen ? 0 : 1,
             transition: 'opacity 0.2s ease',
             pointerEvents: searchOpen ? 'none' : 'auto',
-            // TIDAK ada overflow:hidden di sini — ini root cause dropdown terclip
           }}
         >
           {isLoading ? (
-            <div className="h-8 w-20 animate-pulse rounded-full bg-gray-100" />
+            <div className="h-8 w-16 animate-pulse rounded-full bg-gray-100" />
           ) : user ? (
             <div className="relative" ref={dropdownRef}>
               {/* Trigger */}
               <button
                 onClick={() => setDropdownOpen(v => !v)}
-                className="flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
+                className="flex items-center gap-2 rounded-full px-2.5 sm:px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
                 style={{ color: 'var(--text-muted)' }}
               >
                 <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B6B4A] text-xs font-bold text-white shrink-0">
@@ -239,10 +236,8 @@ export default function Navbar() {
                       </div>
                     </div>
                     <div className="mt-2.5">
-                      <span
-                        className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold"
-                        style={{ background: roleMeta.bg, color: roleMeta.color }}
-                      >
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: roleMeta.bg, color: roleMeta.color }}>
                         {roleMeta.label}
                       </span>
                     </div>
@@ -266,21 +261,18 @@ export default function Navbar() {
                       className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
                       <span className="text-base">💚</span> Ajukan Campaign
                     </Link>
-
                     {isAdmin && (
                       <>
                         <div className="mx-3 my-1 border-t border-gray-100" />
                         <Link href="/admin" onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors"
-                          style={{ color: roleMeta.bg }}
-                        >
+                          style={{ color: roleMeta.bg }}>
                           <span className="text-base">⚙️</span> Admin Dashboard
                         </Link>
                       </>
                     )}
                   </div>
 
-                  {/* Logout */}
                   <div className="border-t border-gray-100 py-1">
                     <button onClick={handleLogout}
                       className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
@@ -292,13 +284,14 @@ export default function Navbar() {
             </div>
           ) : (
             <>
+              {/* "Masuk" hidden di mobile, muncul di sm+ */}
               <Link href="/login"
-                className="px-4 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:bg-gray-100/70 whitespace-nowrap"
+                className="hidden sm:inline-flex px-4 py-2 rounded-full text-[13px] font-semibold transition-all duration-200 hover:bg-gray-100/70 whitespace-nowrap"
                 style={{ color: 'var(--text-muted)' }}>
                 Masuk
               </Link>
               <Link href="/login"
-                className="px-5 py-2.5 rounded-full text-[13px] font-bold text-white transition-all duration-200 active:scale-[0.96] whitespace-nowrap"
+                className="px-3 sm:px-5 py-2 sm:py-2.5 rounded-full text-[12px] sm:text-[13px] font-bold text-white transition-all duration-200 active:scale-[0.96] whitespace-nowrap"
                 style={{ background: 'var(--primary)', boxShadow: '0 4px 16px rgba(0,53,38,0.25)' }}
                 onMouseEnter={e => {
                   const el = e.currentTarget;

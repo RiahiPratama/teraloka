@@ -3,10 +3,8 @@
 import Link from 'next/link'
 import { SERVICES } from '@/lib/data/services'
 
-// 4 layanan yang sudah aktif
 const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BASUMBANG', 'BAKOS'])
 
-// Mapping href yang benar
 const ACTIVE_HREF: Record<string, string> = {
   'BAKABAR':   '/news',
   'BALAPOR':   '/reports',
@@ -31,8 +29,8 @@ export default function ServicesEcosystem() {
         </p>
       </div>
 
-      {/* Services grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 12 }}>
+      {/* Fix: 2 kolom mobile → 3 kolom tablet → 5 kolom desktop */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
         {SERVICES.map(svc => {
           const isActive = ACTIVE.has(svc.name)
           const href = ACTIVE_HREF[svc.name] || svc.href
@@ -49,6 +47,7 @@ export default function ServicesEcosystem() {
               cursor: isActive ? 'pointer' : 'default',
               position: 'relative' as const,
               transition: 'all 0.2s',
+              height: '100%',
             }}>
               {/* Icon */}
               <div style={{
@@ -119,7 +118,7 @@ export default function ServicesEcosystem() {
           )
         })}
 
-        {/* "Lihat Semua Layanan" card */}
+        {/* Lihat Semua Layanan */}
         <Link href="/layanan" style={{ textDecoration: 'none' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12,
@@ -129,6 +128,7 @@ export default function ServicesEcosystem() {
             border: '1.5px dashed var(--border-light)',
             cursor: 'pointer',
             transition: 'all 0.2s',
+            height: '100%',
           }}
             onMouseEnter={e => {
               (e.currentTarget as HTMLElement).style.background = 'rgba(0,53,38,0.06)'
@@ -147,10 +147,10 @@ export default function ServicesEcosystem() {
             }}>+</div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', lineHeight: 1.2 }}>
-                Lihat Semua Layanan
+                Lihat Semua
               </div>
               <div style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 2 }}>
-                Jelajahi ekosistem lengkap
+                Ekosistem lengkap
               </div>
             </div>
             <span style={{ fontSize: 14, color: 'var(--primary)', flexShrink: 0 }}>→</span>
