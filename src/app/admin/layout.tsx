@@ -9,8 +9,7 @@ import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/A
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 const BAKABAR_CHILDREN = [
-  { href: '/admin/content',                                label: 'Command Center', icon: '📊', primary: true },
-  { href: '/office/newsroom/bakabar/hub',                  label: 'Editor Hub',     icon: '📰' },
+  { href: '/office/newsroom/bakabar/hub',                  label: 'Editor Hub',     icon: '📰', primary: true },
   { href: '/office/newsroom/bakabar/hub',                  label: 'Draft',          icon: '📝', badgeKey: 'draft' },
   { href: '/office/newsroom/bakabar/hub?status=review',    label: 'Review',         icon: '🔍' },
   { href: '/office/newsroom/bakabar/hub?status=published', label: 'Publikasi',      icon: '✅' },
