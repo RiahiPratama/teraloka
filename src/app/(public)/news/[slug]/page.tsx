@@ -5,6 +5,7 @@ import WANewsletterWidget from '@/components/WANewsletterWidget';
 import AdInArticle from '@/components/ads/AdInArticle';
 import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
 import AdNativeSlug from '@/components/ads/AdNativeSlug';
+import BodyWithAds from '@/components/ads/BodyWithAds';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -501,13 +502,15 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* Body */}
+            {/* Body — dengan in-article ad di tengah (auto setelah paragraf ke-3) */}
             {bodyHtml ? (
-              <div className="article-body" dangerouslySetInnerHTML={{ __html: bodyHtml }} />
+              <BodyWithAds html={bodyHtml} adAfterIndex={3} />
             ) : (
               <p className="text-gray-400 italic text-sm">Konten artikel belum tersedia.</p>
             )}
 
+            {/* After-body ad — SENGAJA ditaruh di sini, biar user yang selesai baca
+                ketemu iklan sebelum balik ke halaman utama */}
             <InArticleAd />
 
             {/* Tags */}
