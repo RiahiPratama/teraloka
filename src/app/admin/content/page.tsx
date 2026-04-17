@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useContext } from 'react';
+import { useEffect, useState, useContext, useMemo, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import Link from 'next/link';
@@ -15,6 +15,7 @@ interface Article {
   category: string | null;
   author_name: string;
   view_count: number;
+  share_count: number;
   viral_score: number;
   is_viral: boolean;
   is_breaking: boolean;
@@ -32,24 +33,76 @@ function timeAgo(dateStr: string) {
   return `${Math.floor(h / 24)} hari lalu`;
 }
 
-function AuthorAvatar({ name }: { name: string }) {
+function formatNum(n: number): string {
+  if (!n) return '0';
+  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+  return String(n);
+}
+
+function AuthorAvatar({ name, size = 26 }: { name: string; size?: number }) {
   const initial = (name || 'A').charAt(0).toUpperCase();
   const colors  = ['#1B6B4A', '#0891B2', '#7C3AED', '#DB2777', '#D97706'];
   const color   = colors[initial.charCodeAt(0) % colors.length];
   return (
-    <div title={name} style={{ width: 26, height: 26, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 10, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
+    <div title={name} style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
       {initial}
     </div>
   );
 }
 
+// ─── Debounce hook ───────────────────────────────────────────────
+function useDebounce<T>(value: T, delay = 300): T {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const h = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(h);
+  }, [value, delay]);
+  return debounced;
+}
+
+// ─── Date range helper ───────────────────────────────────────────
+function getDateRange(period: string): { from?: string; to?: string } {
+  const now = new Date();
+  const today = now.toISOString().split('T')[0];
+
+  if (period === 'all') return {};
+  if (period === 'today') return { from: today, to: today };
+  if (period === '7d') {
+    const d = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
+    return { from: d.toISOString().split('T')[0], to: today };
+  }
+  if (period === '30d') {
+    const d = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
+    return { from: d.toISOString().split('T')[0], to: today };
+  }
+  if (period === '90d') {
+    const d = new Date(now.getTime() - 90 * 24 * 3600 * 1000);
+    return { from: d.toISOString().split('T')[0], to: today };
+  }
+  return {};
+}
+
 export default function BakabarCommandPage() {
   const { token, user } = useAuth();
   const { t }     = useContext(AdminThemeContext);
+
+  // ── Main articles (untuk Stats + Trending + Artikel Baru) ──
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading]   = useState(true);
 
-  // Hard delete state
+  // ── Manajemen Artikel state ──
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebounce(searchInput, 300);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [periodFilter, setPeriodFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
+  const pageSize = 10;
+
+  const [manageArticles, setManageArticles] = useState<Article[]>([]);
+  const [manageTotal, setManageTotal]       = useState(0);
+  const [manageLoading, setManageLoading]   = useState(false);
+
+  // ── Hard delete state ──
   const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
   const [confirmSlug, setConfirmSlug]   = useState('');
   const [deleteReason, setDeleteReason] = useState('');
@@ -59,6 +112,7 @@ export default function BakabarCommandPage() {
 
   const isSuperAdmin = user?.role === 'super_admin';
 
+  // ── Fetch main articles (50 terbaru untuk stats + trending) ──
   useEffect(() => {
     if (!token) return;
     fetch(`${API}/admin/articles?limit=50`, { headers: { Authorization: `Bearer ${token}` } })
@@ -67,6 +121,53 @@ export default function BakabarCommandPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [token]);
+
+  // ── Fetch articles untuk Manajemen section (dengan filter) ──
+  const fetchManageArticles = useCallback(async () => {
+    if (!token || !isSuperAdmin) return;
+    setManageLoading(true);
+    try {
+      const { from, to } = getDateRange(periodFilter);
+      const params = new URLSearchParams({
+        page:  String(page),
+        limit: String(pageSize),
+      });
+      if (search.trim())   params.set('q', search.trim());
+      if (statusFilter)    params.set('status', statusFilter);
+      if (from)            params.set('from', from);
+      if (to)              params.set('to', to);
+
+      const res  = await fetch(`${API}/admin/articles?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.success) {
+        setManageArticles(data.data.data || []);
+        setManageTotal(data.data.total || 0);
+      }
+    } catch {}
+    finally {
+      setManageLoading(false);
+    }
+  }, [token, isSuperAdmin, search, statusFilter, periodFilter, page]);
+
+  useEffect(() => { fetchManageArticles(); }, [fetchManageArticles]);
+
+  // Reset page ke 1 kalau filter berubah
+  useEffect(() => { setPage(1); }, [search, statusFilter, periodFilter]);
+
+  // ── Derived data ──
+  const published   = articles.filter(a => a.status === 'published');
+  const drafts      = articles.filter(a => a.status === 'draft');
+  const totalViews  = published.reduce((s, a) => s + (a.view_count || 0), 0);
+  const now         = Date.now();
+  const staleDrafts = drafts.filter(a => now - new Date(a.created_at).getTime() > 3 * 3600 * 1000);
+  const trending    = [...published].sort((a, b) => b.viral_score - a.viral_score).slice(0, 5);
+  const recent      = [...published]
+    .sort((a, b) => new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime())
+    .slice(0, 5);
+
+  const totalPages = Math.ceil(manageTotal / pageSize);
 
   const handleHardDelete = async () => {
     if (!deleteTarget || !token) return;
@@ -90,15 +191,14 @@ export default function BakabarCommandPage() {
       if (!data.success) {
         throw new Error(data.error?.message || 'Gagal hapus permanen');
       }
-      // Success — update UI
       setDeleteResult({
         files_removed: data.data?.files_removed ?? 0,
         article_title: data.data?.article_title ?? deleteTarget.title,
       });
+      // Refresh Manajemen list + main articles
+      setManageArticles(prev => prev.filter(a => a.id !== deleteTarget.id));
       setArticles(prev => prev.filter(a => a.id !== deleteTarget.id));
-      setTimeout(() => {
-        closeDeleteModal();
-      }, 3000);
+      setTimeout(() => closeDeleteModal(), 3000);
     } catch (err: any) {
       setDeleteError(err.message || 'Terjadi kesalahan');
     } finally {
@@ -121,16 +221,6 @@ export default function BakabarCommandPage() {
     setDeleteError('');
     setDeleteResult(null);
   };
-
-  const published   = articles.filter(a => a.status === 'published');
-  const drafts      = articles.filter(a => a.status === 'draft');
-  const totalViews  = published.reduce((s, a) => s + (a.view_count || 0), 0);
-  const now         = Date.now();
-  const staleDrafts = drafts.filter(a => now - new Date(a.created_at).getTime() > 3 * 3600 * 1000);
-  const trending    = [...published].sort((a, b) => b.viral_score - a.viral_score).slice(0, 5);
-  const recent      = [...published]
-    .sort((a, b) => new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime())
-    .slice(0, 5);
 
   const StatCard = ({ label, value, sub, color = '#1B6B4A' }: { label: string; value: string | number; sub?: string; color?: string }) => (
     <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px', flex: 1 }}>
@@ -176,7 +266,7 @@ export default function BakabarCommandPage() {
           {/* Stats row */}
           <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
             <StatCard label="Artikel Terbit Hari Ini" value={published.length} sub="artikel published" color="#1B6B4A" />
-            <StatCard label="Total Views Hari Ini" value={totalViews >= 1000 ? `${(totalViews / 1000).toFixed(1)}K` : totalViews} sub="dari semua artikel" color="#0891B2" />
+            <StatCard label="Total Views Hari Ini" value={formatNum(totalViews)} sub="dari semua artikel" color="#0891B2" />
             <StatCard
               label="Draft Perlu Perhatian"
               value={staleDrafts.length}
@@ -199,7 +289,7 @@ export default function BakabarCommandPage() {
                     <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', flexShrink: 0 }} />
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>{a.title}</p>
-                      <p style={{ fontSize: 11, color: t.textDim }}>+{a.view_count.toLocaleString('id-ID')} views (+{a.viral_score} score)</p>
+                      <p style={{ fontSize: 11, color: t.textDim }}>+{formatNum(a.view_count)} views · {formatNum(a.share_count)} shares</p>
                     </div>
                     <a href={`/news/${a.slug}`} target="_blank" rel="noopener noreferrer"
                       style={{ padding: '5px 10px', borderRadius: 8, background: '#1B6B4A', color: '#fff', fontSize: 11, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>
@@ -243,98 +333,213 @@ export default function BakabarCommandPage() {
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-              {/* Trending table */}
+              {/* Trending table: VIEWS + SHARES (Score removed) */}
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>Artikel Trending</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
                   <span>Artikel</span>
-                  <span style={{ textAlign: 'right' }}>Score</span>
                   <span style={{ textAlign: 'right' }}>Views</span>
+                  <span style={{ textAlign: 'right' }}>Shares</span>
                 </div>
                 {trending.map((a, i) => (
-                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 70px 60px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
                     <div style={{ minWidth: 0, paddingRight: 8 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                         <span style={{ fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: '50%', background: i < 2 ? '#F97316' : t.sidebarBorder, color: i < 2 ? '#fff' : t.textDim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
                         <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
                       </div>
-                      <div style={{ fontSize: 10, color: t.textDim, paddingLeft: 22 }}>{a.category} · {timeAgo(a.published_at || a.created_at)}</div>
+                      <div style={{ fontSize: 10, color: t.textDim, paddingLeft: 22 }}>{a.category ?? '—'} · {timeAgo(a.published_at || a.created_at)}</div>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 800, color: a.viral_score > 100 ? '#F97316' : t.textPrimary }}>{a.viral_score}</div>
-                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 600, color: t.textMuted }}>{a.view_count >= 1000 ? `${(a.view_count / 1000).toFixed(1)}k` : a.view_count}</div>
+                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.textMuted }}>{formatNum(a.view_count)}</div>
+                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: a.share_count > 0 ? '#0891B2' : t.textDim }}>{formatNum(a.share_count)}</div>
                   </div>
                 ))}
+                {trending.length === 0 && (
+                  <p style={{ fontSize: 11, color: t.textDim, padding: '16px 0', textAlign: 'center' }}>Belum ada artikel trending.</p>
+                )}
               </div>
 
-              {/* Artikel Baru */}
+              {/* Artikel Baru: STATUS + ARTIKEL + VIEWS + OLEH (avatar+nama, spacing longgar) */}
               <div>
                 <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>Artikel Baru</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 50px 28px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
-                  <span>Status</span><span>Updated</span>
+                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 44px 100px', gap: 8, fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
+                  <span>Status</span>
+                  <span>Artikel</span>
                   <span style={{ textAlign: 'right' }}>Views</span>
-                  <span></span>
+                  <span>Oleh</span>
                 </div>
                 {recent.map(a => (
-                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 50px 28px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 44px 100px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
                     <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#059669', display: 'inline-block', width: 'fit-content' }}>Published</span>
-                    <div style={{ minWidth: 0, paddingLeft: 8, paddingRight: 8 }}>
+                    <div style={{ minWidth: 0 }}>
                       <p style={{ fontSize: 10, color: t.textDim, marginBottom: 1 }}>{timeAgo(a.published_at || a.created_at)}</p>
                       <p style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
                     </div>
-                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.textMuted }}>{a.view_count >= 1000 ? `${(a.view_count / 1000).toFixed(1)}k` : a.view_count}</div>
-                    <div style={{ display: 'flex', justifyContent: 'center' }}><AuthorAvatar name={a.author_name} /></div>
+                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.textMuted }}>{formatNum(a.view_count)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+                      <AuthorAvatar name={a.author_name} size={22} />
+                      <span style={{ fontSize: 11, fontWeight: 500, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.author_name}</span>
+                    </div>
                   </div>
                 ))}
+                {recent.length === 0 && (
+                  <p style={{ fontSize: 11, color: t.textDim, padding: '16px 0', textAlign: 'center' }}>Belum ada artikel baru.</p>
+                )}
               </div>
             </div>
           </div>
 
-          {/* DANGER ZONE — Super Admin only */}
-          {isSuperAdmin && articles.length > 0 && (
+          {/* ── Manajemen Artikel (Super Admin only) ── */}
+          {isSuperAdmin && (
             <div style={{ background: t.sidebar, borderRadius: 14, border: '1px solid #FEE2E2', padding: 20, marginTop: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                <span style={{ fontSize: 18 }}>⚠️</span>
-                <div>
-                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#DC2626' }}>Danger Zone — Hapus Permanen</h3>
-                  <p style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
-                    Menghapus artikel secara permanen + semua foto terkait. Tidak bisa di-restore.
-                  </p>
-                </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <span style={{ fontSize: 16 }}>⚠️</span>
+                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#DC2626' }}>Manajemen Artikel</h3>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 90px', fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 8px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
+              <p style={{ fontSize: 11, color: t.textDim, marginBottom: 16 }}>
+                Search, filter, dan hapus artikel secara permanen. Aksi ini tidak bisa di-restore.
+              </p>
+
+              {/* Filter bar */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={e => setSearchInput(e.target.value)}
+                  placeholder="🔍 Cari judul atau slug..."
+                  style={{
+                    flex: 1, minWidth: 200,
+                    padding: '8px 12px', borderRadius: 8,
+                    border: `1px solid ${t.sidebarBorder}`,
+                    fontSize: 12, background: t.mainBg, color: t.textPrimary,
+                    outline: 'none',
+                  }}
+                />
+                <select
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                  style={{
+                    padding: '8px 12px', borderRadius: 8,
+                    border: `1px solid ${t.sidebarBorder}`,
+                    fontSize: 12, background: t.mainBg, color: t.textPrimary,
+                    cursor: 'pointer', outline: 'none',
+                  }}
+                >
+                  <option value="">Status: Semua</option>
+                  <option value="draft">Draft</option>
+                  <option value="review">Review</option>
+                  <option value="published">Published</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <select
+                  value={periodFilter}
+                  onChange={e => setPeriodFilter(e.target.value)}
+                  style={{
+                    padding: '8px 12px', borderRadius: 8,
+                    border: `1px solid ${t.sidebarBorder}`,
+                    fontSize: 12, background: t.mainBg, color: t.textPrimary,
+                    cursor: 'pointer', outline: 'none',
+                  }}
+                >
+                  <option value="all">Periode: Semua</option>
+                  <option value="today">Hari ini</option>
+                  <option value="7d">7 hari terakhir</option>
+                  <option value="30d">30 hari terakhir</option>
+                  <option value="90d">90 hari terakhir</option>
+                </select>
+              </div>
+
+              {/* Table header */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 100px 80px', gap: 8, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 8px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
                 <span>Artikel</span>
                 <span>Status</span>
+                <span>Tanggal</span>
                 <span style={{ textAlign: 'right' }}>Aksi</span>
               </div>
-              {articles.slice(0, 20).map(a => (
-                <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 90px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
-                  <div style={{ minWidth: 0, paddingRight: 8 }}>
-                    <p style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{a.title}</p>
-                    <p style={{ fontSize: 10, color: t.textDim, fontFamily: 'monospace' }}>{a.slug}</p>
-                  </div>
-                  <span style={{
-                    fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, width: 'fit-content',
-                    background: a.status === 'published' ? 'rgba(16,185,129,0.12)' : a.status === 'draft' ? 'rgba(245,158,11,0.12)' : 'rgba(107,114,128,0.12)',
-                    color:      a.status === 'published' ? '#059669'             : a.status === 'draft' ? '#D97706'             : '#6B7280',
-                  }}>
-                    {a.status}
-                  </span>
-                  <button
-                    onClick={() => openDeleteModal(a)}
-                    style={{
-                      padding: '5px 10px', borderRadius: 8, background: '#DC2626', color: '#fff',
-                      fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                      marginLeft: 'auto', display: 'block',
-                    }}
-                  >
-                    🗑️ Hapus
-                  </button>
+
+              {manageLoading ? (
+                <div style={{ padding: '40px 0', textAlign: 'center', color: t.textDim }}>
+                  <div style={{ width: 24, height: 24, borderRadius: '50%', border: `3px solid ${t.accent}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 8px' }} />
+                  <p style={{ fontSize: 12 }}>Memuat...</p>
                 </div>
-              ))}
-              {articles.length > 20 && (
-                <p style={{ fontSize: 11, color: t.textDim, textAlign: 'center', padding: '10px 0' }}>
-                  Menampilkan 20 artikel terbaru. Untuk hapus yang lebih lama, filter via Editor Hub dulu.
-                </p>
+              ) : manageArticles.length === 0 ? (
+                <div style={{ padding: '40px 0', textAlign: 'center' }}>
+                  <p style={{ fontSize: 28, marginBottom: 8 }}>🔎</p>
+                  <p style={{ fontSize: 12, color: t.textDim }}>
+                    {search || statusFilter || periodFilter !== 'all'
+                      ? 'Tidak ada artikel yang cocok dengan filter.'
+                      : 'Belum ada artikel.'}
+                  </p>
+                </div>
+              ) : (
+                manageArticles.map(a => (
+                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 100px 80px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                    <div style={{ minWidth: 0, paddingRight: 8 }}>
+                      <p style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{a.title}</p>
+                      <p style={{ fontSize: 10, color: t.textDim, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.slug}</p>
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, width: 'fit-content',
+                      background: a.status === 'published' ? 'rgba(16,185,129,0.12)' : a.status === 'draft' ? 'rgba(245,158,11,0.12)' : a.status === 'review' ? 'rgba(8,145,178,0.12)' : 'rgba(107,114,128,0.12)',
+                      color:      a.status === 'published' ? '#059669'             : a.status === 'draft' ? '#D97706'             : a.status === 'review' ? '#0891B2'             : '#6B7280',
+                    }}>
+                      {a.status}
+                    </span>
+                    <span style={{ fontSize: 11, color: t.textDim }}>
+                      {timeAgo(a.published_at || a.created_at)}
+                    </span>
+                    <button
+                      onClick={() => openDeleteModal(a)}
+                      style={{
+                        padding: '5px 10px', borderRadius: 8, background: '#DC2626', color: '#fff',
+                        fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                        marginLeft: 'auto', display: 'block',
+                      }}
+                    >
+                      🗑️ Hapus
+                    </button>
+                  </div>
+                ))
+              )}
+
+              {/* Pagination */}
+              {manageTotal > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTop: `1px solid ${t.sidebarBorder}` }}>
+                  <p style={{ fontSize: 11, color: t.textDim }}>
+                    Menampilkan {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, manageTotal)} dari {manageTotal} artikel
+                  </p>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    <button
+                      onClick={() => setPage(p => Math.max(1, p - 1))}
+                      disabled={page === 1 || manageLoading}
+                      style={{
+                        padding: '5px 12px', borderRadius: 8,
+                        border: `1px solid ${t.sidebarBorder}`,
+                        background: t.sidebar, color: page === 1 ? t.textDim : t.textPrimary,
+                        fontSize: 11, fontWeight: 600,
+                        cursor: (page === 1 || manageLoading) ? 'default' : 'pointer',
+                      }}
+                    >
+                      ‹ Prev
+                    </button>
+                    <span style={{ padding: '5px 12px', fontSize: 11, color: t.textPrimary, fontWeight: 700 }}>
+                      Hal. {page} / {totalPages || 1}
+                    </span>
+                    <button
+                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                      disabled={page >= totalPages || manageLoading}
+                      style={{
+                        padding: '5px 12px', borderRadius: 8,
+                        border: `1px solid ${t.sidebarBorder}`,
+                        background: t.sidebar, color: page >= totalPages ? t.textDim : t.textPrimary,
+                        fontSize: 11, fontWeight: 600,
+                        cursor: (page >= totalPages || manageLoading) ? 'default' : 'pointer',
+                      }}
+                    >
+                      Next ›
+                    </button>
+                  </div>
+                </div>
               )}
             </div>
           )}
@@ -353,7 +558,6 @@ export default function BakabarCommandPage() {
             boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
           }}>
             {deleteResult ? (
-              /* SUCCESS STATE */
               <>
                 <div style={{ textAlign: 'center', marginBottom: 16 }}>
                   <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
@@ -370,7 +574,6 @@ export default function BakabarCommandPage() {
                 <p style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' }}>Modal tutup otomatis 3 detik...</p>
               </>
             ) : (
-              /* CONFIRM STATE */
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                   <span style={{ fontSize: 24 }}>⚠️</span>
