@@ -193,7 +193,11 @@ export default function AdminReportsPage() {
   const [deepdive, setDeepdive]           = useState<any>(null);
   const [deepdiveLoading, setDeepdiveLoading] = useState(false);
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
-  const [actionLoading, setAction]= useState<string | null>(null);
+  const [actionLoading, setAction]  = useState<string | null>(null);
+  const [searchQuery, setSearch]    = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [typeFilter, setType]       = useState('');
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -217,7 +221,7 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [token, priorityFilter]);
+  }, [token, priorityFilter, categoryFilter, searchQuery, typeFilter]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -308,9 +312,10 @@ export default function AdminReportsPage() {
           <button onClick={fetchReports} style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: t.sidebar, color: t.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             🔄 Refresh
           </button>
-          <Link href="/office/newsroom/balapor" style={{ padding: '7px 16px', borderRadius: 8, background: '#1B6B4A', color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
-            + Global Broadcast
-          </Link>
+          <button disabled title="Coming soon — WA blast ke subscriber BALAPOR"
+            style={{ padding: '7px 16px', borderRadius: 8, background: '#EF4444', color: '#fff', fontSize: 12, fontWeight: 700, border: 'none', cursor: 'not-allowed', opacity: 0.7 }}>
+            🚨 Siaran Darurat
+          </button>
         </div>
       </div>
 
@@ -523,86 +528,207 @@ export default function AdminReportsPage() {
 
           {/* ── LIVE INCIDENTS TAB ── */}
           {activeTab === 'live' && (
-            <div>
-              {/* Priority filter */}
-              <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
-                {[
-                  { value: '',        label: '📋 Semua',   count: total },
-                  { value: 'urgent',  label: '🔴 Urgent',  count: urgentCount },
-                  { value: 'high',    label: '🟠 High',    count: highCount },
-                  { value: 'normal',  label: '🟢 Normal',  count: reports.filter(r => r.priority === 'normal').length },
-                ].map(f => (
-                  <button key={f.value} onClick={() => setPriority(f.value)}
-                    style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px', borderRadius: 20, border: `1px solid ${priorityFilter === f.value ? '#1B6B4A' : t.sidebarBorder}`, background: priorityFilter === f.value ? '#1B6B4A' : t.sidebar, color: priorityFilter === f.value ? '#fff' : t.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
-                    {f.label}
-                    {f.count > 0 && <span style={{ fontSize: 10, fontWeight: 800, padding: '0 5px', borderRadius: 99, background: priorityFilter === f.value ? 'rgba(255,255,255,0.25)' : '#EF4444', color: '#fff' }}>{f.count}</span>}
-                  </button>
-                ))}
-              </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-              {/* Full table */}
-              <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '4px 1fr 110px 130px 90px 120px', padding: '10px 16px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, gap: 12 }}>
-                  <span></span><span>Incident</span><span>Priority</span><span>Lokasi</span><span>Waktu</span><span>Aksi Priority</span>
-                </div>
+              {/* Filter bar */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
 
-                {reports.map((r, idx) => {
-                  const pc = PRIORITY_COLOR[r.priority];
+                {/* Semua Tipe dropdown */}
+                <select value={typeFilter} onChange={e => setType(e.target.value)}
+                  style={{ padding: '7px 12px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: t.sidebar, color: t.textPrimary, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
+                  <option value="">📋 Semua Tipe</option>
+                  <option value="keamanan">🛡️ Keamanan</option>
+                  <option value="infrastruktur">🔧 Infrastruktur</option>
+                  <option value="lingkungan">🌳 Lingkungan</option>
+                  <option value="layanan publik">🏛️ Layanan Publik</option>
+                  <option value="kesehatan">❤️ Kesehatan</option>
+                  <option value="pendidikan">🎓 Pendidikan</option>
+                  <option value="transportasi">🚢 Transportasi</option>
+                  <option value="lainnya">⋯ Lainnya</option>
+                </select>
+
+                {/* Priority filter */}
+                {['', 'urgent', 'high', 'normal'].map(p => {
+                  const isActive = priorityFilter === p;
+                  const pc = p === 'urgent' ? '#EF4444' : p === 'high' ? '#F59E0B' : p === 'normal' ? '#10B981' : t.textMuted;
+                  const label = p === '' ? '📋 Semua' : p === 'urgent' ? '🔴 Urgent' : p === 'high' ? '🟠 High' : '🟢 Normal';
+                  const badge = p === 'urgent' ? urgentCount : p === 'high' ? highCount : null;
                   return (
-                    <div key={r.id} className="row-hover"
-                      style={{ display: 'grid', gridTemplateColumns: '4px 1fr 110px 130px 90px 120px', padding: '11px 16px', alignItems: 'center', gap: 12, borderBottom: idx < reports.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', transition: 'background 0.15s' }}>
-
-                      {/* Priority bar */}
-                      <div style={{ width: 4, height: 36, borderRadius: 4, background: pc }} />
-
-                      {/* Title */}
-                      <div style={{ minWidth: 0 }}>
-                        <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{r.title}</p>
-                        <p style={{ fontSize: 10, color: t.textDim }}>{r.category || '—'} {r.forwarded_at ? '· ✈️ Diteruskan' : ''}</p>
-                      </div>
-
-                      {/* Priority badge */}
-                      <span style={{ fontSize: 10, fontWeight: 800, padding: '3px 8px', borderRadius: 20, background: `${pc}22`, color: pc, display: 'inline-block', width: 'fit-content' }}>
-                        {PRIORITY_LABEL[r.priority]}
-                      </span>
-
-                      {/* Lokasi */}
-                      <div style={{ fontSize: 11, color: t.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        📍 {r.location || '—'}
-                      </div>
-
-                      {/* Waktu */}
-                      <div style={{ fontSize: 11, color: isUnhandled(r) ? '#EF4444' : t.textDim, fontWeight: isUnhandled(r) ? 700 : 400 }}>
-                        {timeAgo(r.created_at)}
-                        {isUnhandled(r) && <div style={{ fontSize: 9, color: '#EF4444' }}>⚠️ Belum ditangani</div>}
-                      </div>
-
-                      {/* Quick priority */}
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        {(['urgent', 'high', 'normal'] as const).map(p => (
-                          <button key={p} onClick={() => setPriorityAction(r.id, p, r.title)}
-                            disabled={r.priority === p || actionLoading === r.id + 'priority'}
-                            title={`Set ${p}`}
-                            style={{ width: 22, height: 22, borderRadius: '50%', border: `2px solid ${r.priority === p ? PRIORITY_COLOR[p] : t.sidebarBorder}`, background: r.priority === p ? PRIORITY_COLOR[p] + '22' : 'transparent', cursor: r.priority === p ? 'default' : 'pointer', fontSize: 10, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            {p === 'urgent' ? '🔴' : p === 'high' ? '🟠' : '🟢'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
+                    <button key={p} onClick={() => setPriority(p)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px', borderRadius: 20, border: `1px solid ${isActive ? pc : t.sidebarBorder}`, background: isActive ? pc + '18' : t.sidebar, color: isActive ? pc : t.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                      {label}
+                      {badge !== null && badge > 0 && (
+                        <span style={{ fontSize: 10, fontWeight: 800, padding: '0 5px', borderRadius: 99, background: pc, color: '#fff' }}>{badge}</span>
+                      )}
+                    </button>
                   );
                 })}
 
-                {reports.length === 0 && (
-                  <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-                    <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
-                    <p style={{ color: t.textDim, fontSize: 13 }}>Tidak ada laporan</p>
+                {/* Search */}
+                <div style={{ flex: 1, minWidth: 200, display: 'flex', alignItems: 'center', gap: 8, background: t.sidebar, borderRadius: 8, padding: '6px 12px', border: `1px solid ${t.sidebarBorder}` }}>
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={t.textDim} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                  </svg>
+                  <input value={searchInput}
+                    onChange={e => {
+                      setSearchInput(e.target.value);
+                      if (searchTimer.current) clearTimeout(searchTimer.current);
+                      searchTimer.current = setTimeout(() => setSearch(e.target.value), 400);
+                    }}
+                    placeholder="Search incidents..."
+                    style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: t.textPrimary, width: '100%' }} />
+                </div>
+              </div>
+
+              {/* Main grid: left panel + right panels */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 280px', gap: 16 }}>
+
+                {/* LEFT — Incident groups + full list */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+
+                  {/* Incident Groups — group by title similarity */}
+                  {(() => {
+                    // Group laporan by kategori
+                    const groups: Record<string, typeof reports> = {};
+                    reports.forEach(r => {
+                      const key = r.category || 'lainnya';
+                      if (!groups[key]) groups[key] = [];
+                      groups[key].push(r);
+                    });
+
+                    return Object.entries(groups)
+                      .sort((a, b) => b[1].length - a[1].length)
+                      .map(([cat, items]) => {
+                        const topPriority = items.some(r => r.priority === 'urgent') ? 'urgent'
+                          : items.some(r => r.priority === 'high') ? 'high' : 'normal';
+                        const pc = PRIORITY_COLOR[topPriority as keyof typeof PRIORITY_COLOR];
+                        const topItem = items[0];
+
+                        return (
+                          <div key={cat} style={{ background: t.sidebar, borderRadius: 12, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
+                            {/* Group header */}
+                            <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, display: 'flex', alignItems: 'center', gap: 10, background: `${pc}08` }}>
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: pc, flexShrink: 0 }} />
+                              <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, flex: 1, textTransform: 'capitalize' }}>
+                                {cat === 'layanan publik' ? '🏛️' : cat === 'keamanan' ? '🛡️' : cat === 'infrastruktur' ? '🔧' : cat === 'lingkungan' ? '🌳' : cat === 'kesehatan' ? '❤️' : cat === 'pendidikan' ? '🎓' : cat === 'transportasi' ? '🚢' : '⋯'} {cat}
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: pc + '18', color: pc }}>{items.length} laporan</span>
+                            </div>
+
+                            {/* Items in group */}
+                            {items.slice(0, 3).map((r, idx) => {
+                              const rpc = PRIORITY_COLOR[r.priority as keyof typeof PRIORITY_COLOR];
+                              return (
+                                <div key={r.id} className="row-hover"
+                                  style={{ display: 'grid', gridTemplateColumns: '8px 1fr auto auto', padding: '10px 16px', alignItems: 'center', gap: 10, borderBottom: idx < Math.min(items.length, 3) - 1 ? `1px solid ${t.sidebarBorder}` : 'none', transition: 'background 0.15s' }}>
+                                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: rpc }} />
+                                  <div style={{ minWidth: 0 }}>
+                                    <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.title}</p>
+                                    <p style={{ fontSize: 10, color: t.textDim }}>
+                                      📍 {r.location || '—'} · {timeAgo(r.created_at)}
+                                      {isUnhandled(r) && <span style={{ color: '#EF4444', fontWeight: 700 }}> · ⚠️ Belum ditangani</span>}
+                                    </p>
+                                  </div>
+                                  <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: rpc + '18', color: rpc, flexShrink: 0 }}>
+                                    {r.priority}
+                                  </span>
+                                  {/* Quick priority */}
+                                  <div style={{ display: 'flex', gap: 3 }}>
+                                    {(['urgent', 'high', 'normal'] as const).map(p => (
+                                      <button key={p} onClick={() => setPriorityAction(r.id, p, r.title)}
+                                        disabled={r.priority === p || actionLoading === r.id + 'priority'}
+                                        title={`Set ${p}`}
+                                        style={{ width: 18, height: 18, borderRadius: '50%', border: `2px solid ${r.priority === p ? PRIORITY_COLOR[p] : t.sidebarBorder}`, background: r.priority === p ? PRIORITY_COLOR[p] + '22' : 'transparent', cursor: r.priority === p ? 'default' : 'pointer', fontSize: 9 }}>
+                                        {p === 'urgent' ? '🔴' : p === 'high' ? '🟠' : '🟢'}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                            {items.length > 3 && (
+                              <div style={{ padding: '8px 16px', fontSize: 11, color: '#1B6B4A', fontWeight: 600, textAlign: 'center', borderTop: `1px solid ${t.sidebarBorder}` }}>
+                                +{items.length - 3} laporan lainnya
+                              </div>
+                            )}
+                          </div>
+                        );
+                      });
+                  })()}
+
+                  {reports.length === 0 && (
+                    <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '60px 24px', textAlign: 'center' }}>
+                      <div style={{ fontSize: 36, marginBottom: 8 }}>✅</div>
+                      <p style={{ color: t.textDim, fontSize: 13 }}>Tidak ada laporan</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* RIGHT — Map + Top Locations + Alert Clusters */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+
+                  {/* Mini map */}
+                  <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: 14, overflow: 'hidden' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: t.textPrimary, marginBottom: 10 }}>Live Incidents</div>
+                    <BalaporMap reports={reports} t={t} />
+                    {/* Stats bawah peta */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 6, marginTop: 10 }}>
+                      {[
+                        { label: 'Urgent', value: urgentCount, color: '#EF4444' },
+                        { label: 'Total',  value: total,       color: '#1B6B4A' },
+                        { label: 'Normal', value: reports.filter(r => r.priority === 'normal').length, color: '#10B981' },
+                      ].map(s => (
+                        <div key={s.label} style={{ textAlign: 'center', padding: '6px', background: t.mainBg, borderRadius: 8 }}>
+                          <div style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.value}</div>
+                          <div style={{ fontSize: 9, color: t.textDim }}>{s.label}</div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
+
+                  {/* Top Locations */}
+                  <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '14px 16px' }}>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: t.textPrimary, marginBottom: 12 }}>Top Locations</div>
+                    {(() => {
+                      const locCount: Record<string, number> = {};
+                      reports.forEach(r => { if (r.location) locCount[r.location] = (locCount[r.location] || 0) + 1; });
+                      return Object.entries(locCount)
+                        .sort((a, b) => b[1] - a[1])
+                        .slice(0, 5)
+                        .map(([loc, count], i) => (
+                          <div key={loc} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                            <div style={{ width: 18, height: 18, borderRadius: '50%', background: i === 0 ? '#EF4444' : i === 1 ? '#F59E0B' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 8, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{i + 1}</div>
+                            <span style={{ flex: 1, fontSize: 11, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc}</span>
+                            <span style={{ fontSize: 11, fontWeight: 800, color: t.textPrimary, flexShrink: 0 }}>{count}</span>
+                          </div>
+                        ));
+                    })()}
+                    {reports.filter(r => r.location).length === 0 && (
+                      <p style={{ fontSize: 11, color: t.textDim }}>Belum ada data lokasi</p>
+                    )}
+                  </div>
+
+                  {/* Alert Clusters */}
+                  {urgentCount > 0 && (
+                    <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '14px 16px' }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: t.textPrimary, marginBottom: 12 }}>🚨 Alert Clusters</div>
+                      {reports.filter(r => r.priority === 'urgent').slice(0, 3).map(r => (
+                        <div key={r.id} style={{ marginBottom: 8, padding: '8px 10px', background: 'rgba(239,68,68,0.06)', borderRadius: 8, border: '1px solid rgba(239,68,68,0.15)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 20, background: '#EF4444', color: '#fff' }}>Urgent</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{r.title}</span>
+                          </div>
+                          <p style={{ fontSize: 10, color: t.textDim, marginTop: 3 }}>📍 {r.location || '—'} · {timeAgo(r.created_at)}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* ── DEEP DIVE TAB ── */}
+                    {/* ── DEEP DIVE TAB ── */}
           {activeTab === 'deepdive' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
