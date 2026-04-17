@@ -1,8 +1,8 @@
 'use client';
 
 import { useAuth } from '@/hooks/useAuth';
-import { useRouter, usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
+import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/AdminThemeContext';
 
@@ -18,7 +18,8 @@ const NAV = [
     section: 'Redaksi BAKABAR',
     sectionIcon: '📰',
     items: [
-      { href: '/office/newsroom/bakabar/hub',                  label: 'Draft',     icon: '📝', badgePath: 'articles.draft' },
+      { href: '/office/newsroom/bakabar/hub',                  label: 'Dashboard', icon: '📊' },
+      { href: '/office/newsroom/bakabar/hub?status=draft',     label: 'Draft',     icon: '📝', badgePath: 'articles.draft' },
       { href: '/office/newsroom/bakabar/hub?status=review',    label: 'Review',    icon: '🔍' },
       { href: '/office/newsroom/bakabar/hub?status=published', label: 'Publikasi', icon: '✅' },
       { href: '/office/newsroom/bakabar/hub?status=archived',  label: 'Archived',  icon: '🗂️' },
@@ -69,10 +70,13 @@ function getBadge(stats: Stats | null, path?: string): number | null {
   return typeof val === 'number' && val > 0 ? val : null;
 }
 
-export default function OfficeBakabarLayout({ children }: { children: React.ReactNode }) {
+function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
   const { user, isLoading, logout } = useAuth();
-  const router   = useRouter();
-  const pathname = usePathname();
+  const router        = useRouter();
+  const pathname      = usePathname();
+  const searchParams  = useSearchParams();
+  const currentStatus = searchParams?.get('status') ?? '';
+
   const [dark, setDark]   = useState(true);
   const [stats, setStats] = useState<Stats | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
@@ -112,9 +116,23 @@ export default function OfficeBakabarLayout({ children }: { children: React.Reac
     </div>
   );
 
-  const isActive = (href: string) => {
-    const base = href.split('?')[0];
-    return pathname === base || pathname.startsWith(base + '/');
+  // isActive yang aware query params — match pathname + status query
+  const isActive = (href: string): boolean => {
+    const [hrefPath, hrefQuery] = href.split('?');
+
+    // Step 1: path harus match (exact atau prefix subfolder)
+    const pathMatch = pathname === hrefPath || pathname.startsWith(hrefPath + '/');
+    if (!pathMatch) return false;
+
+    // Step 2: bandingkan status query
+    if (hrefQuery) {
+      // href punya query (e.g. ?status=draft) — status harus match persis
+      const hrefStatus = new URLSearchParams(hrefQuery).get('status') ?? '';
+      return hrefStatus === currentStatus;
+    }
+
+    // href TANPA query (Dashboard) — aktif hanya kalau URL juga tanpa status
+    return currentStatus === '';
   };
 
   return (
@@ -193,7 +211,7 @@ export default function OfficeBakabarLayout({ children }: { children: React.Reac
                               <div style={{ marginLeft: 18, marginBottom: 4 }}>
                                 {item.children.map((child: any) => {
                                   const cb = getBadge(stats, child.badgePath);
-                                  const ca = pathname === child.href.split('?')[0];
+                                  const ca = isActive(child.href);
                                   return (
                                     <Link key={child.href + child.label} href={child.href} style={{ textDecoration: 'none' }}>
                                       <div className="bk-item" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 7, marginBottom: 1, background: ca ? t.navActive : 'transparent', color: ca ? t.accent : t.textDim, fontSize: 12, fontWeight: ca ? 600 : 400, transition: 'all 0.15s', cursor: 'pointer' }}>
@@ -251,7 +269,7 @@ export default function OfficeBakabarLayout({ children }: { children: React.Reac
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             </div>
-            <Link href="/office/newsroom/bakabar/hub" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, textDecoration: 'none', fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>
+            <Link href="/office/newsroom/bakabar/hub?status=draft" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, textDecoration: 'none', fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>
               📝 Drafts
               {stats?.articles.draft ? <span style={{ fontSize: 10, fontWeight: 800, padding: '0 5px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>{stats.articles.draft}</span> : null}
             </Link>
@@ -269,5 +287,19 @@ export default function OfficeBakabarLayout({ children }: { children: React.Reac
         </div>
       </div>
     </AdminThemeContext.Provider>
+  );
+}
+
+// Wrap dengan Suspense karena useSearchParams() butuh Suspense boundary
+export default function OfficeBakabarLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '100vh', background: '#0D1117', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ width: 40, height: 40, borderRadius: '50%', border: '3px solid #1B6B4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} />
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    }>
+      <OfficeBakabarLayoutInner>{children}</OfficeBakabarLayoutInner>
+    </Suspense>
   );
 }
