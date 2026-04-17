@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef, useContext, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import Link from 'next/link';
 
@@ -29,6 +29,7 @@ interface Article {
 const STATUS_TABS = [
   { value: '',          label: 'Semua',     color: '#6B7280' },
   { value: 'draft',     label: 'Draft',     color: '#F59E0B' },
+  { value: 'review',    label: 'Review',    color: '#0891B2' },
   { value: 'published', label: 'Publikasi', color: '#10B981' },
   { value: 'archived',  label: 'Arsip',     color: '#9CA3AF' },
 ];
@@ -41,8 +42,12 @@ const CATEGORIES = [
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   published: { bg: 'rgba(16,185,129,0.12)',  color: '#059669', label: 'Published' },
   draft:     { bg: 'rgba(245,158,11,0.12)',  color: '#D97706', label: 'Draft'     },
+  review:    { bg: 'rgba(8,145,178,0.12)',   color: '#0891B2', label: 'Review'    },
   archived:  { bg: 'rgba(107,114,128,0.12)', color: '#6B7280', label: 'Arsip'     },
 };
+
+// Widget Trending + Perlu Perhatian hanya tampil di view-view ini
+const WIDGET_VISIBLE_STATUSES = ['', 'published'];
 
 function timeAgo(dateStr: string) {
   if (!dateStr) return '—';
@@ -132,10 +137,12 @@ function PerluPerhatianWidget({ articles, t }: { articles: Article[]; t: any }) 
 }
 
 function HubContent() {
-  const { token } = useAuth();
-  const { t } = useContext(AdminThemeContext);
-  const searchParams = useSearchParams();
-  const initialStatus = searchParams.get('status') || '';
+  const { token, user }  = useAuth();
+  const { t }            = useContext(AdminThemeContext);
+  const router           = useRouter();
+  const pathname         = usePathname();
+  const searchParams     = useSearchParams();
+  const initialStatus    = searchParams.get('status') || '';
 
   const [articles, setArticles]       = useState<Article[]>([]);
   const [total, setTotal]             = useState(0);
@@ -143,24 +150,18 @@ function HubContent() {
   const [actionLoading, setAction]    = useState<string | null>(null);
   const [statusFilter, setStatus]     = useState(initialStatus);
   const [categoryFilter, setCategory] = useState('');
-
-  // Sync filter saat URL berubah — klik sidebar Draft/Review/Publikasi/Archived
-  useEffect(() => {
-    setStatus(initialStatus);
-    setPage(1);
-  }, [initialStatus]);
-
-  // Sync filter saat URL berubah (klik sidebar Draft/Review/dll)
-  useEffect(() => {
-    setStatus(initialStatus);
-    setPage(1);
-  }, [initialStatus]);
   const [search, setSearch]           = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage]               = useState(1);
   const [toast, setToast]             = useState<{ msg: string; ok: boolean } | null>(null);
   const limit = 20;
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Single source of truth — URL adalah penentu statusFilter
+  useEffect(() => {
+    setStatus(initialStatus);
+    setPage(1);
+  }, [initialStatus]);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -195,27 +196,36 @@ function HubContent() {
     searchTimer.current = setTimeout(() => { setSearch(val); setPage(1); }, 400);
   };
 
-  const updateStatus = async (id: string, status: string, title: string) => {
+  // Ganti tab di toolbar → update URL, biar konsisten dengan sidebar + bookmarkable
+  const changeStatusTab = (value: string) => {
+    const url = value ? `${pathname}?status=${value}` : pathname;
+    router.push(url);
+  };
+
+  const updateStatus = async (id: string, newStatus: string, title: string) => {
     if (!token) return;
-    setAction(id + status);
+    const key = id + newStatus;
+    setAction(key);
     try {
       const res  = await fetch(`${API_URL}/admin/articles/${id}/status`, {
         method: 'PATCH',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status: newStatus }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
-      showToast(`"${title.slice(0, 28)}..." → ${STATUS_STYLE[status]?.label ?? status}`);
+      showToast(`"${title.slice(0, 28)}..." → ${STATUS_STYLE[newStatus]?.label ?? newStatus}`);
       fetchArticles();
     } catch (err: any) {
-      showToast(err.message || 'Gagal update', false);
+      showToast(err.message || 'Gagal update status', false);
     } finally {
       setAction(null);
     }
   };
 
-  const totalPages = Math.ceil(total / limit);
+  const totalPages    = Math.ceil(total / limit);
+  const isSuperAdmin  = user?.role === 'super_admin';
+  const showWidgets   = !loading && articles.length > 0 && WIDGET_VISIBLE_STATUSES.includes(statusFilter);
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
@@ -251,8 +261,8 @@ function HubContent() {
         </div>
       </div>
 
-      {/* Widgets */}
-      {!loading && articles.length > 0 && (
+      {/* Widgets — hanya di view Semua & Publikasi (auto-hide di Draft/Review/Arsip) */}
+      {showWidgets && (
         <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
           <TrendingWidget articles={articles} t={t} />
           <PerluPerhatianWidget articles={articles} t={t} />
@@ -274,10 +284,10 @@ function HubContent() {
           />
         </div>
 
-        {/* Status tabs */}
+        {/* Status tabs — update URL, bookmarkable */}
         <div style={{ display: 'flex', gap: 4, background: t.mainBg, borderRadius: 8, padding: 3, border: `1px solid ${t.sidebarBorder}` }}>
           {STATUS_TABS.map(tab => (
-            <button key={tab.value} onClick={() => { setStatus(tab.value); setPage(1); }} style={{
+            <button key={tab.value} onClick={() => changeStatusTab(tab.value)} style={{
               padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer',
               fontSize: 11, fontWeight: 700,
               background: statusFilter === tab.value ? t.navActive : 'transparent',
@@ -300,7 +310,7 @@ function HubContent() {
       <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
 
         {/* Header row */}
-        <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 70px 70px 100px 100px 150px', padding: '10px 16px', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 70px 70px 100px 100px 200px', padding: '10px 16px', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', gap: 8 }}>
           <span>Status</span>
           <span>Judul</span>
           <span style={{ textAlign: 'right' }}>Score</span>
@@ -326,8 +336,10 @@ function HubContent() {
 
         {!loading && articles.map((a, idx) => {
           const st = STATUS_STYLE[a.status] ?? { bg: t.navHover, color: t.textDim, label: a.status };
+          const isLoadingKey = (s: string) => actionLoading === a.id + s;
+
           return (
-            <div key={a.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '110px 1fr 70px 70px 100px 100px 150px', gap: 8, padding: '12px 16px', alignItems: 'center', borderBottom: idx < articles.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', background: 'transparent', transition: 'background 0.1s' }}>
+            <div key={a.id} className="row-hover" style={{ display: 'grid', gridTemplateColumns: '110px 1fr 70px 70px 100px 100px 200px', gap: 8, padding: '12px 16px', alignItems: 'center', borderBottom: idx < articles.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', background: 'transparent', transition: 'background 0.1s' }}>
 
               {/* Status */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
@@ -369,31 +381,85 @@ function HubContent() {
                 </span>
               </div>
 
-              {/* Aksi */}
-              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
+              {/* Aksi — Pattern A workflow */}
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap' }}>
+                {/* DRAFT: Publish langsung atau Kirim Review */}
                 {a.status === 'draft' && (
-                  <button onClick={() => updateStatus(a.id, 'published', a.title)} disabled={actionLoading === a.id + 'published'}
-                    style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(16,185,129,0.12)', color: '#059669', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    {actionLoading === a.id + 'published' ? '...' : 'Publish'}
-                  </button>
+                  <>
+                    <button
+                      onClick={() => updateStatus(a.id, 'published', a.title)}
+                      disabled={isLoadingKey('published')}
+                      title="Publish langsung (Pattern A trust-based)"
+                      style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(16,185,129,0.12)', color: '#059669', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {isLoadingKey('published') ? '...' : 'Publish'}
+                    </button>
+                    <button
+                      onClick={() => updateStatus(a.id, 'review', a.title)}
+                      disabled={isLoadingKey('review')}
+                      title="Kirim ke super_admin untuk review"
+                      style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(8,145,178,0.12)', color: '#0891B2', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {isLoadingKey('review') ? '...' : 'Review'}
+                    </button>
+                  </>
                 )}
+
+                {/* REVIEW: Super admin approve atau kirim balik ke draft */}
+                {a.status === 'review' && (
+                  <>
+                    {isSuperAdmin && (
+                      <button
+                        onClick={() => updateStatus(a.id, 'published', a.title)}
+                        disabled={isLoadingKey('published')}
+                        title="Approve & publish (super_admin only)"
+                        style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(16,185,129,0.12)', color: '#059669', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                      >
+                        {isLoadingKey('published') ? '...' : 'Approve'}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => updateStatus(a.id, 'draft', a.title)}
+                      disabled={isLoadingKey('draft')}
+                      title="Kembalikan ke draft"
+                      style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(245,158,11,0.1)', color: '#D97706', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                    >
+                      {isLoadingKey('draft') ? '...' : 'Draft'}
+                    </button>
+                  </>
+                )}
+
+                {/* PUBLISHED: Archive */}
                 {a.status === 'published' && (
-                  <button onClick={() => updateStatus(a.id, 'archived', a.title)} disabled={actionLoading === a.id + 'archived'}
-                    style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(107,114,128,0.1)', color: t.textDim, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    {actionLoading === a.id + 'archived' ? '...' : 'Arsip'}
+                  <button
+                    onClick={() => updateStatus(a.id, 'archived', a.title)}
+                    disabled={isLoadingKey('archived')}
+                    style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(107,114,128,0.1)', color: t.textDim, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {isLoadingKey('archived') ? '...' : 'Arsip'}
                   </button>
                 )}
-                {a.status === 'archived' && (
-                  <button onClick={() => updateStatus(a.id, 'draft', a.title)} disabled={actionLoading === a.id + 'draft'}
-                    style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(245,158,11,0.1)', color: '#D97706', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    {actionLoading === a.id + 'draft' ? '...' : 'Draft'}
+
+                {/* ARCHIVED: hanya super_admin yang bisa kembalikan */}
+                {a.status === 'archived' && isSuperAdmin && (
+                  <button
+                    onClick={() => updateStatus(a.id, 'draft', a.title)}
+                    disabled={isLoadingKey('draft')}
+                    title="Kembalikan ke draft (super_admin only)"
+                    style={{ padding: '4px 8px', borderRadius: 6, border: 'none', background: 'rgba(245,158,11,0.1)', color: '#D97706', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {isLoadingKey('draft') ? '...' : 'Draft'}
                   </button>
                 )}
+
+                {/* Lihat — selalu ada */}
                 <a href={`/news/${a.slug}`} target="_blank" rel="noopener noreferrer"
                   style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(107,114,128,0.08)', color: t.textDim, fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
                   Lihat
                 </a>
-                <Link href={`/admin/content/${a.id}/edit`}
+
+                {/* Edit — di newsroom path (bukan admin path lagi) */}
+                <Link href={`/office/newsroom/bakabar/hub/${a.id}/edit`}
                   style={{ padding: '4px 8px', borderRadius: 6, background: 'rgba(8,145,178,0.08)', color: '#0891B2', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
                   Edit
                 </Link>

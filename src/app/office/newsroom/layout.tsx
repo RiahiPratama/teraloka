@@ -15,14 +15,14 @@ interface Stats {
 
 const NAV = [
   {
-    section: 'Teraft HUB',
+    section: 'Redaksi BAKABAR',
     sectionIcon: '📰',
     items: [
-      { href: '/office/newsroom/bakabar/hub',                  label: 'Draft',    icon: '📝', badgePath: 'articles.draft' },
-      { href: '/office/newsroom/bakabar/hub?status=review',    label: 'Review',   icon: '🔍' },
-      { href: '/office/newsroom/bakabar/hub?status=published', label: 'Publikasi',icon: '✅' },
-      { href: '/office/newsroom/bakabar/hub?status=archived',  label: 'Archived', icon: '🗂️' },
-      { href: '/admin/rss',                           label: 'RSS Feed', icon: '📡' },
+      { href: '/office/newsroom/bakabar/hub',                  label: 'Draft',     icon: '📝', badgePath: 'articles.draft' },
+      { href: '/office/newsroom/bakabar/hub?status=review',    label: 'Review',    icon: '🔍' },
+      { href: '/office/newsroom/bakabar/hub?status=published', label: 'Publikasi', icon: '✅' },
+      { href: '/office/newsroom/bakabar/hub?status=archived',  label: 'Archived',  icon: '🗂️' },
+      { href: '/admin/rss',                                    label: 'RSS Feed',  icon: '📡' },
     ],
   },
   {
@@ -76,7 +76,7 @@ export default function OfficeBakabarLayout({ children }: { children: React.Reac
   const [dark, setDark]   = useState(true);
   const [stats, setStats] = useState<Stats | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
-    'Teraft HUB': true, 'BALAPOR': false, 'Performance': false, 'Tools': false,
+    'Redaksi BAKABAR': true, 'BALAPOR': false, 'Performance': false, 'Tools': false,
   });
 
   useEffect(() => {
