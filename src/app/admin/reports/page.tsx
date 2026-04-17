@@ -188,7 +188,10 @@ export default function AdminReportsPage() {
   const [total, setTotal]         = useState(0);
   const [loading, setLoading]     = useState(true);
   const [activeTab, setTab]       = useState<'overview' | 'live' | 'deepdive'>('overview');
-  const [priorityFilter, setPriority] = useState('');
+  const [priorityFilter, setPriority]   = useState('');
+  const [categoryFilter, setCategory]   = useState('');
+  const [deepdive, setDeepdive]           = useState<any>(null);
+  const [deepdiveLoading, setDeepdiveLoading] = useState(false);
   const [toast, setToast]         = useState<{ msg: string; ok: boolean } | null>(null);
   const [actionLoading, setAction]= useState<string | null>(null);
 
@@ -202,7 +205,8 @@ export default function AdminReportsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ limit: '100' });
-      if (priorityFilter) params.set('priority', priorityFilter);
+      if (priorityFilter)  params.set('priority',  priorityFilter);
+      if (categoryFilter)  params.set('category',  categoryFilter);
       const res  = await fetch(`${API}/admin/reports?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
@@ -216,6 +220,24 @@ export default function AdminReportsPage() {
   }, [token, priorityFilter]);
 
   useEffect(() => { fetchReports(); }, [fetchReports]);
+
+  const fetchDeepdive = async () => {
+    if (!token || deepdiveLoading) return;
+    setDeepdiveLoading(true);
+    try {
+      const res  = await fetch(`${API}/admin/reports/deepdive`, { headers: { Authorization: `Bearer ${token}` } });
+      const data = await res.json();
+      if (data.success) setDeepdive(data.data);
+    } catch {}
+    finally { setDeepdiveLoading(false); }
+  };
+
+  // Fetch deepdive saat tab dibuka
+  useEffect(() => {
+    if (activeTab === 'deepdive' && !deepdive && !deepdiveLoading) {
+      fetchDeepdive();
+    }
+  }, [activeTab]);
 
   // Auto-refresh setiap 60 detik
   useEffect(() => {
@@ -333,6 +355,26 @@ export default function AdminReportsPage() {
                       <div style={{ fontSize: 26, fontWeight: 800, color: s.color, letterSpacing: '-0.03em' }}>{s.value}</div>
                       <div style={{ fontSize: 11, color: t.textDim, fontWeight: 600, marginTop: 4 }}>{s.label}</div>
                     </div>
+                  ))}
+                </div>
+
+                {/* Category filter */}
+                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                  {[
+                    { value: '', label: 'Semua' },
+                    { value: 'keamanan',      label: '🛡️ Keamanan' },
+                    { value: 'infrastruktur', label: '🔧 Infrastruktur' },
+                    { value: 'lingkungan',    label: '🌳 Lingkungan' },
+                    { value: 'layanan publik',label: '🏛️ Layanan Publik' },
+                    { value: 'kesehatan',     label: '❤️ Kesehatan' },
+                    { value: 'pendidikan',    label: '🎓 Pendidikan' },
+                    { value: 'transportasi',  label: '🚢 Transportasi' },
+                    { value: 'lainnya',       label: '⋯ Lainnya' },
+                  ].map(c => (
+                    <button key={c.value} onClick={() => setCategory(c.value)}
+                      style={{ padding: '4px 12px', borderRadius: 20, border: `1px solid ${categoryFilter === c.value ? '#1B6B4A' : t.sidebarBorder}`, background: categoryFilter === c.value ? '#1B6B4A' : t.sidebar, color: categoryFilter === c.value ? '#fff' : t.textMuted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                      {c.label}
+                    </button>
                   ))}
                 </div>
 
@@ -562,10 +604,237 @@ export default function AdminReportsPage() {
 
           {/* ── DEEP DIVE TAB ── */}
           {activeTab === 'deepdive' && (
-            <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '40px 24px', textAlign: 'center' }}>
-              <div style={{ fontSize: 36, marginBottom: 8 }}>📊</div>
-              <p style={{ color: t.textPrimary, fontSize: 15, fontWeight: 700 }}>Deep Dive Analytics</p>
-              <p style={{ color: t.textDim, fontSize: 13, marginTop: 6 }}>Coming soon — Session 7</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Header */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div>
+                  <h2 style={{ fontSize: 16, fontWeight: 800, color: t.textPrimary }}>📊 Deep Dive Analytics</h2>
+                  <p style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>Data laporan 30 hari terakhir</p>
+                </div>
+                <button onClick={fetchDeepdive} disabled={deepdiveLoading}
+                  style={{ padding: '7px 16px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: t.sidebar, color: t.textMuted, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {deepdiveLoading ? '⏳ Memuat...' : '🔄 Refresh'}
+                </button>
+              </div>
+
+              {deepdiveLoading && (
+                <div style={{ textAlign: 'center', padding: '60px 0', color: t.textDim }}>
+                  <div style={{ width: 32, height: 32, borderRadius: '50%', border: '3px solid #1B6B4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
+                  Mengolah data...
+                </div>
+              )}
+
+              {!deepdiveLoading && !deepdive && (
+                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '60px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>📊</div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>Siap Menganalisis</p>
+                  <p style={{ fontSize: 12, color: t.textDim, marginTop: 6, marginBottom: 16 }}>Klik refresh untuk memuat data analitik</p>
+                  <button onClick={fetchDeepdive} style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    Muat Data
+                  </button>
+                </div>
+              )}
+
+              {!deepdiveLoading && deepdive && (() => {
+                const dd = deepdive;
+                // Helper: format pct
+                const fmtPct = (n: number | null) => n === null ? '' : n > 0 ? `+${n}%` : `${n}%`;
+                const pctColor = (n: number | null) => n === null ? t.textDim : n > 0 ? '#EF4444' : '#10B981';
+
+                // Bar chart max
+                const catMax  = Math.max(...(dd.categories?.map((c: any) => c.count) ?? [1]));
+                const hourMax = Math.max(...(dd.peak_hours?.map((h: any) => h.count) ?? [1]));
+
+                return (
+                  <>
+                    {/* Stats bar atas */}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12 }}>
+                      {[
+                        { label: 'Laporan 30 Hari', value: dd.stats.total_30days, sub: `${fmtPct(dd.stats.pct_change)} vs periode lalu`, subColor: pctColor(dd.stats.pct_change) },
+                        { label: 'Rata-rata per Hari', value: dd.stats.per_day, sub: 'Semua Status' },
+                        { label: 'Urgent', value: dd.stats.urgent, sub: `${dd.stats.high} High`, subColor: '#F59E0B' },
+                        { label: 'Normal', value: dd.stats.normal, sub: 'Prioritas rendah' },
+                      ].map((s, i) => (
+                        <div key={i} style={{ background: t.sidebar, borderRadius: 12, border: `1px solid ${t.sidebarBorder}`, padding: '14px 16px' }}>
+                          <div style={{ fontSize: 11, color: t.textDim, marginBottom: 4 }}>{s.label}</div>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.03em' }}>{s.value}</div>
+                          {s.sub && <div style={{ fontSize: 11, color: s.subColor || t.textDim, marginTop: 3, fontWeight: 600 }}>{s.sub}</div>}
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Row 2: Tren + Top Locations */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 300px', gap: 16 }}>
+
+                      {/* Tren 30 hari */}
+                      <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, marginBottom: 16 }}>Tren Laporan 30 Hari</div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 80 }}>
+                          {dd.trend?.map((d: any, i: number) => {
+                            const tMax = Math.max(...dd.trend.map((x: any) => x.count), 1);
+                            const h    = Math.max(4, Math.round((d.count / tMax) * 80));
+                            const isToday = i === dd.trend.length - 1;
+                            return (
+                              <div key={d.date} title={`${d.date}: ${d.count} laporan`}
+                                style={{ flex: 1, height: h, borderRadius: '2px 2px 0 0', background: isToday ? '#1B6B4A' : '#1B6B4A44', cursor: 'pointer', transition: 'background 0.15s' }}
+                                onMouseEnter={e => (e.currentTarget as HTMLElement).style.background = '#1B6B4A'}
+                                onMouseLeave={e => (e.currentTarget as HTMLElement).style.background = isToday ? '#1B6B4A' : '#1B6B4A44'}
+                              />
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, color: t.textDim, marginTop: 6 }}>
+                          <span>{dd.trend?.[0]?.date?.slice(5)}</span>
+                          <span>Hari ini</span>
+                        </div>
+                        {/* Top kategori labels */}
+                        <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                          {dd.categories?.slice(0, 3).map((c: any) => (
+                            <span key={c.name} style={{ fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, background: t.mainBg, color: t.textMuted, border: `1px solid ${t.sidebarBorder}` }}>
+                              {c.name} {c.count}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Top Locations */}
+                      <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, marginBottom: 14 }}>Top Locations</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {dd.top_locations?.slice(0, 5).map((loc: any, i: number) => (
+                            <div key={loc.location} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                              <div style={{ width: 20, height: 20, borderRadius: '50%', background: i < 2 ? '#EF4444' : i < 4 ? '#F59E0B' : '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 9, fontWeight: 800, color: '#fff', flexShrink: 0 }}>{i + 1}</div>
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{loc.location}</p>
+                              </div>
+                              <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 800, color: t.textPrimary }}>{loc.count}</div>
+                                {loc.pct_change !== null && (
+                                  <div style={{ fontSize: 10, fontWeight: 600, color: pctColor(loc.pct_change) }}>{fmtPct(loc.pct_change)}</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Row 3: Kategori + User Segments + Peak Hour */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 220px 220px', gap: 16 }}>
+
+                      {/* Kategori bar chart */}
+                      <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, marginBottom: 14 }}>Kategori Laporan</div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                          {dd.categories?.slice(0, 6).map((c: any, i: number) => {
+                            const barW = Math.max(4, Math.round((c.count / catMax) * 100));
+                            const colors = ['#1B6B4A', '#0891B2', '#F59E0B', '#EF4444', '#8B5CF6', '#10B981'];
+                            return (
+                              <div key={c.name}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                                  <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, textTransform: 'capitalize' }}>{c.name}</span>
+                                  <div style={{ textAlign: 'right' }}>
+                                    <span style={{ fontSize: 12, fontWeight: 800, color: t.textPrimary }}>{c.count}</span>
+                                    {c.pct_change !== null && (
+                                      <span style={{ fontSize: 10, fontWeight: 600, color: pctColor(c.pct_change), marginLeft: 6 }}>{fmtPct(c.pct_change)}</span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div style={{ height: 6, borderRadius: 3, background: t.mainBg }}>
+                                  <div style={{ height: 6, borderRadius: 3, background: colors[i % colors.length], width: `${barW}%`, transition: 'width 0.5s ease' }} />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* User Segments donut */}
+                      <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, marginBottom: 14 }}>User Segments</div>
+                        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+                          <div style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary }}>{dd.user_segments?.total}</div>
+                          <div style={{ fontSize: 10, color: t.textDim }}>Total Laporan</div>
+                        </div>
+                        {[
+                          { label: 'Baru (7 hari)', value: dd.user_segments?.newly_registered, color: '#1B6B4A' },
+                          { label: 'Pelapor Aktif',  value: dd.user_segments?.trusted_user,     color: '#0891B2' },
+                          { label: 'Tanpa Akun',     value: dd.user_segments?.other,            color: '#9CA3AF' },
+                        ].map(s => (
+                          <div key={s.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                              <div style={{ width: 8, height: 8, borderRadius: '50%', background: s.color }} />
+                              <span style={{ fontSize: 11, color: t.textDim }}>{s.label}</span>
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>{s.value}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Peak Hour */}
+                      <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, marginBottom: 6 }}>Peak Hour</div>
+                        <div style={{ fontSize: 20, fontWeight: 800, color: '#1B6B4A', marginBottom: 12 }}>
+                          {String(dd.peak_hour).padStart(2, '0')}:00 – {String((dd.peak_hour + 4) % 24).padStart(2, '0')}:00
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 1, height: 60 }}>
+                          {dd.peak_hours?.map((h: any) => {
+                            const barH = Math.max(2, Math.round((h.count / hourMax) * 60));
+                            const isPeak = h.hour >= dd.peak_hour && h.hour <= dd.peak_hour + 4;
+                            return (
+                              <div key={h.hour} title={`${String(h.hour).padStart(2,'0')}:00 — ${h.count} laporan`}
+                                style={{ flex: 1, height: barH, borderRadius: '2px 2px 0 0', background: isPeak ? '#1B6B4A' : '#1B6B4A33' }} />
+                            );
+                          })}
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: t.textDim, marginTop: 4 }}>
+                          <span>00</span><span>06</span><span>12</span><span>18</span><span>23</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Alert Clusters */}
+                    {dd.alert_clusters?.length > 0 && (
+                      <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                          <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>🚨 Alert Clusters</span>
+                          <span style={{ fontSize: 11, color: t.textDim }}>Lonjakan {'>'} 50% vs periode lalu</span>
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {dd.alert_clusters.map((a: any) => (
+                            <div key={a.location} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', background: a.priority === 'urgent' ? 'rgba(239,68,68,0.06)' : 'rgba(245,158,11,0.06)', borderRadius: 10, border: `1px solid ${a.priority === 'urgent' ? 'rgba(239,68,68,0.2)' : 'rgba(245,158,11,0.2)'}` }}>
+                              <span style={{ fontSize: 16 }}>{a.priority === 'urgent' ? '🔴' : '🟠'}</span>
+                              <div style={{ flex: 1 }}>
+                                <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary }}>{a.location}</p>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: 13, fontWeight: 800, color: a.priority === 'urgent' ? '#EF4444' : '#F59E0B' }}>{a.count} laporan</div>
+                                <div style={{ fontSize: 11, color: pctColor(a.pct_change), fontWeight: 600 }}>+{a.pct_change}%</div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
+            </div>
+          )}
+              )}
+
+              {!analysisLoading && !analysis && (
+                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '60px 24px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 40, marginBottom: 12 }}>🧠</div>
+                  <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>Siap Menganalisis</p>
+                  <p style={{ fontSize: 12, color: t.textDim, marginTop: 6, marginBottom: 16 }}>Klik tombol di atas untuk mulai analisis AI</p>
+                  <button onClick={fetchAnalysis}
+                    style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                    🔍 Mulai Analisis
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
