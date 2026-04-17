@@ -6,6 +6,21 @@ import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
+// ── SVG Icons ─────────────────────────────────────────────────────
+const Icons = {
+  Users:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>,
+  UserCheck:() => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><polyline points="17 11 19 13 23 9"/></svg>,
+  UserX:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="8.5" cy="7" r="4"/><line x1="18" y1="8" x2="23" y2="13"/><line x1="23" y1="8" x2="18" y2="13"/></svg>,
+  Clock:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  Phone:    () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.62 3.38 2 2 0 0 1 3.6 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.54a16 16 0 0 0 5.55 5.55l.95-.95a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 21 16.92z"/></svg>,
+  Ban:      () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>,
+  Check:    () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+  Trash:    () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+  Edit:     () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  Plus:     () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>,
+  DotsH:    () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>,
+};
+
 interface User {
   id: string;
   phone: string;
@@ -182,9 +197,12 @@ export default function AdminUsersPage() {
 
   // Close dropdown menu on outside click
   useEffect(() => {
-    const handler = () => setOpenMenuId(null);
-    document.addEventListener('click', handler);
-    return () => document.removeEventListener('click', handler);
+    const handler = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-menu]')) setOpenMenuId(null);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
   }, []);
 
   // Actions
@@ -326,7 +344,7 @@ export default function AdminUsersPage() {
 
             {modal.type === 'editPhone' && (
               <>
-                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, marginBottom: 12 }}>📱 Ganti Nomor WA</h3>
+                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, marginBottom: 12 }}><span style={{display:"flex",alignItems:"center",gap:8}}><Icons.Phone /> Ganti Nomor WA</span></h3>
                 <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#EF4444' }}>
                   ⚠️ JWT lama tetap valid sampai expired (30 hari).
                 </div>
@@ -398,7 +416,7 @@ export default function AdminUsersPage() {
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>
-              👥 Management User
+              <span style={{display:"flex",alignItems:"center",gap:8}}><Icons.Users /> Management User</span>
             </h1>
             <span style={{ fontSize: 12, fontWeight: 700, color: '#1B6B4A', background: 'rgba(27,107,74,0.1)', padding: '3px 10px', borderRadius: 20 }}>
               Super Admin
@@ -410,7 +428,7 @@ export default function AdminUsersPage() {
         </div>
         <button disabled title="Coming soon"
           style={{ padding: '8px 18px', borderRadius: 10, background: '#1B6B4A', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 6 }}>
-          + Undang User
+          <span style={{display:"flex",alignItems:"center",gap:6}}><Icons.Plus /> Undang User</span>
         </button>
       </div>
 
@@ -431,10 +449,10 @@ export default function AdminUsersPage() {
       {!loading && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
-            { icon: '👥', label: 'Total Users',    value: total,        sub: `${activeCount} aktif`,         color: '#1B6B4A' },
-            { icon: '✅', label: 'Aktif',          value: activeCount,  sub: 'Bisa login',                   color: '#10B981' },
-            { icon: '🚫', label: 'Nonaktif',       value: inactiveCount,sub: 'Akses diblokir',              color: '#EF4444' },
-            { icon: '👻', label: 'Belum Login',    value: neverLogin,   sub: 'Belum pernah masuk',           color: '#F59E0B' },
+            { icon: <Icons.Users />, label: 'Total Users',    value: total,        sub: `${activeCount} aktif`,         color: '#1B6B4A' },
+            { icon: <Icons.UserCheck />, label: 'Aktif',          value: activeCount,  sub: 'Bisa login',                   color: '#10B981' },
+            { icon: <Icons.UserX />, label: 'Nonaktif',       value: inactiveCount,sub: 'Akses diblokir',              color: '#EF4444' },
+            { icon: <Icons.Clock />, label: 'Belum Login',    value: neverLogin,   sub: 'Belum pernah masuk',           color: '#F59E0B' },
           ].map(s => (
             <div key={s.label} style={{ background: t.sidebar, borderRadius: 12, border: `1px solid ${t.sidebarBorder}`, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
               <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
@@ -607,19 +625,18 @@ export default function AdminUsersPage() {
 
                       {/* ··· dropdown menu */}
                       <div style={{ position: 'relative' }}>
-                        <button
+                        <button data-menu="trigger"
                           onClick={e => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : u.id); }}
-                          style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textMuted, fontSize: 13, cursor: 'pointer', fontWeight: 800, lineHeight: 1 }}>
-                          •••
+                          style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: isMenuOpen ? t.navActive : t.mainBg, color: t.textMuted, fontSize: 13, cursor: 'pointer', fontWeight: 800, lineHeight: 1 }}>
+                          <Icons.DotsH />
                         </button>
 
                         {isMenuOpen && (
-                          <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: t.sidebar, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 99, minWidth: 160, overflow: 'hidden', animation: 'fadeIn 0.15s ease' }}
-                            onClick={e => e.stopPropagation()}>
+                          <div data-menu="dropdown" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: t.sidebar, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 99, minWidth: 160, overflow: 'hidden', animation: 'fadeIn 0.15s ease' }}>
 
                             <button className="menu-item" onClick={() => { setEditPhoneInput(u.phone); setModal({ type: 'editPhone', userId: u.id, userName: u.name || formatPhone(u.phone), currentPhone: u.phone }); setOpenMenuId(null); }}
                               style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textPrimary, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              📱 Ganti Nomor WA
+                              <span style={{display:"flex",alignItems:"center",gap:8}}><Icons.Phone /> Ganti Nomor WA</span>
                             </button>
 
                             <div style={{ height: 1, background: t.sidebarBorder }} />
@@ -627,12 +644,12 @@ export default function AdminUsersPage() {
                             {isActive ? (
                               <button className="menu-item" onClick={() => { setModal({ type: 'deactivate', userId: u.id, userName: u.name || formatPhone(u.phone) }); setOpenMenuId(null); }}
                                 style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#F59E0B', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                🚫 Nonaktifkan
+                                <span style={{display:"flex",alignItems:"center",gap:8}}><Icons.Ban /> Nonaktifkan</span>
                               </button>
                             ) : (
                               <button className="menu-item" onClick={() => { setModal({ type: 'activate', userId: u.id, userName: u.name || formatPhone(u.phone) }); setOpenMenuId(null); }}
                                 style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#10B981', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
-                                ✅ Aktifkan
+                                <span style={{display:"flex",alignItems:"center",gap:8}}><Icons.Check /> Aktifkan</span>
                               </button>
                             )}
 
@@ -640,7 +657,7 @@ export default function AdminUsersPage() {
 
                             <button className="menu-item" onClick={() => { setModal({ type: 'delete', userId: u.id, userName: u.name || formatPhone(u.phone) }); setOpenMenuId(null); }}
                               style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#EF4444', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
-                              🗑️ Hapus Permanen
+                              <span style={{display:"flex",alignItems:"center",gap:8}}><Icons.Trash /> Hapus Permanen</span>
                             </button>
                           </div>
                         )}
