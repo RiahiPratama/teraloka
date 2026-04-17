@@ -130,6 +130,7 @@ export default function NewArticlePage() {
   const [sourceUrl, setSourceUrl]           = useState('');
   const [sourcePlatform, setSourcePlatform] = useState('');
   const [isBreaking, setIsBreaking]         = useState(false);
+  const [isTrending, setIsTrending]         = useState(false);
 
   const [publishNow, setPublishNow]         = useState(false);
   const [loading, setLoading]               = useState(false);
@@ -172,7 +173,7 @@ export default function NewArticlePage() {
     saveTimer.current = setTimeout(() => {
       try {
         localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
-          title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking,
+          title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending,
           savedAt: new Date().toISOString(),
         }));
         setLastSaved(new Date());
@@ -180,7 +181,7 @@ export default function NewArticlePage() {
     }, AUTO_SAVE_DELAY);
 
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, draftLoaded]);
+  }, [title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending, draftLoaded]);
 
   useEffect(() => {
     if (!lastSaved) return;
@@ -188,11 +189,11 @@ export default function NewArticlePage() {
     return () => clearInterval(tm);
   }, [lastSaved]);
 
-  // Auto-reset source fields saat pindah dari kategori Viral
-  // source_url + source_platform HANYA relevan untuk kategori Viral
+  // Auto-reset source fields saat kategori BUKAN viral
+  // Termasuk kalau kategori di-un-pick (empty) atau pindah kategori lain
   // (tapi tidak blocking submit — respect speed-to-publish)
   useEffect(() => {
-    if (category && category !== 'viral') {
+    if (category !== 'viral') {
       if (sourceUrl)      setSourceUrl('');
       if (sourcePlatform) setSourcePlatform('');
     }
@@ -208,6 +209,7 @@ export default function NewArticlePage() {
     setSourceUrl(restorePrompt.sourceUrl || '');
     setSourcePlatform(restorePrompt.sourcePlatform || '');
     setIsBreaking(!!restorePrompt.isBreaking);
+    setIsTrending(!!restorePrompt.isTrending);
     setRestorePrompt(null);
   };
 
@@ -365,6 +367,7 @@ export default function NewArticlePage() {
           source_url: sourceUrl || null,
           source_platform: sourcePlatform || null,
           is_breaking: isBreaking,
+          is_viral: isTrending,
         }),
       });
       const data = await res.json();
@@ -458,7 +461,8 @@ export default function NewArticlePage() {
                 onClick={() => {
                   setSubmitted(false); setNewArticleId(null);
                   setTitle(''); setBody(''); setCategory(''); setCoverImageUrl('');
-                  setSourceUrl(''); setSourcePlatform(''); setIsBreaking(false);
+                  setSourceUrl(''); setSourcePlatform('');
+                  setIsBreaking(false); setIsTrending(false);
                   setPublishNow(false); setLastSaved(null);
                 }}
                 style={{
@@ -654,16 +658,19 @@ export default function NewArticlePage() {
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* Kategori */}
+            {/* Kategori — Opsi A: klik ulang untuk un-pilih (kategori opsional) */}
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
-                Kategori
+                Kategori {category && <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>{CATEGORIES.find(c => c.key === category)?.label}</span></span>}
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {CATEGORIES.map(cat => {
                   const active = category === cat.key;
                   return (
-                    <button key={cat.key} onClick={() => setCategory(cat.key)}
+                    <button
+                      key={cat.key}
+                      onClick={() => setCategory(active ? '' : cat.key)}
+                      title={active ? 'Klik lagi untuk un-pilih' : `Pilih kategori ${cat.label}`}
                       style={{
                         padding: '6px 12px', borderRadius: 8, border: 'none',
                         cursor: 'pointer', fontSize: 12, fontWeight: 600,
@@ -677,14 +684,35 @@ export default function NewArticlePage() {
                   );
                 })}
               </div>
+              <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
+                💡 Kategori opsional — klik ulang kategori yang sama untuk un-pilih. Artikel tanpa kategori tetap muncul di feed "Terbaru".
+              </p>
             </div>
 
-            {/* Breaking */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
-              <input type="checkbox" checked={isBreaking} onChange={(e) => setIsBreaking(e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: '#EF4444' }} />
-              🔴 Tandai sebagai Breaking News
-            </label>
+            {/* Breaking & Trending — flags editorial, independent dari kategori */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 10,
+              padding: 12, borderRadius: 10,
+              background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`,
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+                <input type="checkbox" checked={isBreaking} onChange={(e) => setIsBreaking(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#EF4444' }} />
+                <span>🔴 Tandai sebagai <span style={{ color: '#EF4444', fontWeight: 700 }}>Breaking News</span></span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+                <input type="checkbox" checked={isTrending} onChange={(e) => setIsTrending(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#F97316', marginTop: 2 }} />
+                <span style={{ flex: 1 }}>
+                  🔥 Promote sebagai <span style={{ color: '#F97316', fontWeight: 700 }}>Trending</span>
+                  <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
+                    Otomatis di-set kalau artikel banyak dibaca. Centang manual untuk promote artikel strategis
+                    (breaking news penting, artikel investigasi, konten prioritas).
+                  </span>
+                </span>
+              </label>
+            </div>
 
             {/* Viral source — soft hint, TIDAK memblokir submit (speed-to-publish) */}
             {isViral && (
@@ -895,6 +923,12 @@ export default function NewArticlePage() {
                     padding: '3px 10px', borderRadius: 20, background: '#EF4444',
                     color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                   }}>🔴 Breaking</span>
+                )}
+                {isTrending && (
+                  <span style={{
+                    padding: '3px 10px', borderRadius: 20, background: '#F97316',
+                    color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
+                  }}>🔥 Trending</span>
                 )}
                 <span style={{ fontSize: 11, color: t.textDim }}>
                   oleh {user.name || 'Admin'} · {wordCount} kata · ~{readTime} mnt
