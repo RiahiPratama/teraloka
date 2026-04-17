@@ -44,10 +44,20 @@ function AuthorAvatar({ name }: { name: string }) {
 }
 
 export default function BakabarCommandPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { t }     = useContext(AdminThemeContext);
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading]   = useState(true);
+
+  // Hard delete state
+  const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
+  const [confirmSlug, setConfirmSlug]   = useState('');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deleting, setDeleting]         = useState(false);
+  const [deleteError, setDeleteError]   = useState('');
+  const [deleteResult, setDeleteResult] = useState<{ files_removed: number; article_title: string } | null>(null);
+
+  const isSuperAdmin = user?.role === 'super_admin';
 
   useEffect(() => {
     if (!token) return;
@@ -57,6 +67,60 @@ export default function BakabarCommandPage() {
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [token]);
+
+  const handleHardDelete = async () => {
+    if (!deleteTarget || !token) return;
+    if (confirmSlug.trim() !== deleteTarget.slug) {
+      setDeleteError('Slug yang kamu ketik tidak cocok. Cek lagi.');
+      return;
+    }
+
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      const res = await fetch(`${API}/admin/articles/${deleteTarget.id}/permanent`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason: deleteReason.trim() || undefined }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        throw new Error(data.error?.message || 'Gagal hapus permanen');
+      }
+      // Success — update UI
+      setDeleteResult({
+        files_removed: data.data?.files_removed ?? 0,
+        article_title: data.data?.article_title ?? deleteTarget.title,
+      });
+      setArticles(prev => prev.filter(a => a.id !== deleteTarget.id));
+      setTimeout(() => {
+        closeDeleteModal();
+      }, 3000);
+    } catch (err: any) {
+      setDeleteError(err.message || 'Terjadi kesalahan');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const openDeleteModal = (article: Article) => {
+    setDeleteTarget(article);
+    setConfirmSlug('');
+    setDeleteReason('');
+    setDeleteError('');
+    setDeleteResult(null);
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteTarget(null);
+    setConfirmSlug('');
+    setDeleteReason('');
+    setDeleteError('');
+    setDeleteResult(null);
+  };
 
   const published   = articles.filter(a => a.status === 'published');
   const drafts      = articles.filter(a => a.status === 'draft');
@@ -87,7 +151,7 @@ export default function BakabarCommandPage() {
           </h1>
           <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>Overview performa konten hari ini</p>
         </div>
-        <Link href="/admin/bakabar/hub" style={{ padding: '8px 16px', borderRadius: 10, background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+        <Link href="/office/newsroom/bakabar/hub" style={{ padding: '8px 16px', borderRadius: 10, background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
           Editorial Hub →
         </Link>
       </div>
@@ -127,7 +191,7 @@ export default function BakabarCommandPage() {
             <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>🔥 Trending Hari Ini</span>
-                <Link href="/admin/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>See All →</Link>
+                <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>See All →</Link>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 {trending.slice(0, 2).map(a => (
@@ -150,7 +214,7 @@ export default function BakabarCommandPage() {
             <div style={{ background: staleDrafts.length > 0 ? 'rgba(245,158,11,0.03)' : t.sidebar, borderRadius: 14, border: `1px solid ${staleDrafts.length > 0 ? '#FDE68A' : t.sidebarBorder}`, padding: '18px 20px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                 <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>⚠️ Perlu Perhatian</span>
-                <Link href="/admin/bakabar/hub" style={{ fontSize: 11, color: '#F59E0B', textDecoration: 'none', fontWeight: 600 }}>Review →</Link>
+                <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 11, color: '#F59E0B', textDecoration: 'none', fontWeight: 600 }}>Review →</Link>
               </div>
               {staleDrafts.length === 0 ? (
                 <p style={{ fontSize: 12, color: t.textDim }}>✓ Semua artikel sudah diproses dengan baik.</p>
@@ -175,7 +239,7 @@ export default function BakabarCommandPage() {
           <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: 20 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
               <span style={{ fontSize: 15, fontWeight: 800, color: t.textPrimary }}>Editorial Dashboard</span>
-              <Link href="/admin/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>Buka Hub →</Link>
+              <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>Buka Hub →</Link>
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
@@ -224,7 +288,179 @@ export default function BakabarCommandPage() {
               </div>
             </div>
           </div>
+
+          {/* DANGER ZONE — Super Admin only */}
+          {isSuperAdmin && articles.length > 0 && (
+            <div style={{ background: t.sidebar, borderRadius: 14, border: '1px solid #FEE2E2', padding: 20, marginTop: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                <span style={{ fontSize: 18 }}>⚠️</span>
+                <div>
+                  <h3 style={{ fontSize: 14, fontWeight: 800, color: '#DC2626' }}>Danger Zone — Hapus Permanen</h3>
+                  <p style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
+                    Menghapus artikel secara permanen + semua foto terkait. Tidak bisa di-restore.
+                  </p>
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 90px', fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 8px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
+                <span>Artikel</span>
+                <span>Status</span>
+                <span style={{ textAlign: 'right' }}>Aksi</span>
+              </div>
+              {articles.slice(0, 20).map(a => (
+                <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 90px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                  <div style={{ minWidth: 0, paddingRight: 8 }}>
+                    <p style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{a.title}</p>
+                    <p style={{ fontSize: 10, color: t.textDim, fontFamily: 'monospace' }}>{a.slug}</p>
+                  </div>
+                  <span style={{
+                    fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, width: 'fit-content',
+                    background: a.status === 'published' ? 'rgba(16,185,129,0.12)' : a.status === 'draft' ? 'rgba(245,158,11,0.12)' : 'rgba(107,114,128,0.12)',
+                    color:      a.status === 'published' ? '#059669'             : a.status === 'draft' ? '#D97706'             : '#6B7280',
+                  }}>
+                    {a.status}
+                  </span>
+                  <button
+                    onClick={() => openDeleteModal(a)}
+                    style={{
+                      padding: '5px 10px', borderRadius: 8, background: '#DC2626', color: '#fff',
+                      fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
+                      marginLeft: 'auto', display: 'block',
+                    }}
+                  >
+                    🗑️ Hapus
+                  </button>
+                </div>
+              ))}
+              {articles.length > 20 && (
+                <p style={{ fontSize: 11, color: t.textDim, textAlign: 'center', padding: '10px 0' }}>
+                  Menampilkan 20 artikel terbaru. Untuk hapus yang lebih lama, filter via Editor Hub dulu.
+                </p>
+              )}
+            </div>
+          )}
         </>
+      )}
+
+      {/* MODAL: Hapus Permanen */}
+      {deleteTarget && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          zIndex: 9999, padding: 20,
+        }}>
+          <div style={{
+            background: '#fff', borderRadius: 14, padding: 24, maxWidth: 480, width: '100%',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
+          }}>
+            {deleteResult ? (
+              /* SUCCESS STATE */
+              <>
+                <div style={{ textAlign: 'center', marginBottom: 16 }}>
+                  <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#059669', marginBottom: 6 }}>Artikel Terhapus</h3>
+                  <p style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
+                    "{deleteResult.article_title}"
+                  </p>
+                  <p style={{ fontSize: 12, color: '#6B7280' }}>
+                    {deleteResult.files_removed > 0
+                      ? `${deleteResult.files_removed} foto ikut terhapus dari Storage.`
+                      : 'Tidak ada foto terkait.'}
+                  </p>
+                </div>
+                <p style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' }}>Modal tutup otomatis 3 detik...</p>
+              </>
+            ) : (
+              /* CONFIRM STATE */
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <span style={{ fontSize: 24 }}>⚠️</span>
+                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#DC2626' }}>Hapus Permanen</h3>
+                </div>
+
+                <div style={{ background: '#FEF2F2', borderRadius: 10, padding: 12, marginBottom: 16, border: '1px solid #FECACA' }}>
+                  <p style={{ fontSize: 12, color: '#991B1B', lineHeight: 1.5, marginBottom: 6 }}>
+                    Kamu akan menghapus artikel ini <strong>secara permanen</strong>:
+                  </p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#7F1D1D', marginBottom: 4 }}>
+                    {deleteTarget.title}
+                  </p>
+                  <p style={{ fontSize: 11, color: '#991B1B', fontFamily: 'monospace' }}>
+                    {deleteTarget.slug}
+                  </p>
+                </div>
+
+                <p style={{ fontSize: 12, color: '#4B5563', marginBottom: 14, lineHeight: 1.5 }}>
+                  Yang akan dihapus: artikel, semua versi history, foto cover, dan foto dalam body. <strong>Tidak bisa di-restore.</strong>
+                  <br/>
+                  Audit log akan tetap tercatat sebagai jejak.
+                </p>
+
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
+                  Alasan hapus <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(opsional)</span>
+                </label>
+                <textarea
+                  value={deleteReason}
+                  onChange={e => setDeleteReason(e.target.value)}
+                  placeholder="Contoh: Artikel duplikat, test data, konten ilegal..."
+                  rows={2}
+                  style={{
+                    width: '100%', padding: '8px 10px', borderRadius: 8,
+                    border: '1px solid #E5E7EB', fontSize: 12, fontFamily: 'inherit',
+                    marginBottom: 14, resize: 'vertical', boxSizing: 'border-box',
+                  }}
+                />
+
+                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
+                  Untuk konfirmasi, ketik slug artikel: <code style={{ background: '#F3F4F6', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>{deleteTarget.slug}</code>
+                </label>
+                <input
+                  value={confirmSlug}
+                  onChange={e => { setConfirmSlug(e.target.value); setDeleteError(''); }}
+                  placeholder="Ketik slug di atas..."
+                  style={{
+                    width: '100%', padding: '10px 12px', borderRadius: 8,
+                    border: `2px solid ${deleteError ? '#DC2626' : '#E5E7EB'}`,
+                    fontSize: 13, fontFamily: 'monospace', marginBottom: 8,
+                    boxSizing: 'border-box', outline: 'none',
+                  }}
+                />
+
+                {deleteError && (
+                  <p style={{ fontSize: 11, color: '#DC2626', marginBottom: 12 }}>
+                    ⚠️ {deleteError}
+                  </p>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+                  <button
+                    onClick={closeDeleteModal}
+                    disabled={deleting}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8,
+                      background: '#F3F4F6', color: '#374151',
+                      border: 'none', fontSize: 13, fontWeight: 600,
+                      cursor: deleting ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Batal
+                  </button>
+                  <button
+                    onClick={handleHardDelete}
+                    disabled={deleting || confirmSlug.trim() !== deleteTarget.slug}
+                    style={{
+                      flex: 1, padding: '10px', borderRadius: 8,
+                      background: (deleting || confirmSlug.trim() !== deleteTarget.slug) ? '#FCA5A5' : '#DC2626',
+                      color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
+                      cursor: (deleting || confirmSlug.trim() !== deleteTarget.slug) ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {deleting ? 'Menghapus...' : '🗑️ Hapus Permanen'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );
