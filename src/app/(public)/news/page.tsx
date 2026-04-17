@@ -91,7 +91,7 @@ function AdBanner() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetchActiveAd('homepage_banner').then(a => { setAd(a); setLoaded(true); });
+    fetchActiveAd('banner').then(a => { setAd(a); setLoaded(true); });
   }, []);
 
   // Selama fetch atau kalau tidak ada iklan aktif, tampilkan placeholder
@@ -137,7 +137,7 @@ function AdNative() {
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
-    fetchActiveAd('native_feed').then(a => { setAd(a); setLoaded(true); });
+    fetchActiveAd('native').then(a => { setAd(a); setLoaded(true); });
   }, []);
 
   if (!loaded || !ad) {
@@ -177,16 +177,46 @@ function AdNative() {
 }
 
 function AdSidebar({ height = 260, label = '300 × 250' }: { height?: number; label?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-3 rounded-xl"
-      style={{ height, background: 'linear-gradient(to bottom, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: '#D1FAE5' }}>📢</div>
-      <div className="text-center px-4">
-        <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra</p>
-        <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+  const [ad, setAd] = useState<Ad | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchActiveAd('sidebar').then(a => { setAd(a); setLoaded(true); });
+  }, []);
+
+  if (!loaded || !ad) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 rounded-xl"
+        style={{ height, background: 'linear-gradient(to bottom, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl" style={{ background: '#D1FAE5' }}>📢</div>
+        <div className="text-center px-4">
+          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra</p>
+          <p className="text-xs text-gray-400 mt-0.5">{label}</p>
+        </div>
+        <a href="mailto:ads@teraloka.com" className="text-xs font-bold text-white px-4 py-1.5 rounded-full" style={{ background: '#003526' }}>Pasang Iklan →</a>
       </div>
-      <a href="mailto:ads@teraloka.com" className="text-xs font-bold text-white px-4 py-1.5 rounded-full" style={{ background: '#003526' }}>Pasang Iklan →</a>
-    </div>
+    );
+  }
+
+  return (
+    <a href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
+      onClick={() => trackAdClick(ad.id)}
+      className="block rounded-xl overflow-hidden relative hover:opacity-95 transition-opacity"
+      style={{ height }}>
+      {ad.image_url ? (
+        <img src={ad.image_url} alt={ad.title}
+          className="w-full h-full object-cover" />
+      ) : (
+        <div className="w-full h-full flex flex-col items-center justify-center p-4"
+          style={{ background: 'linear-gradient(to bottom, #1B6B4A, #0891B2)' }}>
+          <p className="text-white font-bold text-sm text-center">{ad.title}</p>
+          {ad.body && <p className="text-white/80 text-xs mt-1 text-center">{ad.body}</p>}
+        </div>
+      )}
+      <span className="absolute top-1.5 right-1.5 text-[9px] font-bold text-white bg-black/40 px-1.5 py-0.5 rounded uppercase tracking-wider">
+        Iklan
+      </span>
+    </a>
   );
 }
 
