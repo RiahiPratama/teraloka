@@ -33,6 +33,22 @@ const PLATFORMS = [
   { key: 'lainnya',   label: 'Lainnya' },
 ];
 
+// Hardcoded UUID dari public.locations di Supabase.
+// Kalau ada daerah baru ditambah di DB, update list ini.
+const LOCATIONS = [
+  { id: 'fa178abc-8b40-4f41-adaf-a08b38bfef2b', name: 'Ternate',            slug: 'ternate', type: 'kota',       icon: '🏙️' },
+  { id: 'ddbdef89-87cd-4f47-a75e-01750a9d50b1', name: 'Tidore Kepulauan',   slug: 'tidore',  type: 'kota',       icon: '🏙️' },
+  { id: '6bed370a-b2c5-43e4-87cd-aba43758871b', name: 'Sofifi',             slug: 'sofifi',  type: 'kota',       icon: '🏙️' },
+  { id: '7f324271-3d2b-4326-b740-adc0bad12383', name: 'Halmahera Utara',    slug: 'halut',   type: 'kabupaten',  icon: '🏝️' },
+  { id: 'd53b8ebe-30b7-4f4c-82e4-0cad8166aa67', name: 'Halmahera Barat',    slug: 'halbar',  type: 'kabupaten',  icon: '🏝️' },
+  { id: '2e095627-da6b-4f87-a094-f19495d20191', name: 'Halmahera Selatan',  slug: 'halsel',  type: 'kabupaten',  icon: '🏝️' },
+  { id: '32dcd330-28d8-453b-808f-144d0f8758f3', name: 'Halmahera Tengah',   slug: 'halteng', type: 'kabupaten',  icon: '🏝️' },
+  { id: '21fd28c8-4552-4b55-8898-acb027512ae4', name: 'Halmahera Timur',    slug: 'haltim',  type: 'kabupaten',  icon: '🏝️' },
+  { id: '65c75f23-a998-424b-a479-e6278b62230b', name: 'Kepulauan Sula',     slug: 'sula',    type: 'kabupaten',  icon: '🏝️' },
+  { id: '45096dd8-0ca1-4f56-9a91-9670ddcf9065', name: 'Pulau Taliabu',      slug: 'taliabu', type: 'kabupaten',  icon: '🏝️' },
+  { id: 'c5d91903-429c-4e15-899a-181514e1057f', name: 'Kepulauan Morotai',  slug: 'morotai', type: 'kabupaten',  icon: '🏝️' },
+];
+
 // ──────────────────────────────────────────────────────────────
 // Markdown — mini parser
 // ──────────────────────────────────────────────────────────────
@@ -131,6 +147,7 @@ export default function NewArticlePage() {
   const [sourcePlatform, setSourcePlatform] = useState('');
   const [isBreaking, setIsBreaking]         = useState(false);
   const [isTrending, setIsTrending]         = useState(false);
+  const [locationId, setLocationId]         = useState('');
 
   const [publishNow, setPublishNow]         = useState(false);
   const [loading, setLoading]               = useState(false);
@@ -173,7 +190,7 @@ export default function NewArticlePage() {
     saveTimer.current = setTimeout(() => {
       try {
         localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
-          title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending,
+          title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId,
           savedAt: new Date().toISOString(),
         }));
         setLastSaved(new Date());
@@ -181,7 +198,7 @@ export default function NewArticlePage() {
     }, AUTO_SAVE_DELAY);
 
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending, draftLoaded]);
+  }, [title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId, draftLoaded]);
 
   useEffect(() => {
     if (!lastSaved) return;
@@ -210,6 +227,7 @@ export default function NewArticlePage() {
     setSourcePlatform(restorePrompt.sourcePlatform || '');
     setIsBreaking(!!restorePrompt.isBreaking);
     setIsTrending(!!restorePrompt.isTrending);
+    setLocationId(restorePrompt.locationId || '');
     setRestorePrompt(null);
   };
 
@@ -225,14 +243,14 @@ export default function NewArticlePage() {
       if (e.key === 'Escape' && focusMode) setFocusMode(false);
       if (meta && e.key === 's') {
         e.preventDefault();
-        if (title.trim() && body.trim() && category && !loading) {
+        if (title.trim() && body.trim() && !loading) {
           setPublishNow(false);
           handleSubmit(false);
         }
       }
       if (meta && e.key === 'Enter') {
         e.preventDefault();
-        if (title.trim() && body.trim() && category && !loading) {
+        if (title.trim() && body.trim() && !loading) {
           setPublishNow(true);
           handleSubmit(true);
         }
@@ -348,8 +366,8 @@ export default function NewArticlePage() {
 
   // Submit
   const handleSubmit = async (doPublish = publishNow) => {
-    if (!title.trim() || !body.trim() || !category) {
-      setError('Lengkapi judul, isi artikel, dan kategori.');
+    if (!title.trim() || !body.trim()) {
+      setError('Judul dan isi artikel wajib diisi.');
       return;
     }
     setLoading(true);
@@ -362,12 +380,13 @@ export default function NewArticlePage() {
         body: JSON.stringify({
           title,
           body,
-          category,
+          category: category || null,
           cover_image_url: coverImageUrl || null,
           source_url: sourceUrl || null,
           source_platform: sourcePlatform || null,
           is_breaking: isBreaking,
           is_viral: isTrending,
+          location_id: locationId || null,
         }),
       });
       const data = await res.json();
@@ -463,6 +482,7 @@ export default function NewArticlePage() {
                   setTitle(''); setBody(''); setCategory(''); setCoverImageUrl('');
                   setSourceUrl(''); setSourcePlatform('');
                   setIsBreaking(false); setIsTrending(false);
+                  setLocationId('');
                   setPublishNow(false); setLastSaved(null);
                 }}
                 style={{
@@ -483,7 +503,7 @@ export default function NewArticlePage() {
   const readTime   = Math.max(1, Math.ceil(wordCount / 200));
   const charCount  = body.length;
   const isViral    = category === 'viral';
-  const canSubmit  = title.trim() && body.trim() && category && !loading;
+  const canSubmit  = title.trim() && body.trim() && !loading;
   const categoryMeta = CATEGORIES.find(c => c.key === category);
 
   // Preview styles — adaptive ke theme
@@ -686,6 +706,43 @@ export default function NewArticlePage() {
               </div>
               <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
                 💡 Kategori opsional — klik ulang kategori yang sama untuk un-pilih. Artikel tanpa kategori tetap muncul di feed "Terbaru".
+              </p>
+            </div>
+
+            {/* Daerah — independen dari kategori, bisa dipilih keduanya */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
+                📍 Daerah {locationId && (
+                  <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                    · terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>
+                      {LOCATIONS.find(l => l.id === locationId)?.name}
+                    </span>
+                  </span>
+                )}
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {LOCATIONS.map(loc => {
+                  const active = locationId === loc.id;
+                  return (
+                    <button
+                      key={loc.id}
+                      onClick={() => setLocationId(active ? '' : loc.id)}
+                      title={active ? 'Klik lagi untuk un-pilih' : `Pilih daerah ${loc.name}`}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, border: 'none',
+                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        background: active ? '#0891B2' : editorTokens.chipBg,
+                        color: active ? '#fff' : editorTokens.chipText,
+                        transition: 'all 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 5,
+                      }}>
+                      <span>{loc.icon}</span> {loc.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
+                📌 Daerah opsional & independen dari kategori — artikel bisa punya keduanya (misal: Politik + Ternate), salah satu, atau tidak keduanya.
               </p>
             </div>
 
@@ -930,6 +987,16 @@ export default function NewArticlePage() {
                     color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                   }}>🔥 Trending</span>
                 )}
+                {locationId && (() => {
+                  const loc = LOCATIONS.find(l => l.id === locationId);
+                  return loc ? (
+                    <span style={{
+                      padding: '3px 10px', borderRadius: 20, background: '#0891B2',
+                      color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
+                    }}>📍 {loc.name}</span>
+                  ) : null;
+                })()}
                 <span style={{ fontSize: 11, color: t.textDim }}>
                   oleh {user.name || 'Admin'} · {wordCount} kata · ~{readTime} mnt
                 </span>
