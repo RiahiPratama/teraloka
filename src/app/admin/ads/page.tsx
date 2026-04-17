@@ -16,6 +16,7 @@ interface AdPackage { id: string; name: string; slug: string; positions: string[
 interface Ad {
   id: string; advertiser_name: string; advertiser_phone?: string;
   title: string; body?: string; image_url?: string; link_url: string;
+  images?: Record<string, string>;
   positions: string[]; starts_at?: string; ends_at?: string;
   impression_count: number; click_count: number;
   billing_model: string; price_paid: number; status: string;
@@ -31,10 +32,22 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   expired:         { label: 'Selesai',         color: '#DC2626' },
 };
 const POSITION_LABEL: Record<string, string> = {
-  native: 'Native Feed', sidebar: 'Sidebar',
-  banner: 'Banner Atas', homepage: 'Homepage',
+  native:     'Native Feed',
+  sidebar:    'Sidebar',
+  banner:     'Banner Atas',
+  homepage:   'Homepage',
+  in_article: 'Dalam Artikel',
 };
-const POSITION_COLORS = ['#1B6B4A', '#0891B2', '#D97706', '#7C3AED'];
+const POSITION_COLORS = ['#1B6B4A', '#0891B2', '#D97706', '#7C3AED', '#DC2626'];
+
+// Spesifikasi ukuran ideal per posisi — ditampilkan di admin upload field
+const POSITION_SPECS: Record<string, { aspect: string; recommended: string; icon: string }> = {
+  native:     { aspect: '1:1 (square)',       recommended: '600 × 600',  icon: '🟩' },
+  sidebar:    { aspect: '1.2:1 (portrait)',   recommended: '600 × 500',  icon: '📱' },
+  banner:     { aspect: '8:1 (super wide)',   recommended: '1456 × 180', icon: '📏' },
+  homepage:   { aspect: '1:1 (square)',       recommended: '600 × 600',  icon: '🏠' },
+  in_article: { aspect: '16:9 (landscape)',   recommended: '800 × 450',  icon: '📝' },
+};
 const formatRp   = (n: number) => `Rp ${(n || 0).toLocaleString('id-ID')}`;
 const formatDate  = (d?: string) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 const formatShort = (d?: string) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : '—';
@@ -42,38 +55,50 @@ const formatShort = (d?: string) => d ? new Date(d).toLocaleDateString('id-ID', 
 // ── Placement Preview — terima t sebagai prop ──────────────────────
 function PlacementPreview({ active, t }: { active: string[]; t: AdminTheme }) {
   const placements = [
-    { key: 'native',   label: 'Native Feed\n(di BAKABAR)',   color: '#1B6B4A' },
-    { key: 'sidebar',  label: 'Sidebar\n(di BAKABAR)',        color: '#0891B2' },
-    { key: 'homepage', label: 'Homepage Banner\n(TeraLoka)', color: '#D97706' },
+    { key: 'native',     label: 'Native Feed\n(di BAKABAR)',    color: '#1B6B4A' },
+    { key: 'sidebar',    label: 'Sidebar\n(di BAKABAR)',         color: '#0891B2' },
+    { key: 'banner',     label: 'Banner Atas\n(di BAKABAR)',     color: '#D97706' },
+    { key: 'homepage',   label: 'Homepage\n(TeraLoka)',          color: '#7C3AED' },
+    { key: 'in_article', label: 'Dalam Artikel\n(di BAKABAR)',   color: '#DC2626' },
   ];
   return (
     <div style={{ marginTop: 16 }}>
       <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.8px', marginBottom: 8 }}>
         Contoh Penempatan Iklan
       </p>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 6 }}>
         {placements.map(p => {
           const isActive = active.includes(p.key);
           return (
-            <div key={p.key} style={{ borderRadius: 8, border: `2px solid ${isActive ? p.color : t.cardBorder}`, background: isActive ? `${p.color}11` : t.deepBg, padding: '8px 6px', opacity: isActive ? 1 : 0.4, transition: 'all 0.2s' }}>
-              <div style={{ height: 48, borderRadius: 4, background: t.cardInner, marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
+            <div key={p.key} style={{ borderRadius: 8, border: `2px solid ${isActive ? p.color : t.cardBorder}`, background: isActive ? `${p.color}11` : t.deepBg, padding: '6px 4px', opacity: isActive ? 1 : 0.4, transition: 'all 0.2s' }}>
+              <div style={{ height: 44, borderRadius: 4, background: t.cardInner, marginBottom: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', position: 'relative' }}>
                 {p.key === 'native' && (
                   <div style={{ width: '100%', padding: '4px 6px' }}>
                     <div style={{ height: 4, background: isActive ? p.color : t.inputBorder, borderRadius: 2, marginBottom: 3, width: '70%' }} />
                     <div style={{ height: 3, background: t.inputBorder, borderRadius: 2, width: '90%' }} />
-                    <div style={{ position: 'absolute', top: 4, right: 4, fontSize: 8, color: isActive ? p.color : t.textDim, fontWeight: 700 }}>Mitra</div>
+                    <div style={{ position: 'absolute', top: 4, right: 4, fontSize: 7, color: isActive ? p.color : t.textDim, fontWeight: 700 }}>Mitra</div>
                   </div>
                 )}
                 {p.key === 'sidebar' && (
                   <div style={{ padding: '4px 6px', width: '100%' }}>
-                    <div style={{ height: 20, background: isActive ? `${p.color}33` : t.inputBorder, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: 8, height: 8, borderRadius: '50%', background: isActive ? p.color : t.textDim }} />
+                    <div style={{ height: 18, background: isActive ? `${p.color}33` : t.inputBorder, borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: 7, height: 7, borderRadius: '50%', background: isActive ? p.color : t.textDim }} />
                     </div>
                   </div>
                 )}
+                {p.key === 'banner' && (
+                  <div style={{ width: '100%', height: 14, background: isActive ? `linear-gradient(to right, ${p.color}55, ${p.color}22)` : t.inputBorder, borderRadius: 3, margin: '0 4px' }} />
+                )}
                 {p.key === 'homepage' && (
                   <div style={{ width: '100%', height: '100%', background: isActive ? `linear-gradient(135deg, ${p.color}44, ${p.color}22)` : t.inputBorder, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 14 }}>🏠</span>
+                    <span style={{ fontSize: 12 }}>🏠</span>
+                  </div>
+                )}
+                {p.key === 'in_article' && (
+                  <div style={{ width: '100%', padding: '3px 4px' }}>
+                    <div style={{ height: 2, background: t.inputBorder, borderRadius: 2, marginBottom: 2, width: '85%' }} />
+                    <div style={{ height: 14, background: isActive ? `${p.color}33` : t.inputBorder, borderRadius: 3, marginBottom: 2 }} />
+                    <div style={{ height: 2, background: t.inputBorder, borderRadius: 2, width: '90%' }} />
                   </div>
                 )}
               </div>
@@ -104,7 +129,7 @@ export default function AdsAdminPage() {
   const [form, setForm] = useState({
     advertiser_name: '', advertiser_phone: '', package_id: '',
     title: '', body: '', link_url: '', price_paid: 0,
-    image_url: '',
+    images: {} as Record<string, string>,
   });
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
@@ -161,18 +186,29 @@ export default function AdsAdminPage() {
     if (!form.advertiser_name || !form.package_id || !form.title || !form.link_url) {
       showToast('Lengkapi semua field wajib', 'err'); return;
     }
-    if (!form.image_url) {
-      showToast('Upload banner iklan dulu', 'err'); return;
+
+    // Validasi: semua posisi aktif paket wajib punya banner
+    const positions = selectedPkg?.positions || [];
+    const missingPositions = positions.filter(p => !form.images[p]);
+    if (missingPositions.length > 0) {
+      const labels = missingPositions.map(p => POSITION_LABEL[p] || p).join(', ');
+      showToast(`Upload banner untuk posisi: ${labels}`, 'err'); return;
     }
+
     try {
       const res  = await fetch(`${API}/admin/ads`, {
-        method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(form),
+        method: 'POST', headers: { ...h, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          // Primary image_url (legacy) = native fallback; kalau native tidak ada pilih yang pertama
+          image_url: form.images.native || Object.values(form.images)[0] || null,
+        }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message);
       showToast('✅ Iklan berhasil dibuat');
       setShowForm(false);
-      setForm({ advertiser_name: '', advertiser_phone: '', package_id: '', title: '', body: '', link_url: '', price_paid: 0, image_url: '' });
+      setForm({ advertiser_name: '', advertiser_phone: '', package_id: '', title: '', body: '', link_url: '', price_paid: 0, images: {} });
       fetchAds();
     } catch (err: any) { showToast(err.message || 'Gagal', 'err'); }
   };
@@ -416,20 +452,46 @@ export default function AdsAdminPage() {
                   </select>
                 </div>
 
-                {/* Banner Upload */}
-                <div style={{ marginBottom: 14 }}>
-                  <ImageUpload
-                    bucket="ads"
-                    label="Banner Iklan *"
-                    existingUrls={form.image_url ? [form.image_url] : []}
-                    onUpload={(urls: string[]) => setForm(p => ({ ...p, image_url: urls[0] || '' }))}
-                  />
-                  {form.image_url && (
-                    <p style={{ fontSize: 10, color: t.textMuted, marginTop: 4, fontStyle: 'italic' }}>
-                      Preview akan tampil sesuai posisi penempatan di bawah.
+                {/* Multi-Banner Upload — dynamic per posisi aktif paket */}
+                {selectedPkg && selectedPkg.positions.length > 0 && (
+                  <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: `1px solid ${t.cardBorder}`, background: t.inputBg }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>
+                      📸 Upload Banner per Posisi
                     </p>
-                  )}
-                </div>
+                    <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 12, lineHeight: 1.5 }}>
+                      Paket <strong>{selectedPkg.name}</strong> tayang di {selectedPkg.positions.length} posisi.
+                      Upload banner terpisah tiap posisi untuk quality maksimal.
+                    </p>
+
+                    {selectedPkg.positions.map(pos => {
+                      const spec = POSITION_SPECS[pos];
+                      return (
+                        <div key={pos} style={{ marginBottom: 14, paddingBottom: 12, borderBottom: `1px dashed ${t.cardBorder}` }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                            <span style={{ fontSize: 14 }}>{spec?.icon || '📷'}</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary }}>
+                              {POSITION_LABEL[pos] || pos}
+                            </span>
+                            {spec && (
+                              <span style={{ fontSize: 10, color: t.textMuted, fontStyle: 'italic' }}>
+                                · {spec.recommended} ({spec.aspect})
+                              </span>
+                            )}
+                          </div>
+                          <ImageUpload
+                            bucket="ads"
+                            label=""
+                            existingUrls={form.images[pos] ? [form.images[pos]] : []}
+                            onUpload={(urls: string[]) => setForm(p => ({
+                              ...p,
+                              images: { ...p.images, [pos]: urls[0] || '' },
+                            }))}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 <PlacementPreview active={selectedPkg?.positions || []} t={t} />
 

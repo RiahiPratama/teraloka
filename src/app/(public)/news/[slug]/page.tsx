@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
+import AdInArticle from '@/components/ads/AdInArticle';
+import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -159,19 +161,8 @@ function renderBody(raw: string): string {
 }
 
 function InArticleAd() {
-  return (
-    <div className="my-6 bg-gray-50 border border-dashed border-gray-200 rounded-xl p-4 flex items-center justify-between gap-4">
-      <div>
-        <p className="text-xs text-gray-400 font-bold uppercase tracking-wide mb-0.5">IKLAN MITRA TERALOKA</p>
-        <p className="text-sm font-semibold text-gray-700">Iklankan bisnis kamu di sini</p>
-        <p className="text-xs text-gray-400">Jangkau ribuan warga Maluku Utara setiap hari</p>
-      </div>
-      <a href="mailto:ads@teraloka.com"
-        className="shrink-0 text-xs bg-[#003526] text-white px-3 py-2 rounded-xl font-bold hover:opacity-90 transition-opacity">
-        Pasang Iklan
-      </a>
-    </div>
-  );
+  // Deprecated — diganti dengan AdInArticle client component (di-import dari components/ads)
+  return <AdInArticle />;
 }
 
 const CONTEXT_CTA: Record<string, {
@@ -640,12 +631,7 @@ export default async function ArticlePage({ params }: Props) {
                 </div>
               )}
 
-              <div className="bg-gray-50 border border-dashed border-gray-200 rounded-xl h-52 flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-xs text-gray-400 font-bold uppercase">IKLAN MITRA</p>
-                  <p className="text-xs text-gray-300 mt-1">300 × 200</p>
-                </div>
-              </div>
+              <AdSidebarSlug />
             </div>
           </aside>
         </div>
