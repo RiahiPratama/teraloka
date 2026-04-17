@@ -143,6 +143,18 @@ function HubContent() {
   const [actionLoading, setAction]    = useState<string | null>(null);
   const [statusFilter, setStatus]     = useState(initialStatus);
   const [categoryFilter, setCategory] = useState('');
+
+  // Sync filter saat URL berubah — klik sidebar Draft/Review/Publikasi/Archived
+  useEffect(() => {
+    setStatus(initialStatus);
+    setPage(1);
+  }, [initialStatus]);
+
+  // Sync filter saat URL berubah (klik sidebar Draft/Review/dll)
+  useEffect(() => {
+    setStatus(initialStatus);
+    setPage(1);
+  }, [initialStatus]);
   const [search, setSearch]           = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [page, setPage]               = useState(1);
