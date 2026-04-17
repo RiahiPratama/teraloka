@@ -734,8 +734,18 @@ export default function NewArticlePage() {
               boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)',
             }}>
               {coverImageUrl && (
-                <img src={coverImageUrl} alt="cover"
-                  style={{ width: '100%', height: 220, objectFit: 'cover', borderRadius: 10, marginBottom: 18 }} />
+                <div style={{
+                  width: '100%', marginBottom: 18, borderRadius: 10, overflow: 'hidden',
+                  background: dark ? '#0A0D11' : '#F3F4F6',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  maxHeight: 500,
+                }}>
+                  <img src={coverImageUrl} alt="cover"
+                    style={{
+                      width: '100%', height: 'auto', maxHeight: 500,
+                      objectFit: 'contain', display: 'block',
+                    }} />
+                </div>
               )}
 
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
