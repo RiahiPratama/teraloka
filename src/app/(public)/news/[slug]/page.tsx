@@ -99,11 +99,63 @@ function parseBody(raw: string): string {
   return raw;
 }
 
+// ─────────────────────────────────────────────────────────────────
+// Markdown parser — port dari office/newsroom/bakabar/hub/new/page.tsx
+// XSS-safe: escape HTML dulu, baru apply markdown transforms
+// ─────────────────────────────────────────────────────────────────
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function renderMarkdown(text: string): string {
+  if (!text) return '';
+  let html = escapeHtml(text);
+
+  // Block elements
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+  html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
+  html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
+  html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, '<ul>$1</ul>$2');
+
+  // Inline formatting
+  html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+  html = html.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+
+  // Image syntax HARUS sebelum link karena ![]() contains []()
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
+    const safeAlt = alt || '';
+    if (safeAlt.trim()) {
+      return `<figure class="bk-fig"><img src="${src}" alt="${safeAlt}" /><figcaption>${safeAlt}</figcaption></figure>`;
+    }
+    return `<img class="bk-inline" src="${src}" alt="" />`;
+  });
+
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // Wrap paragraphs
+  const blocks = html.split(/\n\n+/).map(block => {
+    const trimmed = block.trim();
+    if (!trimmed) return '';
+    if (/^<(h[1-3]|ul|blockquote|figure|img)/.test(trimmed)) return trimmed;
+    return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
+  }).filter(Boolean);
+
+  return blocks.join('\n');
+}
+
 function renderBody(raw: string): string {
   const body = parseBody(raw);
   if (!body) return '';
+  // Kalau body sudah HTML (artikel lama dari BALAPOR AI / RSS), render as-is
   if (body.includes('<p>') || body.includes('<br') || body.includes('<h')) return body;
-  return body.split(/\n\n+/).filter(p => p.trim()).map(p => `<p>${p.replace(/\n/g, '<br/>')}</p>`).join('');
+  // Kalau body markdown (artikel baru dari newsroom), parse via markdown
+  return renderMarkdown(body);
 }
 
 function InArticleAd() {
@@ -357,10 +409,55 @@ export default async function ArticlePage({ params }: Props) {
         @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
         .article-body { font-family: 'Lora', Georgia, serif; font-size: 17px; line-height: 1.85; color: #1a1a1a; }
         .article-body p { margin-bottom: 1.3em; }
+        .article-body h1 { font-size: 1.5em; font-weight: 700; color: #111; margin: 2em 0 0.7em; }
         .article-body h2 { font-size: 1.3em; font-weight: 700; color: #111; margin: 2em 0 0.6em; }
         .article-body h3 { font-size: 1.1em; font-weight: 600; color: #222; margin: 1.5em 0 0.5em; }
         .article-body strong { color: #111; font-weight: 600; }
+        .article-body em { color: #333; font-style: italic; }
         .article-body a { color: #003526; text-decoration: underline; }
+        .article-body blockquote {
+          border-left: 4px solid #003526;
+          padding: 0.4em 1.2em;
+          margin: 1.5em 0;
+          color: #4a5568;
+          background: rgba(0,53,38,0.04);
+          font-style: italic;
+          border-radius: 0 8px 8px 0;
+        }
+        .article-body ul { padding-left: 1.8em; margin-bottom: 1.3em; }
+        .article-body li { margin-bottom: 0.4em; }
+        .article-body figure.bk-fig {
+          margin: 1.8em 0;
+          text-align: center;
+        }
+        .article-body figure.bk-fig img {
+          width: 100%;
+          height: auto;
+          max-height: 500px;
+          object-fit: contain;
+          border-radius: 10px;
+          background: #f3f4f6;
+          display: block;
+          margin: 0 auto;
+        }
+        .article-body figure.bk-fig figcaption {
+          font-family: 'Inter', system-ui, sans-serif;
+          font-size: 13px;
+          color: #6b7280;
+          margin-top: 10px;
+          font-style: italic;
+          line-height: 1.5;
+        }
+        .article-body img.bk-inline {
+          width: 100%;
+          height: auto;
+          max-height: 500px;
+          object-fit: contain;
+          border-radius: 10px;
+          margin: 1.8em 0;
+          display: block;
+          background: #f3f4f6;
+        }
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
       `}</style>
 
@@ -413,10 +510,13 @@ export default async function ArticlePage({ params }: Props) {
               </span>
             </div>
 
-            {/* Cover */}
+            {/* Cover — full natural aspect, max-height smart, letterbox bg */}
             {article.cover_image_url && (
-              <div className="mb-6 rounded-2xl overflow-hidden">
-                <img src={article.cover_image_url} alt={article.title} className="w-full object-cover max-h-96" />
+              <div className="mb-6 rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
+                style={{ maxHeight: 600 }}>
+                <img src={article.cover_image_url} alt={article.title}
+                  className="w-full h-auto object-contain"
+                  style={{ maxHeight: 600 }} />
               </div>
             )}
 

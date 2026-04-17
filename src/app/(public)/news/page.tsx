@@ -362,9 +362,9 @@ function NewsPageContent() {
                   <div className="relative overflow-hidden rounded-2xl mb-3">
                     {featured.cover_image_url ? (
                       <img src={featured.cover_image_url} alt={featured.title}
-                        className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-500" />
+                        className="w-full aspect-[16/10] object-cover object-center group-hover:scale-105 transition-transform duration-500" />
                     ) : (
-                      <div className="w-full h-64 bg-gradient-to-br from-[#003526] to-[#0891B2] flex items-center justify-center">
+                      <div className="w-full aspect-[16/10] bg-gradient-to-br from-[#003526] to-[#0891B2] flex items-center justify-center">
                         <span className="text-6xl">📰</span>
                       </div>
                     )}
