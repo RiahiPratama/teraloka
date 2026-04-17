@@ -57,32 +57,122 @@ async function trackShare(articleId: string) {
 
 // ── Ad Slots ──────────────────────────────────────────────────────
 
+// ── Ads Components (fetch dari /public/ads) ─────────────────────
+
+interface Ad {
+  id: string;
+  title: string;
+  body?: string;
+  image_url?: string;
+  link_url: string;
+}
+
+async function fetchActiveAd(position: string): Promise<Ad | null> {
+  try {
+    const res = await fetch(`${API}/public/ads?position=${position}`);
+    const data = await res.json();
+    if (!data.success) return null;
+    const ads = data.data ?? [];
+    if (!ads.length) return null;
+    // Rotate: pilih random kalau ada >1 iklan aktif di posisi yang sama
+    return ads[Math.floor(Math.random() * ads.length)];
+  } catch {
+    return null;
+  }
+}
+
+function trackAdClick(adId: string) {
+  // Fire-and-forget — tidak block user experience
+  fetch(`${API}/public/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
+}
+
 function AdBanner() {
-  return (
-    <div className="w-full flex items-center justify-center rounded-xl my-3"
-      style={{ height: 80, background: 'linear-gradient(to right, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
-      <div className="text-center">
-        <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra TeraLoka</p>
-        <p className="text-xs text-gray-400 mt-0.5">
-          728 × 90 — <a href="mailto:ads@teraloka.com" className="text-[#003526] font-semibold">ads@teraloka.com</a>
-        </p>
+  const [ad, setAd] = useState<Ad | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchActiveAd('homepage_banner').then(a => { setAd(a); setLoaded(true); });
+  }, []);
+
+  // Selama fetch atau kalau tidak ada iklan aktif, tampilkan placeholder
+  if (!loaded || !ad) {
+    return (
+      <div className="w-full flex items-center justify-center rounded-xl my-3"
+        style={{ height: 80, background: 'linear-gradient(to right, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
+        <div className="text-center">
+          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra TeraLoka</p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            728 × 90 — <a href="mailto:ads@teraloka.com" className="text-[#003526] font-semibold">ads@teraloka.com</a>
+          </p>
+        </div>
       </div>
-    </div>
+    );
+  }
+
+  return (
+    <a href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
+      onClick={() => trackAdClick(ad.id)}
+      className="block w-full rounded-xl my-3 overflow-hidden relative"
+      style={{ maxHeight: 100 }}>
+      {ad.image_url ? (
+        <img src={ad.image_url} alt={ad.title}
+          className="w-full h-auto object-cover hover:opacity-95 transition-opacity" />
+      ) : (
+        <div className="flex items-center p-4" style={{ background: 'linear-gradient(to right, #1B6B4A, #0891B2)' }}>
+          <div className="flex-1">
+            <p className="text-white font-bold text-sm">{ad.title}</p>
+            {ad.body && <p className="text-white/80 text-xs mt-0.5">{ad.body}</p>}
+          </div>
+        </div>
+      )}
+      <span className="absolute top-1 right-1 text-[9px] font-bold text-white bg-black/40 px-1.5 py-0.5 rounded uppercase tracking-wider">
+        Iklan
+      </span>
+    </a>
   );
 }
 
 function AdNative() {
-  return (
-    <div className="flex items-center gap-3 rounded-xl p-4 my-3"
-      style={{ background: 'linear-gradient(to right, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: '#D1FAE5' }}>📢</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra</p>
-        <p className="text-sm font-semibold text-gray-700 mt-0.5">Pasang iklan di BAKABAR TeraLoka</p>
-        <p className="text-xs text-gray-400">Jangkau warga Maluku Utara setiap hari</p>
+  const [ad, setAd] = useState<Ad | null>(null);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    fetchActiveAd('native_feed').then(a => { setAd(a); setLoaded(true); });
+  }, []);
+
+  if (!loaded || !ad) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl p-4 my-3"
+        style={{ background: 'linear-gradient(to right, #F0FDF4, #F9FAFB)', border: '1.5px dashed #BBF7D0' }}>
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: '#D1FAE5' }}>📢</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan Mitra</p>
+          <p className="text-sm font-semibold text-gray-700 mt-0.5">Pasang iklan di BAKABAR TeraLoka</p>
+          <p className="text-xs text-gray-400">Jangkau warga Maluku Utara setiap hari</p>
+        </div>
+        <a href="mailto:ads@teraloka.com" className="shrink-0 text-xs font-bold text-white px-4 py-2 rounded-full" style={{ background: '#003526' }}>Pasang</a>
       </div>
-      <a href="mailto:ads@teraloka.com" className="shrink-0 text-xs font-bold text-white px-4 py-2 rounded-full" style={{ background: '#003526' }}>Pasang</a>
-    </div>
+    );
+  }
+
+  return (
+    <a href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
+      onClick={() => trackAdClick(ad.id)}
+      className="flex items-center gap-3 rounded-xl p-4 my-3 relative hover:opacity-95 transition-opacity"
+      style={{ background: 'linear-gradient(to right, #F0FDF4, #F9FAFB)', border: '1px solid #D1FAE5' }}>
+      {ad.image_url ? (
+        <img src={ad.image_url} alt={ad.title}
+          className="w-12 h-12 rounded-xl object-cover shrink-0" />
+      ) : (
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl shrink-0" style={{ background: '#D1FAE5' }}>📢</div>
+      )}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Iklan</p>
+        <p className="text-sm font-semibold text-gray-800 mt-0.5 truncate">{ad.title}</p>
+        {ad.body && <p className="text-xs text-gray-500 truncate">{ad.body}</p>}
+      </div>
+      <span className="shrink-0 text-xs font-bold text-white px-4 py-2 rounded-full" style={{ background: '#003526' }}>Lihat</span>
+    </a>
   );
 }
 

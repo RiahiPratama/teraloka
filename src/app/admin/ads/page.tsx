@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import { AdminTheme } from '@/components/admin/AdminThemeContext';
+import ImageUpload from '@/components/ui/ImageUpload';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend,
@@ -103,6 +104,7 @@ export default function AdsAdminPage() {
   const [form, setForm] = useState({
     advertiser_name: '', advertiser_phone: '', package_id: '',
     title: '', body: '', link_url: '', price_paid: 0,
+    image_url: '',
   });
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
@@ -159,6 +161,9 @@ export default function AdsAdminPage() {
     if (!form.advertiser_name || !form.package_id || !form.title || !form.link_url) {
       showToast('Lengkapi semua field wajib', 'err'); return;
     }
+    if (!form.image_url) {
+      showToast('Upload banner iklan dulu', 'err'); return;
+    }
     try {
       const res  = await fetch(`${API}/admin/ads`, {
         method: 'POST', headers: { ...h, 'Content-Type': 'application/json' }, body: JSON.stringify(form),
@@ -167,7 +172,7 @@ export default function AdsAdminPage() {
       if (!json.success) throw new Error(json.error?.message);
       showToast('✅ Iklan berhasil dibuat');
       setShowForm(false);
-      setForm({ advertiser_name: '', advertiser_phone: '', package_id: '', title: '', body: '', link_url: '', price_paid: 0 });
+      setForm({ advertiser_name: '', advertiser_phone: '', package_id: '', title: '', body: '', link_url: '', price_paid: 0, image_url: '' });
       fetchAds();
     } catch (err: any) { showToast(err.message || 'Gagal', 'err'); }
   };
@@ -409,6 +414,28 @@ export default function AdsAdminPage() {
                     <option value="">-- Pilih Paket --</option>
                     {packages.map(p => <option key={p.id} value={p.id}>{p.name} — {formatRp(p.price)} / {p.duration_days} hari</option>)}
                   </select>
+                </div>
+
+                {/* Banner Upload */}
+                <div style={{ marginBottom: 14 }}>
+                  <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                    Banner Iklan *
+                    <span style={{ marginLeft: 6, fontWeight: 400, color: t.textMuted, opacity: 0.7 }}>
+                      (JPG/PNG/WebP, max 500 KB)
+                    </span>
+                  </label>
+                  <ImageUpload
+                    bucket="ads"
+                    maxSizeKB={500}
+                    value={form.image_url ? [form.image_url] : []}
+                    onChange={(urls: string[]) => setForm(p => ({ ...p, image_url: urls[0] || '' }))}
+                    maxPhotos={1}
+                  />
+                  {form.image_url && (
+                    <p style={{ fontSize: 10, color: t.textMuted, marginTop: 4, fontStyle: 'italic' }}>
+                      Preview akan tampil sesuai posisi penempatan di bawah.
+                    </p>
+                  )}
                 </div>
 
                 <PlacementPreview active={selectedPkg?.positions || []} t={t} />
