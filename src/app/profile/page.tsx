@@ -227,7 +227,7 @@ export default function ProfilePage() {
                 { href: '/admin', label: 'Admin Dashboard', icon: '⚡' },
                 { href: '/admin/users', label: 'Manajemen Users', icon: '👥' },
                 { href: '/admin/listings', label: 'Manajemen Listing', icon: '🏠' },
-                { href: '/admin/content', label: 'Manajemen Konten', icon: '📰' },
+                { href: '/office/newsroom/bakabar/hub', label: 'Manajemen Konten', icon: '📰' },
               ].map((item) => (
                 <Link key={item.href} href={item.href} style={{
                   display: 'flex', alignItems: 'center', gap: 10,

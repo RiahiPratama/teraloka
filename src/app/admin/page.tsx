@@ -182,7 +182,7 @@ export default function AdminOverviewPage() {
             icon="home" accent="#1B6B4A" href="/admin/listings" delay={80} />
           <KpiCard label="Artikel" sublabel="BAKABAR & laporan" total={stats.articles.total}
             badge={stats.articles.draft} badgeLabel="draft"
-            icon="newspaper" accent="#8B5CF6" href="/admin/content" delay={160} />
+            icon="newspaper" accent="#8B5CF6" href="/office/newsroom/bakabar/hub" delay={160} />
           <KpiCard label="Kampanye" sublabel="BASUMBANG donasi" total={stats.campaigns.total}
             badge={stats.campaigns.pending} badgeLabel="pending"
             icon="volunteer_activism" accent="#E8963A" href="/admin/funding" delay={240} />
@@ -211,7 +211,7 @@ export default function AdminOverviewPage() {
               <ActionItem href="/admin/listings" icon="home" label={`${stats.listings.pending} Listing Pending`} desc="Review dan aktifkan" urgent />
             ) : null}
             {stats?.articles.draft ? (
-              <ActionItem href="/admin/content" icon="newspaper" label={`${stats.articles.draft} Artikel Draft`} desc="Publish atau arsipkan" />
+              <ActionItem href="/office/newsroom/bakabar/hub" icon="newspaper" label={`${stats.articles.draft} Artikel Draft`} desc="Publish atau arsipkan" />
             ) : null}
             {stats?.campaigns.pending ? (
               <ActionItem href="/admin/funding" icon="volunteer_activism" label={`${stats.campaigns.pending} Kampanye Pending`} desc="Verifikasi BASUMBANG" urgent />
@@ -260,9 +260,9 @@ export default function AdminOverviewPage() {
         <div className="lg:col-span-3">
           <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">Menu Cepat</h3>
           <div className="grid grid-cols-2 gap-3">
-            <QuickOp href="/admin/content/new" icon="edit_note" label="Tulis Artikel" />
+            <QuickOp href="/office/newsroom/bakabar/hub/new" icon="edit_note" label="Tulis Artikel" />
             <QuickOp href="/admin/users" icon="manage_accounts" label="Kelola Users" />
-            <QuickOp href="/admin/ticker" icon="update" label="Update Ticker" />
+            <QuickOp href="/admin/audit-log" icon="history" label="Audit Log" />
             <QuickOp href="/admin/system-health" icon="health_and_safety" label="System Health" />
           </div>
         </div>
