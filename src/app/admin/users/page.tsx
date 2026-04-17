@@ -128,6 +128,7 @@ function UserAvatar({ user, size = 36 }: { user: User; size?: number }) {
 }
 
 type ModalType =
+  | { type: 'invite' }
   | { type: 'role';       userId: string; userName: string; newRole: string }
   | { type: 'editName';   userId: string; currentName: string }
   | { type: 'editPhone';  userId: string; userName: string; currentPhone: string }
@@ -151,8 +152,13 @@ export default function AdminUsersPage() {
   const [toast, setToast]             = useState<{ msg: string; ok: boolean } | null>(null);
   const [modal, setModal]             = useState<ModalType | null>(null);
   const [openMenuId, setOpenMenuId]   = useState<string | null>(null);
+  const [menuDirection, setMenuDirection] = useState<'down' | 'up'>('down');
 
   // Input states
+  const [invitePhone, setInvitePhone]         = useState('');
+  const [inviteName, setInviteName]           = useState('');
+  const [inviteRole, setInviteRole]           = useState('service_user');
+  const [inviteLoading, setInviteLoading]     = useState(false);
   const [editNameInput, setEditNameInput]     = useState('');
   const [editPhoneInput, setEditPhoneInput]   = useState('');
   const [editPhoneReason, setEditPhoneReason] = useState('');
@@ -165,10 +171,31 @@ export default function AdminUsersPage() {
 
   const closeModal = () => {
     setModal(null);
+    setInvitePhone('');
+    setInviteName('');
+    setInviteRole('service_user');
     setEditNameInput('');
     setEditPhoneInput('');
     setEditPhoneReason('');
     setDeleteConfirmInput('');
+  };
+
+  const inviteUser = async () => {
+    if (!invitePhone.trim() || inviteLoading) return;
+    setInviteLoading(true);
+    try {
+      const res  = await fetch(`${API_URL}/admin/users`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: invitePhone.trim(), name: inviteName.trim() || undefined, role: inviteRole }),
+      });
+      const data = await res.json();
+      if (!data.success) throw new Error(data.error?.message);
+      showToast(`User berhasil ditambahkan! ✓`);
+      closeModal();
+      fetchUsers();
+    } catch (err: any) { showToast(err.message || 'Gagal menambah user', false); }
+    finally { setInviteLoading(false); }
   };
 
   const fetchUsers = useCallback(async () => {
@@ -307,6 +334,58 @@ export default function AdminUsersPage() {
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
           <div style={{ background: t.sidebar, borderRadius: 16, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', border: `1px solid ${t.sidebarBorder}`, animation: 'fadeIn 0.2s ease' }}>
 
+            {modal.type === 'invite' && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 10, background: 'rgba(27,107,74,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <Icons.Plus />
+                  </div>
+                  <div>
+                    <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary }}>Tambah User Baru</h3>
+                    <p style={{ color: t.textDim, fontSize: 12 }}>User bisa langsung login via OTP WA</p>
+                  </div>
+                </div>
+
+                <label style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'block', marginBottom: 6 }}>
+                  Nomor WA <span style={{ color: '#EF4444' }}>*</span>
+                </label>
+                <input value={invitePhone} onChange={e => setInvitePhone(e.target.value)}
+                  placeholder="628123456789 atau 0812..." autoFocus
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `2px solid #1B6B4A`, fontSize: 14, outline: 'none', marginBottom: 12, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary }} />
+
+                <label style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'block', marginBottom: 6 }}>
+                  Nama <span style={{ color: t.textDim, fontWeight: 400 }}>(opsional)</span>
+                </label>
+                <input value={inviteName} onChange={e => setInviteName(e.target.value)}
+                  placeholder="Nama lengkap karyawan..."
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, fontSize: 13, outline: 'none', marginBottom: 12, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary }} />
+
+                <label style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'block', marginBottom: 6 }}>Role</label>
+                <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, fontSize: 13, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary, cursor: 'pointer' }}>
+                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                </select>
+
+                {inviteRole === 'super_admin' && (
+                  <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#EF4444' }}>
+                    ⚠️ Super Admin punya akses penuh ke seluruh platform!
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={inviteUser} disabled={!invitePhone.trim() || inviteLoading}
+                    style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: invitePhone.trim() && !inviteLoading ? '#1B6B4A' : '#9CA3AF', color: '#fff', fontWeight: 700, fontSize: 13, cursor: invitePhone.trim() ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                    {inviteLoading ? (
+                      <><div style={{ width: 14, height: 14, borderRadius: '50%', border: '2px solid #fff', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite' }} /> Menambahkan...</>
+                    ) : (
+                      <><Icons.Plus /> Tambah User</>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+
             {modal.type === 'role' && (
               <>
                 <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 8 }}>⚠️</div>
@@ -426,9 +505,9 @@ export default function AdminUsersPage() {
             {total} total user terdaftar
           </p>
         </div>
-        <button disabled title="Coming soon"
-          style={{ padding: '8px 18px', borderRadius: 10, background: '#1B6B4A', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span style={{display:"flex",alignItems:"center",gap:6}}><Icons.Plus /> Undang User</span>
+        <button onClick={() => setModal({ type: 'invite' })}
+          style={{ padding: '8px 18px', borderRadius: 10, background: '#1B6B4A', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Icons.Plus /> Tambah User
         </button>
       </div>
 
@@ -626,13 +705,21 @@ export default function AdminUsersPage() {
                       {/* ··· dropdown menu */}
                       <div style={{ position: 'relative' }}>
                         <button data-menu="trigger"
-                          onClick={e => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : u.id); }}
+                          onClick={e => {
+                            e.stopPropagation();
+                            if (!isMenuOpen) {
+                              const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                              const spaceBelow = window.innerHeight - rect.bottom;
+                              setMenuDirection(spaceBelow < 160 ? 'up' : 'down');
+                            }
+                            setOpenMenuId(isMenuOpen ? null : u.id);
+                          }}
                           style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: isMenuOpen ? t.navActive : t.mainBg, color: t.textMuted, fontSize: 13, cursor: 'pointer', fontWeight: 800, lineHeight: 1 }}>
                           <Icons.DotsH />
                         </button>
 
                         {isMenuOpen && (
-                          <div data-menu="dropdown" style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: t.sidebar, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 99, minWidth: 160, overflow: 'hidden', animation: 'fadeIn 0.15s ease' }}>
+                          <div data-menu="dropdown" style={{ position: 'absolute', right: 0, ...(menuDirection === 'up' ? { bottom: '100%', marginBottom: 4 } : { top: '100%', marginTop: 4 }), background: t.sidebar, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 99, minWidth: 160, overflow: 'hidden', animation: 'fadeIn 0.15s ease' }}>
 
                             <button className="menu-item" onClick={() => { setEditPhoneInput(u.phone); setModal({ type: 'editPhone', userId: u.id, userName: u.name || formatPhone(u.phone), currentPhone: u.phone }); setOpenMenuId(null); }}
                               style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textPrimary, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
