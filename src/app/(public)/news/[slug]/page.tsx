@@ -4,6 +4,7 @@ import type { Metadata } from 'next';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 import AdInArticle from '@/components/ads/AdInArticle';
 import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
+import AdNativeSlug from '@/components/ads/AdNativeSlug';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -351,28 +352,8 @@ function BasumbangCTA() {
 }
 
 function NativeAd() {
-  return (
-    <div className="mt-5 bg-white border border-gray-100 rounded-2xl p-4">
-      <div className="flex items-start gap-3">
-        <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center text-2xl shrink-0">📦</div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-black text-[#003526] border border-[#003526]/30 px-1.5 py-0.5 rounded-full">Mitra</span>
-          </div>
-          <p className="text-sm font-bold text-gray-800 leading-snug">
-            Iklankan Bisnis Kamu di BAKABAR TeraLoka
-          </p>
-          <p className="text-xs text-gray-400 mt-1 leading-relaxed">
-            Jangkau ribuan warga Maluku Utara setiap hari melalui platform berita lokal terpercaya.
-          </p>
-          <a href="mailto:ads@teraloka.com"
-            className="inline-block mt-2 text-xs font-bold text-[#003526] hover:underline">
-            Hubungi kami → ads@teraloka.com
-          </a>
-        </div>
-      </div>
-    </div>
-  );
+  // Deprecated — diganti dengan AdNativeSlug client component (di-import dari components/ads)
+  return <AdNativeSlug />;
 }
 
 export default async function ArticlePage({ params }: Props) {
@@ -591,17 +572,7 @@ export default async function ArticlePage({ params }: Props) {
           {/* ── Sidebar ── */}
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-[108px] py-6 space-y-5">
-              <div className="rounded-xl overflow-hidden" style={{ border: '1.5px dashed #D1D5DB', background: '#F9FAFB' }}>
-                <div className="flex flex-col items-center justify-center h-64 gap-2">
-                  <div className="w-10 h-10 rounded-xl bg-gray-200 flex items-center justify-center text-gray-400 text-lg">📢</div>
-                  <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">Iklan Mitra TeraLoka</p>
-                  <p className="text-xs text-gray-400">300 × 250</p>
-                  <a href="mailto:ads@teraloka.com"
-                    className="mt-1 text-xs font-bold text-white bg-[#003526] px-4 py-1.5 rounded-full hover:opacity-90 transition-opacity">
-                    Pasang Iklan →
-                  </a>
-                </div>
-              </div>
+              <AdSidebarSlug />
 
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
