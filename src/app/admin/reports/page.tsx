@@ -822,21 +822,7 @@ export default function AdminReportsPage() {
               })()}
             </div>
           )}
-              )}
 
-              {!analysisLoading && !analysis && (
-                <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '60px 24px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 40, marginBottom: 12 }}>🧠</div>
-                  <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>Siap Menganalisis</p>
-                  <p style={{ fontSize: 12, color: t.textDim, marginTop: 6, marginBottom: 16 }}>Klik tombol di atas untuk mulai analisis AI</p>
-                  <button onClick={fetchAnalysis}
-                    style={{ padding: '10px 24px', borderRadius: 10, border: 'none', background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                    🔍 Mulai Analisis
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
         </>
       )}
     </div>
