@@ -10,6 +10,22 @@ const TYPE_TABS = [
   { key: 'nasional', label: '🗞️ Nasional' },
 ];
 
+// ── Topik dropdown (skip 'viral' — sudah jadi tab utama) ──────
+const TOPICS = [
+  { key: 'berita',       label: 'Berita',       icon: '📰' },
+  { key: 'politik',      label: 'Politik',      icon: '🏛️' },
+  { key: 'ekonomi',      label: 'Ekonomi',      icon: '💰' },
+  { key: 'sosial',       label: 'Sosial',       icon: '🤝' },
+  { key: 'transportasi', label: 'Transportasi', icon: '🚤' },
+  { key: 'olahraga',     label: 'Olahraga',     icon: '⚽' },
+  { key: 'kesehatan',    label: 'Kesehatan',    icon: '🩺' },
+  { key: 'pendidikan',   label: 'Pendidikan',   icon: '🎓' },
+  { key: 'budaya',       label: 'Budaya',       icon: '🎭' },
+  { key: 'teknologi',    label: 'Teknologi',    icon: '💡' },
+  { key: 'cuaca',        label: 'Cuaca',        icon: '☁️' },
+  { key: 'opini',        label: 'Opini',        icon: '💬' },
+];
+
 // ── Location chips (Layer 2) ──────────────────────────────────
 const LOCATION_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -42,12 +58,32 @@ function CategoryTabsInner() {
   const [lastScrollY, setLastScrollY] = useState(0);
   const [atTop,       setAtTop]       = useState(true);
   const [locations,   setLocations]   = useState<Location[]>([]);
+  const [topicOpen,   setTopicOpen]   = useState(false);
 
   const isNewsPage    = pathname === '/news';
   const showTabs      = isNewsPage; // tabs HANYA di /news, tidak di artikel slug
 
   const currentType     = searchParams.get('type')     || 'terbaru';
   const currentLocation = searchParams.get('location') || 'all';
+  const currentTopic    = searchParams.get('topic')    || '';
+
+  // Close topic dropdown on outside click atau Escape
+  useEffect(() => {
+    if (!topicOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-topic-dropdown]')) setTopicOpen(false);
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTopicOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [topicOpen]);
 
   // ── Fetch locations dari API ──────────────────────────────
   useEffect(() => {
@@ -107,15 +143,17 @@ function CategoryTabsInner() {
   if (!showTabs) return null;
 
   // ── Navigation helper ─────────────────────────────────────
-  function navigate(type: string, location: string) {
+  function navigate(type: string, location: string, topic: string = currentTopic) {
     const p = new URLSearchParams();
     if (type !== 'terbaru')  p.set('type', type);
     if (location !== 'all')  p.set('location', location);
+    if (topic)               p.set('topic', topic);
     router.push(`/news?${p.toString()}`);
   }
 
-  const setType     = (t: string) => navigate(t, currentLocation);
-  const setLocation = (l: string) => navigate(currentType, l);
+  const setType     = (t: string) => navigate(t, currentLocation, currentTopic);
+  const setLocation = (l: string) => navigate(currentType, l, currentTopic);
+  const setTopic    = (tp: string) => { navigate(currentType, currentLocation, tp); setTopicOpen(false); };
 
   return (
     <div
@@ -130,22 +168,79 @@ function CategoryTabsInner() {
         boxShadow: atTop ? 'none' : '0 2px 16px rgba(0,0,0,0.06)',
       }}
     >
-      {/* ── Layer 1: Type tabs ── */}
+      {/* ── Layer 1: Type tabs + Topic dropdown ── */}
       <div className="max-w-4xl mx-auto border-b border-gray-100">
-        <div className="flex overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-          {TYPE_TABS.map(tab => (
+        <div className="flex items-center justify-between">
+          <div className="flex overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
+            {TYPE_TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setType(tab.key)}
+                className={`px-5 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${
+                  isNewsPage && currentType === tab.key
+                    ? 'border-[#003526] text-[#003526]'
+                    : 'border-transparent text-gray-500 hover:text-gray-800'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Topic dropdown — pinned right */}
+          <div className="relative flex-shrink-0 pr-4" data-topic-dropdown>
             <button
-              key={tab.key}
-              onClick={() => setType(tab.key)}
-              className={`px-5 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${
-                isNewsPage && currentType === tab.key
-                  ? 'border-[#003526] text-[#003526]'
-                  : 'border-transparent text-gray-500 hover:text-gray-800'
+              onClick={() => setTopicOpen(o => !o)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
+                currentTopic
+                  ? 'bg-[#1B6B4A] text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
               }`}
             >
-              {tab.label}
+              {currentTopic ? (
+                <>
+                  <span>{TOPICS.find(t => t.key === currentTopic)?.icon}</span>
+                  <span>{TOPICS.find(t => t.key === currentTopic)?.label}</span>
+                </>
+              ) : (
+                <span>Topik</span>
+              )}
+              <span className={`text-[10px] transition-transform ${topicOpen ? 'rotate-180' : ''}`}>▼</span>
             </button>
-          ))}
+
+            {topicOpen && (
+              <div
+                className="absolute right-4 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+                style={{ minWidth: 180, maxHeight: '70vh', overflowY: 'auto' }}
+              >
+                <button
+                  onClick={() => setTopic('')}
+                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 transition-colors ${
+                    !currentTopic ? 'bg-[#1B6B4A]/10 text-[#1B6B4A]' : 'text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  <span className="w-4 text-center">{!currentTopic ? '✓' : ''}</span>
+                  <span>Semua topik</span>
+                </button>
+                <div className="h-px bg-gray-100" />
+                {TOPICS.map(t => {
+                  const active = currentTopic === t.key;
+                  return (
+                    <button
+                      key={t.key}
+                      onClick={() => setTopic(t.key)}
+                      className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 transition-colors ${
+                        active ? 'bg-[#1B6B4A]/10 text-[#1B6B4A]' : 'text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      <span className="w-4 text-center">{active ? '✓' : t.icon}</span>
+                      <span>{t.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
