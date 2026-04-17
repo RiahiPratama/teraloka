@@ -188,6 +188,17 @@ export default function NewArticlePage() {
     return () => clearInterval(tm);
   }, [lastSaved]);
 
+  // Auto-reset source fields saat pindah dari kategori Viral
+  // source_url + source_platform HANYA relevan untuk kategori Viral
+  // (tapi tidak blocking submit — respect speed-to-publish)
+  useEffect(() => {
+    if (category && category !== 'viral') {
+      if (sourceUrl)      setSourceUrl('');
+      if (sourcePlatform) setSourcePlatform('');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [category]);
+
   const handleRestoreDraft = () => {
     if (!restorePrompt) return;
     setTitle(restorePrompt.title || '');
@@ -675,13 +686,21 @@ export default function NewArticlePage() {
               🔴 Tandai sebagai Breaking News
             </label>
 
-            {/* Viral source */}
+            {/* Viral source — soft hint, TIDAK memblokir submit (speed-to-publish) */}
             {isViral && (
               <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.viralBorder}`, background: editorTokens.viralBg }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, marginBottom: 10 }}>
-                  🔥 Berita Viral — Tambahkan sumber asli
+                <p style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, marginBottom: 4 }}>
+                  🔥 Kategori Viral — Angkat kejadian medsos ke BAKABAR secara cepat
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
+                <p style={{ fontSize: 10, color: editorTokens.viralText, opacity: 0.85, marginBottom: 10, lineHeight: 1.5 }}>
+                  Sumber medsos <span style={{ fontWeight: 700 }}>sangat disarankan</span> untuk akuntabilitas jurnalistik.
+                  Bisa di-skip kalau memang urgent, tapi idealnya diisi sebelum publish.
+                </p>
+
+                <label style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, display: 'block', marginBottom: 6 }}>
+                  Platform <span style={{ color: '#DC2626', fontWeight: 700 }} title="Disarankan untuk artikel viral">*</span>
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
                   {PLATFORMS.map(p => (
                     <button key={p.key} onClick={() => setSourcePlatform(p.key)}
                       style={{
@@ -695,8 +714,12 @@ export default function NewArticlePage() {
                     </button>
                   ))}
                 </div>
+
+                <label style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, display: 'block', marginBottom: 6 }}>
+                  Link Postingan Asli <span style={{ color: '#DC2626', fontWeight: 700 }} title="Disarankan untuk artikel viral">*</span>
+                </label>
                 <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
-                  placeholder="https://www.instagram.com/p/..."
+                  placeholder="https://www.instagram.com/p/... atau link TikTok/Twitter/dll"
                   style={{
                     width: '100%', padding: '8px 12px', borderRadius: 8,
                     border: `1px solid ${editorTokens.viralBorder}`,
