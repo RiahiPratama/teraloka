@@ -363,14 +363,8 @@ export default function AdminUsersPage() {
                 <label style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'block', marginBottom: 6 }}>Role</label>
                 <select value={inviteRole} onChange={e => setInviteRole(e.target.value)}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, fontSize: 13, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary, cursor: 'pointer' }}>
-                  {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                  {ROLES.filter(r => r.value !== 'super_admin').map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                 </select>
-
-                {inviteRole === 'super_admin' && (
-                  <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#EF4444' }}>
-                    ⚠️ Super Admin punya akses penuh ke seluruh platform!
-                  </div>
-                )}
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
@@ -676,7 +670,7 @@ export default function AdminUsersPage() {
                         setModal({ type: 'role', userId: u.id, userName: u.name || formatPhone(u.phone), newRole });
                       }}
                       style={{ padding: '4px 8px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, fontSize: 11, color: st.color, background: st.bg, cursor: 'pointer', fontWeight: 700, outline: 'none', width: '100%' }}>
-                      {ROLES.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      {ROLES.filter(r => r.value !== 'super_admin').map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   )}
                 </div>
