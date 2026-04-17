@@ -406,7 +406,7 @@ export default function EditArticlePage() {
 
   // Save perubahan ke DB — PUT /admin/articles/:id via endpoint public /content/articles/:id
   // Endpoint PATCH /admin/articles/:id support version tracking + audit
-  const handleSave = async () => {
+  const handleSave = async (exitAfter: boolean = false) => {
     if (!articleId) return;
     if (!title.trim() || !body.trim()) {
       setError('Judul dan isi artikel wajib diisi.');
@@ -443,8 +443,14 @@ export default function EditArticlePage() {
       // Clear localStorage draft (tidak perlu recovery lagi)
       localStorage.removeItem(LOCAL_DRAFT_KEY);
       setChangeNote('');
-      setSavedToast('✓ Perubahan tersimpan');
-      setTimeout(() => setSavedToast(''), 3000);
+
+      if (exitAfter) {
+        setSavedToast('✓ Tersimpan, kembali ke hub...');
+        setTimeout(() => router.push('/office/newsroom/bakabar/hub'), 800);
+      } else {
+        setSavedToast('✓ Perubahan tersimpan');
+        setTimeout(() => setSavedToast(''), 3000);
+      }
     } catch {
       setError('Koneksi bermasalah. Coba lagi.');
     } finally {
@@ -736,15 +742,28 @@ export default function EditArticlePage() {
           </button>
 
           <button
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={!canSubmit || loading}
-            title="Cmd/Ctrl + S"
+            title="Cmd/Ctrl + S — Simpan dan tetap di halaman"
+            style={{ padding: '6px 14px', borderRadius: 8,
+              border: `1px solid ${editorTokens.inputBorder}`,
+              background: editorTokens.cardBg,
+              color: (canSubmit && !loading) ? t.textMuted : t.textDim,
+              fontSize: 12, fontWeight: 700,
+              cursor: (canSubmit && !loading) ? 'pointer' : 'not-allowed' }}>
+            {loading ? 'Menyimpan...' : '💾 Simpan'}
+          </button>
+
+          <button
+            onClick={() => handleSave(true)}
+            disabled={!canSubmit || loading}
+            title="Simpan dan kembali ke hub"
             style={{ padding: '6px 16px', borderRadius: 8, border: 'none',
               background: (canSubmit && !loading) ? '#1B6B4A' : (dark ? '#374151' : '#D1D5DB'),
               color: '#fff', fontSize: 12, fontWeight: 700,
               cursor: (canSubmit && !loading) ? 'pointer' : 'not-allowed',
               boxShadow: (canSubmit && !loading) ? '0 4px 10px rgba(27,107,74,0.3)' : 'none' }}>
-            {loading ? 'Menyimpan...' : '💾 Simpan'}
+            {loading ? '...' : '✓ Simpan & Selesai'}
           </button>
         </div>
       </div>
