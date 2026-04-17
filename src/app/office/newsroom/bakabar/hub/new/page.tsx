@@ -19,8 +19,12 @@ const CATEGORIES = [
   { key: 'sosial',       label: 'Sosial',       icon: '🤝', color: '#0891B2' },
   { key: 'transportasi', label: 'Transportasi', icon: '🚤', color: '#0284C7' },
   { key: 'olahraga',     label: 'Olahraga',     icon: '⚽', color: '#DC2626' },
+  { key: 'kesehatan',    label: 'Kesehatan',    icon: '🩺', color: '#E11D48' },
+  { key: 'pendidikan',   label: 'Pendidikan',   icon: '🎓', color: '#CA8A04' },
   { key: 'budaya',       label: 'Budaya',       icon: '🎭', color: '#DB2777' },
   { key: 'teknologi',    label: 'Teknologi',    icon: '💡', color: '#2563EB' },
+  { key: 'cuaca',        label: 'Cuaca',        icon: '☁️', color: '#0EA5E9' },
+  { key: 'opini',        label: 'Opini',        icon: '💬', color: '#6B7280' },
 ];
 
 const PLATFORMS = [
