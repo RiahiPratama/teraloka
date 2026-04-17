@@ -80,6 +80,7 @@ export default function BalaporPage() {
   const [total, setTotal]           = useState(0);
   const [loading, setLoading]       = useState(true);
   const [activeFilter, setFilter]   = useState('');
+  const [categoryFilter, setCategory] = useState('');
   const [expandedId, setExpanded]   = useState<string | null>(null);
   const [toast, setToast]           = useState<{ msg: string; ok: boolean } | null>(null);
   const [actionLoading, setAction]  = useState<string | null>(null);
@@ -106,6 +107,7 @@ export default function BalaporPage() {
       } else if (activeFilter && activeFilter !== 'all') {
         params.set('status', activeFilter);
       }
+      if (categoryFilter) params.set('category', categoryFilter);
       const res  = await fetch(`${API_URL}/admin/reports?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
@@ -305,7 +307,7 @@ export default function BalaporPage() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>🚨 BALAPOR Incident Management</h1>
-          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>{total} laporan masuk · {user?.role || 'loading...'}</p>
+          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>{total} laporan masuk</p>
         </div>
         <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 13, color: '#fff', fontWeight: 700, textDecoration: 'none', padding: '8px 16px', background: '#1B6B4A', borderRadius: 10 }}>
           + Tulis Cepat
@@ -344,6 +346,26 @@ export default function BalaporPage() {
             </button>
           );
         })}
+      </div>
+
+      {/* Category filter */}
+      <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
+        {[
+          { value: '',              label: '📋 Semua' },
+          { value: 'keamanan',      label: '🛡️ Keamanan' },
+          { value: 'infrastruktur', label: '🔧 Infrastruktur' },
+          { value: 'lingkungan',    label: '🌳 Lingkungan' },
+          { value: 'layanan publik',label: '🏛️ Layanan Publik' },
+          { value: 'kesehatan',     label: '❤️ Kesehatan' },
+          { value: 'pendidikan',    label: '🎓 Pendidikan' },
+          { value: 'transportasi',  label: '🚢 Transportasi' },
+          { value: 'lainnya',       label: '⋯ Lainnya' },
+        ].map(c => (
+          <button key={c.value} onClick={() => setCategory(c.value)}
+            style={{ padding: '4px 12px', borderRadius: 20, border: `1px solid ${categoryFilter === c.value ? '#0891B2' : t.sidebarBorder}`, background: categoryFilter === c.value ? '#0891B2' : t.sidebar, color: categoryFilter === c.value ? '#fff' : t.textMuted, fontSize: 11, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+            {c.label}
+          </button>
+        ))}
       </div>
 
       {/* Loading */}
