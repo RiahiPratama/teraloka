@@ -5,6 +5,7 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import { createClient } from '@/lib/supabase/client';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const LOCAL_DRAFT_KEY = 'bakabar_draft_v1';
@@ -51,12 +52,22 @@ function renderMarkdown(text: string): string {
   html = html.replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, '<ul>$1</ul>$2');
   html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
+
+  // Image syntax HARUS sebelum link karena ![]() contains []()
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
+    const safeAlt = alt || '';
+    if (safeAlt.trim()) {
+      return `<figure class="bk-fig"><img src="${src}" alt="${safeAlt}" /><figcaption>${safeAlt}</figcaption></figure>`;
+    }
+    return `<img class="bk-inline" src="${src}" alt="" />`;
+  });
+
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
   const blocks = html.split(/\n\n+/).map(block => {
     const trimmed = block.trim();
     if (!trimmed) return '';
-    if (/^<(h[1-3]|ul|blockquote)/.test(trimmed)) return trimmed;
+    if (/^<(h[1-3]|ul|blockquote|figure|img)/.test(trimmed)) return trimmed;
     return `<p>${trimmed.replace(/\n/g, '<br>')}</p>`;
   }).filter(Boolean);
 
@@ -133,6 +144,8 @@ export default function NewArticlePage() {
 
   const [restorePrompt, setRestorePrompt]   = useState<any>(null);
   const [draftLoaded, setDraftLoaded]       = useState(false);
+  const [uploadingInline, setUploadingInline] = useState(false);
+  const [inlineError, setInlineError]       = useState('');
 
   const bodyRef   = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -256,6 +269,62 @@ export default function NewArticlePage() {
     const md = `[${selected}](${url})`;
     setBody(body.slice(0, start) + md + body.slice(end));
     setTimeout(() => ta.focus(), 0);
+  };
+
+  // Upload foto inline ke Supabase Storage → insert markdown image di cursor
+  const insertImageInline = () => {
+    setInlineError('');
+    const fi = document.createElement('input');
+    fi.type   = 'file';
+    fi.accept = 'image/jpeg,image/png,image/webp';
+    fi.onchange = async (e: any) => {
+      const file: File | undefined = e.target.files?.[0];
+      if (!file) return;
+
+      if (file.size > 2 * 1024 * 1024) {
+        setInlineError('Ukuran foto inline maksimal 2MB');
+        return;
+      }
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        setInlineError('Format foto harus JPG, PNG, atau WebP');
+        return;
+      }
+
+      setUploadingInline(true);
+      try {
+        const supabase = createClient();
+        const ext = file.name.split('.').pop();
+        const fileName = `inline-${Date.now()}-${Math.random().toString(36).slice(-6)}.${ext}`;
+
+        const { error: upErr } = await supabase.storage
+          .from('articles')
+          .upload(fileName, file, { upsert: false });
+        if (upErr) throw upErr;
+
+        const { data } = supabase.storage.from('articles').getPublicUrl(fileName);
+        const url = data.publicUrl;
+
+        const caption = window.prompt('Caption foto (opsional, dikosongkan juga ok):', '') || '';
+        const md = `\n\n![${caption}](${url})\n\n`;
+
+        const ta = bodyRef.current;
+        if (!ta) {
+          setBody(body + md);
+          return;
+        }
+        const start = ta.selectionStart;
+        setBody(body.slice(0, start) + md + body.slice(start));
+        setTimeout(() => {
+          ta.focus();
+          ta.setSelectionRange(start + md.length, start + md.length);
+        }, 0);
+      } catch (err: any) {
+        setInlineError(err.message || 'Gagal upload foto inline');
+      } finally {
+        setUploadingInline(false);
+      }
+    };
+    fi.click();
   };
 
   const handleBodyKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -414,6 +483,22 @@ export default function NewArticlePage() {
     .bk-preview ul { padding-left: 22px; margin: 0 0 14px; }
     .bk-preview li { font-size: 15px; line-height: 1.8; color: ${editorTokens.articleText}; margin-bottom: 4px; }
     .bk-preview a  { color: #0891B2; text-decoration: underline; }
+
+    .bk-preview figure.bk-fig { margin: 18px 0; text-align: center; }
+    .bk-preview figure.bk-fig img {
+      width: 100%; height: auto; max-height: 450px; object-fit: contain;
+      border-radius: 10px; background: ${dark ? '#0A0D11' : '#F3F4F6'};
+      display: block; margin: 0 auto;
+    }
+    .bk-preview figure.bk-fig figcaption {
+      font-size: 12px; color: ${t.textDim}; margin-top: 8px;
+      font-style: italic; text-align: center;
+    }
+    .bk-preview img.bk-inline {
+      width: 100%; height: auto; max-height: 450px; object-fit: contain;
+      border-radius: 10px; margin: 18px 0; display: block;
+      background: ${dark ? '#0A0D11' : '#F3F4F6'};
+    }
 
     .bk-placeholder { color: ${t.textDim} !important; font-style: italic; }
   `;
@@ -683,11 +768,34 @@ export default function NewArticlePage() {
                   {btn.label}
                 </button>
               ))}
+
+              {/* Tombol foto inline — terpisah karena butuh loading state */}
+              <button
+                onClick={insertImageInline}
+                disabled={uploadingInline}
+                title="Sisipkan foto di tengah artikel"
+                style={{
+                  padding: '4px 10px', borderRadius: 6, border: 'none',
+                  background: uploadingInline ? 'rgba(27,107,74,0.15)' : 'transparent',
+                  color: uploadingInline ? '#1B6B4A' : t.textMuted,
+                  fontSize: 13, cursor: uploadingInline ? 'wait' : 'pointer',
+                  fontWeight: 700, display: 'flex', alignItems: 'center', gap: 4,
+                }}
+                onMouseEnter={e => !uploadingInline && (e.currentTarget.style.background = editorTokens.chipBg)}
+                onMouseLeave={e => !uploadingInline && (e.currentTarget.style.background = 'transparent')}>
+                {uploadingInline ? '⏳ Upload...' : '📷 Foto'}
+              </button>
               <div style={{ flex: 1 }} />
               <span style={{ fontSize: 10, color: t.textDim, alignSelf: 'center', padding: '0 6px' }}>
-                **bold** · *italic* · # heading · &gt; quote · - list
+                **bold** · *italic* · # heading · &gt; quote · - list · ![caption](url)
               </span>
             </div>
+
+            {inlineError && (
+              <p style={{ fontSize: 12, color: editorTokens.errorText, fontWeight: 600, marginTop: -10 }}>
+                ✗ {inlineError}
+              </p>
+            )}
 
             {/* Body */}
             <textarea
