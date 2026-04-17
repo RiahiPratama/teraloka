@@ -8,6 +8,38 @@ import WANewsletterWidget from '@/components/WANewsletterWidget';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
 
+// 11 daerah Malut + "Semua" = 12 pills
+const LOCATIONS = [
+  { slug: 'all',     name: 'Semua',   icon: '🏝️' },
+  { slug: 'ternate', name: 'Ternate', icon: '🏙️' },
+  { slug: 'tidore',  name: 'Tidore',  icon: '🏙️' },
+  { slug: 'sofifi',  name: 'Sofifi',  icon: '🏙️' },
+  { slug: 'halbar',  name: 'Halbar',  icon: '🏝️' },
+  { slug: 'halut',   name: 'Halut',   icon: '🏝️' },
+  { slug: 'halsel',  name: 'Halsel',  icon: '🏝️' },
+  { slug: 'halteng', name: 'Halteng', icon: '🏝️' },
+  { slug: 'haltim',  name: 'Haltim',  icon: '🏝️' },
+  { slug: 'sula',    name: 'Sula',    icon: '🏝️' },
+  { slug: 'taliabu', name: 'Taliabu', icon: '🏝️' },
+  { slug: 'morotai', name: 'Morotai', icon: '🏝️' },
+];
+
+// 12 topik (skip 'viral' — sudah jadi tab utama)
+const TOPICS = [
+  { key: 'berita',       label: 'Berita',       icon: '📰' },
+  { key: 'politik',      label: 'Politik',      icon: '🏛️' },
+  { key: 'ekonomi',      label: 'Ekonomi',      icon: '💰' },
+  { key: 'sosial',       label: 'Sosial',       icon: '🤝' },
+  { key: 'transportasi', label: 'Transportasi', icon: '🚤' },
+  { key: 'olahraga',     label: 'Olahraga',     icon: '⚽' },
+  { key: 'kesehatan',    label: 'Kesehatan',    icon: '🩺' },
+  { key: 'pendidikan',   label: 'Pendidikan',   icon: '🎓' },
+  { key: 'budaya',       label: 'Budaya',       icon: '🎭' },
+  { key: 'teknologi',    label: 'Teknologi',    icon: '💡' },
+  { key: 'cuaca',        label: 'Cuaca',        icon: '☁️' },
+  { key: 'opini',        label: 'Opini',        icon: '💬' },
+];
+
 // ── Utils ─────────────────────────────────────────────────────────
 
 function parseExcerpt(excerpt?: string | null, body?: string | null): string {
@@ -225,6 +257,7 @@ function LiveBALAPORFeed({ reports }: { reports: any[] }) {
 
 function NewsPageContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -232,10 +265,47 @@ function NewsPageContent() {
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [recentReports, setRecentReports] = useState<any[]>([]);
+  const [topicOpen, setTopicOpen] = useState(false);
 
   const type = searchParams.get('type') || 'terbaru';
   const location = searchParams.get('location') || 'all';
   const q = searchParams.get('q') || '';
+  const topic = searchParams.get('topic') || '';
+
+  // Close topic dropdown on outside click or Escape
+  useEffect(() => {
+    if (!topicOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest('[data-topic-dropdown]')) setTopicOpen(false);
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setTopicOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    document.addEventListener('keydown', handleEsc);
+    return () => {
+      document.removeEventListener('mousedown', handleClick);
+      document.removeEventListener('keydown', handleEsc);
+    };
+  }, [topicOpen]);
+
+  // URL update helper — deletes param jika value default/empty
+  const updateFilter = (key: string, value: string | null) => {
+    const params = new URLSearchParams(searchParams.toString());
+    const isDefault =
+      value === null || value === '' ||
+      (key === 'location' && value === 'all') ||
+      (key === 'type' && value === 'terbaru');
+
+    if (isDefault) {
+      params.delete(key);
+    } else {
+      params.set(key, value!);
+    }
+    const qs = params.toString();
+    router.push(qs ? `/news?${qs}` : '/news');
+  };
 
   // Fetch recent reports on mount
   useEffect(() => {
@@ -249,6 +319,7 @@ function NewsPageContent() {
       if (type !== 'terbaru') p.set('type', type);
       if (location !== 'all') p.set('location', location);
       if (q) p.set('q', q);
+      if (topic) p.set('category', topic);
 
       const res = await fetch(`${API}/content/articles?${p}`);
       const data = await res.json();
@@ -264,9 +335,9 @@ function NewsPageContent() {
     } finally {
       reset ? setLoading(false) : setLoadingMore(false);
     }
-  }, [type, location, q, page]);
+  }, [type, location, q, topic, page]);
 
-  useEffect(() => { setPage(1); fetchArticles(true); }, [type, location, q]);
+  useEffect(() => { setPage(1); fetchArticles(true); }, [type, location, q, topic]);
 
   const featured = articles[0];
   const rest = articles.slice(1);
@@ -304,6 +375,119 @@ function NewsPageContent() {
 
         <div className="pt-2">
           <AdBanner />
+        </div>
+
+        {/* ── Filter Bar ── */}
+        <div className="py-3 border-b border-gray-100 mb-4">
+          {/* Row 1: Tabs + Topic dropdown */}
+          <div className="flex items-center justify-between gap-2 mb-3">
+            {/* Tabs */}
+            <div className="flex items-center gap-1 flex-shrink-0">
+              {[
+                { key: 'terbaru', label: 'Terbaru', icon: null },
+                { key: 'viral', label: 'Viral', icon: '🔥' },
+                { key: 'nasional', label: 'Nasional', icon: '🗞️' },
+              ].map(tab => {
+                const active = type === tab.key;
+                return (
+                  <button
+                    key={tab.key}
+                    onClick={() => updateFilter('type', tab.key)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors ${
+                      active
+                        ? 'bg-[#003526] text-white'
+                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                    }`}
+                  >
+                    {tab.icon && <span className="mr-1">{tab.icon}</span>}
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Topic dropdown */}
+            <div className="relative flex-shrink-0" data-topic-dropdown>
+              <button
+                onClick={() => setTopicOpen(o => !o)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
+                  topic
+                    ? 'bg-[#1B6B4A] text-white'
+                    : 'bg-gray-50 text-gray-700 hover:bg-gray-100'
+                }`}
+              >
+                {topic ? (
+                  <>
+                    <span>{TOPICS.find(t => t.key === topic)?.icon}</span>
+                    <span>{TOPICS.find(t => t.key === topic)?.label}</span>
+                  </>
+                ) : (
+                  <span>Topik: Semua</span>
+                )}
+                <span className={`text-[10px] transition-transform ${topicOpen ? 'rotate-180' : ''}`}>▼</span>
+              </button>
+
+              {topicOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
+                  style={{ minWidth: 180, maxHeight: '70vh', overflowY: 'auto' }}
+                >
+                  <button
+                    onClick={() => { updateFilter('topic', null); setTopicOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 transition-colors ${
+                      !topic ? 'bg-[#1B6B4A]/10 text-[#1B6B4A]' : 'text-gray-700 hover:bg-gray-50'
+                    }`}
+                  >
+                    <span className="w-4 text-center">{!topic ? '✓' : ''}</span>
+                    <span>Semua topik</span>
+                  </button>
+                  <div className="h-px bg-gray-100" />
+                  {TOPICS.map(t => {
+                    const active = topic === t.key;
+                    return (
+                      <button
+                        key={t.key}
+                        onClick={() => { updateFilter('topic', t.key); setTopicOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 transition-colors ${
+                          active ? 'bg-[#1B6B4A]/10 text-[#1B6B4A]' : 'text-gray-700 hover:bg-gray-50'
+                        }`}
+                      >
+                        <span className="w-4 text-center">{active ? '✓' : t.icon}</span>
+                        <span>{t.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Row 2: Location pills — scroll horizontal */}
+          <div
+            className="flex items-center gap-2 overflow-x-auto pb-1"
+            style={{
+              scrollbarWidth: 'thin',
+              WebkitOverflowScrolling: 'touch',
+            }}
+          >
+            {LOCATIONS.map(loc => {
+              const active = location === loc.slug;
+              return (
+                <button
+                  key={loc.slug}
+                  onClick={() => updateFilter('location', loc.slug)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex-shrink-0 transition-colors border ${
+                    active
+                      ? 'bg-[#1B6B4A] text-white border-[#1B6B4A]'
+                      : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                  }`}
+                >
+                  {loc.slug !== 'all' && <span className="mr-1">{loc.icon}</span>}
+                  {loc.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {pageTitle && (
