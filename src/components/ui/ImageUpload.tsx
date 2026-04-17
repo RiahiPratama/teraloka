@@ -4,7 +4,7 @@ import { useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 
 interface ImageUploadProps {
-  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports';
+  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads';
   onUpload: (urls: string[]) => void;
   existingUrls?: string[];
   label?: string;
@@ -18,6 +18,7 @@ const BUCKET_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
   campaigns: { maxFiles: 1, maxSizeMB: 2 },
   avatars:   { maxFiles: 1, maxSizeMB: 1 },
   reports:   { maxFiles: 3, maxSizeMB: 3 },
+  ads:       { maxFiles: 1, maxSizeMB: 0.5 },
 };
 
 export default function ImageUpload({

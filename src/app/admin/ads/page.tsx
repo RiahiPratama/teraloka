@@ -418,18 +418,11 @@ export default function AdsAdminPage() {
 
                 {/* Banner Upload */}
                 <div style={{ marginBottom: 14 }}>
-                  <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                    Banner Iklan *
-                    <span style={{ marginLeft: 6, fontWeight: 400, color: t.textMuted, opacity: 0.7 }}>
-                      (JPG/PNG/WebP, max 500 KB)
-                    </span>
-                  </label>
                   <ImageUpload
                     bucket="ads"
-                    maxSizeKB={500}
-                    value={form.image_url ? [form.image_url] : []}
-                    onChange={(urls: string[]) => setForm(p => ({ ...p, image_url: urls[0] || '' }))}
-                    maxPhotos={1}
+                    label="Banner Iklan *"
+                    existingUrls={form.image_url ? [form.image_url] : []}
+                    onUpload={(urls: string[]) => setForm(p => ({ ...p, image_url: urls[0] || '' }))}
                   />
                   {form.image_url && (
                     <p style={{ fontSize: 10, color: t.textMuted, marginTop: 4, fontStyle: 'italic' }}>
