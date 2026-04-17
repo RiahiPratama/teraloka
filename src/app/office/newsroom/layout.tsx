@@ -116,22 +116,14 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
     </div>
   );
 
-  // isActive yang aware query params — match pathname + status query
   const isActive = (href: string): boolean => {
     const [hrefPath, hrefQuery] = href.split('?');
-
-    // Step 1: path harus match (exact atau prefix subfolder)
     const pathMatch = pathname === hrefPath || pathname.startsWith(hrefPath + '/');
     if (!pathMatch) return false;
-
-    // Step 2: bandingkan status query
     if (hrefQuery) {
-      // href punya query (e.g. ?status=draft) — status harus match persis
       const hrefStatus = new URLSearchParams(hrefQuery).get('status') ?? '';
       return hrefStatus === currentStatus;
     }
-
-    // href TANPA query (Dashboard) — aktif hanya kalau URL juga tanpa status
     return currentStatus === '';
   };
 
@@ -177,7 +169,6 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
               const isExpanded = expanded[section.section];
               return (
                 <div key={section.section} style={{ marginBottom: 6 }}>
-                  {/* Section header */}
                   <div
                     onClick={() => setExpanded(e => ({ ...e, [section.section]: !e[section.section] }))}
                     className="bk-item"
@@ -190,7 +181,6 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
                     <span style={{ fontSize: 9, color: t.textDim, transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
                   </div>
 
-                  {/* Items */}
                   {isExpanded && (
                     <div style={{ marginBottom: 8 }}>
                       {section.items.map((item: any) => {
@@ -269,10 +259,6 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
                 {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
               </span>
             </div>
-            <Link href="/office/newsroom/bakabar/hub?status=draft" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, textDecoration: 'none', fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>
-              📝 Drafts
-              {stats?.articles.draft ? <span style={{ fontSize: 10, fontWeight: 800, padding: '0 5px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>{stats.articles.draft}</span> : null}
-            </Link>
             <button onClick={toggleTheme} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 12px', background: dark ? '#1F2937' : '#F3F4F6', border: `1px solid ${dark ? '#374151' : '#E5E7EB'}`, borderRadius: 20, cursor: 'pointer', fontSize: 11.5, fontWeight: 600, color: t.textMuted }}>
               {dark ? '☀️' : '🌙'} {dark ? 'Terang' : 'Gelap'}
             </button>
@@ -290,7 +276,6 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
   );
 }
 
-// Wrap dengan Suspense karena useSearchParams() butuh Suspense boundary
 export default function OfficeBakabarLayout({ children }: { children: React.ReactNode }) {
   return (
     <Suspense fallback={
