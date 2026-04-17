@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useContext } from 'react';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const LOCAL_DRAFT_KEY = 'bakabar_draft_v1';
@@ -32,40 +33,26 @@ const PLATFORMS = [
 ];
 
 // ──────────────────────────────────────────────────────────────
-// Markdown — mini parser untuk live preview
-// Safe: escape HTML dulu, baru apply markdown transforms
+// Markdown — mini parser
 // ──────────────────────────────────────────────────────────────
 function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;');
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function renderMarkdown(text: string): string {
   if (!text) return '';
   let html = escapeHtml(text);
 
-  // Heading (harus sebelum bold/italic karena pakai #)
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
-
-  // Blockquote (& karena dari escape)
   html = html.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
-
-  // List items (akan di-wrap <ul> setelah ini)
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
-  // Group consecutive <li> in <ul>
   html = html.replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, '<ul>$1</ul>$2');
-
-  // Inline
   html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
-  // Paragraphs — split by double-newline, wrap non-block content
   const blocks = html.split(/\n\n+/).map(block => {
     const trimmed = block.trim();
     if (!trimmed) return '';
@@ -87,6 +74,43 @@ function timeSince(date: Date): string {
 export default function NewArticlePage() {
   const router = useRouter();
   const { user, token } = useAuth();
+  const themeCtx = useContext(AdminThemeContext);
+  const dark = themeCtx?.dark ?? true;
+  const t = themeCtx?.t ?? {
+    mainBg: '#0D1117', sidebar: '#161B22', sidebarBorder: '#21262D',
+    textPrimary: '#F9FAFB', textMuted: '#D1D5DB', textDim: '#9CA3AF',
+    navHover: '#21262D', navActive: 'rgba(27,107,74,0.15)',
+    accent: '#1B6B4A', accentDim: '#059669',
+    topbar: '#161B22', topbarBorder: '#21262D',
+    userCard: '#21262D',
+  };
+
+  // Derived theme tokens untuk editor-specific styling
+  const editorTokens = {
+    pageBg:       dark ? '#0D1117' : '#F9FAFB',
+    cardBg:       dark ? '#161B22' : '#FFFFFF',
+    inputBg:      dark ? '#0D1117' : '#FFFFFF',
+    inputBorder:  dark ? '#30363D' : '#E5E7EB',
+    toolbarBg:    dark ? 'rgba(22,27,34,0.9)' : 'rgba(255,255,255,0.95)',
+    toolbarBorder:dark ? '#21262D' : '#E5E7EB',
+    chipBg:       dark ? '#1F2937' : '#F3F4F6',
+    chipText:     dark ? '#D1D5DB' : '#374151',
+    dimText:      dark ? '#9CA3AF' : '#6B7280',
+    previewBg:    dark ? '#0A0D11' : '#F9FAFB',
+    previewCard:  dark ? '#161B22' : '#FFFFFF',
+    borderSubtle: dark ? '#21262D' : '#E5E7EB',
+    hintBg:       dark ? '#1F2937' : '#F9FAFB',
+    articleText:  dark ? '#E5E7EB' : '#374151',
+    articleHead:  dark ? '#F9FAFB' : '#111827',
+    articleStrong:dark ? '#FFFFFF' : '#111827',
+    quoteBg:      dark ? 'rgba(27,107,74,0.1)'  : 'rgba(27,107,74,0.04)',
+    quoteText:    dark ? '#9CA3AF' : '#4B5563',
+    viralBg:      dark ? 'rgba(249,115,22,0.08)' : '#FFF7ED',
+    viralBorder:  dark ? 'rgba(251,146,60,0.3)'  : '#FDBA74',
+    viralText:    dark ? '#FDBA74' : '#9A3412',
+    successText:  '#10B981',
+    errorText:    '#EF4444',
+  };
 
   const [title, setTitle]                   = useState('');
   const [body, setBody]                     = useState('');
@@ -113,26 +137,20 @@ export default function NewArticlePage() {
   const bodyRef   = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ───────────────────────────────────────────────────
-  // Load draft dari localStorage saat mount
-  // ───────────────────────────────────────────────────
+  // Load draft
   useEffect(() => {
     if (draftLoaded) return;
     try {
       const saved = localStorage.getItem(LOCAL_DRAFT_KEY);
       if (saved) {
         const data = JSON.parse(saved);
-        if (data?.title || data?.body) {
-          setRestorePrompt(data);
-        }
+        if (data?.title || data?.body) setRestorePrompt(data);
       }
     } catch {}
     setDraftLoaded(true);
   }, [draftLoaded]);
 
-  // ───────────────────────────────────────────────────
-  // Auto-save ke localStorage (debounced)
-  // ───────────────────────────────────────────────────
+  // Auto-save
   useEffect(() => {
     if (!draftLoaded) return;
     if (!title && !body) return;
@@ -151,16 +169,12 @@ export default function NewArticlePage() {
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, draftLoaded]);
 
-  // Ticker untuk update "X mnt lalu" setiap 30 dtk
   useEffect(() => {
     if (!lastSaved) return;
-    const t = setInterval(() => forceRerender(x => x + 1), 30000);
-    return () => clearInterval(t);
+    const tm = setInterval(() => forceRerender(x => x + 1), 30000);
+    return () => clearInterval(tm);
   }, [lastSaved]);
 
-  // ───────────────────────────────────────────────────
-  // Restore draft
-  // ───────────────────────────────────────────────────
   const handleRestoreDraft = () => {
     if (!restorePrompt) return;
     setTitle(restorePrompt.title || '');
@@ -178,15 +192,11 @@ export default function NewArticlePage() {
     setRestorePrompt(null);
   };
 
-  // ───────────────────────────────────────────────────
   // Keyboard shortcuts
-  // ───────────────────────────────────────────────────
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const meta = e.metaKey || e.ctrlKey;
-      if (e.key === 'Escape' && focusMode) {
-        setFocusMode(false);
-      }
+      if (e.key === 'Escape' && focusMode) setFocusMode(false);
       if (meta && e.key === 's') {
         e.preventDefault();
         if (title.trim() && body.trim() && category && !loading) {
@@ -207,9 +217,7 @@ export default function NewArticlePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [title, body, category, focusMode, loading]);
 
-  // ───────────────────────────────────────────────────
   // Markdown toolbar actions
-  // ───────────────────────────────────────────────────
   const wrapSelection = (before: string, after: string = before) => {
     const ta = bodyRef.current;
     if (!ta) return;
@@ -256,9 +264,7 @@ export default function NewArticlePage() {
     if (meta && e.key === 'i') { e.preventDefault(); wrapSelection('*');  }
   };
 
-  // ───────────────────────────────────────────────────
   // Submit
-  // ───────────────────────────────────────────────────
   const handleSubmit = async (doPublish = publishNow) => {
     if (!title.trim() || !body.trim() || !category) {
       setError('Lengkapi judul, isi artikel, dan kategori.');
@@ -298,7 +304,6 @@ export default function NewArticlePage() {
         });
       }
 
-      // Clear local draft — artikel udah aman di server
       localStorage.removeItem(LOCAL_DRAFT_KEY);
       setSubmitted(true);
     } catch {
@@ -308,16 +313,13 @@ export default function NewArticlePage() {
     }
   };
 
-  // ───────────────────────────────────────────────────
-  // Access gates
-  // ───────────────────────────────────────────────────
   if (!user || !token) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="text-center">
-          <p className="text-4xl mb-3">🔒</p>
-          <h2 className="text-lg font-semibold">Akses Ditolak</h2>
-          <p className="mt-1 text-sm text-gray-500">Halaman ini hanya untuk admin TeraLoka.</p>
+      <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 36, marginBottom: 8 }}>🔒</p>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: t.textPrimary }}>Akses Ditolak</h2>
+          <p style={{ fontSize: 13, color: t.textDim, marginTop: 4 }}>Halaman ini hanya untuk admin TeraLoka.</p>
         </div>
       </div>
     );
@@ -325,47 +327,50 @@ export default function NewArticlePage() {
 
   if (!['super_admin', 'admin_content'].includes(user.role)) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="text-center">
-          <p className="text-4xl mb-3">🚫</p>
-          <h2 className="text-lg font-semibold">Bukan Admin</h2>
-          <p className="mt-1 text-sm text-gray-500">Kamu tidak punya akses untuk menulis artikel.</p>
+      <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 36, marginBottom: 8 }}>🚫</p>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: t.textPrimary }}>Bukan Admin</h2>
+          <p style={{ fontSize: 13, color: t.textDim, marginTop: 4 }}>Kamu tidak punya akses untuk menulis artikel.</p>
         </div>
       </div>
     );
   }
 
-  // ───────────────────────────────────────────────────
-  // Post-submit success screen
-  // ───────────────────────────────────────────────────
   if (submitted) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="text-center max-w-sm">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-50">
-            <svg className="h-8 w-8 text-[#1B6B4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M20 6L9 17l-5-5" />
-            </svg>
+      <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', padding: 16, background: editorTokens.pageBg }}>
+        <div style={{ textAlign: 'center', maxWidth: 360 }}>
+          <div style={{
+            margin: '0 auto 14px', width: 62, height: 62, borderRadius: '50%',
+            background: dark ? 'rgba(16,185,129,0.1)' : '#ECFDF5',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}>
+            <span style={{ fontSize: 32, color: '#10B981' }}>✓</span>
           </div>
-          <h2 className="text-lg font-semibold text-gray-900">
+          <h2 style={{ fontSize: 17, fontWeight: 700, color: t.textPrimary }}>
             Artikel {publishNow ? 'Dipublish!' : 'Disimpan sebagai Draft!'}
           </h2>
-          <p className="mt-2 text-sm text-gray-500">
+          <p style={{ marginTop: 8, fontSize: 13, color: t.textDim }}>
             {publishNow ? 'Artikel sudah live di BAKABAR.' : 'Artikel tersimpan sebagai draft.'}
           </p>
-          <div className="mt-5 grid gap-2">
+          <div style={{ marginTop: 20, display: 'grid', gap: 8 }}>
             <button
               onClick={() => router.push('/office/newsroom/bakabar/hub')}
-              className="rounded-xl bg-[#1B6B4A] py-2.5 text-sm font-semibold text-white"
-            >
+              style={{
+                borderRadius: 10, padding: '10px 20px', background: '#1B6B4A',
+                color: '#fff', fontSize: 13, fontWeight: 700, border: 'none', cursor: 'pointer',
+              }}>
               Ke Editorial Command Center
             </button>
-            <div className="flex gap-2">
+            <div style={{ display: 'flex', gap: 8 }}>
               {newArticleId && (
                 <button
                   onClick={() => router.push(`/office/newsroom/bakabar/hub/${newArticleId}/edit`)}
-                  className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600"
-                >
+                  style={{
+                    flex: 1, borderRadius: 10, padding: '10px', border: `1px solid ${editorTokens.inputBorder}`,
+                    background: editorTokens.cardBg, color: t.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                  }}>
                   Edit
                 </button>
               )}
@@ -376,8 +381,10 @@ export default function NewArticlePage() {
                   setSourceUrl(''); setSourcePlatform(''); setIsBreaking(false);
                   setPublishNow(false); setLastSaved(null);
                 }}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-medium text-gray-600"
-              >
+                style={{
+                  flex: 1, borderRadius: 10, padding: '10px', border: `1px solid ${editorTokens.inputBorder}`,
+                  background: editorTokens.cardBg, color: t.textMuted, fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                }}>
                 Tulis Lagi
               </button>
             </div>
@@ -387,9 +394,7 @@ export default function NewArticlePage() {
     );
   }
 
-  // ───────────────────────────────────────────────────
-  // Stats + derived
-  // ───────────────────────────────────────────────────
+  // Stats
   const wordCount  = body.trim() ? body.trim().split(/\s+/).filter(Boolean).length : 0;
   const readTime   = Math.max(1, Math.ceil(wordCount / 200));
   const charCount  = body.length;
@@ -397,30 +402,30 @@ export default function NewArticlePage() {
   const canSubmit  = title.trim() && body.trim() && category && !loading;
   const categoryMeta = CATEGORIES.find(c => c.key === category);
 
-  // ───────────────────────────────────────────────────
-  // Styles (dipakai kedua mode)
-  // ───────────────────────────────────────────────────
+  // Preview styles — adaptive ke theme
   const previewStyles = `
-    .bk-preview h1 { font-size: 26px; font-weight: 800; line-height: 1.2; margin: 0 0 14px; color: #111827; letter-spacing: -0.4px; }
-    .bk-preview h2 { font-size: 20px; font-weight: 800; margin: 22px 0 10px; color: #1F2937; }
-    .bk-preview h3 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; color: #1F2937; }
-    .bk-preview p  { font-size: 15px; line-height: 1.8; color: #374151; margin: 0 0 14px; }
-    .bk-preview strong { color: #111827; font-weight: 700; }
-    .bk-preview em { color: #374151; font-style: italic; }
-    .bk-preview blockquote { border-left: 3px solid #1B6B4A; padding: 6px 14px; margin: 14px 0; color: #4B5563; background: rgba(27,107,74,0.04); font-style: italic; border-radius: 0 6px 6px 0; }
+    .bk-preview h1 { font-size: 26px; font-weight: 800; line-height: 1.2; margin: 0 0 14px; color: ${editorTokens.articleHead}; letter-spacing: -0.4px; }
+    .bk-preview h2 { font-size: 20px; font-weight: 800; margin: 22px 0 10px; color: ${editorTokens.articleHead}; }
+    .bk-preview h3 { font-size: 16px; font-weight: 700; margin: 18px 0 8px; color: ${editorTokens.articleHead}; }
+    .bk-preview p  { font-size: 15px; line-height: 1.8; color: ${editorTokens.articleText}; margin: 0 0 14px; }
+    .bk-preview strong { color: ${editorTokens.articleStrong}; font-weight: 700; }
+    .bk-preview em { color: ${editorTokens.articleText}; font-style: italic; }
+    .bk-preview blockquote { border-left: 3px solid #1B6B4A; padding: 6px 14px; margin: 14px 0; color: ${editorTokens.quoteText}; background: ${editorTokens.quoteBg}; font-style: italic; border-radius: 0 6px 6px 0; }
     .bk-preview ul { padding-left: 22px; margin: 0 0 14px; }
-    .bk-preview li { font-size: 15px; line-height: 1.8; color: #374151; margin-bottom: 4px; }
+    .bk-preview li { font-size: 15px; line-height: 1.8; color: ${editorTokens.articleText}; margin-bottom: 4px; }
     .bk-preview a  { color: #0891B2; text-decoration: underline; }
+
+    .bk-placeholder { color: ${t.textDim} !important; font-style: italic; }
   `;
 
-  // ───────────────────────────────────────────────────
-  // RENDER
-  // ───────────────────────────────────────────────────
   const containerStyle: React.CSSProperties = focusMode ? {
     position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-    zIndex: 9999, background: '#fff', overflow: 'auto',
-    paddingTop: 0,
-  } : {};
+    zIndex: 9999, background: editorTokens.pageBg, overflow: 'auto',
+  } : {
+    background: editorTokens.pageBg,
+    margin: '-20px', // compensate layout padding
+    minHeight: 'calc(100vh - 56px)',
+  };
 
   return (
     <div style={containerStyle}>
@@ -430,14 +435,17 @@ export default function NewArticlePage() {
       {restorePrompt && (
         <div style={{
           position: 'fixed', top: 16, left: '50%', transform: 'translateX(-50%)',
-          zIndex: 10000, background: '#fff', border: '1px solid #FDE68A',
-          borderRadius: 12, padding: '12px 20px', boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+          zIndex: 10000,
+          background: dark ? '#1F2937' : '#fff',
+          border: `1px solid ${dark ? '#92400E' : '#FDE68A'}`,
+          borderRadius: 12, padding: '12px 20px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.25)',
           display: 'flex', alignItems: 'center', gap: 14, maxWidth: 560,
         }}>
           <span style={{ fontSize: 22 }}>💾</span>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <p style={{ fontSize: 13, fontWeight: 700, color: '#92400E' }}>Draft tersimpan sebelumnya</p>
-            <p style={{ fontSize: 11, color: '#78350F' }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: dark ? '#FCD34D' : '#92400E' }}>Draft tersimpan sebelumnya</p>
+            <p style={{ fontSize: 11, color: dark ? '#FDE68A' : '#78350F' }}>
               {restorePrompt.title ? `"${restorePrompt.title.slice(0, 50)}..."` : '(tanpa judul)'}
               {restorePrompt.savedAt && ` · ${timeSince(new Date(restorePrompt.savedAt))}`}
             </p>
@@ -447,8 +455,10 @@ export default function NewArticlePage() {
             color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer',
           }}>Pulihkan</button>
           <button onClick={handleDiscardDraft} style={{
-            padding: '6px 10px', borderRadius: 8, border: '1px solid #E5E7EB',
-            background: '#fff', color: '#6B7280', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            padding: '6px 10px', borderRadius: 8,
+            border: `1px solid ${editorTokens.inputBorder}`,
+            background: editorTokens.cardBg, color: t.textDim,
+            fontSize: 12, fontWeight: 600, cursor: 'pointer',
           }}>Buang</button>
         </div>
       )}
@@ -456,45 +466,49 @@ export default function NewArticlePage() {
       {/* Sticky toolbar */}
       <div style={{
         position: 'sticky', top: 0, zIndex: 50,
-        background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
-        borderBottom: '1px solid #E5E7EB',
+        background: editorTokens.toolbarBg,
+        backdropFilter: 'blur(8px)',
+        borderBottom: `1px solid ${editorTokens.toolbarBorder}`,
         padding: '10px 20px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flex: 1, minWidth: 200 }}>
           <h1 style={{ fontSize: 16, fontWeight: 800, color: '#1B6B4A', letterSpacing: '-0.3px' }}>
             ✍️ Tulis Artikel
           </h1>
-          <span style={{ fontSize: 11, color: '#9CA3AF' }}>
-            {wordCount} kata · ~{readTime} mnt baca · {charCount} karakter
+          <span style={{ fontSize: 11, color: t.textDim }}>
+            {wordCount} kata · ~{readTime} mnt · {charCount} karakter
           </span>
         </div>
 
         {lastSaved && (
-          <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
+          <span style={{ fontSize: 11, color: editorTokens.successText, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 4 }}>
             ✓ Tersimpan {timeSince(lastSaved)}
           </span>
         )}
 
         <div style={{ display: 'flex', gap: 6 }}>
           <button onClick={() => setShowPreview(p => !p)} title="Toggle preview"
-            style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${showPreview ? '#0891B2' : '#E5E7EB'}`,
-              background: showPreview ? 'rgba(8,145,178,0.08)' : '#fff',
-              color: showPreview ? '#0891B2' : '#6B7280',
+            style={{ padding: '6px 12px', borderRadius: 8,
+              border: `1px solid ${showPreview ? '#0891B2' : editorTokens.inputBorder}`,
+              background: showPreview ? 'rgba(8,145,178,0.1)' : editorTokens.cardBg,
+              color: showPreview ? '#0891B2' : t.textDim,
               fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-            {showPreview ? '👁️ Preview' : '👁️ Preview'}
+            👁️ Preview
           </button>
 
           <button onClick={() => setFocusMode(f => !f)} title="Focus mode (Esc untuk keluar)"
-            style={{ padding: '6px 12px', borderRadius: 8, border: `1px solid ${focusMode ? '#7C3AED' : '#E5E7EB'}`,
-              background: focusMode ? 'rgba(124,58,237,0.08)' : '#fff',
-              color: focusMode ? '#7C3AED' : '#6B7280',
+            style={{ padding: '6px 12px', borderRadius: 8,
+              border: `1px solid ${focusMode ? '#7C3AED' : editorTokens.inputBorder}`,
+              background: focusMode ? 'rgba(124,58,237,0.12)' : editorTokens.cardBg,
+              color: focusMode ? '#A78BFA' : t.textDim,
               fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-            {focusMode ? '🔎 Focus ON' : '🔎 Focus'}
+            🔎 Focus {focusMode ? 'ON' : ''}
           </button>
 
           <button onClick={() => router.back()}
-            style={{ padding: '6px 12px', borderRadius: 8, border: '1px solid #E5E7EB', background: '#fff',
-              color: '#6B7280', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+            style={{ padding: '6px 12px', borderRadius: 8,
+              border: `1px solid ${editorTokens.inputBorder}`, background: editorTokens.cardBg,
+              color: t.textDim, fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
             Batal
           </button>
 
@@ -502,8 +516,9 @@ export default function NewArticlePage() {
             onClick={() => { setPublishNow(false); handleSubmit(false); }}
             disabled={!canSubmit}
             title="Cmd/Ctrl + S"
-            style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid #D1D5DB', background: '#fff',
-              color: canSubmit ? '#374151' : '#9CA3AF',
+            style={{ padding: '6px 14px', borderRadius: 8,
+              border: `1px solid ${editorTokens.inputBorder}`, background: editorTokens.cardBg,
+              color: canSubmit ? t.textMuted : t.textDim,
               fontSize: 12, fontWeight: 700, cursor: canSubmit ? 'pointer' : 'not-allowed' }}>
             💾 Draft
           </button>
@@ -513,31 +528,31 @@ export default function NewArticlePage() {
             disabled={!canSubmit}
             title="Cmd/Ctrl + Enter"
             style={{ padding: '6px 16px', borderRadius: 8, border: 'none',
-              background: canSubmit ? '#1B6B4A' : '#D1D5DB',
+              background: canSubmit ? '#1B6B4A' : (dark ? '#374151' : '#D1D5DB'),
               color: '#fff', fontSize: 12, fontWeight: 700,
               cursor: canSubmit ? 'pointer' : 'not-allowed',
-              boxShadow: canSubmit ? '0 4px 10px rgba(27,107,74,0.25)' : 'none' }}>
+              boxShadow: canSubmit ? '0 4px 10px rgba(27,107,74,0.3)' : 'none' }}>
             🚀 Publish
           </button>
         </div>
       </div>
 
       {error && (
-        <div style={{ padding: '10px 20px', background: 'rgba(239,68,68,0.06)', borderBottom: '1px solid rgba(239,68,68,0.15)' }}>
-          <p style={{ color: '#DC2626', fontSize: 13, fontWeight: 600 }}>✗ {error}</p>
+        <div style={{ padding: '10px 20px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
+          <p style={{ color: editorTokens.errorText, fontSize: 13, fontWeight: 600 }}>✗ {error}</p>
         </div>
       )}
 
-      {/* MAIN CONTENT — 2 KOLOM */}
+      {/* MAIN CONTENT */}
       <div style={{
         display: 'grid',
         gridTemplateColumns: showPreview && !focusMode ? '1fr 1fr' : '1fr',
         gap: 0, minHeight: 'calc(100vh - 60px)',
       }}>
 
-        {/* ── EDITOR (KIRI) ── */}
+        {/* ── EDITOR ── */}
         <div style={{
-          padding: '20px 28px', borderRight: showPreview && !focusMode ? '1px solid #E5E7EB' : 'none',
+          padding: '20px 28px', borderRight: showPreview && !focusMode ? `1px solid ${editorTokens.borderSubtle}` : 'none',
           maxWidth: showPreview && !focusMode ? 'none' : 820,
           margin: showPreview && !focusMode ? 0 : '0 auto', width: '100%',
         }}>
@@ -545,7 +560,7 @@ export default function NewArticlePage() {
 
             {/* Kategori */}
             <div>
-              <label style={{ fontSize: 12, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
                 Kategori
               </label>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -556,8 +571,8 @@ export default function NewArticlePage() {
                       style={{
                         padding: '6px 12px', borderRadius: 8, border: 'none',
                         cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                        background: active ? cat.color : '#F3F4F6',
-                        color: active ? '#fff' : '#374151',
+                        background: active ? cat.color : editorTokens.chipBg,
+                        color: active ? '#fff' : editorTokens.chipText,
                         transition: 'all 0.15s',
                         display: 'flex', alignItems: 'center', gap: 5,
                       }}>
@@ -568,31 +583,28 @@ export default function NewArticlePage() {
               </div>
             </div>
 
-            {/* Breaking toggle */}
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#374151', fontWeight: 600 }}>
-              <input
-                type="checkbox"
-                checked={isBreaking}
-                onChange={(e) => setIsBreaking(e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: '#EF4444' }}
-              />
+            {/* Breaking */}
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+              <input type="checkbox" checked={isBreaking} onChange={(e) => setIsBreaking(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: '#EF4444' }} />
               🔴 Tandai sebagai Breaking News
             </label>
 
-            {/* Sumber viral */}
+            {/* Viral source */}
             {isViral && (
-              <div style={{ padding: 14, borderRadius: 10, border: '1px solid #FDBA74', background: '#FFF7ED' }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#9A3412', marginBottom: 10 }}>
+              <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.viralBorder}`, background: editorTokens.viralBg }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, marginBottom: 10 }}>
                   🔥 Berita Viral — Tambahkan sumber asli
                 </p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 10 }}>
                   {PLATFORMS.map(p => (
                     <button key={p.key} onClick={() => setSourcePlatform(p.key)}
                       style={{
-                        padding: '4px 10px', borderRadius: 6, border: '1px solid #FDBA74',
+                        padding: '4px 10px', borderRadius: 6,
+                        border: `1px solid ${editorTokens.viralBorder}`,
                         cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                        background: sourcePlatform === p.key ? '#F97316' : '#fff',
-                        color: sourcePlatform === p.key ? '#fff' : '#9A3412',
+                        background: sourcePlatform === p.key ? '#F97316' : editorTokens.cardBg,
+                        color: sourcePlatform === p.key ? '#fff' : editorTokens.viralText,
                       }}>
                       {p.label}
                     </button>
@@ -600,12 +612,16 @@ export default function NewArticlePage() {
                 </div>
                 <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
                   placeholder="https://www.instagram.com/p/..."
-                  style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1px solid #FDBA74',
-                    fontSize: 12, outline: 'none', boxSizing: 'border-box', background: '#fff' }} />
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 8,
+                    border: `1px solid ${editorTokens.viralBorder}`,
+                    fontSize: 12, outline: 'none', boxSizing: 'border-box',
+                    background: editorTokens.inputBg, color: t.textPrimary,
+                  }} />
               </div>
             )}
 
-            {/* Judul */}
+            {/* Title */}
             <div>
               <input
                 value={title}
@@ -614,54 +630,62 @@ export default function NewArticlePage() {
                 maxLength={150}
                 style={{
                   width: '100%', padding: '12px 0', borderWidth: '0 0 2px 0',
-                  borderColor: '#E5E7EB', borderStyle: 'solid',
-                  fontSize: 24, fontWeight: 800, color: '#111827',
+                  borderColor: editorTokens.inputBorder, borderStyle: 'solid',
+                  fontSize: 24, fontWeight: 800, color: t.textPrimary,
                   outline: 'none', fontFamily: 'inherit', letterSpacing: '-0.5px',
                   background: 'transparent',
                 }}
                 onFocus={e => e.target.style.borderColor = '#1B6B4A'}
-                onBlur={e => e.target.style.borderColor = '#E5E7EB'}
+                onBlur={e => e.target.style.borderColor = editorTokens.inputBorder}
               />
-              <p style={{ fontSize: 11, color: '#9CA3AF', marginTop: 4, textAlign: 'right' }}>
+              <p style={{ fontSize: 11, color: t.textDim, marginTop: 4, textAlign: 'right' }}>
                 {title.length} / 150
               </p>
             </div>
 
-            {/* Cover */}
-            <ImageUpload
-              bucket="articles"
-              label="Foto Cover"
-              onUpload={(urls: string[]) => setCoverImageUrl(urls[0] ?? '')}
-              existingUrls={coverImageUrl ? [coverImageUrl] : []}
-            />
+            {/* Cover — ImageUpload pakai tailwind, background card mengikuti */}
+            <div style={{
+              padding: 14, borderRadius: 10,
+              background: editorTokens.cardBg,
+              border: `1px solid ${editorTokens.inputBorder}`,
+            }}>
+              <ImageUpload
+                bucket="articles"
+                label="Foto Cover"
+                onUpload={(urls: string[]) => setCoverImageUrl(urls[0] ?? '')}
+                existingUrls={coverImageUrl ? [coverImageUrl] : []}
+              />
+            </div>
 
             {/* Markdown toolbar */}
             <div style={{
               display: 'flex', gap: 4, padding: '6px 8px', borderRadius: 8,
-              background: '#F9FAFB', border: '1px solid #E5E7EB', flexWrap: 'wrap',
+              background: editorTokens.hintBg,
+              border: `1px solid ${editorTokens.inputBorder}`,
+              flexWrap: 'wrap',
             }}>
               {[
-                { label: 'B',   title: 'Bold (Cmd+B)',    action: () => wrapSelection('**'),     style: { fontWeight: 800 } },
-                { label: 'I',   title: 'Italic (Cmd+I)',  action: () => wrapSelection('*'),      style: { fontStyle: 'italic' as const } },
-                { label: 'H2',  title: 'Heading 2',        action: () => prefixLine('## '),        style: {} },
-                { label: 'H3',  title: 'Heading 3',        action: () => prefixLine('### '),       style: {} },
-                { label: '❝',   title: 'Blockquote',       action: () => prefixLine('> '),         style: {} },
-                { label: '• ',  title: 'List item',        action: () => prefixLine('- '),         style: {} },
-                { label: '🔗',  title: 'Link',             action: insertLink,                      style: {} },
-              ].map(btn => (
-                <button key={btn.label} onClick={btn.action} title={btn.title}
+                { label: 'B',   title: 'Bold (Cmd+B)',    action: () => wrapSelection('**'),    style: { fontWeight: 800 } as React.CSSProperties },
+                { label: 'I',   title: 'Italic (Cmd+I)',  action: () => wrapSelection('*'),     style: { fontStyle: 'italic' } as React.CSSProperties },
+                { label: 'H2',  title: 'Heading 2',       action: () => prefixLine('## '),       style: {} },
+                { label: 'H3',  title: 'Heading 3',       action: () => prefixLine('### '),      style: {} },
+                { label: '❝',   title: 'Blockquote',      action: () => prefixLine('> '),        style: {} },
+                { label: '• ',  title: 'List item',       action: () => prefixLine('- '),        style: {} },
+                { label: '🔗',  title: 'Link',            action: insertLink,                     style: {} },
+              ].map((btn, i) => (
+                <button key={i} onClick={btn.action} title={btn.title}
                   style={{ padding: '4px 10px', borderRadius: 6, border: 'none',
-                    background: 'transparent', color: '#374151',
+                    background: 'transparent', color: t.textMuted,
                     fontSize: 13, cursor: 'pointer', minWidth: 28, ...btn.style,
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.background = '#E5E7EB')}
+                  onMouseEnter={e => (e.currentTarget.style.background = editorTokens.chipBg)}
                   onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
                   {btn.label}
                 </button>
               ))}
               <div style={{ flex: 1 }} />
-              <span style={{ fontSize: 10, color: '#9CA3AF', alignSelf: 'center', padding: '0 6px' }}>
-                Markdown: **bold** · *italic* · # heading · &gt; quote · - list
+              <span style={{ fontSize: 10, color: t.textDim, alignSelf: 'center', padding: '0 6px' }}>
+                **bold** · *italic* · # heading · &gt; quote · - list
               </span>
             </div>
 
@@ -677,32 +701,37 @@ export default function NewArticlePage() {
               rows={focusMode ? 30 : 20}
               style={{
                 width: '100%', padding: '14px 16px', borderRadius: 10,
-                border: '1px solid #E5E7EB', fontSize: 15, lineHeight: 1.75,
+                border: `1px solid ${editorTokens.inputBorder}`,
+                fontSize: 15, lineHeight: 1.75,
                 outline: 'none', boxSizing: 'border-box', resize: 'vertical',
-                color: '#374151', fontFamily: 'inherit', minHeight: focusMode ? 500 : 380,
+                color: t.textPrimary, fontFamily: 'inherit',
+                background: editorTokens.inputBg,
+                minHeight: focusMode ? 500 : 380,
               }}
               onFocus={e => e.target.style.borderColor = '#1B6B4A'}
-              onBlur={e => e.target.style.borderColor = '#E5E7EB'}
+              onBlur={e => e.target.style.borderColor = editorTokens.inputBorder}
             />
           </div>
         </div>
 
-        {/* ── PREVIEW (KANAN) ── */}
+        {/* ── PREVIEW ── */}
         {showPreview && !focusMode && (
           <div style={{
-            padding: '20px 28px', background: '#F9FAFB',
-            borderLeft: '1px solid #E5E7EB',
+            padding: '20px 28px', background: editorTokens.previewBg,
+            borderLeft: `1px solid ${editorTokens.borderSubtle}`,
             maxHeight: 'calc(100vh - 60px)', overflowY: 'auto',
           }}>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280',
+            <p style={{ fontSize: 11, fontWeight: 700, color: t.textDim,
               textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14,
               display: 'flex', alignItems: 'center', gap: 6 }}>
-              👁️ Live Preview <span style={{ color: '#9CA3AF', fontWeight: 400 }}>— tampilan kurang lebih seperti di publik</span>
+              👁️ Live Preview <span style={{ color: t.textDim, fontWeight: 400 }}>— tampilan kurang lebih seperti di publik</span>
             </p>
 
             <article style={{
-              background: '#fff', borderRadius: 14, padding: 28,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+              background: editorTokens.previewCard,
+              borderRadius: 14, padding: 28,
+              border: `1px solid ${editorTokens.borderSubtle}`,
+              boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)',
             }}>
               {coverImageUrl && (
                 <img src={coverImageUrl} alt="cover"
@@ -726,7 +755,7 @@ export default function NewArticlePage() {
                     color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase',
                   }}>🔴 Breaking</span>
                 )}
-                <span style={{ fontSize: 11, color: '#9CA3AF' }}>
+                <span style={{ fontSize: 11, color: t.textDim }}>
                   oleh {user.name || 'Admin'} · {wordCount} kata · ~{readTime} mnt
                 </span>
               </div>
@@ -735,13 +764,13 @@ export default function NewArticlePage() {
                 {title ? (
                   <h1>{title}</h1>
                 ) : (
-                  <h1 style={{ color: '#D1D5DB', fontStyle: 'italic' }}>Judul artikel...</h1>
+                  <h1 className="bk-placeholder">Judul artikel...</h1>
                 )}
 
                 {body ? (
                   <div dangerouslySetInnerHTML={{ __html: renderMarkdown(body) }} />
                 ) : (
-                  <p style={{ color: '#9CA3AF', fontStyle: 'italic' }}>
+                  <p className="bk-placeholder">
                     Isi artikel akan tampil di sini saat kamu mengetik...
                   </p>
                 )}
@@ -750,10 +779,12 @@ export default function NewArticlePage() {
               {isViral && sourceUrl && (
                 <div style={{
                   marginTop: 20, padding: '10px 14px', borderRadius: 8,
-                  background: '#FFF7ED', border: '1px solid #FDBA74',
-                  fontSize: 12, color: '#9A3412',
+                  background: editorTokens.viralBg,
+                  border: `1px solid ${editorTokens.viralBorder}`,
+                  fontSize: 12, color: editorTokens.viralText,
                 }}>
-                  📎 Sumber: <a href={sourceUrl} target="_blank" rel="noopener noreferrer" style={{ color: '#C2410C', textDecoration: 'underline' }}>
+                  📎 Sumber: <a href={sourceUrl} target="_blank" rel="noopener noreferrer"
+                    style={{ color: '#F97316', textDecoration: 'underline' }}>
                     {sourcePlatform || 'link'}
                   </a>
                 </div>
@@ -763,21 +794,20 @@ export default function NewArticlePage() {
         )}
       </div>
 
-      {/* Shortcut hint di bawah (focus mode only) */}
+      {/* Focus mode hint */}
       {focusMode && (
         <div style={{
           position: 'fixed', bottom: 12, left: '50%', transform: 'translateX(-50%)',
-          background: '#111827', color: '#E5E7EB', fontSize: 11, fontWeight: 600,
-          padding: '6px 14px', borderRadius: 20, display: 'flex', gap: 10, zIndex: 10001,
+          background: dark ? '#1F2937' : '#111827',
+          color: '#E5E7EB',
+          fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: 20,
+          display: 'flex', gap: 10, zIndex: 10001,
+          border: dark ? '1px solid #374151' : 'none',
         }}>
-          <span>Cmd+B bold</span>
-          <span>·</span>
-          <span>Cmd+I italic</span>
-          <span>·</span>
-          <span>Cmd+S draft</span>
-          <span>·</span>
-          <span>Cmd+Enter publish</span>
-          <span>·</span>
+          <span>Cmd+B bold</span><span>·</span>
+          <span>Cmd+I italic</span><span>·</span>
+          <span>Cmd+S draft</span><span>·</span>
+          <span>Cmd+Enter publish</span><span>·</span>
           <span>Esc keluar focus</span>
         </div>
       )}
