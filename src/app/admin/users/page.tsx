@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -14,31 +13,52 @@ interface User {
   role: string;
   is_active: boolean;
   created_at: string;
+  avatar_url: string | null;
+  last_login: string | null;
   listing_summary: Record<string, number> | null;
 }
 
 const ROLES = [
-  { value: 'service_user',    label: 'User Biasa',      color: '#6B7280', bg: 'rgba(107,114,128,0.1)' },
-  { value: 'owner_listing',   label: 'Owner Listing',   color: '#0891B2', bg: 'rgba(8,145,178,0.1)'   },
-  { value: 'operator_speed',  label: 'Operator Speed',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)'  },
-  { value: 'operator_ship',   label: 'Operator Kapal',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)'  },
-  { value: 'admin_content',   label: 'Admin Konten',    color: '#E8963A', bg: 'rgba(232,150,58,0.1)'  },
-  { value: 'admin_transport', label: 'Admin Transport', color: '#E8963A', bg: 'rgba(232,150,58,0.1)'  },
-  { value: 'admin_listing',   label: 'Admin Listing',   color: '#E8963A', bg: 'rgba(232,150,58,0.1)'  },
-  { value: 'admin_funding',   label: 'Admin Funding',   color: '#E8963A', bg: 'rgba(232,150,58,0.1)'  },
-  { value: 'super_admin',     label: 'Super Admin',     color: '#1B6B4A', bg: 'rgba(27,107,74,0.1)'   },
+  { value: 'service_user',    label: 'User',            color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
+  { value: 'owner_listing',   label: 'Owner',           color: '#0891B2', bg: 'rgba(8,145,178,0.12)'   },
+  { value: 'operator_speed',  label: 'Operator Speed',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)'  },
+  { value: 'operator_ship',   label: 'Operator Kapal',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.12)'  },
+  { value: 'admin_content',   label: 'Admin Konten',    color: '#E8963A', bg: 'rgba(232,150,58,0.12)'  },
+  { value: 'admin_transport', label: 'Admin Transport', color: '#E8963A', bg: 'rgba(232,150,58,0.12)'  },
+  { value: 'admin_listing',   label: 'Admin Listing',   color: '#E8963A', bg: 'rgba(232,150,58,0.12)'  },
+  { value: 'admin_funding',   label: 'Admin Funding',   color: '#E8963A', bg: 'rgba(232,150,58,0.12)'  },
+  { value: 'super_admin',     label: 'Super Admin',     color: '#1B6B4A', bg: 'rgba(27,107,74,0.12)'   },
 ];
 
+// Mapping role → portal groups
+const ROLE_GROUPS: Record<string, { label: string; color: string }[]> = {
+  super_admin:     [{ label: 'Semua Portal', color: '#1B6B4A' }],
+  admin_content:   [{ label: 'BAKABAR', color: '#0891B2' }, { label: 'BALAPOR', color: '#EF4444' }],
+  admin_transport: [{ label: 'BAPASIAR', color: '#8B5CF6' }],
+  admin_listing:   [{ label: 'BAKOS', color: '#E8963A' }],
+  admin_funding:   [{ label: 'BASUMBANG', color: '#10B981' }],
+  owner_listing:   [{ label: 'Mitra', color: '#0891B2' }],
+  operator_speed:  [{ label: 'Speedboat', color: '#8B5CF6' }],
+  operator_ship:   [{ label: 'Kapal', color: '#8B5CF6' }],
+  service_user:    [{ label: 'Publik', color: '#6B7280' }],
+};
+
 const ROLE_FILTERS = [
-  { value: '',               label: 'Semua'         },
+  { value: '',               label: 'Semua Role'    },
   { value: 'service_user',   label: 'User Biasa'    },
   { value: 'owner_listing',  label: 'Owner'         },
   { value: 'admin_content',  label: 'Admin Konten'  },
   { value: 'super_admin',    label: 'Super Admin'   },
 ];
 
+const STATUS_FILTERS = [
+  { value: '',     label: 'Semua Status' },
+  { value: 'aktif',    label: 'Aktif'   },
+  { value: 'nonaktif', label: 'Nonaktif'},
+];
+
 function getRoleStyle(role: string) {
-  return ROLES.find(r => r.value === role) ?? { label: role, color: '#6B7280', bg: 'rgba(107,114,128,0.1)' };
+  return ROLES.find(r => r.value === role) ?? { label: role, color: '#6B7280', bg: 'rgba(107,114,128,0.12)' };
 }
 
 function formatPhone(phone: string) {
@@ -49,13 +69,47 @@ function formatPhone(phone: string) {
   return phone;
 }
 
+function lastSeen(dateStr: string | null) {
+  if (!dateStr) return 'Belum pernah';
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1)  return 'Baru saja';
+  if (m < 60) return `${m} mnt lalu`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} jam lalu`;
+  const d = Math.floor(h / 24);
+  if (d < 7)  return `${d} hari lalu`;
+  if (d < 30) return `${Math.floor(d / 7)} minggu lalu`;
+  return `${Math.floor(d / 30)} bln lalu`;
+}
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const d = Math.floor(diff / 86400000);
   if (d === 0) return 'Hari ini';
   if (d === 1) return 'Kemarin';
-  if (d < 30) return `${d} hari lalu`;
+  if (d < 30)  return `${d} hari lalu`;
   return `${Math.floor(d / 30)} bln lalu`;
+}
+
+// Avatar component
+function UserAvatar({ user, size = 36 }: { user: User; size?: number }) {
+  const st = getRoleStyle(user.role);
+  const [imgError, setImgError] = useState(false);
+
+  if (user.avatar_url && !imgError) {
+    return (
+      <img src={user.avatar_url} onError={() => setImgError(true)} alt={user.name || '?'}
+        style={{ width: size, height: size, borderRadius: '50%', objectFit: 'cover', border: `2px solid ${st.color}30`, flexShrink: 0 }} />
+    );
+  }
+
+  const initial = user.name ? user.name.charAt(0).toUpperCase() : '?';
+  return (
+    <div style={{ width: size, height: size, borderRadius: '50%', background: `linear-gradient(135deg, ${st.color}50, ${st.color}25)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.38, fontWeight: 800, color: st.color, border: `2px solid ${st.color}30`, flexShrink: 0 }}>
+      {initial}
+    </div>
+  );
 }
 
 type ModalType =
@@ -66,40 +120,24 @@ type ModalType =
   | { type: 'activate';   userId: string; userName: string }
   | { type: 'delete';     userId: string; userName: string };
 
-function UserAvatar({ name, role, isActive }: { name: string | null; role: string; isActive: boolean }) {
-  const st      = getRoleStyle(role);
-  const initial = name ? name.charAt(0).toUpperCase() : '?';
-  return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <div style={{
-        width: 36, height: 36, borderRadius: '50%',
-        background: `linear-gradient(135deg, ${st.color}50, ${st.color}25)`,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 14, fontWeight: 800, color: st.color,
-        border: `2px solid ${st.color}30`,
-      }}>
-        {initial}
-      </div>
-      {!isActive && (
-        <div style={{ position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: '50%', background: '#EF4444', border: '2px solid #fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: '#fff', fontWeight: 800 }}>✕</div>
-      )}
-    </div>
-  );
-}
-
 export default function AdminUsersPage() {
   const { token, user: currentUser } = useAuth();
-  const { t } = useContext(AdminThemeContext);
+  const { t, dark } = useContext(AdminThemeContext);
 
-  const [users, setUsers]               = useState<User[]>([]);
-  const [total, setTotal]               = useState(0);
-  const [loading, setLoading]           = useState(true);
+  const [users, setUsers]             = useState<User[]>([]);
+  const [total, setTotal]             = useState(0);
+  const [loading, setLoading]         = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [search, setSearch]             = useState('');
-  const [searchInput, setSearchInput]   = useState('');
-  const [roleFilter, setRoleFilter]     = useState('');
-  const [toast, setToast]               = useState<{ msg: string; ok: boolean } | null>(null);
-  const [modal, setModal]               = useState<ModalType | null>(null);
+  const [search, setSearch]           = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  const [roleFilter, setRoleFilter]   = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [activeTab, setActiveTab]     = useState('overview');
+  const [toast, setToast]             = useState<{ msg: string; ok: boolean } | null>(null);
+  const [modal, setModal]             = useState<ModalType | null>(null);
+  const [openMenuId, setOpenMenuId]   = useState<string | null>(null);
+
+  // Input states
   const [editNameInput, setEditNameInput]     = useState('');
   const [editPhoneInput, setEditPhoneInput]   = useState('');
   const [editPhoneReason, setEditPhoneReason] = useState('');
@@ -128,18 +166,28 @@ export default function AdminUsersPage() {
       const res  = await fetch(`${API_URL}/admin/users?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
-      setUsers(data.data.data);
+      let filtered = data.data.data;
+      if (statusFilter === 'aktif')    filtered = filtered.filter((u: User) => u.is_active !== false);
+      if (statusFilter === 'nonaktif') filtered = filtered.filter((u: User) => u.is_active === false);
+      setUsers(filtered);
       setTotal(data.data.total);
     } catch (err: any) {
       showToast(err.message || 'Gagal memuat users', false);
     } finally {
       setLoading(false);
     }
-  }, [token, search, roleFilter]);
+  }, [token, search, roleFilter, statusFilter]);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
 
-  // ── Actions ──────────────────────────────────────────────────────
+  // Close dropdown menu on outside click
+  useEffect(() => {
+    const handler = () => setOpenMenuId(null);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, []);
+
+  // Actions
   const updateRole = async (userId: string, newRole: string) => {
     setActionLoading(userId + 'role'); closeModal();
     try {
@@ -151,7 +199,7 @@ export default function AdminUsersPage() {
       if (!data.success) throw new Error(data.error?.message);
       showToast(`Role diubah ke ${getRoleStyle(newRole).label}`);
       fetchUsers();
-    } catch (err: any) { showToast(err.message || 'Gagal update role', false); }
+    } catch (err: any) { showToast(err.message || 'Gagal', false); }
     finally { setActionLoading(null); }
   };
 
@@ -167,7 +215,7 @@ export default function AdminUsersPage() {
       if (!data.success) throw new Error(data.error?.message);
       showToast('Nama berhasil diubah ✓');
       fetchUsers();
-    } catch (err: any) { showToast(err.message || 'Gagal ubah nama', false); }
+    } catch (err: any) { showToast(err.message || 'Gagal', false); }
     finally { setActionLoading(null); }
   };
 
@@ -183,7 +231,7 @@ export default function AdminUsersPage() {
       if (!data.success) throw new Error(data.error?.message);
       showToast('Nomor WA berhasil diubah ✓');
       fetchUsers();
-    } catch (err: any) { showToast(err.message || 'Gagal ubah nomor', false); }
+    } catch (err: any) { showToast(err.message || 'Gagal', false); }
     finally { setActionLoading(null); }
   };
 
@@ -198,7 +246,7 @@ export default function AdminUsersPage() {
       if (!data.success) throw new Error(data.error?.message);
       showToast(isActive ? 'Akun diaktifkan ✓' : 'Akun dinonaktifkan ✓');
       fetchUsers();
-    } catch (err: any) { showToast(err.message || 'Gagal update status', false); }
+    } catch (err: any) { showToast(err.message || 'Gagal', false); }
     finally { setActionLoading(null); }
   };
 
@@ -210,33 +258,28 @@ export default function AdminUsersPage() {
       if (!data.success) throw new Error(data.error?.message);
       showToast('User berhasil dihapus');
       fetchUsers();
-    } catch (err: any) { showToast(err.message || 'Gagal hapus user', false); }
+    } catch (err: any) { showToast(err.message || 'Gagal', false); }
     finally { setActionLoading(null); }
   };
 
   // Stats
-  const roleCounts  = users.reduce((acc, u) => { acc[u.role] = (acc[u.role] || 0) + 1; return acc; }, {} as Record<string, number>);
-  const activeCount = users.filter(u => u.is_active !== false).length;
+  const activeCount   = users.filter(u => u.is_active !== false).length;
   const inactiveCount = users.filter(u => u.is_active === false).length;
-
-  // Modal background color
-  const modalBg = t.sidebar;
-  const modalBorder = t.sidebarBorder;
-  const modalText = t.textPrimary;
-  const modalSub = t.textDim;
+  const neverLogin    = users.filter(u => !u.last_login).length;
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
       <style>{`
-        @keyframes fadeIn { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:none; } }
+        @keyframes fadeIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:none; } }
         @keyframes spin   { to { transform: rotate(360deg); } }
-        .usr-row:hover { background: ${t.navHover} !important; }
-        .usr-btn:hover { opacity: 0.8; }
+        .usr-row:hover  { background: ${t.navHover} !important; }
+        .usr-btn:hover  { opacity: 0.75; }
+        .menu-item:hover { background: ${t.navHover} !important; }
       `}</style>
 
       {/* Toast */}
       {toast && (
-        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 99, background: toast.ok ? '#10B981' : '#EF4444', color: '#fff', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.15)', animation: 'fadeIn 0.2s ease' }}>
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 99, background: toast.ok ? '#10B981' : '#EF4444', color: '#fff', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 20px rgba(0,0,0,0.15)', animation: 'fadeIn 0.2s ease' }}>
           {toast.ok ? '✓' : '✗'} {toast.msg}
         </div>
       )}
@@ -244,15 +287,14 @@ export default function AdminUsersPage() {
       {/* ── MODALS ── */}
       {modal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 50, padding: 16 }}>
-          <div style={{ background: modalBg, borderRadius: 16, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', border: `1px solid ${modalBorder}` }}>
+          <div style={{ background: t.sidebar, borderRadius: 16, padding: 24, maxWidth: 420, width: '100%', boxShadow: '0 20px 60px rgba(0,0,0,0.25)', border: `1px solid ${t.sidebarBorder}`, animation: 'fadeIn 0.2s ease' }}>
 
-            {/* Role Modal */}
             {modal.type === 'role' && (
               <>
                 <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 8 }}>⚠️</div>
-                <h3 style={{ fontWeight: 800, fontSize: 15, color: modalText, textAlign: 'center', marginBottom: 8 }}>Konfirmasi Ubah Role</h3>
-                <p style={{ color: modalSub, fontSize: 13, textAlign: 'center', marginBottom: 6 }}>
-                  Ubah role <strong style={{ color: modalText }}>{modal.userName}</strong> menjadi{' '}
+                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, textAlign: 'center', marginBottom: 8 }}>Konfirmasi Ubah Role</h3>
+                <p style={{ color: t.textDim, fontSize: 13, textAlign: 'center', marginBottom: 6 }}>
+                  Ubah role <strong style={{ color: t.textPrimary }}>{modal.userName}</strong> menjadi{' '}
                   <strong style={{ color: getRoleStyle(modal.newRole).color }}>{getRoleStyle(modal.newRole).label}</strong>?
                 </p>
                 {modal.newRole === 'super_admin' && (
@@ -261,95 +303,88 @@ export default function AdminUsersPage() {
                   </div>
                 )}
                 <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${modalBorder}`, background: 'transparent', color: modalText, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button onClick={() => updateRole(modal.userId, modal.newRole)} style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: modal.newRole === 'super_admin' ? '#EF4444' : '#1B6B4A', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Ya, Ubah</button>
                 </div>
               </>
             )}
 
-            {/* Edit Name */}
             {modal.type === 'editName' && (
               <>
-                <h3 style={{ fontWeight: 800, fontSize: 15, color: modalText, marginBottom: 4 }}>✏️ Edit Nama</h3>
-                <p style={{ color: modalSub, fontSize: 12, marginBottom: 16 }}>Nama ini akan tampil di platform TeraLoka</p>
+                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, marginBottom: 4 }}>✏️ Edit Nama</h3>
+                <p style={{ color: t.textDim, fontSize: 12, marginBottom: 16 }}>Nama tampil di platform TeraLoka</p>
                 <input value={editNameInput} onChange={e => setEditNameInput(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && saveName(modal.userId)}
                   placeholder="Nama lengkap..." autoFocus
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `2px solid #1B6B4A`, fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: modalText }} />
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `2px solid #1B6B4A`, fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary }} />
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${modalBorder}`, background: 'transparent', color: modalText, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button onClick={() => saveName(modal.userId)} disabled={!editNameInput.trim()} style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: editNameInput.trim() ? '#1B6B4A' : '#9CA3AF', color: '#fff', fontWeight: 700, fontSize: 13, cursor: editNameInput.trim() ? 'pointer' : 'not-allowed' }}>Simpan</button>
                 </div>
               </>
             )}
 
-            {/* Edit Phone */}
             {modal.type === 'editPhone' && (
               <>
-                <h3 style={{ fontWeight: 800, fontSize: 15, color: modalText, marginBottom: 4 }}>📱 Ganti Nomor WA</h3>
-                <p style={{ color: modalSub, fontSize: 12, marginBottom: 4 }}>User: <strong style={{ color: modalText }}>{modal.userName}</strong></p>
-                <p style={{ color: modalSub, fontSize: 12, marginBottom: 12 }}>Nomor saat ini: <strong style={{ color: modalText }}>{formatPhone(modal.currentPhone)}</strong></p>
+                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, marginBottom: 12 }}>📱 Ganti Nomor WA</h3>
                 <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.2)', borderRadius: 8, padding: '8px 12px', marginBottom: 14, fontSize: 12, color: '#EF4444' }}>
                   ⚠️ JWT lama tetap valid sampai expired (30 hari).
                 </div>
-                <label style={{ fontSize: 12, fontWeight: 600, color: modalText, display: 'block', marginBottom: 6 }}>Nomor WA Baru</label>
+                <label style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, display: 'block', marginBottom: 6 }}>Nomor WA Baru</label>
                 <input value={editPhoneInput} onChange={e => setEditPhoneInput(e.target.value)} placeholder="628XXXXXXXXXX" autoFocus
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #E8963A', fontSize: 14, outline: 'none', marginBottom: 12, boxSizing: 'border-box', background: t.mainBg, color: modalText }} />
-                <label style={{ fontSize: 12, fontWeight: 600, color: modalText, display: 'block', marginBottom: 6 }}>Alasan <span style={{ color: modalSub, fontWeight: 400 }}>(opsional)</span></label>
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #E8963A', fontSize: 14, outline: 'none', marginBottom: 12, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary }} />
+                <label style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, display: 'block', marginBottom: 6 }}>Alasan <span style={{ color: t.textDim, fontWeight: 400 }}>(opsional)</span></label>
                 <input value={editPhoneReason} onChange={e => setEditPhoneReason(e.target.value)} placeholder="HP hilang, ganti kartu, dll..."
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1px solid ${modalBorder}`, fontSize: 13, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: modalText }} />
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, fontSize: 13, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary }} />
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${modalBorder}`, background: 'transparent', color: modalText, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button onClick={() => savePhone(modal.userId)} disabled={!editPhoneInput.trim()} style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: editPhoneInput.trim() ? '#E8963A' : '#9CA3AF', color: '#fff', fontWeight: 700, fontSize: 13, cursor: editPhoneInput.trim() ? 'pointer' : 'not-allowed' }}>Ganti Nomor</button>
                 </div>
               </>
             )}
 
-            {/* Deactivate */}
             {modal.type === 'deactivate' && (
               <>
                 <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 8 }}>🚫</div>
-                <h3 style={{ fontWeight: 800, fontSize: 15, color: modalText, textAlign: 'center', marginBottom: 8 }}>Nonaktifkan Akun</h3>
-                <p style={{ color: modalSub, fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
-                  <strong style={{ color: modalText }}>{modal.userName}</strong> tidak bisa login sampai diaktifkan kembali.
+                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, textAlign: 'center', marginBottom: 8 }}>Nonaktifkan Akun</h3>
+                <p style={{ color: t.textDim, fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+                  <strong style={{ color: t.textPrimary }}>{modal.userName}</strong> tidak bisa login sampai diaktifkan kembali.
                 </p>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${modalBorder}`, background: 'transparent', color: modalText, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button onClick={() => toggleActive(modal.userId, false)} style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: '#F59E0B', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Nonaktifkan</button>
                 </div>
               </>
             )}
 
-            {/* Activate */}
             {modal.type === 'activate' && (
               <>
                 <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 8 }}>✅</div>
-                <h3 style={{ fontWeight: 800, fontSize: 15, color: modalText, textAlign: 'center', marginBottom: 8 }}>Aktifkan Akun</h3>
-                <p style={{ color: modalSub, fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
-                  Aktifkan kembali akun <strong style={{ color: modalText }}>{modal.userName}</strong>?
+                <h3 style={{ fontWeight: 800, fontSize: 15, color: t.textPrimary, textAlign: 'center', marginBottom: 8 }}>Aktifkan Akun</h3>
+                <p style={{ color: t.textDim, fontSize: 13, textAlign: 'center', marginBottom: 20 }}>
+                  Aktifkan kembali akun <strong style={{ color: t.textPrimary }}>{modal.userName}</strong>?
                 </p>
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${modalBorder}`, background: 'transparent', color: modalText, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button onClick={() => toggleActive(modal.userId, true)} style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: '#10B981', color: '#fff', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>Aktifkan</button>
                 </div>
               </>
             )}
 
-            {/* Delete */}
             {modal.type === 'delete' && (
               <>
                 <div style={{ fontSize: 28, textAlign: 'center', marginBottom: 8 }}>🗑️</div>
                 <h3 style={{ fontWeight: 800, fontSize: 15, color: '#EF4444', textAlign: 'center', marginBottom: 8 }}>Hapus Permanen</h3>
-                <p style={{ color: modalSub, fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
-                  Akun <strong style={{ color: modalText }}>{modal.userName}</strong> akan dihapus permanen. <strong style={{ color: '#EF4444' }}>Tidak bisa dibatalkan!</strong>
+                <p style={{ color: t.textDim, fontSize: 13, textAlign: 'center', marginBottom: 12 }}>
+                  Akun <strong style={{ color: t.textPrimary }}>{modal.userName}</strong> akan dihapus. <strong style={{ color: '#EF4444' }}>Tidak bisa dibatalkan!</strong>
                 </p>
-                <p style={{ fontSize: 12, color: modalText, marginBottom: 8, fontWeight: 600 }}>
+                <p style={{ fontSize: 12, color: t.textPrimary, marginBottom: 8, fontWeight: 600 }}>
                   Ketik <code style={{ background: 'rgba(239,68,68,0.1)', color: '#EF4444', padding: '1px 6px', borderRadius: 4 }}>HAPUS</code> untuk konfirmasi:
                 </p>
                 <input value={deleteConfirmInput} onChange={e => setDeleteConfirmInput(e.target.value)} placeholder="Ketik HAPUS..."
-                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #EF4444', fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: modalText }} />
+                  style={{ width: '100%', padding: '10px 14px', borderRadius: 10, border: '2px solid #EF4444', fontSize: 14, outline: 'none', marginBottom: 16, boxSizing: 'border-box', background: t.mainBg, color: t.textPrimary }} />
                 <div style={{ display: 'flex', gap: 10 }}>
-                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${modalBorder}`, background: 'transparent', color: modalText, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
+                  <button onClick={closeModal} style={{ flex: 1, padding: 10, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>Batal</button>
                   <button onClick={() => deleteUser(modal.userId)} disabled={deleteConfirmInput !== 'HAPUS'} style={{ flex: 1, padding: 10, borderRadius: 10, border: 'none', background: deleteConfirmInput === 'HAPUS' ? '#EF4444' : '#9CA3AF', color: '#fff', fontWeight: 700, fontSize: 13, cursor: deleteConfirmInput === 'HAPUS' ? 'pointer' : 'not-allowed' }}>Hapus Permanen</button>
                 </div>
               </>
@@ -361,44 +396,72 @@ export default function AdminUsersPage() {
       {/* ── HEADER ── */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>👥 Manajemen Users</h1>
-          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>{total} user terdaftar</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>
+              👥 Management User
+            </h1>
+            <span style={{ fontSize: 12, fontWeight: 700, color: '#1B6B4A', background: 'rgba(27,107,74,0.1)', padding: '3px 10px', borderRadius: 20 }}>
+              Super Admin
+            </span>
+          </div>
+          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>
+            {total} total user terdaftar
+          </p>
         </div>
+        <button disabled title="Coming soon"
+          style={{ padding: '8px 18px', borderRadius: 10, background: '#1B6B4A', color: '#fff', border: 'none', fontSize: 13, fontWeight: 700, cursor: 'not-allowed', opacity: 0.6, display: 'flex', alignItems: 'center', gap: 6 }}>
+          + Undang User
+        </button>
       </div>
 
-      {/* ── STATS BAR ── */}
+      {/* ── TAB BAR ── */}
+      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${t.sidebarBorder}` }}>
+        {[
+          { key: 'overview', label: 'Overview' },
+          { key: 'groups',   label: 'Per Grup'  },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            style={{ padding: '8px 18px', fontSize: 13, fontWeight: activeTab === tab.key ? 700 : 500, color: activeTab === tab.key ? '#1B6B4A' : t.textDim, background: 'transparent', border: 'none', cursor: 'pointer', borderBottom: activeTab === tab.key ? '2px solid #1B6B4A' : '2px solid transparent', marginBottom: -1, transition: 'all 0.15s' }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── STATS ROW ── */}
       {!loading && (
-        <div style={{ display: 'flex', gap: 10, marginBottom: 20, flexWrap: 'wrap' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 12, marginBottom: 20 }}>
           {[
-            { label: 'Total',      value: total,        color: '#1B6B4A', bg: 'rgba(27,107,74,0.08)'   },
-            { label: 'Aktif',      value: activeCount,  color: '#10B981', bg: 'rgba(16,185,129,0.08)'  },
-            { label: 'Nonaktif',   value: inactiveCount,color: '#EF4444', bg: 'rgba(239,68,68,0.08)', hidden: inactiveCount === 0 },
-            ...Object.entries(roleCounts)
-              .filter(([role]) => role !== 'service_user')
-              .map(([role, count]) => {
-                const st = getRoleStyle(role);
-                return { label: st.label, value: count, color: st.color, bg: st.bg };
-              }),
-          ].filter(s => !s.hidden).map((s, i) => (
-            <div key={i} style={{ background: s.bg, border: `1px solid ${s.color}25`, borderRadius: 10, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 16, fontWeight: 800, color: s.color }}>{s.value}</span>
-              <span style={{ fontSize: 11, color: t.textDim, fontWeight: 500 }}>{s.label}</span>
+            { icon: '👥', label: 'Total Users',    value: total,        sub: `${activeCount} aktif`,         color: '#1B6B4A' },
+            { icon: '✅', label: 'Aktif',          value: activeCount,  sub: 'Bisa login',                   color: '#10B981' },
+            { icon: '🚫', label: 'Nonaktif',       value: inactiveCount,sub: 'Akses diblokir',              color: '#EF4444' },
+            { icon: '👻', label: 'Belum Login',    value: neverLogin,   sub: 'Belum pernah masuk',           color: '#F59E0B' },
+          ].map(s => (
+            <div key={s.label} style={{ background: t.sidebar, borderRadius: 12, border: `1px solid ${t.sidebarBorder}`, padding: '14px 16px', display: 'flex', gap: 12, alignItems: 'center' }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: `${s.color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
+                {s.icon}
+              </div>
+              <div>
+                <div style={{ fontSize: 22, fontWeight: 800, color: s.color, letterSpacing: '-0.03em' }}>{s.value}</div>
+                <div style={{ fontSize: 11, color: t.textDim, marginTop: 1 }}>{s.sub}</div>
+              </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* ── FILTER & SEARCH ── */}
+      {/* ── FILTER BAR ── */}
       <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '12px 16px', marginBottom: 16, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        {/* Role filter pills */}
-        <div style={{ display: 'flex', gap: 4, background: t.mainBg, borderRadius: 8, padding: 3, border: `1px solid ${t.sidebarBorder}` }}>
-          {ROLE_FILTERS.map(f => (
-            <button key={f.value} onClick={() => setRoleFilter(f.value)}
-              style={{ padding: '5px 12px', borderRadius: 6, border: 'none', cursor: 'pointer', fontSize: 11, fontWeight: 700, background: roleFilter === f.value ? '#1B6B4A' : 'transparent', color: roleFilter === f.value ? '#fff' : t.textDim, transition: 'all 0.15s' }}>
-              {f.label}
-            </button>
-          ))}
-        </div>
+        {/* Status filter */}
+        <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)}
+          style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textPrimary, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
+          {STATUS_FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+        </select>
+
+        {/* Role filter */}
+        <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
+          style={{ padding: '7px 10px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textPrimary, fontSize: 12, fontWeight: 600, cursor: 'pointer', outline: 'none' }}>
+          {ROLE_FILTERS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
+        </select>
 
         {/* Search */}
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 8, background: t.mainBg, borderRadius: 8, padding: '6px 12px', border: `1px solid ${t.sidebarBorder}`, minWidth: 200 }}>
@@ -412,7 +475,7 @@ export default function AdminUsersPage() {
             style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 12, color: t.textPrimary, width: '100%' }} />
           {searchInput && (
             <button onClick={() => { setSearch(''); setSearchInput(''); }}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textDim, fontSize: 14, padding: 0 }}>✕</button>
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: t.textDim, fontSize: 14 }}>✕</button>
           )}
         </div>
 
@@ -439,62 +502,75 @@ export default function AdminUsersPage() {
       )}
 
       {/* ── TABLE ── */}
-      {!loading && users.length > 0 && (
+      {!loading && users.length > 0 && activeTab === 'overview' && (
         <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
 
-          {/* Table header */}
-          <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 140px 100px 100px 160px', padding: '10px 16px', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', gap: 12, alignItems: 'center' }}>
+          {/* Header */}
+          <div style={{ display: 'grid', gridTemplateColumns: '48px 1fr 180px 100px 110px 110px 100px', padding: '10px 16px', background: t.mainBg, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', gap: 10, alignItems: 'center' }}>
             <span></span>
-            <span>User</span>
-            <span>Role</span>
+            <span>Name</span>
+            <span>Groups / Portal</span>
             <span>Status</span>
-            <span>Bergabung</span>
-            <span>Aksi</span>
+            <span>Role</span>
+            <span>Last Seen</span>
+            <span>Actions</span>
           </div>
 
-          {/* Table rows */}
+          {/* Rows */}
           {users.map((u, idx) => {
             const st           = getRoleStyle(u.role);
             const isCurrentUser= u.id === currentUser?.id;
             const isLoading    = actionLoading?.startsWith(u.id);
             const isActive     = u.is_active !== false;
+            const groups       = ROLE_GROUPS[u.role] ?? [{ label: 'Publik', color: '#6B7280' }];
+            const isMenuOpen   = openMenuId === u.id;
 
             return (
               <div key={u.id} className="usr-row"
-                style={{ display: 'grid', gridTemplateColumns: '44px 1fr 140px 100px 100px 160px', padding: '12px 16px', alignItems: 'center', gap: 12, borderBottom: idx < users.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', background: !isActive ? 'rgba(239,68,68,0.02)' : 'transparent', transition: 'background 0.15s', opacity: !isActive ? 0.85 : 1 }}>
+                style={{ display: 'grid', gridTemplateColumns: '48px 1fr 180px 100px 110px 110px 100px', padding: '11px 16px', alignItems: 'center', gap: 10, borderBottom: idx < users.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none', background: !isActive ? `rgba(239,68,68,0.02)` : 'transparent', transition: 'background 0.15s', opacity: isLoading ? 0.6 : 1 }}>
 
                 {/* Avatar */}
-                <UserAvatar name={u.name} role={u.role} isActive={isActive} />
+                <div style={{ position: 'relative' }}>
+                  <UserAvatar user={u} size={36} />
+                  {!isActive && (
+                    <div style={{ position: 'absolute', bottom: -2, right: -2, width: 12, height: 12, borderRadius: '50%', background: '#EF4444', border: `2px solid ${t.sidebar}`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 7, color: '#fff', fontWeight: 800 }}>✕</div>
+                  )}
+                </div>
 
-                {/* User info */}
+                {/* Name */}
                 <div style={{ minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
                     <span style={{ fontWeight: 700, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                       {u.name || 'Belum isi nama'}
                     </span>
                     {isCurrentUser && (
-                      <span style={{ fontSize: 9, fontWeight: 800, color: '#1B6B4A', background: 'rgba(27,107,74,0.1)', padding: '1px 6px', borderRadius: 10, flexShrink: 0 }}>KAMU</span>
+                      <span style={{ fontSize: 9, fontWeight: 800, color: '#1B6B4A', background: 'rgba(27,107,74,0.12)', padding: '1px 6px', borderRadius: 10, flexShrink: 0 }}>KAMU</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 11, color: t.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {formatPhone(u.phone)}
-                  </div>
-                  {/* Listing summary */}
-                  {u.listing_summary && Object.keys(u.listing_summary).length > 0 && (
-                    <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
-                      {Object.entries(u.listing_summary).map(([type, count]) => `${type}(${count})`).join(' · ')}
-                    </div>
-                  )}
+                  <div style={{ fontSize: 11, color: t.textDim }}>{formatPhone(u.phone)}</div>
+                </div>
+
+                {/* Groups */}
+                <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                  {groups.map(g => (
+                    <span key={g.label} style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 20, background: `${g.color}15`, color: g.color, border: `1px solid ${g.color}30`, whiteSpace: 'nowrap' }}>
+                      {g.label}
+                    </span>
+                  ))}
+                </div>
+
+                {/* Status */}
+                <div>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 20, background: isActive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: isActive ? '#10B981' : '#EF4444', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: isActive ? '#10B981' : '#EF4444', display: 'inline-block' }} />
+                    {isActive ? 'Aktif' : 'Nonaktif'}
+                  </span>
                 </div>
 
                 {/* Role */}
                 <div>
                   {isCurrentUser ? (
-                    <span style={{ background: st.bg, color: st.color, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 20, display: 'inline-block' }}>
-                      {st.label}
-                    </span>
-                  ) : isLoading ? (
-                    <span style={{ fontSize: 11, color: t.textDim }}>Memproses...</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 8, background: st.bg, color: st.color, display: 'inline-block' }}>{st.label}</span>
                   ) : (
                     <select value={u.role}
                       onChange={e => {
@@ -508,60 +584,111 @@ export default function AdminUsersPage() {
                   )}
                 </div>
 
-                {/* Status */}
+                {/* Last Seen */}
                 <div>
-                  <span style={{ fontSize: 10, fontWeight: 700, padding: '3px 8px', borderRadius: 20, background: isActive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)', color: isActive ? '#10B981' : '#EF4444', display: 'inline-block' }}>
-                    {isActive ? '● Aktif' : '✕ Nonaktif'}
-                  </span>
+                  <div style={{ fontSize: 11, color: t.textPrimary, fontWeight: 500 }}>{lastSeen(u.last_login)}</div>
+                  <div style={{ fontSize: 10, color: t.textDim }}>Gabung {timeAgo(u.created_at)}</div>
                 </div>
 
-                {/* Bergabung */}
-                <div style={{ fontSize: 11, color: t.textDim }}>{timeAgo(u.created_at)}</div>
-
-                {/* Aksi */}
-                <div>
+                {/* Actions */}
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                   {isCurrentUser ? (
                     <button onClick={() => { setEditNameInput(u.name || ''); setModal({ type: 'editName', userId: u.id, currentName: u.name || '' }); }}
                       style={{ padding: '5px 10px', borderRadius: 7, border: `1px solid #1B6B4A`, background: 'rgba(27,107,74,0.08)', color: '#1B6B4A', fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                      ✏️ Edit Nama
+                      Edit
                     </button>
-                  ) : isLoading ? null : (
-                    <div style={{ display: 'flex', gap: 4 }}>
-                      {/* Edit nama */}
+                  ) : (
+                    <>
+                      {/* Edit button */}
                       <button onClick={() => { setEditNameInput(u.name || ''); setModal({ type: 'editName', userId: u.id, currentName: u.name || '' }); }}
-                        title="Edit Nama" className="usr-btn"
-                        style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textMuted, fontSize: 12, cursor: 'pointer' }}>
-                        ✏️
+                        style={{ padding: '5px 12px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textPrimary, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                        Edit
                       </button>
-                      {/* Edit WA */}
-                      <button onClick={() => { setEditPhoneInput(u.phone); setModal({ type: 'editPhone', userId: u.id, userName: u.name || formatPhone(u.phone), currentPhone: u.phone }); }}
-                        title="Ganti Nomor WA" className="usr-btn"
-                        style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textMuted, fontSize: 12, cursor: 'pointer' }}>
-                        📱
-                      </button>
-                      {/* Nonaktif / Aktif */}
-                      {isActive ? (
-                        <button onClick={() => setModal({ type: 'deactivate', userId: u.id, userName: u.name || formatPhone(u.phone) })}
-                          title="Nonaktifkan" className="usr-btn"
-                          style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(245,158,11,0.3)', background: 'rgba(245,158,11,0.08)', color: '#F59E0B', fontSize: 12, cursor: 'pointer' }}>
-                          🚫
+
+                      {/* ··· dropdown menu */}
+                      <div style={{ position: 'relative' }}>
+                        <button
+                          onClick={e => { e.stopPropagation(); setOpenMenuId(isMenuOpen ? null : u.id); }}
+                          style={{ padding: '5px 8px', borderRadius: 7, border: `1px solid ${t.sidebarBorder}`, background: t.mainBg, color: t.textMuted, fontSize: 13, cursor: 'pointer', fontWeight: 800, lineHeight: 1 }}>
+                          •••
                         </button>
-                      ) : (
-                        <button onClick={() => setModal({ type: 'activate', userId: u.id, userName: u.name || formatPhone(u.phone) })}
-                          title="Aktifkan" className="usr-btn"
-                          style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(16,185,129,0.3)', background: 'rgba(16,185,129,0.08)', color: '#10B981', fontSize: 12, cursor: 'pointer' }}>
-                          ✅
-                        </button>
-                      )}
-                      {/* Hapus */}
-                      <button onClick={() => setModal({ type: 'delete', userId: u.id, userName: u.name || formatPhone(u.phone) })}
-                        title="Hapus Permanen" className="usr-btn"
-                        style={{ padding: '5px 8px', borderRadius: 7, border: '1px solid rgba(239,68,68,0.2)', background: 'rgba(239,68,68,0.06)', color: '#EF4444', fontSize: 12, cursor: 'pointer' }}>
-                        🗑️
-                      </button>
-                    </div>
+
+                        {isMenuOpen && (
+                          <div style={{ position: 'absolute', right: 0, top: '100%', marginTop: 4, background: t.sidebar, borderRadius: 10, border: `1px solid ${t.sidebarBorder}`, boxShadow: '0 8px 24px rgba(0,0,0,0.15)', zIndex: 99, minWidth: 160, overflow: 'hidden', animation: 'fadeIn 0.15s ease' }}
+                            onClick={e => e.stopPropagation()}>
+
+                            <button className="menu-item" onClick={() => { setEditPhoneInput(u.phone); setModal({ type: 'editPhone', userId: u.id, userName: u.name || formatPhone(u.phone), currentPhone: u.phone }); setOpenMenuId(null); }}
+                              style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: t.textPrimary, textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              📱 Ganti Nomor WA
+                            </button>
+
+                            <div style={{ height: 1, background: t.sidebarBorder }} />
+
+                            {isActive ? (
+                              <button className="menu-item" onClick={() => { setModal({ type: 'deactivate', userId: u.id, userName: u.name || formatPhone(u.phone) }); setOpenMenuId(null); }}
+                                style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#F59E0B', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                🚫 Nonaktifkan
+                              </button>
+                            ) : (
+                              <button className="menu-item" onClick={() => { setModal({ type: 'activate', userId: u.id, userName: u.name || formatPhone(u.phone) }); setOpenMenuId(null); }}
+                                style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#10B981', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                                ✅ Aktifkan
+                              </button>
+                            )}
+
+                            <div style={{ height: 1, background: t.sidebarBorder }} />
+
+                            <button className="menu-item" onClick={() => { setModal({ type: 'delete', userId: u.id, userName: u.name || formatPhone(u.phone) }); setOpenMenuId(null); }}
+                              style={{ width: '100%', padding: '9px 14px', background: 'transparent', border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#EF4444', textAlign: 'left', display: 'flex', alignItems: 'center', gap: 8 }}>
+                              🗑️ Hapus Permanen
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
+              </div>
+            );
+          })}
+
+          {/* Footer */}
+          <div style={{ padding: '10px 16px', borderTop: `1px solid ${t.sidebarBorder}`, background: t.mainBg, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: 11, color: t.textDim }}>Menampilkan {users.length} dari {total} total</span>
+            {total > 50 && (
+              <span style={{ fontSize: 11, color: '#1B6B4A', fontWeight: 600 }}>Scroll untuk lihat lebih banyak →</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── GROUPS TAB ── */}
+      {!loading && activeTab === 'groups' && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+          {ROLES.map(role => {
+            const roleUsers = users.filter(u => u.role === role.value);
+            if (roleUsers.length === 0) return null;
+            return (
+              <div key={role.value} style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, display: 'flex', alignItems: 'center', gap: 8, background: `${role.color}08` }}>
+                  <span style={{ fontSize: 13, fontWeight: 800, color: role.color, flex: 1 }}>{role.label}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 20, background: role.bg, color: role.color }}>{roleUsers.length}</span>
+                </div>
+                {roleUsers.slice(0, 5).map((u, i) => (
+                  <div key={u.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', borderBottom: i < Math.min(roleUsers.length, 5) - 1 ? `1px solid ${t.sidebarBorder}` : 'none' }}>
+                    <UserAvatar user={u} size={30} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{u.name || 'Belum isi nama'}</p>
+                      <p style={{ fontSize: 10, color: t.textDim }}>{lastSeen(u.last_login)}</p>
+                    </div>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: u.is_active !== false ? '#10B981' : '#EF4444', flexShrink: 0 }} />
+                  </div>
+                ))}
+                {roleUsers.length > 5 && (
+                  <div style={{ padding: '8px 14px', fontSize: 11, color: '#1B6B4A', fontWeight: 600, textAlign: 'center', borderTop: `1px solid ${t.sidebarBorder}` }}>
+                    +{roleUsers.length - 5} lainnya
+                  </div>
+                )}
               </div>
             );
           })}
