@@ -3,6 +3,8 @@
 /**
  * TeraLoka — SidebarNav
  * Phase 2 · Batch 5b — Layout Shell (Navigation)
+ * Hotfix 2026-04-18: BAKABAR moved to INFORMASI section (first item),
+ *                    removed isBakabarAnchor mechanism.
  * ------------------------------------------------------------
  * Organism — renders seluruh nav sidebar dari config NAV_SECTIONS.
  * 7 grup × 20 services sesuai PRD section 3.1.
@@ -10,7 +12,7 @@
  * Features:
  * - Role-based filtering (item.roles array check)
  * - Active state detection via pathname matching
- * - BAKABAR dropdown handled special (inject setelah Overview)
+ * - BAKABAR dropdown handled special (injected as first child di INFORMASI section)
  * - Path-based active (exact untuk Overview, startsWith untuk lain)
  * - Grouped sections dengan divider optional
  *
@@ -30,7 +32,6 @@
 import { useMemo, type ReactNode } from 'react';
 import {
   Zap,
-  Home,
   Building2,
   Car,
   Package,
@@ -71,14 +72,14 @@ interface NavItemConfig {
   roles?: string[];
   exact?: boolean;
   disabled?: boolean;
-  /** Special: BAKABAR punya dropdown sendiri, inject setelah item ini */
-  isBakabarAnchor?: boolean;
 }
 
 interface NavSectionConfig {
   label: string;
   items: NavItemConfig[];
   withDivider?: boolean;
+  /** Kalau true, BAKABAR dropdown di-inject di awal section ini */
+  withBakabarDropdown?: boolean;
 }
 
 const ALL_ADMINS = ['super_admin'];
@@ -94,14 +95,14 @@ const NAV_SECTIONS: NavSectionConfig[] = [
         icon: <Zap size={15} />,
         exact: true,
         roles: ALL_ADMINS,
-        isBakabarAnchor: true,
       },
     ],
   },
   {
     label: 'INFORMASI',
+    withBakabarDropdown: true,
     items: [
-      // BAKABAR di-inject di atas via isBakabarAnchor (dari Overview)
+      // BAKABAR dropdown di-inject via withBakabarDropdown flag (posisi pertama)
       {
         href: '/admin/reports',
         label: 'BALAPOR',
@@ -342,7 +343,7 @@ export function SidebarNav({
   onNavigate,
   className,
 }: SidebarNavProps) {
-  // Filter sections berdasarkan role (simpler: kalau gak ada user, default ke super_admin behavior)
+  // Filter sections berdasarkan role
   const filteredSections = useMemo(() => {
     return NAV_SECTIONS.map((section) => ({
       ...section,
@@ -351,7 +352,12 @@ export function SidebarNav({
         if (!userRole) return false;
         return item.roles.includes(userRole);
       }),
-    })).filter((section) => section.items.length > 0);
+    })).filter((section) => {
+      // Section dengan BAKABAR dropdown tetap tampil meski items-nya kosong
+      // (BAKABAR sendiri rendered via dropdown, bukan dari items array)
+      if (section.withBakabarDropdown) return true;
+      return section.items.length > 0;
+    });
   }, [userRole]);
 
   return (
@@ -365,29 +371,27 @@ export function SidebarNav({
           label={section.label}
           withDivider={section.withDivider}
         >
-          {section.items.map((item, idx) => (
-            <div key={item.href}>
-              <SidebarItem
-                href={item.href}
-                icon={item.icon}
-                label={item.label}
-                sublabel={item.sublabel}
-                service={item.service}
-                active={isItemActive(currentPath, item.href, item.exact)}
-                disabled={item.disabled}
-                onNavigate={onNavigate}
-              />
+          {/* BAKABAR dropdown injected di awal section INFORMASI */}
+          {section.withBakabarDropdown && (
+            <SidebarBakabarDropdown
+              currentPath={currentPath}
+              draftCount={draftCount}
+              onNavigate={onNavigate}
+            />
+          )}
 
-              {/* Inject BAKABAR dropdown tepat setelah Overview (isBakabarAnchor) */}
-              {item.isBakabarAnchor && (
-                <SidebarBakabarDropdown
-                  currentPath={currentPath}
-                  draftCount={draftCount}
-                  onNavigate={onNavigate}
-                  className="mt-0.5"
-                />
-              )}
-            </div>
+          {section.items.map((item) => (
+            <SidebarItem
+              key={item.href}
+              href={item.href}
+              icon={item.icon}
+              label={item.label}
+              sublabel={item.sublabel}
+              service={item.service}
+              active={isItemActive(currentPath, item.href, item.exact)}
+              disabled={item.disabled}
+              onNavigate={onNavigate}
+            />
           ))}
         </SidebarGroup>
       ))}

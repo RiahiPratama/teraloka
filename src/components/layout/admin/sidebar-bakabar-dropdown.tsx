@@ -3,17 +3,22 @@
 /**
  * TeraLoka — SidebarBakabarDropdown
  * Phase 2 · Batch 5b — Layout Shell (Navigation)
+ * Hotfix 2026-04-18: default href /admin/content (Super Admin moderation)
  * ------------------------------------------------------------
  * Special nav item — BAKABAR dropdown dengan children.
  * Mempreserve behavior existing admin layout:
  * - Auto-expand saat di halaman BAKABAR (/office/newsroom/bakabar/* atau /admin/rss)
- * - Klik parent: toggle + navigate ke editor hub
+ * - Klik parent: toggle + navigate ke Super Admin moderation view (/admin/content)
  * - Badge count untuk draft
  * - Sub-items nested (Editor Hub, Draft, Review, Publikasi, Archived, RSS Feed)
  *
+ * Semantic clarity:
+ * - PARENT link    → /admin/content    (Super Admin moderation view — approve/reject/archive)
+ * - CHILDREN links → /office/newsroom/bakabar/hub* (writer portal, cross-portal shortcut)
+ *                    + /admin/rss      (admin RSS management)
+ *
  * Data source:
- * - `draftCount` di-pass dari parent (fetched via /admin/stats di SidebarMissionControl
- *   atau di AdminLayout di Batch 5c)
+ * - `draftCount` di-pass dari parent (fetched via /admin/stats di AdminLayout)
  *
  * Contoh:
  *   <SidebarBakabarDropdown
@@ -57,20 +62,21 @@ export interface SidebarBakabarDropdownProps {
   currentPath: string;
   /** Draft count (dari /admin/stats) — untuk badge parent + child Draft */
   draftCount?: number;
-  /** Target href parent link (click pindah halaman + toggle dropdown) */
+  /** Target href parent link. Default: /admin/content (Super Admin moderation) */
   href?: string;
   /** Callback saat navigate (mis buat close mobile drawer) */
   onNavigate?: () => void;
   className?: string;
 }
 
-/* ─── Path match helper ─── */
+/* ─── Path match helpers ─── */
 
 function isBakabarActive(pathname: string): boolean {
   return (
     pathname === '/office/newsroom/bakabar' ||
     pathname.startsWith('/office/newsroom/bakabar/') ||
     pathname === '/admin/content' ||
+    pathname.startsWith('/admin/content/') ||
     pathname.startsWith('/admin/rss')
   );
 }
@@ -85,12 +91,11 @@ function isChildActive(pathname: string, childHref: string): boolean {
   if (pathname !== basePath) return false;
 
   // Kalau childHref punya query (?status=draft), check apakah URL current match
-  // (approximation — Next.js router gak gampang bagi query di component state)
   if (childQuery && typeof window !== 'undefined') {
     const currentQuery = window.location.search.slice(1);
     return currentQuery.includes(childQuery);
   }
-  return !childQuery; // Editor Hub active kalau pathname persis /hub tanpa status
+  return !childQuery;
 }
 
 /* ─── Component ─── */
@@ -98,7 +103,7 @@ function isChildActive(pathname: string, childHref: string): boolean {
 export function SidebarBakabarDropdown({
   currentPath,
   draftCount = 0,
-  href = '/office/newsroom/bakabar/hub',
+  href = '/admin/content',
   onNavigate,
   className,
 }: SidebarBakabarDropdownProps) {
