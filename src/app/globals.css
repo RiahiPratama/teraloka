@@ -1,11 +1,12 @@
 /* =============================================================
    TeraLoka — globals.css
    Phase 2 · Batch 1 — Design Foundation
+   Batch 6b Update: Added JASA service (slate-blue #475569/#94A3B8)
    -------------------------------------------------------------
    Legacy tokens (--primary, --cyan, --orange, dll) PRESERVED
    untuk public pages (homepage, /news, /reports, landing).
    
-   New design system (semantic + status + 20 services × 3 shades)
+   New design system (semantic + status + 21 services × 3 shades)
    ditambahkan untuk admin dashboard rebuild.
    
    Dark mode: class-based via `.dark` pada <html>.
@@ -71,11 +72,11 @@
      --color-<service>-muted   → background tint
      --color-<service>-strong  → darkened accent
      
-     Service keys:
+     Service keys (21 total):
        bakabar, balapor, badonasi
        bakos, properti, kendaraan
        baantar, bapasiar, baronda
-       ppob, event
+       jasa, ppob, event
        finansial, ads
        ticker, notifwa
        analytics, syshealth, trustsafety
@@ -122,6 +123,10 @@
   --color-baronda-strong: #1E40AF;
 
   /* DAILY SERVICES */
+  --color-jasa: #475569;
+  --color-jasa-muted: #F1F5F9;
+  --color-jasa-strong: #1E293B;
+
   --color-ppob: #6366F1;
   --color-ppob-muted: #EEF2FF;
   --color-ppob-strong: #3730A3;
@@ -253,6 +258,10 @@
   --color-baronda: #60A5FA;
   --color-baronda-muted: rgba(96, 165, 250, 0.08);
   --color-baronda-strong: #BFDBFE;
+
+  --color-jasa: #94A3B8;
+  --color-jasa-muted: rgba(148, 163, 184, 0.08);
+  --color-jasa-strong: #CBD5E1;
 
   --color-ppob: #818CF8;
   --color-ppob-muted: rgba(129, 140, 248, 0.08);

@@ -3,6 +3,7 @@
 /**
  * TeraLoka — PerluTindakanCard
  * Phase 2 · Batch 4a — Domain Components
+ * Batch 6b Update: Added jasa to SERVICE maps (21 services)
  * ------------------------------------------------------------
  * Card yang nampilin list tindakan yang butuh admin attention,
  * di-sort by priority. Tiap item clickable ke page relevan.
@@ -116,6 +117,7 @@ const SERVICE_ACCENT: Record<ServiceKey, string> = {
   baantar: 'bg-baantar-muted',
   bapasiar: 'bg-bapasiar-muted',
   baronda: 'bg-baronda-muted',
+  jasa: 'bg-jasa-muted',
   ppob: 'bg-ppob-muted',
   event: 'bg-event-muted',
   finansial: 'bg-finansial-muted',
@@ -139,6 +141,7 @@ const SERVICE_ICON_COLOR: Record<ServiceKey, string> = {
   baantar: 'text-baantar',
   bapasiar: 'text-bapasiar',
   baronda: 'text-baronda',
+  jasa: 'text-jasa',
   ppob: 'text-ppob',
   event: 'text-event',
   finansial: 'text-finansial',

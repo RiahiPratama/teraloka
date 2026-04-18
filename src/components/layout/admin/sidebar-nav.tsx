@@ -5,9 +5,11 @@
  * Phase 2 · Batch 5b — Layout Shell (Navigation)
  * Hotfix 2026-04-18: BAKABAR moved to INFORMASI section (first item),
  *                    removed isBakabarAnchor mechanism.
+ * Batch 6b Update: Added JASA as first item in DAILY SERVICES
+ *                  (JASA → PPOB → Event order)
  * ------------------------------------------------------------
  * Organism — renders seluruh nav sidebar dari config NAV_SECTIONS.
- * 7 grup × 20 services sesuai PRD section 3.1.
+ * 7 grup × 21 services sesuai PRD section 3.1.
  *
  * Features:
  * - Role-based filtering (item.roles array check)
@@ -47,6 +49,7 @@ import {
   Activity,
   Shield,
   KeyRound,
+  Wrench,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -184,6 +187,15 @@ const NAV_SECTIONS: NavSectionConfig[] = [
   {
     label: 'DAILY SERVICES',
     items: [
+      {
+        href: '/admin/coming-soon?service=jasa',
+        label: 'JASA',
+        sublabel: 'Servis, tukang, laundry',
+        service: 'jasa',
+        icon: <Wrench size={15} />,
+        roles: ALL_ADMINS,
+        disabled: true,
+      },
       {
         href: '/admin/coming-soon?service=ppob',
         label: 'PPOB',

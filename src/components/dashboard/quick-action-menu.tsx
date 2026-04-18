@@ -3,6 +3,7 @@
 /**
  * TeraLoka — QuickActionMenu
  * Phase 2 · Batch 4a — Domain Components
+ * Batch 6b Update: Added jasa to ICON_BG (21 services)
  * ------------------------------------------------------------
  * Grid tombol aksi cepat untuk admin — shortcut ke task yang sering
  * dilakukan (tulis artikel, kelola users, cek audit log, system check).
@@ -74,6 +75,7 @@ const ICON_BG: Record<ServiceKey, string> = {
   baantar: 'bg-baantar-muted text-baantar',
   bapasiar: 'bg-bapasiar-muted text-bapasiar',
   baronda: 'bg-baronda-muted text-baronda',
+  jasa: 'bg-jasa-muted text-jasa',
   ppob: 'bg-ppob-muted text-ppob',
   event: 'bg-event-muted text-event',
   finansial: 'bg-finansial-muted text-finansial',

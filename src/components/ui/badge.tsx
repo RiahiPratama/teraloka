@@ -3,6 +3,7 @@
 /**
  * TeraLoka — Badge
  * Phase 2 · Batch 3c — Feedback & Navigation
+ * Batch 6b Update: Added 'jasa' service key (21 services total)
  * ------------------------------------------------------------
  * Pill label untuk status, count, atau service identity.
  *
@@ -19,7 +20,7 @@
  *    <Badge variant="service" service="bakabar">News</Badge>
  *    <Badge variant="service" service="balapor">Laporan</Badge>
  *    <Badge variant="service" service="badonasi">Donasi</Badge>
- *    ... (20 services total, pakai key dari globals.css)
+ *    ... (21 services total, pakai key dari globals.css)
  *
  * 3. Count — simple number badge (notification dot pattern)
  *    <Badge variant="count">12</Badge>
@@ -44,6 +45,7 @@ export type ServiceKey =
   | 'baantar'
   | 'bapasiar'
   | 'baronda'
+  | 'jasa'
   | 'ppob'
   | 'event'
   | 'finansial'
@@ -119,6 +121,7 @@ const SERVICE_SOLID: Record<ServiceKey, string> = {
   baantar: 'bg-baantar text-white',
   bapasiar: 'bg-bapasiar text-white',
   baronda: 'bg-baronda text-white',
+  jasa: 'bg-jasa text-white',
   ppob: 'bg-ppob text-white',
   event: 'bg-event text-white',
   finansial: 'bg-finansial text-white',
@@ -142,6 +145,7 @@ const SERVICE_SOFT: Record<ServiceKey, string> = {
   baantar: 'bg-baantar-muted text-baantar-strong',
   bapasiar: 'bg-bapasiar-muted text-bapasiar-strong',
   baronda: 'bg-baronda-muted text-baronda-strong',
+  jasa: 'bg-jasa-muted text-jasa-strong',
   ppob: 'bg-ppob-muted text-ppob-strong',
   event: 'bg-event-muted text-event-strong',
   finansial: 'bg-finansial-muted text-finansial-strong',

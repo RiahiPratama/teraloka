@@ -3,6 +3,7 @@
 /**
  * TeraLoka — ServiceHealthItem
  * Phase 2 · Batch 4b — Domain Components
+ * Batch 6b Update: Added jasa to ICON_BG + BORDER_COLOR (21 services)
  * ------------------------------------------------------------
  * Kartu kecil yang merepresentasikan status 1 service.
  * Dipakai sebagai building block dari ServiceHealthStrip.
@@ -66,6 +67,7 @@ const ICON_BG: Record<ServiceKey, string> = {
   baantar: 'bg-baantar-muted text-baantar',
   bapasiar: 'bg-bapasiar-muted text-bapasiar',
   baronda: 'bg-baronda-muted text-baronda',
+  jasa: 'bg-jasa-muted text-jasa',
   ppob: 'bg-ppob-muted text-ppob',
   event: 'bg-event-muted text-event',
   finansial: 'bg-finansial-muted text-finansial',
@@ -89,6 +91,7 @@ const BORDER_COLOR: Record<ServiceKey, string> = {
   baantar: 'border-l-baantar',
   bapasiar: 'border-l-bapasiar',
   baronda: 'border-l-baronda',
+  jasa: 'border-l-jasa',
   ppob: 'border-l-ppob',
   event: 'border-l-event',
   finansial: 'border-l-finansial',

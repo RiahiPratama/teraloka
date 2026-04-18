@@ -3,8 +3,9 @@
 /**
  * TeraLoka — Service Icons Registry
  * Phase 2 · Batch 4c — Domain Components
+ * Batch 6b Update: Added jasa icon (Wrench)
  * ------------------------------------------------------------
- * Centralized icon system untuk 20 services TeraLoka.
+ * Centralized icon system untuk 21 services TeraLoka.
  *
  * 5 CUSTOM SVG icons (priority services, PRD section 3.4):
  * - BakabarIcon   → Speech bubble + news lines (berita)
@@ -13,7 +14,7 @@
  * - BakosIcon     → Window + bed silhouette (kos)
  * - UsersIcon     → Three overlapping circles (grup)
  *
- * 15 LUCIDE fallback icons untuk 15 service lain — siap di-replace
+ * 16 LUCIDE fallback icons untuk 16 service lain — siap di-replace
  * dengan custom SVG di batch lanjutan (Batch 4d / 5).
  *
  * Semua icon pakai `currentColor` → warna otomatis ikut parent
@@ -55,6 +56,7 @@ import {
   Ship,
   Shield,
   Wallet,
+  Wrench,
   type LucideProps,
 } from 'lucide-react';
 import type { ServiceKey } from '@/components/ui/badge';
@@ -175,7 +177,7 @@ function wrap(Icon: ComponentType<LucideProps>): ComponentType<IconProps> {
 
 /* ─── Registry ───
    Consumer call via ServiceIcons[key] → component.
-   5 custom + 15 Lucide fallback = 20 service keys covered.
+   5 custom + 16 Lucide fallback = 21 service keys covered.
 */
 
 export const ServiceIcons: Record<ServiceKey, ComponentType<IconProps>> = {
@@ -192,6 +194,7 @@ export const ServiceIcons: Record<ServiceKey, ComponentType<IconProps>> = {
   baantar: wrap(Package),
   bapasiar: wrap(Ship),
   baronda: wrap(Compass),
+  jasa: wrap(Wrench),
   ppob: wrap(Receipt),
   event: wrap(CalendarClock),
   finansial: wrap(Wallet),

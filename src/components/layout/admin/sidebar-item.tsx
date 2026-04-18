@@ -3,6 +3,7 @@
 /**
  * TeraLoka — SidebarItem
  * Phase 2 · Batch 5b — Layout Shell (Navigation)
+ * Batch 6b Update: Added jasa to SERVICE maps (21 services)
  * ------------------------------------------------------------
  * Atom nav — single link di sidebar. Dipakai oleh SidebarGroup
  * dan SidebarBakabarDropdown.
@@ -73,6 +74,7 @@ const SERVICE_ICON_BG: Record<ServiceKey, string> = {
   baantar: 'bg-baantar/15 text-baantar',
   bapasiar: 'bg-bapasiar/15 text-bapasiar',
   baronda: 'bg-baronda/15 text-baronda',
+  jasa: 'bg-jasa/15 text-jasa',
   ppob: 'bg-ppob/15 text-ppob',
   event: 'bg-event/15 text-event',
   finansial: 'bg-finansial/15 text-finansial',
@@ -96,6 +98,7 @@ const SERVICE_ACCENT_BAR: Record<ServiceKey, string> = {
   baantar: 'bg-baantar',
   bapasiar: 'bg-bapasiar',
   baronda: 'bg-baronda',
+  jasa: 'bg-jasa',
   ppob: 'bg-ppob',
   event: 'bg-event',
   finansial: 'bg-finansial',
