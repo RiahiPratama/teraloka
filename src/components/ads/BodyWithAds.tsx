@@ -38,13 +38,25 @@ function splitIntoBlocks(html: string): string[] {
 
 interface Props {
   html: string;
-  /** Inject iklan SETELAH block index ini (1-based). Default: 3. */
+  /**
+   * Admin override dari field content.articles.ad_position:
+   *   - null/undefined → Auto (pakai `adAfterIndex` default)
+   *   - 0 → Disable iklan tengah
+   *   - N ≥ 1 → Iklan muncul setelah block ke-N
+   */
+  adPosition?: number | null;
+  /** Default auto position kalau adPosition tidak di-set. Default: 3. */
   adAfterIndex?: number;
   /** Minimum jumlah block supaya iklan tengah muncul. Default: 4. */
   minBlocksForAd?: number;
 }
 
-export default function BodyWithAds({ html, adAfterIndex = 3, minBlocksForAd = 4 }: Props) {
+export default function BodyWithAds({
+  html,
+  adPosition,
+  adAfterIndex = 3,
+  minBlocksForAd = 4,
+}: Props) {
   const blocks = splitIntoBlocks(html);
 
   // Artikel kosong
@@ -52,14 +64,26 @@ export default function BodyWithAds({ html, adAfterIndex = 3, minBlocksForAd = 4
     return <div className="article-body" />;
   }
 
+  // Admin explicitly disable iklan tengah (ad_position = 0)
+  if (adPosition === 0) {
+    return <div className="article-body" dangerouslySetInnerHTML={{ __html: html }} />;
+  }
+
+  // Tentukan posisi iklan:
+  //   - Kalau admin set adPosition (≥ 1) → pakai itu
+  //   - Kalau null/undefined → pakai adAfterIndex default (3)
+  const targetIndex = (adPosition && adPosition >= 1) ? adPosition : adAfterIndex;
+
   // Artikel pendek — tidak cukup panjang untuk iklan tengah
+  // (baik admin override atau auto, kalau < minBlocks, skip)
   if (blocks.length < minBlocksForAd) {
     return <div className="article-body" dangerouslySetInnerHTML={{ __html: html }} />;
   }
 
-  // Split body jadi "sebelum iklan" + "sesudah iklan"
-  // adAfterIndex = 3 artinya iklan muncul SETELAH block ke-3 (yaitu sebelum block ke-4)
-  const safeIndex = Math.min(adAfterIndex, blocks.length - 1);
+  // Safety clamp — kalau admin set position lebih besar dari jumlah block,
+  // cap di block terakhir - 1 supaya iklan tetap muncul di area yang aman
+  const safeIndex = Math.min(Math.max(targetIndex, 1), blocks.length - 1);
+
   const beforeAd  = blocks.slice(0, safeIndex).join('');
   const afterAd   = blocks.slice(safeIndex).join('');
 

@@ -502,15 +502,15 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* Body — dengan in-article ad di tengah (auto setelah paragraf ke-3) */}
+            {/* Body — dengan in-article ad di tengah.
+                adPosition: admin override dari DB (null=auto, 0=disable, N=setelah block N)
+                adAfterIndex: default auto position kalau admin tidak override */}
             {bodyHtml ? (
-              <BodyWithAds html={bodyHtml} adAfterIndex={3} />
+              <BodyWithAds html={bodyHtml} adPosition={article.ad_position} adAfterIndex={3} />
             ) : (
               <p className="text-gray-400 italic text-sm">Konten artikel belum tersedia.</p>
             )}
 
-            {/* After-body ad — SENGAJA ditaruh di sini, biar user yang selesai baca
-                ketemu iklan sebelum balik ke halaman utama */}
             <InArticleAd />
 
             {/* Tags */}
