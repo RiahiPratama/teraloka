@@ -305,19 +305,14 @@ export default function AdminUsersPage() {
                 description="Coba ubah kata kunci atau filter."
                 variant="muted"
                 size="sm"
-                action={
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      clearSearch();
-                      setRoleFilter('');
-                      setStatusFilter('');
-                    }}
-                  >
-                    Reset filter
-                  </Button>
-                }
+                action={{
+                  label: 'Reset filter',
+                  onClick: () => {
+                    clearSearch();
+                    setRoleFilter('');
+                    setStatusFilter('');
+                  },
+                }}
               />
             </div>
           ) : isEmptyEntirely ? (
