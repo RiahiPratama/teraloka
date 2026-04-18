@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -8,8 +9,15 @@ interface Ad {
   id: string;
   title: string;
   body?: string;
-  image_url?: string;
+  image_url?: string | null;
   link_url: string;
+  ad_format?: 'image' | 'text';
+  // Advertorial fields
+  slug?: string;
+  advertiser_name?: string;
+  advertiser_logo_url?: string | null;
+  advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
+  disclaimer_text?: string | null;
 }
 
 async function fetchActiveAd(position: string): Promise<Ad | null> {
@@ -29,18 +37,31 @@ function trackAdClick(adId: string) {
   fetch(`${API}/public/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
 }
 
+// Label advertiser_type → display friendly
+const ADVERTISER_TYPE_LABEL: Record<string, string> = {
+  pemerintah: 'Pemerintah',
+  politisi:   'Kampanye Politik',
+  komersial:  'Mitra Bisnis',
+  umum:       'Konten Mitra',
+};
+
+// Truncate body untuk preview card (tampil di feed)
+function truncate(text: string, max: number): string {
+  if (!text) return '';
+  if (text.length <= max) return text;
+  return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
+}
+
 export default function AdInArticle() {
   const [ad,      setAd]      = useState<Ad | null>(null);
   const [loaded,  setLoaded]  = useState(false);
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
 
-  // Fetch iklan aktif
   useEffect(() => {
     fetchActiveAd('in_article').then(a => { setAd(a); setLoaded(true); });
   }, []);
 
-  // IntersectionObserver: trigger fade-in + slide-up saat element scroll into view
   useEffect(() => {
     if (!refEl) return;
     const obs = new IntersectionObserver(
@@ -93,7 +114,7 @@ export default function AdInArticle() {
     );
   }
 
-  // ═══ Fallback (no active ad) — CTA untuk advertiser ═══
+  // ═══ Fallback (no active ad) ═══
   if (!ad) {
     return (
       <div ref={setRef} className="my-6 rounded-xl p-4 flex items-center gap-3"
@@ -114,7 +135,74 @@ export default function AdInArticle() {
     );
   }
 
-  // ═══ Real ad ═══
+  // ═══ TEXT ADVERTORIAL — preview card ═══
+  if (ad.ad_format === 'text' && ad.slug) {
+    const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
+    const preview = truncate(ad.body || '', 180);
+
+    return (
+      <>
+        <style>{`
+          @keyframes bk-ad-pulse-amber {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55); }
+            50%      { box-shadow: 0 0 0 5px rgba(251, 191, 36, 0); }
+          }
+          .bk-advertorial-badge {
+            animation: bk-ad-pulse-amber 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+          }
+        `}</style>
+        <Link
+          ref={setRef as any}
+          href={`/sponsored/${ad.slug}`}
+          onClick={() => trackAdClick(ad.id)}
+          className="block my-6 rounded-2xl overflow-hidden border hover:shadow-md transition-all"
+          style={{
+            ...animStyle,
+            background: 'linear-gradient(to bottom right, #FFFBEB, #FEF3C7)',
+            borderColor: '#FDE68A',
+          }}>
+          <div className="p-5">
+            {/* Header — label + advertiser */}
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              <span className="bk-advertorial-badge text-[10px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-full uppercase tracking-wide border border-amber-300">
+                {typeLabel}
+              </span>
+              {ad.advertiser_logo_url && (
+                <img src={ad.advertiser_logo_url} alt={ad.advertiser_name}
+                  className="w-5 h-5 rounded-full object-cover" />
+              )}
+              <span className="text-xs font-semibold text-amber-900">{ad.advertiser_name}</span>
+            </div>
+
+            {/* Title */}
+            <h3 className="text-base font-bold text-gray-900 leading-snug mb-2">
+              {ad.title}
+            </h3>
+
+            {/* Preview body */}
+            <p className="text-sm text-gray-700 leading-relaxed mb-3">
+              {preview}
+            </p>
+
+            {/* CTA */}
+            <div className="flex items-center justify-between pt-3 border-t border-amber-200">
+              <span className="text-xs font-bold text-amber-900">Baca selengkapnya →</span>
+              <span className="text-[10px] text-amber-700 italic">Konten Mitra</span>
+            </div>
+
+            {/* Disclaimer (politisi) */}
+            {ad.disclaimer_text && (
+              <p className="mt-3 pt-3 border-t border-amber-200 text-[10px] text-amber-800 italic leading-relaxed">
+                {ad.disclaimer_text}
+              </p>
+            )}
+          </div>
+        </Link>
+      </>
+    );
+  }
+
+  // ═══ IMAGE BANNER — existing behavior ═══
   return (
     <>
       <style>{`
