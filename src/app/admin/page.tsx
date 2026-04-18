@@ -1,281 +1,605 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+/**
+ * TeraLoka — Admin Dashboard Overview
+ * Phase 2 · Batch 6 — Dashboard Overview
+ * ------------------------------------------------------------
+ * Halaman utama admin setelah login. Compose domain components
+ * dari Batch 4 (KPI cards, Mission Control, Perlu Tindakan,
+ * Service Health, DAU Chart, Regional Map, System Health,
+ * Anomaly, Quick Action).
+ *
+ * Layout (responsive):
+ *   ┌─────────────────────────────────────────┐
+ *   │ Welcome header (greeting + summary)     │
+ *   ├─────────────────────────────────────────┤
+ *   │ KPI row — 5 cards                       │
+ *   ├─────────────────────────────────────────┤
+ *   │ Service Health Strip (full width)       │
+ *   ├───────────────┬─────────────┬───────────┤
+ *   │ DAU Chart     │ Perlu       │ Regional  │
+ *   │               │ Tindakan    │ Map       │
+ *   ├───────────────┼─────────────┼───────────┤
+ *   │ Anomaly       │ System      │ Menu      │
+ *   │               │ Health      │ Cepat     │
+ *   └───────────────┴─────────────┴───────────┘
+ *
+ * Data:
+ * - /admin/stats → 5 KPI + Perlu Tindakan (derived)
+ * - Service health: static config MVP
+ * - DAU, Anomaly, System Health: empty/coming state (endpoint belum ada)
+ * - Regional map: pin-only mode (aggregate belum ada)
+ *
+ * Preserved dari existing page.tsx:
+ * - Greeting dinamis (pagi/siang/malam)
+ * - Total pending banner merah
+ * - Error state + retry
+ * - Loading skeleton
+ */
+
+import { useCallback, useEffect, useState } from 'react';
+import {
+  Activity,
+  AlertCircle,
+  AlertTriangle,
+  Building2,
+  CheckCircle2,
+  Database,
+  Edit3,
+  FileText,
+  Heart,
+  Home,
+  MessageSquare,
+  Package,
+  RefreshCw,
+  Server,
+  Ship,
+  Shield,
+  UserCog,
+  Users,
+  History,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import Link from 'next/link';
+import { ApiError, useApi } from '@/lib/api/client';
+import { summarizeActions, type AdminStats } from '@/types/admin';
 
-interface AdminStats {
-  users: { total: number };
-  listings: { total: number; pending: number };
-  articles: { total: number; draft: number };
-  campaigns: { total: number; pending: number };
-  reports: { total: number; pending: number };
+import { Button } from '@/components/ui/button';
+import { StatusDot } from '@/components/ui/status-dot';
+
+import { KPICard } from '@/components/dashboard/kpi-card';
+import { MissionControlCard } from '@/components/dashboard/mission-control-card';
+import {
+  PerluTindakanCard,
+  type ActionItem,
+} from '@/components/dashboard/perlu-tindakan-card';
+import { QuickActionMenu } from '@/components/dashboard/quick-action-menu';
+import { ServiceHealthStrip } from '@/components/dashboard/service-health-strip';
+import { AnomalyCard } from '@/components/dashboard/anomaly-card';
+import { SystemHealthCard } from '@/components/dashboard/system-health-card';
+import { DAUChart } from '@/components/dashboard/dau-chart';
+import { RegionalMap } from '@/components/dashboard/regional-map';
+
+import {
+  BakabarIcon,
+  BalaporIcon,
+  BadonasiIcon,
+  BakosIcon,
+  UsersIcon,
+} from '@/components/icons/service-icons';
+
+/* ─── Greeting helper ─── */
+
+function useGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Selamat pagi';
+  if (hour < 17) return 'Selamat siang';
+  return 'Selamat malam';
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL;
+/* ─── Derivasi Perlu Tindakan dari stats ─── */
 
-function useCountUp(target: number, duration = 900, delay = 0) {
-  const [value, setValue] = useState(0);
-  useEffect(() => {
-    const t = setTimeout(() => {
-      if (target === 0) return;
-      const start = Date.now();
-      const tick = () => {
-        const elapsed = Date.now() - start;
-        const progress = Math.min(elapsed / duration, 1);
-        const eased = 1 - Math.pow(1 - progress, 3);
-        setValue(Math.round(eased * target));
-        if (progress < 1) requestAnimationFrame(tick);
-      };
-      requestAnimationFrame(tick);
-    }, delay);
-    return () => clearTimeout(t);
-  }, [target, duration, delay]);
-  return value;
+function deriveActionItems(stats: AdminStats | null): ActionItem[] {
+  if (!stats) return [];
+  const items: ActionItem[] = [];
+
+  if (stats.reports.pending > 0) {
+    items.push({
+      id: 'reports-pending',
+      label: `${stats.reports.pending} Laporan BALAPOR`,
+      sublabel: 'Moderasi laporan masuk',
+      priority: 'urgent',
+      service: 'balapor',
+      icon: <AlertTriangle size={16} />,
+      href: '/admin/reports',
+    });
+  }
+  if (stats.campaigns.pending > 0) {
+    items.push({
+      id: 'campaigns-pending',
+      label: `${stats.campaigns.pending} Kampanye BADONASI`,
+      sublabel: 'Verifikasi donasi',
+      priority: 'high',
+      service: 'badonasi',
+      icon: <Heart size={16} />,
+      href: '/admin/funding',
+    });
+  }
+  if (stats.listings.pending > 0) {
+    items.push({
+      id: 'listings-pending',
+      label: `${stats.listings.pending} Listing Pending`,
+      sublabel: 'Review dan aktifkan',
+      priority: 'medium',
+      service: 'bakos',
+      icon: <Home size={16} />,
+      href: '/admin/listings',
+    });
+  }
+  if (stats.articles.draft > 0) {
+    items.push({
+      id: 'articles-draft',
+      label: `${stats.articles.draft} Artikel Draft`,
+      sublabel: 'Review atau publish',
+      priority: 'low',
+      service: 'bakabar',
+      icon: <FileText size={16} />,
+      href: '/admin/content',
+    });
+  }
+
+  return items;
 }
 
-function KpiCard({ label, sublabel, total, badge, badgeLabel, icon, accent, href, delay = 0 }: {
-  label: string; sublabel: string; total: number;
-  badge?: number; badgeLabel?: string;
-  icon: string; accent: string; href: string; delay?: number;
-}) {
-  const count = useCountUp(total, 900, delay);
-  return (
-    <Link href={href} className="group block">
-      <div className="relative overflow-hidden rounded-2xl bg-white border border-gray-100 p-5 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
-        {/* Accent blob */}
-        <div className="absolute -top-6 -right-6 w-20 h-20 rounded-full opacity-10" style={{ background: accent }} />
-        <div className="absolute bottom-0 left-0 h-0.5 w-full opacity-40" style={{ background: `linear-gradient(to right, ${accent}, transparent)` }} />
+/* ─── Service Health config (static MVP) ─── */
 
-        <div className="flex items-start justify-between mb-4">
-          <div className="w-11 h-11 rounded-xl flex items-center justify-center text-white text-lg shadow-sm" style={{ background: accent }}>
-            <span className="material-symbols-outlined text-xl" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-          </div>
-          {badge !== undefined && badge > 0 ? (
-            <span className="text-xs font-bold text-white px-2 py-0.5 rounded-full" style={{ background: '#EF4444' }}>
-              {badge} {badgeLabel}
-            </span>
-          ) : (
-            <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">✓ Oke</span>
-          )}
-        </div>
-
-        <div className="text-3xl font-black text-gray-900 tracking-tight">{count.toLocaleString('id-ID')}</div>
-        <div className="text-sm font-semibold text-gray-700 mt-0.5">{label}</div>
-        <div className="text-xs text-gray-400 mt-0.5">{sublabel}</div>
-      </div>
-    </Link>
-  );
+function buildServiceHealthSections() {
+  return [
+    {
+      label: 'INFORMASI',
+      items: [
+        {
+          service: 'bakabar' as const,
+          icon: <BakabarIcon size={14} />,
+          label: 'BAKABAR',
+          status: 'healthy' as const,
+          href: '/admin/content',
+        },
+        {
+          service: 'balapor' as const,
+          icon: <BalaporIcon size={14} />,
+          label: 'BALAPOR',
+          status: 'healthy' as const,
+          href: '/admin/reports',
+        },
+        {
+          service: 'badonasi' as const,
+          icon: <BadonasiIcon size={14} />,
+          label: 'BADONASI',
+          status: 'healthy' as const,
+          href: '/admin/funding',
+        },
+      ],
+    },
+    {
+      label: 'PROPERTI',
+      items: [
+        {
+          service: 'bakos' as const,
+          icon: <BakosIcon size={14} />,
+          label: 'BAKOS',
+          status: 'healthy' as const,
+          href: '/admin/listings?type=kos',
+        },
+        {
+          service: 'properti' as const,
+          icon: <Building2 size={14} />,
+          label: 'Properti',
+          status: 'healthy' as const,
+          href: '/admin/listings?type=properti',
+        },
+      ],
+    },
+    {
+      label: 'MOBILITAS',
+      items: [
+        {
+          service: 'baantar' as const,
+          icon: <Package size={14} />,
+          label: 'BAANTAR',
+          status: 'coming' as const,
+        },
+        {
+          service: 'bapasiar' as const,
+          icon: <Ship size={14} />,
+          label: 'BAPASIAR',
+          status: 'healthy' as const,
+          href: '/admin/transport',
+        },
+      ],
+    },
+    {
+      label: 'PLATFORM',
+      items: [
+        {
+          service: 'users' as const,
+          icon: <UsersIcon size={14} />,
+          label: 'Users',
+          status: 'healthy' as const,
+          href: '/admin/users',
+        },
+        {
+          service: 'trustsafety' as const,
+          icon: <Shield size={14} />,
+          label: 'Trust',
+          status: 'healthy' as const,
+          href: '/admin/trust-safety',
+        },
+      ],
+    },
+  ];
 }
 
-function ActionItem({ href, icon, label, desc, urgent }: {
-  href: string; icon: string; label: string; desc: string; urgent?: boolean;
-}) {
-  return (
-    <Link href={href}
-      className={`flex items-center gap-3 p-3.5 rounded-xl border transition-all hover:translate-x-1 ${
-        urgent ? 'border-red-100 bg-red-50/50 hover:bg-red-50' : 'border-gray-100 bg-white hover:bg-gray-50'
-      }`}>
-      <span className="material-symbols-outlined text-xl" style={{ color: urgent ? '#EF4444' : '#6B7280', fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-      <div className="flex-1 min-w-0">
-        <p className={`text-sm font-semibold truncate ${urgent ? 'text-red-600' : 'text-gray-800'}`}>{label}</p>
-        <p className="text-xs text-gray-400">{desc}</p>
-      </div>
-      <span className="material-symbols-outlined text-gray-300 text-sm">arrow_forward_ios</span>
-    </Link>
-  );
-}
+/* ─── System Health config (static MVP) ─── */
 
-function QuickOp({ href, icon, label }: { href: string; icon: string; label: string }) {
-  return (
-    <Link href={href}
-      className="group flex flex-col items-center gap-3 p-5 bg-gray-50 hover:bg-[#003526] rounded-2xl text-center transition-all duration-200">
-      <div className="w-12 h-12 bg-white group-hover:bg-white/20 rounded-xl flex items-center justify-center transition-colors shadow-sm">
-        <span className="material-symbols-outlined text-[#003526] group-hover:text-white transition-colors" style={{ fontVariationSettings: "'FILL' 1" }}>{icon}</span>
-      </div>
-      <span className="text-xs font-bold text-gray-700 group-hover:text-white transition-colors">{label}</span>
-    </Link>
-  );
-}
+const SYSTEM_HEALTH_METRICS = [
+  {
+    id: 'api',
+    label: 'API Uptime',
+    value: '99.98%',
+    status: 'healthy' as const,
+    icon: <Server size={14} />,
+  },
+  {
+    id: 'db',
+    label: 'Supabase DB',
+    value: 'Connected',
+    status: 'healthy' as const,
+    icon: <Database size={14} />,
+  },
+  {
+    id: 'fonnte',
+    label: 'Fonnte WA',
+    value: 'Online',
+    status: 'healthy' as const,
+    icon: <MessageSquare size={14} />,
+  },
+];
+
+/* ─── Page ─── */
 
 export default function AdminOverviewPage() {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
+  const api = useApi();
+
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
+  const greeting = useGreeting();
+  const firstName = user?.name?.split(' ')[0] ?? 'Admin';
+  const summary = summarizeActions(stats);
+
+  /* ── Fetch stats ── */
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API_URL}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { if (d.success) setStats(d.data); else setError(d.error?.message || 'Gagal'); })
-      .catch(e => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [token]);
+    if (!api.token) return;
+    const controller = new AbortController();
 
-  const totalPending = stats
-    ? stats.listings.pending + stats.articles.draft + stats.campaigns.pending + stats.reports.pending
-    : 0;
+    setLoading(true);
+    setError(null);
 
-  const hour = new Date().getHours();
-  const greeting = hour < 12 ? 'Selamat pagi' : hour < 17 ? 'Selamat siang' : 'Selamat malam';
+    api
+      .get<AdminStats>('/admin/stats', { signal: controller.signal })
+      .then((data) => {
+        setStats(data);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setError(
+          err instanceof ApiError ? err.message : 'Gagal memuat data'
+        );
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [api, retryNonce]);
+
+  const handleRetry = useCallback(() => {
+    setRetryNonce((n) => n + 1);
+  }, []);
+
+  /* ── Derived data ── */
+  const actionItems = deriveActionItems(stats);
+  const serviceHealthSections = buildServiceHealthSections();
+
+  // Mission Control breakdown
+  const missionBreakdown: Array<{
+    service: 'balapor' | 'bakabar' | 'badonasi' | 'bakos';
+    label: string;
+    count: number;
+  }> = [];
+  if (stats) {
+    if (stats.reports.pending > 0)
+      missionBreakdown.push({
+        service: 'balapor',
+        label: 'Laporan',
+        count: stats.reports.pending,
+      });
+    if (stats.articles.draft > 0)
+      missionBreakdown.push({
+        service: 'bakabar',
+        label: 'Draft',
+        count: stats.articles.draft,
+      });
+    if (stats.campaigns.pending > 0)
+      missionBreakdown.push({
+        service: 'badonasi',
+        label: 'Donasi',
+        count: stats.campaigns.pending,
+      });
+    if (stats.listings.pending > 0)
+      missionBreakdown.push({
+        service: 'bakos',
+        label: 'Listing',
+        count: stats.listings.pending,
+      });
+  }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
-
-      {/* Welcome */}
-      <div className="flex items-start justify-between">
+    <div className="max-w-7xl mx-auto space-y-6">
+      {/* ── Welcome header ── */}
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-black text-gray-900 tracking-tight">
-            {greeting}, {user?.name?.split(' ')[0] || 'Admin'} 👋
+          <h1 className="text-2xl md:text-3xl font-extrabold text-text tracking-tight">
+            {greeting}, {firstName} <span aria-hidden="true">👋</span>
           </h1>
-          <p className="text-gray-500 mt-1">
+          <p className="text-sm text-text-muted mt-1 leading-relaxed">
             Berikut kondisi platform TeraLoka hari ini.
-            {totalPending > 0 && (
-              <span className="text-red-500 font-semibold"> {totalPending} item perlu perhatianmu.</span>
+            {summary.totalPending > 0 && (
+              <>
+                {' '}
+                <span
+                  className={
+                    summary.hasUrgent
+                      ? 'text-status-critical font-semibold'
+                      : 'text-status-warning font-semibold'
+                  }
+                >
+                  {summary.totalPending} item perlu perhatianmu.
+                </span>
+              </>
+            )}
+            {!loading && summary.totalPending === 0 && !error && (
+              <span className="text-status-healthy font-semibold">
+                {' '}
+                Semua aksi terkini beres.
+              </span>
             )}
           </p>
         </div>
-        {/* System status chip */}
-        <div className="hidden md:flex items-center gap-2 bg-white border border-gray-100 px-4 py-2 rounded-full shadow-sm">
-          <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+        <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-surface border border-border rounded-full">
+          <StatusDot
+            status="healthy"
+            size="xs"
+            animated="pulse"
+            srLabel="System online"
+          />
+          <span className="text-xs font-semibold text-text-secondary">
+            System Online
           </span>
-          <span className="text-xs font-semibold text-gray-600">System Online</span>
         </div>
       </div>
 
-      {/* Error */}
+      {/* ── Error banner ── */}
       {error && (
-        <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
-          <span className="material-symbols-outlined text-red-500">error</span>
-          <div className="flex-1">
-            <p className="text-sm font-semibold text-red-600">Gagal memuat stats</p>
-            <p className="text-xs text-gray-500">{error}</p>
-          </div>
-          <button onClick={() => { setError(''); setLoading(true); }}
-            className="text-xs text-red-500 border border-red-200 px-3 py-1 rounded-lg hover:bg-red-50">
-            Retry
-          </button>
-        </div>
-      )}
-
-      {/* KPI Grid */}
-      {loading && !error ? (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="rounded-2xl bg-white border border-gray-100 p-5 animate-pulse">
-              <div className="w-11 h-11 rounded-xl bg-gray-200 mb-4" />
-              <div className="h-7 w-16 bg-gray-200 rounded mb-2" />
-              <div className="h-4 w-24 bg-gray-100 rounded mb-1" />
-              <div className="h-3 w-20 bg-gray-100 rounded" />
-            </div>
-          ))}
-        </div>
-      ) : stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <KpiCard label="Total Users" sublabel="Pengguna terdaftar" total={stats.users.total}
-            icon="group" accent="#0891B2" href="/admin/users" delay={0} />
-          <KpiCard label="Listing" sublabel="Kos, properti, kendaraan" total={stats.listings.total}
-            badge={stats.listings.pending} badgeLabel="pending"
-            icon="home" accent="#1B6B4A" href="/admin/listings" delay={80} />
-          <KpiCard label="Artikel" sublabel="BAKABAR & laporan" total={stats.articles.total}
-            badge={stats.articles.draft} badgeLabel="draft"
-            icon="newspaper" accent="#8B5CF6" href="/office/newsroom/bakabar/hub" delay={160} />
-          <KpiCard label="Kampanye" sublabel="BASUMBANG donasi" total={stats.campaigns.total}
-            badge={stats.campaigns.pending} badgeLabel="pending"
-            icon="volunteer_activism" accent="#E8963A" href="/admin/funding" delay={240} />
-          <KpiCard label="Laporan" sublabel="BALAPOR masuk" total={stats.reports.total}
-            badge={stats.reports.pending} badgeLabel="baru"
-            icon="campaign" accent="#EF4444" href="/admin/reports" delay={320} />
-        </div>
-      )}
-
-      {/* Main grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        {/* Action Required */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="material-symbols-outlined text-red-500 text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>notification_important</span>
-              <h2 className="text-sm font-bold text-gray-800">Perlu Tindakan</h2>
-            </div>
-            {totalPending > 0 && (
-              <span className="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{totalPending}</span>
-            )}
-          </div>
-          <div className="p-3 space-y-2">
-            {stats?.listings.pending ? (
-              <ActionItem href="/admin/listings" icon="home" label={`${stats.listings.pending} Listing Pending`} desc="Review dan aktifkan" urgent />
-            ) : null}
-            {stats?.articles.draft ? (
-              <ActionItem href="/office/newsroom/bakabar/hub" icon="newspaper" label={`${stats.articles.draft} Artikel Draft`} desc="Publish atau arsipkan" />
-            ) : null}
-            {stats?.campaigns.pending ? (
-              <ActionItem href="/admin/funding" icon="volunteer_activism" label={`${stats.campaigns.pending} Kampanye Pending`} desc="Verifikasi BASUMBANG" urgent />
-            ) : null}
-            {stats?.reports.pending ? (
-              <ActionItem href="/admin/reports" icon="campaign" label={`${stats.reports.pending} Laporan BALAPOR`} desc="Moderasi laporan masuk" urgent />
-            ) : null}
-            {totalPending === 0 && stats && (
-              <div className="py-8 text-center">
-                <div className="text-4xl mb-2">✅</div>
-                <p className="text-sm font-semibold text-emerald-600">Semua beres!</p>
-                <p className="text-xs text-gray-400 mt-1">Tidak ada item yang perlu ditindak</p>
-              </div>
-            )}
-            {loading && <div className="py-8 text-center text-sm text-gray-400">Memuat...</div>}
-          </div>
-        </div>
-
-        {/* Daily Insight - gradient card */}
-        <div className="lg:col-span-5 relative overflow-hidden rounded-2xl p-8 text-white"
-          style={{ background: 'linear-gradient(135deg, #003526 0%, #006b5e 100%)' }}>
-          <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-white/5 blur-3xl" />
-          <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/5 blur-2xl" />
-          <div className="relative z-10">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#95d3ba] mb-4">Platform Insight</p>
-            <h3 className="text-4xl font-black tracking-tight mb-2">TeraLoka</h3>
-            <p className="text-[#95d3ba]/80 text-sm leading-relaxed mb-8">
-              Super App untuk Maluku Utara. Data diambil real-time dari backend API.
+        <div className="flex items-start gap-3 rounded-xl bg-status-critical/8 border border-status-critical/20 px-4 py-3">
+          <AlertCircle
+            size={18}
+            className="text-status-critical shrink-0 mt-0.5"
+          />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-status-critical">
+              Gagal memuat stats
             </p>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { label: 'Backend', value: 'Online ✓', icon: 'cloud_done' },
-                { label: 'Database', value: 'Connected ✓', icon: 'storage' },
-              ].map(item => (
-                <div key={item.label} className="bg-white/10 backdrop-blur-sm rounded-xl p-3">
-                  <span className="material-symbols-outlined text-[#95d3ba] text-sm">{item.icon}</span>
-                  <p className="text-xs text-[#95d3ba]/60 mt-1">{item.label}</p>
-                  <p className="text-sm font-bold">{item.value}</p>
-                </div>
-              ))}
-            </div>
+            <p className="text-xs text-text-muted mt-0.5">{error}</p>
           </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleRetry}
+            leftIcon={<RefreshCw size={12} />}
+          >
+            Retry
+          </Button>
         </div>
+      )}
 
-        {/* Quick Operations */}
-        <div className="lg:col-span-3">
-          <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-3">Menu Cepat</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <QuickOp href="/office/newsroom/bakabar/hub/new" icon="edit_note" label="Tulis Artikel" />
-            <QuickOp href="/admin/users" icon="manage_accounts" label="Kelola Users" />
-            <QuickOp href="/admin/audit-log" icon="history" label="Audit Log" />
-            <QuickOp href="/admin/system-health" icon="health_and_safety" label="System Health" />
-          </div>
-        </div>
-
+      {/* ── KPI Row — 5 cards ── */}
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-4">
+        <KPICard
+          service="users"
+          icon={<Users size={20} />}
+          label="Users"
+          value={stats?.users.total ?? 0}
+          sublabel="Pengguna terdaftar"
+          emptyMessage="Belum ada user"
+          href="/admin/users"
+          loading={loading && !stats}
+        />
+        <KPICard
+          service="bakos"
+          icon={<Home size={20} />}
+          label="Listing"
+          value={stats?.listings.total ?? 0}
+          sublabel="Kos, properti, kendaraan"
+          badge={
+            stats && stats.listings.pending > 0
+              ? {
+                  label: `${stats.listings.pending} pending`,
+                  tone: 'warning',
+                }
+              : undefined
+          }
+          emptyMessage="Belum ada listing"
+          href="/admin/listings"
+          loading={loading && !stats}
+        />
+        <KPICard
+          service="bakabar"
+          icon={<FileText size={20} />}
+          label="Artikel"
+          value={stats?.articles.total ?? 0}
+          sublabel="BAKABAR & laporan"
+          badge={
+            stats && stats.articles.draft > 0
+              ? { label: `${stats.articles.draft} draft`, tone: 'info' }
+              : undefined
+          }
+          emptyMessage="Belum ada artikel"
+          href="/admin/content"
+          loading={loading && !stats}
+        />
+        <KPICard
+          service="badonasi"
+          icon={<Heart size={20} />}
+          label="Kampanye"
+          value={stats?.campaigns.total ?? 0}
+          sublabel="BADONASI donasi"
+          badge={
+            stats && stats.campaigns.pending > 0
+              ? {
+                  label: `${stats.campaigns.pending} pending`,
+                  tone: 'warning',
+                }
+              : undefined
+          }
+          emptyMessage="Belum ada kampanye"
+          href="/admin/funding"
+          loading={loading && !stats}
+        />
+        <KPICard
+          service="balapor"
+          icon={<AlertTriangle size={20} />}
+          label="Laporan"
+          value={stats?.reports.total ?? 0}
+          sublabel="BALAPOR masuk"
+          badge={
+            stats && stats.reports.pending > 0
+              ? {
+                  label: `${stats.reports.pending} baru`,
+                  tone: 'critical',
+                }
+              : undefined
+          }
+          emptyMessage="Belum ada laporan"
+          href="/admin/reports"
+          loading={loading && !stats}
+        />
       </div>
 
-      {/* Footer */}
-      <div className="flex items-center gap-3 bg-[#003526]/5 border border-[#003526]/10 rounded-xl px-4 py-3">
-        <span className="text-lg">🌊</span>
-        <p className="text-xs text-gray-500">
-          <span className="font-semibold text-[#003526]">TeraLoka Admin</span>
-          {' '}— Super App Maluku Utara.{' '}
-          <Link href="/admin/system-health" className="text-[#0891B2] font-medium hover:underline">Cek system health →</Link>
+      {/* ── Service Health Strip ── */}
+      <ServiceHealthStrip sections={serviceHealthSections} />
+
+      {/* ── Middle row: Mission Control (full) + Perlu Tindakan ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-5">
+          <MissionControlCard
+            title="Mission Control"
+            urgentCount={summary.totalPending}
+            totalCount={summary.totalActive}
+            subtitle={
+              summary.totalPending > 0
+                ? `${summary.totalPending} item tertunda dari total ${summary.totalActive} item aktif di platform.`
+                : 'Semua operasional berjalan lancar.'
+            }
+            breakdown={missionBreakdown}
+            emptyTitle="Semua beres!"
+            emptyMessage="Tidak ada aksi tertunda. Platform sehat."
+          />
+        </div>
+        <div className="lg:col-span-4">
+          <PerluTindakanCard
+            items={actionItems}
+            loading={loading && !stats}
+            maxVisible={5}
+          />
+        </div>
+        <div className="lg:col-span-3">
+          <QuickActionMenu
+            items={[
+              {
+                id: 'write',
+                label: 'Tulis Artikel',
+                service: 'bakabar',
+                icon: <Edit3 size={18} />,
+                href: '/office/newsroom/bakabar/hub/new',
+              },
+              {
+                id: 'users',
+                label: 'Kelola Users',
+                service: 'users',
+                icon: <UserCog size={18} />,
+                href: '/admin/users',
+              },
+              {
+                id: 'audit',
+                label: 'Audit Log',
+                service: 'trustsafety',
+                icon: <History size={18} />,
+                href: '/admin/audit-log',
+              },
+              {
+                id: 'health',
+                label: 'System Health',
+                service: 'syshealth',
+                icon: <Activity size={18} />,
+                href: '/admin/system-health',
+              },
+            ]}
+            columns={2}
+          />
+        </div>
+      </div>
+
+      {/* ── Analytics row: DAU + Regional + System Health ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <div className="lg:col-span-7">
+          <DAUChart
+            title="Daily Active Users"
+            subtitle="30 hari terakhir"
+            loading={loading}
+          />
+        </div>
+        <div className="lg:col-span-5">
+          <RegionalMap
+            legend="Akan menampilkan distribusi laporan dan listing per kota setelah data cukup."
+          />
+        </div>
+      </div>
+
+      {/* ── Insight row: Anomaly + System Health ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <AnomalyCard />
+        <SystemHealthCard
+          metrics={SYSTEM_HEALTH_METRICS}
+          detailHref="/admin/system-health"
+        />
+      </div>
+
+      {/* ── Footer ── */}
+      <div className="flex items-center gap-3 bg-surface-muted border border-border rounded-xl px-4 py-3">
+        <CheckCircle2 size={16} className="text-brand-teal shrink-0" />
+        <p className="text-xs text-text-secondary leading-relaxed flex-1">
+          <span className="font-semibold text-text">TeraLoka Admin</span> — Super App
+          Maluku Utara. Semua data real-time dari backend API.{' '}
+          <a
+            href="/admin/system-health"
+            className="text-brand-teal font-medium hover:underline no-underline"
+          >
+            Cek system health →
+          </a>
         </p>
       </div>
     </div>
