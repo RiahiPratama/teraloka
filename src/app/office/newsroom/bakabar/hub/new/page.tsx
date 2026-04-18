@@ -152,6 +152,7 @@ export default function NewArticlePage() {
   const [isBreaking, setIsBreaking]         = useState(false);
   const [isTrending, setIsTrending]         = useState(false);
   const [locationId, setLocationId]         = useState('');
+  const [adPosition, setAdPosition]         = useState<number | null>(null);
 
   const [publishNow, setPublishNow]         = useState(false);
   const [loading, setLoading]               = useState(false);
@@ -391,6 +392,7 @@ export default function NewArticlePage() {
           is_breaking: isBreaking,
           is_viral: isTrending,
           location_id: locationId || null,
+          ad_position: adPosition,
         }),
       });
       const data = await res.json();
@@ -773,6 +775,41 @@ export default function NewArticlePage() {
                   </span>
                 </span>
               </label>
+            </div>
+
+            {/* Iklan dalam artikel — admin override posisi iklan di tengah artikel */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 10,
+              padding: 12, borderRadius: 10,
+              background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`,
+            }}>
+              <label style={{ fontSize: 13, color: t.textMuted, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                🎯 <span>Iklan dalam artikel</span>
+              </label>
+              <select
+                value={adPosition === null ? 'auto' : String(adPosition)}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAdPosition(v === 'auto' ? null : Number(v));
+                }}
+                style={{
+                  padding: '8px 10px', borderRadius: 8,
+                  border: `1px solid ${editorTokens.inputBorder}`,
+                  background: editorTokens.inputBg, color: t.textPrimary,
+                  fontSize: 12, outline: 'none', cursor: 'pointer',
+                  width: '100%', boxSizing: 'border-box',
+                }}>
+                <option value="auto">Auto — setelah paragraf ke-3 (default)</option>
+                <option value="2">Setelah paragraf ke-2</option>
+                <option value="3">Setelah paragraf ke-3</option>
+                <option value="5">Setelah paragraf ke-5</option>
+                <option value="7">Setelah paragraf ke-7</option>
+                <option value="0">Nonaktifkan iklan tengah</option>
+              </select>
+              <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic', lineHeight: 1.5, margin: 0 }}>
+                💡 Untuk artikel panjang (10+ paragraf), posisi 5-7 biasanya lebih efektif
+                karena pembaca sudah engaged. Iklan di ujung artikel tetap muncul terlepas dari pilihan ini.
+              </p>
             </div>
 
             {/* Viral source — soft hint, TIDAK memblokir submit (speed-to-publish) */}
