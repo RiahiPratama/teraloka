@@ -1,19 +1,180 @@
-@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+/* =============================================================
+   TeraLoka — globals.css
+   Phase 2 · Batch 1 — Design Foundation
+   -------------------------------------------------------------
+   Legacy tokens (--primary, --cyan, --orange, dll) PRESERVED
+   untuk public pages (homepage, /news, /reports, landing).
+   
+   New design system (semantic + status + 20 services × 3 shades)
+   ditambahkan untuk admin dashboard rebuild.
+   
+   Dark mode: class-based via `.dark` pada <html>.
+   ============================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&family=Lora:ital,wght@0,400;0,500;0,600;1,400;1,500&display=swap');
 @import "tailwindcss";
 
-/* ─── Tailwind v4 Theme ─── */
+/* ─── Dark Mode Variant (class-based, for Tailwind v4) ─── */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Tailwind v4 Theme — Design Tokens ─── */
 @theme {
+  /* ===== Fonts ===== */
   --font-sora: 'Sora', sans-serif;
   --font-jakarta: 'Plus Jakarta Sans', sans-serif;
+  --font-outfit: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-lora: 'Lora', Georgia, serif;
+
+  /* ===== Legacy Brand (PRESERVED — dipakai public pages) ===== */
   --color-primary: #003526;
   --color-primary-light: #1B6B4A;
   --color-primary-dim: #95d3ba;
   --color-cyan: #0891B2;
   --color-orange: #E8963A;
   --color-green: #1B6B4A;
+
+  /* ===== Brand Expansion (admin dashboard) ===== */
+  --color-brand-teal: #003526;
+  --color-brand-teal-light: #006b5e;
+  --color-brand-teal-lighter: #1B6B4A;
+  --color-brand-teal-soft: #95d3ba;
+  --color-brand-teal-mint: #6EE7B7;
+  --color-brand-sidebar: #001E18;
+  --color-brand-blue: #2b8fb5;
+  --color-brand-blue-light: #4CA3C4;
+  --color-brand-orange: #E8963A;
+  --color-brand-orange-light: #F4B35C;
+  --color-brand-orange-warm: #FBB040;
+
+  /* ===== Semantic UI Tokens — LIGHT MODE defaults ===== */
+  /* override di .dark block di bawah                     */
+  --color-background: #F8FAFB;
+  --color-surface: #FFFFFF;
+  --color-surface-elevated: #FFFFFF;
+  --color-surface-muted: #F1F5F9;
+  --color-border: #E5E7EB;
+  --color-border-muted: #F1F5F9;
+  --color-text: #0F172A;
+  --color-text-secondary: #334155;
+  --color-text-muted: #64748B;
+  --color-text-subtle: #94A3B8;
+
+  /* ===== Status Tokens — LIGHT MODE defaults ===== */
+  --color-status-healthy: #10B981;
+  --color-status-warning: #F59E0B;
+  --color-status-critical: #EF4444;
+  --color-status-info: #3B82F6;
+
+  /* ===== Service Identity Colors — LIGHT MODE defaults =====
+     Naming convention (lowercase, no hyphen di dalam key service):
+     --color-<service>         → main
+     --color-<service>-muted   → background tint
+     --color-<service>-strong  → darkened accent
+     
+     Service keys:
+       bakabar, balapor, badonasi
+       bakos, properti, kendaraan
+       baantar, bapasiar, baronda
+       ppob, event
+       finansial, ads
+       ticker, notifwa
+       analytics, syshealth, trustsafety
+       users, roles
+  ============================================================ */
+
+  /* INFORMASI */
+  --color-bakabar: #8B5CF6;
+  --color-bakabar-muted: #FAF5FF;
+  --color-bakabar-strong: #5B21B6;
+
+  --color-balapor: #EF4444;
+  --color-balapor-muted: #FEF2F2;
+  --color-balapor-strong: #B91C1C;
+
+  --color-badonasi: #EC4899;
+  --color-badonasi-muted: #FDF2F8;
+  --color-badonasi-strong: #BE185D;
+
+  /* PROPERTI & SEWA */
+  --color-bakos: #F59E0B;
+  --color-bakos-muted: #FFFBEB;
+  --color-bakos-strong: #78350F;
+
+  --color-properti: #10B981;
+  --color-properti-muted: #ECFDF5;
+  --color-properti-strong: #065F46;
+
+  --color-kendaraan: #64748B;
+  --color-kendaraan-muted: #F8FAFC;
+  --color-kendaraan-strong: #334155;
+
+  /* MOBILITAS */
+  --color-baantar: #F97316;
+  --color-baantar-muted: #FFF7ED;
+  --color-baantar-strong: #9A3412;
+
+  --color-bapasiar: #0EA5E9;
+  --color-bapasiar-muted: #F0F9FF;
+  --color-bapasiar-strong: #075985;
+
+  --color-baronda: #2563EB;
+  --color-baronda-muted: #EFF6FF;
+  --color-baronda-strong: #1E40AF;
+
+  /* DAILY SERVICES */
+  --color-ppob: #6366F1;
+  --color-ppob-muted: #EEF2FF;
+  --color-ppob-strong: #3730A3;
+
+  --color-event: #D946EF;
+  --color-event-muted: #FDF4FF;
+  --color-event-strong: #86198F;
+
+  /* BISNIS */
+  --color-finansial: #059669;
+  --color-finansial-muted: #ECFDF5;
+  --color-finansial-strong: #064E3B;
+
+  --color-ads: #EAB308;
+  --color-ads-muted: #FEFCE8;
+  --color-ads-strong: #713F12;
+
+  /* KOMUNIKASI */
+  --color-ticker: #06B6D4;
+  --color-ticker-muted: #ECFEFF;
+  --color-ticker-strong: #155E75;
+
+  --color-notifwa: #14B8A6;
+  --color-notifwa-muted: #F0FDFA;
+  --color-notifwa-strong: #115E59;
+
+  /* INTELLIGENCE */
+  --color-analytics: #A855F7;
+  --color-analytics-muted: #FAF5FF;
+  --color-analytics-strong: #6B21A8;
+
+  --color-syshealth: #84CC16;
+  --color-syshealth-muted: #F7FEE7;
+  --color-syshealth-strong: #3F6212;
+
+  --color-trustsafety: #E11D48;
+  --color-trustsafety-muted: #FFF1F2;
+  --color-trustsafety-strong: #9F1239;
+
+  /* PLATFORM */
+  --color-users: #3B82F6;
+  --color-users-muted: #EFF6FF;
+  --color-users-strong: #1D4ED8;
+
+  --color-roles: #0D9488;
+  --color-roles-muted: #F0FDFA;
+  --color-roles-strong: #115E59;
 }
 
-/* ─── CSS Variables ─── */
+/* ─── Legacy CSS Variables (PRESERVED) ───
+   Dipakai via var(--xxx) di inline styles / legacy CSS.
+   Jangan dihapus — homepage + /news + /reports masih depend on these.
+*/
 :root {
   --primary: #003526;
   --primary-light: #1B6B4A;
@@ -32,6 +193,112 @@
   --success: #16a34a;
 }
 
+/* ─── Dark Mode Overrides ───
+   Semua token semantic + status + service di-override di sini.
+   Tailwind utility (bg-surface, text-text, bg-bakabar, dll) otomatis
+   pakai nilai baru ketika class `.dark` ditambahkan ke <html>.
+*/
+.dark {
+  /* Semantic UI — dark values */
+  --color-background: #0A0F14;
+  --color-surface: #141B26;
+  --color-surface-elevated: #1A232D;
+  --color-surface-muted: #0F1620;
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-muted: rgba(255, 255, 255, 0.04);
+  --color-text: #F1F5F9;
+  --color-text-secondary: #CBD5E1;
+  --color-text-muted: #94A3B8;
+  --color-text-subtle: #64748B;
+
+  /* Status — lifted 15-20% untuk dark bg */
+  --color-status-healthy: #34D399;
+  --color-status-warning: #FBBF24;
+  --color-status-critical: #F87171;
+  --color-status-info: #60A5FA;
+
+  /* Services — lifted variants */
+  --color-bakabar: #A78BFA;
+  --color-bakabar-muted: rgba(167, 139, 250, 0.08);
+  --color-bakabar-strong: #DDD6FE;
+
+  --color-balapor: #F87171;
+  --color-balapor-muted: rgba(248, 113, 113, 0.10);
+  --color-balapor-strong: #FECACA;
+
+  --color-badonasi: #F472B6;
+  --color-badonasi-muted: rgba(244, 114, 182, 0.08);
+  --color-badonasi-strong: #FBCFE8;
+
+  --color-bakos: #FBBF24;
+  --color-bakos-muted: rgba(251, 191, 36, 0.08);
+  --color-bakos-strong: #FDE68A;
+
+  --color-properti: #34D399;
+  --color-properti-muted: rgba(52, 211, 153, 0.08);
+  --color-properti-strong: #A7F3D0;
+
+  --color-kendaraan: #94A3B8;
+  --color-kendaraan-muted: rgba(148, 163, 184, 0.08);
+  --color-kendaraan-strong: #CBD5E1;
+
+  --color-baantar: #FB923C;
+  --color-baantar-muted: rgba(251, 146, 60, 0.08);
+  --color-baantar-strong: #FED7AA;
+
+  --color-bapasiar: #38BDF8;
+  --color-bapasiar-muted: rgba(56, 189, 248, 0.08);
+  --color-bapasiar-strong: #BAE6FD;
+
+  --color-baronda: #60A5FA;
+  --color-baronda-muted: rgba(96, 165, 250, 0.08);
+  --color-baronda-strong: #BFDBFE;
+
+  --color-ppob: #818CF8;
+  --color-ppob-muted: rgba(129, 140, 248, 0.08);
+  --color-ppob-strong: #C7D2FE;
+
+  --color-event: #E879F9;
+  --color-event-muted: rgba(232, 121, 249, 0.08);
+  --color-event-strong: #F5D0FE;
+
+  --color-finansial: #10B981;
+  --color-finansial-muted: rgba(16, 185, 129, 0.08);
+  --color-finansial-strong: #6EE7B7;
+
+  --color-ads: #FACC15;
+  --color-ads-muted: rgba(250, 204, 21, 0.08);
+  --color-ads-strong: #FEF08A;
+
+  --color-ticker: #22D3EE;
+  --color-ticker-muted: rgba(34, 211, 238, 0.08);
+  --color-ticker-strong: #A5F3FC;
+
+  --color-notifwa: #2DD4BF;
+  --color-notifwa-muted: rgba(45, 212, 191, 0.08);
+  --color-notifwa-strong: #99F6E4;
+
+  --color-analytics: #C084FC;
+  --color-analytics-muted: rgba(192, 132, 252, 0.08);
+  --color-analytics-strong: #E9D5FF;
+
+  --color-syshealth: #A3E635;
+  --color-syshealth-muted: rgba(163, 230, 53, 0.08);
+  --color-syshealth-strong: #D9F99D;
+
+  --color-trustsafety: #FB7185;
+  --color-trustsafety-muted: rgba(251, 113, 133, 0.08);
+  --color-trustsafety-strong: #FECDD3;
+
+  --color-users: #60A5FA;
+  --color-users-muted: rgba(96, 165, 250, 0.08);
+  --color-users-strong: #BFDBFE;
+
+  --color-roles: #2DD4BF;
+  --color-roles-muted: rgba(45, 212, 191, 0.08);
+  --color-roles-strong: #99F6E4;
+}
+
 /* ─── Base ─── */
 html {
   scroll-behavior: smooth;
@@ -48,10 +315,14 @@ body {
 
 h1, h2, h3, h4, .font-sora { font-family: 'Sora', sans-serif; }
 
-/* ─── Scrollbar ─── */
+/* ─── Scrollbar (light default) ─── */
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: #f1f5f9; }
 ::-webkit-scrollbar-thumb { background: var(--primary-dim); border-radius: 99px; }
+
+/* Scrollbar dark mode override */
+.dark ::-webkit-scrollbar-track { background: #0F1620; }
+.dark ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); }
 
 /* ─── Animations ─── */
 @keyframes ticker {

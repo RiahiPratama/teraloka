@@ -1,27 +1,26 @@
 import type { Config } from 'tailwindcss'
 
+/**
+ * TeraLoka — Tailwind v4 config
+ * Phase 2 · Batch 1 — Design Foundation
+ * ------------------------------------------------------------
+ * Di Tailwind v4, design tokens (colors, fonts, spacing) hidup di
+ * `@theme` directive di dalam globals.css — bukan di config file ini.
+ * File ini cuma declare `content` paths untuk content scanning.
+ *
+ * CATATAN:
+ * - Dulu ada `colors.primary: '#3525cd'` (ungu) di sini yang conflict
+ *   sama brand teal `#003526` di @theme. Sudah dihapus — satu source
+ *   of truth di globals.css.
+ * - Dark mode variant sudah di-define via `@custom-variant dark` di
+ *   globals.css. Pakai class `dark` pada <html>.
+ */
 const config: Config = {
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
     './src/app/**/*.{js,ts,jsx,tsx,mdx}',
   ],
-  theme: {
-    extend: {
-      fontFamily: {
-        sora: ['Sora', 'sans-serif'],
-        jakarta: ['Plus Jakarta Sans', 'sans-serif'],
-      },
-      colors: {
-        primary: '#3525cd',
-        'primary-light': '#4f46e5',
-        'primary-dim': '#c3c0ff',
-        cyan: '#0891B2',
-        orange: '#E8963A',
-        green: '#1B6B4A',
-      },
-    },
-  },
   plugins: [],
 }
 
