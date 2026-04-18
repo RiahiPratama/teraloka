@@ -176,6 +176,13 @@ export default function AdsPanel() {
     link_url:         '',
     price_paid:       0,
     images:           {} as Record<string, string>,
+    // Advertorial fields (Phase 3 thin slice)
+    ad_format:            'image' as 'image' | 'text',
+    advertiser_type:      'komersial' as 'umum' | 'politisi' | 'pemerintah' | 'komersial',
+    advertiser_logo_url:  '',
+    disclaimer_text:      '',
+    slug:                 '',
+    slug_manual:          false, // true = admin override, false = auto-generate
   });
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
@@ -245,6 +252,9 @@ export default function AdsPanel() {
   const resetForm = () => setForm({
     advertiser_name: '', advertiser_phone: '', package_id: '',
     title: '', body: '', link_url: '', price_paid: 0, images: {},
+    ad_format: 'image', advertiser_type: 'komersial',
+    advertiser_logo_url: '', disclaimer_text: '',
+    slug: '', slug_manual: false,
   });
 
   const openCreateForm = () => {
@@ -272,6 +282,13 @@ export default function AdsPanel() {
       link_url:         ad.link_url,
       price_paid:       ad.price_paid,
       images:           ad.images || {},
+      // Advertorial fields
+      ad_format:           (ad as any).ad_format || 'image',
+      advertiser_type:     (ad as any).advertiser_type || 'komersial',
+      advertiser_logo_url: (ad as any).advertiser_logo_url || '',
+      disclaimer_text:     (ad as any).disclaimer_text || '',
+      slug:                (ad as any).slug || '',
+      slug_manual:         !!(ad as any).slug,
     });
     setShowForm(true);
   };
@@ -283,6 +300,22 @@ export default function AdsPanel() {
     resetForm();
   };
 
+  // Auto-generate slug dari title kalau format=text dan belum manual override
+  useEffect(() => {
+    if (form.ad_format !== 'text') return;
+    if (form.slug_manual) return;
+    if (!form.title.trim()) return;
+    const auto = form.title
+      .toLowerCase()
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-')
+      .replace(/^-|-$/g, '')
+      .slice(0, 80);
+    setForm(p => ({ ...p, slug: auto }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.title, form.ad_format, form.slug_manual]);
+
   const handleSubmit = async () => {
     setFormError(null);
 
@@ -291,11 +324,35 @@ export default function AdsPanel() {
     if (!form.advertiser_name.trim()) return setFormError('Nama advertiser wajib diisi');
     if (!form.package_id)             return setFormError('Pilih paket iklan');
 
-    const positions = selectedPkg?.positions || [];
-    const missing = positions.filter(p => !form.images[p]);
-    if (missing.length > 0) {
-      const labels = missing.map(p => POSITION_LABEL[p] || p).join(', ');
-      return setFormError(`Upload banner untuk posisi: ${labels}`);
+    // === Format-specific validation ===
+    if (form.ad_format === 'text') {
+      // Advertorial text validation
+      if (!form.body.trim() || form.body.trim().length < 100) {
+        return setFormError('Advertorial: deskripsi wajib diisi minimal 100 karakter');
+      }
+      if (form.body.length > 5000) {
+        return setFormError('Advertorial: deskripsi maksimal 5000 karakter');
+      }
+      if (form.advertiser_type === 'politisi' && !form.disclaimer_text.trim()) {
+        return setFormError(
+          'Iklan politisi wajib mencantumkan disclaimer kampanye (aturan KPU No.15/2023)'
+        );
+      }
+      if (!form.slug.trim()) {
+        return setFormError('Slug URL tidak boleh kosong');
+      }
+      if (!/^[a-z0-9-]+$/.test(form.slug)) {
+        return setFormError('Slug hanya boleh huruf kecil, angka, dan tanda hubung');
+      }
+      // Posisi banner upload di-skip untuk text
+    } else {
+      // Image banner validation (existing behavior)
+      const positions = selectedPkg?.positions || [];
+      const missing = positions.filter(p => !form.images[p]);
+      if (missing.length > 0) {
+        const labels = missing.map(p => POSITION_LABEL[p] || p).join(', ');
+        return setFormError(`Upload banner untuk posisi: ${labels}`);
+      }
     }
 
     setProcessing('form');
@@ -303,16 +360,30 @@ export default function AdsPanel() {
       const url    = isEditMode && editingAd ? `${API}/admin/ads/${editingAd.id}` : `${API}/admin/ads`;
       const method = isEditMode ? 'PUT' : 'POST';
 
-      const payload = {
+      // Payload base
+      const payload: Record<string, any> = {
         advertiser_name:  form.advertiser_name,
         advertiser_phone: form.advertiser_phone,
         package_id:       form.package_id,
         title:            form.title,
         body:             form.body,
         link_url:         form.link_url,
-        images:           form.images,
-        image_url:        form.images.native || Object.values(form.images)[0] || null,
       };
+
+      if (form.ad_format === 'text') {
+        // Advertorial fields
+        payload.ad_format           = 'text';
+        payload.advertiser_type     = form.advertiser_type;
+        payload.advertiser_logo_url = form.advertiser_logo_url || null;
+        payload.disclaimer_text     = form.disclaimer_text || null;
+        payload.slug                = form.slug || null;
+        // Skip images untuk advertorial
+      } else {
+        // Image banner (existing behavior)
+        payload.ad_format  = 'image';
+        payload.images     = form.images;
+        payload.image_url  = form.images.native || Object.values(form.images)[0] || null;
+      }
 
       const res  = await fetch(url, {
         method,
@@ -570,14 +641,38 @@ export default function AdsPanel() {
                 {/* ═════ Section 1: Informasi Iklan ═════ */}
                 <SectionHeader label="Informasi Iklan" t={t} />
 
-                <div style={{ marginBottom: 10 }}>
-                  <label style={labelStyle}>Judul Iklan *</label>
-                  <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
-                    placeholder="Promo Kopi Rempah Ternate" style={inputStyle} />
+                {/* Format Iklan — dropdown utama */}
+                <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, border: `1px solid ${t.inputBorder}`, background: t.inputBg }}>
+                  <label style={labelStyle}>🎨 Format Iklan *</label>
+                  <select
+                    value={form.ad_format}
+                    onChange={e => setForm(p => ({ ...p, ad_format: e.target.value as 'image' | 'text' }))}
+                    disabled={isEditMode}
+                    style={{ ...(inputStyle as any), cursor: isEditMode ? 'not-allowed' : 'pointer', opacity: isEditMode ? 0.7 : 1 }}>
+                    <option value="image">🖼️ Banner (Gambar) — untuk promosi visual</option>
+                    <option value="text">📰 Advertorial (Teks) — untuk pemerintah / politisi / konten panjang</option>
+                  </select>
+                  {isEditMode && (
+                    <p style={{ fontSize: 10, color: t.textDim, marginTop: 4, fontStyle: 'italic' }}>
+                      🔒 Format tidak bisa diubah setelah iklan dibuat
+                    </p>
+                  )}
+                  {!isEditMode && form.ad_format === 'text' && (
+                    <p style={{ fontSize: 10, color: t.codeText, marginTop: 4, lineHeight: 1.5 }}>
+                      ℹ️ Advertorial tayang sebagai preview di feed + halaman dedicated <code>/sponsored/[slug]</code>. Posisi: native + in_article only.
+                    </p>
+                  )}
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
-                  <label style={labelStyle}>URL Tujuan *</label>
+                  <label style={labelStyle}>Judul {form.ad_format === 'text' ? 'Advertorial' : 'Iklan'} *</label>
+                  <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                    placeholder={form.ad_format === 'text' ? 'Jadwal Imunisasi Lengkap April 2026' : 'Promo Kopi Rempah Ternate'}
+                    style={inputStyle} />
+                </div>
+
+                <div style={{ marginBottom: 10 }}>
+                  <label style={labelStyle}>URL Tujuan * <span style={{ color: t.textDim, fontWeight: 400 }}>(website advertiser)</span></label>
                   <input value={form.link_url} onChange={e => setForm(p => ({ ...p, link_url: e.target.value }))}
                     placeholder="https://..." style={inputStyle} />
                 </div>
@@ -585,7 +680,8 @@ export default function AdsPanel() {
                 <div style={{ marginBottom: 10 }}>
                   <label style={labelStyle}>Nama Advertiser *</label>
                   <input value={form.advertiser_name} onChange={e => setForm(p => ({ ...p, advertiser_name: e.target.value }))}
-                    placeholder="Kopi Rempah Malut" style={inputStyle} />
+                    placeholder={form.ad_format === 'text' ? 'Dinas Kesehatan Malut' : 'Kopi Rempah Malut'}
+                    style={inputStyle} />
                 </div>
 
                 <div style={{ marginBottom: 10 }}>
@@ -594,11 +690,131 @@ export default function AdsPanel() {
                     placeholder="08123456789" style={inputStyle} />
                 </div>
 
-                <div style={{ marginBottom: 10 }}>
-                  <label style={labelStyle}>Deskripsi</label>
-                  <input value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))}
-                    placeholder="Nikmati kopi rempah pilihan..." style={inputStyle} />
-                </div>
+                {/* Body — conditional: text mode jadi textarea besar, image mode input simple */}
+                {form.ad_format === 'text' ? (
+                  <>
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={labelStyle}>
+                        Isi Advertorial * <span style={{ color: t.textDim, fontWeight: 400 }}>
+                          ({form.body.length} / 5000 karakter, min. 100)
+                        </span>
+                      </label>
+                      <textarea
+                        value={form.body}
+                        onChange={e => setForm(p => ({ ...p, body: e.target.value }))}
+                        placeholder="Tulis isi advertorial dalam beberapa paragraf. Pisahkan paragraf dengan baris kosong (enter 2x)."
+                        rows={10}
+                        maxLength={5000}
+                        style={{
+                          ...inputStyle as any,
+                          resize: 'vertical',
+                          fontFamily: 'inherit',
+                          lineHeight: 1.6,
+                          minHeight: 160,
+                        }} />
+                      <p style={{ fontSize: 10, color: t.textDim, marginTop: 4, lineHeight: 1.5, fontStyle: 'italic' }}>
+                        💡 Pisahkan paragraf dengan baris kosong (tekan enter 2x). Format teks simpel — tidak support bold/italic.
+                      </p>
+                    </div>
+
+                    {/* Tipe Advertiser */}
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={labelStyle}>Tipe Advertiser *</label>
+                      <select
+                        value={form.advertiser_type}
+                        onChange={e => setForm(p => ({ ...p, advertiser_type: e.target.value as any }))}
+                        style={inputStyle as any}>
+                        <option value="komersial">🏢 Komersial (brand / UMKM besar)</option>
+                        <option value="pemerintah">🏛️ Pemerintah / Institusi</option>
+                        <option value="politisi">🗳️ Kampanye Politik (Pilkada/Pileg/Pilpres)</option>
+                        <option value="umum">📢 Umum (konten mitra lainnya)</option>
+                      </select>
+                    </div>
+
+                    {/* Logo Advertiser (optional) */}
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={labelStyle}>URL Logo Advertiser <span style={{ color: t.textDim, fontWeight: 400 }}>(opsional)</span></label>
+                      <input
+                        value={form.advertiser_logo_url}
+                        onChange={e => setForm(p => ({ ...p, advertiser_logo_url: e.target.value }))}
+                        placeholder="https://... (logo kecil untuk tampil di header)"
+                        style={inputStyle} />
+                    </div>
+
+                    {/* Disclaimer — wajib kalau politisi */}
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={labelStyle}>
+                        Disclaimer
+                        {form.advertiser_type === 'politisi' && <span style={{ color: '#DC2626', fontWeight: 700 }}> * (wajib)</span>}
+                        {form.advertiser_type !== 'politisi' && <span style={{ color: t.textDim, fontWeight: 400 }}> (opsional)</span>}
+                      </label>
+                      <input
+                        value={form.disclaimer_text}
+                        onChange={e => setForm(p => ({ ...p, disclaimer_text: e.target.value }))}
+                        placeholder={
+                          form.advertiser_type === 'politisi'
+                            ? 'Contoh: Materi kampanye oleh Bayu Pratama - Caleg DPRD Malut - No. Urut 3'
+                            : 'Keterangan tambahan (opsional)'
+                        }
+                        style={inputStyle} />
+                      {form.advertiser_type === 'politisi' && (
+                        <p style={{ fontSize: 10, color: '#DC2626', marginTop: 4, lineHeight: 1.5 }}>
+                          ⚠️ Wajib cantumkan identitas lengkap calon + nomor urut + dapil (aturan KPU No.15/2023)
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Slug URL */}
+                    <div style={{ marginBottom: 10 }}>
+                      <label style={labelStyle}>
+                        Slug URL * <span style={{ color: t.textDim, fontWeight: 400 }}>
+                          (URL: /sponsored/<strong>{form.slug || 'slug-akan-muncul-disini'}</strong>)
+                        </span>
+                      </label>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        <input
+                          value={form.slug}
+                          onChange={e => setForm(p => ({
+                            ...p,
+                            slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''),
+                            slug_manual: true,
+                          }))}
+                          disabled={!form.slug_manual && !isEditMode}
+                          placeholder="auto-generate-dari-judul"
+                          style={{
+                            ...inputStyle as any,
+                            opacity: (!form.slug_manual && !isEditMode) ? 0.7 : 1,
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          }} />
+                        <button
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, slug_manual: !p.slug_manual }))}
+                          style={{
+                            padding: '6px 10px', fontSize: 10, fontWeight: 700,
+                            background: form.slug_manual ? 'rgba(217,119,6,0.15)' : 'rgba(27,107,74,0.15)',
+                            border: `1px solid ${form.slug_manual ? 'rgba(217,119,6,0.3)' : 'rgba(27,107,74,0.3)'}`,
+                            borderRadius: 7, cursor: 'pointer',
+                            color: form.slug_manual ? '#D97706' : t.codeText,
+                            whiteSpace: 'nowrap',
+                          }}>
+                          {form.slug_manual ? '🔓 Manual' : '🔒 Auto'}
+                        </button>
+                      </div>
+                      <p style={{ fontSize: 10, color: t.textDim, marginTop: 4, fontStyle: 'italic' }}>
+                        {form.slug_manual
+                          ? '✎ Mode manual — slug tidak akan auto-update saat judul berubah'
+                          : '🔄 Mode auto — slug otomatis digenerate dari judul'}
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ marginBottom: 10 }}>
+                    <label style={labelStyle}>Deskripsi</label>
+                    <input value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))}
+                      placeholder="Nikmati kopi rempah pilihan..." style={inputStyle} />
+                  </div>
+                )}
 
                 {/* ═════ Section 2: Penempatan ═════ */}
                 <SectionHeader label="Penempatan" t={t} />
@@ -624,8 +840,8 @@ export default function AdsPanel() {
                   </select>
                 </div>
 
-                {/* Multi-Banner Upload per posisi aktif paket */}
-                {selectedPkg && selectedPkg.positions.length > 0 && (
+                {/* Multi-Banner Upload per posisi aktif paket — HANYA UNTUK IMAGE format */}
+                {form.ad_format === 'image' && selectedPkg && selectedPkg.positions.length > 0 && (
                   <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: `1px solid ${t.cardBorder}`, background: t.inputBg }}>
                     <p style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>
                       📸 Upload Banner per Posisi
@@ -664,7 +880,24 @@ export default function AdsPanel() {
                   </div>
                 )}
 
-                <PlacementPreview active={selectedPkg?.positions || []} t={t} />
+                {/* Info box untuk advertorial — replace banner upload */}
+                {form.ad_format === 'text' && selectedPkg && (
+                  <div style={{ marginBottom: 14, padding: 12, borderRadius: 10, border: '1px solid rgba(217,119,6,0.3)', background: 'rgba(217,119,6,0.08)' }}>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#D97706', marginBottom: 4 }}>
+                      📰 Advertorial — Tayangan
+                    </p>
+                    <p style={{ fontSize: 10, color: '#D97706', opacity: 0.9, lineHeight: 1.6 }}>
+                      Advertorial tayang sebagai <strong>preview card</strong> di posisi <code>native</code> dan <code>in_article</code>.
+                      Pembaca yang klik akan dialihkan ke halaman full <code>/sponsored/{form.slug || '[slug]'}</code>.
+                      Posisi lain (sidebar, banner, homepage) tidak tersedia untuk format ini.
+                    </p>
+                  </div>
+                )}
+
+                {/* PlacementPreview — HANYA untuk image format */}
+                {form.ad_format === 'image' && (
+                  <PlacementPreview active={selectedPkg?.positions || []} t={t} />
+                )}
 
                 {/* ═════ Section 3: Periode & Harga ═════ */}
                 <SectionHeader label="Periode & Harga" t={t} />
