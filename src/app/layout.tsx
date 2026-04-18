@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { ThemeProvider } from '@/lib/theme'
+import { ThemeScript } from '@/components/providers/theme-script'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import ConditionalBottomNav from '@/components/layout/ConditionalBottomNav'
 
@@ -26,18 +28,28 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="id">
+    // suppressHydrationWarning di <html>: ThemeScript modify class sebelum
+    // React hydrate — tanpa flag ini React bakal warning ketidakcocokan
+    // class antara server-render vs DOM actual.
+    <html lang="id" suppressHydrationWarning>
       <head>
+        {/* ThemeScript harus di awal <head> supaya execute sebelum paint →
+            no FOUC pada page load. Anti-flicker baik di light maupun dark. */}
+        <ThemeScript />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
           rel="stylesheet"
         />
       </head>
       <body suppressHydrationWarning={true}>
-        <AuthProvider>
-          {children}
-          <ConditionalBottomNav />
-        </AuthProvider>
+        {/* ThemeProvider di luar AuthProvider:
+            theme harus available di page non-authed (login, landing) juga. */}
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <ConditionalBottomNav />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   )
