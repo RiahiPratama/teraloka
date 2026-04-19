@@ -39,6 +39,7 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; i
 };
 
 const CATEGORIES = [
+  { key: 'nasional',     label: 'Nasional',     icon: '🇮🇩', color: '#DC2626' },
   { key: 'berita',       label: 'Berita',       icon: '📰', color: '#1B6B4A' },
   { key: 'viral',        label: 'Viral',        icon: '🔥', color: '#F97316' },
   { key: 'politik',      label: 'Politik',      icon: '🏛️', color: '#7C3AED' },

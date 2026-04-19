@@ -12,6 +12,7 @@ const LOCAL_DRAFT_KEY = 'bakabar_draft_v1';
 const AUTO_SAVE_DELAY = 2000;
 
 const CATEGORIES = [
+  { key: 'nasional',     label: 'Nasional',     icon: '🇮🇩', color: '#DC2626' },
   { key: 'berita',       label: 'Berita',       icon: '📰', color: '#1B6B4A' },
   { key: 'viral',        label: 'Viral',        icon: '🔥', color: '#F97316' },
   { key: 'politik',      label: 'Politik',      icon: '🏛️', color: '#7C3AED' },
