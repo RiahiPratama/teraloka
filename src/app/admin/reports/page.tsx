@@ -2,22 +2,20 @@
 
 /**
  * TeraLoka — Admin Reports Page
- * Phase 2 · Batch 7b2 — Reports Live + Map
+ * Phase 2 · Batch 7b3 — Reports Deep Dive (COMPLETE)
  * ------------------------------------------------------------
  * Admin BALAPOR command center — incident reports management.
  *
- * Batch 7b2 scope (current):
- * - BALAPOR map (CircleMarker by priority) aktif di Overview + Live tab
- * - Live Incidents tab ENABLED — grouped by category + priority picker
- * - Right sidebar Live tab: mini map + top locations + alert clusters
- * - Priority change via PATCH /admin/reports/:id/priority
+ * Batch 7b3 scope (current):
+ * - Deep Dive tab ENABLED dengan analytics dari /admin/reports/deepdive
+ * - Auto-fetch saat tab dibuka pertama kali
+ * - Cleanup: AdminReportspage.tsx dihapus (manual delete oleh developer)
  *
  * Previous batches:
- * - 7b1: Shell + Overview tab (stats, filters, top incidents list, sidebar)
+ * - 7b1: Shell + Overview tab
+ * - 7b2: Live Incidents tab + BALAPOR Leaflet map + Priority picker
  *
- * Batch 7b3 scope (next):
- * - Deep Dive analytics tab (tren, category chart, peak hour, user segments)
- * - Cleanup: delete AdminReportspage.tsx
+ * Reports page: COMPLETE migration to design system.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -43,10 +41,12 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
+import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
 import { ReportGroupList } from '@/components/admin/reports/report-group-list';
 import { ReportRow } from '@/components/admin/reports/report-row';
 import { ReportSidebar } from '@/components/admin/reports/report-sidebar';
 import { ReportStats } from '@/components/admin/reports/report-stats';
+import type { DeepDiveResponse } from '@/types/reports-deepdive';
 
 /* ─── API response shape ─── */
 
@@ -105,6 +105,11 @@ export default function AdminReportsPage() {
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [toast, setToast] = useState<ToastData | null>(null);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  // Deep Dive state
+  const [deepDive, setDeepDive] = useState<DeepDiveResponse | null>(null);
+  const [deepDiveLoading, setDeepDiveLoading] = useState(false);
+  const [deepDiveNonce, setDeepDiveNonce] = useState(0);
 
   // Auto-refresh interval ref
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -177,8 +182,42 @@ export default function AdminReportsPage() {
   const tabs: TabDef[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'live', label: 'Live Incidents' },
-    { key: 'deepdive', label: 'Deep Dive', disabled: true, badge: 'Segera' },
+    { key: 'deepdive', label: 'Deep Dive' },
   ];
+
+  /* ── Deep Dive fetch ── */
+  useEffect(() => {
+    if (activeTab !== 'deepdive') return;
+    if (!api.token) return;
+
+    const controller = new AbortController();
+
+    setDeepDiveLoading(true);
+    api
+      .get<DeepDiveResponse>('/admin/reports/deepdive', {
+        signal: controller.signal,
+      })
+      .then((data) => {
+        setDeepDive(data);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        const message =
+          err instanceof ApiError
+            ? err.message
+            : 'Gagal memuat analytics';
+        showToast(message, false);
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setDeepDiveLoading(false);
+      });
+
+    return () => controller.abort();
+  }, [activeTab, api, deepDiveNonce, showToast]);
+
+  const handleDeepDiveRefresh = useCallback(() => {
+    setDeepDiveNonce((n) => n + 1);
+  }, []);
 
   /* ── Priority change handler ── */
   const handleChangePriority = useCallback(
@@ -762,25 +801,22 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      {/* ── DEEP DIVE TAB — placeholder untuk Batch 7b3 ── */}
+      {/* ── DEEP DIVE TAB ── */}
       {activeTab === 'deepdive' && !error && (
-        <EmptyState
-          variant="coming"
-          tone="info"
-          icon={<Siren size={28} />}
-          title="Deep Dive Analytics"
-          description="Tab ini akan tampilkan analytics 30 hari: tren, category chart, peak hour, user segments, alert clusters."
-          helper="Batch 7b3 — Session after next"
+        <DeepDiveView
+          data={deepDive}
+          loading={deepDiveLoading}
+          onRefresh={handleDeepDiveRefresh}
         />
       )}
 
-      {/* ── Batch 7b2 notice ── */}
+      {/* ── Reports page complete notice ── */}
       {!error && !loading && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-balapor/8 border border-balapor/20">
-          <AlertCircle size={14} className="text-balapor shrink-0" />
+        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-status-healthy/8 border border-status-healthy/20">
+          <AlertCircle size={14} className="text-status-healthy shrink-0" />
           <p className="text-[11px] text-text-secondary flex-1">
-            <span className="font-semibold">Overview + Live Incidents aktif.</span>{' '}
-            Deep Dive analytics akan tersedia di batch berikutnya.
+            <span className="font-semibold">Reports page lengkap.</span>{' '}
+            Overview + Live Incidents + Deep Dive Analytics semua aktif.
           </p>
         </div>
       )}
