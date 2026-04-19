@@ -2,17 +2,17 @@
 
 /**
  * TeraLoka — Admin Content Page (BAKABAR Command Center)
- * Phase 2 · Batch 7e4 — Tab 2 LIVE
+ * Phase 2 · Batch 7e5 — ALL 3 TABS LIVE 🎉
  * ------------------------------------------------------------
- * BAKABAR admin dashboard — Tab 1 + Tab 2 fully functional.
+ * BAKABAR admin dashboard — fully complete.
  *
- * Tab 1 (Overview) sections:
+ * Tab 1 (Overview) — Batch 7e1 + 7e2:
  * - Period selector (7d default)
  * - Stats cards (published, views, stale drafts)
  * - Trending + Perlu Perhatian (2-col)
  * - Manajemen Artikel (filter + table + pagination + delete)
  *
- * Tab 2 (Newsroom Analytics) — Editorial intelligence:
+ * Tab 2 (Newsroom Analytics) — Batch 7e4:
  * - Publishing velocity (30-day trend chart)
  * - Cycle time stats (draft → publish)
  * - Status breakdown (donut)
@@ -20,7 +20,13 @@
  * - Top authors ranked
  * - Viral score distribution (histogram)
  *
- * Tab 3 (Distribution Metrics): Coming Soon — Batch 7e5
+ * Tab 3 (Distribution Metrics) — Batch 7e5:
+ * - Pageviews over time (dual-line: views + unique users)
+ * - Peak hours heatmap (7 days × 24 hours)
+ * - Share platform breakdown (horizontal bar)
+ * - Traffic sources (donut)
+ * - Top articles by views
+ * - Powered by PostHog via backend proxy
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -37,6 +43,7 @@ import {
 import { ArticleRow } from '@/components/admin/content/article-row';
 import { DeleteArticleModal } from '@/components/admin/content/delete-article-modal';
 import { NewsroomAnalyticsView } from '@/components/admin/content/newsroom-analytics-view';
+import { DistributionMetricsView } from '@/components/admin/content/distribution-metrics-view';
 import {
   computeArticleStats,
   filterByPeriod,
@@ -460,7 +467,7 @@ export default function AdminContentPage() {
 
       {activeTab === 'newsroom' && <NewsroomAnalyticsView />}
 
-      {activeTab === 'distribution' && <ComingSoonTab tab="distribution" />}
+      {activeTab === 'distribution' && <DistributionMetricsView />}
 
       {/* Delete modal */}
       <DeleteArticleModal
@@ -472,69 +479,4 @@ export default function AdminContentPage() {
   );
 }
 
-/* ─── Coming Soon Tab (Distribution only now) ─── */
 
-interface ComingSoonTabProps {
-  tab: 'distribution';
-}
-
-function ComingSoonTab({ tab }: ComingSoonTabProps) {
-  const config = {
-    distribution: {
-      title: 'Distribution Metrics',
-      emoji: '📈',
-      description:
-        'Traffic intelligence — data untuk pitch ke mitra + optimize distribusi',
-      features: [
-        'Share platform breakdown (WA/FB/Twitter/TG/copy-link)',
-        'Traffic source analysis (direct/search/social)',
-        'Peak reading hours heatmap',
-        'Article pageviews over time',
-        'Avg time on page per article',
-        'Bounce rate per category',
-      ],
-      eta: 'Batch 7e5 — next up!',
-      dependsOn:
-        'PostHog events (✅ live sejak Batch 7e3). Data akan terkumpul organic setelah launch.',
-    },
-  }[tab];
-
-  return (
-    <div className="rounded-xl border border-border bg-surface p-8">
-      <div className="text-center mb-6">
-        <div className="text-4xl mb-3">{config.emoji}</div>
-        <h3 className="text-xl font-bold text-text mb-2">{config.title}</h3>
-        <p className="text-sm text-text-muted max-w-md mx-auto">
-          {config.description}
-        </p>
-      </div>
-
-      <div className="max-w-md mx-auto space-y-4">
-        <div>
-          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">
-            Fitur Yang Akan Datang
-          </p>
-          <ul className="space-y-1.5">
-            {config.features.map((f) => (
-              <li key={f} className="text-sm text-text flex items-start gap-2">
-                <span className="text-brand-teal mt-0.5">•</span>
-                <span>{f}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="pt-4 border-t border-border space-y-2">
-          <div className="flex items-start gap-2 text-sm">
-            <span className="text-text-muted shrink-0">📅 ETA:</span>
-            <span className="text-text">{config.eta}</span>
-          </div>
-          <div className="flex items-start gap-2 text-sm">
-            <span className="text-text-muted shrink-0">📊 Data source:</span>
-            <span className="text-text">{config.dependsOn}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
