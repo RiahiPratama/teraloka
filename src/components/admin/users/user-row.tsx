@@ -2,7 +2,7 @@
 
 /**
  * TeraLoka — UserRow
- * Phase 2 · Batch 7a2 — Users Page Migration (Modals + Actions)
+ * Phase 2 · Batch 7a3 — Avatar Upload Integration
  * ------------------------------------------------------------
  * Single user row di tabel /admin/users.
  *
@@ -14,12 +14,17 @@
  * - If no callback (or isCurrentUser) → static RoleBadge display
  * - Super admin role excluded from select options (security)
  *
+ * Avatar column behavior (NEW di 7a3):
+ * - If `onChangeAvatar` callback provided → avatar clickable, hover camera overlay
+ * - Click avatar → open avatar upload modal
+ *
  * Action callbacks:
  * - onEditName      → open edit name modal
  * - onEditPhone     → open edit phone modal (dropdown menu item)
  * - onToggleActive  → open activate/deactivate confirm modal
  * - onDelete        → open delete confirm modal
  * - onChangeRole    → open role change confirm modal (via select change)
+ * - onChangeAvatar  → open avatar upload modal (via avatar click)
  */
 
 import { useState, useRef, useEffect, type MouseEvent } from 'react';
@@ -49,6 +54,8 @@ export interface UserRowProps {
   onToggleActive?: (user: User) => void;
   onDelete?: (user: User) => void;
   onChangeRole?: (user: User, newRole: UserRole) => void;
+  /** Open avatar upload modal — kalau provided, avatar jadi clickable */
+  onChangeAvatar?: (user: User) => void;
 }
 
 /* ─── Role Badge ─── */
@@ -383,6 +390,7 @@ export function UserRow({
   onToggleActive,
   onDelete,
   onChangeRole,
+  onChangeAvatar,
 }: UserRowProps) {
   const isCurrentUser = user.id === currentUserId;
   const isActive = user.is_active !== false;
@@ -403,7 +411,12 @@ export function UserRow({
       }}
     >
       {/* Avatar */}
-      <UserAvatar user={user} size={36} />
+      <UserAvatar
+        user={user}
+        size={36}
+        editable={Boolean(onChangeAvatar)}
+        onClick={onChangeAvatar ? () => onChangeAvatar(user) : undefined}
+      />
 
       {/* Name + Phone */}
       <div className="min-w-0">

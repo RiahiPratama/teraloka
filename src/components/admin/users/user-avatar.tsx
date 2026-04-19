@@ -2,14 +2,14 @@
 
 /**
  * TeraLoka — UserAvatar
- * Phase 2 · Batch 7a1 — Users Page Migration
+ * Phase 2 · Batch 7a3 — Avatar Upload Integration
  * ------------------------------------------------------------
  * Avatar component dengan fallback gradient initial.
  * Support status indicator (red X di corner kalau inactive).
  *
- * Batch 7a1 scope: DISPLAY ONLY.
- * Upload flow akan dihandle di Batch 7a2 via <UserAvatarUpload>
- * component terpisah.
+ * Batch 7a3 additions:
+ * - `editable` prop → shows camera icon overlay on hover
+ * - `onClick` prop → triggered saat avatar di-klik (buka upload modal)
  *
  * Color strategy: pakai role-based gradient.
  * - Admin roles → service color (bakabar purple, bakos amber, dll)
@@ -17,12 +17,13 @@
  * - Non-admin → neutral gradient (slate)
  *
  * Contoh:
- *   <UserAvatar user={user} />              // default 36px
- *   <UserAvatar user={user} size={48} />    // larger
- *   <UserAvatar user={user} size={24} showStatus={false} /> // no status dot
+ *   <UserAvatar user={user} />                  // static display
+ *   <UserAvatar user={user} size={48} />        // larger
+ *   <UserAvatar user={user} editable onClick={openModal} />  // clickable + hover camera
  */
 
 import { useState, type CSSProperties } from 'react';
+import { Camera } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   ROLE_CONFIG,
@@ -36,6 +37,10 @@ export interface UserAvatarProps {
   size?: number;
   /** Show inactive indicator (red X di corner). Default true. */
   showStatus?: boolean;
+  /** Allow editing — shows camera overlay on hover + makes clickable */
+  editable?: boolean;
+  /** Click handler (biasanya buka avatar upload modal) */
+  onClick?: () => void;
   /** Optional additional className */
   className?: string;
 }
@@ -112,6 +117,8 @@ export function UserAvatar({
   user,
   size = 36,
   showStatus = true,
+  editable = false,
+  onClick,
   className,
 }: UserAvatarProps) {
   const [imgError, setImgError] = useState(false);
@@ -122,19 +129,36 @@ export function UserAvatar({
   // Size calculations
   const fontSize = Math.max(11, size * 0.38);
   const statusSize = Math.max(10, size * 0.3);
+  const cameraIconSize = Math.max(12, size * 0.4);
 
   const containerStyle: CSSProperties = {
     width: size,
     height: size,
   };
 
-  // Show uploaded avatar image if available + not errored
-  if (user.avatar_url && !imgError) {
-    return (
-      <div
-        className={cn('relative shrink-0', className)}
-        style={containerStyle}
-      >
+  const isClickable = editable && Boolean(onClick);
+
+  // Camera overlay (muncul saat hover kalau editable)
+  const cameraOverlay = editable ? (
+    <div
+      className={cn(
+        'absolute inset-0 rounded-full',
+        'bg-black/50 backdrop-blur-[1px]',
+        'flex items-center justify-center',
+        'opacity-0 group-hover:opacity-100',
+        'transition-opacity duration-150',
+        'pointer-events-none'
+      )}
+      aria-hidden="true"
+    >
+      <Camera size={cameraIconSize} className="text-white" strokeWidth={2} />
+    </div>
+  ) : null;
+
+  // Inner content (image atau gradient initial)
+  const innerContent =
+    user.avatar_url && !imgError ? (
+      <>
         <img
           src={user.avatar_url}
           onError={() => setImgError(true)}
@@ -144,32 +168,57 @@ export function UserAvatar({
             border: `2px solid ${gradient.border}`,
           }}
         />
-        {showStatus && !isActive && (
-          <InactiveIndicator size={statusSize} />
-        )}
-      </div>
+        {cameraOverlay}
+        {showStatus && !isActive && <InactiveIndicator size={statusSize} />}
+      </>
+    ) : (
+      <>
+        <div
+          className="w-full h-full rounded-full flex items-center justify-center font-extrabold select-none"
+          style={{
+            background: `linear-gradient(135deg, ${gradient.from}, ${gradient.to})`,
+            color: gradient.text,
+            fontSize,
+            border: `2px solid ${gradient.border}`,
+          }}
+        >
+          {userInitial(user)}
+        </div>
+        {cameraOverlay}
+        {showStatus && !isActive && <InactiveIndicator size={statusSize} />}
+      </>
+    );
+
+  const commonClasses = cn(
+    'group relative shrink-0',
+    isClickable && 'cursor-pointer rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-teal focus-visible:ring-offset-2',
+    className
+  );
+
+  // Clickable → render sebagai button untuk accessibility
+  if (isClickable) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={commonClasses}
+        style={containerStyle}
+        aria-label={`Ganti foto ${user.name || 'user'}`}
+        title="Klik untuk ganti foto"
+      >
+        {innerContent}
+      </button>
     );
   }
 
-  // Fallback: gradient initial
+  // Display only
   return (
     <div
-      className={cn(
-        'relative shrink-0 flex items-center justify-center rounded-full',
-        'font-extrabold select-none',
-        className
-      )}
-      style={{
-        ...containerStyle,
-        background: `linear-gradient(135deg, ${gradient.from}, ${gradient.to})`,
-        color: gradient.text,
-        fontSize,
-        border: `2px solid ${gradient.border}`,
-      }}
+      className={commonClasses}
+      style={containerStyle}
       aria-label={user.name || 'User avatar'}
     >
-      {userInitial(user)}
-      {showStatus && !isActive && <InactiveIndicator size={statusSize} />}
+      {innerContent}
     </div>
   );
 }

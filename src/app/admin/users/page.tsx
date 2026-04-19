@@ -2,19 +2,18 @@
 
 /**
  * TeraLoka — Admin Users Page
- * Phase 2 · Batch 7a2 — Users Page Migration (Modals + Actions)
+ * Phase 2 · Batch 7a3 — Avatar Upload Integration
  * ------------------------------------------------------------
- * Admin users management page — complete CRUD now wired.
+ * Admin users management page — complete CRUD + avatar upload.
  *
- * Batch 7a2 scope (current):
- * - 5 modals wired up (invite + editName + editPhone + role + activate/deactivate/delete)
- * - Toast notification inline (auto-dismiss 3.5s)
- * - Role change flow: UserRow triggers onChangeRole → modal confirm
- * - "Tambah User" button NOW functional
+ * Batch 7a3 additions:
+ * - Avatar clickable di tiap row (hover camera overlay)
+ * - Click → open UserEditModal mode='avatar' (ImageUpload + PATCH endpoint)
+ * - Backend endpoint: PATCH /admin/users/:id/avatar
  *
- * Batch 7a3 scope (future):
- * - Avatar upload flow
- * - Backend endpoint PATCH /admin/users/:id/avatar (separate delivery)
+ * Previous batches:
+ * - 7a1: List view + filters + stats
+ * - 7a2: 5 modals (invite, editName, editPhone, role, activate/deactivate/delete)
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -184,6 +183,10 @@ export default function AdminUsersPage() {
   const handleChangeRole = useCallback((user: User, newRole: UserRole) => {
     if (newRole === user.role) return;
     setModal({ type: 'role', user, newRole });
+  }, []);
+
+  const handleChangeAvatar = useCallback((user: User) => {
+    setModal({ type: 'edit', mode: 'avatar', user });
   }, []);
 
   const handleToggleActive = useCallback((user: User) => {
@@ -436,6 +439,7 @@ export default function AdminUsersPage() {
                   onToggleActive={handleToggleActive}
                   onDelete={handleDelete}
                   onChangeRole={handleChangeRole}
+                  onChangeAvatar={handleChangeAvatar}
                 />
               ))}
               {/* Footer */}
