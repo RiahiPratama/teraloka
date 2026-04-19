@@ -2,26 +2,20 @@
 
 /**
  * TeraLoka — Admin Reports Page
- * Phase 2 · Batch 7b1 — Reports Page Migration (Shell + Overview)
+ * Phase 2 · Batch 7b2 — Reports Live + Map
  * ------------------------------------------------------------
  * Admin BALAPOR command center — incident reports management.
  *
- * Batch 7b1 scope (current):
- * - Page shell dengan 3-tab bar (Overview active, Live/DeepDive disabled)
- * - Stats row (4 cards)
- * - Category filter pills
- * - Priority filter (inline)
- * - Top Incidents list (Overview tab)
- * - Sidebar: total counter, top incidents, alert banner, quick link
- * - Auto-refresh 60 detik
- * - Toast notifications (inline, 3s auto-dismiss)
+ * Batch 7b2 scope (current):
+ * - BALAPOR map (CircleMarker by priority) aktif di Overview + Live tab
+ * - Live Incidents tab ENABLED — grouped by category + priority picker
+ * - Right sidebar Live tab: mini map + top locations + alert clusters
+ * - Priority change via PATCH /admin/reports/:id/priority
  *
- * Batch 7b2 scope (next):
- * - Full Live Incidents tab with grouped list + priority picker
- * - BALAPOR Leaflet map (balapor-map.tsx)
- * - Right sidebar: top locations + alert clusters
+ * Previous batches:
+ * - 7b1: Shell + Overview tab (stats, filters, top incidents list, sidebar)
  *
- * Batch 7b3 scope (future):
+ * Batch 7b3 scope (next):
  * - Deep Dive analytics tab (tren, category chart, peak hour, user segments)
  * - Cleanup: delete AdminReportspage.tsx
  */
@@ -43,11 +37,15 @@ import {
   computeReportStats,
   sortReportsByPriority,
   type Report,
+  type ReportPriority,
 } from '@/types/reports';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
+import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
+import { ReportGroupList } from '@/components/admin/reports/report-group-list';
 import { ReportRow } from '@/components/admin/reports/report-row';
+import { ReportSidebar } from '@/components/admin/reports/report-sidebar';
 import { ReportStats } from '@/components/admin/reports/report-stats';
 
 /* ─── API response shape ─── */
@@ -106,6 +104,7 @@ export default function AdminReportsPage() {
   // UI state
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const [toast, setToast] = useState<ToastData | null>(null);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
   // Auto-refresh interval ref
   const refreshTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -177,12 +176,41 @@ export default function AdminReportsPage() {
 
   const tabs: TabDef[] = [
     { key: 'overview', label: 'Overview' },
-    { key: 'live', label: 'Live Incidents', disabled: true, badge: 'Segera' },
+    { key: 'live', label: 'Live Incidents' },
     { key: 'deepdive', label: 'Deep Dive', disabled: true, badge: 'Segera' },
   ];
 
-  /* ── Placeholder handlers (wired di batch berikutnya) ── */
-  // Priority change akan di-wire di Batch 7b2 via priority-picker component
+  /* ── Priority change handler ── */
+  const handleChangePriority = useCallback(
+    async (report: Report, newPriority: ReportPriority) => {
+      if (newPriority === report.priority) return;
+
+      const loadingKey = `${report.id}priority`;
+      setActionLoadingId(loadingKey);
+
+      try {
+        await api.patch(`/admin/reports/${report.id}/priority`, {
+          priority: newPriority,
+        });
+        const titlePreview = report.title.slice(0, 30) + (report.title.length > 30 ? '…' : '');
+        showToast(`Priority "${titlePreview}" → ${newPriority}`, true);
+        // Trigger refetch
+        setRetryNonce((n) => n + 1);
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Gagal mengubah priority';
+        showToast(message, false);
+      } finally {
+        setActionLoadingId(null);
+      }
+    },
+    [api]
+  );
+
+  const handleResetFilters = useCallback(() => {
+    setPriorityFilter('');
+    setCategoryFilter('');
+  }, []);
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
@@ -447,16 +475,28 @@ export default function AdminReportsPage() {
               )}
             </div>
 
-            {/* Map placeholder — will be wired in Batch 7b2 */}
-            <EmptyState
-              variant="coming"
-              tone="info"
-              size="md"
-              icon={<Siren size={24} />}
-              title="Peta Laporan"
-              description="Peta real-time Maluku Utara dengan pin berdasarkan prioritas akan tersedia di batch berikutnya."
-              helper="Batch 7b2 — Live Incidents + Map"
-            />
+            {/* Map */}
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+                <div className="flex items-center gap-2">
+                  <Siren size={14} className="text-balapor" />
+                  <span className="text-sm font-bold text-text">
+                    Peta Laporan Maluku Utara
+                  </span>
+                </div>
+                <span className="text-[11px] text-text-muted tabular-nums">
+                  {reports.filter((r) => r.latitude && r.longitude).length} dari{' '}
+                  {reports.length} berkoordinat
+                </span>
+              </div>
+              <div className="p-3">
+                <BalaporMap
+                  reports={reports}
+                  height={380}
+                  loading={loading && reports.length === 0}
+                />
+              </div>
+            </div>
           </div>
 
           {/* Right column — sidebar */}
@@ -574,16 +614,152 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      {/* ── LIVE TAB — placeholder untuk Batch 7b2 ── */}
+      {/* ── LIVE TAB ── */}
       {activeTab === 'live' && !error && (
-        <EmptyState
-          variant="coming"
-          tone="info"
-          icon={<Siren size={28} />}
-          title="Live Incidents"
-          description="Tab ini akan tampilkan laporan grouped by kategori dengan priority picker + map + top locations + alert clusters."
-          helper="Batch 7b2 — Next session"
-        />
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
+          {/* LEFT — grouped list */}
+          <div className="space-y-4 min-w-0">
+            {/* Filter bar */}
+            <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+              {/* Category */}
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
+                  Filter Kategori
+                </div>
+                <CategoryFilter
+                  value={categoryFilter}
+                  onChange={setCategoryFilter}
+                />
+              </div>
+              {/* Priority */}
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
+                  Filter Prioritas
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {PRIORITY_OPTIONS.map((opt) => {
+                    const isActive = priorityFilter === opt.value;
+                    const badge =
+                      opt.value === 'urgent'
+                        ? stats.urgent
+                        : opt.value === 'high'
+                          ? stats.high
+                          : opt.value === 'normal'
+                            ? stats.normal
+                            : null;
+                    return (
+                      <button
+                        key={opt.value || 'all'}
+                        type="button"
+                        onClick={() => setPriorityFilter(opt.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+                          'text-[11px] font-semibold whitespace-nowrap',
+                          'border transition-colors',
+                          isActive
+                            ? 'bg-balapor text-white border-balapor'
+                            : 'bg-surface text-text-secondary border-border hover:bg-surface-muted'
+                        )}
+                      >
+                        {opt.label}
+                        {badge !== null && badge > 0 && (
+                          <span
+                            className={cn(
+                              'ml-0.5 px-1.5 py-0 rounded-full',
+                              'text-[9px] font-extrabold',
+                              'tabular-nums',
+                              isActive
+                                ? 'bg-white/25 text-white'
+                                : 'bg-surface-muted text-text-muted'
+                            )}
+                          >
+                            {badge}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Grouped list */}
+            {loading && reports.length === 0 ? (
+              <div className="bg-surface border border-border rounded-xl p-6">
+                <div className="flex items-center gap-3 py-2">
+                  <div className="h-5 w-5 rounded-full border-2 border-balapor border-t-transparent animate-spin" />
+                  <span className="text-sm text-text-muted">
+                    Memuat laporan…
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <ReportGroupList
+                reports={reports}
+                onChangePriority={handleChangePriority}
+                actionLoadingId={actionLoadingId}
+                previewPerGroup={3}
+                hasFilter={Boolean(priorityFilter || categoryFilter)}
+                onResetFilter={handleResetFilters}
+              />
+            )}
+          </div>
+
+          {/* RIGHT — mini map + widgets */}
+          <div className="space-y-4">
+            {/* Mini map */}
+            <div className="bg-surface border border-border rounded-xl overflow-hidden">
+              <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+                <Siren size={14} className="text-balapor" />
+                <span className="text-sm font-bold text-text">Live Map</span>
+              </div>
+              <div className="p-3">
+                <BalaporMap
+                  reports={reports}
+                  height={280}
+                  loading={loading && reports.length === 0}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2 px-3 pb-3">
+                {[
+                  {
+                    label: 'Urgent',
+                    value: stats.urgent,
+                    color: 'text-status-critical',
+                  },
+                  {
+                    label: 'Total',
+                    value: total,
+                    color: 'text-balapor',
+                  },
+                  {
+                    label: 'Normal',
+                    value: stats.normal,
+                    color: 'text-status-healthy',
+                  },
+                ].map((s) => (
+                  <div
+                    key={s.label}
+                    className="text-center py-2 rounded-lg bg-surface-muted/50"
+                  >
+                    <div
+                      className={cn(
+                        'text-base font-extrabold tabular-nums',
+                        s.color
+                      )}
+                    >
+                      {s.value.toLocaleString('id-ID')}
+                    </div>
+                    <div className="text-[9px] text-text-muted">{s.label}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Top Locations + Alert Clusters */}
+            <ReportSidebar reports={reports} />
+          </div>
+        </div>
       )}
 
       {/* ── DEEP DIVE TAB — placeholder untuk Batch 7b3 ── */}
@@ -598,13 +774,13 @@ export default function AdminReportsPage() {
         />
       )}
 
-      {/* ── Batch 7b1 notice ── */}
+      {/* ── Batch 7b2 notice ── */}
       {!error && !loading && (
         <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-balapor/8 border border-balapor/20">
           <AlertCircle size={14} className="text-balapor shrink-0" />
           <p className="text-[11px] text-text-secondary flex-1">
-            <span className="font-semibold">Overview tab aktif.</span>{' '}
-            Live Incidents + Map + Deep Dive akan tersedia di batch berikutnya.
+            <span className="font-semibold">Overview + Live Incidents aktif.</span>{' '}
+            Deep Dive analytics akan tersedia di batch berikutnya.
           </p>
         </div>
       )}
