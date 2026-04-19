@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { MessageCircle, CheckCircle2, Lock } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -38,12 +39,14 @@ export default function WANewsletterWidget() {
 
   if (status === 'success') {
     return (
-      <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 16, padding: '20px 20px', textAlign: 'center' }}>
-        <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
-        <p style={{ fontWeight: 700, color: '#065F46', fontSize: 14, margin: 0 }}>
+      <div style={{ background: '#F0F9F3', border: '0.5px solid #A7D4BB', borderLeft: '3px solid #1B6B4A', borderRadius: 16, padding: '20px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 10 }}>
+          <CheckCircle2 size={32} strokeWidth={2.2} style={{ color: '#1B6B4A' }} />
+        </div>
+        <p style={{ fontWeight: 700, color: '#003526', fontSize: 14, margin: 0 }}>
           Terima kasih! Kamu sudah terdaftar.
         </p>
-        <p style={{ color: '#059669', fontSize: 12, marginTop: 4 }}>
+        <p style={{ color: '#5A7A68', fontSize: 12, marginTop: 4 }}>
           Kabar Maluku Utara akan masuk ke WA kamu setiap pagi.
         </p>
       </div>
@@ -51,17 +54,17 @@ export default function WANewsletterWidget() {
   }
 
   return (
-    <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 16, padding: '20px' }}>
+    <div style={{ background: '#F0F9F3', border: '0.5px solid #A7D4BB', borderLeft: '3px solid #1B6B4A', borderRadius: 16, padding: '20px' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-          💬
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: '#25D366', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <MessageCircle size={18} strokeWidth={2.2} style={{ color: '#fff', fill: 'none' }} />
         </div>
         <div>
-          <p style={{ fontWeight: 700, color: '#111827', fontSize: 14, margin: 0 }}>
+          <p style={{ fontWeight: 700, color: '#003526', fontSize: 14, margin: 0 }}>
             Mau kabar Maluku Utara tiap pagi?
           </p>
-          <p style={{ color: '#6B7280', fontSize: 12, margin: 0 }}>
+          <p style={{ color: '#5A7A68', fontSize: 12, margin: 0 }}>
             Dapatkan rangkuman berita terbaru langsung di WhatsApp kamu.
           </p>
         </div>
@@ -79,11 +82,11 @@ export default function WANewsletterWidget() {
             flex: 1,
             padding: '10px 14px',
             borderRadius: 10,
-            border: `1.5px solid ${status === 'error' ? '#FCA5A5' : '#D1FAE5'}`,
+            border: `0.5px solid ${status === 'error' ? '#FCA5A5' : '#A7D4BB'}`,
             fontSize: 13,
             outline: 'none',
             background: '#fff',
-            color: '#111827',
+            color: '#003526',
           }}
         />
         <button
@@ -112,8 +115,9 @@ export default function WANewsletterWidget() {
         </p>
       )}
 
-      <p style={{ color: '#9CA3AF', fontSize: 11, marginTop: 8 }}>
-        🔒 Data kamu aman dan tidak akan dibagikan.
+      <p style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#5A7A68', fontSize: 11, marginTop: 8 }}>
+        <Lock size={10} strokeWidth={2.2} />
+        Data kamu aman dan tidak akan dibagikan.
       </p>
     </div>
   );

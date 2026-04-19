@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
+import { Megaphone, Newspaper, ArrowRight } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -61,21 +62,23 @@ export default function AdNativeSlug() {
   // Placeholder saat loading atau tidak ada iklan aktif
   if (!loaded || !ad) {
     return (
-      <div className="mt-5 bg-white border border-gray-100 rounded-2xl p-4">
+      <div className="mt-5 rounded-2xl p-4" style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
         <div className="flex items-start gap-3">
-          <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center text-2xl shrink-0">📦</div>
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FAC775' }}>
+            <Megaphone size={24} strokeWidth={2} style={{ color: '#412402' }} />
+          </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-black text-[#003526] border border-[#003526]/30 px-1.5 py-0.5 rounded-full">Mitra</span>
+              <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ color: '#854F0B', background: '#FAC775', border: '0.5px solid #BA7517' }}>Mitra</span>
             </div>
-            <p className="text-sm font-bold text-gray-800 leading-snug">
+            <p className="text-sm font-bold leading-snug" style={{ color: '#412402' }}>
               Iklankan Bisnis Kamu di BAKABAR TeraLoka
             </p>
-            <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+            <p className="text-xs mt-1 leading-relaxed" style={{ color: '#854F0B' }}>
               Jangkau ribuan warga Maluku Utara setiap hari melalui platform berita lokal terpercaya.
             </p>
             <a href="mailto:ads@teraloka.com"
-              className="inline-block mt-2 text-xs font-bold text-[#003526] hover:underline">
+              className="inline-flex items-center gap-1 mt-2 text-xs font-bold hover:underline" style={{ color: '#BA7517' }}>
               Hubungi kami → ads@teraloka.com
             </a>
           </div>
@@ -103,8 +106,8 @@ export default function AdNativeSlug() {
             <img src={ad.advertiser_logo_url} alt={ad.advertiser_name}
               className="w-14 h-14 rounded-xl object-cover shrink-0 bg-white" />
           ) : (
-            <div className="w-14 h-14 rounded-xl bg-amber-100 flex items-center justify-center text-2xl shrink-0 border border-amber-200">
-              📰
+            <div className="w-14 h-14 rounded-xl bg-amber-100 flex items-center justify-center shrink-0 border border-amber-200">
+              <Newspaper size={24} strokeWidth={2} style={{ color: '#854F0B' }} />
             </div>
           )}
           <div className="flex-1 min-w-0">
@@ -133,29 +136,32 @@ export default function AdNativeSlug() {
   return (
     <a href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
       onClick={() => trackAdClick(ad.id)}
-      className="block mt-5 bg-white border border-gray-100 rounded-2xl p-4 hover:border-gray-200 hover:shadow-sm transition-all">
+      className="block mt-5 rounded-2xl p-4 hover:shadow-sm transition-all"
+      style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
       <div className="flex items-start gap-3">
         {ad.image_url ? (
           <img src={ad.image_url} alt={ad.title}
-            className="w-14 h-14 rounded-xl object-cover shrink-0" />
+            className="w-14 h-14 rounded-xl object-cover shrink-0" style={{ border: '0.5px solid #FAC775' }} />
         ) : (
-          <div className="w-14 h-14 rounded-xl bg-amber-50 flex items-center justify-center text-2xl shrink-0">📦</div>
+          <div className="w-14 h-14 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FAC775' }}>
+            <Megaphone size={24} strokeWidth={2} style={{ color: '#412402' }} />
+          </div>
         )}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-[10px] font-black text-[#003526] border border-[#003526]/30 px-1.5 py-0.5 rounded-full">Mitra</span>
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Iklan</span>
+            <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full" style={{ color: '#854F0B', background: '#FAC775', border: '0.5px solid #BA7517' }}>Mitra</span>
+            <span className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#BA7517' }}>Iklan</span>
           </div>
-          <p className="text-sm font-bold text-gray-800 leading-snug">
+          <p className="text-sm font-bold leading-snug" style={{ color: '#412402' }}>
             {ad.title}
           </p>
           {ad.body && (
-            <p className="text-xs text-gray-500 mt-1 leading-relaxed line-clamp-2">
+            <p className="text-xs mt-1 leading-relaxed line-clamp-2" style={{ color: '#854F0B' }}>
               {ad.body}
             </p>
           )}
-          <p className="inline-block mt-2 text-xs font-bold text-[#003526]">
-            Lihat detail →
+          <p className="inline-flex items-center gap-1 mt-2 text-xs font-bold" style={{ color: '#BA7517' }}>
+            Lihat detail <ArrowRight size={11} strokeWidth={2.4} />
           </p>
         </div>
       </div>
