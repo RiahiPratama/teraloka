@@ -2,30 +2,38 @@
 
 /**
  * TeraLoka — Admin Content Page (BAKABAR Command Center)
- * Phase 2 · Batch 7e1 — Content Panel Migration
+ * Phase 2 · Batch 7e2 — Tab 1 COMPLETE
  * ------------------------------------------------------------
- * BAKABAR admin dashboard — monitor + manage articles.
+ * BAKABAR admin dashboard — Tab 1 fully functional.
  *
- * Structure (3 tabs):
- * - Overview:         Stats + Trending + Manajemen (THIS batch: Stats only)
- * - Newsroom Analytics:  DB-based editorial metrics (Batch 7e4)
- * - Distribution Metrics: PostHog-powered traffic metrics (Batch 7e5)
+ * Tab 1 (Overview) sections:
+ * - Period selector (7d default)
+ * - Stats cards (published, views, stale drafts)
+ * - Trending + Perlu Perhatian (2-col)
+ * - Manajemen Artikel (filter + table + pagination + delete)
  *
- * Batch 7e1 scope:
- * - Page shell with 3-tab navigation
- * - Overview tab: Stats cards functional
- * - Trending + Manajemen: placeholder ("coming in next batch")
- * - Tab 2 + 3: "Coming Soon" roadmap placeholder
+ * Tab 2 + 3: Coming Soon placeholder (Batch 7e4 + 7e5)
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useApi, ApiError } from '@/lib/api/client';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 import { ArticleStats } from '@/components/admin/content/article-stats';
+import { TrendingSection } from '@/components/admin/content/trending-section';
+import {
+  ArticleFilters,
+  useDebounce,
+} from '@/components/admin/content/article-filters';
+import { ArticleRow } from '@/components/admin/content/article-row';
+import { DeleteArticleModal } from '@/components/admin/content/delete-article-modal';
 import {
   computeArticleStats,
   filterByPeriod,
+  getDateRange,
   type Article,
+  type ArticleStatus,
   type StatsPeriod,
   STATS_PERIOD_LABELS,
 } from '@/types/articles';
@@ -38,25 +46,54 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'distribution', label: 'Distribution Metrics', icon: '📈' },
 ];
 
+const PAGE_SIZE = 10;
+
 export default function AdminContentPage() {
   const api = useApi();
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
+
+  /* ─── Tab + period state ─── */
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [period, setPeriod] = useState<StatsPeriod>('7d');
 
+  /* ─── Main articles (50 terbaru, untuk stats + trending) ─── */
+
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [articlesLoading, setArticlesLoading] = useState(true);
+  const [articlesError, setArticlesError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
-  /* ─── Fetch articles (top 50 recent) ─── */
+  /* ─── Manajemen articles (filtered, paginated) ─── */
+
+  const [searchInput, setSearchInput] = useState('');
+  const search = useDebounce(searchInput, 300);
+  const [statusFilter, setStatusFilter] = useState<ArticleStatus | ''>('');
+  const [periodFilter, setPeriodFilter] = useState<StatsPeriod>('all');
+  const [page, setPage] = useState(1);
+
+  const [manageArticles, setManageArticles] = useState<Article[]>([]);
+  const [manageTotal, setManageTotal] = useState(0);
+  const [manageLoading, setManageLoading] = useState(false);
+  const [manageError, setManageError] = useState<string | null>(null);
+
+  /* ─── Delete modal state ─── */
+
+  const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
+
+  /* ─── Manajemen section ref (untuk scroll from Perlu Perhatian) ─── */
+
+  const manajemenRef = useRef<HTMLDivElement>(null);
+
+  /* ─── Fetch main articles (stats + trending) ─── */
 
   useEffect(() => {
     const controller = new AbortController();
     let cancelled = false;
 
-    setLoading(true);
-    setError(null);
+    setArticlesLoading(true);
+    setArticlesError(null);
 
     (async () => {
       try {
@@ -69,20 +106,17 @@ export default function AdminContentPage() {
         );
 
         if (cancelled) return;
-
-        // API wrapper sometimes returns { data, total } or flat array.
-        // Defensive: check shape.
         const list = Array.isArray(res) ? res : res?.data || [];
         setArticles(list);
       } catch (err) {
         if (cancelled) return;
         if (err instanceof ApiError) {
-          setError(err.message);
+          setArticlesError(err.message);
         } else if ((err as Error).name !== 'AbortError') {
-          setError('Gagal memuat artikel');
+          setArticlesError('Gagal memuat artikel');
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) setArticlesLoading(false);
       }
     })();
 
@@ -92,13 +126,92 @@ export default function AdminContentPage() {
     };
   }, [api, retryNonce]);
 
+  /* ─── Fetch manajemen articles (dengan filter) ─── */
+
+  const fetchManageArticles = useCallback(
+    async (signal?: AbortSignal) => {
+      if (!isSuperAdmin) return;
+
+      setManageLoading(true);
+      setManageError(null);
+
+      try {
+        const { from, to } = getDateRange(periodFilter);
+        const params: Record<string, string | number> = {
+          page,
+          limit: PAGE_SIZE,
+        };
+        if (search.trim()) params.q = search.trim();
+        if (statusFilter) params.status = statusFilter;
+        if (from) params.from = from;
+        if (to) params.to = to;
+
+        const res = await api.get<{ data: Article[]; total: number }>(
+          '/admin/articles',
+          { params, signal }
+        );
+
+        setManageArticles(res?.data || []);
+        setManageTotal(res?.total || 0);
+      } catch (err) {
+        if (err instanceof ApiError) {
+          setManageError(err.message);
+        } else if ((err as Error).name !== 'AbortError') {
+          setManageError('Gagal memuat artikel');
+        }
+      } finally {
+        setManageLoading(false);
+      }
+    },
+    [api, isSuperAdmin, search, statusFilter, periodFilter, page]
+  );
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchManageArticles(controller.signal);
+    return () => controller.abort();
+  }, [fetchManageArticles]);
+
+  // Reset page ke 1 saat filter berubah
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, periodFilter]);
+
+  /* ─── Event handlers ─── */
+
   const refetch = useCallback(() => setRetryNonce((n) => n + 1), []);
+
+  const handleReviewStaleDrafts = useCallback(() => {
+    // Scroll to Manajemen + auto-filter status=draft
+    setStatusFilter('draft');
+    manajemenRef.current?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'start',
+    });
+  }, []);
+
+  const handleDeleteSuccess = useCallback((deletedId: string) => {
+    // Optimistic update — remove from both lists
+    setArticles((prev) => prev.filter((a) => a.id !== deletedId));
+    setManageArticles((prev) => prev.filter((a) => a.id !== deletedId));
+    setManageTotal((n) => Math.max(0, n - 1));
+  }, []);
+
+  const clearFilters = useCallback(() => {
+    setSearchInput('');
+    setStatusFilter('');
+    setPeriodFilter('all');
+  }, []);
+
+  const hasActiveFilters =
+    search.length > 0 || statusFilter !== '' || periodFilter !== 'all';
 
   /* ─── Derived state ─── */
 
   const periodArticles = filterByPeriod(articles, period);
   const stats = computeArticleStats(periodArticles);
   const periodLabel = STATS_PERIOD_LABELS[period];
+  const totalPages = Math.max(1, Math.ceil(manageTotal / PAGE_SIZE));
 
   /* ─── Render ─── */
 
@@ -148,10 +261,10 @@ export default function AdminContentPage() {
         ))}
       </div>
 
-      {/* Error banner */}
-      {error && (
+      {/* Error banner for main articles */}
+      {articlesError && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-status-critical/10 border border-status-critical/30 text-status-critical text-sm flex items-center justify-between gap-3">
-          <span>⚠️ {error}</span>
+          <span>⚠️ {articlesError}</span>
           <button
             onClick={refetch}
             className="text-xs font-semibold underline hover:no-underline"
@@ -163,80 +276,189 @@ export default function AdminContentPage() {
 
       {/* Tab content */}
       {activeTab === 'overview' && (
-        <OverviewTab
-          stats={stats}
-          periodLabel={periodLabel}
-          period={period}
-          onPeriodChange={setPeriod}
-          loading={loading}
-        />
+        <div className="space-y-6">
+          {/* Period selector */}
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
+              Ringkasan
+            </h2>
+            <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
+              {(['7d', '30d', '90d', 'all'] as StatsPeriod[]).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setPeriod(p)}
+                  className={`
+                    px-3 py-1 text-xs font-semibold rounded-md transition-colors
+                    ${
+                      period === p
+                        ? 'bg-brand-teal text-white'
+                        : 'text-text-muted hover:text-text'
+                    }
+                  `}
+                >
+                  {STATS_PERIOD_LABELS[p]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stats cards */}
+          <ArticleStats
+            stats={stats}
+            periodLabel={periodLabel}
+            loading={articlesLoading}
+          />
+
+          {/* Trending + Perlu Perhatian */}
+          <TrendingSection
+            articles={periodArticles}
+            onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
+            loading={articlesLoading}
+          />
+
+          {/* Manajemen Artikel — super_admin only */}
+          {isSuperAdmin && (
+            <div
+              ref={manajemenRef}
+              className="rounded-xl border border-border bg-surface p-4 sm:p-5 scroll-mt-6"
+            >
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <h3 className="text-sm font-bold text-text flex items-center gap-2">
+                  <span>📋</span>
+                  <span>Manajemen Artikel</span>
+                </h3>
+                <span className="text-xs text-text-muted">
+                  {manageTotal.toLocaleString('id-ID')} total artikel
+                </span>
+              </div>
+
+              {/* Filters */}
+              <div className="mb-4">
+                <ArticleFilters
+                  searchValue={searchInput}
+                  onSearchChange={setSearchInput}
+                  statusValue={statusFilter}
+                  onStatusChange={setStatusFilter}
+                  periodValue={periodFilter}
+                  onPeriodChange={setPeriodFilter}
+                  hasActiveFilters={hasActiveFilters}
+                  onClearFilters={clearFilters}
+                />
+              </div>
+
+              {/* Error */}
+              {manageError && (
+                <div className="mb-3 px-3 py-2 rounded-lg bg-status-critical/10 border border-status-critical/30 text-status-critical text-sm">
+                  {manageError}
+                </div>
+              )}
+
+              {/* Table */}
+              {manageLoading ? (
+                <div className="space-y-2 py-6">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div
+                      key={i}
+                      className="h-12 rounded bg-surface-muted animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : manageArticles.length === 0 ? (
+                <div className="py-12 text-center">
+                  <p className="text-3xl mb-2">🔎</p>
+                  <p className="text-sm text-text-muted">
+                    {hasActiveFilters
+                      ? 'Tidak ada artikel yang cocok dengan filter.'
+                      : 'Belum ada artikel.'}
+                  </p>
+                  {hasActiveFilters && (
+                    <button
+                      onClick={clearFilters}
+                      className="mt-3 text-xs font-semibold text-brand-teal hover:underline"
+                    >
+                      Clear semua filter
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  {manageArticles.map((article) => (
+                    <ArticleRow
+                      key={article.id}
+                      article={article}
+                      variant="compact"
+                      actionSlot={
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => setDeleteTarget(article)}
+                        >
+                          Hapus
+                        </Button>
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Pagination */}
+              {manageTotal > 0 && !manageLoading && (
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border gap-3">
+                  <p className="text-xs text-text-muted">
+                    {(page - 1) * PAGE_SIZE + 1}–
+                    {Math.min(page * PAGE_SIZE, manageTotal)} dari{' '}
+                    {manageTotal.toLocaleString('id-ID')}
+                  </p>
+                  <div className="flex gap-2 items-center">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={page === 1}
+                    >
+                      ‹ Prev
+                    </Button>
+                    <span className="text-xs font-semibold text-text px-2">
+                      {page} / {totalPages}
+                    </span>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() =>
+                        setPage((p) => Math.min(totalPages, p + 1))
+                      }
+                      disabled={page >= totalPages}
+                    >
+                      Next ›
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Non-super_admin note */}
+          {!isSuperAdmin && (
+            <div className="rounded-xl border border-dashed border-border bg-surface-muted/50 p-6 text-center">
+              <p className="text-sm text-text-muted">
+                🔒 Manajemen Artikel (delete, filter advanced) hanya untuk
+                Super Admin
+              </p>
+            </div>
+          )}
+        </div>
       )}
 
       {activeTab === 'newsroom' && <ComingSoonTab tab="newsroom" />}
 
       {activeTab === 'distribution' && <ComingSoonTab tab="distribution" />}
-    </div>
-  );
-}
 
-/* ─── Overview Tab (Batch 7e1: partial — stats only) ─── */
-
-interface OverviewTabProps {
-  stats: ReturnType<typeof computeArticleStats>;
-  periodLabel: string;
-  period: StatsPeriod;
-  onPeriodChange: (p: StatsPeriod) => void;
-  loading: boolean;
-}
-
-function OverviewTab({
-  stats,
-  periodLabel,
-  period,
-  onPeriodChange,
-  loading,
-}: OverviewTabProps) {
-  return (
-    <div className="space-y-6">
-      {/* Period selector */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
-          Ringkasan
-        </h2>
-        <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
-          {(['7d', '30d', '90d', 'all'] as StatsPeriod[]).map((p) => (
-            <button
-              key={p}
-              onClick={() => onPeriodChange(p)}
-              className={`
-                px-3 py-1 text-xs font-semibold rounded-md transition-colors
-                ${
-                  period === p
-                    ? 'bg-brand-teal text-white'
-                    : 'text-text-muted hover:text-text'
-                }
-              `}
-            >
-              {STATS_PERIOD_LABELS[p]}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Stats cards */}
-      <ArticleStats stats={stats} periodLabel={periodLabel} loading={loading} />
-
-      {/* Placeholder — Trending + Manajemen datang di Batch 7e2 */}
-      <div className="rounded-xl border border-dashed border-border bg-surface-muted/50 p-8 text-center">
-        <p className="text-sm text-text-muted">
-          🚧 <strong>Trending, Perlu Perhatian, dan Manajemen Artikel</strong>{' '}
-          akan hadir di Batch 7e2 (segera)
-        </p>
-        <p className="text-xs text-text-subtle mt-2">
-          Scope: Top 5 trending artikel, alert untuk draft stale, dan table
-          lengkap manajemen dengan filter + delete.
-        </p>
-      </div>
+      {/* Delete modal */}
+      <DeleteArticleModal
+        article={deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onSuccess={handleDeleteSuccess}
+      />
     </div>
   );
 }
@@ -252,7 +474,8 @@ function ComingSoonTab({ tab }: ComingSoonTabProps) {
     newsroom: {
       title: 'Newsroom Analytics',
       emoji: '📰',
-      description: 'Editorial intelligence — metrics untuk optimize editorial strategy',
+      description:
+        'Editorial intelligence — metrics untuk optimize editorial strategy',
       features: [
         'Publishing velocity (30-day trend chart)',
         'Top authors by articles + views',
@@ -300,10 +523,7 @@ function ComingSoonTab({ tab }: ComingSoonTabProps) {
           </p>
           <ul className="space-y-1.5">
             {config.features.map((f) => (
-              <li
-                key={f}
-                className="text-sm text-text flex items-start gap-2"
-              >
+              <li key={f} className="text-sm text-text flex items-start gap-2">
                 <span className="text-brand-teal mt-0.5">•</span>
                 <span>{f}</span>
               </li>
