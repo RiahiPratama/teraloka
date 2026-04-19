@@ -2,25 +2,26 @@
 
 /**
  * TeraLoka — UserRow
- * Phase 2 · Batch 7a1 — Users Page Migration
+ * Phase 2 · Batch 7a2 — Users Page Migration (Modals + Actions)
  * ------------------------------------------------------------
  * Single user row di tabel /admin/users.
  *
  * Layout (grid):
  * [Avatar 48px][Name flex][Portal 160px][Status 100px][Role 130px][Last 110px][Actions 100px]
  *
- * Batch 7a1 scope:
- * - Full row rendering (avatar, info, portal badges, status, role, last seen)
- * - Dropdown menu SHELL dengan placeholder items (Edit, Ganti WA, Nonaktifkan, Hapus)
- *   dengan label "Segera hadir" — tidak functional di 7a1
- * - Current user indicator ("KAMU" badge)
+ * Role column behavior:
+ * - If `onChangeRole` callback provided → interactive <select> untuk change role
+ * - If no callback (or isCurrentUser) → static RoleBadge display
+ * - Super admin role excluded from select options (security)
  *
- * Batch 7a2 scope (future):
- * - Wire up actions ke modals (onEditName, onEditPhone, onToggleActive, onDelete, onChangeRole)
- * - Avatar upload flow
+ * Action callbacks:
+ * - onEditName      → open edit name modal
+ * - onEditPhone     → open edit phone modal (dropdown menu item)
+ * - onToggleActive  → open activate/deactivate confirm modal
+ * - onDelete        → open delete confirm modal
+ * - onChangeRole    → open role change confirm modal (via select change)
  */
 
-import Link from 'next/link';
 import { useState, useRef, useEffect, type MouseEvent } from 'react';
 import { MoreHorizontal, Edit3, Phone, Ban, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -28,10 +29,10 @@ import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from './user-avatar';
 import {
   ROLE_CONFIG,
+  INVITABLE_ROLES,
   formatPhone,
   lastSeen,
   timeAgo,
-  userDisplayName,
   type User,
   type UserRole,
 } from '@/types/users';
@@ -196,7 +197,9 @@ function ActionMenu({
     if (!open && triggerRef.current) {
       const rect = triggerRef.current.getBoundingClientRect();
       const spaceBelow = window.innerHeight - rect.bottom;
-      setDirection(spaceBelow < 200 ? 'up' : 'down');
+      // Flip up kalau space below kurang dari 280px (cover dropdown height ~170px + padding)
+      // Also flip up if we're near bottom of any scrollable container
+      setDirection(spaceBelow < 280 ? 'up' : 'down');
     }
     setOpen((o) => !o);
   };
@@ -302,6 +305,73 @@ function ActionMenu({
   );
 }
 
+/* ─── RoleSelect — interactive role changer ───
+ * Styled native select, preserves design system colors.
+ * Super admin option NOT listed (security — can't elevate via UI).
+ * Value mismatch with user.role triggers onChangeRole callback.
+ */
+
+function RoleSelect({
+  user,
+  onChangeRole,
+}: {
+  user: User;
+  onChangeRole: (user: User, newRole: UserRole) => void;
+}) {
+  const config = ROLE_CONFIG[user.role];
+
+  // Determine badge color for select bg (mirror RoleBadge logic)
+  const isSuperAdmin = user.role === 'super_admin';
+  const isServiceUser = user.role === 'service_user';
+
+  const bgClass = isSuperAdmin
+    ? 'bg-brand-teal/10 text-brand-teal border-brand-teal/30'
+    : isServiceUser
+      ? 'bg-surface-muted text-text-muted border-border'
+      : `bg-${config.service}-muted text-${config.service}-strong border-${config.service}/30`;
+
+  // Note: Tailwind can't resolve dynamic `bg-${service}` — pakai style variant approach
+  // to avoid. Untuk sekarang, pakai Record lookup explicit.
+  const roleStyleMap: Record<UserRole, string> = {
+    super_admin: 'bg-brand-teal/10 text-brand-teal border-brand-teal/30',
+    service_user: 'bg-surface-muted text-text-muted border-border',
+    admin_content: 'bg-bakabar-muted text-bakabar-strong border-bakabar/30',
+    admin_transport: 'bg-bapasiar-muted text-bapasiar-strong border-bapasiar/30',
+    admin_listing: 'bg-bakos-muted text-bakos-strong border-bakos/30',
+    admin_funding: 'bg-badonasi-muted text-badonasi-strong border-badonasi/30',
+    owner_listing: 'bg-properti-muted text-properti-strong border-properti/30',
+    operator_speed: 'bg-bapasiar-muted text-bapasiar-strong border-bapasiar/30',
+    operator_ship: 'bg-bapasiar-muted text-bapasiar-strong border-bapasiar/30',
+  };
+
+  return (
+    <select
+      value={user.role}
+      onChange={(e) => {
+        const newRole = e.target.value as UserRole;
+        if (newRole !== user.role) {
+          onChangeRole(user, newRole);
+        }
+      }}
+      className={cn(
+        'w-full px-2 py-1 rounded-md',
+        'text-[11px] font-bold whitespace-nowrap',
+        'border cursor-pointer outline-none',
+        'focus:ring-2 focus:ring-brand-teal/20',
+        'transition-colors',
+        roleStyleMap[user.role]
+      )}
+      aria-label="Ubah role user"
+    >
+      {INVITABLE_ROLES.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /* ─── Main UserRow component ─── */
 
 export function UserRow({
@@ -312,6 +382,7 @@ export function UserRow({
   onEditPhone,
   onToggleActive,
   onDelete,
+  onChangeRole,
 }: UserRowProps) {
   const isCurrentUser = user.id === currentUserId;
   const isActive = user.is_active !== false;
@@ -369,7 +440,11 @@ export function UserRow({
 
       {/* Role */}
       <div className="min-w-0">
-        <RoleBadge role={user.role} />
+        {onChangeRole && !isCurrentUser && user.role !== 'super_admin' ? (
+          <RoleSelect user={user} onChangeRole={onChangeRole} />
+        ) : (
+          <RoleBadge role={user.role} />
+        )}
       </div>
 
       {/* Last Seen */}
@@ -426,6 +501,7 @@ export function UserTableHeader() {
       className={cn(
         'grid items-center gap-3 px-4 py-3',
         'bg-surface-muted/50 border-b border-border',
+        'rounded-t-xl',
         'text-[10px] font-bold uppercase tracking-wider text-text-muted'
       )}
       style={{

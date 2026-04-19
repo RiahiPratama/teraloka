@@ -2,34 +2,33 @@
 
 /**
  * TeraLoka — Admin Users Page
- * Phase 2 · Batch 7a1 — Users Page Migration
+ * Phase 2 · Batch 7a2 — Users Page Migration (Modals + Actions)
  * ------------------------------------------------------------
- * Admin users management page — list view + filters + stats.
+ * Admin users management page — complete CRUD now wired.
  *
- * Batch 7a1 scope:
- * - Page shell
- * - UserStats row (4 metric cards)
- * - Filter bar (status select + role select + search)
- * - Table composing UserRow components
- * - Loading / error / empty states
- * - "Add User" button DISABLED (placeholder, akan di-wire Batch 7a2)
- * - Action dropdown items DISABLED dengan label "Segera"
+ * Batch 7a2 scope (current):
+ * - 5 modals wired up (invite + editName + editPhone + role + activate/deactivate/delete)
+ * - Toast notification inline (auto-dismiss 3.5s)
+ * - Role change flow: UserRow triggers onChangeRole → modal confirm
+ * - "Tambah User" button NOW functional
  *
- * Batch 7a2 scope (future):
- * - 7 modals (invite, editName, editPhone, role, deactivate, activate, delete)
+ * Batch 7a3 scope (future):
  * - Avatar upload flow
- * - Wire semua action callbacks
- *
- * Preserved dari existing:
- * - searchInput vs search (debounce-like: Enter/click to apply)
- * - Role filter via API (server-side)
- * - Status filter client-side (karena backend gak support filter is_active)
- * - fetchUsers dengan URLSearchParams
- * - currentUser detection
+ * - Backend endpoint PATCH /admin/users/:id/avatar (separate delivery)
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import { Plus, Search, X, RefreshCw, Users as UsersIcon, AlertCircle } from 'lucide-react';
+import {
+  Plus,
+  Search,
+  X,
+  RefreshCw,
+  Users as UsersIcon,
+  AlertCircle,
+  CheckCircle2,
+  XCircle,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { ApiError, useApi } from '@/lib/api/client';
 import {
@@ -43,6 +42,10 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { UserStats } from '@/components/admin/users/user-stats';
 import { UserRow, UserTableHeader } from '@/components/admin/users/user-row';
+import { UserInviteModal } from '@/components/admin/users/user-invite-modal';
+import { UserEditModal, type EditMode } from '@/components/admin/users/user-edit-modal';
+import { UserRoleModal } from '@/components/admin/users/user-role-modal';
+import { UserActionModal, type ActionMode } from '@/components/admin/users/user-action-modal';
 
 /* ─── API response shape (paginated list) ─── */
 
@@ -51,6 +54,22 @@ interface UsersListResponse {
   total: number;
   limit?: number;
   offset?: number;
+}
+
+/* ─── Modal state — discriminated union for clarity ─── */
+
+type ModalState =
+  | { type: null }
+  | { type: 'invite' }
+  | { type: 'edit'; mode: EditMode; user: User }
+  | { type: 'role'; user: User; newRole: UserRole }
+  | { type: 'action'; mode: ActionMode; user: User };
+
+/* ─── Toast ─── */
+
+interface ToastData {
+  message: string;
+  ok: boolean;
 }
 
 /* ─── Page ─── */
@@ -67,10 +86,16 @@ export default function AdminUsersPage() {
   const [retryNonce, setRetryNonce] = useState(0);
 
   // Filter state
-  const [search, setSearch] = useState(''); // applied filter
-  const [searchInput, setSearchInput] = useState(''); // live input
+  const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+
+  // Modal state
+  const [modal, setModal] = useState<ModalState>({ type: null });
+
+  // Toast state
+  const [toast, setToast] = useState<ToastData | null>(null);
 
   /* ── Fetch users ── */
   useEffect(() => {
@@ -91,7 +116,6 @@ export default function AdminUsersPage() {
       })
       .then((data) => {
         let filtered = data.data;
-        // Client-side status filter (backend gak support)
         if (statusFilter === 'aktif') {
           filtered = filtered.filter((u) => u.is_active !== false);
         } else if (statusFilter === 'nonaktif') {
@@ -124,6 +148,71 @@ export default function AdminUsersPage() {
     setSearchInput('');
   }, []);
 
+  const refetchUsers = useCallback(() => {
+    setRetryNonce((n) => n + 1);
+  }, []);
+
+  /* ── Toast helper ── */
+  const showToast = useCallback((message: string, ok: boolean) => {
+    setToast({ message, ok });
+  }, []);
+
+  // Auto-dismiss toast
+  useEffect(() => {
+    if (!toast) return;
+    const timer = setTimeout(() => setToast(null), 3500);
+    return () => clearTimeout(timer);
+  }, [toast]);
+
+  /* ── Modal handlers ── */
+  const closeModal = useCallback(() => {
+    setModal({ type: null });
+  }, []);
+
+  const handleInvite = useCallback(() => {
+    setModal({ type: 'invite' });
+  }, []);
+
+  const handleEditName = useCallback((user: User) => {
+    setModal({ type: 'edit', mode: 'name', user });
+  }, []);
+
+  const handleEditPhone = useCallback((user: User) => {
+    setModal({ type: 'edit', mode: 'phone', user });
+  }, []);
+
+  const handleChangeRole = useCallback((user: User, newRole: UserRole) => {
+    if (newRole === user.role) return;
+    setModal({ type: 'role', user, newRole });
+  }, []);
+
+  const handleToggleActive = useCallback((user: User) => {
+    // Super admin cannot be deactivated (UX guard, backend also enforces)
+    if (user.role === 'super_admin' && user.is_active !== false) {
+      showToast('Super Admin tidak bisa dinonaktifkan', false);
+      return;
+    }
+    setModal({
+      type: 'action',
+      mode: user.is_active !== false ? 'deactivate' : 'activate',
+      user,
+    });
+  }, [showToast]);
+
+  const handleDelete = useCallback((user: User) => {
+    // Guard: cannot delete self
+    if (user.id === currentUser?.id) {
+      showToast('Tidak bisa menghapus akun sendiri', false);
+      return;
+    }
+    // Guard: cannot delete super admin
+    if (user.role === 'super_admin') {
+      showToast('Super Admin tidak bisa dihapus', false);
+      return;
+    }
+    setModal({ type: 'action', mode: 'delete', user });
+  }, [currentUser?.id, showToast]);
+
   /* ── Derivations ── */
   const stats = computeUserStats(users, total);
   const isEmptyAfterFilter =
@@ -131,20 +220,35 @@ export default function AdminUsersPage() {
   const isEmptyEntirely =
     !loading && !error && users.length === 0 && !search && !roleFilter && !statusFilter;
 
-  /* ── 7a2 placeholder handlers ──
-   * Undefined callback = action di-disable di UserRow.
-   * Batch 7a2 akan set ini ke function yang open modal.
-   */
-  const handlers = {
-    onEditName: undefined,
-    onEditPhone: undefined,
-    onToggleActive: undefined,
-    onDelete: undefined,
-    onChangeRole: undefined as ((user: User, newRole: UserRole) => void) | undefined,
-  };
-
   return (
     <div className="max-w-7xl mx-auto space-y-5">
+      {/* ── Toast ── */}
+      {toast && (
+        <div
+          className="fixed top-20 right-6 z-[60] pointer-events-none"
+          role="status"
+          aria-live="polite"
+        >
+          <div
+            className={cn(
+              'flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg',
+              'font-semibold text-sm pointer-events-auto',
+              'animate-in fade-in slide-in-from-right-2 duration-200',
+              toast.ok
+                ? 'bg-status-healthy text-white'
+                : 'bg-status-critical text-white'
+            )}
+          >
+            {toast.ok ? (
+              <CheckCircle2 size={16} className="shrink-0" />
+            ) : (
+              <XCircle size={16} className="shrink-0" />
+            )}
+            <span>{toast.message}</span>
+          </div>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -162,8 +266,7 @@ export default function AdminUsersPage() {
           variant="primary"
           size="md"
           leftIcon={<Plus size={14} />}
-          disabled
-          title="Akan tersedia di Batch 7a2"
+          onClick={handleInvite}
         >
           Tambah User
         </Button>
@@ -199,7 +302,6 @@ export default function AdminUsersPage() {
       {/* ── Filter Bar ── */}
       {!error && (
         <div className="flex flex-wrap items-center gap-2 p-3 bg-surface border border-border rounded-xl">
-          {/* Status filter */}
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
@@ -216,7 +318,6 @@ export default function AdminUsersPage() {
             ))}
           </select>
 
-          {/* Role filter */}
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
@@ -233,7 +334,6 @@ export default function AdminUsersPage() {
             ))}
           </select>
 
-          {/* Search */}
           <div className="flex-1 min-w-[200px] flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-surface focus-within:border-brand-teal transition-colors">
             <Search size={13} className="text-text-muted shrink-0" />
             <input
@@ -257,23 +357,18 @@ export default function AdminUsersPage() {
             )}
           </div>
 
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={applySearch}
-          >
+          <Button variant="primary" size="sm" onClick={applySearch}>
             Cari
           </Button>
         </div>
       )}
 
-      {/* ── Table or Loading or Empty ── */}
+      {/* ── Table ── */}
       {!error && (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="bg-surface border border-border rounded-xl">
           <UserTableHeader />
 
           {loading && users.length === 0 ? (
-            /* Initial load skeleton */
             <div className="divide-y divide-border">
               {Array.from({ length: 5 }).map((_, i) => (
                 <div
@@ -323,6 +418,10 @@ export default function AdminUsersPage() {
                 description="User baru bisa login via OTP WA setelah diundang."
                 variant="muted"
                 size="sm"
+                action={{
+                  label: 'Tambah user pertama',
+                  onClick: handleInvite,
+                }}
               />
             </div>
           ) : (
@@ -332,16 +431,15 @@ export default function AdminUsersPage() {
                   key={u.id}
                   user={u}
                   currentUserId={currentUser?.id}
-                  {...handlers}
+                  onEditName={handleEditName}
+                  onEditPhone={handleEditPhone}
+                  onToggleActive={handleToggleActive}
+                  onDelete={handleDelete}
+                  onChangeRole={handleChangeRole}
                 />
               ))}
               {/* Footer */}
-              <div
-                className={
-                  'flex items-center justify-between px-4 py-3 ' +
-                  'bg-surface-muted/40 border-t border-border'
-                }
-              >
+              <div className="flex items-center justify-between px-4 py-3 bg-surface-muted/40 border-t border-border rounded-b-xl">
                 <span className="text-[11px] text-text-muted">
                   Menampilkan{' '}
                   <span className="font-semibold text-text">
@@ -364,16 +462,40 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      {/* ── Batch 7a1 notice ── */}
-      {!error && !loading && (
-        <div className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-status-info/8 border border-status-info/20">
-          <AlertCircle size={14} className="text-status-info shrink-0" />
-          <p className="text-[11px] text-text-secondary flex-1">
-            <span className="font-semibold">Tampilan baru aktif.</span>{' '}
-            Aksi Edit/Nonaktifkan/Hapus akan tersedia di update berikutnya.
-          </p>
-        </div>
-      )}
+      {/* ── Modals ── */}
+      <UserInviteModal
+        open={modal.type === 'invite'}
+        onClose={closeModal}
+        onSuccess={refetchUsers}
+        onToast={showToast}
+      />
+
+      <UserEditModal
+        open={modal.type === 'edit'}
+        onClose={closeModal}
+        mode={modal.type === 'edit' ? modal.mode : 'name'}
+        user={modal.type === 'edit' ? modal.user : null}
+        onSuccess={refetchUsers}
+        onToast={showToast}
+      />
+
+      <UserRoleModal
+        open={modal.type === 'role'}
+        onClose={closeModal}
+        user={modal.type === 'role' ? modal.user : null}
+        newRole={modal.type === 'role' ? modal.newRole : null}
+        onSuccess={refetchUsers}
+        onToast={showToast}
+      />
+
+      <UserActionModal
+        open={modal.type === 'action'}
+        onClose={closeModal}
+        mode={modal.type === 'action' ? modal.mode : 'activate'}
+        user={modal.type === 'action' ? modal.user : null}
+        onSuccess={refetchUsers}
+        onToast={showToast}
+      />
     </div>
   );
 }
