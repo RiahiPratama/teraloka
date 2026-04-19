@@ -68,13 +68,15 @@ export function initPostHog(): void {
     persistence: 'localStorage+cookie',
     // Error handling
     loaded: (ph) => {
+      console.log('[PostHog] Initialized in browser');
       if (process.env.NODE_ENV !== 'production') {
-        console.log('[PostHog] Initialized in browser');
         ph.debug(false); // Set true kalau debugging
       }
     },
-    // Privacy
-    respect_dnt: true, // Respect Do Not Track header
+    // Privacy: respect DNT ONLY di production.
+    // Di dev/incognito, DNT biasanya default=1 dan bikin init silent-skip,
+    // bikin debugging susah. Di production, respect user preference.
+    respect_dnt: process.env.NODE_ENV === 'production',
     // Performance
     disable_persistence: false,
     enable_recording_console_log: false,
