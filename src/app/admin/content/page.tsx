@@ -2,9 +2,9 @@
 
 /**
  * TeraLoka — Admin Content Page (BAKABAR Command Center)
- * Phase 2 · Batch 7e2 — Tab 1 COMPLETE
+ * Phase 2 · Batch 7e4 — Tab 2 LIVE
  * ------------------------------------------------------------
- * BAKABAR admin dashboard — Tab 1 fully functional.
+ * BAKABAR admin dashboard — Tab 1 + Tab 2 fully functional.
  *
  * Tab 1 (Overview) sections:
  * - Period selector (7d default)
@@ -12,7 +12,15 @@
  * - Trending + Perlu Perhatian (2-col)
  * - Manajemen Artikel (filter + table + pagination + delete)
  *
- * Tab 2 + 3: Coming Soon placeholder (Batch 7e4 + 7e5)
+ * Tab 2 (Newsroom Analytics) — Editorial intelligence:
+ * - Publishing velocity (30-day trend chart)
+ * - Cycle time stats (draft → publish)
+ * - Status breakdown (donut)
+ * - Category distribution (donut + legend)
+ * - Top authors ranked
+ * - Viral score distribution (histogram)
+ *
+ * Tab 3 (Distribution Metrics): Coming Soon — Batch 7e5
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -28,6 +36,7 @@ import {
 } from '@/components/admin/content/article-filters';
 import { ArticleRow } from '@/components/admin/content/article-row';
 import { DeleteArticleModal } from '@/components/admin/content/delete-article-modal';
+import { NewsroomAnalyticsView } from '@/components/admin/content/newsroom-analytics-view';
 import {
   computeArticleStats,
   filterByPeriod,
@@ -449,7 +458,7 @@ export default function AdminContentPage() {
         </div>
       )}
 
-      {activeTab === 'newsroom' && <ComingSoonTab tab="newsroom" />}
+      {activeTab === 'newsroom' && <NewsroomAnalyticsView />}
 
       {activeTab === 'distribution' && <ComingSoonTab tab="distribution" />}
 
@@ -463,30 +472,14 @@ export default function AdminContentPage() {
   );
 }
 
-/* ─── Coming Soon Tab ─── */
+/* ─── Coming Soon Tab (Distribution only now) ─── */
 
 interface ComingSoonTabProps {
-  tab: 'newsroom' | 'distribution';
+  tab: 'distribution';
 }
 
 function ComingSoonTab({ tab }: ComingSoonTabProps) {
   const config = {
-    newsroom: {
-      title: 'Newsroom Analytics',
-      emoji: '📰',
-      description:
-        'Editorial intelligence — metrics untuk optimize editorial strategy',
-      features: [
-        'Publishing velocity (30-day trend chart)',
-        'Top authors by articles + views',
-        'Category distribution (pie/bar chart)',
-        'Draft → publish cycle time',
-        'Viral score distribution (histogram)',
-        'Article status breakdown',
-      ],
-      eta: 'Batch 7e4 — segera setelah Tab 1 complete',
-      dependsOn: 'Data dari `articles` table (sudah ada)',
-    },
     distribution: {
       title: 'Distribution Metrics',
       emoji: '📈',
@@ -500,9 +493,9 @@ function ComingSoonTab({ tab }: ComingSoonTabProps) {
         'Avg time on page per article',
         'Bounce rate per category',
       ],
-      eta: 'Batch 7e5 — setelah Tab 2 functional',
+      eta: 'Batch 7e5 — next up!',
       dependsOn:
-        'PostHog events (✅ sudah live sejak Batch 7e3). Data akan terkumpul organic setelah launch.',
+        'PostHog events (✅ live sejak Batch 7e3). Data akan terkumpul organic setelah launch.',
     },
   }[tab];
 
