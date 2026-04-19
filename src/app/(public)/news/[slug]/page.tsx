@@ -485,11 +485,19 @@ export default async function ArticlePage({ params }: Props) {
 
             {/* Cover — full natural aspect, max-height smart, letterbox bg */}
             {article.cover_image_url && (
-              <div className="mb-6 rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
-                style={{ maxHeight: 600 }}>
-                <img src={article.cover_image_url} alt={article.title}
-                  className="w-full h-auto object-contain"
-                  style={{ maxHeight: 600 }} />
+              <div className="mb-6">
+                <div className="rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
+                  style={{ maxHeight: 600 }}>
+                  <img src={article.cover_image_url} alt={article.title}
+                    className="w-full h-auto object-contain"
+                    style={{ maxHeight: 600 }} />
+                </div>
+                {/* Caption — attribution & konteks foto. Optional. */}
+                {article.cover_image_caption && (
+                  <p className="mt-2 text-sm text-gray-500 italic leading-relaxed">
+                    {article.cover_image_caption}
+                  </p>
+                )}
               </div>
             )}
 

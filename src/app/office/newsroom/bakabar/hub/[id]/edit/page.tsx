@@ -39,7 +39,6 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; i
 };
 
 const CATEGORIES = [
-  { key: 'nasional',     label: 'Nasional',     icon: '🇮🇩', color: '#DC2626' },
   { key: 'berita',       label: 'Berita',       icon: '📰', color: '#1B6B4A' },
   { key: 'viral',        label: 'Viral',        icon: '🔥', color: '#F97316' },
   { key: 'politik',      label: 'Politik',      icon: '🏛️', color: '#7C3AED' },
@@ -178,6 +177,7 @@ export default function EditArticlePage() {
   const [body, setBody]                     = useState('');
   const [category, setCategory]             = useState('');
   const [coverImageUrl, setCoverImageUrl]   = useState('');
+  const [coverImageCaption, setCoverImageCaption] = useState('');
   const [sourceUrl, setSourceUrl]           = useState('');
   const [sourcePlatform, setSourcePlatform] = useState('');
   const [isBreaking, setIsBreaking]         = useState(false);
@@ -237,6 +237,7 @@ export default function EditArticlePage() {
         setBody(a.body || '');
         setCategory(a.category ?? '');
         setCoverImageUrl(a.cover_image_url ?? '');
+        setCoverImageCaption(a.cover_image_caption ?? '');
         setSourceUrl(a.source_url ?? '');
         setSourcePlatform(a.source_platform ?? '');
         setIsBreaking(!!a.is_breaking);
@@ -262,7 +263,7 @@ export default function EditArticlePage() {
     saveTimer.current = setTimeout(() => {
       try {
         localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
-          title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId,
+          title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId,
           savedAt: new Date().toISOString(),
         }));
         setLastSaved(new Date());
@@ -270,7 +271,7 @@ export default function EditArticlePage() {
     }, AUTO_SAVE_DELAY);
 
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [title, body, category, coverImageUrl, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId, initialLoading, articleId, LOCAL_DRAFT_KEY]);
+  }, [title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId, initialLoading, articleId, LOCAL_DRAFT_KEY]);
 
   useEffect(() => {
     if (!lastSaved) return;
@@ -428,6 +429,7 @@ export default function EditArticlePage() {
           body,
           category: category || null,
           cover_image_url: coverImageUrl || null,
+          cover_image_caption: coverImageCaption.trim() || null,
           source_url: sourceUrl || null,
           source_platform: sourcePlatform || null,
           is_breaking: isBreaking,
@@ -1088,6 +1090,32 @@ export default function EditArticlePage() {
                 onUpload={(urls: string[]) => setCoverImageUrl(urls[0] ?? '')}
                 existingUrls={coverImageUrl ? [coverImageUrl] : []}
               />
+
+              {/* Caption foto — muncul kalau cover sudah di-upload */}
+              {coverImageUrl && (
+                <div style={{ marginTop: 12 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: t.textDim, marginBottom: 6 }}>
+                    📸 Keterangan Foto <span style={{ fontWeight: 400, color: t.textDim, opacity: 0.7 }}>(opsional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={coverImageCaption}
+                    onChange={(e) => setCoverImageCaption(e.target.value)}
+                    placeholder="Contoh: Foto: Antara/Hafidz Mubarak A — Presiden meninjau kesiapan..."
+                    maxLength={300}
+                    style={{
+                      width: '100%', padding: '8px 12px', borderRadius: 8, fontSize: 13,
+                      background: editorTokens.inputBg,
+                      border: `1px solid ${editorTokens.inputBorder}`,
+                      color: t.textPrimary,
+                      outline: 'none',
+                    }}
+                  />
+                  <p style={{ fontSize: 11, color: t.textDim, marginTop: 4, lineHeight: 1.5 }}>
+                    Tampil di bawah foto di halaman detail artikel. Sertakan sumber foto dan konteks (siapa, di mana, kapan).
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Markdown toolbar */}
