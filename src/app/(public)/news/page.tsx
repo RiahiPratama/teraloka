@@ -311,12 +311,13 @@ const CATEGORY_ICON: Record<string, string> = {
 function LiveBALAPORFeed({ reports }: { reports: any[] }) {
   if (!reports.length) return null;
   return (
-    <div className="rounded-2xl p-4 my-4" style={{ background: '#F9FAFB', border: '1px solid #F3F4F6' }}>
+    <div className="rounded-2xl p-4 my-4" style={{ background: '#FFF7F5', border: '0.5px solid #F5C4B3', borderLeft: '3px solid #D85A30' }}>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-bold text-gray-800">
-          🚨 Warga lagi melapor
+        <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: '#993C1D' }}>
+          <Siren size={14} strokeWidth={2.2} />
+          Warga lagi melapor
         </p>
-        <Link href="/reports" className="text-xs font-semibold text-[#003526] hover:underline">
+        <Link href="/reports" className="text-xs font-semibold hover:underline" style={{ color: '#993C1D' }}>
           Lihat semua →
         </Link>
       </div>
@@ -327,14 +328,17 @@ function LiveBALAPORFeed({ reports }: { reports: any[] }) {
               {CATEGORY_ICON[r.category] || CATEGORY_ICON.default}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">{r.title}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(r.created_at)}</p>
+              <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: '#4A1B0C' }}>{r.title}</p>
+              <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#993C1D' }}>
+                <Clock size={9} strokeWidth={2.2} />
+                {timeAgo(r.created_at)}
+              </p>
             </div>
           </div>
         ))}
       </div>
       <Link href="/reports/new"
-        className="block mt-3 text-center text-xs font-bold py-2 rounded-xl"
+        className="block mt-3 text-center text-xs font-bold py-2.5 rounded-xl hover:opacity-90 transition-opacity"
         style={{ background: '#003526', color: '#fff' }}>
         + Laporkan Kejadian
       </Link>
