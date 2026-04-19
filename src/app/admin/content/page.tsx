@@ -1,670 +1,327 @@
 'use client';
 
-import { useEffect, useState, useContext, useMemo, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
-import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+/**
+ * TeraLoka — Admin Content Page (BAKABAR Command Center)
+ * Phase 2 · Batch 7e1 — Content Panel Migration
+ * ------------------------------------------------------------
+ * BAKABAR admin dashboard — monitor + manage articles.
+ *
+ * Structure (3 tabs):
+ * - Overview:         Stats + Trending + Manajemen (THIS batch: Stats only)
+ * - Newsroom Analytics:  DB-based editorial metrics (Batch 7e4)
+ * - Distribution Metrics: PostHog-powered traffic metrics (Batch 7e5)
+ *
+ * Batch 7e1 scope:
+ * - Page shell with 3-tab navigation
+ * - Overview tab: Stats cards functional
+ * - Trending + Manajemen: placeholder ("coming in next batch")
+ * - Tab 2 + 3: "Coming Soon" roadmap placeholder
+ */
+
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useApi, ApiError } from '@/lib/api/client';
+import { ArticleStats } from '@/components/admin/content/article-stats';
+import {
+  computeArticleStats,
+  filterByPeriod,
+  type Article,
+  type StatsPeriod,
+  STATS_PERIOD_LABELS,
+} from '@/types/articles';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+type Tab = 'overview' | 'newsroom' | 'distribution';
 
-interface Article {
-  id: string;
-  title: string;
-  slug: string;
-  status: string;
-  category: string | null;
-  author_name: string;
-  view_count: number;
-  share_count: number;
-  viral_score: number;
-  is_viral: boolean;
-  is_breaking: boolean;
-  published_at: string | null;
-  created_at: string;
-}
+const TABS: { key: Tab; label: string; icon: string }[] = [
+  { key: 'overview',     label: 'Overview',             icon: '📊' },
+  { key: 'newsroom',     label: 'Newsroom Analytics',   icon: '📰' },
+  { key: 'distribution', label: 'Distribution Metrics', icon: '📈' },
+];
 
-function timeAgo(dateStr: string) {
-  if (!dateStr) return '—';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const m = Math.floor(diff / 60000);
-  if (m < 60) return `${m} mnt lalu`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h} jam lalu`;
-  return `${Math.floor(h / 24)} hari lalu`;
-}
+export default function AdminContentPage() {
+  const api = useApi();
 
-function formatNum(n: number): string {
-  if (!n) return '0';
-  if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
-  return String(n);
-}
+  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [period, setPeriod] = useState<StatsPeriod>('7d');
 
-function AuthorAvatar({ name, size = 26 }: { name: string; size?: number }) {
-  const initial = (name || 'A').charAt(0).toUpperCase();
-  const colors  = ['#1B6B4A', '#0891B2', '#7C3AED', '#DB2777', '#D97706'];
-  const color   = colors[initial.charCodeAt(0) % colors.length];
-  return (
-    <div title={name} style={{ width: size, height: size, borderRadius: '50%', background: color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: size * 0.4, fontWeight: 800, color: '#fff', flexShrink: 0 }}>
-      {initial}
-    </div>
-  );
-}
-
-// ─── Debounce hook ───────────────────────────────────────────────
-function useDebounce<T>(value: T, delay = 300): T {
-  const [debounced, setDebounced] = useState(value);
-  useEffect(() => {
-    const h = setTimeout(() => setDebounced(value), delay);
-    return () => clearTimeout(h);
-  }, [value, delay]);
-  return debounced;
-}
-
-// ─── Date range helper ───────────────────────────────────────────
-function getDateRange(period: string): { from?: string; to?: string } {
-  const now = new Date();
-  const today = now.toISOString().split('T')[0];
-
-  if (period === 'all') return {};
-  if (period === 'today') return { from: today, to: today };
-  if (period === '7d') {
-    const d = new Date(now.getTime() - 7 * 24 * 3600 * 1000);
-    return { from: d.toISOString().split('T')[0], to: today };
-  }
-  if (period === '30d') {
-    const d = new Date(now.getTime() - 30 * 24 * 3600 * 1000);
-    return { from: d.toISOString().split('T')[0], to: today };
-  }
-  if (period === '90d') {
-    const d = new Date(now.getTime() - 90 * 24 * 3600 * 1000);
-    return { from: d.toISOString().split('T')[0], to: today };
-  }
-  return {};
-}
-
-export default function BakabarCommandPage() {
-  const { token, user } = useAuth();
-  const { t }     = useContext(AdminThemeContext);
-
-  // ── Main articles (untuk Stats + Trending + Artikel Baru) ──
   const [articles, setArticles] = useState<Article[]>([]);
-  const [loading, setLoading]   = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [retryNonce, setRetryNonce] = useState(0);
 
-  // ── Manajemen Artikel state ──
-  const [searchInput, setSearchInput] = useState('');
-  const search = useDebounce(searchInput, 300);
-  const [statusFilter, setStatusFilter] = useState<string>('');
-  const [periodFilter, setPeriodFilter] = useState<string>('all');
-  const [page, setPage] = useState(1);
-  const pageSize = 10;
+  /* ─── Fetch articles (top 50 recent) ─── */
 
-  const [manageArticles, setManageArticles] = useState<Article[]>([]);
-  const [manageTotal, setManageTotal]       = useState(0);
-  const [manageLoading, setManageLoading]   = useState(false);
-
-  // ── Hard delete state ──
-  const [deleteTarget, setDeleteTarget] = useState<Article | null>(null);
-  const [confirmSlug, setConfirmSlug]   = useState('');
-  const [deleteReason, setDeleteReason] = useState('');
-  const [deleting, setDeleting]         = useState(false);
-  const [deleteError, setDeleteError]   = useState('');
-  const [deleteResult, setDeleteResult] = useState<{ files_removed: number; article_title: string } | null>(null);
-
-  const isSuperAdmin = user?.role === 'super_admin';
-
-  // ── Fetch main articles (50 terbaru untuk stats + trending) ──
   useEffect(() => {
-    if (!token) return;
-    fetch(`${API}/admin/articles?limit=50`, { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
-      .then(d => { if (d.success) setArticles(d.data.data); })
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  }, [token]);
+    const controller = new AbortController();
+    let cancelled = false;
 
-  // ── Fetch articles untuk Manajemen section (dengan filter) ──
-  const fetchManageArticles = useCallback(async () => {
-    if (!token || !isSuperAdmin) return;
-    setManageLoading(true);
-    try {
-      const { from, to } = getDateRange(periodFilter);
-      const params = new URLSearchParams({
-        page:  String(page),
-        limit: String(pageSize),
-      });
-      if (search.trim())   params.set('q', search.trim());
-      if (statusFilter)    params.set('status', statusFilter);
-      if (from)            params.set('from', from);
-      if (to)              params.set('to', to);
+    setLoading(true);
+    setError(null);
 
-      const res  = await fetch(`${API}/admin/articles?${params}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (data.success) {
-        setManageArticles(data.data.data || []);
-        setManageTotal(data.data.total || 0);
+    (async () => {
+      try {
+        const res = await api.get<{ data: Article[]; total: number }>(
+          '/admin/articles',
+          {
+            params: { limit: 50, page: 1 },
+            signal: controller.signal,
+          }
+        );
+
+        if (cancelled) return;
+
+        // API wrapper sometimes returns { data, total } or flat array.
+        // Defensive: check shape.
+        const list = Array.isArray(res) ? res : res?.data || [];
+        setArticles(list);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError) {
+          setError(err.message);
+        } else if ((err as Error).name !== 'AbortError') {
+          setError('Gagal memuat artikel');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    } catch {}
-    finally {
-      setManageLoading(false);
-    }
-  }, [token, isSuperAdmin, search, statusFilter, periodFilter, page]);
+    })();
 
-  useEffect(() => { fetchManageArticles(); }, [fetchManageArticles]);
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [api, retryNonce]);
 
-  // Reset page ke 1 kalau filter berubah
-  useEffect(() => { setPage(1); }, [search, statusFilter, periodFilter]);
+  const refetch = useCallback(() => setRetryNonce((n) => n + 1), []);
 
-  // ── Derived data ──
-  const published   = articles.filter(a => a.status === 'published');
-  const drafts      = articles.filter(a => a.status === 'draft');
-  const totalViews  = published.reduce((s, a) => s + (a.view_count || 0), 0);
-  const now         = Date.now();
-  const staleDrafts = drafts.filter(a => now - new Date(a.created_at).getTime() > 3 * 3600 * 1000);
-  const trending    = [...published].sort((a, b) => b.viral_score - a.viral_score).slice(0, 5);
-  const recent      = [...published]
-    .sort((a, b) => new Date(b.published_at || b.created_at).getTime() - new Date(a.published_at || a.created_at).getTime())
-    .slice(0, 5);
+  /* ─── Derived state ─── */
 
-  const totalPages = Math.ceil(manageTotal / pageSize);
+  const periodArticles = filterByPeriod(articles, period);
+  const stats = computeArticleStats(periodArticles);
+  const periodLabel = STATS_PERIOD_LABELS[period];
 
-  const handleHardDelete = async () => {
-    if (!deleteTarget || !token) return;
-    if (confirmSlug.trim() !== deleteTarget.slug) {
-      setDeleteError('Slug yang kamu ketik tidak cocok. Cek lagi.');
-      return;
-    }
-
-    setDeleting(true);
-    setDeleteError('');
-    try {
-      const res = await fetch(`${API}/admin/articles/${deleteTarget.id}/permanent`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ reason: deleteReason.trim() || undefined }),
-      });
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error?.message || 'Gagal hapus permanen');
-      }
-      setDeleteResult({
-        files_removed: data.data?.files_removed ?? 0,
-        article_title: data.data?.article_title ?? deleteTarget.title,
-      });
-      // Refresh Manajemen list + main articles
-      setManageArticles(prev => prev.filter(a => a.id !== deleteTarget.id));
-      setArticles(prev => prev.filter(a => a.id !== deleteTarget.id));
-      setTimeout(() => closeDeleteModal(), 3000);
-    } catch (err: any) {
-      setDeleteError(err.message || 'Terjadi kesalahan');
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const openDeleteModal = (article: Article) => {
-    setDeleteTarget(article);
-    setConfirmSlug('');
-    setDeleteReason('');
-    setDeleteError('');
-    setDeleteResult(null);
-  };
-
-  const closeDeleteModal = () => {
-    setDeleteTarget(null);
-    setConfirmSlug('');
-    setDeleteReason('');
-    setDeleteError('');
-    setDeleteResult(null);
-  };
-
-  const StatCard = ({ label, value, sub, color = '#1B6B4A' }: { label: string; value: string | number; sub?: string; color?: string }) => (
-    <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px', flex: 1 }}>
-      <div style={{ fontSize: 12, color: t.textDim, fontWeight: 500, marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 26, fontWeight: 800, color, letterSpacing: '-0.03em', marginBottom: 2 }}>{value}</div>
-      {sub && <div style={{ fontSize: 11, color: t.textDim }}>{sub}</div>}
-    </div>
-  );
+  /* ─── Render ─── */
 
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
-
+    <div className="max-w-[1200px] mx-auto px-4 py-6">
       {/* Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24 }}>
+      <div className="flex items-center justify-between gap-3 mb-6">
         <div>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>
-            📰 BAKABAR Command Center
+          <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
+            <span>📰</span>
+            <span>BAKABAR Command Center</span>
           </h1>
-          <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>Overview performa konten hari ini</p>
+          <p className="text-sm text-text-muted mt-1">
+            Monitor performa konten + editorial workflow
+          </p>
         </div>
-        <Link href="/office/newsroom/bakabar/hub" style={{ padding: '8px 16px', borderRadius: 10, background: '#1B6B4A', color: '#fff', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+        <Link
+          href="/office/newsroom/bakabar/hub"
+          className="hidden sm:inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-brand-teal text-white text-xs font-semibold hover:bg-brand-teal/90 transition-colors shrink-0"
+        >
           Editorial Hub →
         </Link>
       </div>
 
       {/* Tab bar */}
-      <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${t.sidebarBorder}`, paddingBottom: 0 }}>
-        {['Overview', 'Newsroom Analytics', 'Distribution Metrics'].map((tab, i) => (
-          <div key={tab} style={{ padding: '8px 16px', fontSize: 13, fontWeight: i === 0 ? 700 : 500, color: i === 0 ? '#1B6B4A' : t.textDim, cursor: 'pointer', borderBottom: i === 0 ? '2px solid #1B6B4A' : '2px solid transparent', marginBottom: -1 }}>
-            {tab}
-          </div>
+      <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
+        {TABS.map((tab) => (
+          <button
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key)}
+            className={`
+              relative px-3 sm:px-4 py-2.5 text-sm font-semibold whitespace-nowrap
+              transition-colors
+              ${
+                activeTab === tab.key
+                  ? 'text-brand-teal'
+                  : 'text-text-muted hover:text-text'
+              }
+            `}
+          >
+            <span className="mr-1.5">{tab.icon}</span>
+            {tab.label}
+            {activeTab === tab.key && (
+              <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand-teal" />
+            )}
+          </button>
         ))}
       </div>
 
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: t.textDim }}>
-          <div style={{ width: 28, height: 28, borderRadius: '50%', border: '3px solid #1B6B4A', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 10px' }} />
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-          Memuat data...
-        </div>
-      ) : (
-        <>
-          {/* Stats row */}
-          <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
-            <StatCard label="Artikel Terbit Hari Ini" value={published.length} sub="artikel published" color="#1B6B4A" />
-            <StatCard label="Total Views Hari Ini" value={formatNum(totalViews)} sub="dari semua artikel" color="#0891B2" />
-            <StatCard
-              label="Draft Perlu Perhatian"
-              value={staleDrafts.length}
-              sub="belum dipublish > 3 jam"
-              color={staleDrafts.length > 0 ? '#F59E0B' : '#10B981'}
-            />
-          </div>
-
-          {/* Trending + Perlu Perhatian */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 20 }}>
-            {/* Trending */}
-            <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>🔥 Trending Hari Ini</span>
-                <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>See All →</Link>
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {trending.slice(0, 2).map(a => (
-                  <div key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#F97316', flexShrink: 0 }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 1 }}>{a.title}</p>
-                      <p style={{ fontSize: 11, color: t.textDim }}>+{formatNum(a.view_count)} views · {formatNum(a.share_count)} shares</p>
-                    </div>
-                    <a href={`/news/${a.slug}`} target="_blank" rel="noopener noreferrer"
-                      style={{ padding: '5px 10px', borderRadius: 8, background: '#1B6B4A', color: '#fff', fontSize: 11, fontWeight: 700, textDecoration: 'none', flexShrink: 0 }}>
-                      Push →
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Perlu Perhatian */}
-            <div style={{ background: staleDrafts.length > 0 ? 'rgba(245,158,11,0.03)' : t.sidebar, borderRadius: 14, border: `1px solid ${staleDrafts.length > 0 ? '#FDE68A' : t.sidebarBorder}`, padding: '18px 20px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>⚠️ Perlu Perhatian</span>
-                <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 11, color: '#F59E0B', textDecoration: 'none', fontWeight: 600 }}>Review →</Link>
-              </div>
-              {staleDrafts.length === 0 ? (
-                <p style={{ fontSize: 12, color: t.textDim }}>✓ Semua artikel sudah diproses dengan baik.</p>
-              ) : (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92400E' }}>
-                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-                    {staleDrafts.length} draft belum dipublish {'>'} 3 jam
-                  </li>
-                  {drafts.length > 0 && (
-                    <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92400E' }}>
-                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F97316', flexShrink: 0 }} />
-                      {drafts.length} total draft menunggu review
-                    </li>
-                  )}
-                </ul>
-              )}
-            </div>
-          </div>
-
-          {/* Editorial Dashboard */}
-          <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-              <span style={{ fontSize: 15, fontWeight: 800, color: t.textPrimary }}>Editorial Dashboard</span>
-              <Link href="/office/newsroom/bakabar/hub" style={{ fontSize: 11, color: '#1B6B4A', textDecoration: 'none', fontWeight: 600 }}>Buka Hub →</Link>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24 }}>
-              {/* Trending table: VIEWS + SHARES (Score removed) */}
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>Artikel Trending</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px', fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
-                  <span>Artikel</span>
-                  <span style={{ textAlign: 'right' }}>Views</span>
-                  <span style={{ textAlign: 'right' }}>Shares</span>
-                </div>
-                {trending.map((a, i) => (
-                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 60px 60px', padding: '8px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
-                    <div style={{ minWidth: 0, paddingRight: 8 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                        <span style={{ fontSize: 9, fontWeight: 800, width: 16, height: 16, borderRadius: '50%', background: i < 2 ? '#F97316' : t.sidebarBorder, color: i < 2 ? '#fff' : t.textDim, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>{i + 1}</span>
-                        <span style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</span>
-                      </div>
-                      <div style={{ fontSize: 10, color: t.textDim, paddingLeft: 22 }}>{a.category ?? '—'} · {timeAgo(a.published_at || a.created_at)}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.textMuted }}>{formatNum(a.view_count)}</div>
-                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: a.share_count > 0 ? '#0891B2' : t.textDim }}>{formatNum(a.share_count)}</div>
-                  </div>
-                ))}
-                {trending.length === 0 && (
-                  <p style={{ fontSize: 11, color: t.textDim, padding: '16px 0', textAlign: 'center' }}>Belum ada artikel trending.</p>
-                )}
-              </div>
-
-              {/* Artikel Baru: STATUS + ARTIKEL + VIEWS + OLEH (avatar+nama, spacing longgar) */}
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>Artikel Baru</div>
-                <div style={{ display: 'grid', gridTemplateColumns: '80px 1fr 44px 100px', gap: 8, fontSize: 9, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 6px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
-                  <span>Status</span>
-                  <span>Artikel</span>
-                  <span style={{ textAlign: 'right' }}>Views</span>
-                  <span>Oleh</span>
-                </div>
-                {recent.map(a => (
-                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '80px 1fr 44px 100px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: '2px 7px', borderRadius: 20, background: 'rgba(16,185,129,0.12)', color: '#059669', display: 'inline-block', width: 'fit-content' }}>Published</span>
-                    <div style={{ minWidth: 0 }}>
-                      <p style={{ fontSize: 10, color: t.textDim, marginBottom: 1 }}>{timeAgo(a.published_at || a.created_at)}</p>
-                      <p style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.title}</p>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: 12, fontWeight: 700, color: t.textMuted }}>{formatNum(a.view_count)}</div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-                      <AuthorAvatar name={a.author_name} size={22} />
-                      <span style={{ fontSize: 11, fontWeight: 500, color: t.textMuted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.author_name}</span>
-                    </div>
-                  </div>
-                ))}
-                {recent.length === 0 && (
-                  <p style={{ fontSize: 11, color: t.textDim, padding: '16px 0', textAlign: 'center' }}>Belum ada artikel baru.</p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ── Manajemen Artikel (Super Admin only) ── */}
-          {isSuperAdmin && (
-            <div style={{ background: t.sidebar, borderRadius: 14, border: '1px solid #FEE2E2', padding: 20, marginTop: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <span style={{ fontSize: 16 }}>⚠️</span>
-                <h3 style={{ fontSize: 14, fontWeight: 800, color: '#DC2626' }}>Manajemen Artikel</h3>
-              </div>
-              <p style={{ fontSize: 11, color: t.textDim, marginBottom: 16 }}>
-                Search, filter, dan hapus artikel secara permanen. Aksi ini tidak bisa di-restore.
-              </p>
-
-              {/* Filter bar */}
-              <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
-                <input
-                  type="text"
-                  value={searchInput}
-                  onChange={e => setSearchInput(e.target.value)}
-                  placeholder="🔍 Cari judul atau slug..."
-                  style={{
-                    flex: 1, minWidth: 200,
-                    padding: '8px 12px', borderRadius: 8,
-                    border: `1px solid ${t.sidebarBorder}`,
-                    fontSize: 12, background: t.mainBg, color: t.textPrimary,
-                    outline: 'none',
-                  }}
-                />
-                <select
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
-                  style={{
-                    padding: '8px 12px', borderRadius: 8,
-                    border: `1px solid ${t.sidebarBorder}`,
-                    fontSize: 12, background: t.mainBg, color: t.textPrimary,
-                    cursor: 'pointer', outline: 'none',
-                  }}
-                >
-                  <option value="">Status: Semua</option>
-                  <option value="draft">Draft</option>
-                  <option value="review">Review</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </select>
-                <select
-                  value={periodFilter}
-                  onChange={e => setPeriodFilter(e.target.value)}
-                  style={{
-                    padding: '8px 12px', borderRadius: 8,
-                    border: `1px solid ${t.sidebarBorder}`,
-                    fontSize: 12, background: t.mainBg, color: t.textPrimary,
-                    cursor: 'pointer', outline: 'none',
-                  }}
-                >
-                  <option value="all">Periode: Semua</option>
-                  <option value="today">Hari ini</option>
-                  <option value="7d">7 hari terakhir</option>
-                  <option value="30d">30 hari terakhir</option>
-                  <option value="90d">90 hari terakhir</option>
-                </select>
-              </div>
-
-              {/* Table header */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 100px 80px', gap: 8, fontSize: 10, fontWeight: 800, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', padding: '0 0 8px', borderBottom: `1px solid ${t.sidebarBorder}`, marginBottom: 6 }}>
-                <span>Artikel</span>
-                <span>Status</span>
-                <span>Tanggal</span>
-                <span style={{ textAlign: 'right' }}>Aksi</span>
-              </div>
-
-              {manageLoading ? (
-                <div style={{ padding: '40px 0', textAlign: 'center', color: t.textDim }}>
-                  <div style={{ width: 24, height: 24, borderRadius: '50%', border: `3px solid ${t.accent}`, borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 8px' }} />
-                  <p style={{ fontSize: 12 }}>Memuat...</p>
-                </div>
-              ) : manageArticles.length === 0 ? (
-                <div style={{ padding: '40px 0', textAlign: 'center' }}>
-                  <p style={{ fontSize: 28, marginBottom: 8 }}>🔎</p>
-                  <p style={{ fontSize: 12, color: t.textDim }}>
-                    {search || statusFilter || periodFilter !== 'all'
-                      ? 'Tidak ada artikel yang cocok dengan filter.'
-                      : 'Belum ada artikel.'}
-                  </p>
-                </div>
-              ) : (
-                manageArticles.map(a => (
-                  <div key={a.id} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 100px 80px', gap: 8, padding: '10px 0', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
-                    <div style={{ minWidth: 0, paddingRight: 8 }}>
-                      <p style={{ fontSize: 12, fontWeight: 600, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: 2 }}>{a.title}</p>
-                      <p style={{ fontSize: 10, color: t.textDim, fontFamily: 'monospace', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{a.slug}</p>
-                    </div>
-                    <span style={{
-                      fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, width: 'fit-content',
-                      background: a.status === 'published' ? 'rgba(16,185,129,0.12)' : a.status === 'draft' ? 'rgba(245,158,11,0.12)' : a.status === 'review' ? 'rgba(8,145,178,0.12)' : 'rgba(107,114,128,0.12)',
-                      color:      a.status === 'published' ? '#059669'             : a.status === 'draft' ? '#D97706'             : a.status === 'review' ? '#0891B2'             : '#6B7280',
-                    }}>
-                      {a.status}
-                    </span>
-                    <span style={{ fontSize: 11, color: t.textDim }}>
-                      {timeAgo(a.published_at || a.created_at)}
-                    </span>
-                    <button
-                      onClick={() => openDeleteModal(a)}
-                      style={{
-                        padding: '5px 10px', borderRadius: 8, background: '#DC2626', color: '#fff',
-                        fontSize: 11, fontWeight: 700, border: 'none', cursor: 'pointer',
-                        marginLeft: 'auto', display: 'block',
-                      }}
-                    >
-                      🗑️ Hapus
-                    </button>
-                  </div>
-                ))
-              )}
-
-              {/* Pagination */}
-              {manageTotal > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 14, paddingTop: 12, borderTop: `1px solid ${t.sidebarBorder}` }}>
-                  <p style={{ fontSize: 11, color: t.textDim }}>
-                    Menampilkan {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, manageTotal)} dari {manageTotal} artikel
-                  </p>
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      onClick={() => setPage(p => Math.max(1, p - 1))}
-                      disabled={page === 1 || manageLoading}
-                      style={{
-                        padding: '5px 12px', borderRadius: 8,
-                        border: `1px solid ${t.sidebarBorder}`,
-                        background: t.sidebar, color: page === 1 ? t.textDim : t.textPrimary,
-                        fontSize: 11, fontWeight: 600,
-                        cursor: (page === 1 || manageLoading) ? 'default' : 'pointer',
-                      }}
-                    >
-                      ‹ Prev
-                    </button>
-                    <span style={{ padding: '5px 12px', fontSize: 11, color: t.textPrimary, fontWeight: 700 }}>
-                      Hal. {page} / {totalPages || 1}
-                    </span>
-                    <button
-                      onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-                      disabled={page >= totalPages || manageLoading}
-                      style={{
-                        padding: '5px 12px', borderRadius: 8,
-                        border: `1px solid ${t.sidebarBorder}`,
-                        background: t.sidebar, color: page >= totalPages ? t.textDim : t.textPrimary,
-                        fontSize: 11, fontWeight: 600,
-                        cursor: (page >= totalPages || manageLoading) ? 'default' : 'pointer',
-                      }}
-                    >
-                      Next ›
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* MODAL: Hapus Permanen */}
-      {deleteTarget && (
-        <div style={{
-          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          zIndex: 9999, padding: 20,
-        }}>
-          <div style={{
-            background: '#fff', borderRadius: 14, padding: 24, maxWidth: 480, width: '100%',
-            boxShadow: '0 20px 60px rgba(0,0,0,0.3)',
-          }}>
-            {deleteResult ? (
-              <>
-                <div style={{ textAlign: 'center', marginBottom: 16 }}>
-                  <div style={{ fontSize: 40, marginBottom: 8 }}>✅</div>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#059669', marginBottom: 6 }}>Artikel Terhapus</h3>
-                  <p style={{ fontSize: 13, color: '#374151', marginBottom: 4 }}>
-                    "{deleteResult.article_title}"
-                  </p>
-                  <p style={{ fontSize: 12, color: '#6B7280' }}>
-                    {deleteResult.files_removed > 0
-                      ? `${deleteResult.files_removed} foto ikut terhapus dari Storage.`
-                      : 'Tidak ada foto terkait.'}
-                  </p>
-                </div>
-                <p style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center' }}>Modal tutup otomatis 3 detik...</p>
-              </>
-            ) : (
-              <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                  <span style={{ fontSize: 24 }}>⚠️</span>
-                  <h3 style={{ fontSize: 16, fontWeight: 800, color: '#DC2626' }}>Hapus Permanen</h3>
-                </div>
-
-                <div style={{ background: '#FEF2F2', borderRadius: 10, padding: 12, marginBottom: 16, border: '1px solid #FECACA' }}>
-                  <p style={{ fontSize: 12, color: '#991B1B', lineHeight: 1.5, marginBottom: 6 }}>
-                    Kamu akan menghapus artikel ini <strong>secara permanen</strong>:
-                  </p>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#7F1D1D', marginBottom: 4 }}>
-                    {deleteTarget.title}
-                  </p>
-                  <p style={{ fontSize: 11, color: '#991B1B', fontFamily: 'monospace' }}>
-                    {deleteTarget.slug}
-                  </p>
-                </div>
-
-                <p style={{ fontSize: 12, color: '#4B5563', marginBottom: 14, lineHeight: 1.5 }}>
-                  Yang akan dihapus: artikel, semua versi history, foto cover, dan foto dalam body. <strong>Tidak bisa di-restore.</strong>
-                  <br/>
-                  Audit log akan tetap tercatat sebagai jejak.
-                </p>
-
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
-                  Alasan hapus <span style={{ color: '#9CA3AF', fontWeight: 400 }}>(opsional)</span>
-                </label>
-                <textarea
-                  value={deleteReason}
-                  onChange={e => setDeleteReason(e.target.value)}
-                  placeholder="Contoh: Artikel duplikat, test data, konten ilegal..."
-                  rows={2}
-                  style={{
-                    width: '100%', padding: '8px 10px', borderRadius: 8,
-                    border: '1px solid #E5E7EB', fontSize: 12, fontFamily: 'inherit',
-                    marginBottom: 14, resize: 'vertical', boxSizing: 'border-box',
-                  }}
-                />
-
-                <label style={{ fontSize: 12, fontWeight: 600, color: '#374151', display: 'block', marginBottom: 6 }}>
-                  Untuk konfirmasi, ketik slug artikel: <code style={{ background: '#F3F4F6', padding: '1px 6px', borderRadius: 4, fontSize: 11 }}>{deleteTarget.slug}</code>
-                </label>
-                <input
-                  value={confirmSlug}
-                  onChange={e => { setConfirmSlug(e.target.value); setDeleteError(''); }}
-                  placeholder="Ketik slug di atas..."
-                  style={{
-                    width: '100%', padding: '10px 12px', borderRadius: 8,
-                    border: `2px solid ${deleteError ? '#DC2626' : '#E5E7EB'}`,
-                    fontSize: 13, fontFamily: 'monospace', marginBottom: 8,
-                    boxSizing: 'border-box', outline: 'none',
-                  }}
-                />
-
-                {deleteError && (
-                  <p style={{ fontSize: 11, color: '#DC2626', marginBottom: 12 }}>
-                    ⚠️ {deleteError}
-                  </p>
-                )}
-
-                <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
-                  <button
-                    onClick={closeDeleteModal}
-                    disabled={deleting}
-                    style={{
-                      flex: 1, padding: '10px', borderRadius: 8,
-                      background: '#F3F4F6', color: '#374151',
-                      border: 'none', fontSize: 13, fontWeight: 600,
-                      cursor: deleting ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    Batal
-                  </button>
-                  <button
-                    onClick={handleHardDelete}
-                    disabled={deleting || confirmSlug.trim() !== deleteTarget.slug}
-                    style={{
-                      flex: 1, padding: '10px', borderRadius: 8,
-                      background: (deleting || confirmSlug.trim() !== deleteTarget.slug) ? '#FCA5A5' : '#DC2626',
-                      color: '#fff', border: 'none', fontSize: 13, fontWeight: 700,
-                      cursor: (deleting || confirmSlug.trim() !== deleteTarget.slug) ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {deleting ? 'Menghapus...' : '🗑️ Hapus Permanen'}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+      {/* Error banner */}
+      {error && (
+        <div className="mb-4 px-4 py-3 rounded-lg bg-status-critical/10 border border-status-critical/30 text-status-critical text-sm flex items-center justify-between gap-3">
+          <span>⚠️ {error}</span>
+          <button
+            onClick={refetch}
+            className="text-xs font-semibold underline hover:no-underline"
+          >
+            Coba lagi
+          </button>
         </div>
       )}
+
+      {/* Tab content */}
+      {activeTab === 'overview' && (
+        <OverviewTab
+          stats={stats}
+          periodLabel={periodLabel}
+          period={period}
+          onPeriodChange={setPeriod}
+          loading={loading}
+        />
+      )}
+
+      {activeTab === 'newsroom' && <ComingSoonTab tab="newsroom" />}
+
+      {activeTab === 'distribution' && <ComingSoonTab tab="distribution" />}
+    </div>
+  );
+}
+
+/* ─── Overview Tab (Batch 7e1: partial — stats only) ─── */
+
+interface OverviewTabProps {
+  stats: ReturnType<typeof computeArticleStats>;
+  periodLabel: string;
+  period: StatsPeriod;
+  onPeriodChange: (p: StatsPeriod) => void;
+  loading: boolean;
+}
+
+function OverviewTab({
+  stats,
+  periodLabel,
+  period,
+  onPeriodChange,
+  loading,
+}: OverviewTabProps) {
+  return (
+    <div className="space-y-6">
+      {/* Period selector */}
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
+          Ringkasan
+        </h2>
+        <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
+          {(['7d', '30d', '90d', 'all'] as StatsPeriod[]).map((p) => (
+            <button
+              key={p}
+              onClick={() => onPeriodChange(p)}
+              className={`
+                px-3 py-1 text-xs font-semibold rounded-md transition-colors
+                ${
+                  period === p
+                    ? 'bg-brand-teal text-white'
+                    : 'text-text-muted hover:text-text'
+                }
+              `}
+            >
+              {STATS_PERIOD_LABELS[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Stats cards */}
+      <ArticleStats stats={stats} periodLabel={periodLabel} loading={loading} />
+
+      {/* Placeholder — Trending + Manajemen datang di Batch 7e2 */}
+      <div className="rounded-xl border border-dashed border-border bg-surface-muted/50 p-8 text-center">
+        <p className="text-sm text-text-muted">
+          🚧 <strong>Trending, Perlu Perhatian, dan Manajemen Artikel</strong>{' '}
+          akan hadir di Batch 7e2 (segera)
+        </p>
+        <p className="text-xs text-text-subtle mt-2">
+          Scope: Top 5 trending artikel, alert untuk draft stale, dan table
+          lengkap manajemen dengan filter + delete.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Coming Soon Tab ─── */
+
+interface ComingSoonTabProps {
+  tab: 'newsroom' | 'distribution';
+}
+
+function ComingSoonTab({ tab }: ComingSoonTabProps) {
+  const config = {
+    newsroom: {
+      title: 'Newsroom Analytics',
+      emoji: '📰',
+      description: 'Editorial intelligence — metrics untuk optimize editorial strategy',
+      features: [
+        'Publishing velocity (30-day trend chart)',
+        'Top authors by articles + views',
+        'Category distribution (pie/bar chart)',
+        'Draft → publish cycle time',
+        'Viral score distribution (histogram)',
+        'Article status breakdown',
+      ],
+      eta: 'Batch 7e4 — segera setelah Tab 1 complete',
+      dependsOn: 'Data dari `articles` table (sudah ada)',
+    },
+    distribution: {
+      title: 'Distribution Metrics',
+      emoji: '📈',
+      description:
+        'Traffic intelligence — data untuk pitch ke mitra + optimize distribusi',
+      features: [
+        'Share platform breakdown (WA/FB/Twitter/TG/copy-link)',
+        'Traffic source analysis (direct/search/social)',
+        'Peak reading hours heatmap',
+        'Article pageviews over time',
+        'Avg time on page per article',
+        'Bounce rate per category',
+      ],
+      eta: 'Batch 7e5 — setelah Tab 2 functional',
+      dependsOn:
+        'PostHog events (✅ sudah live sejak Batch 7e3). Data akan terkumpul organic setelah launch.',
+    },
+  }[tab];
+
+  return (
+    <div className="rounded-xl border border-border bg-surface p-8">
+      <div className="text-center mb-6">
+        <div className="text-4xl mb-3">{config.emoji}</div>
+        <h3 className="text-xl font-bold text-text mb-2">{config.title}</h3>
+        <p className="text-sm text-text-muted max-w-md mx-auto">
+          {config.description}
+        </p>
+      </div>
+
+      <div className="max-w-md mx-auto space-y-4">
+        <div>
+          <p className="text-xs font-semibold text-text-muted uppercase tracking-wide mb-2">
+            Fitur Yang Akan Datang
+          </p>
+          <ul className="space-y-1.5">
+            {config.features.map((f) => (
+              <li
+                key={f}
+                className="text-sm text-text flex items-start gap-2"
+              >
+                <span className="text-brand-teal mt-0.5">•</span>
+                <span>{f}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="pt-4 border-t border-border space-y-2">
+          <div className="flex items-start gap-2 text-sm">
+            <span className="text-text-muted shrink-0">📅 ETA:</span>
+            <span className="text-text">{config.eta}</span>
+          </div>
+          <div className="flex items-start gap-2 text-sm">
+            <span className="text-text-muted shrink-0">📊 Data source:</span>
+            <span className="text-text">{config.dependsOn}</span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
