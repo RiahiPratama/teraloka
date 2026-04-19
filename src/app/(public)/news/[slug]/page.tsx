@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import { Siren, Users, Newspaper, FileText, HandHeart, ArrowRight, Clock } from 'lucide-react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 import AdInArticle from '@/components/ads/AdInArticle';
 import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
@@ -244,18 +245,24 @@ const CATEGORY_ICON: Record<string, string> = {
 function MiniBALAPORFeed({ reports }: { reports: any[] }) {
   if (!reports.length) return null;
   return (
-    <div className="mt-5 bg-gray-50 rounded-2xl p-4 border border-gray-100">
+    <div className="mt-5 rounded-2xl p-4" style={{ background: '#FFF7F5', border: '0.5px solid #F5C4B3', borderLeft: '3px solid #D85A30' }}>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-bold text-gray-800">🚨 Warga lagi melapor</p>
-        <Link href="/reports" className="text-xs font-semibold text-[#003526] hover:underline">Lihat semua →</Link>
+        <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: '#993C1D' }}>
+          <Siren size={14} strokeWidth={2.2} />
+          Warga lagi melapor
+        </p>
+        <Link href="/reports" className="text-xs font-semibold hover:underline flex items-center gap-1" style={{ color: '#993C1D' }}>
+          Lihat semua <ArrowRight size={11} />
+        </Link>
       </div>
       <div className="space-y-2.5">
         {reports.slice(0, 3).map((r: any) => (
           <div key={r.id} className="flex items-start gap-2">
             <span className="text-sm shrink-0 mt-0.5">{CATEGORY_ICON[r.category] || '📋'}</span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">{r.title}</p>
-              <p className="text-[10px] text-gray-400 mt-0.5">
+              <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: '#4A1B0C' }}>{r.title}</p>
+              <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#993C1D' }}>
+                <Clock size={9} strokeWidth={2.2} />
                 {(() => {
                   const diff = Date.now() - new Date(r.created_at).getTime();
                   const h = Math.floor(diff / 3600000);
@@ -270,7 +277,7 @@ function MiniBALAPORFeed({ reports }: { reports: any[] }) {
         ))}
       </div>
       <Link href="/reports/new"
-        className="block mt-3 text-center text-xs font-bold py-2 rounded-xl"
+        className="flex items-center justify-center gap-1.5 mt-3 text-center text-xs font-bold py-2.5 rounded-xl hover:opacity-90 transition-opacity"
         style={{ background: '#003526', color: '#fff' }}>
         + Laporkan Kejadian
       </Link>
@@ -314,23 +321,43 @@ function RelatedArticles({ articles }: { articles: any[] }) {
 }
 
 function SocialProof({ stats }: { stats: any }) {
-  const items = [
-    { value: stats?.donations_today ? `${stats.donations_today.toLocaleString('id-ID')}+` : '—', label: 'Orang bantu hari ini', icon: '👥' },
-    { value: stats?.reports_this_week ? `${stats.reports_this_week}` : '—', label: 'Laporan masuk minggu ini', icon: '📋' },
-    { value: stats?.transport_checks_today ? `${stats.transport_checks_today}+` : '500+', label: 'Cek jadwal hari ini', icon: '🚢' },
-  ];
+  // Stats backend pakai struktur nested: stats.articles.total, stats.reports.total
+  // Untuk field yang belum ada (donations_today, transport_checks_today) → icon + "Segera"
+  const totalArticles = stats?.articles?.total;
+  const totalReports = stats?.reports?.total;
+
   return (
-    <div className="mt-5 bg-white border border-gray-100 rounded-2xl p-5">
-      <p className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-1">
-        👥 Torang samua lagi bergerak <span className="text-[#003526]">💚</span>
+    <div className="mt-5 rounded-2xl p-5" style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
+      <p className="text-sm font-bold mb-4 flex items-center gap-1.5" style={{ color: '#854F0B' }}>
+        <Users size={15} strokeWidth={2.2} />
+        Torang samua lagi bergerak
       </p>
       <div className="grid grid-cols-3 gap-3 text-center">
-        {items.map((item, i) => (
-          <div key={i}>
-            <p className="text-lg font-black text-[#003526]">{item.value}</p>
-            <p className="text-[10px] text-gray-400 leading-tight mt-0.5">{item.label}</p>
+        <div>
+          <div className="flex justify-center mb-1">
+            <HandHeart size={22} strokeWidth={2} style={{ color: '#BA7517' }} />
           </div>
-        ))}
+          <p className="text-sm font-bold mt-1" style={{ color: '#412402' }}>Segera</p>
+          <p className="text-[10px] leading-tight mt-0.5" style={{ color: '#854F0B' }}>Orang bantu hari ini</p>
+        </div>
+        <div>
+          <div className="flex justify-center mb-1">
+            <FileText size={22} strokeWidth={2} style={{ color: '#BA7517' }} />
+          </div>
+          <p className="text-lg font-black mt-0.5" style={{ color: '#412402' }}>
+            {typeof totalReports === 'number' ? totalReports : '—'}
+          </p>
+          <p className="text-[10px] leading-tight mt-0.5" style={{ color: '#854F0B' }}>Total laporan warga</p>
+        </div>
+        <div>
+          <div className="flex justify-center mb-1">
+            <Newspaper size={22} strokeWidth={2} style={{ color: '#BA7517' }} />
+          </div>
+          <p className="text-lg font-black mt-0.5" style={{ color: '#412402' }}>
+            {typeof totalArticles === 'number' ? totalArticles : '—'}
+          </p>
+          <p className="text-[10px] leading-tight mt-0.5" style={{ color: '#854F0B' }}>Artikel terbit</p>
+        </div>
       </div>
     </div>
   );
@@ -485,19 +512,11 @@ export default async function ArticlePage({ params }: Props) {
 
             {/* Cover — full natural aspect, max-height smart, letterbox bg */}
             {article.cover_image_url && (
-              <div className="mb-6">
-                <div className="rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
-                  style={{ maxHeight: 600 }}>
-                  <img src={article.cover_image_url} alt={article.title}
-                    className="w-full h-auto object-contain"
-                    style={{ maxHeight: 600 }} />
-                </div>
-                {/* Caption — attribution & konteks foto. Optional. */}
-                {article.cover_image_caption && (
-                  <p className="mt-2 text-sm text-gray-500 italic leading-relaxed">
-                    {article.cover_image_caption}
-                  </p>
-                )}
+              <div className="mb-6 rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
+                style={{ maxHeight: 600 }}>
+                <img src={article.cover_image_url} alt={article.title}
+                  className="w-full h-auto object-contain"
+                  style={{ maxHeight: 600 }} />
               </div>
             )}
 
@@ -594,20 +613,36 @@ export default async function ArticlePage({ params }: Props) {
               </div>
 
               {stats && (
-                <div className="bg-gray-50 rounded-2xl p-4 border border-gray-100">
-                  <p className="text-xs font-bold text-gray-700 mb-3">👥 Torang samua lagi bergerak 💚</p>
-                  <div className="space-y-2">
+                <div className="rounded-2xl p-4" style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
+                  <p className="text-xs font-bold mb-3 flex items-center gap-1.5" style={{ color: '#854F0B' }}>
+                    <Users size={13} strokeWidth={2.2} />
+                    Torang samua lagi bergerak
+                  </p>
+                  <div className="space-y-2.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Donasi hari ini</span>
-                      <span className="text-xs font-bold text-[#003526]">{stats.donations_today ?? '—'}+</span>
+                      <span className="text-xs flex items-center gap-1.5" style={{ color: '#854F0B' }}>
+                        <HandHeart size={12} strokeWidth={2} />
+                        Donasi hari ini
+                      </span>
+                      <span className="text-xs font-bold" style={{ color: '#412402' }}>Segera</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Laporan minggu ini</span>
-                      <span className="text-xs font-bold text-[#003526]">{stats.reports_this_week ?? '—'}</span>
+                      <span className="text-xs flex items-center gap-1.5" style={{ color: '#854F0B' }}>
+                        <FileText size={12} strokeWidth={2} />
+                        Total laporan
+                      </span>
+                      <span className="text-xs font-bold" style={{ color: '#412402' }}>
+                        {typeof stats.reports?.total === 'number' ? stats.reports.total : '—'}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs text-gray-500">Total artikel</span>
-                      <span className="text-xs font-bold text-[#003526]">{stats.total_articles ?? '—'}</span>
+                      <span className="text-xs flex items-center gap-1.5" style={{ color: '#854F0B' }}>
+                        <Newspaper size={12} strokeWidth={2} />
+                        Total artikel
+                      </span>
+                      <span className="text-xs font-bold" style={{ color: '#412402' }}>
+                        {typeof stats.articles?.total === 'number' ? stats.articles.total : '—'}
+                      </span>
                     </div>
                   </div>
                 </div>

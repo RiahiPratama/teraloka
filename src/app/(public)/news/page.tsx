@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { TrendingUp, Siren, Clock } from 'lucide-react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -628,14 +629,18 @@ function NewsPageContent() {
               <div className="sticky top-[108px] space-y-5">
                 <AdSidebar height={260} label="300 × 250" />
 
-                {/* Terpopuler */}
-                <div className="bg-gray-50 rounded-2xl p-4">
-                  <p className="text-xs font-black text-gray-800 uppercase tracking-widest mb-3">🔥 Terpopuler</p>
+                {/* Terpopuler — Discovery · blue accent */}
+                <div className="rounded-2xl p-4" style={{ background: '#F3F7FB', border: '0.5px solid #B5D4F4', borderLeft: '3px solid #378ADD' }}>
+                  <p className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: '#185FA5' }}>
+                    <TrendingUp size={13} strokeWidth={2.4} />
+                    Terpopuler
+                  </p>
                   {articles.slice(0, 5).map((a, i) => (
                     <Link key={a.id} href={`/news/${a.slug}`}
-                      className="flex items-start gap-2.5 py-2.5 border-b border-gray-100 last:border-0 group">
-                      <span className="text-2xl font-black text-gray-200 leading-none w-6 shrink-0">{i + 1}</span>
-                      <p className="text-xs font-semibold text-gray-700 leading-snug group-hover:text-[#003526] line-clamp-3">{a.title}</p>
+                      className="flex items-start gap-2.5 py-2.5 last:border-0 group"
+                      style={{ borderBottom: '0.5px solid #D6E4F2' }}>
+                      <span className="text-2xl font-black leading-none w-6 shrink-0" style={{ color: '#378ADD' }}>{i + 1}</span>
+                      <p className="text-xs font-semibold leading-snug line-clamp-3 group-hover:underline" style={{ color: '#042C53' }}>{a.title}</p>
                     </Link>
                   ))}
                 </div>
@@ -649,16 +654,22 @@ function NewsPageContent() {
                   </Link>
                 </div>
 
-                {/* Live BALAPOR sidebar */}
+                {/* Live BALAPOR sidebar — Alert · coral accent */}
                 {recentReports.length > 0 && (
-                  <div className="bg-gray-50 rounded-2xl p-4">
-                    <p className="text-xs font-black text-gray-800 uppercase tracking-widest mb-3">🚨 Laporan Terbaru</p>
+                  <div className="rounded-2xl p-4" style={{ background: '#FFF7F5', border: '0.5px solid #F5C4B3', borderLeft: '3px solid #D85A30' }}>
+                    <p className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: '#993C1D' }}>
+                      <Siren size={13} strokeWidth={2.4} />
+                      Laporan Terbaru
+                    </p>
                     {recentReports.slice(0, 3).map((r: any) => (
-                      <div key={r.id} className="flex items-start gap-2 py-2 border-b border-gray-100 last:border-0">
+                      <div key={r.id} className="flex items-start gap-2 py-2 last:border-0" style={{ borderBottom: '0.5px solid #F5C4B3' }}>
                         <span className="text-sm shrink-0">{CATEGORY_ICON[r.category] || '📋'}</span>
                         <div>
-                          <p className="text-xs font-semibold text-gray-700 leading-snug line-clamp-2">{r.title}</p>
-                          <p className="text-[10px] text-gray-400 mt-0.5">{timeAgo(r.created_at)}</p>
+                          <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: '#4A1B0C' }}>{r.title}</p>
+                          <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#993C1D' }}>
+                            <Clock size={9} strokeWidth={2.2} />
+                            {timeAgo(r.created_at)}
+                          </p>
                         </div>
                       </div>
                     ))}
