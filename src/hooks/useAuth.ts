@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, createContext, useContext } from 'react';
+import { posthog, isPostHogReady } from '@/lib/posthog';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const TOKEN_KEY = 'tl_token';
@@ -32,6 +33,39 @@ export function useAuth() {
   return ctx;
 }
 
+/**
+ * PostHog identify helper — mask phone for privacy, include role.
+ * Safe wrapper: no-op kalau PostHog ga ready.
+ */
+function identifyUserInPostHog(user: AuthUser): void {
+  if (!isPostHogReady()) return;
+  try {
+    posthog.identify(user.id, {
+      // Phone dimasking untuk privacy (hanya first 5 + last 3 digits)
+      phone_masked: user.phone ? `${user.phone.slice(0, 5)}***${user.phone.slice(-3)}` : null,
+      role: user.role,
+      name: user.name,
+      has_avatar: Boolean(user.avatar_url),
+      phone_verified: user.phone_verified ?? false,
+    });
+  } catch (err) {
+    console.error('[PostHog] identify failed:', err);
+  }
+}
+
+/**
+ * PostHog reset — call on logout.
+ * Clear identity sehingga next anonymous session tidak terkait ke user lama.
+ */
+function resetPostHog(): void {
+  if (!isPostHogReady()) return;
+  try {
+    posthog.reset();
+  } catch (err) {
+    console.error('[PostHog] reset failed:', err);
+  }
+}
+
 export function useAuthProvider(): AuthContextType {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -55,6 +89,11 @@ export function useAuthProvider(): AuthContextType {
       if (res.ok) {
         const data = await res.json();
         setUser(data.data);
+        // Re-identify on page reload saat user masih authenticated
+        // (PostHog bisa lose identity across browser restart)
+        if (data.data) {
+          identifyUserInPostHog(data.data);
+        }
       } else {
         logout();
       }
@@ -87,6 +126,11 @@ export function useAuthProvider(): AuthContextType {
       localStorage.setItem(TOKEN_KEY, data.data.token);
       setToken(data.data.token);
       setUser(data.data.user);
+
+      // Identify user di PostHog setelah login sukses.
+      // Link semua events browser sebelumnya (anonymous) ke user.id ini.
+      // Critical: kalau user baru register → juga identify (first touch tracking)
+      identifyUserInPostHog(data.data.user);
     }
 
     return {
@@ -107,7 +151,13 @@ export function useAuthProvider(): AuthContextType {
       body: JSON.stringify({ name }),
     });
     const data = await res.json();
-    if (data.success) setUser(data.data);
+    if (data.success) {
+      setUser(data.data);
+      // Re-identify dengan updated name
+      if (data.data) {
+        identifyUserInPostHog(data.data);
+      }
+    }
     return data.success;
   }
 
@@ -115,6 +165,8 @@ export function useAuthProvider(): AuthContextType {
     if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
     setToken(null);
     setUser(null);
+    // Reset PostHog identity — anonymous session next
+    resetPostHog();
   }
 
   return { user, token, isLoading, requestOtp, verifyOtp, updateProfile, logout };
