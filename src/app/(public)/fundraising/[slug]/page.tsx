@@ -8,7 +8,7 @@ import {
   CheckCircle2, Building2, HeartHandshake, MessageCircle,
   Flame, Siren, FileCheck, UserCheck, Flag,
   ImageIcon, Lock, Share2, Megaphone, Wallet,
-  Receipt, Calendar, ArrowRight, Heart,
+  Receipt, ArrowRight, Heart,
 } from 'lucide-react';
 import ShareBar from './_components/ShareBar';
 import AamiinButton from './_components/AamiinButton';
@@ -108,7 +108,7 @@ export default async function CampaignPage({ params }: Props) {
     creator = data;
   } catch { }
 
-  // Donors (verified, for "Donatur" section)
+  // Donors (verified)
   let donors: any[] = [];
   try {
     const { data } = await supabase
@@ -122,7 +122,7 @@ export default async function CampaignPage({ params }: Props) {
     donors = data ?? [];
   } catch { }
 
-  // Usage reports (Rincian Penggunaan Dana)
+  // Usage reports
   let reports: any[] = [];
   try {
     const { data } = await supabase
@@ -135,7 +135,7 @@ export default async function CampaignPage({ params }: Props) {
     reports = data ?? [];
   } catch { }
 
-  // Campaign updates (Kabar Terbaru)
+  // Campaign updates
   let updates: any[] = [];
   try {
     const { data } = await supabase
@@ -147,7 +147,7 @@ export default async function CampaignPage({ params }: Props) {
     updates = data ?? [];
   } catch { }
 
-  // Disbursements (Pencairan Dana)
+  // Disbursements
   let disbursements: any[] = [];
   try {
     const { data } = await supabase
@@ -159,7 +159,7 @@ export default async function CampaignPage({ params }: Props) {
     disbursements = data ?? [];
   } catch { }
 
-  // Donor messages (Doa & Harapan — verified donations with message)
+  // Donor messages
   let donorMessages: any[] = [];
   try {
     const { data } = await supabase
@@ -193,7 +193,7 @@ export default async function CampaignPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
 
-      {/* Back button */}
+      {/* Back */}
       <div className="mx-auto max-w-lg px-4 pt-4 pb-2">
         <Link
           href="/fundraising"
@@ -203,9 +203,7 @@ export default async function CampaignPage({ params }: Props) {
         </Link>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          MAIN CAMPAIGN CARD
-         ═══════════════════════════════════════════════════════════ */}
+      {/* MAIN CAMPAIGN CARD */}
       <div className="mx-auto max-w-lg px-4">
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
@@ -377,7 +375,7 @@ export default async function CampaignPage({ params }: Props) {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          KABAR TERBARU (Campaign Updates)
+          KABAR TERBARU — Flex layout timeline (FIXED padding)
          ═══════════════════════════════════════════════════════════ */}
       {updates.length > 0 && (
         <div className="mx-auto max-w-lg px-4 mt-4">
@@ -390,17 +388,19 @@ export default async function CampaignPage({ params }: Props) {
               Update langsung dari creator campaign — kondisi penerima & progress.
             </p>
 
-            <div className="space-y-5">
+            <div className="space-y-1">
               {updates.map((u: any, i: number) => (
-                <div key={u.id} className="relative pl-6 pb-5 last:pb-0">
-                  {/* Timeline line */}
-                  {i < updates.length - 1 && (
-                    <div className="absolute left-[7px] top-3 bottom-0 w-0.5 bg-gray-100"></div>
-                  )}
-                  {/* Dot */}
-                  <div className={`absolute left-0 top-1.5 w-3.5 h-3.5 rounded-full ${i === 0 ? 'bg-[#EC4899] ring-4 ring-pink-100' : 'bg-gray-300'}`}></div>
+                <div key={u.id} className="flex gap-3">
+                  {/* Timeline column: dot + line */}
+                  <div className="flex flex-col items-center pt-1.5 shrink-0">
+                    <div className={`w-3.5 h-3.5 rounded-full ${i === 0 ? 'bg-[#EC4899] ring-4 ring-pink-100' : 'bg-gray-300'}`}></div>
+                    {i < updates.length - 1 && (
+                      <div className="w-0.5 flex-1 bg-gray-100 mt-1"></div>
+                    )}
+                  </div>
 
-                  <div>
+                  {/* Content column */}
+                  <div className="flex-1 min-w-0 pb-5">
                     <div className="flex items-center gap-2 mb-1">
                       {i === 0 && (
                         <span className="text-[9px] font-bold text-[#EC4899] bg-pink-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -479,9 +479,7 @@ export default async function CampaignPage({ params }: Props) {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════
-          PENCAIRAN DANA (Disbursements)
-         ═══════════════════════════════════════════════════════════ */}
+      {/* PENCAIRAN DANA */}
       {disbursements.length > 0 && (
         <div className="mx-auto max-w-lg px-4 mt-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -525,9 +523,7 @@ export default async function CampaignPage({ params }: Props) {
         </div>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════
-          RINCIAN PENGGUNAAN DANA (Usage Reports - upgraded)
-         ═══════════════════════════════════════════════════════════ */}
+      {/* RINCIAN PENGGUNAAN DANA */}
       {reports.length > 0 && (
         <div className="mx-auto max-w-lg px-4 mt-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -558,7 +554,6 @@ export default async function CampaignPage({ params }: Props) {
                     <p className="text-xs text-gray-600 leading-relaxed mb-3">{r.description}</p>
                   )}
 
-                  {/* Itemized breakdown */}
                   {r.items && Array.isArray(r.items) && r.items.length > 0 && (
                     <div className="mt-3 rounded-lg bg-gray-50 p-3">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Breakdown</p>
@@ -578,7 +573,6 @@ export default async function CampaignPage({ params }: Props) {
                     </div>
                   )}
 
-                  {/* Proof photos */}
                   {r.proof_photos && r.proof_photos.length > 0 && (
                     <div className="mt-3 grid grid-cols-3 gap-2">
                       {r.proof_photos.map((photo: string, pi: number) => (
@@ -673,9 +667,7 @@ export default async function CampaignPage({ params }: Props) {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          DOA & HARAPAN (Wall of Prayers)
-         ═══════════════════════════════════════════════════════════ */}
+      {/* DOA & HARAPAN */}
       <div className="mx-auto max-w-lg px-4 mt-4">
         <div className="bg-white rounded-2xl border border-gray-100 p-5">
           <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-1 flex items-center gap-2">
@@ -728,7 +720,7 @@ export default async function CampaignPage({ params }: Props) {
         </div>
       </div>
 
-      {/* TRUST COMMITMENTS */}
+      {/* TRUST */}
       <div className="mx-auto max-w-lg px-4 mt-4">
         <div className="bg-gradient-to-br from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-white">
           <div className="flex items-center gap-2 mb-3">
