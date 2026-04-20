@@ -1,20 +1,24 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
+import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart } from 'lucide-react';
 
 export const metadata = {
   title: 'BADONASI — Galang Dana Kemanusiaan | TeraLoka',
   description: 'Galang dana kemanusiaan untuk warga Maluku Utara.',
 };
 
+// Kategori dengan Lucide icon + warna accent per kategori.
+// Warna disync dengan form /owner/campaign/new (batch 7e6p) biar konsisten
+// di seluruh touchpoint BADONASI.
 const CATEGORIES = [
-  { key: 'all',            label: 'Semua',          emoji: '💚' },
-  { key: 'kesehatan',      label: 'Kesehatan',       emoji: '🏥' },
-  { key: 'bencana',        label: 'Bencana',         emoji: '🌊' },
-  { key: 'duka',           label: 'Duka',            emoji: '🕊️' },
-  { key: 'anak_yatim',     label: 'Anak Yatim',      emoji: '👶' },
-  { key: 'lansia',         label: 'Lansia',          emoji: '👴' },
-  { key: 'hunian_darurat', label: 'Hunian Darurat',  emoji: '🏚️' },
+  { key: 'all',            label: 'Semua',          Icon: Heart,         color: '#1B6B4A' },
+  { key: 'kesehatan',      label: 'Kesehatan',      Icon: Stethoscope,   color: '#D85A30' },
+  { key: 'bencana',        label: 'Bencana',        Icon: CloudRainWind, color: '#378ADD' },
+  { key: 'duka',           label: 'Duka',           Icon: Flower,        color: '#888780' },
+  { key: 'anak_yatim',     label: 'Anak Yatim',     Icon: Baby,          color: '#E8963A' },
+  { key: 'lansia',         label: 'Lansia',         Icon: UserRound,     color: '#BA7517' },
+  { key: 'hunian_darurat', label: 'Hunian Darurat', Icon: Home,          color: '#0891B2' },
 ];
 
 function ProgressBar({ collected, target }: { collected: number; target: number }) {
@@ -99,7 +103,7 @@ export default async function FundraisingPage({
         <div className="mx-auto max-w-lg">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">BADONASI</h1>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">BASUMBANG</h1>
               <p className="text-sm text-[#95d3ba] mt-1">Galang dana kemanusiaan Maluku Utara</p>
             </div>
             <Link href="/owner/campaign/new/info"
@@ -141,16 +145,25 @@ export default async function FundraisingPage({
 
         {/* Category filter */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
-          {CATEGORIES.map((c) => (
-            <Link key={c.key} href={c.key !== 'all' ? `/fundraising?cat=${c.key}` : '/fundraising'}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                activeCat === c.key
-                  ? 'bg-[#003526] text-white'
-                  : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-              }`}>
-              <span>{c.emoji}</span><span>{c.label}</span>
-            </Link>
-          ))}
+          {CATEGORIES.map((c) => {
+            const CatIcon = c.Icon;
+            const isActive = activeCat === c.key;
+            return (
+              <Link key={c.key} href={c.key !== 'all' ? `/fundraising?cat=${c.key}` : '/fundraising'}
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
+                  isActive
+                    ? 'bg-[#003526] text-white border border-[#003526]'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}>
+                <CatIcon
+                  size={14}
+                  strokeWidth={2.2}
+                  style={{ color: isActive ? '#FFFFFF' : c.color }}
+                />
+                <span>{c.label}</span>
+              </Link>
+            );
+          })}
         </div>
 
         {/* Urgent campaigns */}
@@ -203,7 +216,9 @@ export default async function FundraisingPage({
         {/* Regular campaigns */}
         {campaigns.length === 0 ? (
           <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center">
-            <p className="text-4xl mb-3">💚</p>
+            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-[#1B6B4A]/10 flex items-center justify-center">
+              <HandHeart size={28} strokeWidth={2} style={{ color: '#1B6B4A' }} />
+            </div>
             <p className="font-semibold text-gray-700">Belum ada kampanye aktif</p>
             <p className="text-sm text-gray-400 mt-1">Jadilah yang pertama menggalang dana</p>
             <Link href="/owner/campaign/new/info"
@@ -228,7 +243,9 @@ export default async function FundraisingPage({
                         <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0">
                           {c.cover_image_url
                             ? <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
-                            : <div className="h-full w-full flex items-center justify-center text-2xl">💚</div>
+                            : <div className="h-full w-full flex items-center justify-center bg-[#1B6B4A]/5">
+                                <Heart size={28} strokeWidth={1.8} style={{ color: '#1B6B4A' }} />
+                              </div>
                           }
                         </div>
                         {/* Info */}
