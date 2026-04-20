@@ -64,7 +64,10 @@ export default async function FundraisingPage({
   let stats = { total_raised: 0, total_donors: 0, active_campaigns: 0 };
 
   try {
+    // FIX: explicit .schema('funding') — tabel campaigns ada di funding schema,
+    // bukan public. Tanpa ini query balik kosong silent.
     let query = supabase
+      .schema('funding')
       .from('campaigns')
       .select('*')
       .in('status', ['active', 'completed'])
@@ -78,8 +81,9 @@ export default async function FundraisingPage({
     const { data } = await query;
     campaigns = data ?? [];
 
-    // Hitung stats
+    // Hitung stats — juga butuh .schema('funding')
     const allRes = await supabase
+      .schema('funding')
       .from('campaigns')
       .select('collected_amount, donor_count, status')
       .in('status', ['active', 'completed']);
