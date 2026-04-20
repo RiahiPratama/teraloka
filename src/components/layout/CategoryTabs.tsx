@@ -33,18 +33,19 @@ const NAVBAR_OFFSET = 100; // ticker(36) + navbar-top(44~52) + navbar-height(52)
 const NEAR_END      = 70; // % scroll untuk reveal
 
 // Urutan tampil location chips — urutan resmi 11 kabupaten/kota Maluku Utara
+// Slug sesuai DB public.locations — jangan diubah tanpa update DB schema
 const LOCATION_ORDER = [
-  'ternate',
-  'tidore-kepulauan',
-  'sofifi',
-  'halmahera-tengah',
-  'halmahera-utara',
-  'halmahera-barat',
-  'halmahera-selatan',
-  'halmahera-timur',
-  'kepulauan-morotai',
-  'kepulauan-sula',
-  'pulau-taliabu',
+  'ternate',       // 1. Ternate (ibukota de facto)
+  'sofifi',        // 2. Sofifi (ibukota resmi)
+  'tidore',        // 3. Tidore Kepulauan
+  'halteng',       // 4. Halmahera Tengah
+  'halut',         // 5. Halmahera Utara
+  'halsel',        // 6. Halmahera Selatan
+  'halbar',        // 7. Halmahera Barat
+  'haltim',        // 8. Halmahera Timur
+  'morotai',       // 9. Kepulauan Morotai
+  'sula',          // 10. Kepulauan Sula
+  'taliabu',       // 11. Pulau Taliabu
 ];
 
 type Location = { id: string; name: string; slug: string; type: string };
@@ -276,19 +277,19 @@ function CategoryTabsInner() {
               </button>
             ))}
 
-            {/* Fallback kalau API belum ready */}
+            {/* Fallback kalau API belum ready — slug WAJIB match DB public.locations */}
             {locations.length === 0 && [
-              { slug: 'ternate',            name: 'Ternate' },
-              { slug: 'tidore-kepulauan',   name: 'Tidore Kepulauan' },
-              { slug: 'sofifi',             name: 'Sofifi' },
-              { slug: 'halmahera-tengah',   name: 'Halmahera Tengah' },
-              { slug: 'halmahera-utara',    name: 'Halmahera Utara' },
-              { slug: 'halmahera-barat',    name: 'Halmahera Barat' },
-              { slug: 'halmahera-selatan',  name: 'Halmahera Selatan' },
-              { slug: 'halmahera-timur',    name: 'Halmahera Timur' },
-              { slug: 'kepulauan-morotai',  name: 'Kepulauan Morotai' },
-              { slug: 'kepulauan-sula',     name: 'Kepulauan Sula' },
-              { slug: 'pulau-taliabu',      name: 'Pulau Taliabu' },
+              { slug: 'ternate',  name: 'Ternate' },
+              { slug: 'sofifi',   name: 'Sofifi' },
+              { slug: 'tidore',   name: 'Tidore' },
+              { slug: 'halteng',  name: 'Halmahera Tengah' },
+              { slug: 'halut',    name: 'Halmahera Utara' },
+              { slug: 'halsel',   name: 'Halmahera Selatan' },
+              { slug: 'halbar',   name: 'Halmahera Barat' },
+              { slug: 'haltim',   name: 'Halmahera Timur' },
+              { slug: 'morotai',  name: 'Kepulauan Morotai' },
+              { slug: 'sula',     name: 'Kepulauan Sula' },
+              { slug: 'taliabu',  name: 'Pulau Taliabu' },
             ].map(loc => (
               <button key={loc.slug} onClick={() => setLocation(loc.slug)}
                 className={`flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full transition-all ${
