@@ -87,7 +87,7 @@ export default function NewCampaignPage() {
           <span className="material-symbols-outlined text-[#003526] text-3xl">lock</span>
         </div>
         <h2 className="text-lg font-bold text-gray-900">Login Diperlukan</h2>
-        <p className="mt-2 text-sm text-gray-500">Kamu harus login untuk mengajukan campaign BASUMBANG.</p>
+        <p className="mt-2 text-sm text-gray-500">Kamu harus login untuk mengajukan campaign BADONASI.</p>
         <button onClick={() => router.push('/login')} className="mt-5 w-full rounded-xl bg-[#003526] px-6 py-3 text-sm font-bold text-white">Login Sekarang</button>
       </div>
     </div>
@@ -100,14 +100,14 @@ export default function NewCampaignPage() {
           <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
         </div>
         <h2 className="text-xl font-bold text-gray-900">Campaign Diajukan!</h2>
-        <p className="mt-2 text-sm text-gray-500 leading-relaxed">Tim TeraLoka akan memverifikasi dalam 1×24 jam. Setelah disetujui, campaign tampil di BASUMBANG.</p>
+        <p className="mt-2 text-sm text-gray-500 leading-relaxed">Tim TeraLoka akan memverifikasi dalam 1×24 jam. Setelah disetujui, campaign tampil di BADONASI.</p>
         <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
           <p className="text-xs text-amber-700 flex items-start gap-2">
             <span className="material-symbols-outlined text-sm shrink-0">info</span>
             Dana donasi masuk ke rekening komunitas partner. Laporan penggunaan dana wajib diupload secara berkala.
           </p>
         </div>
-        <button onClick={() => router.push('/fundraising')} className="mt-5 w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white">Lihat BASUMBANG →</button>
+        <button onClick={() => router.push('/fundraising')} className="mt-5 w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white">Lihat BADONASI →</button>
       </div>
     </div>
   );
@@ -157,7 +157,7 @@ export default function NewCampaignPage() {
             <span className="material-symbols-outlined text-sm">arrow_back</span> Kembali
           </button>
           <h1 className="text-xl font-extrabold text-white">Ajukan Campaign</h1>
-          <p className="text-sm text-[#95d3ba] mt-1">BASUMBANG — Galang Dana Kemanusiaan Maluku Utara</p>
+          <p className="text-sm text-[#95d3ba] mt-1">BADONASI — Galang Dana Kemanusiaan Maluku Utara</p>
         </div>
       </div>
 
@@ -268,7 +268,7 @@ export default function NewCampaignPage() {
                   <input type="checkbox" checked={isUrgent} onChange={e => setIsUrgent(e.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" />
                   <div>
                     <p className="text-sm font-bold text-red-700">🚨 Tandai sebagai Mendesak</p>
-                    <p className="text-xs text-red-500 mt-0.5">Campaign akan diprioritaskan di halaman utama BASUMBANG</p>
+                    <p className="text-xs text-red-500 mt-0.5">Campaign akan diprioritaskan di halaman utama BADONASI</p>
                   </div>
                 </label>
               </div>

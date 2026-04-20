@@ -17,7 +17,7 @@ const SOURCE_CONFIG: Record<string, { label: string; icon: string; color: string
   ads:          { label: 'Ads (Iklan)',        icon: '📢', color: '#1B6B4A' },
   mitra:        { label: 'Bakos (Klasified)',  icon: '🏠', color: '#0891B2' },
   commission:   { label: 'Komisi BAPASIAR',    icon: '🚢', color: '#7C3AED' },
-  platform_fee: { label: 'Basumbang (Donasi)', icon: '❤️', color: '#E8963A' },
+  platform_fee: { label: 'Badonasi (Donasi)', icon: '❤️', color: '#E8963A' },
 };
 
 const FUNNEL_DATA = [
@@ -92,7 +92,7 @@ export default function AdminFinancialPage() {
       total:     Math.floor(Math.random() * 2000000) + 500000,
       ads:       Math.floor(Math.random() * 1000000) + 200000,
       mitra:     Math.floor(Math.random() * 500000)  + 100000,
-      basumbang: Math.floor(Math.random() * 200000)  + 50000,
+      badonasi: Math.floor(Math.random() * 200000)  + 50000,
     };
   });
 
@@ -174,7 +174,7 @@ export default function AdminFinancialPage() {
                   <Line type="monotone" dataKey="total"     stroke={t.codeText}  strokeWidth={2.5} dot={false} name="Total" />
                   <Line type="monotone" dataKey="ads"       stroke="#1B6B4A" strokeWidth={2}   dot={false} name="Ads" />
                   <Line type="monotone" dataKey="mitra"     stroke="#0891B2" strokeWidth={2}   dot={false} name="Mitra" />
-                  <Line type="monotone" dataKey="basumbang" stroke="#E8963A" strokeWidth={2}   dot={false} name="Basumbang" />
+                  <Line type="monotone" dataKey="badonasi" stroke="#E8963A" strokeWidth={2}   dot={false} name="Badonasi" />
                 </LineChart>
               </ResponsiveContainer>
             </div>

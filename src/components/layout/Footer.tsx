@@ -9,7 +9,7 @@ const FOOTER_LINKS = {
     { label: 'BALAPOR Publik', href: '/reports' },
     { label: 'BAPASIAR Transport', href: '/speed' },
     { label: 'BAKOS Kos-Kosan', href: '/kos' },
-    { label: 'BASUMBANG Donasi', href: '/fundraising' },
+    { label: 'BADONASI Donasi', href: '/fundraising' },
   ],
   perusahaan: [
     { label: 'Tentang Kami', href: '/tentang' },

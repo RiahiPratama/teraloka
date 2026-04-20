@@ -11,7 +11,7 @@ const NAV_LINKS = [
   { label: 'BALAPOR',   href: '/reports' },
   { label: 'BAPASIAR',  href: '/speed' },
   { label: 'BAKOS',     href: '/kos' },
-  { label: 'BASUMBANG', href: '/fundraising' },
+  { label: 'BADONASI', href: '/fundraising' },
 ];
 
 const PLACEHOLDERS = [

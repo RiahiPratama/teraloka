@@ -3,12 +3,12 @@
 import Link from 'next/link'
 import { SERVICES } from '@/lib/data/services'
 
-const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BASUMBANG', 'BAKOS'])
+const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BADONASI', 'BAKOS'])
 
 const ACTIVE_HREF: Record<string, string> = {
   'BAKABAR':   '/news',
   'BALAPOR':   '/reports',
-  'BASUMBANG': '/fundraising',
+  'BADONASI': '/fundraising',
   'BAKOS':     '/kos',
 }
 

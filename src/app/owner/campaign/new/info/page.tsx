@@ -31,7 +31,7 @@ const REQUIREMENTS = [
 const STEPS = [
   { num: 1, icon: 'edit_note', label: 'Isi Formulir', desc: 'Data penerima, cerita, target dana, dan rekening partner' },
   { num: 2, icon: 'pending_actions', label: 'Verifikasi Admin', desc: 'Tim TeraLoka meninjau dalam 1×24 jam' },
-  { num: 3, icon: 'campaign', label: 'Campaign Aktif', desc: 'Campaign tampil di BASUMBANG dan bisa menerima donasi' },
+  { num: 3, icon: 'campaign', label: 'Campaign Aktif', desc: 'Campaign tampil di BADONASI dan bisa menerima donasi' },
 ];
 
 const COMMITMENTS = [
@@ -64,7 +64,7 @@ export default function CampaignInfoPage() {
         <div className="mx-auto max-w-lg text-center">
           <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-2 mb-5">
             <span className="material-symbols-outlined text-[#95d3ba] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>volunteer_activism</span>
-            <span className="text-xs font-bold text-[#95d3ba] uppercase tracking-wider">BASUMBANG TeraLoka</span>
+            <span className="text-xs font-bold text-[#95d3ba] uppercase tracking-wider">BADONASI TeraLoka</span>
           </div>
           <h1 className="text-3xl font-extrabold text-white leading-tight tracking-tight">
             Galang Dana<br />untuk Sesama
@@ -144,7 +144,7 @@ export default function CampaignInfoPage() {
         <div className="bg-[#003526]/5 border border-[#003526]/10 rounded-2xl p-5">
           <h2 className="text-sm font-bold text-[#003526] mb-3 flex items-center gap-2">
             <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
-            Komitmen TeraLoka BASUMBANG
+            Komitmen TeraLoka BADONASI
           </h2>
           <ul className="space-y-2">
             {COMMITMENTS.map((c, i) => (
@@ -214,7 +214,7 @@ export default function CampaignInfoPage() {
             <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
               className="mt-0.5 h-4 w-4 accent-[#003526] shrink-0" />
             <span className="text-sm text-gray-700 leading-relaxed">
-              Saya memahami dan menyetujui semua syarat, ketentuan, dan komitmen transparansi BASUMBANG TeraLoka di atas. Saya bertanggung jawab penuh atas kebenaran informasi dan penggunaan dana yang saya galang.
+              Saya memahami dan menyetujui semua syarat, ketentuan, dan komitmen transparansi BADONASI TeraLoka di atas. Saya bertanggung jawab penuh atas kebenaran informasi dan penggunaan dana yang saya galang.
             </span>
           </label>
 

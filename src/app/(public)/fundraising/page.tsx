@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
 
 export const metadata = {
-  title: 'BASUMBANG — Galang Dana Kemanusiaan | TeraLoka',
+  title: 'BADONASI — Galang Dana Kemanusiaan | TeraLoka',
   description: 'Galang dana kemanusiaan untuk warga Maluku Utara.',
 };
 
@@ -99,7 +99,7 @@ export default async function FundraisingPage({
         <div className="mx-auto max-w-lg">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">BASUMBANG</h1>
+              <h1 className="text-2xl font-extrabold text-white tracking-tight">BADONASI</h1>
               <p className="text-sm text-[#95d3ba] mt-1">Galang dana kemanusiaan Maluku Utara</p>
             </div>
             <Link href="/owner/campaign/new/info"

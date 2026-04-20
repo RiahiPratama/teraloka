@@ -22,7 +22,7 @@ export const BRAND = {
   services: { name: 'Jasa', tagline: 'Layanan & Jasa' },
 
   // Funding Engine
-  fundraising: { name: 'BASUMBANG', tagline: 'Galang Dana Kemanusiaan' },
+  fundraising: { name: 'BADONASI', tagline: 'Galang Dana Kemanusiaan' },
 
   // Integration
   bills: { name: 'PPOB', tagline: 'Pulsa, Listrik, PDAM, BPJS' },

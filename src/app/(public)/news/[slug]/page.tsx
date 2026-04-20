@@ -363,7 +363,7 @@ function SocialProof({ stats }: { stats: any }) {
   );
 }
 
-function BasumbangCTA() {
+function BadonasiCTA() {
   return (
     <div className="mt-5 bg-[#003526] rounded-2xl p-5 relative overflow-hidden">
       <div className="absolute top-0 right-0 text-6xl opacity-10 leading-none">🤲</div>
@@ -586,7 +586,7 @@ export default async function ArticlePage({ params }: Props) {
             <ContextCTABanner category={article.category} />
             <MiniBALAPORFeed reports={recentReports} />
             <SocialProof stats={stats} />
-            <BasumbangCTA />
+            <BadonasiCTA />
             <div className="mt-5">
               <WANewsletterWidget />
             </div>

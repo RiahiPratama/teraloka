@@ -1,8 +1,8 @@
 import { createClient } from '@/lib/supabase/server';
 
 /**
- * Fraud Engine — Listing scam detection, trust score, BASUMBANG fraud
- * WAJIB live SEBELUM BASUMBANG launch
+ * Fraud Engine — Listing scam detection, trust score, BADONASI fraud
+ * WAJIB live SEBELUM BADONASI launch
  */
 
 // ============================================================

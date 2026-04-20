@@ -11,7 +11,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = await createClient();
   const { data } = await supabase.from('campaigns').select('title, description').eq('slug', slug).single();
   if (!data) return { title: 'Campaign tidak ditemukan' };
-  return { title: `${data.title} | BASUMBANG`, description: data.description };
+  return { title: `${data.title} | BADONASI`, description: data.description };
 }
 
 export default async function CampaignPage({ params }: Props) {
@@ -128,10 +128,10 @@ export default async function CampaignPage({ params }: Props) {
 
       {/* Transparansi info */}
       <div className="mt-6 rounded-xl bg-green-50 p-4 text-xs text-green-700">
-        <p className="font-medium">💚 Transparansi BASUMBANG</p>
+        <p className="font-medium">💚 Transparansi BADONASI</p>
         <ul className="mt-1 space-y-0.5">
           <li>• 100% donasi sampai ke penerima</li>
-          <li>• Rekening terpisah "TeraLoka BASUMBANG"</li>
+          <li>• Rekening terpisah "TeraLoka BADONASI"</li>
           <li>• Laporan penggunaan wajib dalam 7 hari</li>
           <li>• Semua bukti transfer publik</li>
         </ul>

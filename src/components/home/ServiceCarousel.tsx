@@ -7,7 +7,7 @@ const ALL_SERVICES = [
   // ── 4 Aktif ────────────────────────────────────────────────
   { name: 'BAKABAR',    sub: 'Berita Lokal',         href: '/news',        bg: 'rgba(53,37,205,0.08)',  stroke: '#3525cd', active: true },
   { name: 'BALAPOR',    sub: 'Laporan Publik',        href: '/reports',     bg: 'rgba(220,38,38,0.08)', stroke: '#dc2626', active: true },
-  { name: 'BASUMBANG',  sub: 'Donasi Kemanusiaan',    href: '/fundraising', bg: 'rgba(16,185,129,0.1)', stroke: '#10b981', active: true },
+  { name: 'BADONASI',  sub: 'Donasi Kemanusiaan',    href: '/fundraising', bg: 'rgba(16,185,129,0.1)', stroke: '#10b981', active: true },
   { name: 'BAKOS',      sub: 'Kos-Kosan',             href: '/kos',         bg: 'rgba(5,150,105,0.1)',  stroke: '#059669', active: true },
   // ── Coming Soon (geser untuk lihat) ────────────────────────
   { name: 'Properti',   sub: 'Jual Beli Sewa',        href: '#', bg: 'rgba(245,158,11,0.1)',  stroke: '#d97706', active: false },
@@ -24,7 +24,7 @@ const ALL_SERVICES = [
 const ICONS: Record<string, string> = {
   'BAKABAR':    'M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2M18 14h-8M15 18h-5M10 6h8v4h-8Z',
   'BALAPOR':    'm3 11 19-9-9 19-2-8-8-2z',
-  'BASUMBANG':  'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
+  'BADONASI':  'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z',
   'BAKOS':      'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
   'Properti':   'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2 M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2',
   'Speedboat':  'M2 16c3-3.5 7-5 12-4.5l7 1.5-1 5H2z M2 16h20 M3 19.5c4.5-1 9-1 13 0',

@@ -12,7 +12,7 @@ const ROLE_INFO: Record<string, { label: string; color: string; bg: string; desc
   admin_content:   { label: 'Admin Konten',    color: '#E8963A', bg: 'rgba(232,150,58,0.1)',   desc: 'Kelola artikel dan laporan BAKABAR' },
   admin_transport: { label: 'Admin Transport', color: '#E8963A', bg: 'rgba(232,150,58,0.1)',   desc: 'Kelola transportasi speed boat & kapal' },
   admin_listing:   { label: 'Admin Listing',   color: '#E8963A', bg: 'rgba(232,150,58,0.1)',   desc: 'Kelola listing properti & kos' },
-  admin_funding:   { label: 'Admin Funding',   color: '#E8963A', bg: 'rgba(232,150,58,0.1)',   desc: 'Kelola kampanye BASUMBANG' },
+  admin_funding:   { label: 'Admin Funding',   color: '#E8963A', bg: 'rgba(232,150,58,0.1)',   desc: 'Kelola kampanye BADONASI' },
   owner_listing:   { label: 'Owner Listing',   color: '#0891B2', bg: 'rgba(8,145,178,0.1)',    desc: 'Pemilik listing kos, properti, atau kendaraan' },
   operator_speed:  { label: 'Operator Speed',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)',   desc: 'Operator speed boat antar pulau' },
   operator_ship:   { label: 'Operator Kapal',  color: '#8B5CF6', bg: 'rgba(139,92,246,0.1)',   desc: 'Operator kapal penumpang / ferry' },

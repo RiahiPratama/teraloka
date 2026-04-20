@@ -363,7 +363,7 @@ export default function Hero() {
             <div style={{ fontSize: 12, fontWeight: 700, color: '#1B6B4A' }}>Cari Kos →</div>
           </Link>
 
-          {/* Card Kecil — BASUMBANG */}
+          {/* Card Kecil — BADONASI */}
           <Link href="/fundraising" className="float-card" style={{
             position: 'absolute', bottom: '-4%', right: '-2%',
             textDecoration: 'none',
@@ -381,7 +381,7 @@ export default function Hero() {
               fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em',
               color: '#E8963A', background: 'rgba(232,150,58,0.1)',
               padding: '2px 7px', borderRadius: 99, display: 'inline-block', marginBottom: 7,
-            }}>BASUMBANG</span>
+            }}>BADONASI</span>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Donasi Aktif</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>
               Bantu warga yang membutuhkan
