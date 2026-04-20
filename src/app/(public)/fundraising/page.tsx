@@ -1,12 +1,14 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
-import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart, HeartHandshake, ShieldCheck, Users, TrendingUp } from 'lucide-react';
+import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart, HeartHandshake, ShieldCheck, Users, TrendingUp, Sparkles } from 'lucide-react';
 
 export const metadata = {
   title: 'BADONASI — Galang Dana Kemanusiaan | TeraLoka',
   description: 'Galang dana kemanusiaan untuk warga Maluku Utara.',
 };
+
+export const dynamic = 'force-dynamic';
 
 const CATEGORIES = [
   { key: 'all',            label: 'Semua',          Icon: Heart,         color: '#EC4899' },
@@ -71,6 +73,22 @@ function VerifiedBadge({ compact = false }: { compact?: boolean }) {
   );
 }
 
+function relativeTime(date: string): string {
+  const diff = Math.floor((Date.now() - new Date(date).getTime()) / 1000);
+  if (diff < 60) return 'baru saja';
+  if (diff < 3600) return `${Math.floor(diff / 60)}m lalu`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}j lalu`;
+  if (diff < 2592000) return `${Math.floor(diff / 86400)}h lalu`;
+  return `${Math.floor(diff / 2592000)}bl lalu`;
+}
+
+function shortAmount(n: number): string {
+  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
+  return formatRupiah(n);
+}
+
 export default async function FundraisingPage({
   searchParams,
 }: { searchParams: Promise<{ cat?: string }> }) {
@@ -78,8 +96,10 @@ export default async function FundraisingPage({
   const supabase = await createClient();
   let campaigns: any[] = [];
   let stats = { total_raised: 0, total_donors: 0, active_campaigns: 0 };
+  let recentDonations: any[] = [];
 
   try {
+    // Campaigns list
     let query = supabase
       .schema('funding')
       .from('campaigns')
@@ -95,6 +115,7 @@ export default async function FundraisingPage({
     const { data } = await query;
     campaigns = data ?? [];
 
+    // Stats
     const allRes = await supabase
       .schema('funding')
       .from('campaigns')
@@ -105,6 +126,40 @@ export default async function FundraisingPage({
       stats.total_raised = allRes.data.reduce((s: number, c: any) => s + (c.collected_amount || 0), 0);
       stats.total_donors = allRes.data.reduce((s: number, c: any) => s + (c.donor_count || 0), 0);
       stats.active_campaigns = allRes.data.filter((c: any) => c.status === 'active').length;
+    }
+
+    // Recent donations (donor wall) — RLS allows verified + non-anonymous
+    const donationsRes = await supabase
+      .schema('funding')
+      .from('donations')
+      .select('id, donor_name, amount, created_at, campaign_id')
+      .eq('verification_status', 'verified')
+      .eq('is_anonymous', false)
+      .order('created_at', { ascending: false })
+      .limit(8);
+
+    if (donationsRes.data && donationsRes.data.length > 0) {
+      // Enrich with campaign info
+      const campaignIds = [...new Set(donationsRes.data.map((d: any) => d.campaign_id))];
+      const campaignsMap: Record<string, { title: string; slug: string }> = {};
+
+      const campRes = await supabase
+        .schema('funding')
+        .from('campaigns')
+        .select('id, title, slug')
+        .in('id', campaignIds);
+
+      if (campRes.data) {
+        campRes.data.forEach((c: any) => {
+          campaignsMap[c.id] = { title: c.title, slug: c.slug };
+        });
+      }
+
+      recentDonations = donationsRes.data.map((d: any) => ({
+        ...d,
+        campaign_title: campaignsMap[d.campaign_id]?.title ?? 'Campaign',
+        campaign_slug: campaignsMap[d.campaign_id]?.slug ?? '',
+      }));
     }
   } catch {}
 
@@ -118,12 +173,10 @@ export default async function FundraisingPage({
 
       {/* Hero Section */}
       <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-4 pt-8 pb-20 relative overflow-hidden">
-        {/* Pink decorative glow */}
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#EC4899]/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#F472B6]/10 blur-2xl"></div>
 
         <div className="relative mx-auto max-w-lg">
-          {/* Top row: brand + CTA */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <HeartHandshake size={24} className="text-[#F472B6]" strokeWidth={2.2} />
@@ -136,7 +189,6 @@ export default async function FundraisingPage({
             </Link>
           </div>
 
-          {/* IMPACT HERO — Big number */}
           {hasImpact ? (
             <div className="text-center py-4">
               <p className="text-[11px] text-[#95d3ba] uppercase tracking-widest font-semibold mb-2">
@@ -149,7 +201,6 @@ export default async function FundraisingPage({
                 untuk saudara di Maluku Utara
               </p>
 
-              {/* Mini stats chips below */}
               <div className="mt-5 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-full px-5 py-2.5">
                 <div className="flex items-center gap-1.5">
                   <Users size={13} className="text-[#F472B6]" />
@@ -192,6 +243,63 @@ export default async function FundraisingPage({
             <p className="text-xs text-gray-400">Dana langsung ke penerima via transfer bank. Biaya operasional dari donasi sukarela.</p>
           </div>
         </div>
+
+        {/* DONOR WALL — Real-time feed */}
+        {recentDonations.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-pink-100 overflow-hidden mb-5">
+            <div className="px-4 py-3 bg-gradient-to-r from-pink-50 to-white border-b border-pink-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#EC4899] opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-[#EC4899]"></span>
+                </div>
+                <p className="text-xs font-bold text-[#BE185D] uppercase tracking-wider">Donasi Terbaru</p>
+              </div>
+              <span className="text-[10px] text-gray-400 font-medium">{recentDonations.length} donatur</span>
+            </div>
+
+            <div className="divide-y divide-gray-50 max-h-[280px] overflow-y-auto scrollbar-none">
+              {recentDonations.map((d: any) => (
+                <Link
+                  key={d.id}
+                  href={d.campaign_slug ? `/fundraising/${d.campaign_slug}` : '/fundraising'}
+                  className="flex items-center gap-3 px-4 py-2.5 hover:bg-pink-50/50 transition-colors"
+                >
+                  {/* Avatar with heart */}
+                  <div className="w-8 h-8 rounded-full bg-gradient-to-br from-pink-100 to-pink-200 flex items-center justify-center shrink-0">
+                    <Heart size={14} strokeWidth={2.5} className="text-[#EC4899]" fill="#EC4899" />
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-700 leading-snug truncate">
+                      <span className="font-bold text-gray-900">{d.donor_name}</span>
+                      <span className="text-gray-400"> donasi </span>
+                      <span className="font-bold text-[#EC4899]">{shortAmount(d.amount)}</span>
+                    </p>
+                    <p className="text-[11px] text-gray-500 truncate mt-0.5">
+                      untuk <span className="text-gray-700">{d.campaign_title}</span>
+                    </p>
+                  </div>
+
+                  {/* Time */}
+                  <span className="text-[10px] text-gray-400 shrink-0 font-medium">
+                    {relativeTime(d.created_at)}
+                  </span>
+                </Link>
+              ))}
+            </div>
+
+            {recentDonations.length >= 8 && (
+              <div className="px-4 py-2 bg-gray-50 text-center">
+                <p className="text-[10px] text-gray-400">
+                  <Sparkles size={10} className="inline mr-1" />
+                  Makasih untuk semua donatur baik hati 💕
+                </p>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Category filter */}
         <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
@@ -237,7 +345,6 @@ export default async function FundraisingPage({
                     {c.cover_image_url && (
                       <div className="h-44 bg-gray-100 relative">
                         <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
-                        {/* Verified overlay on image */}
                         {c.is_verified && (
                           <div className="absolute top-3 right-3">
                             <VerifiedBadge />
@@ -296,7 +403,6 @@ export default async function FundraisingPage({
                     return (
                       <Link key={c.id} href={`/fundraising/${c.slug}`}
                         className="flex gap-3 bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-pink-100 transition-all p-3">
-                        {/* Thumbnail */}
                         <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0 relative">
                           {c.cover_image_url
                             ? <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
@@ -304,14 +410,12 @@ export default async function FundraisingPage({
                                 <Heart size={28} strokeWidth={1.8} style={{ color: '#EC4899' }} />
                               </div>
                           }
-                          {/* Compact verified badge on thumbnail */}
                           {c.is_verified && (
                             <div className="absolute top-1 right-1">
                               <VerifiedBadge compact />
                             </div>
                           )}
                         </div>
-                        {/* Info */}
                         <div className="flex-1 min-w-0 py-0.5">
                           <div className="flex items-center gap-1.5 mb-1">
                             <p className="text-xs text-gray-400 capitalize">{c.category?.replace('_', ' ') || 'Kemanusiaan'}</p>
