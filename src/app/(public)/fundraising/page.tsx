@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
 import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart, HeartHandshake, ShieldCheck, Users, TrendingUp, Sparkles } from 'lucide-react';
+import ZakatCTACard from './_components/ZakatCTACard';
 
 export const metadata = {
   title: 'BADONASI — Galang Dana Kemanusiaan | TeraLoka',
@@ -442,8 +443,13 @@ export default async function FundraisingPage({
           </>
         )}
 
+        {/* ZAKAT CTA CARD — Secondary entry (after user browses campaigns) */}
+        <div className="mt-8">
+          <ZakatCTACard />
+        </div>
+
         {/* CTA Galang Dana */}
-        <div className="mt-8 bg-gradient-to-br from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-center relative overflow-hidden">
+        <div className="mt-4 bg-gradient-to-br from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-center relative overflow-hidden">
           <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-[#EC4899]/20 blur-2xl"></div>
 
           <div className="relative">
