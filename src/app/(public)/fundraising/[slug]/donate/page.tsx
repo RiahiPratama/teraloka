@@ -81,7 +81,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     fetchCampaign();
   }, [slug]);
 
-  // Subtotal = amount + fee (kode unik ditambahkan di server setelah submit)
   const subtotal = useMemo(() => amount + fee, [amount, fee]);
 
   const progressPct = useMemo(() => {
@@ -160,6 +159,7 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
           is_anonymous: isAnonymous,
           amount,
           operational_fee: fee,
+          message: message.trim() || undefined,  // simpan doa ke DB
         }),
       });
 
@@ -167,9 +167,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
       const donationId = json?.data?.donation?.id ?? json?.data?.id;
 
       if (res.ok && json.success && donationId) {
-        if (message.trim()) {
-          localStorage.setItem(`donation-msg-${donationId}`, message.trim());
-        }
         router.push(`/fundraising/${slug}/konfirmasi?id=${donationId}`);
       } else {
         setSubmitError(json?.error?.message || 'Gagal membuat donasi. Coba lagi.');
@@ -238,7 +235,7 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
             <p className="text-xs text-gray-500">dari target {formatRupiah(campaign.target_amount)}</p>
           </div>
           <div className="h-2 w-full bg-gray-100 rounded-full overflow-hidden">
-            <div className="h-full bg-gradient-to-r from-[#1B6B4A] to-[#EC4899] rounded-full transition-all"
+            <div className="h-full bg-gradient-to-r from-[#003526] to-[#1B6B4A] rounded-full transition-all"
               style={{ width: `${progressPct}%` }} />
           </div>
           <p className="text-xs text-gray-400 mt-2">
@@ -381,30 +378,30 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
           />
         </div>
 
-        {/* 5. Pesan / Doa */}
+        {/* 5. Pesan / Doa — akan masuk ke wall Doa & Harapan setelah diverifikasi */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-800 mb-1">
             Pesan atau Doa <span className="text-gray-400 font-normal">(Opsional)</span>
           </h2>
-          <p className="text-xs text-gray-500 mb-3">
-            Tulis pesan semangat atau doa untuk penerima manfaat.
+          <p className="text-xs text-gray-500 mb-3 leading-relaxed">
+            Tulis pesan semangat atau doa untuk penerima. Akan ditampilkan di wall <strong>Doa & Harapan</strong> setelah donasi diverifikasi.
           </p>
           <textarea
             value={message}
             onChange={e => setMessage(e.target.value)}
             placeholder="Semoga segera sembuh, sehat selalu..."
             rows={3}
-            maxLength={200}
+            maxLength={500}
             className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] resize-none"
           />
-          <p className="mt-1 text-right text-xs text-gray-400">{message.length}/200</p>
+          <p className="mt-1 text-right text-xs text-gray-400">{message.length}/500</p>
         </div>
 
         {/* Privacy note */}
         <div className="rounded-xl bg-[#003526]/5 border border-[#003526]/10 px-4 py-3 flex items-start gap-2">
           <Lock size={14} className="text-[#003526] shrink-0 mt-0.5" />
           <p className="text-xs text-[#003526] leading-relaxed">
-            Data pribadi kamu dilindungi. Hanya nama donor yang muncul di halaman publik. Nomor WA & pesan hanya untuk admin + komunitas partner.
+            Data pribadi kamu dilindungi. Hanya nama donor + pesan yang muncul di halaman publik. Nomor WA hanya untuk admin + komunitas partner.
           </p>
         </div>
 
@@ -438,7 +435,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
             )}
           </div>
 
-          {/* Catatan unique code */}
           {subtotal >= MIN_DONATION && (
             <div className="flex items-start gap-1.5 mb-2 px-1">
               <Info size={12} className="text-gray-400 shrink-0 mt-0.5" />
