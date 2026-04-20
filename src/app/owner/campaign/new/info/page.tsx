@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
+import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home } from 'lucide-react';
 
 const REQUIREMENTS = [
   {
@@ -164,18 +165,26 @@ export default function CampaignInfoPage() {
           </h2>
           <div className="grid grid-cols-3 gap-2">
             {[
-              { emoji: '🏥', label: 'Kesehatan' },
-              { emoji: '🌊', label: 'Bencana' },
-              { emoji: '🕊️', label: 'Duka' },
-              { emoji: '👶', label: 'Anak Yatim' },
-              { emoji: '👴', label: 'Lansia' },
-              { emoji: '🏚️', label: 'Hunian Darurat' },
-            ].map(c => (
-              <div key={c.label} className="text-center bg-gray-50 rounded-xl p-3">
-                <span className="text-2xl block mb-1">{c.emoji}</span>
-                <p className="text-xs font-semibold text-gray-700">{c.label}</p>
-              </div>
-            ))}
+              { Icon: Stethoscope,   label: 'Kesehatan',       color: '#D85A30' },
+              { Icon: CloudRainWind, label: 'Bencana',         color: '#378ADD' },
+              { Icon: Flower,        label: 'Duka',            color: '#888780' },
+              { Icon: Baby,          label: 'Anak Yatim',      color: '#E8963A' },
+              { Icon: UserRound,     label: 'Lansia',          color: '#BA7517' },
+              { Icon: Home,          label: 'Hunian Darurat',  color: '#0891B2' },
+            ].map(c => {
+              const CIcon = c.Icon;
+              return (
+                <div key={c.label} className="text-center bg-gray-50 rounded-xl p-3">
+                  <div className="flex justify-center mb-1.5">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      style={{ background: `${c.color}15`, border: `0.5px solid ${c.color}40` }}>
+                      <CIcon size={20} strokeWidth={2} style={{ color: c.color }} />
+                    </div>
+                  </div>
+                  <p className="text-xs font-semibold text-gray-700">{c.label}</p>
+                </div>
+              );
+            })}
           </div>
           <div className="mt-3 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
             <p className="text-xs text-red-700 flex items-start gap-2">

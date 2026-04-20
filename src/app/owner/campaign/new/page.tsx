@@ -4,6 +4,7 @@ import { useState } from 'react';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Siren } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -29,13 +30,15 @@ const BANKS = [
   { value: 'Lainnya', label: 'Lainnya (ketik manual)' },
 ];
 
+// Kategori kemanusiaan — icon pakai Lucide (modern, konsisten dengan seluruh app).
+// Warna tint per kategori biar gampang dikenali secara visual.
 const CATEGORIES = [
-  { key: 'kesehatan',      label: 'Kesehatan',      emoji: '🏥', desc: 'Biaya pengobatan, operasi, perawatan' },
-  { key: 'bencana',        label: 'Bencana Alam',   emoji: '🌊', desc: 'Banjir, gempa, tanah longsor' },
-  { key: 'duka',           label: 'Duka / Musibah', emoji: '🕊️', desc: 'Biaya pemakaman, musibah mendadak' },
-  { key: 'anak_yatim',     label: 'Anak Yatim',     emoji: '👶', desc: 'Beasiswa, kebutuhan anak kurang mampu' },
-  { key: 'lansia',         label: 'Lansia',          emoji: '👴', desc: 'Bantuan orang tua tidak mampu' },
-  { key: 'hunian_darurat', label: 'Hunian Darurat',  emoji: '🏚️', desc: 'Rumah rusak, tidak layak huni' },
+  { key: 'kesehatan',      label: 'Kesehatan',      Icon: Stethoscope,   color: '#D85A30', desc: 'Biaya pengobatan, operasi, perawatan' },
+  { key: 'bencana',        label: 'Bencana Alam',   Icon: CloudRainWind, color: '#378ADD', desc: 'Banjir, gempa, tanah longsor' },
+  { key: 'duka',           label: 'Duka / Musibah', Icon: Flower,        color: '#888780', desc: 'Biaya pemakaman, musibah mendadak' },
+  { key: 'anak_yatim',     label: 'Anak Yatim',     Icon: Baby,          color: '#E8963A', desc: 'Beasiswa, kebutuhan anak kurang mampu' },
+  { key: 'lansia',         label: 'Lansia',         Icon: UserRound,     color: '#BA7517', desc: 'Bantuan orang tua tidak mampu' },
+  { key: 'hunian_darurat', label: 'Hunian Darurat', Icon: Home,          color: '#0891B2', desc: 'Rumah rusak, tidak layak huni' },
 ];
 
 const STEPS = [
@@ -209,18 +212,25 @@ export default function NewCampaignPage() {
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 block">Kategori Kemanusiaan</label>
                   <div className="grid grid-cols-2 gap-2">
-                    {CATEGORIES.map(cat => (
-                      <button key={cat.key} onClick={() => setCategory(cat.key)}
-                        className={`flex items-start gap-3 p-3.5 rounded-xl text-left border-2 transition-all ${
-                          category === cat.key ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                        }`}>
-                        <span className="text-xl shrink-0">{cat.emoji}</span>
-                        <div>
-                          <p className={`text-xs font-bold ${category === cat.key ? 'text-[#003526]' : 'text-gray-700'}`}>{cat.label}</p>
-                          <p className="text-xs text-gray-400 mt-0.5 leading-tight">{cat.desc}</p>
-                        </div>
-                      </button>
-                    ))}
+                    {CATEGORIES.map(cat => {
+                      const CatIcon = cat.Icon;
+                      const isActive = category === cat.key;
+                      return (
+                        <button key={cat.key} onClick={() => setCategory(cat.key)}
+                          className={`flex items-start gap-3 p-3.5 rounded-xl text-left border-2 transition-all ${
+                            isActive ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                          }`}>
+                          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
+                            style={{ background: `${cat.color}15`, border: `0.5px solid ${cat.color}40` }}>
+                            <CatIcon size={18} strokeWidth={2} style={{ color: cat.color }} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className={`text-xs font-bold ${isActive ? 'text-[#003526]' : 'text-gray-700'}`}>{cat.label}</p>
+                            <p className="text-xs text-gray-400 mt-0.5 leading-tight">{cat.desc}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
@@ -355,15 +365,21 @@ export default function NewCampaignPage() {
             {step === 3 && (
               <div className="space-y-4">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Review Campaign</p>
-                {selectedCat && (
-                  <div className="flex items-center gap-2 p-3 bg-[#003526]/5 rounded-xl">
-                    <span className="text-2xl">{selectedCat.emoji}</span>
-                    <div>
-                      <p className="text-xs text-gray-400">Kategori</p>
-                      <p className="text-sm font-bold text-[#003526]">{selectedCat.label}</p>
+                {selectedCat && (() => {
+                  const SelectedIcon = selectedCat.Icon;
+                  return (
+                    <div className="flex items-center gap-3 p-3 bg-[#003526]/5 rounded-xl">
+                      <div className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0"
+                        style={{ background: `${selectedCat.color}15`, border: `0.5px solid ${selectedCat.color}40` }}>
+                        <SelectedIcon size={22} strokeWidth={2} style={{ color: selectedCat.color }} />
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-400">Kategori</p>
+                        <p className="text-sm font-bold text-[#003526]">{selectedCat.label}</p>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
                 <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100">
                   {[
                     { label: 'Penerima Manfaat', value: `${beneficiaryName} (${beneficiaryRelation})` },
@@ -381,7 +397,7 @@ export default function NewCampaignPage() {
                 </div>
                 {isUrgent && (
                   <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-center gap-2">
-                    <span>🚨</span>
+                    <Siren size={16} strokeWidth={2.2} style={{ color: '#dc2626' }} />
                     <p className="text-xs font-bold text-red-700">Ditandai sebagai Mendesak</p>
                   </div>
                 )}
