@@ -1,289 +1,300 @@
 import Link from 'next/link';
-import { createClient } from '@/lib/supabase/server';
-import { formatRupiah } from '@/utils/format';
-import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart } from 'lucide-react';
+import type { Metadata } from 'next';
+import {
+  HeartHandshake, Siren, Users, Clock, Target,
+  ImageIcon, ArrowRight, Plus, Flame,
+} from 'lucide-react';
 
-export const metadata = {
-  title: 'BADONASI — Galang Dana Kemanusiaan | TeraLoka',
-  description: 'Galang dana kemanusiaan untuk warga Maluku Utara.',
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+export const metadata: Metadata = {
+  title: 'BADONASI — Bantu Warga Maluku Utara',
+  description: 'Platform donasi komunitas untuk membantu warga Maluku Utara yang membutuhkan. 100% donasi sampai ke penerima.',
 };
 
-// Kategori dengan Lucide icon + warna accent per kategori.
-// Warna disync dengan form /owner/campaign/new (batch 7e6p) biar konsisten
-// di seluruh touchpoint BADONASI.
-const CATEGORIES = [
-  { key: 'all',            label: 'Semua',          Icon: Heart,         color: '#1B6B4A' },
-  { key: 'kesehatan',      label: 'Kesehatan',      Icon: Stethoscope,   color: '#D85A30' },
-  { key: 'bencana',        label: 'Bencana',        Icon: CloudRainWind, color: '#378ADD' },
-  { key: 'duka',           label: 'Duka',           Icon: Flower,        color: '#888780' },
-  { key: 'anak_yatim',     label: 'Anak Yatim',     Icon: Baby,          color: '#E8963A' },
-  { key: 'lansia',         label: 'Lansia',         Icon: UserRound,     color: '#BA7517' },
-  { key: 'hunian_darurat', label: 'Hunian Darurat', Icon: Home,          color: '#0891B2' },
-];
+// Force dynamic — jangan cache list (biar campaign baru langsung muncul)
+export const dynamic = 'force-dynamic';
 
-function ProgressBar({ collected, target }: { collected: number; target: number }) {
-  const pct = target > 0 ? Math.min((collected / target) * 100, 100) : 0;
-  return (
-    <div className="mt-3">
-      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all"
-          style={{
-            width: `${pct}%`,
-            background: pct >= 100
-              ? 'linear-gradient(90deg, #10B981, #059669)'
-              : 'linear-gradient(90deg, #1B6B4A, #0891B2)',
-          }}
-        />
-      </div>
-      <div className="mt-1.5 flex items-center justify-between">
-        <span className="text-xs font-bold text-[#1B6B4A]">{formatRupiah(collected)}</span>
-        <span className="text-xs text-gray-400">{Math.round(pct)}%</span>
-      </div>
-    </div>
-  );
+const CATEGORY_META: Record<string, { label: string; color: string }> = {
+  kesehatan:      { label: 'Kesehatan',      color: '#D85A30' },
+  bencana:        { label: 'Bencana Alam',   color: '#378ADD' },
+  duka:           { label: 'Duka / Musibah', color: '#888780' },
+  anak_yatim:     { label: 'Anak Yatim',     color: '#E8963A' },
+  lansia:         { label: 'Lansia',         color: '#BA7517' },
+  hunian_darurat: { label: 'Hunian Darurat', color: '#0891B2' },
+};
+
+interface Campaign {
+  id: string;
+  slug: string;
+  title: string;
+  description: string;
+  category: string;
+  beneficiary_name: string;
+  target_amount: number;
+  collected_amount: number;
+  donor_count: number;
+  cover_image_url: string | null;
+  is_urgent: boolean;
+  status: string;
+  deadline: string | null;
+  created_at: string;
 }
 
-function DaysLeft({ deadline }: { deadline?: string }) {
+function formatRupiah(n: number): string {
+  return 'Rp ' + Number(n).toLocaleString('id-ID');
+}
+
+function shortAmount(n: number): string {
+  if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (n >= 1_000) return (n / 1_000).toFixed(0) + 'rb';
+  return String(n);
+}
+
+function daysRemaining(deadline: string | null): number | null {
   if (!deadline) return null;
-  const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
-  if (days <= 0) return <span className="text-xs text-gray-400">Selesai</span>;
-  return (
-    <span className={`text-xs font-medium ${days <= 7 ? 'text-red-500' : 'text-gray-400'}`}>
-      {days} hari lagi
-    </span>
-  );
+  const diff = new Date(deadline).getTime() - Date.now();
+  return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
 }
 
-export default async function FundraisingPage({
-  searchParams,
-}: { searchParams: Promise<{ cat?: string }> }) {
-  const params = await searchParams;
-  const supabase = await createClient();
-  let campaigns: any[] = [];
-  let stats = { total_raised: 0, total_donors: 0, active_campaigns: 0 };
-
+async function fetchCampaigns(): Promise<Campaign[]> {
   try {
-    let query = supabase
-      .from('campaigns')
-      .select('*')
-      .in('status', ['active', 'completed'])
-      .order('is_urgent', { ascending: false })
-      .order('created_at', { ascending: false });
+    const res = await fetch(`${API}/funding/campaigns?page=1&limit=50`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data ?? [];
+  } catch (err) {
+    console.error('[fundraising] fetch error:', err);
+    return [];
+  }
+}
 
-    if (params.cat && params.cat !== 'all') {
-      query = query.eq('category', params.cat);
-    }
-
-    const { data } = await query;
-    campaigns = data ?? [];
-
-    // Hitung stats
-    const allRes = await supabase
-      .from('campaigns')
-      .select('collected_amount, donor_count, status')
-      .in('status', ['active', 'completed']);
-
-    if (allRes.data) {
-      stats.total_raised = allRes.data.reduce((s: number, c: any) => s + (c.collected_amount || 0), 0);
-      stats.total_donors = allRes.data.reduce((s: number, c: any) => s + (c.donor_count || 0), 0);
-      stats.active_campaigns = allRes.data.filter((c: any) => c.status === 'active').length;
-    }
-  } catch {}
-
-  const activeCat = params.cat || 'all';
-  const urgentCampaigns = campaigns.filter(c => c.is_urgent);
-  const regularCampaigns = campaigns.filter(c => !c.is_urgent);
+export default async function FundraisingListPage() {
+  const campaigns = await fetchCampaigns();
+  const urgent = campaigns.filter(c => c.is_urgent);
+  const regular = campaigns.filter(c => !c.is_urgent);
 
   return (
-    <div className="min-h-screen bg-[#f9f9f8] pb-24">
+    <div className="min-h-screen bg-gray-50 pb-20">
 
-      {/* Hero Section */}
-      <div className="bg-[#003526] px-4 pt-8 pb-16">
-        <div className="mx-auto max-w-lg">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">BASUMBANG</h1>
-              <p className="text-sm text-[#95d3ba] mt-1">Galang dana kemanusiaan Maluku Utara</p>
-            </div>
-            <Link href="/owner/campaign/new/info"
-              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/20 transition-colors text-white text-xs font-semibold px-3 py-2 rounded-xl">
-              <span className="material-symbols-outlined text-sm">add</span>
-              Galang Dana
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-[#003526] to-[#1B6B4A] px-4 pt-10 pb-12 text-white">
+        <div className="mx-auto max-w-5xl">
+          <div className="flex items-center gap-2 mb-3">
+            <HeartHandshake size={24} className="text-[#F472B6]" />
+            <p className="text-xs font-bold text-[#F472B6] uppercase tracking-widest">BADONASI</p>
+          </div>
+          <h1 className="text-3xl md:text-4xl font-extrabold leading-tight mb-2">
+            Bantu Sesama di Maluku Utara
+          </h1>
+          <p className="text-sm md:text-base text-[#95d3ba] max-w-2xl leading-relaxed">
+            Platform donasi komunitas dengan transparansi penuh. 100% donasimu sampai ke penerima, tanpa potongan.
+          </p>
+
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/fundraising/new"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-sm font-bold px-5 py-3 rounded-2xl shadow-md hover:shadow-lg hover:opacity-95 transition-all"
+            >
+              <Plus size={16} />
+              Ajukan Campaign Baru
+            </Link>
+            <Link
+              href="/badonasi/standar-verifikasi"
+              className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm text-white text-sm font-semibold px-5 py-3 rounded-2xl hover:bg-white/20 transition-colors"
+            >
+              Cara Kerja BADONASI
             </Link>
           </div>
-
-          {/* Stats strip */}
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: 'Total Terkumpul', value: formatRupiah(stats.total_raised), icon: 'volunteer_activism' },
-              { label: 'Total Donatur', value: stats.total_donors.toLocaleString('id-ID'), icon: 'people' },
-              { label: 'Kampanye Aktif', value: String(stats.active_campaigns), icon: 'campaign' },
-            ].map(s => (
-              <div key={s.label} className="bg-white/10 rounded-xl p-3 text-center">
-                <span className="material-symbols-outlined text-[#95d3ba] text-lg">{s.icon}</span>
-                <p className="text-white font-bold text-base mt-1">{s.value}</p>
-                <p className="text-[#95d3ba]/70 text-xs">{s.label}</p>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 -mt-6">
-
-        {/* Trust badge */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3 mb-5 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-green-600 text-lg">verified</span>
-          </div>
-          <div>
-            <p className="text-xs font-bold text-gray-800">100% transparan</p>
-            <p className="text-xs text-gray-400">Dana langsung ke penerima via transfer bank. Biaya operasional dari donasi sukarela.</p>
-          </div>
-        </div>
-
-        {/* Category filter */}
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-5 scrollbar-none">
-          {CATEGORIES.map((c) => {
-            const CatIcon = c.Icon;
-            const isActive = activeCat === c.key;
-            return (
-              <Link key={c.key} href={c.key !== 'all' ? `/fundraising?cat=${c.key}` : '/fundraising'}
-                className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-[#003526] text-white border border-[#003526]'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
-                }`}>
-                <CatIcon
-                  size={14}
-                  strokeWidth={2.2}
-                  style={{ color: isActive ? '#FFFFFF' : c.color }}
-                />
-                <span>{c.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Urgent campaigns */}
-        {urgentCampaigns.length > 0 && (
-          <div className="mb-6">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center gap-1.5 bg-red-50 text-red-600 text-xs font-bold px-3 py-1.5 rounded-full">
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                </span>
-                BUTUH BANTUAN SEGERA
-              </div>
-            </div>
-            <div className="space-y-3">
-              {urgentCampaigns.map((c: any) => {
-                const pct = c.target_amount > 0 ? Math.min((c.collected_amount / c.target_amount) * 100, 100) : 0;
-                return (
-                  <Link key={c.id} href={`/fundraising/${c.slug}`}
-                    className="block bg-white rounded-2xl border border-red-100 overflow-hidden hover:shadow-md transition-shadow">
-                    {c.cover_image_url && (
-                      <div className="h-44 bg-gray-100">
-                        <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
-                      </div>
-                    )}
-                    <div className="p-4">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="bg-red-100 text-red-600 text-xs font-bold px-2 py-0.5 rounded-full">🔴 URGENT</span>
-                        <span className="text-xs text-gray-400 capitalize">{c.category?.replace('_', ' ')}</span>
-                      </div>
-                      <p className="font-bold text-gray-900 leading-snug">{c.title}</p>
-                      {c.beneficiary_name && (
-                        <p className="text-xs text-gray-500 mt-1">untuk {c.beneficiary_name}</p>
-                      )}
-                      <ProgressBar collected={c.collected_amount} target={c.target_amount} />
-                      <div className="mt-2 flex items-center justify-between">
-                        <span className="text-xs text-gray-400">{c.donor_count?.toLocaleString('id-ID') || 0} donatur</span>
-                        <div className="flex items-center gap-1">
-                          <DaysLeft deadline={c.deadline} />
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {/* Regular campaigns */}
+      {/* Content */}
+      <div className="mx-auto max-w-5xl px-4 -mt-6">
         {campaigns.length === 0 ? (
-          <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center">
-            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-[#1B6B4A]/10 flex items-center justify-center">
-              <HandHeart size={28} strokeWidth={2} style={{ color: '#1B6B4A' }} />
+          <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+            <div className="mx-auto w-20 h-20 rounded-full bg-gray-50 flex items-center justify-center mb-4">
+              <HeartHandshake size={36} className="text-gray-300" />
             </div>
-            <p className="font-semibold text-gray-700">Belum ada kampanye aktif</p>
-            <p className="text-sm text-gray-400 mt-1">Jadilah yang pertama menggalang dana</p>
-            <Link href="/owner/campaign/new/info"
-              className="mt-4 inline-block bg-[#003526] text-white text-sm font-bold px-5 py-2.5 rounded-xl">
-              Mulai Galang Dana
+            <h2 className="text-lg font-bold text-gray-900 mb-2">Belum Ada Campaign Aktif</h2>
+            <p className="text-sm text-gray-500 max-w-md mx-auto leading-relaxed">
+              Saat ini belum ada campaign yang sedang berjalan. Ingin ajukan campaign buat keluarga atau komunitas yang membutuhkan?
+            </p>
+            <Link
+              href="/fundraising/new"
+              className="inline-flex items-center gap-2 mt-5 bg-[#003526] text-white text-sm font-bold px-5 py-3 rounded-2xl hover:opacity-90 transition-opacity"
+            >
+              <Plus size={16} />
+              Ajukan Sekarang
             </Link>
           </div>
         ) : (
           <>
-            {regularCampaigns.length > 0 && (
+            {/* URGENT section */}
+            {urgent.length > 0 && (
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <Flame size={18} className="text-red-500" />
+                  <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Butuh Bantuan Segera</h2>
+                  <span className="text-xs font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full">{urgent.length}</span>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {urgent.map(c => <CampaignCard key={c.id} campaign={c} />)}
+                </div>
+              </div>
+            )}
+
+            {/* REGULAR section */}
+            {regular.length > 0 && (
               <div>
-                {urgentCampaigns.length > 0 && (
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-3">Kampanye Lainnya</p>
+                {urgent.length > 0 && (
+                  <div className="flex items-center gap-2 mb-4">
+                    <HeartHandshake size={18} className="text-[#003526]" />
+                    <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">Campaign Lainnya</h2>
+                    <span className="text-xs font-bold text-[#003526] bg-emerald-50 px-2 py-0.5 rounded-full">{regular.length}</span>
+                  </div>
                 )}
-                <div className="space-y-3">
-                  {regularCampaigns.map((c: any) => {
-                    const pct = c.target_amount > 0 ? Math.min((c.collected_amount / c.target_amount) * 100, 100) : 0;
-                    return (
-                      <Link key={c.id} href={`/fundraising/${c.slug}`}
-                        className="flex gap-3 bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow p-3">
-                        {/* Thumbnail */}
-                        <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0">
-                          {c.cover_image_url
-                            ? <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
-                            : <div className="h-full w-full flex items-center justify-center bg-[#1B6B4A]/5">
-                                <Heart size={28} strokeWidth={1.8} style={{ color: '#1B6B4A' }} />
-                              </div>
-                          }
-                        </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0 py-0.5">
-                          <p className="text-xs text-gray-400 capitalize mb-1">{c.category?.replace('_', ' ') || 'Kemanusiaan'}</p>
-                          <p className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug">{c.title}</p>
-                          {c.beneficiary_name && (
-                            <p className="text-xs text-gray-400 mt-0.5">untuk {c.beneficiary_name}</p>
-                          )}
-                          <div className="mt-2 h-1 w-full rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-[#1B6B4A] to-[#0891B2]"
-                              style={{ width: `${pct}%` }} />
-                          </div>
-                          <div className="mt-1 flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#1B6B4A]">{formatRupiah(c.collected_amount)}</span>
-                            <span className="text-xs text-gray-400">{c.donor_count || 0} donatur</span>
-                          </div>
-                        </div>
-                      </Link>
-                    );
-                  })}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {regular.map(c => <CampaignCard key={c.id} campaign={c} />)}
                 </div>
               </div>
             )}
           </>
         )}
 
-        {/* CTA Galang Dana */}
-        <div className="mt-8 bg-gradient-to-r from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-center">
-          <p className="text-white font-bold mb-1">Punya kebutuhan mendesak?</p>
-          <p className="text-[#95d3ba] text-sm mb-4">Galang dana sekarang dan dapatkan dukungan dari warga Maluku Utara</p>
-          <Link href="/owner/campaign/new/info"
-            className="inline-flex items-center gap-2 bg-white text-[#003526] font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-            <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-            Mulai Galang Dana
-          </Link>
+        {/* Footer trust note */}
+        <div className="mt-10 rounded-2xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] p-6 text-white">
+          <h3 className="text-base font-bold mb-3 flex items-center gap-2">
+            <HeartHandshake size={18} className="text-[#F472B6]" />
+            Kenapa BADONASI TeraLoka?
+          </h3>
+          <ul className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+            <li className="flex items-start gap-2">
+              <span className="text-[#95d3ba]">✓</span>
+              <span>100% donasi sampai ke penerima</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[#95d3ba]">✓</span>
+              <span>Verifikasi manual oleh tim TeraLoka</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[#95d3ba]">✓</span>
+              <span>Laporan penggunaan dana terbuka</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-[#95d3ba]">✓</span>
+              <span>Dana via rekening partner komunitas</span>
+            </li>
+          </ul>
         </div>
       </div>
     </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────
+// CAMPAIGN CARD
+// ─────────────────────────────────────────────────────────────
+
+function CampaignCard({ campaign: c }: { campaign: Campaign }) {
+  const progress = c.target_amount > 0
+    ? Math.min((c.collected_amount / c.target_amount) * 100, 100)
+    : 0;
+  const daysLeft = daysRemaining(c.deadline);
+  const category = CATEGORY_META[c.category] || CATEGORY_META.kesehatan;
+
+  return (
+    <Link
+      href={`/fundraising/${c.slug}`}
+      className="group block bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-lg hover:-translate-y-0.5 transition-all"
+    >
+      {/* Cover */}
+      <div className="relative aspect-[16/10] bg-gray-100">
+        {c.cover_image_url ? (
+          <img
+            src={c.cover_image_url}
+            alt={c.beneficiary_name || c.title}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+          />
+        ) : (
+          <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center">
+            <ImageIcon size={40} className="text-gray-300" />
+          </div>
+        )}
+        <div className="absolute top-2 right-2 flex gap-1.5">
+          {c.is_urgent && (
+            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-500 text-white text-[9px] font-bold shadow-md">
+              <Siren size={9} /> URGENT
+            </span>
+          )}
+          <span
+            className="px-2 py-0.5 rounded-full text-white text-[9px] font-bold shadow-md"
+            style={{ backgroundColor: category.color }}
+          >
+            {category.label}
+          </span>
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="p-4">
+        <h3 className="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 min-h-[2.5rem]">
+          {c.title}
+        </h3>
+
+        {/* Progress */}
+        <div className="mb-3">
+          <div className="flex items-baseline justify-between mb-1">
+            <p className="text-base font-extrabold text-[#003526]">
+              {shortAmount(c.collected_amount)}
+            </p>
+            <p className="text-xs font-bold text-[#EC4899]">
+              {progress.toFixed(0)}%
+            </p>
+          </div>
+          <div className="h-1.5 w-full bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-gradient-to-r from-[#003526] to-[#1B6B4A] rounded-full transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <p className="text-[11px] text-gray-500 mt-1">
+            dari {formatRupiah(c.target_amount)}
+          </p>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-1 pt-3 border-t border-gray-50">
+          <div className="text-center">
+            <Users size={11} className="mx-auto text-gray-400 mb-0.5" />
+            <p className="text-xs font-bold text-gray-700">{c.donor_count}</p>
+            <p className="text-[9px] text-gray-400 uppercase">Donatur</p>
+          </div>
+          <div className="text-center">
+            <Clock size={11} className={`mx-auto mb-0.5 ${daysLeft !== null && daysLeft <= 7 ? 'text-red-500' : 'text-gray-400'}`} />
+            <p className={`text-xs font-bold ${daysLeft !== null && daysLeft <= 7 ? 'text-red-500' : 'text-gray-700'}`}>
+              {daysLeft !== null ? daysLeft : '∞'}
+            </p>
+            <p className="text-[9px] text-gray-400 uppercase">Hari</p>
+          </div>
+          <div className="text-center">
+            <Target size={11} className="mx-auto text-gray-400 mb-0.5" />
+            <p className="text-xs font-bold text-gray-700">
+              {shortAmount(Math.max(0, c.target_amount - c.collected_amount))}
+            </p>
+            <p className="text-[9px] text-gray-400 uppercase">Kurang</p>
+          </div>
+        </div>
+
+        {/* CTA */}
+        <div className="mt-3 flex items-center justify-center gap-1 text-xs font-bold text-[#EC4899] group-hover:gap-2 transition-all">
+          Lihat & Donasi
+          <ArrowRight size={12} />
+        </div>
+      </div>
+    </Link>
   );
 }
