@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import ShareBar from './_components/ShareBar';
 import AamiinButton from './_components/AamiinButton';
+import UpdateAamiinButton from './_components/UpdateAamiinButton';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -135,7 +136,7 @@ export default async function CampaignPage({ params }: Props) {
     reports = data ?? [];
   } catch { }
 
-  // Campaign updates
+  // Campaign updates (includes aamiin_count from .select('*'))
   let updates: any[] = [];
   try {
     const { data } = await supabase
@@ -375,7 +376,7 @@ export default async function CampaignPage({ params }: Props) {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════
-          KABAR TERBARU — Flex layout timeline (FIXED padding)
+          KABAR TERBARU — Flex layout timeline WITH AAMIIN BUTTON
          ═══════════════════════════════════════════════════════════ */}
       {updates.length > 0 && (
         <div className="mx-auto max-w-lg px-4 mt-4">
@@ -385,7 +386,7 @@ export default async function CampaignPage({ params }: Props) {
               Kabar Terbaru
             </h2>
             <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Update langsung dari creator campaign — kondisi penerima & progress.
+              Update langsung dari creator campaign — kondisi penerima & progress. Kasih <strong>Aamiin</strong> untuk ikut mendoakan.
             </p>
 
             <div className="space-y-1">
@@ -423,6 +424,14 @@ export default async function CampaignPage({ params }: Props) {
                         ))}
                       </div>
                     )}
+
+                    {/* Aamiin button */}
+                    <div className="mt-3 flex justify-start">
+                      <UpdateAamiinButton
+                        updateId={u.id}
+                        initialCount={u.aamiin_count ?? 0}
+                      />
+                    </div>
                   </div>
                 </div>
               ))}
