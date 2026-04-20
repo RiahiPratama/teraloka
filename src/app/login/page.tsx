@@ -1,14 +1,28 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useRef, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 
 type Step = 'phone' | 'otp' | 'onboard';
 
-export default function LoginPage() {
+// Inner component — menggunakan useSearchParams.
+// Harus di-wrap Suspense (required oleh Next.js 15+).
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user, requestOtp, verifyOtp, updateProfile } = useAuth();
+
+  // Baca ?redirect= dari URL dengan security guard:
+  // - HANYA path internal yang dimulai dengan "/"
+  // - Tolak "//anything" (protocol-relative URL bypass)
+  // - Tolak "https://evil.com" (external redirect attack)
+  // Ini mencegah "open redirect vulnerability".
+  const rawRedirect = searchParams.get('redirect');
+  const redirectTo =
+    rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
+      ? rawRedirect
+      : '/';
 
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -22,8 +36,8 @@ export default function LoginPage() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    if (user) router.replace('/');
-  }, [user]);
+    if (user) router.replace(redirectTo);
+  }, [user, redirectTo, router]);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -56,7 +70,7 @@ export default function LoginPage() {
       if (result.is_new) {
         setStep('onboard');
       } else {
-        router.replace('/');
+        router.replace(redirectTo);
       }
     } else {
       setError(result.message);
@@ -69,7 +83,7 @@ export default function LoginPage() {
     const ok = await updateProfile(name);
     setLoading(false);
     if (ok) {
-      router.replace('/');
+      router.replace(redirectTo);
     } else {
       setError('Gagal simpan nama. Coba lagi.');
     }
@@ -243,5 +257,23 @@ export default function LoginPage() {
 
       </div>
     </div>
+  );
+}
+
+// Default export — Suspense wrapper untuk useSearchParams (Next.js 15+).
+// Fallback: card kosong dengan dimensi sama biar ga ada layout shift.
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+          <div className="w-full max-w-sm rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+            <div className="h-[420px] animate-pulse rounded-xl bg-gray-50" />
+          </div>
+        </div>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
   );
 }
