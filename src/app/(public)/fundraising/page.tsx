@@ -159,8 +159,8 @@ export default async function FundraisingPage({
               <Link key={c.key} href={c.key !== 'all' ? `/fundraising?cat=${c.key}` : '/fundraising'}
                 className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
                   isActive
-                    ? 'bg-[#003526] text-white border border-[#003526]'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:border-pink-200'
+                    ? 'bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white border border-transparent shadow-sm'
+                    : 'bg-pink-50 border border-pink-100 text-[#BE185D] hover:bg-pink-100'
                 }`}>
                 <CatIcon
                   size={14}
@@ -287,12 +287,14 @@ export default async function FundraisingPage({
 
           <div className="relative">
             <HeartHandshake size={28} className="text-[#F472B6] mx-auto mb-2" strokeWidth={2.2} />
-            <p className="text-white font-bold mb-1">Punya kebutuhan mendesak?</p>
-            <p className="text-[#95d3ba] text-sm mb-4">Galang dana sekarang dan dapatkan dukungan dari warga Maluku Utara</p>
+            <p className="text-white font-bold mb-1">Kenal warga yang butuh uluran tangan?</p>
+            <p className="text-[#95d3ba] text-sm mb-4 leading-relaxed">
+              Ajukan campaign untuk keluarga, tetangga, atau siapa pun yang butuh bantuan. Tim TeraLoka verifikasi setiap pengajuan dengan teliti.
+            </p>
             <Link href="/owner/campaign/new/info"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md">
               <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-              Mulai Galang Dana
+              Bantu Galang Dana
             </Link>
           </div>
         </div>
