@@ -2,9 +2,10 @@
 
 import { useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { FileText, X, Upload, Loader2 } from 'lucide-react';
 
 interface ImageUploadProps {
-  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads';
+  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads' | 'donations';
   onUpload: (urls: string[]) => void;
   existingUrls?: string[];
   label?: string;
@@ -19,7 +20,34 @@ const BUCKET_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
   avatars:   { maxFiles: 1, maxSizeMB: 1 },
   reports:   { maxFiles: 3, maxSizeMB: 3 },
   ads:       { maxFiles: 1, maxSizeMB: 0.5 },
+  donations: { maxFiles: 1, maxSizeMB: 5 },
 };
+
+// Bucket 'donations' accepts PDF (bukti transfer dari e-banking export).
+// Other buckets: image-only (jpeg/png/webp).
+function getAllowedMimes(bucket: string): string[] {
+  if (bucket === 'donations') {
+    return ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+  }
+  return ['image/jpeg', 'image/png', 'image/webp'];
+}
+
+function getAcceptAttr(bucket: string): string {
+  if (bucket === 'donations') {
+    return 'image/jpeg,image/png,image/webp,application/pdf';
+  }
+  return 'image/jpeg,image/png,image/webp';
+}
+
+function getFormatLabel(bucket: string): string {
+  if (bucket === 'donations') return 'JPG, PNG, WebP, atau PDF';
+  return 'JPG, PNG, atau WebP';
+}
+
+// Check if URL is a PDF (simple extension check)
+function isPdfUrl(url: string): boolean {
+  return url.toLowerCase().endsWith('.pdf');
+}
 
 export default function ImageUpload({
   bucket,
@@ -32,6 +60,7 @@ export default function ImageUpload({
   const limits = BUCKET_LIMITS[bucket];
   const _maxFiles  = maxFiles  ?? limits.maxFiles;
   const _maxSizeMB = maxSizeMB ?? limits.maxSizeMB;
+  const allowedMimes = getAllowedMimes(bucket);
 
   const [urls, setUrls] = useState<string[]>(existingUrls);
   const [uploading, setUploading] = useState(false);
@@ -40,147 +69,138 @@ export default function ImageUpload({
 
   const uploadFile = async (file: File): Promise<string | null> => {
     if (file.size > _maxSizeMB * 1024 * 1024) {
-      setError(`Ukuran foto maksimal ${_maxSizeMB}MB`);
+      setError(`Ukuran file maksimal ${_maxSizeMB}MB`);
       return null;
     }
-    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
-      setError('Format foto harus JPG, PNG, atau WebP');
+    if (!allowedMimes.includes(file.type)) {
+      setError(`Format harus ${getFormatLabel(bucket)}`);
       return null;
     }
 
     const supabase = createClient();
-    const ext = file.name.split('.').pop();
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(-6)}.${ext}`;
+    const ext = file.name.split('.').pop() || 'bin';
+    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
     const { error: uploadError } = await supabase.storage
       .from(bucket)
-      .upload(fileName, file, { upsert: false });
+      .upload(fileName, file, { cacheControl: '3600', upsert: false });
 
-    if (uploadError) throw uploadError;
+    if (uploadError) {
+      setError(`Upload gagal: ${uploadError.message}`);
+      return null;
+    }
 
     const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
     return data.publicUrl;
   };
 
-  const handleFiles = async (files: FileList) => {
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
     setError('');
-    const remaining = _maxFiles - urls.length;
-    if (remaining <= 0) {
-      setError(`Maksimal ${_maxFiles} foto`);
-      return;
-    }
-
-    const selected = Array.from(files).slice(0, remaining);
     setUploading(true);
 
-    try {
-      const results = await Promise.all(selected.map(uploadFile));
-      const newUrls = results.filter(Boolean) as string[];
-      const updated = [...urls, ...newUrls];
-      setUrls(updated);
-      onUpload(updated);
-    } catch (err: any) {
-      setError(err.message ?? 'Gagal upload foto. Coba lagi.');
-    } finally {
-      setUploading(false);
-    }
-  };
+    const remaining = _maxFiles - urls.length;
+    const toUpload = Array.from(files).slice(0, remaining);
 
-  const handleRemove = (idx: number) => {
-    const updated = urls.filter((_, i) => i !== idx);
+    const newUrls: string[] = [];
+    for (const file of toUpload) {
+      const url = await uploadFile(file);
+      if (url) newUrls.push(url);
+    }
+
+    const updated = [...urls, ...newUrls];
     setUrls(updated);
     onUpload(updated);
+    setUploading(false);
+
     if (inputRef.current) inputRef.current.value = '';
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    if (e.dataTransfer.files.length) handleFiles(e.dataTransfer.files);
+    handleFiles(e.dataTransfer.files);
+  };
+
+  const handleRemove = (url: string) => {
+    const updated = urls.filter(u => u !== url);
+    setUrls(updated);
+    onUpload(updated);
   };
 
   const canAddMore = urls.length < _maxFiles;
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-1.5">
-        <label className="text-sm font-medium text-gray-700">{label}</label>
-        <span className="text-xs text-gray-400">
-          {urls.length}/{_maxFiles} foto · maks {_maxSizeMB}MB per foto
-        </span>
-      </div>
+      {label && <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">{label}</label>}
 
-      {/* Grid foto yang sudah diupload */}
+      {/* Existing files preview */}
       {urls.length > 0 && (
-        <div className={`mb-2 grid gap-2 ${urls.length === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
-          {urls.map((url, idx) => (
-            <div key={url} className="relative group">
-              <img
-                src={url}
-                alt={`Foto ${idx + 1}`}
-                className="h-24 w-full rounded-xl object-cover border border-gray-200"
-              />
-              {idx === 0 && (
-                <span className="absolute left-1.5 top-1.5 rounded-md bg-[#1B6B4A] px-1.5 py-0.5 text-xs font-medium text-white">
-                  Cover
-                </span>
+        <div className={`mt-2 grid gap-2 ${_maxFiles === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
+          {urls.map((url, i) => (
+            <div key={i} className="relative group rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
+              {isPdfUrl(url) ? (
+                <div className="flex items-center gap-3 p-4">
+                  <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
+                    <FileText size={24} className="text-red-500" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs font-semibold text-gray-700 truncate">Bukti Transfer (PDF)</p>
+                    <a href={url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-[#003526] underline">Lihat file</a>
+                  </div>
+                </div>
+              ) : (
+                <img src={url} alt={`Upload ${i + 1}`} className="w-full h-32 object-cover" />
               )}
-              <button
-                onClick={() => handleRemove(idx)}
-                className="absolute right-1.5 top-1.5 rounded-full bg-black/50 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
-                title="Hapus foto"
-              >
-                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
+              <button type="button" onClick={() => handleRemove(url)}
+                className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 text-white flex items-center justify-center hover:bg-black transition-colors">
+                <X size={14} />
               </button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Area upload */}
+      {/* Upload area */}
       {canAddMore && (
         <div
-          onClick={() => !uploading && inputRef.current?.click()}
           onDrop={handleDrop}
-          onDragOver={e => e.preventDefault()}
-          className={`flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
-            uploading
-              ? 'border-gray-200 bg-gray-50 cursor-not-allowed'
-              : 'border-gray-200 bg-gray-50 cursor-pointer hover:border-[#1B6B4A] hover:bg-green-50'
-          } ${urls.length > 0 ? 'h-16' : 'h-32'}`}
+          onDragOver={(e) => e.preventDefault()}
+          onClick={() => inputRef.current?.click()}
+          className="mt-2 border-2 border-dashed border-gray-200 rounded-xl px-4 py-6 text-center cursor-pointer hover:border-[#003526] hover:bg-gray-50 transition-colors"
         >
           {uploading ? (
-            <div className="flex items-center gap-2 text-gray-400">
-              <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-[#1B6B4A]" />
-              <span className="text-xs">Mengupload...</span>
+            <div className="flex flex-col items-center gap-2">
+              <Loader2 size={24} className="animate-spin text-[#003526]" />
+              <p className="text-xs text-gray-500">Mengupload...</p>
             </div>
           ) : (
-            <>
-              <svg className={`text-gray-400 ${urls.length > 0 ? 'h-5 w-5' : 'h-8 w-8 mb-2'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-              {urls.length === 0 && (
-                <>
-                  <p className="text-xs font-medium text-gray-500">Klik atau drag foto ke sini</p>
-                  <p className="text-xs text-gray-400">JPG, PNG, WebP · maks {_maxSizeMB}MB</p>
-                </>
-              )}
-            </>
+            <div className="flex flex-col items-center gap-2">
+              <Upload size={22} className="text-gray-400" />
+              <p className="text-xs text-gray-600 font-semibold">
+                Klik atau drag file ke sini
+              </p>
+              <p className="text-xs text-gray-400">
+                {getFormatLabel(bucket)} · maks {_maxSizeMB}MB
+                {_maxFiles > 1 && ` · hingga ${_maxFiles} file`}
+              </p>
+            </div>
           )}
+
+          <input
+            ref={inputRef}
+            type="file"
+            accept={getAcceptAttr(bucket)}
+            multiple={_maxFiles > 1}
+            onChange={(e) => handleFiles(e.target.files)}
+            className="hidden"
+          />
         </div>
       )}
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        multiple={_maxFiles > 1}
-        onChange={e => e.target.files && handleFiles(e.target.files)}
-        className="hidden"
-      />
-
-      {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
+      {error && (
+        <p className="mt-2 text-xs text-red-600">{error}</p>
+      )}
     </div>
   );
 }

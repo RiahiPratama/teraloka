@@ -9,10 +9,8 @@ import { formatRupiah } from '@/utils/format';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-// Preset nominal donasi (user bisa pilih + custom)
 const AMOUNT_PRESETS = [25000, 50000, 100000, 250000, 500000, 1000000];
 
-// Preset biaya operasional support platform (opsional)
 const FEE_PRESETS = [
   { value: 0,     label: 'Tidak' },
   { value: 2000,  label: 'Rp 2rb' },
@@ -20,7 +18,6 @@ const FEE_PRESETS = [
   { value: 10000, label: 'Rp 10rb' },
 ];
 
-// Preset nama alias untuk donor yang ga mau pakai nama real
 const NAME_PRESETS = ['Hamba Allah', 'Keluarga Ternate', 'Bismillah'];
 
 const MIN_DONATION = 25000;
@@ -48,9 +45,8 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
 
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
-  const [fetchError, setFetchError] = useState('');  // ← separate from submit error
+  const [fetchError, setFetchError] = useState('');
 
-  // Form state
   const [amount, setAmount] = useState<number>(0);
   const [customAmount, setCustomAmount] = useState('');
   const [fee, setFee] = useState<number>(0);
@@ -60,11 +56,9 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
   const [donorPhone, setDonorPhone] = useState('');
   const [message, setMessage] = useState('');
 
-  // UI state
   const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState('');  // ← separate from fetch error
+  const [submitError, setSubmitError] = useState('');
 
-  // Fetch campaign on mount
   useEffect(() => {
     async function fetchCampaign() {
       try {
@@ -87,29 +81,25 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     fetchCampaign();
   }, [slug]);
 
-  // Computed total transfer
-  const totalTransfer = useMemo(() => amount + fee, [amount, fee]);
+  // Subtotal = amount + fee (kode unik ditambahkan di server setelah submit)
+  const subtotal = useMemo(() => amount + fee, [amount, fee]);
 
-  // Progress campaign
   const progressPct = useMemo(() => {
     if (!campaign || campaign.target_amount === 0) return 0;
     return Math.min(100, (campaign.collected_amount / campaign.target_amount) * 100);
   }, [campaign]);
 
-  // Handle amount preset select
   function handleAmountPreset(val: number) {
     setAmount(val);
     setCustomAmount('');
   }
 
-  // Handle custom amount input
   function handleCustomAmount(val: string) {
     const digits = val.replace(/\D/g, '');
     setCustomAmount(digits);
     setAmount(Number(digits) || 0);
   }
 
-  // Handle fee preset select
   function handleFeePreset(val: number) {
     setFee(val);
     setCustomFee('');
@@ -121,13 +111,11 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     setFee(Number(digits) || 0);
   }
 
-  // Handle name preset
   function handleNamePreset(name: string) {
     setDonorName(name);
     setIsAnonymous(false);
   }
 
-  // Handle anonymous toggle
   function handleAnonymousToggle() {
     const next = !isAnonymous;
     setIsAnonymous(next);
@@ -138,7 +126,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     }
   }
 
-  // Form validation
   const canSubmit = useMemo(() => {
     if (submitting) return false;
     if (!campaign || campaign.status !== 'active') return false;
@@ -147,7 +134,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     return true;
   }, [submitting, campaign, amount, isAnonymous, donorName]);
 
-  // Validation message
   const validationMsg = useMemo(() => {
     if (amount > 0 && amount < MIN_DONATION) {
       return `Minimum donasi ${formatRupiah(MIN_DONATION)}`;
@@ -157,7 +143,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     return '';
   }, [amount, isAnonymous, donorName]);
 
-  // Submit handler
   async function handleSubmit() {
     if (!canSubmit || !campaign) return;
 
@@ -179,22 +164,12 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
       });
 
       const json = await res.json();
-
-      // Handle 2 possible backend response formats:
-      // FORMAT A (current): { success: true, data: { id, donation_code, ... } }
-      //   → donation is directly in data
-      // FORMAT B (future): { success: true, data: { donation: { id, ... }, campaign: {...} } }
-      //   → donation nested under data.donation
-      //
-      // Extract donation_id from either format.
       const donationId = json?.data?.donation?.id ?? json?.data?.id;
 
       if (res.ok && json.success && donationId) {
-        // Simpan pesan/doa ke localStorage (buat konfirmasi page nanti)
         if (message.trim()) {
           localStorage.setItem(`donation-msg-${donationId}`, message.trim());
         }
-        // Redirect ke konfirmasi page
         router.push(`/fundraising/${slug}/konfirmasi?id=${donationId}`);
       } else {
         setSubmitError(json?.error?.message || 'Gagal membuat donasi. Coba lagi.');
@@ -204,12 +179,8 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
       setSubmitError('Koneksi bermasalah. Coba lagi.');
       setSubmitting(false);
     }
-    // Note: don't setSubmitting(false) on success — we're redirecting
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Loading state (fetch campaign)
-  // ─────────────────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -218,10 +189,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
     );
   }
 
-  // ─────────────────────────────────────────────────────────────
-  // Full-page error state — ONLY when campaign fetch fails
-  // (NOT when submit fails — submit error shown inline)
-  // ─────────────────────────────────────────────────────────────
   if (!campaign || fetchError) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -241,7 +208,7 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-32">
+    <div className="min-h-screen bg-gray-50 pb-36">
 
       {/* Header */}
       <div className="bg-[#003526] px-4 pt-6 pb-8">
@@ -320,7 +287,7 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
           </div>
         </div>
 
-        {/* 2. Biaya Operasional (optional) */}
+        {/* 2. Biaya Operasional */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
             <HeartHandshake size={16} className="text-[#BA7517]" />
@@ -360,7 +327,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
             <UserRound size={16} className="text-[#003526]" />
             Nama Donor
           </h2>
-          {/* Anonymous toggle */}
           <label className="flex items-center justify-between gap-3 bg-gray-50 rounded-xl p-3 mb-3 cursor-pointer">
             <div>
               <p className="text-sm font-semibold text-gray-800">Donasi Anonim</p>
@@ -372,7 +338,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
             </button>
           </label>
 
-          {/* Name input (hidden if anonymous) */}
           {!isAnonymous && (
             <>
               <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
@@ -398,7 +363,7 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
           )}
         </div>
 
-        {/* 4. Nomor WhatsApp (optional) */}
+        {/* 4. Nomor WhatsApp */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-800 mb-1">
             Nomor WhatsApp <span className="text-gray-400 font-normal">(Opsional)</span>
@@ -416,7 +381,7 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
           />
         </div>
 
-        {/* 5. Pesan / Doa (optional) */}
+        {/* 5. Pesan / Doa */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-800 mb-1">
             Pesan atau Doa <span className="text-gray-400 font-normal">(Opsional)</span>
@@ -443,7 +408,6 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
           </p>
         </div>
 
-        {/* INLINE submit error banner (bukan full-page) */}
         {submitError && (
           <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-start gap-2">
             <AlertCircle size={16} className="text-red-500 shrink-0 mt-0.5" />
@@ -456,14 +420,14 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
 
       </div>
 
-      {/* Sticky bottom panel: total + CTA */}
+      {/* Sticky bottom panel */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg">
         <div className="mx-auto max-w-lg px-4 py-4">
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-xs text-gray-400">Total Transfer</p>
+              <p className="text-xs text-gray-400">Subtotal</p>
               <p className="text-xl font-extrabold text-[#003526]">
-                {totalTransfer > 0 ? formatRupiah(totalTransfer) : 'Rp 0'}
+                {subtotal > 0 ? formatRupiah(subtotal) : 'Rp 0'}
               </p>
             </div>
             {fee > 0 && (
@@ -473,9 +437,21 @@ export default function DonatePage({ params }: { params: Promise<{ slug: string 
               </div>
             )}
           </div>
+
+          {/* Catatan unique code */}
+          {subtotal >= MIN_DONATION && (
+            <div className="flex items-start gap-1.5 mb-2 px-1">
+              <Info size={12} className="text-gray-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-gray-500 leading-tight">
+                Nominal transfer final akan ditambah <span className="font-semibold">3 digit kode unik</span> untuk verifikasi. Ditampilkan di halaman berikutnya.
+              </p>
+            </div>
+          )}
+
           {validationMsg && (
             <p className="text-xs text-amber-600 mb-2 text-center">{validationMsg}</p>
           )}
+
           <button
             onClick={handleSubmit}
             disabled={!canSubmit}

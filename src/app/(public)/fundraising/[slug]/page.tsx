@@ -9,7 +9,12 @@ type Props = { params: Promise<{ slug: string }> };
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
-  const { data } = await supabase.from('campaigns').select('title, description').eq('slug', slug).single();
+  const { data } = await supabase
+    .schema('funding')
+    .from('campaigns')
+    .select('title, description')
+    .eq('slug', slug)
+    .single();
   if (!data) return { title: 'Campaign tidak ditemukan' };
   return { title: `${data.title} | BADONASI`, description: data.description };
 }
@@ -19,6 +24,7 @@ export default async function CampaignPage({ params }: Props) {
   const supabase = await createClient();
 
   const { data: campaign } = await supabase
+    .schema('funding')
     .from('campaigns')
     .select('*')
     .eq('slug', slug)
@@ -30,6 +36,7 @@ export default async function CampaignPage({ params }: Props) {
   let donors: any[] = [];
   try {
     const { data } = await supabase
+      .schema('funding')
       .from('donations')
       .select('donor_name, amount, is_anonymous, created_at')
       .eq('campaign_id', campaign.id)
@@ -37,24 +44,25 @@ export default async function CampaignPage({ params }: Props) {
       .order('created_at', { ascending: false })
       .limit(20);
     donors = data ?? [];
-  } catch {}
+  } catch { }
 
   // Get usage reports
   let reports: any[] = [];
   try {
     const { data } = await supabase
+      .schema('funding')
       .from('usage_reports')
       .select('*')
       .eq('campaign_id', campaign.id)
       .eq('status', 'approved')
       .order('report_number');
     reports = data ?? [];
-  } catch {}
+  } catch { }
 
   const progress = campaign.target_amount > 0 ? Math.min((campaign.collected_amount / campaign.target_amount) * 100, 100) : 0;
 
   return (
-    <div className="px-4 py-4">
+    <div className="mx-auto max-w-lg px-4 py-4">
       <Link href="/fundraising" className="text-sm text-[#1B6B4A]">← Semua Campaign</Link>
 
       {campaign.cover_image_url && (
@@ -86,9 +94,15 @@ export default async function CampaignPage({ params }: Props) {
 
       {/* Donate button */}
       {campaign.status === 'active' && (
-        <button className="mt-4 w-full rounded-xl bg-[#1B6B4A] py-3.5 text-sm font-bold text-white">
-          💚 Donasi Sekarang
-        </button>
+        <Link
+          href={`/fundraising/${campaign.slug}/donate`}
+          className="mt-4 flex items-center justify-center gap-2 w-full rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] py-4 text-sm font-bold text-white shadow-md hover:opacity-90 transition-opacity"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
+          </svg>
+          Donasi Sekarang
+        </Link>
       )}
 
       {/* Description */}
@@ -131,7 +145,7 @@ export default async function CampaignPage({ params }: Props) {
         <p className="font-medium">💚 Transparansi BADONASI</p>
         <ul className="mt-1 space-y-0.5">
           <li>• 100% donasi sampai ke penerima</li>
-          <li>• Rekening terpisah "TeraLoka BADONASI"</li>
+          <li>• Rekening terpisah &ldquo;TeraLoka BADONASI&rdquo;</li>
           <li>• Laporan penggunaan wajib dalam 7 hari</li>
           <li>• Semua bukti transfer publik</li>
         </ul>
