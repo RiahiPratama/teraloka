@@ -8,11 +8,15 @@ import {
   CheckCircle2, Building2, HeartHandshake, MessageCircle,
   Flame, Siren, FileCheck, UserCheck, Flag,
   ImageIcon, Lock, Share2, Megaphone, Wallet,
-  Receipt, ArrowRight, Heart,
+  Receipt, ArrowRight, Heart, TrendingUp,
+  CircleDollarSign, Banknote, ShoppingBag, PlayCircle,
+  PartyPopper, Activity,
 } from 'lucide-react';
 import ShareBar from './_components/ShareBar';
 import AamiinButton from './_components/AamiinButton';
 import UpdateAamiinButton from './_components/UpdateAamiinButton';
+
+export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -64,6 +68,13 @@ function formatLongDate(date: string | Date | null): string {
   });
 }
 
+function formatShortDate(date: string | Date | null): string {
+  if (!date) return '';
+  return new Date(date).toLocaleDateString('id-ID', {
+    day: 'numeric', month: 'short', year: 'numeric',
+  });
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const supabase = await createClient();
@@ -98,7 +109,6 @@ export default async function CampaignPage({ params }: Props) {
 
   if (!campaign) notFound();
 
-  // Creator
   let creator: { name: string; phone: string } | null = null;
   try {
     const { data } = await supabase
@@ -109,7 +119,6 @@ export default async function CampaignPage({ params }: Props) {
     creator = data;
   } catch { }
 
-  // Donors (verified)
   let donors: any[] = [];
   try {
     const { data } = await supabase
@@ -123,7 +132,6 @@ export default async function CampaignPage({ params }: Props) {
     donors = data ?? [];
   } catch { }
 
-  // Usage reports
   let reports: any[] = [];
   try {
     const { data } = await supabase
@@ -136,7 +144,6 @@ export default async function CampaignPage({ params }: Props) {
     reports = data ?? [];
   } catch { }
 
-  // Campaign updates (includes aamiin_count from .select('*'))
   let updates: any[] = [];
   try {
     const { data } = await supabase
@@ -148,7 +155,6 @@ export default async function CampaignPage({ params }: Props) {
     updates = data ?? [];
   } catch { }
 
-  // Disbursements
   let disbursements: any[] = [];
   try {
     const { data } = await supabase
@@ -160,7 +166,6 @@ export default async function CampaignPage({ params }: Props) {
     disbursements = data ?? [];
   } catch { }
 
-  // Donor messages
   let donorMessages: any[] = [];
   try {
     const { data } = await supabase
@@ -187,6 +192,114 @@ export default async function CampaignPage({ params }: Props) {
 
   const totalDisbursed = disbursements.reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0);
   const totalUsed = reports.reduce((sum: number, r: any) => sum + Number(r.amount_used || 0), 0);
+
+  // ═══════════════════════════════════════════════════════════
+  // ALIRAN DANA TIMELINE — Merge all events chronologically
+  // ═══════════════════════════════════════════════════════════
+
+  type TimelineEvent = {
+    type: 'start' | 'milestone' | 'disbursement' | 'usage' | 'completed';
+    date: string;
+    amount: number;
+    title: string;
+    subtitle?: string;
+    notes?: string;
+    proof_url?: string;
+    stage_number?: number;
+    report_number?: number;
+  };
+
+  const timeline: TimelineEvent[] = [];
+
+  // 1. Campaign start
+  timeline.push({
+    type: 'start',
+    date: campaign.created_at,
+    amount: 0,
+    title: 'Campaign Dimulai',
+    subtitle: `Target ${formatRupiah(campaign.target_amount)}`,
+  });
+
+  // 2. Milestones — synthetic based on collected_amount if reached
+  //    We don't have timestamps for milestones, so only show CURRENT state
+  //    as a "current milestone" at the top of timeline order
+  const milestonePct = progress;
+  const milestonesReached: { pct: number; label: string }[] = [];
+  if (milestonePct >= 25) milestonesReached.push({ pct: 25, label: 'Donasi Capai 25%' });
+  if (milestonePct >= 50) milestonesReached.push({ pct: 50, label: 'Donasi Capai 50%' });
+  if (milestonePct >= 75) milestonesReached.push({ pct: 75, label: 'Donasi Capai 75%' });
+  if (milestonePct >= 100) milestonesReached.push({ pct: 100, label: 'Donasi Tercapai Penuh' });
+
+  // Show LATEST milestone only (avoid clutter), undated (logical position after start)
+  if (milestonesReached.length > 0) {
+    const latest = milestonesReached[milestonesReached.length - 1];
+    timeline.push({
+      type: 'milestone',
+      date: campaign.created_at, // approximate — will be reordered if disbursements earlier
+      amount: campaign.collected_amount,
+      title: latest.label,
+      subtitle: `Terkumpul ${formatRupiah(campaign.collected_amount)} dari ${campaign.donor_count ?? 0} donatur`,
+    });
+  }
+
+  // 3. Disbursements
+  disbursements.forEach((d: any) => {
+    timeline.push({
+      type: 'disbursement',
+      date: d.disbursed_at,
+      amount: Number(d.amount || 0),
+      title: `Pencairan Tahap ${d.stage_number}`,
+      subtitle: d.disbursed_to,
+      notes: d.notes,
+      proof_url: d.proof_url,
+      stage_number: d.stage_number,
+    });
+  });
+
+  // 4. Usage reports
+  reports.forEach((r: any) => {
+    timeline.push({
+      type: 'usage',
+      date: r.created_at,
+      amount: Number(r.amount_used || 0),
+      title: `${r.title}`,
+      subtitle: r.description,
+      report_number: r.report_number,
+    });
+  });
+
+  // 5. Completion marker
+  if (isCompleted) {
+    timeline.push({
+      type: 'completed',
+      date: campaign.updated_at ?? campaign.created_at,
+      amount: campaign.collected_amount,
+      title: 'Campaign Selesai',
+      subtitle: 'Dana sudah disalurkan sepenuhnya',
+    });
+  }
+
+  // Sort by date ascending (oldest first)
+  timeline.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+  const hasTimeline = timeline.length > 1; // more than just "start"
+
+  // Color tokens by type
+  const TIMELINE_COLORS: Record<TimelineEvent['type'], {
+    dot: string;
+    dotRing: string;
+    bg: string;
+    border: string;
+    text: string;
+    icon: any;
+    label: string;
+  }> = {
+    start:        { dot: 'bg-gray-400',    dotRing: 'ring-gray-100',    bg: 'bg-gray-50',       border: 'border-gray-200',    text: 'text-gray-600',   icon: PlayCircle,         label: 'MULAI' },
+    milestone:    { dot: 'bg-emerald-500', dotRing: 'ring-emerald-100', bg: 'bg-emerald-50',    border: 'border-emerald-200', text: 'text-emerald-700', icon: TrendingUp,         label: 'DANA MASUK' },
+    disbursement: { dot: 'bg-amber-500',   dotRing: 'ring-amber-100',   bg: 'bg-amber-50',      border: 'border-amber-200',   text: 'text-amber-700',   icon: Banknote,           label: 'PENCAIRAN' },
+    usage:        { dot: 'bg-blue-500',    dotRing: 'ring-blue-100',    bg: 'bg-blue-50',       border: 'border-blue-200',    text: 'text-blue-700',    icon: ShoppingBag,        label: 'PENGGUNAAN' },
+    completed:    { dot: 'bg-emerald-600', dotRing: 'ring-emerald-100', bg: 'bg-emerald-50',    border: 'border-emerald-200', text: 'text-emerald-800', icon: PartyPopper,        label: 'SELESAI' },
+  };
 
   const shareUrl = `https://teraloka.vercel.app/fundraising/${campaign.slug}`;
   const reportUrl = `/balapor/new?type=campaign&campaign_id=${campaign.id}&campaign_title=${encodeURIComponent(campaign.title)}`;
@@ -375,9 +488,7 @@ export default async function CampaignPage({ params }: Props) {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════
-          KABAR TERBARU — Flex layout timeline WITH AAMIIN BUTTON
-         ═══════════════════════════════════════════════════════════ */}
+      {/* KABAR TERBARU */}
       {updates.length > 0 && (
         <div className="mx-auto max-w-lg px-4 mt-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
@@ -392,7 +503,6 @@ export default async function CampaignPage({ params }: Props) {
             <div className="space-y-1">
               {updates.map((u: any, i: number) => (
                 <div key={u.id} className="flex gap-3">
-                  {/* Timeline column: dot + line */}
                   <div className="flex flex-col items-center pt-1.5 shrink-0">
                     <div className={`w-3.5 h-3.5 rounded-full ${i === 0 ? 'bg-[#EC4899] ring-4 ring-pink-100' : 'bg-gray-300'}`}></div>
                     {i < updates.length - 1 && (
@@ -400,7 +510,6 @@ export default async function CampaignPage({ params }: Props) {
                     )}
                   </div>
 
-                  {/* Content column */}
                   <div className="flex-1 min-w-0 pb-5">
                     <div className="flex items-center gap-2 mb-1">
                       {i === 0 && (
@@ -425,7 +534,6 @@ export default async function CampaignPage({ params }: Props) {
                       </div>
                     )}
 
-                    {/* Aamiin button */}
                     <div className="mt-3 flex justify-start">
                       <UpdateAamiinButton
                         updateId={u.id}
@@ -439,6 +547,130 @@ export default async function CampaignPage({ params }: Props) {
           </div>
         </div>
       )}
+
+      {/* ═══════════════════════════════════════════════════════════
+          ALIRAN DANA — NEW FINANCIAL TRANSPARENCY TIMELINE
+         ═══════════════════════════════════════════════════════════ */}
+      <div className="mx-auto max-w-lg px-4 mt-4">
+        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+          <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-1 flex items-center gap-2">
+            <CircleDollarSign size={16} className="text-[#003526]" />
+            Aliran Dana
+          </h2>
+          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            Transparansi perjalanan dana — dari donatur masuk, pencairan ke partner, sampai pengeluaran untuk penerima. Semua dalam angka.
+          </p>
+
+          {/* Summary strip: 3 metrics */}
+          <div className="grid grid-cols-3 gap-2 mb-5">
+            <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <TrendingUp size={11} className="text-emerald-600" />
+                <p className="text-[9px] font-bold text-emerald-700 uppercase tracking-wider">Terkumpul</p>
+              </div>
+              <p className="text-base font-extrabold text-emerald-800 leading-none">
+                {formatRupiah(campaign.collected_amount)}
+              </p>
+              <p className="text-[10px] text-emerald-600 mt-1">dari {campaign.donor_count ?? 0} donatur</p>
+            </div>
+            <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Banknote size={11} className="text-amber-600" />
+                <p className="text-[9px] font-bold text-amber-700 uppercase tracking-wider">Cair</p>
+              </div>
+              <p className="text-base font-extrabold text-amber-800 leading-none">
+                {formatRupiah(totalDisbursed)}
+              </p>
+              <p className="text-[10px] text-amber-600 mt-1">{disbursements.length} tahap</p>
+            </div>
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 text-center">
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <ShoppingBag size={11} className="text-blue-600" />
+                <p className="text-[9px] font-bold text-blue-700 uppercase tracking-wider">Dipakai</p>
+              </div>
+              <p className="text-base font-extrabold text-blue-800 leading-none">
+                {formatRupiah(totalUsed)}
+              </p>
+              <p className="text-[10px] text-blue-600 mt-1">{reports.length} laporan</p>
+            </div>
+          </div>
+
+          {/* Timeline */}
+          {!hasTimeline ? (
+            <div className="py-8 text-center rounded-xl bg-gray-50 border border-dashed border-gray-200">
+              <Activity size={28} className="text-gray-300 mx-auto mb-2" />
+              <p className="text-sm font-bold text-gray-700 mb-1">Aliran dana akan muncul di sini</p>
+              <p className="text-xs text-gray-500 leading-relaxed px-4">
+                Setiap pencairan dana & pengeluaran akan tercatat secara kronologis.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {timeline.map((evt, i) => {
+                const colors = TIMELINE_COLORS[evt.type];
+                const Icon = colors.icon;
+                return (
+                  <div key={`${evt.type}-${i}`} className="flex gap-3">
+                    {/* Timeline column */}
+                    <div className="flex flex-col items-center pt-1 shrink-0">
+                      <div className={`w-4 h-4 rounded-full ${colors.dot} ring-4 ${colors.dotRing}`}></div>
+                      {i < timeline.length - 1 && (
+                        <div className="w-0.5 flex-1 bg-gray-100 mt-1"></div>
+                      )}
+                    </div>
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pb-4">
+                      {/* Header: type pill + date */}
+                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${colors.bg} ${colors.text} text-[9px] font-extrabold uppercase tracking-wider border ${colors.border}`}>
+                          <Icon size={9} strokeWidth={2.5} />
+                          {colors.label}
+                        </span>
+                        <span className="text-[11px] text-gray-400 font-medium">
+                          {formatShortDate(evt.date)}
+                        </span>
+                      </div>
+
+                      {/* Card */}
+                      <div className={`rounded-xl ${colors.bg} border ${colors.border} p-3`}>
+                        <div className="flex items-start justify-between gap-3 mb-1">
+                          <p className="text-sm font-bold text-gray-900 leading-snug">{evt.title}</p>
+                          {evt.amount > 0 && (
+                            <span className={`shrink-0 text-sm font-extrabold ${colors.text}`}>
+                              {formatRupiah(evt.amount)}
+                            </span>
+                          )}
+                        </div>
+                        {evt.subtitle && (
+                          <p className="text-xs text-gray-600 leading-relaxed">{evt.subtitle}</p>
+                        )}
+                        {evt.notes && (
+                          <p className="text-[11px] text-gray-500 mt-1.5 italic">{evt.notes}</p>
+                        )}
+                        {evt.proof_url && (
+                          <a href={evt.proof_url} target="_blank" rel="noopener noreferrer"
+                            className={`mt-2 inline-flex items-center gap-1 text-[11px] font-semibold ${colors.text} hover:underline`}>
+                            <ImageIcon size={11} /> Lihat bukti transfer
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Footer note */}
+          <div className="mt-4 flex items-start gap-2 rounded-lg bg-gray-50 p-2.5 border border-gray-100">
+            <Lock size={11} className="text-gray-400 shrink-0 mt-0.5" />
+            <p className="text-[10px] text-gray-500 leading-relaxed">
+              <strong>Kenapa tidak ada foto penerima?</strong> TeraLoka menjaga privasi & martabat penerima. Transparansi dana cukup lewat angka & dokumen resmi — tanpa mengekspos pribadi yang sedang kesusahan.
+            </p>
+          </div>
+        </div>
+      </div>
 
       {/* BUKTI & DOKUMENTASI */}
       {campaign.proof_documents && campaign.proof_documents.length > 0 && (
@@ -493,26 +725,26 @@ export default async function CampaignPage({ params }: Props) {
         <div className="mx-auto max-w-lg px-4 mt-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-1 flex items-center gap-2">
-              <Wallet size={16} className="text-emerald-600" />
-              Pencairan Dana
+              <Wallet size={16} className="text-amber-600" />
+              Detail Pencairan Dana
             </h2>
             <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Alur dana dari rekening partner ke penerima. Total tersalurkan: <span className="font-bold text-emerald-700">{formatRupiah(totalDisbursed)}</span>
+              Breakdown per tahap pencairan ke penerima / institusi partner.
             </p>
 
             <div className="space-y-3">
               {disbursements.map((d: any) => (
-                <div key={d.id} className="rounded-xl bg-emerald-50/50 border border-emerald-100 p-4">
+                <div key={d.id} className="rounded-xl bg-amber-50/50 border border-amber-100 p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">
+                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
                         Tahap {d.stage_number} · {formatLongDate(d.disbursed_at)}
                       </p>
                       <p className="text-sm font-bold text-gray-900 mt-0.5">
                         {d.disbursed_to}
                       </p>
                     </div>
-                    <span className="text-base font-extrabold text-emerald-700 shrink-0">
+                    <span className="text-base font-extrabold text-amber-700 shrink-0">
                       {formatRupiah(d.amount)}
                     </span>
                   </div>
@@ -521,7 +753,7 @@ export default async function CampaignPage({ params }: Props) {
                   )}
                   {d.proof_url && (
                     <a href={d.proof_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-emerald-700 hover:underline">
+                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline">
                       <ImageIcon size={11} /> Lihat bukti transfer
                     </a>
                   )}
@@ -537,24 +769,24 @@ export default async function CampaignPage({ params }: Props) {
         <div className="mx-auto max-w-lg px-4 mt-4">
           <div className="bg-white rounded-2xl border border-gray-100 p-5">
             <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-1 flex items-center gap-2">
-              <Receipt size={16} className="text-[#003526]" />
+              <Receipt size={16} className="text-blue-600" />
               Rincian Penggunaan Dana
             </h2>
             <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Detail pengeluaran per pos. Total digunakan: <span className="font-bold text-[#003526]">{formatRupiah(totalUsed)}</span>
+              Breakdown detail per pos pengeluaran — apa, berapa, untuk siapa.
             </p>
 
             <div className="space-y-4">
               {reports.map((r: any) => (
-                <div key={r.id} className="rounded-xl border border-gray-200 p-4">
+                <div key={r.id} className="rounded-xl border border-blue-100 bg-blue-50/30 p-4">
                   <div className="flex items-start justify-between gap-3 mb-2">
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-[#003526] uppercase tracking-wider">
+                      <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider">
                         Laporan #{r.report_number}
                       </p>
                       <p className="text-sm font-bold text-gray-900 mt-0.5">{r.title}</p>
                     </div>
-                    <span className="text-base font-extrabold text-[#003526] shrink-0">
+                    <span className="text-base font-extrabold text-blue-700 shrink-0">
                       {formatRupiah(r.amount_used)}
                     </span>
                   </div>
@@ -564,7 +796,7 @@ export default async function CampaignPage({ params }: Props) {
                   )}
 
                   {r.items && Array.isArray(r.items) && r.items.length > 0 && (
-                    <div className="mt-3 rounded-lg bg-gray-50 p-3">
+                    <div className="mt-3 rounded-lg bg-white p-3 border border-blue-100">
                       <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">Breakdown</p>
                       <div className="space-y-1.5">
                         {r.items.map((item: any, idx: number) => (
@@ -579,18 +811,6 @@ export default async function CampaignPage({ params }: Props) {
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-
-                  {r.proof_photos && r.proof_photos.length > 0 && (
-                    <div className="mt-3 grid grid-cols-3 gap-2">
-                      {r.proof_photos.map((photo: string, pi: number) => (
-                        <a key={pi} href={photo} target="_blank" rel="noopener noreferrer"
-                          className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                          <img src={photo} alt={`Bukti ${pi + 1}`}
-                            className="w-full h-full object-cover hover:scale-105 transition-transform" />
-                        </a>
-                      ))}
                     </div>
                   )}
                 </div>
