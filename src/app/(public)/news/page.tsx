@@ -403,10 +403,6 @@ function NewsPageContent() {
   const pageTitle = (() => {
     if (type === 'viral') return '🔥 Viral di Maluku Utara';
     if (type === 'nasional') return '🗞️ Berita Nasional';
-    if (location !== 'all') {
-      const loc = articles.find(a => a.location?.slug === location)?.location;
-      return loc ? `📍 ${loc.name}` : `📍 ${location}`;
-    }
     return null;
   })();
 
@@ -436,9 +432,6 @@ function NewsPageContent() {
         {pageTitle && (
           <div className="mb-4">
             <h2 className="text-lg font-black text-gray-900">{pageTitle}</h2>
-            {location !== 'all' && (
-              <p className="text-xs text-gray-400 mt-0.5">Menampilkan berita {type === 'viral' ? 'viral ' : ''}dari wilayah ini</p>
-            )}
           </div>
         )}
 
