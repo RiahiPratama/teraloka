@@ -289,7 +289,7 @@ export default async function FundraisingPage({
             <HeartHandshake size={28} className="text-[#F472B6] mx-auto mb-2" strokeWidth={2.2} />
             <p className="text-white font-bold mb-1">Kenal warga yang butuh uluran tangan?</p>
             <p className="text-[#95d3ba] text-sm mb-4 leading-relaxed">
-              Ajukan campaign untuk keluarga, tetangga, atau siapa pun yang butuh bantuan. Tim TeraLoka verifikasi setiap pengajuan dengan teliti.
+              Ajukan campaign untuk keluarga, tetangga, atau siapa pun yang butuh bantuan. Banyak yang butuh uluran tangan di sekitar torang.
             </p>
             <Link href="/owner/campaign/new/info"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md">
