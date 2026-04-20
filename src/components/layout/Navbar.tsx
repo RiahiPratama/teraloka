@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import Logo from '@/components/ui/Logo';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,7 +34,20 @@ const ROLE_META: Record<string, { label: string; color: string; bg: string }> = 
 
 export default function Navbar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout, isLoading } = useAuth();
+
+  // Handler buat nav link: kalau user klik link yang pathname-nya sama dengan
+  // current URL, paksa clean query string (Next.js Link default ga reset query).
+  // Fixes: /news?type=nasional&location=halsel klik BAKABAR → stuck di URL.
+  function handleNavClick(e: React.MouseEvent, href: string, closeMenu?: () => void) {
+    if (pathname === href) {
+      e.preventDefault();
+      router.replace(href);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    closeMenu?.();
+  }
 
   const [dropdownOpen, setDropdownOpen]     = useState(false);
   const [searchOpen, setSearchOpen]         = useState(false);
@@ -131,6 +144,7 @@ export default function Navbar() {
             <div className="hidden md:flex items-center gap-0.5 ml-5">
               {NAV_LINKS.map(link => (
                 <Link key={link.href} href={link.href}
+                  onClick={(e) => handleNavClick(e, link.href)}
                   className="px-3 py-1.5 rounded-full text-[12.5px] font-semibold transition-all duration-200 whitespace-nowrap hover:bg-gray-100/80"
                   style={{ color: 'var(--text-muted)' }}>
                   {link.label}
@@ -298,7 +312,7 @@ export default function Navbar() {
             <div className="grid grid-cols-2 gap-2 mb-6">
               {NAV_LINKS.map(link => (
                 <Link key={link.href} href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
+                  onClick={(e) => handleNavClick(e, link.href, () => setMobileMenuOpen(false))}
                   className="flex items-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm transition-colors hover:bg-gray-50"
                   style={{ color: 'var(--text)', border: '1px solid var(--border-light)' }}>
                   {link.label}
