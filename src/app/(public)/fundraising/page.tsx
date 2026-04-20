@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
-import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart } from 'lucide-react';
+import { Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, HandHeart, HeartHandshake } from 'lucide-react';
 
 export const metadata = {
   title: 'BADONASI — Galang Dana Kemanusiaan | TeraLoka',
@@ -9,10 +9,10 @@ export const metadata = {
 };
 
 // Kategori dengan Lucide icon + warna accent per kategori.
-// Warna disync dengan form /owner/campaign/new (batch 7e6p) biar konsisten
+// Warna disync dengan form /owner/campaign/new biar konsisten
 // di seluruh touchpoint BADONASI.
 const CATEGORIES = [
-  { key: 'all',            label: 'Semua',          Icon: Heart,         color: '#1B6B4A' },
+  { key: 'all',            label: 'Semua',          Icon: Heart,         color: '#EC4899' },
   { key: 'kesehatan',      label: 'Kesehatan',      Icon: Stethoscope,   color: '#D85A30' },
   { key: 'bencana',        label: 'Bencana',        Icon: CloudRainWind, color: '#378ADD' },
   { key: 'duka',           label: 'Duka',           Icon: Flower,        color: '#888780' },
@@ -32,13 +32,13 @@ function ProgressBar({ collected, target }: { collected: number; target: number 
             width: `${pct}%`,
             background: pct >= 100
               ? 'linear-gradient(90deg, #10B981, #059669)'
-              : 'linear-gradient(90deg, #1B6B4A, #0891B2)',
+              : 'linear-gradient(90deg, #EC4899, #BE185D)',
           }}
         />
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <span className="text-xs font-bold text-[#1B6B4A]">{formatRupiah(collected)}</span>
-        <span className="text-xs text-gray-400">{Math.round(pct)}%</span>
+        <span className="text-xs font-bold text-[#003526]">{formatRupiah(collected)}</span>
+        <span className="text-xs font-bold text-[#EC4899]">{Math.round(pct)}%</span>
       </div>
     </div>
   );
@@ -103,11 +103,14 @@ export default async function FundraisingPage({
         <div className="mx-auto max-w-lg">
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-2xl font-extrabold text-white tracking-tight">BASUMBANG</h1>
-              <p className="text-sm text-[#95d3ba] mt-1">Galang dana kemanusiaan Maluku Utara</p>
+              <div className="flex items-center gap-2 mb-1">
+                <HeartHandshake size={24} className="text-[#F472B6]" strokeWidth={2.2} />
+                <h1 className="text-2xl font-extrabold text-white tracking-tight">BADONASI</h1>
+              </div>
+              <p className="text-sm text-[#95d3ba]">Galang dana kemanusiaan Maluku Utara</p>
             </div>
             <Link href="/owner/campaign/new/info"
-              className="flex items-center gap-1.5 bg-white/15 hover:bg-white/20 transition-colors text-white text-xs font-semibold px-3 py-2 rounded-xl">
+              className="flex items-center gap-1.5 bg-gradient-to-r from-[#EC4899] to-[#BE185D] hover:opacity-90 transition-opacity text-white text-xs font-bold px-3 py-2 rounded-xl shadow-md">
               <span className="material-symbols-outlined text-sm">add</span>
               Galang Dana
             </Link>
@@ -121,7 +124,7 @@ export default async function FundraisingPage({
               { label: 'Kampanye Aktif', value: String(stats.active_campaigns), icon: 'campaign' },
             ].map(s => (
               <div key={s.label} className="bg-white/10 rounded-xl p-3 text-center">
-                <span className="material-symbols-outlined text-[#95d3ba] text-lg">{s.icon}</span>
+                <span className="material-symbols-outlined text-[#F472B6] text-lg">{s.icon}</span>
                 <p className="text-white font-bold text-base mt-1">{s.value}</p>
                 <p className="text-[#95d3ba]/70 text-xs">{s.label}</p>
               </div>
@@ -134,8 +137,8 @@ export default async function FundraisingPage({
 
         {/* Trust badge */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 px-4 py-3 mb-5 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full bg-green-50 flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-green-600 text-lg">verified</span>
+          <div className="w-9 h-9 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-emerald-600 text-lg">verified</span>
           </div>
           <div>
             <p className="text-xs font-bold text-gray-800">100% transparan</p>
@@ -153,7 +156,7 @@ export default async function FundraisingPage({
                 className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold transition-all ${
                   isActive
                     ? 'bg-[#003526] text-white border border-[#003526]'
-                    : 'bg-white border border-gray-200 text-gray-600 hover:border-gray-300'
+                    : 'bg-white border border-gray-200 text-gray-600 hover:border-pink-200'
                 }`}>
                 <CatIcon
                   size={14}
@@ -183,7 +186,7 @@ export default async function FundraisingPage({
                 const pct = c.target_amount > 0 ? Math.min((c.collected_amount / c.target_amount) * 100, 100) : 0;
                 return (
                   <Link key={c.id} href={`/fundraising/${c.slug}`}
-                    className="block bg-white rounded-2xl border border-red-100 overflow-hidden hover:shadow-md transition-shadow">
+                    className="block bg-white rounded-2xl border border-pink-100 overflow-hidden hover:shadow-md hover:border-pink-200 transition-all">
                     {c.cover_image_url && (
                       <div className="h-44 bg-gray-100">
                         <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
@@ -216,13 +219,13 @@ export default async function FundraisingPage({
         {/* Regular campaigns */}
         {campaigns.length === 0 ? (
           <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center">
-            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-[#1B6B4A]/10 flex items-center justify-center">
-              <HandHeart size={28} strokeWidth={2} style={{ color: '#1B6B4A' }} />
+            <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-pink-50 flex items-center justify-center">
+              <HandHeart size={28} strokeWidth={2} style={{ color: '#EC4899' }} />
             </div>
             <p className="font-semibold text-gray-700">Belum ada kampanye aktif</p>
             <p className="text-sm text-gray-400 mt-1">Jadilah yang pertama menggalang dana</p>
             <Link href="/owner/campaign/new/info"
-              className="mt-4 inline-block bg-[#003526] text-white text-sm font-bold px-5 py-2.5 rounded-xl">
+              className="mt-4 inline-block bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md">
               Mulai Galang Dana
             </Link>
           </div>
@@ -238,13 +241,13 @@ export default async function FundraisingPage({
                     const pct = c.target_amount > 0 ? Math.min((c.collected_amount / c.target_amount) * 100, 100) : 0;
                     return (
                       <Link key={c.id} href={`/fundraising/${c.slug}`}
-                        className="flex gap-3 bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md transition-shadow p-3">
+                        className="flex gap-3 bg-white rounded-2xl border border-gray-100 overflow-hidden hover:shadow-md hover:border-pink-100 transition-all p-3">
                         {/* Thumbnail */}
                         <div className="w-24 h-24 rounded-xl overflow-hidden bg-gray-100 shrink-0">
                           {c.cover_image_url
                             ? <img src={c.cover_image_url} alt={c.title} className="h-full w-full object-cover" />
-                            : <div className="h-full w-full flex items-center justify-center bg-[#1B6B4A]/5">
-                                <Heart size={28} strokeWidth={1.8} style={{ color: '#1B6B4A' }} />
+                            : <div className="h-full w-full flex items-center justify-center bg-pink-50">
+                                <Heart size={28} strokeWidth={1.8} style={{ color: '#EC4899' }} />
                               </div>
                           }
                         </div>
@@ -256,11 +259,11 @@ export default async function FundraisingPage({
                             <p className="text-xs text-gray-400 mt-0.5">untuk {c.beneficiary_name}</p>
                           )}
                           <div className="mt-2 h-1 w-full rounded-full bg-gray-100 overflow-hidden">
-                            <div className="h-full rounded-full bg-gradient-to-r from-[#1B6B4A] to-[#0891B2]"
+                            <div className="h-full rounded-full bg-gradient-to-r from-[#EC4899] to-[#BE185D]"
                               style={{ width: `${pct}%` }} />
                           </div>
                           <div className="mt-1 flex items-center justify-between">
-                            <span className="text-xs font-bold text-[#1B6B4A]">{formatRupiah(c.collected_amount)}</span>
+                            <span className="text-xs font-bold text-[#003526]">{formatRupiah(c.collected_amount)}</span>
                             <span className="text-xs text-gray-400">{c.donor_count || 0} donatur</span>
                           </div>
                         </div>
@@ -274,14 +277,20 @@ export default async function FundraisingPage({
         )}
 
         {/* CTA Galang Dana */}
-        <div className="mt-8 bg-gradient-to-r from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-center">
-          <p className="text-white font-bold mb-1">Punya kebutuhan mendesak?</p>
-          <p className="text-[#95d3ba] text-sm mb-4">Galang dana sekarang dan dapatkan dukungan dari warga Maluku Utara</p>
-          <Link href="/owner/campaign/new/info"
-            className="inline-flex items-center gap-2 bg-white text-[#003526] font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
-            <span className="material-symbols-outlined text-sm">volunteer_activism</span>
-            Mulai Galang Dana
-          </Link>
+        <div className="mt-8 bg-gradient-to-br from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-center relative overflow-hidden">
+          {/* Pink accent decoration */}
+          <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-[#EC4899]/20 blur-2xl"></div>
+
+          <div className="relative">
+            <HeartHandshake size={28} className="text-[#F472B6] mx-auto mb-2" strokeWidth={2.2} />
+            <p className="text-white font-bold mb-1">Punya kebutuhan mendesak?</p>
+            <p className="text-[#95d3ba] text-sm mb-4">Galang dana sekarang dan dapatkan dukungan dari warga Maluku Utara</p>
+            <Link href="/owner/campaign/new/info"
+              className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md">
+              <span className="material-symbols-outlined text-sm">volunteer_activism</span>
+              Mulai Galang Dana
+            </Link>
+          </div>
         </div>
       </div>
     </div>
