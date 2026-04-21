@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
 import {
   Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home,
-  HeartHandshake, ShieldCheck, Users, TrendingUp,
+  HeartHandshake, ShieldCheck, Users, TrendingUp, CheckCircle2, FileText, Info,
 } from 'lucide-react';
 
 import DonorWall from './_components/DonorWall';
@@ -29,6 +29,14 @@ const CATEGORIES = [
   { key: 'hunian_darurat', label: 'Hunian Darurat', Icon: Home,          color: '#0891B2' },
 ];
 
+// Short rupiah for compact display (inside stats)
+function shortRupiah(n: number): string {
+  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
 export default async function FundraisingPage({
   searchParams,
 }: { searchParams: Promise<{ cat?: string }> }) {
@@ -36,10 +44,17 @@ export default async function FundraisingPage({
   const supabase = await createClient();
 
   let campaigns: any[] = [];
-  let stats = { total_raised: 0, total_donors: 0, active_campaigns: 0 };
+  let stats = {
+    total_raised: 0,          // Total dana MASUK (collected_amount sum)
+    total_disbursed: 0,        // Total yang sudah DICAIRKAN (disbursements sum)
+    total_donors: 0,
+    active_campaigns: 0,
+    approved_reports: 0,       // Jumlah laporan penggunaan approved
+  };
   let recentDonations: any[] = [];
 
   try {
+    // Campaigns list (filtered by category if any)
     let query = supabase
       .schema('funding')
       .from('campaigns')
@@ -55,6 +70,7 @@ export default async function FundraisingPage({
     const { data } = await query;
     campaigns = data ?? [];
 
+    // ═══ STATS 1: Campaigns (total terkumpul + donatur + aktif) ═══
     const allRes = await supabase
       .schema('funding')
       .from('campaigns')
@@ -67,6 +83,26 @@ export default async function FundraisingPage({
       stats.active_campaigns = allRes.data.filter((c: any) => c.status === 'active').length;
     }
 
+    // ═══ STATS 2: Disbursements (total TERSALURKAN) ═══
+    const disbRes = await supabase
+      .schema('funding')
+      .from('disbursements')
+      .select('amount');
+
+    if (disbRes.data) {
+      stats.total_disbursed = disbRes.data.reduce((s: number, d: any) => s + (d.amount || 0), 0);
+    }
+
+    // ═══ STATS 3: Approved Usage Reports (count) ═══
+    const reportsRes = await supabase
+      .schema('funding')
+      .from('usage_reports')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'approved');
+
+    stats.approved_reports = reportsRes.count ?? 0;
+
+    // Donor Wall
     const donationsRes = await supabase
       .schema('funding')
       .from('donations')
@@ -105,15 +141,24 @@ export default async function FundraisingPage({
   const regularCampaigns = campaigns.filter(c => !c.is_urgent);
   const hasImpact = stats.total_raised > 0;
 
+  // Disbursement ratio
+  const disbursePct = stats.total_raised > 0
+    ? Math.min(Math.round((stats.total_disbursed / stats.total_raised) * 100), 100)
+    : 0;
+  const pending = stats.total_raised - stats.total_disbursed;
+
   return (
     <div className="min-h-screen bg-[#f9f9f8] pb-24">
 
-      {/* HERO */}
-      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-4 pt-8 pb-20 relative overflow-hidden">
+      {/* ════════════════════════════════════════════════ */}
+      {/* HERO — Transparency Showcase                      */}
+      {/* ════════════════════════════════════════════════ */}
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-4 pt-8 pb-24 relative overflow-hidden">
         <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#EC4899]/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#F472B6]/10 blur-2xl"></div>
 
         <div className="relative mx-auto max-w-lg">
+          {/* Header row */}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-2">
               <HeartHandshake size={24} className="text-[#F472B6]" strokeWidth={2.2} />
@@ -129,36 +174,89 @@ export default async function FundraisingPage({
           </div>
 
           {hasImpact ? (
-            <div className="text-center py-4">
-              <p className="text-[11px] text-[#95d3ba] uppercase tracking-widest font-semibold mb-2">
-                Total Tersalurkan
-              </p>
-              <p className="text-4xl md:text-5xl font-black text-white tracking-tight leading-none mb-2">
-                {formatRupiah(stats.total_raised)}
-              </p>
-              <p className="text-sm text-[#F472B6] font-semibold">
-                untuk saudara di Maluku Utara
-              </p>
+            <>
+              {/* Primary Metric: Total Terkumpul */}
+              <div className="text-center py-2">
+                <p className="text-[11px] text-[#95d3ba] uppercase tracking-widest font-semibold mb-2">
+                  Total Dana Terkumpul
+                </p>
+                <p className="text-4xl md:text-5xl font-black text-white tracking-tight leading-none mb-2">
+                  {formatRupiah(stats.total_raised)}
+                </p>
+                <p className="text-xs text-[#F472B6] font-semibold mb-5">
+                  dari <span className="font-bold">{stats.total_donors.toLocaleString('id-ID')}</span> donatur baik hati
+                </p>
 
-              <div className="mt-5 inline-flex items-center gap-3 bg-white/10 backdrop-blur-sm rounded-full px-5 py-2.5">
-                <div className="flex items-center gap-1.5">
-                  <Users size={13} className="text-[#F472B6]" />
-                  <span className="text-xs font-bold text-white">
-                    {stats.total_donors.toLocaleString('id-ID')}
-                  </span>
-                  <span className="text-xs text-[#95d3ba]">donatur</span>
+                {/* TRANSPARENCY CARD */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10 text-left">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                        <CheckCircle2 size={14} className="text-emerald-300" strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-[#95d3ba] uppercase tracking-wider">
+                          Sudah Tersalurkan
+                        </p>
+                        <p className="text-lg font-black text-white leading-tight">
+                          {shortRupiah(stats.total_disbursed)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-emerald-300 leading-none">
+                        {disbursePct}%
+                      </p>
+                      <p className="text-[9px] text-[#95d3ba] uppercase tracking-wider font-semibold">
+                        dari terkumpul
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Progress bar */}
+                  <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all"
+                      style={{ width: `${disbursePct}%` }}
+                    />
+                  </div>
+
+                  {/* Info note */}
+                  <div className="mt-3 flex items-start gap-1.5">
+                    <Info size={11} className="text-[#95d3ba] shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-[#95d3ba] leading-relaxed">
+                      Dana yang sudah dicairkan dari rekening komunitas ke penerima manfaat.
+                      {pending > 0 && (
+                        <> Sisanya <strong className="text-white">{shortRupiah(pending)}</strong> dalam proses penyaluran.</>
+                      )}
+                    </p>
+                  </div>
                 </div>
-                <span className="text-[#95d3ba]/40">•</span>
-                <div className="flex items-center gap-1.5">
-                  <TrendingUp size={13} className="text-[#F472B6]" />
-                  <span className="text-xs font-bold text-white">
-                    {stats.active_campaigns}
-                  </span>
-                  <span className="text-xs text-[#95d3ba]">kampanye aktif</span>
+
+                {/* Stats Row */}
+                <div className="mt-4 flex items-center justify-center gap-4 text-xs">
+                  <div className="flex items-center gap-1.5">
+                    <Users size={13} className="text-[#F472B6]" />
+                    <span className="font-bold text-white">{stats.total_donors.toLocaleString('id-ID')}</span>
+                    <span className="text-[#95d3ba]">donatur</span>
+                  </div>
+                  <span className="text-[#95d3ba]/40">·</span>
+                  <div className="flex items-center gap-1.5">
+                    <TrendingUp size={13} className="text-[#F472B6]" />
+                    <span className="font-bold text-white">{stats.active_campaigns}</span>
+                    <span className="text-[#95d3ba]">aktif</span>
+                  </div>
+                  <span className="text-[#95d3ba]/40">·</span>
+                  <div className="flex items-center gap-1.5">
+                    <FileText size={13} className="text-[#F472B6]" />
+                    <span className="font-bold text-white">{stats.approved_reports}</span>
+                    <span className="text-[#95d3ba]">laporan</span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </>
           ) : (
+            // Empty state (no donations yet)
             <div className="text-center py-6">
               <HeartHandshake size={48} className="text-[#F472B6] mx-auto mb-3" strokeWidth={1.8} />
               <h2 className="text-xl font-bold text-white mb-1">Mari Mulai Jadi Jembatan Kebaikan</h2>
@@ -215,7 +313,7 @@ export default async function FundraisingPage({
           <UrgentCampaignsSlide campaigns={urgentCampaigns} />
         )}
 
-        {/* Kampanye Lainnya — Paginated w/ hybrid escape valve */}
+        {/* Kampanye Lainnya */}
         {campaigns.length === 0 ? (
           <div className="rounded-2xl bg-white border border-gray-100 p-10 text-center">
             <div className="mx-auto mb-3 w-14 h-14 rounded-full bg-pink-50 flex items-center justify-center">
