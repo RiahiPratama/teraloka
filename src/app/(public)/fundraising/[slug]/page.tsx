@@ -448,7 +448,7 @@ export default async function CampaignPage({ params }: Props) {
               </p>
             </div>
             <Link
-              href="/badonasi/standar-verifikasi"
+              href="/fundraising/standar-verifikasi"
               className="shrink-0 text-[10px] font-bold text-emerald-700 uppercase tracking-wider underline-offset-2 hover:underline"
             >
               Cara<br />kerja
