@@ -1,173 +1,283 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useEffect, useState, useContext } from 'react';
+import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import {
-  HandHeart, ArrowLeft, CheckCircle2, Clock,
-  XCircle, Settings, Calculator, ChevronRight,
-  AlertCircle, Loader2,
-} from 'lucide-react';
+import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-type Stats = {
-  pending: number;
-  verifiedToday: number;
-  rejectedToday: number;
+const Icons = {
+  Clock: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
+  Wallet: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>,
+  CheckCircle: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>,
+  Heart: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>,
+  Dollar: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>,
+  Settings: () => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>,
+  ArrowRight: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
 };
 
-export default function AdminFundingLanding() {
-  const { user, token, isLoading: authLoading } = useAuth();
-  const [stats, setStats] = useState<Stats>({ pending: 0, verifiedToday: 0, rejectedToday: 0 });
+function shortRupiah(n: number): string {
+  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
+function SubNav({ pendingCampaigns, pendingDonations }: { pendingCampaigns: number; pendingDonations: number }) {
+  const pathname = usePathname();
+  const { t } = useContext(AdminThemeContext);
+
+  const tabs = [
+    { href: '/admin/funding',          label: 'Dashboard' },
+    { href: '/admin/funding/campaigns', label: 'Kampanye', badge: pendingCampaigns },
+    { href: '/admin/funding/donations', label: 'Donasi',    badge: pendingDonations },
+    { href: '/admin/funding/settings',  label: 'Pengaturan' },
+  ];
+
+  return (
+    <div style={{
+      display: 'flex', gap: 8, marginBottom: 24, borderBottom: `1px solid ${t.sidebarBorder}`,
+      paddingBottom: 0, overflowX: 'auto',
+    }}>
+      {tabs.map(tab => {
+        const active = pathname === tab.href
+          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
+        return (
+          <Link
+            key={tab.href}
+            href={tab.href}
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              padding: '10px 16px',
+              fontSize: 13, fontWeight: 600,
+              color: active ? '#EC4899' : t.textDim,
+              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
+              marginBottom: -1,
+              textDecoration: 'none',
+              whiteSpace: 'nowrap',
+              transition: 'color .15s',
+            }}
+          >
+            {tab.label}
+            {!!tab.badge && tab.badge > 0 && (
+              <span style={{
+                background: '#EF4444', color: '#fff',
+                fontSize: 10, fontWeight: 700,
+                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
+              }}>
+                {tab.badge}
+              </span>
+            )}
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+export default function AdminFundingDashboard() {
+  const { t } = useContext(AdminThemeContext);
+  const { token } = useAuth();
+  const [stats, setStats] = useState({
+    pending_campaigns: 0, pending_donations: 0,
+    total_raised: 0, active_campaigns: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (token) loadStats();
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+
+    Promise.all([
+      fetch(`${API_URL}/funding/admin/campaigns?status=pending_review&limit=1`, {
+        headers: { Authorization: `Bearer ${tk}` },
+      }).then(r => r.json()).catch(() => null),
+      fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, {
+        headers: { Authorization: `Bearer ${tk}` },
+      }).then(r => r.json()).catch(() => null),
+      fetch(`${API_URL}/funding/campaigns?limit=100`).then(r => r.json()).catch(() => null),
+    ]).then(([pC, pD, campRes]) => {
+      let total_raised = 0;
+      let active = 0;
+      if (campRes?.data) {
+        campRes.data.forEach((c: any) => {
+          total_raised += c.collected_amount || 0;
+          if (c.status === 'active') active++;
+        });
+      }
+      setStats({
+        pending_campaigns: pC?.meta?.total ?? 0,
+        pending_donations: pD?.meta?.total ?? 0,
+        total_raised,
+        active_campaigns: active,
+      });
+      setLoading(false);
+    });
   }, [token]);
 
-  async function loadStats() {
-    try {
-      const res = await fetch(`${API}/funding/admin/donations?status=pending_review`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success && json.data?.stats) {
-        setStats(json.data.stats);
-      }
-    } catch {}
-    setLoading(false);
-  }
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Loader2 size={24} className="animate-spin text-gray-400" />
-      </div>
-    );
-  }
-
-  if (!user || (user.role !== 'super_admin' && user.role !== 'admin_funding')) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-        <div className="max-w-sm bg-white rounded-2xl border border-gray-100 p-6 text-center">
-          <AlertCircle size={32} className="text-red-500 mx-auto mb-3" />
-          <p className="text-sm font-bold text-gray-900 mb-1">Akses Ditolak</p>
-          <p className="text-xs text-gray-500 mb-4">Hanya super admin atau admin funding yang bisa akses halaman ini.</p>
-          <Link href="/admin" className="text-xs font-bold text-[#EC4899]">← Kembali ke Admin</Link>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-gray-50 pb-16">
+    <div style={{ padding: '24px 32px', maxWidth: 1280, color: t.textPrimary }}>
 
       {/* Header */}
-      <div className="bg-white border-b border-gray-100 px-4 py-4 sticky top-0 z-10">
-        <div className="mx-auto max-w-2xl">
-          <Link href="/admin" className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-500 mb-2 hover:text-gray-700">
-            <ArrowLeft size={14} /> Admin Panel
-          </Link>
-          <div className="flex items-center gap-2">
-            <HandHeart size={20} className="text-[#EC4899]" strokeWidth={2.2} />
-            <h1 className="text-lg font-extrabold text-gray-900">Admin BADONASI</h1>
+      <div style={{ marginBottom: 24 }}>
+        <p style={{ fontSize: 11, fontWeight: 700, color: '#EC4899', letterSpacing: '0.1em', marginBottom: 4 }}>
+          BADONASI
+        </p>
+        <h1 style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary, marginBottom: 4 }}>
+          Dashboard Admin
+        </h1>
+        <p style={{ fontSize: 14, color: t.textDim }}>
+          Kelola kampanye, donasi, dan pengaturan platform penggalangan dana TeraLoka.
+        </p>
+      </div>
+
+      <SubNav pendingCampaigns={stats.pending_campaigns} pendingDonations={stats.pending_donations} />
+
+      {/* Alert */}
+      {(stats.pending_campaigns > 0 || stats.pending_donations > 0) && !loading && (
+        <div style={{
+          marginBottom: 24,
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 12, padding: 16,
+          display: 'flex', alignItems: 'flex-start', gap: 12,
+        }}>
+          <div style={{
+            width: 36, height: 36, borderRadius: 10, background: '#F59E0B',
+            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Icons.Clock />
           </div>
-          <p className="text-xs text-gray-500 mt-1">Kelola donasi, verifikasi, dan pengaturan BADONASI.</p>
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 14, fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>
+              Ada yang perlu diverifikasi
+            </p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, fontSize: 12, color: t.textDim }}>
+              {stats.pending_campaigns > 0 && (
+                <Link
+                  href="/admin/funding/campaigns?status=pending_review"
+                  style={{ color: t.textPrimary, fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  {stats.pending_campaigns} kampanye menunggu verifikasi
+                </Link>
+              )}
+              {stats.pending_donations > 0 && (
+                <Link
+                  href="/admin/funding/donations?status=pending"
+                  style={{ color: t.textPrimary, fontWeight: 600, textDecoration: 'underline' }}
+                >
+                  {stats.pending_donations} donasi menunggu verifikasi
+                </Link>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stats Grid */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 16, marginBottom: 32,
+      }}>
+        <StatCard t={t} icon={<Icons.Clock />} label="Kampanye Pending"
+          value={loading ? '...' : stats.pending_campaigns.toLocaleString('id-ID')}
+          accent="#F59E0B" highlight={stats.pending_campaigns > 0} />
+        <StatCard t={t} icon={<Icons.Clock />} label="Donasi Pending"
+          value={loading ? '...' : stats.pending_donations.toLocaleString('id-ID')}
+          accent="#F59E0B" highlight={stats.pending_donations > 0} />
+        <StatCard t={t} icon={<Icons.Wallet />} label="Total Terkumpul"
+          value={loading ? '...' : shortRupiah(stats.total_raised)} accent="#0891B2" />
+        <StatCard t={t} icon={<Icons.CheckCircle />} label="Kampanye Aktif"
+          value={loading ? '...' : stats.active_campaigns.toLocaleString('id-ID')} accent="#10B981" />
+      </div>
+
+      {/* Quick Actions */}
+      <div>
+        <h2 style={{ fontSize: 18, fontWeight: 700, color: t.textPrimary, marginBottom: 16 }}>
+          Aksi Cepat
+        </h2>
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: 16,
+        }}>
+          <ActionTile t={t} href="/admin/funding/campaigns" icon={<Icons.Heart />}
+            title="Kelola Kampanye"
+            desc="Verifikasi, approve, atau tolak kampanye yang diajukan"
+            badge={stats.pending_campaigns} gradient="linear-gradient(135deg, #EC4899, #BE185D)" />
+          <ActionTile t={t} href="/admin/funding/donations" icon={<Icons.Dollar />}
+            title="Kelola Donasi"
+            desc="Verifikasi donasi masuk dari bukti transfer donatur"
+            badge={stats.pending_donations} gradient="linear-gradient(135deg, #EC4899, #BE185D)" />
+          <ActionTile t={t} href="/admin/funding/settings" icon={<Icons.Settings />}
+            title="Pengaturan"
+            desc="Konfigurasi nilai zakat, fee operasional, dan parameter sistem"
+            gradient="linear-gradient(135deg, #475569, #1E293B)" />
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl px-4 py-6 space-y-4">
-
-        {/* Stats quick view */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white rounded-xl border border-amber-100 bg-amber-50/30 p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Clock size={12} className="text-amber-600" />
-              <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">Pending</p>
-            </div>
-            <p className="text-xl font-extrabold text-amber-800">
-              {loading ? '—' : stats.pending}
-            </p>
-            <p className="text-[10px] text-amber-600 mt-0.5">donasi menunggu</p>
-          </div>
-          <div className="bg-white rounded-xl border border-emerald-100 bg-emerald-50/30 p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <CheckCircle2 size={12} className="text-emerald-600" />
-              <p className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Verified</p>
-            </div>
-            <p className="text-xl font-extrabold text-emerald-800">
-              {loading ? '—' : stats.verifiedToday}
-            </p>
-            <p className="text-[10px] text-emerald-600 mt-0.5">hari ini</p>
-          </div>
-          <div className="bg-white rounded-xl border border-gray-100 p-3">
-            <div className="flex items-center gap-1.5 mb-1">
-              <XCircle size={12} className="text-gray-500" />
-              <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider">Rejected</p>
-            </div>
-            <p className="text-xl font-extrabold text-gray-700">
-              {loading ? '—' : stats.rejectedToday}
-            </p>
-            <p className="text-[10px] text-gray-500 mt-0.5">hari ini</p>
-          </div>
-        </div>
-
-        {/* Navigation cards */}
-        <div className="space-y-3">
-
-          {/* Donations */}
-          <Link
-            href="/admin/funding/donations"
-            className="block bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-pink-200 transition-all"
-          >
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br from-[#EC4899] to-[#BE185D] flex items-center justify-center shadow-sm">
-                <HandHeart size={20} className="text-white" strokeWidth={2.2} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-bold text-gray-900">Verifikasi Donasi</p>
-                  {stats.pending > 0 && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold">
-                      {stats.pending} baru
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Cek bukti transfer donor, approve atau reject donasi masuk.
-                </p>
-              </div>
-              <ChevronRight size={18} className="shrink-0 text-gray-400 self-center" />
-            </div>
-          </Link>
-
-          {/* Settings */}
-          <Link
-            href="/admin/funding/settings"
-            className="block bg-white rounded-2xl border border-gray-100 p-5 hover:shadow-md hover:border-gray-200 transition-all"
-          >
-            <div className="flex items-start gap-4">
-              <div className="shrink-0 w-11 h-11 rounded-xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] flex items-center justify-center shadow-sm">
-                <Settings size={20} className="text-white" strokeWidth={2.2} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-900 mb-1">Pengaturan BADONASI</p>
-                <p className="text-xs text-gray-500 leading-relaxed">
-                  Atur harga acuan zakat (beras, emas) untuk kalkulator publik.
-                </p>
-                <div className="mt-2 flex items-center gap-1.5">
-                  <Calculator size={11} className="text-gray-400" />
-                  <p className="text-[11px] text-gray-400">Harga beras & emas</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="shrink-0 text-gray-400 self-center" />
-            </div>
-          </Link>
-
-        </div>
-
-      </div>
     </div>
+  );
+}
+
+function StatCard({ t, icon, label, value, accent, highlight }: {
+  t: any; icon: React.ReactNode; label: string; value: string;
+  accent: string; highlight?: boolean;
+}) {
+  return (
+    <div style={{
+      background: t.mainBg,
+      border: `1px solid ${highlight ? accent + '55' : t.sidebarBorder}`,
+      borderRadius: 16, padding: 20,
+      boxShadow: highlight ? `0 0 0 3px ${accent}10` : 'none',
+    }}>
+      <div style={{
+        width: 40, height: 40, borderRadius: 10,
+        background: accent + '18', color: accent,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        marginBottom: 12,
+      }}>
+        {icon}
+      </div>
+      <p style={{ fontSize: 12, color: t.textDim, fontWeight: 500, marginBottom: 4 }}>{label}</p>
+      <p style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary }}>{value}</p>
+    </div>
+  );
+}
+
+function ActionTile({ t, href, icon, title, desc, badge, gradient }: {
+  t: any; href: string; icon: React.ReactNode;
+  title: string; desc: string; badge?: number; gradient: string;
+}) {
+  return (
+    <Link href={href} style={{
+      background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
+      borderRadius: 16, padding: 20, textDecoration: 'none',
+      display: 'block', transition: 'border-color .15s, box-shadow .15s',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+        <div style={{
+          width: 48, height: 48, borderRadius: 12,
+          background: gradient, color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+        }}>
+          {icon}
+        </div>
+        {!!badge && badge > 0 && (
+          <span style={{
+            background: 'rgba(239, 68, 68, 0.12)', color: '#EF4444',
+            fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
+          }}>
+            {badge} pending
+          </span>
+        )}
+      </div>
+      <h3 style={{ fontSize: 15, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>{title}</h3>
+      <p style={{ fontSize: 12, color: t.textDim, lineHeight: 1.5, marginBottom: 12 }}>{desc}</p>
+      <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 600, color: '#EC4899' }}>
+        Buka <Icons.ArrowRight />
+      </div>
+    </Link>
   );
 }
