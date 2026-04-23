@@ -1,50 +1,29 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback, useContext } from 'react';
+import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
+import SmartViewsPills, { type SmartViewKey, type SmartViewCounts } from '@/components/admin/funding/SmartViewsPills';
+import CampaignsTable from '@/components/admin/funding/CampaignsTable';
+import Pagination from '@/components/admin/funding/Pagination';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
+// ── Icons ─────────────────────────────────────────
 const Icons = {
-  Check: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-  X: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  Eye: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  ExternalLink: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
-  Alert: () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-  Shield: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+  Search:    () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
+  X:         () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  Table:     () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
+  List:      () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
+  ChevronDown: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+  Shield:    () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
+  Alert:     () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
 
-const STATUS_TABS = [
-  { key: 'pending_review', label: 'Pending' },
-  { key: 'active',         label: 'Aktif' },
-  { key: 'completed',      label: 'Selesai' },
-  { key: 'rejected',       label: 'Ditolak' },
-  { key: '',               label: 'Semua' },
-];
-
-const CATEGORY_LABEL: Record<string, string> = {
-  kesehatan: 'Kesehatan',
-  bencana: 'Bencana',
-  duka: 'Duka',
-  anak_yatim: 'Anak Yatim',
-  lansia: 'Lansia',
-  hunian_darurat: 'Hunian Darurat',
-};
-
-function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
-}
-
-function formatDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
+// ── Types ─────────────────────────────────────────
 interface Campaign {
   id: string;
   title: string;
@@ -68,8 +47,31 @@ interface Campaign {
   deadline?: string;
   rejection_reason?: string;
   created_at: string;
+  open_flag_count?: number;
 }
 
+const STATUS_TABS = [
+  { key: 'pending_review', label: 'Pending' },
+  { key: 'active',         label: 'Aktif' },
+  { key: 'completed',      label: 'Selesai' },
+  { key: 'rejected',       label: 'Ditolak' },
+  { key: '',               label: 'Semua' },
+];
+
+const SORT_OPTIONS = [
+  { key: 'newest',        label: 'Terbaru' },
+  { key: 'oldest',        label: 'Terlama' },
+  { key: 'deadline',      label: 'Deadline Dekat' },
+  { key: 'collected',     label: 'Terkumpul Tertinggi' },
+  { key: 'progress_low',  label: 'Progress Terendah' },
+  { key: 'progress_high', label: 'Progress Tertinggi' },
+  { key: 'donors',        label: 'Paling Banyak Donatur' },
+  { key: 'az',            label: 'A-Z' },
+];
+
+const AUTO_TABLE_THRESHOLD = 30;
+
+// ── Sub Nav ───────────────────────────────────────
 function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: number; pendingDonations: number; t: any }) {
   const pathname = usePathname();
   const tabs = [
@@ -80,8 +82,8 @@ function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: n
   ];
   return (
     <div style={{
-      display: 'flex', gap: 8, marginBottom: 24, borderBottom: `1px solid ${t.sidebarBorder}`,
-      overflowX: 'auto',
+      display: 'flex', gap: 8, marginBottom: 24,
+      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
     }}>
       {tabs.map(tab => {
         const active = pathname === tab.href
@@ -97,10 +99,10 @@ function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: n
             }}>
             {tab.label}
             {!!tab.badge && tab.badge > 0 && (
-              <span style={{ background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center' }}>
-                {tab.badge}
-              </span>
+              <span style={{
+                background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700,
+                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
+              }}>{tab.badge}</span>
             )}
           </Link>
         );
@@ -109,40 +111,104 @@ function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: n
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// MAIN PAGE
+// ═══════════════════════════════════════════════════════════════
+
 export default function AdminCampaignsPage() {
   const { t } = useContext(AdminThemeContext);
   const searchParams = useSearchParams();
   const router = useRouter();
+  const pathname = usePathname();
   const { token } = useAuth();
 
+  // ── URL state ──
   const activeStatus = searchParams.get('status') ?? 'pending_review';
+  const activeSmartView = (searchParams.get('sv') as SmartViewKey | null) ?? null;
+  const activeSort = searchParams.get('sort') ?? 'newest';
+  const urlSearch = searchParams.get('q') ?? '';
+  const urlPage = Number(searchParams.get('page')) || 1;
+  const urlLimit = Number(searchParams.get('limit')) || 20;
+  const urlView = searchParams.get('view') as 'table' | 'list' | null;
+
+  // ── Component state ──
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [counts, setCounts] = useState<Record<string, number>>({});
+  const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  const [smartViewCounts, setSmartViewCounts] = useState<SmartViewCounts | null>(null);
   const [pendingDonations, setPendingDonations] = useState(0);
 
+  // Search input state (separated for debouncing)
+  const [searchInput, setSearchInput] = useState(urlSearch);
+
+  // Selection for bulk actions (wired up in M1-D3)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  // Modal state
   const [modal, setModal] = useState<{ type: 'approve' | 'reject' | 'detail'; campaign: Campaign } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // Derived: determine layout (explicit URL > auto threshold > default table)
+  const layout = useMemo<'table' | 'list'>(() => {
+    if (urlView === 'table' || urlView === 'list') return urlView;
+    if (total >= AUTO_TABLE_THRESHOLD) return 'table';
+    return 'table'; // default table per CEO directive
+  }, [urlView, total]);
+
+  // ═══════ URL helpers ═══════
+
+  const updateUrl = useCallback((updates: Record<string, string | number | null>) => {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([key, value]) => {
+      if (value === null || value === '' || value === undefined) {
+        params.delete(key);
+      } else {
+        params.set(key, String(value));
+      }
+    });
+    router.push(`${pathname}?${params.toString()}`);
+  }, [searchParams, router, pathname]);
+
+  // ═══════ Fetch campaigns ═══════
+
   const fetchCampaigns = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
     setLoading(true);
-    const params = new URLSearchParams({ limit: '50' });
+
+    const params = new URLSearchParams({
+      page: String(urlPage),
+      limit: String(urlLimit),
+      sort: activeSort,
+    });
     if (activeStatus) params.set('status', activeStatus);
+    if (activeSmartView) params.set('sv', activeSmartView);
+    if (urlSearch) params.set('q', urlSearch);
+
     try {
       const res = await fetch(`${API_URL}/funding/admin/campaigns?${params.toString()}`, {
         headers: { Authorization: `Bearer ${tk}` },
       });
       const json = await res.json();
-      setCampaigns(json.data ?? []);
-    } catch { setCampaigns([]); }
-    finally { setLoading(false); }
-  }, [activeStatus]);
+      if (res.ok && json.success) {
+        setCampaigns(json.data ?? []);
+        setTotal(json.meta?.total ?? 0);
+      } else {
+        setCampaigns([]);
+        setTotal(0);
+      }
+    } catch {
+      setCampaigns([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit]);
 
-  const fetchCounts = useCallback(async () => {
+  const fetchStatusCounts = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
     const statuses = ['pending_review', 'active', 'completed', 'rejected'];
@@ -155,19 +221,102 @@ export default function AdminCampaignsPage() {
     );
     const next: Record<string, number> = {};
     statuses.forEach((s, i) => { next[s] = results[i]?.meta?.total ?? 0; });
-    setCounts(next);
+    setStatusCounts(next);
 
+    // Also pending donations for sub-nav badge
     const dRes = await fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, {
       headers: { Authorization: `Bearer ${tk}` },
     }).then(r => r.json()).catch(() => null);
     setPendingDonations(dRes?.meta?.total ?? 0);
   }, []);
 
-  useEffect(() => { fetchCampaigns(); fetchCounts(); }, [fetchCampaigns, fetchCounts]);
+  const fetchSmartViewCounts = useCallback(async () => {
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+    try {
+      const res = await fetch(`${API_URL}/funding/admin/campaigns/smart-views/counts`, {
+        headers: { Authorization: `Bearer ${tk}` },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) setSmartViewCounts(json.data);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    fetchCampaigns();
+  }, [fetchCampaigns]);
+
+  useEffect(() => {
+    fetchStatusCounts();
+    fetchSmartViewCounts();
+  }, [fetchStatusCounts, fetchSmartViewCounts]);
+
+  // Sync searchInput with URL on external change
+  useEffect(() => {
+    setSearchInput(urlSearch);
+  }, [urlSearch]);
+
+  // Debounced search
+  useEffect(() => {
+    if (searchInput === urlSearch) return;
+    const timer = setTimeout(() => {
+      updateUrl({ q: searchInput || null, page: 1 });
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
+
+  // ═══════ Handlers ═══════
 
   function showToast(ok: boolean, msg: string) {
     setToast({ ok, msg });
     setTimeout(() => setToast(null), 3500);
+  }
+
+  function switchStatus(status: string) {
+    updateUrl({ status: status || null, page: 1 });
+    setSelectedIds(new Set());
+  }
+
+  function switchSmartView(sv: SmartViewKey | null) {
+    updateUrl({ sv: sv || null, page: 1 });
+    setSelectedIds(new Set());
+  }
+
+  function switchSort(sort: string) {
+    updateUrl({ sort, page: 1 });
+  }
+
+  function switchLayout(view: 'table' | 'list') {
+    updateUrl({ view });
+  }
+
+  function onRowAction(action: 'detail' | 'approve' | 'reject', campaign: Campaign) {
+    setModal({ type: action, campaign });
+  }
+
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleSelectAll() {
+    setSelectedIds(prev => {
+      const allIds = campaigns.map(c => c.id);
+      const allSelected = allIds.every(id => prev.has(id));
+      if (allSelected) {
+        const next = new Set(prev);
+        allIds.forEach(id => next.delete(id));
+        return next;
+      }
+      const next = new Set(prev);
+      allIds.forEach(id => next.add(id));
+      return next;
+    });
   }
 
   async function handleApprove(c: Campaign) {
@@ -184,9 +333,11 @@ export default function AdminCampaignsPage() {
       showToast(true, `✓ "${c.title}" di-approve`);
       setModal(null);
       fetchCampaigns();
-      fetchCounts();
-    } catch (err: any) { showToast(false, err.message); }
-    finally { setSubmitting(false); }
+      fetchStatusCounts();
+      fetchSmartViewCounts();
+    } catch (err: any) {
+      showToast(false, err.message);
+    } finally { setSubmitting(false); }
   }
 
   async function handleReject(c: Campaign) {
@@ -209,25 +360,20 @@ export default function AdminCampaignsPage() {
       setModal(null);
       setRejectReason('');
       fetchCampaigns();
-      fetchCounts();
-    } catch (err: any) { showToast(false, err.message); }
-    finally { setSubmitting(false); }
+      fetchStatusCounts();
+    } catch (err: any) {
+      showToast(false, err.message);
+    } finally { setSubmitting(false); }
   }
 
-  function switchStatus(status: string) {
-    const p = new URLSearchParams(searchParams.toString());
-    if (status) p.set('status', status);
-    else p.delete('status');
-    router.push(`/admin/funding/campaigns?${p.toString()}`);
-  }
+  // ═══════ Render ═══════
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1280, color: t.textPrimary }}>
+    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
 
+      {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
-        <Link href="/admin/funding" style={{ fontSize: 12, color: t.textDim, textDecoration: 'none' }}>
-          Dashboard
-        </Link>
+        <Link href="/admin/funding" style={{ fontSize: 12, color: t.textDim, textDecoration: 'none' }}>Dashboard</Link>
         <span style={{ fontSize: 12, color: t.textMuted, margin: '0 6px' }}>/</span>
         <span style={{ fontSize: 12, color: t.textDim, fontWeight: 600 }}>Kampanye</span>
       </div>
@@ -239,13 +385,13 @@ export default function AdminCampaignsPage() {
         Verifikasi dokumen, approve kampanye yang memenuhi standar, atau tolak dengan alasan jelas.
       </p>
 
-      <SubNav pendingCampaigns={counts.pending_review ?? 0} pendingDonations={pendingDonations} t={t} />
+      <SubNav pendingCampaigns={statusCounts.pending_review ?? 0} pendingDonations={pendingDonations} t={t} />
 
-      {/* Status sub-tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto' }}>
+      {/* Status Tabs */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
         {STATUS_TABS.map(tab => {
           const active = activeStatus === tab.key;
-          const count = counts[tab.key] ?? 0;
+          const count = statusCounts[tab.key] ?? 0;
           return (
             <button key={tab.key || 'all'} onClick={() => switchStatus(tab.key)}
               style={{
@@ -272,33 +418,172 @@ export default function AdminCampaignsPage() {
         })}
       </div>
 
-      {/* List */}
-      {loading ? (
-        <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 16, padding: 60, textAlign: 'center', color: t.textDim, fontSize: 14 }}>
-          Memuat kampanye...
+      {/* Smart Views Pills */}
+      <SmartViewsPills
+        counts={smartViewCounts}
+        selected={activeSmartView}
+        onSelect={switchSmartView}
+      />
+
+      {/* Search + Sort + Layout Toggle Row */}
+      <div style={{
+        display: 'flex', gap: 12, marginBottom: 16,
+        flexWrap: 'wrap', alignItems: 'center',
+      }}>
+        {/* Search */}
+        <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
+          <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.textDim }}>
+            <Icons.Search />
+          </span>
+          <input
+            type="text"
+            placeholder="Cari judul, penerima, partner..."
+            value={searchInput}
+            onChange={e => setSearchInput(e.target.value)}
+            style={{
+              width: '100%', padding: '10px 36px 10px 40px',
+              borderRadius: 10,
+              border: `1px solid ${t.sidebarBorder}`,
+              background: t.mainBg, color: t.textPrimary,
+              fontSize: 13, outline: 'none', boxSizing: 'border-box',
+            }}
+          />
+          {searchInput && (
+            <button
+              onClick={() => setSearchInput('')}
+              style={{
+                position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
+                background: 'transparent', border: 'none', cursor: 'pointer',
+                color: t.textDim, padding: 4,
+              }}
+            >
+              <Icons.X />
+            </button>
+          )}
         </div>
-      ) : campaigns.length === 0 ? (
-        <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 16, padding: 60, textAlign: 'center' }}>
-          <p style={{ color: t.textPrimary, fontWeight: 600 }}>Tidak ada kampanye</p>
-          <p style={{ color: t.textDim, fontSize: 13, marginTop: 4 }}>
-            Tidak ada kampanye dengan status <strong>{STATUS_TABS.find(s => s.key === activeStatus)?.label ?? 'ini'}</strong>.
-          </p>
+
+        {/* Sort dropdown */}
+        <div style={{ position: 'relative' }}>
+          <select
+            value={activeSort}
+            onChange={e => switchSort(e.target.value)}
+            style={{
+              appearance: 'none',
+              padding: '10px 36px 10px 14px',
+              borderRadius: 10,
+              border: `1px solid ${t.sidebarBorder}`,
+              background: t.mainBg, color: t.textPrimary,
+              fontSize: 13, fontWeight: 600,
+              cursor: 'pointer', outline: 'none',
+            }}
+          >
+            {SORT_OPTIONS.map(opt => (
+              <option key={opt.key} value={opt.key}>{opt.label}</option>
+            ))}
+          </select>
+          <span style={{
+            position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)',
+            color: t.textDim, pointerEvents: 'none',
+          }}>
+            <Icons.ChevronDown />
+          </span>
         </div>
-      ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          {campaigns.map(c => (
-            <CampaignCard key={c.id} campaign={c} t={t}
-              onApprove={() => setModal({ type: 'approve', campaign: c })}
-              onReject={() => setModal({ type: 'reject', campaign: c })}
-              onDetail={() => setModal({ type: 'detail', campaign: c })} />
-          ))}
+
+        {/* Layout toggle */}
+        <div style={{
+          display: 'flex', border: `1px solid ${t.sidebarBorder}`,
+          borderRadius: 10, overflow: 'hidden',
+        }}>
+          <button
+            onClick={() => switchLayout('table')}
+            title="Table view"
+            style={{
+              padding: '10px 12px',
+              background: layout === 'table' ? '#EC4899' : t.mainBg,
+              color: layout === 'table' ? '#fff' : t.textPrimary,
+              border: 'none', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center',
+            }}
+          >
+            <Icons.Table />
+          </button>
+          <button
+            onClick={() => switchLayout('list')}
+            title="List view"
+            style={{
+              padding: '10px 12px',
+              background: layout === 'list' ? '#EC4899' : t.mainBg,
+              color: layout === 'list' ? '#fff' : t.textPrimary,
+              border: 'none', cursor: 'pointer',
+              display: 'inline-flex', alignItems: 'center',
+              borderLeft: `1px solid ${t.sidebarBorder}`,
+            }}
+          >
+            <Icons.List />
+          </button>
+        </div>
+      </div>
+
+      {/* Selected indicator (placeholder - bulk toolbar coming M1-D3) */}
+      {selectedIds.size > 0 && (
+        <div style={{
+          marginBottom: 12,
+          padding: '10px 14px',
+          borderRadius: 10,
+          background: 'rgba(236,72,153,0.08)',
+          border: '1px solid rgba(236,72,153,0.3)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        }}>
+          <span style={{ fontSize: 13, fontWeight: 600, color: '#EC4899' }}>
+            {selectedIds.size} kampanye dipilih
+          </span>
+          <button
+            onClick={() => setSelectedIds(new Set())}
+            style={{
+              background: 'transparent', border: 'none', cursor: 'pointer',
+              color: '#EC4899', fontSize: 12, fontWeight: 600,
+              textDecoration: 'underline',
+            }}
+          >
+            Batal pilih
+          </button>
         </div>
       )}
 
-      {/* MODAL */}
+      {/* Data Table */}
+      {loading ? (
+        <div style={{
+          background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
+          borderRadius: 16, padding: 60, textAlign: 'center',
+          color: t.textDim, fontSize: 14,
+        }}>
+          Memuat kampanye...
+        </div>
+      ) : (
+        <CampaignsTable
+          campaigns={campaigns}
+          selectedIds={selectedIds}
+          onToggleSelect={toggleSelect}
+          onToggleAll={toggleSelectAll}
+          onRowAction={onRowAction}
+        />
+      )}
+
+      {/* Pagination */}
+      {!loading && total > 0 && (
+        <Pagination
+          page={urlPage}
+          limit={urlLimit}
+          total={total}
+          onPageChange={p => updateUrl({ page: p })}
+          onLimitChange={l => updateUrl({ limit: l, page: 1 })}
+        />
+      )}
+
+      {/* ═════════ MODAL ═════════ */}
       {modal && (
         <div onClick={() => !submitting && setModal(null)} style={{
-          position: 'fixed', inset: 0, background: 'rgba(15, 23, 42, 0.75)',
+          position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)',
           backdropFilter: 'blur(4px)', zIndex: 50,
           display: 'flex', alignItems: 'center', justifyContent: 'center',
           padding: 16, overflowY: 'auto',
@@ -335,26 +620,15 @@ export default function AdminCampaignsPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}><Icons.Shield /></div>
                     <div style={{ fontSize: 12, color: '#10B981', lineHeight: 1.5 }}>
-                      <strong>Kampanye akan langsung publik.</strong> Pastikan:
-                      <ul style={{ marginTop: 6, marginBottom: 0, paddingLeft: 18 }}>
-                        <li>Identitas penerima valid</li>
-                        <li>Rekening partner komunitas terverifikasi</li>
-                        <li>Dokumen pendukung asli</li>
-                      </ul>
+                      <strong>Kampanye akan langsung publik.</strong> Pastikan identitas & dokumen valid.
                     </div>
                   </div>
                   <CampaignSummary c={modal.campaign} t={t} />
                   <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
                     <button onClick={() => setModal(null)} disabled={submitting}
-                      style={{ flex: 1, padding: '12px 16px', borderRadius: 12,
-                        border: `1px solid ${t.sidebarBorder}`, background: 'transparent',
-                        color: t.textPrimary, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-                      Batal
-                    </button>
+                      style={cancelBtnStyle(t)}>Batal</button>
                     <button onClick={() => handleApprove(modal.campaign)} disabled={submitting}
-                      style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
-                        background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff',
-                        fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: submitting ? 0.6 : 1 }}>
+                      style={primaryBtnStyle('#10B981', '#059669', submitting)}>
                       {submitting ? 'Memproses...' : '✓ Ya, Approve'}
                     </button>
                   </div>
@@ -373,7 +647,7 @@ export default function AdminCampaignsPage() {
                       display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                     }}><Icons.Alert /></div>
                     <div style={{ fontSize: 12, color: '#EF4444', lineHeight: 1.5 }}>
-                      <strong>Alasan penolakan wajib jelas & spesifik.</strong> Pengaju akan melihat alasan ini.
+                      <strong>Alasan penolakan wajib jelas & spesifik.</strong>
                     </div>
                   </div>
                   <CampaignSummary c={modal.campaign} t={t} />
@@ -382,7 +656,7 @@ export default function AdminCampaignsPage() {
                       Alasan Penolakan <span style={{ color: '#EF4444' }}>*</span>
                     </label>
                     <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)}
-                      placeholder="Contoh: Dokumen identitas penerima tidak jelas. Mohon upload ulang KTP/KK yang readable."
+                      placeholder="Contoh: Dokumen identitas tidak jelas. Mohon upload ulang."
                       rows={4} maxLength={500} disabled={submitting}
                       style={{
                         width: '100%', padding: '12px 14px', borderRadius: 12,
@@ -397,18 +671,10 @@ export default function AdminCampaignsPage() {
                   </div>
                   <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
                     <button onClick={() => { setModal(null); setRejectReason(''); }} disabled={submitting}
-                      style={{ flex: 1, padding: '12px 16px', borderRadius: 12,
-                        border: `1px solid ${t.sidebarBorder}`, background: 'transparent',
-                        color: t.textPrimary, fontWeight: 600, fontSize: 14, cursor: 'pointer' }}>
-                      Batal
-                    </button>
+                      style={cancelBtnStyle(t)}>Batal</button>
                     <button onClick={() => handleReject(modal.campaign)}
                       disabled={submitting || rejectReason.trim().length < 10}
-                      style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
-                        background: 'linear-gradient(135deg, #EF4444, #DC2626)', color: '#fff',
-                        fontWeight: 700, fontSize: 14,
-                        cursor: rejectReason.trim().length < 10 ? 'not-allowed' : 'pointer',
-                        opacity: rejectReason.trim().length < 10 || submitting ? 0.5 : 1 }}>
+                      style={primaryBtnStyle('#EF4444', '#DC2626', submitting || rejectReason.trim().length < 10)}>
                       {submitting ? 'Memproses...' : '✗ Tolak'}
                     </button>
                   </div>
@@ -421,25 +687,29 @@ export default function AdminCampaignsPage() {
                   <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
                     <a href={`/fundraising/${modal.campaign.slug}`} target="_blank" rel="noopener noreferrer"
                       style={{
-                        flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                         padding: '12px 16px', borderRadius: 12,
                         background: t.navHover, color: t.textPrimary,
-                        fontWeight: 600, fontSize: 13, textDecoration: 'none',
+                        fontSize: 13, fontWeight: 600, textDecoration: 'none',
                       }}>
-                      <Icons.ExternalLink /> Buka Tab Baru
+                      Lihat di Publik →
                     </a>
                     {modal.campaign.status === 'pending_review' && (
                       <>
                         <button onClick={() => setModal({ type: 'reject', campaign: modal.campaign })}
-                          style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                          style={{
+                            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
                             background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-                            fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                            fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                          }}>
                           ✗ Tolak
                         </button>
                         <button onClick={() => setModal({ type: 'approve', campaign: modal.campaign })}
-                          style={{ flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                          style={{
+                            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
                             background: 'rgba(16,185,129,0.1)', color: '#10B981',
-                            fontWeight: 600, fontSize: 13, cursor: 'pointer' }}>
+                            fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                          }}>
                           ✓ Approve
                         </button>
                       </>
@@ -452,7 +722,7 @@ export default function AdminCampaignsPage() {
         </div>
       )}
 
-      {/* TOAST */}
+      {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 60,
@@ -468,148 +738,41 @@ export default function AdminCampaignsPage() {
   );
 }
 
-function CampaignCard({ campaign: c, onApprove, onReject, onDetail, t }: {
-  campaign: Campaign;
-  onApprove: () => void; onReject: () => void; onDetail: () => void;
-  t: any;
-}) {
-  const pct = c.target_amount > 0
-    ? Math.min(Math.round((c.collected_amount / c.target_amount) * 100), 100) : 0;
+// ── Helpers ──────────────────────────────────────
 
-  const statusColor = {
-    pending_review: { bg: 'rgba(245,158,11,0.12)', text: '#F59E0B' },
-    active:          { bg: 'rgba(16,185,129,0.12)', text: '#10B981' },
-    completed:       { bg: t.navHover, text: t.textDim },
-    rejected:        { bg: 'rgba(239,68,68,0.12)', text: '#EF4444' },
-  }[c.status] ?? { bg: t.navHover, text: t.textDim };
-
-  const statusLabel = ({
-    pending_review: 'Pending', active: 'Aktif', completed: 'Selesai', rejected: 'Ditolak',
-  } as any)[c.status] ?? c.status;
-
-  return (
-    <div style={{
-      background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
-      borderRadius: 16, padding: 16,
-      display: 'flex', gap: 16, flexWrap: 'wrap',
-    }}>
-      {/* Image */}
-      <div style={{
-        width: 128, height: 128, borderRadius: 12, overflow: 'hidden',
-        background: t.navHover, flexShrink: 0,
-      }}>
-        {c.cover_image_url ? (
-          <img src={c.cover_image_url} alt={c.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        ) : (
-          <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: t.textMuted, fontSize: 11 }}>
-            No image
-          </div>
-        )}
-      </div>
-
-      {/* Content */}
-      <div style={{ flex: 1, minWidth: 240 }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 6 }}>
-          <span style={{
-            background: statusColor.bg, color: statusColor.text,
-            fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-            textTransform: 'uppercase', letterSpacing: '0.05em',
-          }}>
-            {statusLabel}
-          </span>
-          {c.is_urgent && (
-            <span style={{
-              background: 'rgba(239,68,68,0.12)', color: '#EF4444',
-              fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-              textTransform: 'uppercase',
-            }}>
-              🔴 Urgent
-            </span>
-          )}
-          <span style={{ fontSize: 10, color: t.textDim, fontWeight: 500, padding: '2px 4px' }}>
-            {CATEGORY_LABEL[c.category] ?? c.category}
-          </span>
-        </div>
-        <h3 style={{ fontSize: 15, fontWeight: 700, color: t.textPrimary, marginBottom: 4, lineHeight: 1.35 }}>
-          {c.title}
-        </h3>
-        <p style={{ fontSize: 12, color: t.textDim, marginBottom: 10 }}>
-          untuk <strong style={{ color: t.textPrimary }}>{c.beneficiary_name}</strong>
-          {' · '}Partner: <strong style={{ color: t.textPrimary }}>{c.partner_name}</strong>
-        </p>
-
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
-          <Stat t={t} label="Target" value={shortRupiah(c.target_amount)} />
-          <Stat t={t} label="Terkumpul" value={`${shortRupiah(c.collected_amount)} (${pct}%)`} accent="#EC4899" />
-          <Stat t={t} label="Donatur" value={(c.donor_count ?? 0).toString()} />
-          <Stat t={t} label="Dibuat" value={formatDate(c.created_at)} />
-        </div>
-
-        {c.status === 'rejected' && c.rejection_reason && (
-          <div style={{
-            marginTop: 12, background: 'rgba(239,68,68,0.06)',
-            border: '1px solid rgba(239,68,68,0.2)', borderRadius: 10,
-            padding: '8px 12px',
-          }}>
-            <p style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
-              Alasan Penolakan
-            </p>
-            <p style={{ fontSize: 12, color: '#EF4444' }}>{c.rejection_reason}</p>
-          </div>
-        )}
-      </div>
-
-      {/* Actions */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, flexShrink: 0 }}>
-        <button onClick={onDetail} style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-          padding: '8px 14px', borderRadius: 10,
-          border: `1px solid ${t.sidebarBorder}`, background: 'transparent',
-          color: t.textPrimary, fontSize: 12, fontWeight: 600, cursor: 'pointer',
-        }}>
-          <Icons.Eye /> Detail
-        </button>
-        {c.status === 'pending_review' && (
-          <>
-            <button onClick={onReject} style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-              padding: '8px 14px', borderRadius: 10, border: 'none',
-              background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-              fontSize: 12, fontWeight: 600, cursor: 'pointer',
-            }}>
-              <Icons.X /> Tolak
-            </button>
-            <button onClick={onApprove} style={{
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-              padding: '8px 14px', borderRadius: 10, border: 'none',
-              background: 'linear-gradient(135deg, #10B981, #059669)', color: '#fff',
-              fontSize: 12, fontWeight: 700, cursor: 'pointer',
-            }}>
-              <Icons.Check /> Approve
-            </button>
-          </>
-        )}
-      </div>
-    </div>
-  );
+function shortRupiah(n: number): string {
+  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
+  return 'Rp ' + n.toLocaleString('id-ID');
 }
 
-function Stat({ label, value, accent, t }: { label: string; value: string; accent?: string; t: any }) {
-  return (
-    <div>
-      <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 2 }}>
-        {label}
-      </p>
-      <p style={{ fontSize: 13, fontWeight: 700, color: accent ?? t.textPrimary }}>{value}</p>
-    </div>
-  );
+function cancelBtnStyle(t: any): React.CSSProperties {
+  return {
+    flex: 1, padding: '12px 16px', borderRadius: 12,
+    border: `1px solid ${t.sidebarBorder}`, background: 'transparent',
+    color: t.textPrimary, fontWeight: 600, fontSize: 14, cursor: 'pointer',
+  };
 }
+
+function primaryBtnStyle(c1: string, c2: string, disabled: boolean): React.CSSProperties {
+  return {
+    flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+    background: `linear-gradient(135deg, ${c1}, ${c2})`, color: '#fff',
+    fontWeight: 700, fontSize: 14,
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    opacity: disabled ? 0.5 : 1,
+  };
+}
+
+const CATEGORY_LABEL: Record<string, string> = {
+  kesehatan: 'Kesehatan', bencana: 'Bencana', duka: 'Duka',
+  anak_yatim: 'Anak Yatim', lansia: 'Lansia', hunian_darurat: 'Hunian Darurat',
+};
 
 function CampaignSummary({ c, t }: { c: Campaign; t: any }) {
   return (
-    <div style={{
-      background: t.navHover, borderRadius: 12, padding: 14,
-    }}>
+    <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
       <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>{c.title}</p>
       <p style={{ fontSize: 11, color: t.textDim, marginBottom: 10 }}>
         untuk {c.beneficiary_name} · {CATEGORY_LABEL[c.category] ?? c.category}
@@ -657,7 +820,7 @@ function CampaignDetail({ c, t }: { c: Campaign; t: any }) {
       </div>
       <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
         <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>
-          Partner Komunitas (Penerima Dana)
+          Partner Komunitas
         </p>
         <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>{c.partner_name}</p>
         <div style={{ fontSize: 12, color: t.textDim, marginTop: 4 }}>
