@@ -20,6 +20,7 @@ interface Donation {
   operational_fee: number;
   total_transfer: number;
   donation_code: string;
+  message?: string | null;          // ← FIX: read from DB instead of localStorage
   verification_status: string;
   created_at: string;
   campaigns?: {
@@ -36,7 +37,6 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
 
   const [donation, setDonation] = useState<Donation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState<string>('');  // from localStorage
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -59,12 +59,6 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
       }
     }
     fetchDonation();
-
-    // Get pesan/doa from localStorage (saved from donate page)
-    try {
-      const saved = localStorage.getItem(`donation-msg-${donationId}`);
-      if (saved) setMessage(saved);
-    } catch {}
   }, [donationId]);
 
   function copyDonationCode() {
@@ -91,6 +85,9 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
       </div>
     );
   }
+
+  // FIX: Read message dari donation.message (dari API response) — bukan dari localStorage
+  const userMessage = donation?.message?.trim() || '';
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FDF2F8] via-white to-[#003526]/5 pb-8">
@@ -174,12 +171,15 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
         </div>
       )}
 
-      {/* Donor's message/doa (dari localStorage) */}
-      {message && (
+      {/* Donor's message/doa — FIX: baca dari DB (donation.message), bukan localStorage */}
+      {userMessage && (
         <div className="mx-auto max-w-md px-4 mb-4">
           <div className="bg-[#003526]/5 border border-[#003526]/10 rounded-2xl p-5">
-            <p className="text-xs font-bold text-[#003526] uppercase tracking-widest mb-2">Pesan dari Kamu</p>
-            <p className="text-sm text-gray-700 italic leading-relaxed">&quot;{message}&quot;</p>
+            <p className="text-xs font-bold text-[#003526] uppercase tracking-widest mb-2">Pesan & Doa dari Kamu</p>
+            <p className="text-sm text-gray-700 italic leading-relaxed">&quot;{userMessage}&quot;</p>
+            <p className="text-[11px] text-gray-500 mt-3 leading-relaxed">
+              Doa kamu akan muncul di <strong>wall Doa & Harapan</strong> setelah donasi diverifikasi — jadi bagian dari dukungan untuk penerima.
+            </p>
           </div>
         </div>
       )}
