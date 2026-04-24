@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback, useContext } from 'react';
+import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
@@ -11,6 +11,10 @@ import DonationSmartViewsPills, {
 } from '@/components/admin/funding/DonationSmartViewsPills';
 import DonationsTable, { type Donation } from '@/components/admin/funding/DonationsTable';
 import Pagination from '@/components/admin/funding/Pagination';
+import DonationsAdvancedFiltersDrawer, {
+  type DonationFiltersState, EMPTY_DONATION_FILTERS, countActiveDonationFilters,
+} from '@/components/admin/funding/DonationsAdvancedFiltersDrawer';
+import DonationsBulkActionsToolbar from '@/components/admin/funding/DonationsBulkActionsToolbar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -19,6 +23,7 @@ const Icons = {
   Search:      () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
   X:           () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
   ChevronDown: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+  Filter:      () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
   Shield:      () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
   Alert:       () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
@@ -105,6 +110,17 @@ export default function AdminDonationsPage() {
   const urlPage = Number(searchParams.get('page')) || 1;
   const urlLimit = Number(searchParams.get('limit')) || 20;
 
+  // Extract filter state from URL
+  const activeFilters: DonationFiltersState = useMemo(() => ({
+    amountMin: searchParams.get('amount_min') ?? '',
+    amountMax: searchParams.get('amount_max') ?? '',
+    anonFilter: searchParams.get('anon') ?? '',
+    dateFrom: searchParams.get('from') ?? '',
+    dateTo: searchParams.get('to') ?? '',
+  }), [searchParams]);
+
+  const activeFilterCount = countActiveDonationFilters(activeFilters);
+
   // ── Component state ──
   const [donations, setDonations] = useState<Donation[]>([]);
   const [total, setTotal] = useState(0);
@@ -118,11 +134,17 @@ export default function AdminDonationsPage() {
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [modal, setModal] = useState<{ type: 'verify' | 'reject' | 'detail'; donation: Donation } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // Selected donations for bulk toolbar
+  const selectedDonations = useMemo(() => {
+    return donations.filter(d => selectedIds.has(d.id));
+  }, [donations, selectedIds]);
 
   // ═══════ URL helpers ═══════
 
@@ -137,6 +159,21 @@ export default function AdminDonationsPage() {
     });
     router.push(`${pathname}?${params.toString()}`);
   }, [searchParams, router, pathname]);
+
+  // Build current query string (for CSV export)
+  const currentQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
+    if (activeSmartView) params.set('sv', activeSmartView);
+    if (activeSort) params.set('sort', activeSort);
+    if (urlSearch) params.set('q', urlSearch);
+    if (activeFilters.amountMin) params.set('amount_min', activeFilters.amountMin);
+    if (activeFilters.amountMax) params.set('amount_max', activeFilters.amountMax);
+    if (activeFilters.anonFilter) params.set('anon', activeFilters.anonFilter);
+    if (activeFilters.dateFrom) params.set('from', activeFilters.dateFrom);
+    if (activeFilters.dateTo) params.set('to', activeFilters.dateTo);
+    return params.toString();
+  }, [activeStatus, activeSmartView, activeSort, urlSearch, activeFilters]);
 
   // ═══════ Fetch donations ═══════
 
@@ -153,6 +190,11 @@ export default function AdminDonationsPage() {
     if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
     if (activeSmartView) params.set('sv', activeSmartView);
     if (urlSearch) params.set('q', urlSearch);
+    if (activeFilters.amountMin) params.set('amount_min', activeFilters.amountMin);
+    if (activeFilters.amountMax) params.set('amount_max', activeFilters.amountMax);
+    if (activeFilters.anonFilter) params.set('anon', activeFilters.anonFilter);
+    if (activeFilters.dateFrom) params.set('from', activeFilters.dateFrom);
+    if (activeFilters.dateTo) params.set('to', activeFilters.dateTo);
 
     try {
       const res = await fetch(`${API_URL}/funding/admin/donations?${params.toString()}`, {
@@ -173,7 +215,7 @@ export default function AdminDonationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit]);
+  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit, activeFilters]);
 
   const fetchStatusCounts = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
@@ -190,7 +232,6 @@ export default function AdminDonationsPage() {
     statuses.forEach((s, i) => { next[s] = results[i]?.meta?.total ?? 0; });
     setStatusCounts(next);
 
-    // Also fetch pending campaigns count for sub-nav
     const cRes = await fetch(`${API_URL}/funding/admin/campaigns?status=pending_review&limit=1`, {
       headers: { Authorization: `Bearer ${tk}` },
     }).then(r => r.json()).catch(() => null);
@@ -234,12 +275,7 @@ export default function AdminDonationsPage() {
   }
 
   function switchStatus(status: string) {
-    // Clear smart view when switching status (they can conflict)
-    updateUrl({
-      status: status || null,
-      sv: null,
-      page: 1,
-    });
+    updateUrl({ status: status || null, sv: null, page: 1 });
     setSelectedIds(new Set());
   }
 
@@ -275,6 +311,24 @@ export default function AdminDonationsPage() {
       const next = new Set(prev);
       allIds.forEach(id => next.add(id));
       return next;
+    });
+  }
+
+  function handleApplyFilters(filters: DonationFiltersState) {
+    updateUrl({
+      amount_min: filters.amountMin || null,
+      amount_max: filters.amountMax || null,
+      anon: filters.anonFilter || null,
+      from: filters.dateFrom || null,
+      to: filters.dateTo || null,
+      page: 1,
+    });
+  }
+
+  function handleResetFilters() {
+    updateUrl({
+      amount_min: null, amount_max: null, anon: null,
+      from: null, to: null, page: 1,
     });
   }
 
@@ -325,6 +379,12 @@ export default function AdminDonationsPage() {
     } catch (err: any) {
       showToast(false, err.message);
     } finally { setSubmitting(false); }
+  }
+
+  function handleBulkComplete() {
+    fetchDonations();
+    fetchStatusCounts();
+    fetchSmartViewCounts();
   }
 
   // ═══════ Render ═══════
@@ -403,7 +463,7 @@ export default function AdminDonationsPage() {
         onSelect={switchSmartView}
       />
 
-      {/* Search + Sort */}
+      {/* Search + Filter + Sort */}
       <div style={{
         display: 'flex', gap: 12, marginBottom: 16,
         flexWrap: 'wrap', alignItems: 'center',
@@ -437,6 +497,31 @@ export default function AdminDonationsPage() {
           )}
         </div>
 
+        {/* Filter button */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '10px 14px', borderRadius: 10,
+            border: `1px solid ${activeFilterCount > 0 ? '#EC4899' : t.sidebarBorder}`,
+            background: activeFilterCount > 0 ? 'rgba(236,72,153,0.08)' : t.mainBg,
+            color: activeFilterCount > 0 ? '#EC4899' : t.textPrimary,
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          <Icons.Filter />
+          <span>Filter</span>
+          {activeFilterCount > 0 && (
+            <span style={{
+              background: '#EC4899', color: '#fff',
+              fontSize: 10, fontWeight: 700,
+              padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
+            }}>
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
         <div style={{ position: 'relative' }}>
           <select value={activeSort} onChange={e => switchSort(e.target.value)}
             style={{
@@ -461,31 +546,15 @@ export default function AdminDonationsPage() {
         </div>
       </div>
 
-      {/* Selection indicator (bulk toolbar coming in M1-D4c) */}
-      {selectedIds.size > 0 && (
-        <div style={{
-          marginBottom: 12,
-          padding: '10px 14px',
-          borderRadius: 10,
-          background: 'rgba(236,72,153,0.08)',
-          border: '1px solid rgba(236,72,153,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#EC4899' }}>
-            {selectedIds.size} donasi dipilih
-          </span>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            style={{
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: '#EC4899', fontSize: 12, fontWeight: 600,
-              textDecoration: 'underline',
-            }}
-          >
-            Batal pilih
-          </button>
-        </div>
-      )}
+      {/* Bulk Actions Toolbar (sticky when selected) */}
+      <DonationsBulkActionsToolbar
+        selectedIds={selectedIds}
+        selectedDonations={selectedDonations}
+        currentQueryString={currentQueryString}
+        onClear={() => setSelectedIds(new Set())}
+        onComplete={handleBulkComplete}
+        onToast={showToast}
+      />
 
       {/* Table */}
       {loading ? (
@@ -517,7 +586,16 @@ export default function AdminDonationsPage() {
         />
       )}
 
-      {/* MODAL */}
+      {/* Advanced Filters Drawer */}
+      <DonationsAdvancedFiltersDrawer
+        open={drawerOpen}
+        filters={activeFilters}
+        onClose={() => setDrawerOpen(false)}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
+
+      {/* MODAL (single verify/reject/detail) */}
       {modal && (
         <div onClick={() => !submitting && setModal(null)} style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)',
@@ -747,7 +825,6 @@ function DonationSummary({ d, t }: { d: Donation; t: any }) {
 function DonationDetail({ d, t }: { d: Donation; t: any }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Amount banner */}
       <div style={{
         background: 'linear-gradient(135deg, rgba(236,72,153,0.1), rgba(190,24,93,0.05))',
         border: '1px solid rgba(236,72,153,0.2)',
@@ -767,7 +844,6 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
         </p>
       </div>
 
-      {/* Donor Info */}
       <div>
         <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>
           Donor
@@ -784,7 +860,6 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
         </div>
       </div>
 
-      {/* Campaign */}
       {d.campaign && (
         <div>
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>
@@ -805,7 +880,6 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
         </div>
       )}
 
-      {/* Breakdown */}
       <div>
         <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>
           Rincian Transfer
@@ -819,7 +893,6 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
         </div>
       </div>
 
-      {/* Timestamps */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         <div>
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 4 }}>
