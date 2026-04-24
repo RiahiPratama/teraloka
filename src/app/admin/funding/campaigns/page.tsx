@@ -289,9 +289,9 @@ export default function AdminCampaignsPage() {
 
   function switchStatus(status: string) {
     // Clear smart view when switching status (they can conflict)
-    // For 'all' sentinel, remove status param entirely
+    // Store 'all' explicitly so activeStatus reflects it (not fallback to pending)
     updateUrl({
-      status: status === 'all' ? null : (status || null),
+      status: status || null,
       sv: null,
       page: 1,
     });
