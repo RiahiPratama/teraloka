@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useContext } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 import FraudFlagsTable, { type FraudFlag } from '@/components/admin/funding/FraudFlagsTable';
 import FraudFlagDetailModal from '@/components/admin/funding/FraudFlagDetailModal';
 import Pagination from '@/components/admin/funding/Pagination';
@@ -50,52 +51,6 @@ const TARGET_OPTIONS = [
   { key: 'user',     label: '👤 User' },
 ];
 
-// ── SubNav (8 tabs — Fraud added) ────────────────
-function SubNav({ fraudCount, t }: { fraudCount: number; t: any }) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',           label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye' },
-    { href: '/admin/funding/donations', label: 'Donasi' },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement' },
-    { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
-    { href: '/admin/funding/reports',   label: 'Laporan' },
-    { href: '/admin/funding/fraud',     label: 'Fraud',         badge: fraudCount, accent: 'red' },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        const accentColor = tab.accent === 'red' ? '#EF4444' : '#EC4899';
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? accentColor : t.textDim,
-              borderBottom: active ? `2px solid ${accentColor}` : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: accentColor,
-                color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>{tab.badge}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
@@ -131,6 +86,7 @@ export default function AdminFraudPage() {
   });
 
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
+  const [subNavRefresh, setSubNavRefresh] = useState(0);
   function showToast(ok: boolean, msg: string) {
     setToast({ ok, msg });
     setTimeout(() => setToast(null), 3500);
@@ -205,6 +161,7 @@ export default function AdminFraudPage() {
   function handleModalSuccess() {
     fetchStats();
     fetchFlags();
+    setSubNavRefresh(r => r + 1);
   }
 
   async function handleScanAll() {
@@ -231,6 +188,7 @@ export default function AdminFraudPage() {
 
       fetchStats();
       fetchFlags();
+      setSubNavRefresh(r => r + 1);
     } catch (err: any) {
       showToast(false, err.message ?? 'Scan failed');
     } finally {
@@ -273,7 +231,7 @@ export default function AdminFraudPage() {
         Review & resolve 12 fraud signals (7 donasi + 5 kampanye). Auto-scan aktif setiap verify donation & approve campaign.
       </p>
 
-      <SubNav fraudCount={activeCount} t={t} />
+      <AdminFundingSubNav refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       {stats && (

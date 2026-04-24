@@ -14,6 +14,7 @@ import AdvancedFiltersDrawer, {
 } from '@/components/admin/funding/AdvancedFiltersDrawer';
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';     // ← M1-Polish
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -47,62 +48,6 @@ const SORT_OPTIONS = [
   { key: 'donors',        label: 'Paling Banyak Donatur' },
   { key: 'az',            label: 'A-Z' },
 ];
-
-// ── Sub Nav ───────────────────────────────────────
-function SubNav({
-  pendingCampaigns,
-  pendingDonations,
-  activeFraudFlags,
-  t,
-}: {
-  pendingCampaigns: number;
-  pendingDonations: number;
-  activeFraudFlags: number;
-  t: any;
-}) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',           label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye',       badge: pendingCampaigns },
-    { href: '/admin/funding/donations', label: 'Donasi',         badge: pendingDonations },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement' },
-    { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
-    { href: '/admin/funding/reports',   label: 'Laporan' },
-    { href: '/admin/funding/fraud',     label: 'Fraud',          badge: activeFraudFlags, accent: 'red' as const },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        const accentColor = tab.accent === 'red' ? '#EF4444' : '#EC4899';
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? accentColor : t.textDim,
-              borderBottom: active ? `2px solid ${accentColor}` : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: tab.accent === 'red' ? '#EF4444' : '#EF4444',
-                color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>{tab.badge}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
@@ -148,7 +93,7 @@ export default function AdminCampaignsPage() {
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [smartViewCounts, setSmartViewCounts] = useState<SmartViewCounts | null>(null);
   const [pendingDonations, setPendingDonations] = useState(0);
-  const [activeFraudFlags, setActiveFraudFlags] = useState(0);   // ← M4-C SubNav
+  const [subNavRefresh, setSubNavRefresh] = useState(0);   // ← M1-Polish
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -269,12 +214,6 @@ export default function AdminCampaignsPage() {
       headers: { Authorization: `Bearer ${tk}` },
     }).then(r => r.json()).catch(() => null);
     setPendingDonations(dRes?.meta?.total ?? 0);
-
-    // M4-C: Fetch active fraud count for SubNav badge
-    const fRes = await fetch(`${API_URL}/fraud/admin/stats`, {
-      headers: { Authorization: `Bearer ${tk}` },
-    }).then(r => r.json()).catch(() => null);
-    setActiveFraudFlags(fRes?.data?.active ?? 0);
   }, []);
 
   const fetchSmartViewCounts = useCallback(async () => {
@@ -405,6 +344,7 @@ export default function AdminCampaignsPage() {
       fetchCampaigns();
       fetchStatusCounts();
       fetchSmartViewCounts();
+      setSubNavRefresh(r => r + 1);
     } catch (err: any) {
       showToast(false, err.message);
     } finally { setSubmitting(false); }
@@ -431,6 +371,7 @@ export default function AdminCampaignsPage() {
       setRejectReason('');
       fetchCampaigns();
       fetchStatusCounts();
+      setSubNavRefresh(r => r + 1);
     } catch (err: any) {
       showToast(false, err.message);
     } finally { setSubmitting(false); }
@@ -440,6 +381,7 @@ export default function AdminCampaignsPage() {
     fetchCampaigns();
     fetchStatusCounts();
     fetchSmartViewCounts();
+    setSubNavRefresh(r => r + 1);
   }
 
   // ═══════ Render ═══════
@@ -461,12 +403,7 @@ export default function AdminCampaignsPage() {
         Verifikasi dokumen, approve kampanye yang memenuhi standar, atau tolak dengan alasan jelas.
       </p>
 
-      <SubNav
-        pendingCampaigns={statusCounts.pending_review ?? 0}
-        pendingDonations={pendingDonations}
-        activeFraudFlags={activeFraudFlags}
-        t={t}
-      />
+      <AdminFundingSubNav refreshKey={subNavRefresh} />
 
       {/* Status Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
@@ -821,6 +758,7 @@ export default function AdminCampaignsPage() {
         onFlagResolved={() => {
           fetchCampaigns();
           fetchStatusCounts();
+          setSubNavRefresh(r => r + 1);
         }}
       />
 
