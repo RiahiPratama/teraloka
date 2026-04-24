@@ -2,13 +2,13 @@
 
 import { useContext } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import FraudBadge from './FraudBadge';
 
 // ── Icons ─────────────────────────────────────────
 const Icons = {
   Eye:       () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   Check:     () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   X:         () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
-  AlertTriangle: () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -45,6 +45,11 @@ export interface Campaign {
   deadline?: string;
   rejection_reason?: string;
   open_flag_count?: number;
+
+  // ── M4: Fraud fields (from funding.campaigns_with_flags view) ──
+  fraud_flags_count?: number;
+  high_severity_flags?: number;
+  critical_flags?: number;
 
   // Extra fields used by parent's detail modal (optional at table level)
   description?: string;
@@ -90,6 +95,7 @@ export default function CampaignsTable({
   onToggleSelect,
   onToggleAll,
   onRowAction,
+  onFraudBadgeClick,
   showBulkCheckbox = true,
 }: {
   campaigns: Campaign[];
@@ -97,6 +103,8 @@ export default function CampaignsTable({
   onToggleSelect: (id: string) => void;
   onToggleAll: () => void;
   onRowAction: (action: 'detail' | 'approve' | 'reject', campaign: Campaign) => void;
+  /** M4: Callback when user clicks fraud badge. Receives the campaign. */
+  onFraudBadgeClick?: (campaign: Campaign) => void;
   showBulkCheckbox?: boolean;
 }) {
   const { t } = useContext(AdminThemeContext);
@@ -165,6 +173,11 @@ export default function CampaignsTable({
               const isSelected = selectedIds.has(c.id);
               const isLast = idx === campaigns.length - 1;
 
+              // M4: Use fraud_flags_count from view; fallback to legacy open_flag_count
+              const fraudCount = c.fraud_flags_count ?? c.open_flag_count ?? 0;
+              const highSevCount = c.high_severity_flags ?? 0;
+              const criticalCount = c.critical_flags ?? 0;
+
               return (
                 <tr
                   key={c.id}
@@ -225,11 +238,14 @@ export default function CampaignsTable({
                           {c.is_urgent && (
                             <span title="Urgent" style={{ color: '#EF4444', fontSize: 9 }}>🔴</span>
                           )}
-                          {!!c.open_flag_count && c.open_flag_count > 0 && (
-                            <span title={`${c.open_flag_count} fraud alert`} style={{ color: '#DC2626' }}>
-                              <Icons.AlertTriangle />
-                            </span>
-                          )}
+                          {/* M4: Fraud badge (clickable, replaces legacy static AlertTriangle) */}
+                          <FraudBadge
+                            count={fraudCount}
+                            highSeverityCount={highSevCount}
+                            criticalCount={criticalCount}
+                            size="xs"
+                            onClick={onFraudBadgeClick ? () => onFraudBadgeClick(c) : undefined}
+                          />
                         </div>
                         <div style={{ fontSize: 11, color: t.textDim }}>
                           {CATEGORY_LABEL[c.category] ?? c.category}

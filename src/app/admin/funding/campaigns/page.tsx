@@ -13,6 +13,7 @@ import AdvancedFiltersDrawer, {
   type FiltersState, EMPTY_FILTERS, countActiveFilters,
 } from '@/components/admin/funding/AdvancedFiltersDrawer';
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
+import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -48,12 +49,26 @@ const SORT_OPTIONS = [
 ];
 
 // ── Sub Nav ───────────────────────────────────────
-function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: number; pendingDonations: number; t: any }) {
+function SubNav({
+  pendingCampaigns,
+  pendingDonations,
+  activeFraudFlags,
+  t,
+}: {
+  pendingCampaigns: number;
+  pendingDonations: number;
+  activeFraudFlags: number;
+  t: any;
+}) {
   const pathname = usePathname();
   const tabs = [
-    { href: '/admin/funding',          label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye', badge: pendingCampaigns },
-    { href: '/admin/funding/donations', label: 'Donasi',    badge: pendingDonations },
+    { href: '/admin/funding',           label: 'Dashboard' },
+    { href: '/admin/funding/campaigns', label: 'Kampanye',       badge: pendingCampaigns },
+    { href: '/admin/funding/donations', label: 'Donasi',         badge: pendingDonations },
+    { href: '/admin/funding/fees',      label: 'Fee Settlement' },
+    { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
+    { href: '/admin/funding/reports',   label: 'Laporan' },
+    { href: '/admin/funding/fraud',     label: 'Fraud',          badge: activeFraudFlags, accent: 'red' as const },
     { href: '/admin/funding/settings',  label: 'Pengaturan' },
   ];
   return (
@@ -64,19 +79,21 @@ function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: n
       {tabs.map(tab => {
         const active = pathname === tab.href
           || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
+        const accentColor = tab.accent === 'red' ? '#EF4444' : '#EC4899';
         return (
           <Link key={tab.href} href={tab.href}
             style={{
               display: 'inline-flex', alignItems: 'center', gap: 6,
               padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
+              color: active ? accentColor : t.textDim,
+              borderBottom: active ? `2px solid ${accentColor}` : '2px solid transparent',
               marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
             }}>
             {tab.label}
             {!!tab.badge && tab.badge > 0 && (
               <span style={{
-                background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700,
+                background: tab.accent === 'red' ? '#EF4444' : '#EF4444',
+                color: '#fff', fontSize: 10, fontWeight: 700,
                 padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
               }}>{tab.badge}</span>
             )}
@@ -99,9 +116,6 @@ export default function AdminCampaignsPage() {
   const { token } = useAuth();
 
   // ── URL state ──
-  // Status: if URL has no 'status' param, default to 'pending_review'
-  // (pending is highest priority for admin attention).
-  // Tab 'Semua' uses 'all' sentinel (no status param = no filter).
   const statusParam = searchParams.get('status');
   const activeStatus = statusParam ?? 'pending_review';
   const activeSmartView = (searchParams.get('sv') as SmartViewKey | null) ?? null;
@@ -134,6 +148,7 @@ export default function AdminCampaignsPage() {
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [smartViewCounts, setSmartViewCounts] = useState<SmartViewCounts | null>(null);
   const [pendingDonations, setPendingDonations] = useState(0);
+  const [activeFraudFlags, setActiveFraudFlags] = useState(0);   // ← M4-C SubNav
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -143,6 +158,13 @@ export default function AdminCampaignsPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  // M4-C: Fraud flags list modal state
+  const [fraudModal, setFraudModal] = useState<{
+    open: boolean;
+    campaignId: string | null;
+    campaignTitle: string;
+  }>({ open: false, campaignId: null, campaignTitle: '' });
 
   const layout = useMemo<'table' | 'list'>(() => {
     if (urlView === 'list') return 'list';
@@ -197,7 +219,6 @@ export default function AdminCampaignsPage() {
       limit: String(urlLimit),
       sort: activeSort,
     });
-    // Only send status filter if NOT "all" (all = no filter, show every status)
     if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
     if (activeSmartView) params.set('sv', activeSmartView);
     if (urlSearch) params.set('q', urlSearch);
@@ -248,6 +269,12 @@ export default function AdminCampaignsPage() {
       headers: { Authorization: `Bearer ${tk}` },
     }).then(r => r.json()).catch(() => null);
     setPendingDonations(dRes?.meta?.total ?? 0);
+
+    // M4-C: Fetch active fraud count for SubNav badge
+    const fRes = await fetch(`${API_URL}/fraud/admin/stats`, {
+      headers: { Authorization: `Bearer ${tk}` },
+    }).then(r => r.json()).catch(() => null);
+    setActiveFraudFlags(fRes?.data?.active ?? 0);
   }, []);
 
   const fetchSmartViewCounts = useCallback(async () => {
@@ -288,8 +315,6 @@ export default function AdminCampaignsPage() {
   }
 
   function switchStatus(status: string) {
-    // Clear smart view when switching status (they can conflict)
-    // Store 'all' explicitly so activeStatus reflects it (not fallback to pending)
     updateUrl({
       status: status || null,
       sv: null,
@@ -308,6 +333,15 @@ export default function AdminCampaignsPage() {
 
   function onRowAction(action: 'detail' | 'approve' | 'reject', campaign: Campaign) {
     setModal({ type: action, campaign });
+  }
+
+  // M4-C: Open fraud flags modal when badge clicked
+  function onFraudBadgeClick(campaign: Campaign) {
+    setFraudModal({
+      open: true,
+      campaignId: campaign.id,
+      campaignTitle: campaign.title,
+    });
   }
 
   function toggleSelect(id: string) {
@@ -427,13 +461,17 @@ export default function AdminCampaignsPage() {
         Verifikasi dokumen, approve kampanye yang memenuhi standar, atau tolak dengan alasan jelas.
       </p>
 
-      <SubNav pendingCampaigns={statusCounts.pending_review ?? 0} pendingDonations={pendingDonations} t={t} />
+      <SubNav
+        pendingCampaigns={statusCounts.pending_review ?? 0}
+        pendingDonations={pendingDonations}
+        activeFraudFlags={activeFraudFlags}
+        t={t}
+      />
 
       {/* Status Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
         {STATUS_TABS.map(tab => {
           const active = activeStatus === tab.key;
-          // For 'all' tab, show total count across all statuses
           const count = tab.key === 'all'
             ? Object.values(statusCounts).reduce((sum, n) => sum + n, 0)
             : (statusCounts[tab.key] ?? 0);
@@ -607,6 +645,7 @@ export default function AdminCampaignsPage() {
           onToggleSelect={toggleSelect}
           onToggleAll={toggleSelectAll}
           onRowAction={onRowAction}
+          onFraudBadgeClick={onFraudBadgeClick}   // ← M4-C
         />
       )}
 
@@ -771,6 +810,19 @@ export default function AdminCampaignsPage() {
           </div>
         </div>
       )}
+
+      {/* M4-C: Fraud Flags List Modal */}
+      <FraudFlagsListModal
+        open={fraudModal.open}
+        targetType="campaign"
+        targetId={fraudModal.campaignId}
+        targetName={fraudModal.campaignTitle}
+        onClose={() => setFraudModal({ open: false, campaignId: null, campaignTitle: '' })}
+        onFlagResolved={() => {
+          fetchCampaigns();
+          fetchStatusCounts();
+        }}
+      />
 
       {/* Toast */}
       {toast && (
