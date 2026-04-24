@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 import DonationSmartViewsPills, {
   type DonationSmartViewKey, type DonationSmartViewCounts,
 } from '@/components/admin/funding/DonationSmartViewsPills';
@@ -50,46 +51,6 @@ interface DonationStats {
   rejectedToday: number;
 }
 
-// ── Sub Nav ───────────────────────────────────────
-function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: number; pendingDonations: number; t: any }) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',          label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye', badge: pendingCampaigns },
-    { href: '/admin/funding/donations', label: 'Donasi',    badge: pendingDonations },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>{tab.badge}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
@@ -130,7 +91,7 @@ export default function AdminDonationsPage() {
   });
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
   const [smartViewCounts, setSmartViewCounts] = useState<DonationSmartViewCounts | null>(null);
-  const [pendingCampaigns, setPendingCampaigns] = useState(0);
+  const [subNavRefresh, setSubNavRefresh] = useState(0);
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -231,11 +192,6 @@ export default function AdminDonationsPage() {
     const next: Record<string, number> = {};
     statuses.forEach((s, i) => { next[s] = results[i]?.meta?.total ?? 0; });
     setStatusCounts(next);
-
-    const cRes = await fetch(`${API_URL}/funding/admin/campaigns?status=pending_review&limit=1`, {
-      headers: { Authorization: `Bearer ${tk}` },
-    }).then(r => r.json()).catch(() => null);
-    setPendingCampaigns(cRes?.meta?.total ?? 0);
   }, []);
 
   const fetchSmartViewCounts = useCallback(async () => {
@@ -349,6 +305,7 @@ export default function AdminDonationsPage() {
       fetchDonations();
       fetchStatusCounts();
       fetchSmartViewCounts();
+      setSubNavRefresh(r => r + 1);
     } catch (err: any) {
       showToast(false, err.message);
     } finally { setSubmitting(false); }
@@ -376,6 +333,7 @@ export default function AdminDonationsPage() {
       fetchDonations();
       fetchStatusCounts();
       fetchSmartViewCounts();
+      setSubNavRefresh(r => r + 1);
     } catch (err: any) {
       showToast(false, err.message);
     } finally { setSubmitting(false); }
@@ -385,6 +343,7 @@ export default function AdminDonationsPage() {
     fetchDonations();
     fetchStatusCounts();
     fetchSmartViewCounts();
+    setSubNavRefresh(r => r + 1);
   }
 
   // ═══════ Render ═══════
@@ -406,7 +365,7 @@ export default function AdminDonationsPage() {
         Verifikasi donasi yang masuk — pastikan transfer sudah diterima sebelum konfirmasi.
       </p>
 
-      <SubNav pendingCampaigns={pendingCampaigns} pendingDonations={stats.pending} t={t} />
+      <AdminFundingSubNav refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       <div style={{

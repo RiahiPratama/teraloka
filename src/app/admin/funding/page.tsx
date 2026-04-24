@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useContext } from 'react';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -23,58 +23,6 @@ function shortRupiah(n: number): string {
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
   if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
   return 'Rp ' + n.toLocaleString('id-ID');
-}
-
-function SubNav({ pendingCampaigns, pendingDonations }: { pendingCampaigns: number; pendingDonations: number }) {
-  const pathname = usePathname();
-  const { t } = useContext(AdminThemeContext);
-
-  const tabs = [
-    { href: '/admin/funding',          label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye', badge: pendingCampaigns },
-    { href: '/admin/funding/donations', label: 'Donasi',    badge: pendingDonations },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24, borderBottom: `1px solid ${t.sidebarBorder}`,
-      paddingBottom: 0, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        return (
-          <Link
-            key={tab.href}
-            href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px',
-              fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
-              marginBottom: -1,
-              textDecoration: 'none',
-              whiteSpace: 'nowrap',
-              transition: 'color .15s',
-            }}
-          >
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: '#EF4444', color: '#fff',
-                fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>
-                {tab.badge}
-              </span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
 }
 
 export default function AdminFundingDashboard() {
@@ -133,7 +81,7 @@ export default function AdminFundingDashboard() {
         </p>
       </div>
 
-      <SubNav pendingCampaigns={stats.pending_campaigns} pendingDonations={stats.pending_donations} />
+      <AdminFundingSubNav />
 
       {/* Alert */}
       {(stats.pending_campaigns > 0 || stats.pending_donations > 0) && !loading && (

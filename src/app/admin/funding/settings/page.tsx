@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect, useState, useContext, useCallback } from 'react';
+import { useEffect, useState, useContext } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -46,46 +46,6 @@ function formatDate(iso: string | null | undefined): string {
   });
 }
 
-// ── Sub-Nav ─────────────────────────────────────────────
-function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: number; pendingDonations: number; t: any }) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',          label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye', badge: pendingCampaigns },
-    { href: '/admin/funding/donations', label: 'Donasi',    badge: pendingDonations },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: '#EF4444', color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>{tab.badge}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
@@ -99,31 +59,11 @@ export default function AdminFundingSettings() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-
-  const [pendingCampaigns, setPendingCampaigns] = useState(0);
-  const [pendingDonations, setPendingDonations] = useState(0);
+  const [subNavRefresh, setSubNavRefresh] = useState(0);
 
   useEffect(() => {
     loadConfigs();
-    loadPendingCounts();
   }, []);
-
-  async function loadPendingCounts() {
-    const tk = localStorage.getItem('tl_token');
-    if (!tk) return;
-    try {
-      const [c, d] = await Promise.all([
-        fetch(`${API}/funding/admin/campaigns?status=pending_review&limit=1`, {
-          headers: { Authorization: `Bearer ${tk}` },
-        }).then(r => r.json()),
-        fetch(`${API}/funding/admin/donations?status=pending&limit=1`, {
-          headers: { Authorization: `Bearer ${tk}` },
-        }).then(r => r.json()),
-      ]);
-      setPendingCampaigns(c?.meta?.total ?? 0);
-      setPendingDonations(d?.meta?.total ?? 0);
-    } catch {}
-  }
 
   async function loadConfigs() {
     try {
@@ -174,6 +114,7 @@ export default function AdminFundingSettings() {
       if (json.success) {
         setMessage({ type: 'success', text: `✓ ${getDisplayName(key)} berhasil diperbarui.` });
         await loadConfigs();
+        setSubNavRefresh(r => r + 1);
       } else {
         setMessage({ type: 'error', text: json.error?.message ?? 'Gagal menyimpan.' });
       }
@@ -248,7 +189,7 @@ export default function AdminFundingSettings() {
         Harga acuan untuk kalkulator zakat. Update saat ada perubahan pasar.
       </p>
 
-      <SubNav pendingCampaigns={pendingCampaigns} pendingDonations={pendingDonations} t={t} />
+      <AdminFundingSubNav refreshKey={subNavRefresh} />
 
       {/* Alert message */}
       {message && (
