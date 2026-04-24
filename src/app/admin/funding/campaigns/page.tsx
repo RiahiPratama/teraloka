@@ -33,7 +33,7 @@ const STATUS_TABS = [
   { key: 'active',         label: 'Aktif' },
   { key: 'completed',      label: 'Selesai' },
   { key: 'rejected',       label: 'Ditolak' },
-  { key: '',               label: 'Semua' },
+  { key: 'all',            label: 'Semua' },
 ];
 
 const SORT_OPTIONS = [
@@ -99,7 +99,11 @@ export default function AdminCampaignsPage() {
   const { token } = useAuth();
 
   // ── URL state ──
-  const activeStatus = searchParams.get('status') ?? 'pending_review';
+  // Status: if URL has no 'status' param, default to 'pending_review'
+  // (pending is highest priority for admin attention).
+  // Tab 'Semua' uses 'all' sentinel (no status param = no filter).
+  const statusParam = searchParams.get('status');
+  const activeStatus = statusParam ?? 'pending_review';
   const activeSmartView = (searchParams.get('sv') as SmartViewKey | null) ?? null;
   const activeSort = searchParams.get('sort') ?? 'newest';
   const urlSearch = searchParams.get('q') ?? '';
@@ -167,7 +171,7 @@ export default function AdminCampaignsPage() {
   // Build current query string (for CSV export URL preservation)
   const currentQueryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (activeStatus) params.set('status', activeStatus);
+    if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
     if (activeSmartView) params.set('sv', activeSmartView);
     if (activeSort) params.set('sort', activeSort);
     if (urlSearch) params.set('q', urlSearch);
@@ -193,7 +197,8 @@ export default function AdminCampaignsPage() {
       limit: String(urlLimit),
       sort: activeSort,
     });
-    if (activeStatus) params.set('status', activeStatus);
+    // Only send status filter if NOT "all" (all = no filter, show every status)
+    if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
     if (activeSmartView) params.set('sv', activeSmartView);
     if (urlSearch) params.set('q', urlSearch);
     if (activeFilters.categories.length > 0) params.set('cat', activeFilters.categories.join(','));
@@ -283,7 +288,13 @@ export default function AdminCampaignsPage() {
   }
 
   function switchStatus(status: string) {
-    updateUrl({ status: status || null, page: 1 });
+    // Clear smart view when switching status (they can conflict)
+    // For 'all' sentinel, remove status param entirely
+    updateUrl({
+      status: status === 'all' ? null : (status || null),
+      sv: null,
+      page: 1,
+    });
     setSelectedIds(new Set());
   }
 
@@ -422,9 +433,12 @@ export default function AdminCampaignsPage() {
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
         {STATUS_TABS.map(tab => {
           const active = activeStatus === tab.key;
-          const count = statusCounts[tab.key] ?? 0;
+          // For 'all' tab, show total count across all statuses
+          const count = tab.key === 'all'
+            ? Object.values(statusCounts).reduce((sum, n) => sum + n, 0)
+            : (statusCounts[tab.key] ?? 0);
           return (
-            <button key={tab.key || 'all'} onClick={() => switchStatus(tab.key)}
+            <button key={tab.key} onClick={() => switchStatus(tab.key)}
               style={{
                 display: 'inline-flex', alignItems: 'center', gap: 8,
                 padding: '8px 14px', borderRadius: 10,
@@ -435,15 +449,13 @@ export default function AdminCampaignsPage() {
                 cursor: 'pointer', whiteSpace: 'nowrap',
               }}>
               {tab.label}
-              {tab.key && (
-                <span style={{
-                  background: active ? 'rgba(255,255,255,0.2)' : (tab.key === 'pending_review' && count > 0 ? 'rgba(245,158,11,0.15)' : t.navHover),
-                  color: active ? '#fff' : (tab.key === 'pending_review' && count > 0 ? '#F59E0B' : t.textDim),
-                  fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
-                }}>
-                  {count}
-                </span>
-              )}
+              <span style={{
+                background: active ? 'rgba(255,255,255,0.2)' : (tab.key === 'pending_review' && count > 0 ? 'rgba(245,158,11,0.15)' : t.navHover),
+                color: active ? '#fff' : (tab.key === 'pending_review' && count > 0 ? '#F59E0B' : t.textDim),
+                fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+              }}>
+                {count}
+              </span>
             </button>
           );
         })}
