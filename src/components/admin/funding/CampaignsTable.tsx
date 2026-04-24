@@ -20,7 +20,13 @@ const CATEGORY_LABEL: Record<string, string> = {
   hunian_darurat: 'Hunian',
 };
 
-interface Campaign {
+/**
+ * Single source of truth for Campaign shape across admin pages.
+ * Fields needed for table rendering are required.
+ * Fields needed for detail modal (in parent page) are optional here.
+ */
+export interface Campaign {
+  // Required for table rendering
   id: string;
   title: string;
   slug: string;
@@ -30,13 +36,24 @@ interface Campaign {
   target_amount: number;
   collected_amount: number;
   donor_count: number;
-  cover_image_url?: string;
   is_urgent: boolean;
   status: string;
+  created_at: string;
+
+  // Common optionals
+  cover_image_url?: string;
   deadline?: string;
   rejection_reason?: string;
-  created_at: string;
   open_flag_count?: number;
+
+  // Extra fields used by parent's detail modal (optional at table level)
+  description?: string;
+  beneficiary_relation?: string;
+  bank_name?: string;
+  bank_account_number?: string;
+  bank_account_name?: string;
+  proof_documents?: string[];
+  is_verified?: boolean;
 }
 
 function shortRupiah(n: number): string {
@@ -47,7 +64,7 @@ function shortRupiah(n: number): string {
 }
 
 function daysUntil(deadline?: string): { days: number | null; label: string; color: string } {
-  if (!deadline) return { days: null, label: '—', color: 'textMuted' };
+  if (!deadline) return { days: null, label: '—', color: '' };
   const diff = Math.ceil((new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
   if (diff < 0) return { days: diff, label: `Expired`, color: '#EF4444' };
   if (diff === 0) return { days: 0, label: 'Hari ini', color: '#EF4444' };

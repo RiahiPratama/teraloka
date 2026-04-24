@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 import SmartViewsPills, { type SmartViewKey, type SmartViewCounts } from '@/components/admin/funding/SmartViewsPills';
-import CampaignsTable from '@/components/admin/funding/CampaignsTable';
+import CampaignsTable, { type Campaign } from '@/components/admin/funding/CampaignsTable';
 import Pagination from '@/components/admin/funding/Pagination';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -22,33 +22,6 @@ const Icons = {
   Shield:    () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
   Alert:     () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
-
-// ── Types ─────────────────────────────────────────
-interface Campaign {
-  id: string;
-  title: string;
-  slug: string;
-  description: string;
-  category: string;
-  beneficiary_name: string;
-  beneficiary_relation: string;
-  target_amount: number;
-  collected_amount: number;
-  donor_count: number;
-  partner_name: string;
-  bank_name: string;
-  bank_account_number: string;
-  bank_account_name: string;
-  cover_image_url?: string;
-  proof_documents?: string[];
-  is_urgent: boolean;
-  is_verified: boolean;
-  status: string;
-  deadline?: string;
-  rejection_reason?: string;
-  created_at: string;
-  open_flag_count?: number;
-}
 
 const STATUS_TABS = [
   { key: 'pending_review', label: 'Pending' },
@@ -139,23 +112,19 @@ export default function AdminCampaignsPage() {
   const [smartViewCounts, setSmartViewCounts] = useState<SmartViewCounts | null>(null);
   const [pendingDonations, setPendingDonations] = useState(0);
 
-  // Search input state (separated for debouncing)
   const [searchInput, setSearchInput] = useState(urlSearch);
 
-  // Selection for bulk actions (wired up in M1-D3)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-  // Modal state
   const [modal, setModal] = useState<{ type: 'approve' | 'reject' | 'detail'; campaign: Campaign } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
-  // Derived: determine layout (explicit URL > auto threshold > default table)
   const layout = useMemo<'table' | 'list'>(() => {
     if (urlView === 'table' || urlView === 'list') return urlView;
     if (total >= AUTO_TABLE_THRESHOLD) return 'table';
-    return 'table'; // default table per CEO directive
+    return 'table';
   }, [urlView, total]);
 
   // ═══════ URL helpers ═══════
@@ -223,7 +192,6 @@ export default function AdminCampaignsPage() {
     statuses.forEach((s, i) => { next[s] = results[i]?.meta?.total ?? 0; });
     setStatusCounts(next);
 
-    // Also pending donations for sub-nav badge
     const dRes = await fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, {
       headers: { Authorization: `Bearer ${tk}` },
     }).then(r => r.json()).catch(() => null);
@@ -251,12 +219,10 @@ export default function AdminCampaignsPage() {
     fetchSmartViewCounts();
   }, [fetchStatusCounts, fetchSmartViewCounts]);
 
-  // Sync searchInput with URL on external change
   useEffect(() => {
     setSearchInput(urlSearch);
   }, [urlSearch]);
 
-  // Debounced search
   useEffect(() => {
     if (searchInput === urlSearch) return;
     const timer = setTimeout(() => {
@@ -430,7 +396,6 @@ export default function AdminCampaignsPage() {
         display: 'flex', gap: 12, marginBottom: 16,
         flexWrap: 'wrap', alignItems: 'center',
       }}>
-        {/* Search */}
         <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
           <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.textDim }}>
             <Icons.Search />
@@ -462,7 +427,6 @@ export default function AdminCampaignsPage() {
           )}
         </div>
 
-        {/* Sort dropdown */}
         <div style={{ position: 'relative' }}>
           <select
             value={activeSort}
@@ -489,7 +453,6 @@ export default function AdminCampaignsPage() {
           </span>
         </div>
 
-        {/* Layout toggle */}
         <div style={{
           display: 'flex', border: `1px solid ${t.sidebarBorder}`,
           borderRadius: 10, overflow: 'hidden',
@@ -524,7 +487,6 @@ export default function AdminCampaignsPage() {
         </div>
       </div>
 
-      {/* Selected indicator (placeholder - bulk toolbar coming M1-D3) */}
       {selectedIds.size > 0 && (
         <div style={{
           marginBottom: 12,
@@ -550,7 +512,6 @@ export default function AdminCampaignsPage() {
         </div>
       )}
 
-      {/* Data Table */}
       {loading ? (
         <div style={{
           background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
@@ -569,7 +530,6 @@ export default function AdminCampaignsPage() {
         />
       )}
 
-      {/* Pagination */}
       {!loading && total > 0 && (
         <Pagination
           page={urlPage}
@@ -580,7 +540,7 @@ export default function AdminCampaignsPage() {
         />
       )}
 
-      {/* ═════════ MODAL ═════════ */}
+      {/* MODAL */}
       {modal && (
         <div onClick={() => !submitting && setModal(null)} style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)',
@@ -722,7 +682,6 @@ export default function AdminCampaignsPage() {
         </div>
       )}
 
-      {/* Toast */}
       {toast && (
         <div style={{
           position: 'fixed', bottom: 24, right: 24, zIndex: 60,
@@ -818,22 +777,28 @@ function CampaignDetail({ c, t }: { c: Campaign; t: any }) {
           <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>{c.donor_count ?? 0}</p>
         </div>
       </div>
-      <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
-        <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>
-          Partner Komunitas
-        </p>
-        <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>{c.partner_name}</p>
-        <div style={{ fontSize: 12, color: t.textDim, marginTop: 4 }}>
-          <p>{c.bank_name} · <span style={{ fontFamily: 'monospace' }}>{c.bank_account_number}</span></p>
-          <p>a.n. {c.bank_account_name}</p>
+      {c.partner_name && (
+        <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
+          <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>
+            Partner Komunitas
+          </p>
+          <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>{c.partner_name}</p>
+          <div style={{ fontSize: 12, color: t.textDim, marginTop: 4 }}>
+            {c.bank_name && (
+              <p>{c.bank_name} · <span style={{ fontFamily: 'monospace' }}>{c.bank_account_number}</span></p>
+            )}
+            {c.bank_account_name && <p>a.n. {c.bank_account_name}</p>}
+          </div>
         </div>
-      </div>
-      <div>
-        <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Deskripsi</p>
-        <p style={{ fontSize: 13, color: t.textPrimary, whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 192, overflowY: 'auto' }}>
-          {c.description}
-        </p>
-      </div>
+      )}
+      {c.description && (
+        <div>
+          <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>Deskripsi</p>
+          <p style={{ fontSize: 13, color: t.textPrimary, whiteSpace: 'pre-wrap', lineHeight: 1.6, maxHeight: 192, overflowY: 'auto' }}>
+            {c.description}
+          </p>
+        </div>
+      )}
       {c.proof_documents && c.proof_documents.length > 0 && (
         <div>
           <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
