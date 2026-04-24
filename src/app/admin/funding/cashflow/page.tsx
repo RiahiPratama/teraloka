@@ -2,9 +2,9 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
-import { usePathname } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 import CashflowFlowDiagram, { type FlowData } from '@/components/admin/funding/CashflowFlowDiagram';
 import CampaignCashflowTable, { type CampaignCashflow } from '@/components/admin/funding/CampaignCashflowTable';
 import Pagination from '@/components/admin/funding/Pagination';
@@ -68,42 +68,6 @@ function datePreset(preset: DateRangePreset): { from: string | null; to: string 
     default:
       return { from: null, to: null };
   }
-}
-
-// ── SubNav (6 tabs — include Aliran Uang + Fee Settlement) ─
-function SubNav({ t }: { t: any }) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',           label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye' },
-    { href: '/admin/funding/donations', label: 'Donasi' },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement', accent: true },
-    { href: '/admin/funding/cashflow',  label: 'Aliran Uang',    accent: true },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-          </Link>
-        );
-      })}
-    </div>
-  );
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -242,7 +206,7 @@ export default function AdminCashflowPage() {
         Transparansi aliran dana dari donor, ke partner, sampai disalurkan ke beneficiary.
       </p>
 
-      <SubNav t={t} />
+      <AdminFundingSubNav />
 
       {/* Date Range Presets */}
       <div style={{

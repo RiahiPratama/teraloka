@@ -2,10 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
-import { usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 import PartnerFeeCards, { type PartnerFeeSummary } from '@/components/admin/funding/PartnerFeeCards';
 import PendingFeesTable, { type PendingFeeDonation } from '@/components/admin/funding/PendingFeesTable';
 import RecordRemittanceModal from '@/components/admin/funding/RecordRemittanceModal';
@@ -76,52 +76,6 @@ function shortRupiah(n: number): string {
   return 'Rp ' + n.toLocaleString('id-ID');
 }
 
-// ── SubNav (extended with Fee Settlement tab) ─────
-function SubNav({
-  pendingCampaigns, pendingDonations, pendingFees, t,
-}: {
-  pendingCampaigns: number; pendingDonations: number; pendingFees: number; t: any;
-}) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',           label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye', badge: pendingCampaigns },
-    { href: '/admin/funding/donations', label: 'Donasi',   badge: pendingDonations },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement', badge: pendingFees, accent: true },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: tab.accent ? '#EC4899' : '#EF4444',
-                color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>{tab.badge}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
@@ -139,13 +93,11 @@ export default function AdminFeesPage() {
   const [history, setHistory] = useState<RemittanceRecord[]>([]);
   const [historyTotal, setHistoryTotal] = useState(0);
 
-  const [pendingCampaigns, setPendingCampaigns] = useState(0);
-  const [pendingDonationsBadge, setPendingDonationsBadge] = useState(0);
-
   // UI state
   const [activeTab, setActiveTab] = useState<TabKey>('partners');
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [subNavRefresh, setSubNavRefresh] = useState(0);
 
   // Pending table pagination
   const [pendingPage, setPendingPage] = useState(1);
@@ -239,30 +191,13 @@ export default function AdminFeesPage() {
     } catch {}
   }, [historyPage, historyLimit]);
 
-  const fetchSubNavCounts = useCallback(async () => {
-    const tk = localStorage.getItem('tl_token');
-    if (!tk) return;
-    try {
-      const [c, d] = await Promise.all([
-        fetch(`${API_URL}/funding/admin/campaigns?status=pending_review&limit=1`, {
-          headers: { Authorization: `Bearer ${tk}` },
-        }).then(r => r.json()).catch(() => null),
-        fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, {
-          headers: { Authorization: `Bearer ${tk}` },
-        }).then(r => r.json()).catch(() => null),
-      ]);
-      setPendingCampaigns(c?.meta?.total ?? 0);
-      setPendingDonationsBadge(d?.meta?.total ?? 0);
-    } catch {}
-  }, []);
-
   const refreshAll = useCallback(async () => {
     setLoading(true);
     await Promise.all([
-      fetchSummary(), fetchPartners(), fetchAging(), fetchSubNavCounts(),
+      fetchSummary(), fetchPartners(), fetchAging(),
     ]);
     setLoading(false);
-  }, [fetchSummary, fetchPartners, fetchAging, fetchSubNavCounts]);
+  }, [fetchSummary, fetchPartners, fetchAging]);
 
   useEffect(() => { refreshAll(); }, [refreshAll]);
 
@@ -287,7 +222,6 @@ export default function AdminFeesPage() {
 
   function toggleSelectAll() {
     setSelectedIds(prev => {
-      // Only select donations with fee > 0 (skip zero-fee)
       const selectable = pendingDonations.filter(d => d.operational_fee > 0);
       const allIds = selectable.map(d => d.id);
       const allSelected = allIds.every(id => prev.has(id));
@@ -302,7 +236,6 @@ export default function AdminFeesPage() {
     });
   }
 
-  // Selected donations + partner analysis
   const selectedDonations = useMemo(
     () => pendingDonations.filter(d => selectedIds.has(d.id)),
     [pendingDonations, selectedIds]
@@ -327,14 +260,11 @@ export default function AdminFeesPage() {
   // ═══════ Modal handlers ═══════
 
   function openRemittanceFromPartner(partnerName: string) {
-    // Find pending donations for this partner from cache or fetch
     const partnerDonations = pendingDonations.filter(
       d => d.campaign?.partner_name === partnerName && d.operational_fee > 0
     );
 
     if (partnerDonations.length === 0) {
-      // Need to switch to pending tab + filter, or fetch all pending for this partner
-      // For simplicity, fetch all pending for this partner
       fetchPendingForPartner(partnerName);
       return;
     }
@@ -380,6 +310,7 @@ export default function AdminFeesPage() {
   function handleRemittanceSuccess() {
     setSelectedIds(new Set());
     refreshAll();
+    setSubNavRefresh(r => r + 1);
     if (activeTab === 'pending') fetchPending();
     if (activeTab === 'history') fetchHistory();
   }
@@ -387,7 +318,6 @@ export default function AdminFeesPage() {
   // ═══════ Render ═══════
 
   const hasCritical = aging && (aging.buckets.critical.count > 0 || aging.buckets.overdue.count > 0);
-  const totalPendingFees = summary?.pending_count ?? 0;
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
@@ -405,12 +335,7 @@ export default function AdminFeesPage() {
         Pantau setoran fee operasional dari partner ke TeraLoka — transparansi revenue platform.
       </p>
 
-      <SubNav
-        pendingCampaigns={pendingCampaigns}
-        pendingDonations={pendingDonationsBadge}
-        pendingFees={totalPendingFees}
-        t={t}
-      />
+      <AdminFundingSubNav refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       {summary && (

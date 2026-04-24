@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback, useContext } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 import ReportsTable, { type UsageReport } from '@/components/admin/funding/ReportsTable';
 import ReportReviewModal from '@/components/admin/funding/ReportReviewModal';
 import ReportCreateModal from '@/components/admin/funding/ReportCreateModal';
@@ -57,50 +58,6 @@ function shortRupiah(n: number): string {
   return 'Rp ' + n.toLocaleString('id-ID');
 }
 
-// ── SubNav (7 tabs — Laporan added) ──────────────
-function SubNav({ pendingReports, t }: { pendingReports: number; t: any }) {
-  const pathname = usePathname();
-  const tabs = [
-    { href: '/admin/funding',           label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye' },
-    { href: '/admin/funding/donations', label: 'Donasi' },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement', accent: true },
-    { href: '/admin/funding/cashflow',  label: 'Aliran Uang',    accent: true },
-    { href: '/admin/funding/reports',   label: 'Laporan',        badge: pendingReports, accent: true },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
-  ];
-  return (
-    <div style={{
-      display: 'flex', gap: 8, marginBottom: 24,
-      borderBottom: `1px solid ${t.sidebarBorder}`, overflowX: 'auto',
-    }}>
-      {tabs.map(tab => {
-        const active = pathname === tab.href
-          || (tab.href !== '/admin/funding' && pathname.startsWith(tab.href));
-        return (
-          <Link key={tab.href} href={tab.href}
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              padding: '10px 16px', fontSize: 13, fontWeight: 600,
-              color: active ? '#EC4899' : t.textDim,
-              borderBottom: active ? '2px solid #EC4899' : '2px solid transparent',
-              marginBottom: -1, textDecoration: 'none', whiteSpace: 'nowrap',
-            }}>
-            {tab.label}
-            {!!tab.badge && tab.badge > 0 && (
-              <span style={{
-                background: tab.accent ? '#EC4899' : '#EF4444',
-                color: '#fff', fontSize: 10, fontWeight: 700,
-                padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
-              }}>{tab.badge}</span>
-            )}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
 // ═══════════════════════════════════════════════════════════════
@@ -129,6 +86,7 @@ export default function AdminReportsPage() {
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState<ReportStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [subNavRefresh, setSubNavRefresh] = useState(0);
 
   // ── Modals ──
   const [reviewModal, setReviewModal] = useState<{ open: boolean; reportId: string | null; mode: 'view' | 'approve' | 'reject' }>({
@@ -215,6 +173,7 @@ export default function AdminReportsPage() {
   function handleModalSuccess() {
     fetchStats();
     fetchReports();
+    setSubNavRefresh(r => r + 1);
   }
 
   // ── Render ──
@@ -238,7 +197,7 @@ export default function AdminReportsPage() {
         Review laporan penggunaan dana dari partner. Approve untuk tampil ke publik & naikin disbursement rate.
       </p>
 
-      <SubNav pendingReports={pendingCount} t={t} />
+      <AdminFundingSubNav refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       {stats && (
