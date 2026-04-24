@@ -9,6 +9,10 @@ import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import SmartViewsPills, { type SmartViewKey, type SmartViewCounts } from '@/components/admin/funding/SmartViewsPills';
 import CampaignsTable, { type Campaign } from '@/components/admin/funding/CampaignsTable';
 import Pagination from '@/components/admin/funding/Pagination';
+import AdvancedFiltersDrawer, {
+  type FiltersState, EMPTY_FILTERS, countActiveFilters,
+} from '@/components/admin/funding/AdvancedFiltersDrawer';
+import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -19,6 +23,7 @@ const Icons = {
   Table:     () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>,
   List:      () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>,
   ChevronDown: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
+  Filter:    () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>,
   Shield:    () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><polyline points="9 12 11 14 15 10"/></svg>,
   Alert:     () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
@@ -41,8 +46,6 @@ const SORT_OPTIONS = [
   { key: 'donors',        label: 'Paling Banyak Donatur' },
   { key: 'az',            label: 'A-Z' },
 ];
-
-const AUTO_TABLE_THRESHOLD = 30;
 
 // ── Sub Nav ───────────────────────────────────────
 function SubNav({ pendingCampaigns, pendingDonations, t }: { pendingCampaigns: number; pendingDonations: number; t: any }) {
@@ -104,6 +107,22 @@ export default function AdminCampaignsPage() {
   const urlLimit = Number(searchParams.get('limit')) || 20;
   const urlView = searchParams.get('view') as 'table' | 'list' | null;
 
+  // Extract filter state from URL
+  const activeFilters: FiltersState = useMemo(() => {
+    const cat = searchParams.get('cat');
+    return {
+      categories: cat ? cat.split(',').filter(Boolean) : [],
+      urgent: searchParams.get('urgent') === '1',
+      partner: searchParams.get('partner') ?? '',
+      progress: searchParams.get('progress') ?? '',
+      deadline: searchParams.get('deadline') ?? '',
+      dateFrom: searchParams.get('from') ?? '',
+      dateTo: searchParams.get('to') ?? '',
+    };
+  }, [searchParams]);
+
+  const activeFilterCount = countActiveFilters(activeFilters);
+
   // ── Component state ──
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [total, setTotal] = useState(0);
@@ -113,8 +132,8 @@ export default function AdminCampaignsPage() {
   const [pendingDonations, setPendingDonations] = useState(0);
 
   const [searchInput, setSearchInput] = useState(urlSearch);
-
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [modal, setModal] = useState<{ type: 'approve' | 'reject' | 'detail'; campaign: Campaign } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -122,10 +141,14 @@ export default function AdminCampaignsPage() {
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const layout = useMemo<'table' | 'list'>(() => {
-    if (urlView === 'table' || urlView === 'list') return urlView;
-    if (total >= AUTO_TABLE_THRESHOLD) return 'table';
+    if (urlView === 'list') return 'list';
     return 'table';
-  }, [urlView, total]);
+  }, [urlView]);
+
+  // Selected campaigns (for bulk toolbar)
+  const selectedCampaigns = useMemo(() => {
+    return campaigns.filter(c => selectedIds.has(c.id));
+  }, [campaigns, selectedIds]);
 
   // ═══════ URL helpers ═══════
 
@@ -140,6 +163,23 @@ export default function AdminCampaignsPage() {
     });
     router.push(`${pathname}?${params.toString()}`);
   }, [searchParams, router, pathname]);
+
+  // Build current query string (for CSV export URL preservation)
+  const currentQueryString = useMemo(() => {
+    const params = new URLSearchParams();
+    if (activeStatus) params.set('status', activeStatus);
+    if (activeSmartView) params.set('sv', activeSmartView);
+    if (activeSort) params.set('sort', activeSort);
+    if (urlSearch) params.set('q', urlSearch);
+    if (activeFilters.categories.length > 0) params.set('cat', activeFilters.categories.join(','));
+    if (activeFilters.urgent) params.set('urgent', '1');
+    if (activeFilters.partner) params.set('partner', activeFilters.partner);
+    if (activeFilters.progress) params.set('progress', activeFilters.progress);
+    if (activeFilters.deadline) params.set('deadline', activeFilters.deadline);
+    if (activeFilters.dateFrom) params.set('from', activeFilters.dateFrom);
+    if (activeFilters.dateTo) params.set('to', activeFilters.dateTo);
+    return params.toString();
+  }, [activeStatus, activeSmartView, activeSort, urlSearch, activeFilters]);
 
   // ═══════ Fetch campaigns ═══════
 
@@ -156,6 +196,13 @@ export default function AdminCampaignsPage() {
     if (activeStatus) params.set('status', activeStatus);
     if (activeSmartView) params.set('sv', activeSmartView);
     if (urlSearch) params.set('q', urlSearch);
+    if (activeFilters.categories.length > 0) params.set('cat', activeFilters.categories.join(','));
+    if (activeFilters.urgent) params.set('urgent', '1');
+    if (activeFilters.partner) params.set('partner', activeFilters.partner);
+    if (activeFilters.progress) params.set('progress', activeFilters.progress);
+    if (activeFilters.deadline) params.set('deadline', activeFilters.deadline);
+    if (activeFilters.dateFrom) params.set('from', activeFilters.dateFrom);
+    if (activeFilters.dateTo) params.set('to', activeFilters.dateTo);
 
     try {
       const res = await fetch(`${API_URL}/funding/admin/campaigns?${params.toString()}`, {
@@ -175,7 +222,7 @@ export default function AdminCampaignsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit]);
+  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit, activeFilters]);
 
   const fetchStatusCounts = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
@@ -210,18 +257,14 @@ export default function AdminCampaignsPage() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    fetchCampaigns();
-  }, [fetchCampaigns]);
+  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
 
   useEffect(() => {
     fetchStatusCounts();
     fetchSmartViewCounts();
   }, [fetchStatusCounts, fetchSmartViewCounts]);
 
-  useEffect(() => {
-    setSearchInput(urlSearch);
-  }, [urlSearch]);
+  useEffect(() => { setSearchInput(urlSearch); }, [urlSearch]);
 
   useEffect(() => {
     if (searchInput === urlSearch) return;
@@ -249,13 +292,8 @@ export default function AdminCampaignsPage() {
     setSelectedIds(new Set());
   }
 
-  function switchSort(sort: string) {
-    updateUrl({ sort, page: 1 });
-  }
-
-  function switchLayout(view: 'table' | 'list') {
-    updateUrl({ view });
-  }
+  function switchSort(sort: string) { updateUrl({ sort, page: 1 }); }
+  function switchLayout(view: 'table' | 'list') { updateUrl({ view }); }
 
   function onRowAction(action: 'detail' | 'approve' | 'reject', campaign: Campaign) {
     setModal({ type: action, campaign });
@@ -282,6 +320,27 @@ export default function AdminCampaignsPage() {
       const next = new Set(prev);
       allIds.forEach(id => next.add(id));
       return next;
+    });
+  }
+
+  function handleApplyFilters(filters: FiltersState) {
+    updateUrl({
+      cat: filters.categories.length > 0 ? filters.categories.join(',') : null,
+      urgent: filters.urgent ? '1' : null,
+      partner: filters.partner || null,
+      progress: filters.progress || null,
+      deadline: filters.deadline || null,
+      from: filters.dateFrom || null,
+      to: filters.dateTo || null,
+      page: 1,
+    });
+  }
+
+  function handleResetFilters() {
+    updateUrl({
+      cat: null, urgent: null, partner: null,
+      progress: null, deadline: null, from: null, to: null,
+      page: 1,
     });
   }
 
@@ -330,6 +389,12 @@ export default function AdminCampaignsPage() {
     } catch (err: any) {
       showToast(false, err.message);
     } finally { setSubmitting(false); }
+  }
+
+  function handleBulkComplete() {
+    fetchCampaigns();
+    fetchStatusCounts();
+    fetchSmartViewCounts();
   }
 
   // ═══════ Render ═══════
@@ -384,18 +449,19 @@ export default function AdminCampaignsPage() {
         })}
       </div>
 
-      {/* Smart Views Pills */}
+      {/* Smart Views */}
       <SmartViewsPills
         counts={smartViewCounts}
         selected={activeSmartView}
         onSelect={switchSmartView}
       />
 
-      {/* Search + Sort + Layout Toggle Row */}
+      {/* Search + Sort + Filter + Layout Toggle */}
       <div style={{
         display: 'flex', gap: 12, marginBottom: 16,
         flexWrap: 'wrap', alignItems: 'center',
       }}>
+        {/* Search */}
         <div style={{ position: 'relative', flex: 1, minWidth: 260 }}>
           <span style={{ position: 'absolute', left: 14, top: '50%', transform: 'translateY(-50%)', color: t.textDim }}>
             <Icons.Search />
@@ -414,23 +480,45 @@ export default function AdminCampaignsPage() {
             }}
           />
           {searchInput && (
-            <button
-              onClick={() => setSearchInput('')}
+            <button onClick={() => setSearchInput('')}
               style={{
                 position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)',
                 background: 'transparent', border: 'none', cursor: 'pointer',
                 color: t.textDim, padding: 4,
-              }}
-            >
+              }}>
               <Icons.X />
             </button>
           )}
         </div>
 
+        {/* Filter button */}
+        <button
+          onClick={() => setDrawerOpen(true)}
+          style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            padding: '10px 14px', borderRadius: 10,
+            border: `1px solid ${activeFilterCount > 0 ? '#EC4899' : t.sidebarBorder}`,
+            background: activeFilterCount > 0 ? 'rgba(236,72,153,0.08)' : t.mainBg,
+            color: activeFilterCount > 0 ? '#EC4899' : t.textPrimary,
+            fontSize: 13, fontWeight: 600, cursor: 'pointer',
+          }}
+        >
+          <Icons.Filter />
+          <span>Filter</span>
+          {activeFilterCount > 0 && (
+            <span style={{
+              background: '#EC4899', color: '#fff',
+              fontSize: 10, fontWeight: 700,
+              padding: '2px 7px', borderRadius: 999, minWidth: 20, textAlign: 'center',
+            }}>
+              {activeFilterCount}
+            </span>
+          )}
+        </button>
+
+        {/* Sort */}
         <div style={{ position: 'relative' }}>
-          <select
-            value={activeSort}
-            onChange={e => switchSort(e.target.value)}
+          <select value={activeSort} onChange={e => switchSort(e.target.value)}
             style={{
               appearance: 'none',
               padding: '10px 36px 10px 14px',
@@ -439,8 +527,7 @@ export default function AdminCampaignsPage() {
               background: t.mainBg, color: t.textPrimary,
               fontSize: 13, fontWeight: 600,
               cursor: 'pointer', outline: 'none',
-            }}
-          >
+            }}>
             {SORT_OPTIONS.map(opt => (
               <option key={opt.key} value={opt.key}>{opt.label}</option>
             ))}
@@ -453,26 +540,22 @@ export default function AdminCampaignsPage() {
           </span>
         </div>
 
+        {/* Layout toggle */}
         <div style={{
           display: 'flex', border: `1px solid ${t.sidebarBorder}`,
           borderRadius: 10, overflow: 'hidden',
         }}>
-          <button
-            onClick={() => switchLayout('table')}
-            title="Table view"
+          <button onClick={() => switchLayout('table')} title="Table view"
             style={{
               padding: '10px 12px',
               background: layout === 'table' ? '#EC4899' : t.mainBg,
               color: layout === 'table' ? '#fff' : t.textPrimary,
               border: 'none', cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center',
-            }}
-          >
+            }}>
             <Icons.Table />
           </button>
-          <button
-            onClick={() => switchLayout('list')}
-            title="List view"
+          <button onClick={() => switchLayout('list')} title="List view"
             style={{
               padding: '10px 12px',
               background: layout === 'list' ? '#EC4899' : t.mainBg,
@@ -480,38 +563,23 @@ export default function AdminCampaignsPage() {
               border: 'none', cursor: 'pointer',
               display: 'inline-flex', alignItems: 'center',
               borderLeft: `1px solid ${t.sidebarBorder}`,
-            }}
-          >
+            }}>
             <Icons.List />
           </button>
         </div>
       </div>
 
-      {selectedIds.size > 0 && (
-        <div style={{
-          marginBottom: 12,
-          padding: '10px 14px',
-          borderRadius: 10,
-          background: 'rgba(236,72,153,0.08)',
-          border: '1px solid rgba(236,72,153,0.3)',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <span style={{ fontSize: 13, fontWeight: 600, color: '#EC4899' }}>
-            {selectedIds.size} kampanye dipilih
-          </span>
-          <button
-            onClick={() => setSelectedIds(new Set())}
-            style={{
-              background: 'transparent', border: 'none', cursor: 'pointer',
-              color: '#EC4899', fontSize: 12, fontWeight: 600,
-              textDecoration: 'underline',
-            }}
-          >
-            Batal pilih
-          </button>
-        </div>
-      )}
+      {/* Bulk Actions Toolbar (sticky at top when selected) */}
+      <BulkActionsToolbar
+        selectedIds={selectedIds}
+        selectedCampaigns={selectedCampaigns}
+        currentQueryString={currentQueryString}
+        onClear={() => setSelectedIds(new Set())}
+        onComplete={handleBulkComplete}
+        onToast={showToast}
+      />
 
+      {/* Data Table */}
       {loading ? (
         <div style={{
           background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
@@ -530,6 +598,7 @@ export default function AdminCampaignsPage() {
         />
       )}
 
+      {/* Pagination */}
       {!loading && total > 0 && (
         <Pagination
           page={urlPage}
@@ -540,7 +609,16 @@ export default function AdminCampaignsPage() {
         />
       )}
 
-      {/* MODAL */}
+      {/* Advanced Filters Drawer */}
+      <AdvancedFiltersDrawer
+        open={drawerOpen}
+        filters={activeFilters}
+        onClose={() => setDrawerOpen(false)}
+        onApply={handleApplyFilters}
+        onReset={handleResetFilters}
+      />
+
+      {/* MODAL (single approve/reject/detail) */}
       {modal && (
         <div onClick={() => !submitting && setModal(null)} style={{
           position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)',
@@ -682,9 +760,10 @@ export default function AdminCampaignsPage() {
         </div>
       )}
 
+      {/* Toast */}
       {toast && (
         <div style={{
-          position: 'fixed', bottom: 24, right: 24, zIndex: 60,
+          position: 'fixed', bottom: 24, right: 24, zIndex: 70,
           padding: '12px 20px', borderRadius: 12,
           background: toast.ok ? '#10B981' : '#EF4444', color: '#fff',
           fontWeight: 600, fontSize: 14, maxWidth: 400,
@@ -784,9 +863,7 @@ function CampaignDetail({ c, t }: { c: Campaign; t: any }) {
           </p>
           <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>{c.partner_name}</p>
           <div style={{ fontSize: 12, color: t.textDim, marginTop: 4 }}>
-            {c.bank_name && (
-              <p>{c.bank_name} · <span style={{ fontFamily: 'monospace' }}>{c.bank_account_number}</span></p>
-            )}
+            {c.bank_name && <p>{c.bank_name} · <span style={{ fontFamily: 'monospace' }}>{c.bank_account_number}</span></p>}
             {c.bank_account_name && <p>a.n. {c.bank_account_name}</p>}
           </div>
         </div>
