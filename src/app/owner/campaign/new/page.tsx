@@ -61,6 +61,7 @@ export default function NewCampaignPage() {
   const [error, setError]     = useState('');
   const [submitted, setSubmitted] = useState(false);
   const [coverUrl, setCoverUrl]   = useState('');
+  const [proofDocs, setProofDocs] = useState<string[]>([]);   // ⭐ NEW: dokumen pendukung
 
   // Step 0
   const [beneficiaryName, setBeneficiaryName] = useState('');
@@ -96,6 +97,7 @@ export default function NewCampaignPage() {
     </div>
   );
 
+  // ⭐ Success state — redirect ke dashboard penggalang (BUKAN /fundraising)
   if (submitted) return (
     <div className="flex min-h-[70vh] items-center justify-center px-4">
       <div className="w-full max-w-sm text-center">
@@ -103,14 +105,31 @@ export default function NewCampaignPage() {
           <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
         </div>
         <h2 className="text-xl font-bold text-gray-900">Campaign Diajukan!</h2>
-        <p className="mt-2 text-sm text-gray-500 leading-relaxed">Tim TeraLoka akan memverifikasi dalam 1×24 jam. Setelah disetujui, campaign tampil di BADONASI.</p>
+        <p className="mt-2 text-sm text-gray-500 leading-relaxed">
+          Tim TeraLoka akan memverifikasi dalam 1×24 jam. Setelah disetujui, campaign tampil di BADONASI.
+        </p>
         <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
           <p className="text-xs text-amber-700 flex items-start gap-2">
             <span className="material-symbols-outlined text-sm shrink-0">info</span>
             Dana donasi masuk ke rekening komunitas partner. Laporan penggunaan dana wajib diupload secara berkala.
           </p>
         </div>
-        <button onClick={() => router.push('/fundraising')} className="mt-5 w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white">Lihat BADONASI →</button>
+        <div className="mt-5 space-y-2">
+          {/* ⭐ Primary CTA — ke dashboard penggalang */}
+          <button
+            onClick={() => router.push('/owner/campaign')}
+            className="w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white hover:opacity-90 transition-opacity"
+          >
+            Lihat Kampanye Saya →
+          </button>
+          {/* Secondary — ke BADONASI public */}
+          <button
+            onClick={() => router.push('/fundraising')}
+            className="w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            Kembali ke BADONASI
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -124,6 +143,7 @@ export default function NewCampaignPage() {
         body: JSON.stringify({
           title, description, category,
           cover_image_url: coverUrl || null,
+          proof_documents: proofDocs,       // ⭐ NEW: kirim dokumen pendukung
           beneficiary_name: beneficiaryName,
           beneficiary_relation: beneficiaryRelation,
           target_amount: Number(targetAmount.replace(/\D/g, '')),
@@ -142,9 +162,16 @@ export default function NewCampaignPage() {
     finally { setLoading(false); }
   };
 
+  // ⭐ Step 1 validation expanded: cover + proof_documents required
   const canNext = [
     !!(beneficiaryName.trim() && beneficiaryRelation.trim() && category),
-    !!(title.trim().length >= 10 && description.trim().length >= 30 && targetAmount),
+    !!(
+      title.trim().length >= 10 &&
+      description.trim().length >= 30 &&
+      targetAmount &&
+      coverUrl &&                  // ⭐ Cover wajib
+      proofDocs.length >= 1        // ⭐ Min 1 dokumen pendukung
+    ),
     !!(partnerName.trim() && bankName.trim() && bankAccountNumber.trim() && bankAccountName.trim()),
     true,
   ][step];
@@ -263,9 +290,41 @@ export default function NewCampaignPage() {
                       className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm outline-none focus:border-[#003526]" />
                   </div>
                 </div>
-                <ImageUpload bucket="campaigns" label="Foto Campaign (Opsional)"
-                  onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
-                  existingUrls={coverUrl ? [coverUrl] : []} />
+
+                {/* ⭐ Foto Cover — required */}
+                <div>
+                  <ImageUpload bucket="campaigns" label="Foto Cover Campaign"
+                    onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
+                    existingUrls={coverUrl ? [coverUrl] : []} />
+                  <p className="mt-1.5 text-xs text-gray-500">
+                    Foto utama yang ditampilkan di halaman kampanye (wajib).
+                  </p>
+                </div>
+
+                {/* ⭐ NEW: Dokumen Pendukung — required min 1 */}
+                <div>
+                  <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mb-3">
+                    <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
+                      <span className="material-symbols-outlined text-sm shrink-0 text-blue-600">verified_user</span>
+                      <span>
+                        <strong className="font-bold">Dokumen Pendukung (Wajib)</strong>
+                        <br />
+                        Upload bukti kondisi penerima untuk verifikasi tim TeraLoka.
+                        Contoh: KTP, surat dokter, foto lokasi, surat kelurahan, dll.
+                      </span>
+                    </p>
+                  </div>
+                  <ImageUpload bucket="campaigns" label="Upload Dokumen (minimal 1, bisa lebih)"
+                    onUpload={(urls: string[]) => setProofDocs(urls)}
+                    existingUrls={proofDocs} />
+                  {proofDocs.length > 0 && (
+                    <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
+                      <span className="material-symbols-outlined text-sm">check_circle</span>
+                      {proofDocs.length} dokumen tersimpan
+                    </p>
+                  )}
+                </div>
+
                 <div>
                   <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
                     Batas Waktu <span className="text-gray-300 font-normal">(Opsional)</span>
@@ -387,6 +446,7 @@ export default function NewCampaignPage() {
                     { label: 'Target Dana', value: `Rp ${targetAmount}` },
                     { label: 'Komunitas Partner', value: partnerName },
                     { label: 'Rekening Donasi', value: `${bankName} ${bankAccountNumber} a/n ${bankAccountName}` },
+                    { label: 'Dokumen Pendukung', value: `${proofDocs.length} dokumen terupload` },
                     ...(deadline ? [{ label: 'Batas Waktu', value: new Date(deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) }] : []),
                   ].map(item => (
                     <div key={item.label} className="px-4 py-3">
