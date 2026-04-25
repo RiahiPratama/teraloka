@@ -19,6 +19,7 @@ interface Badges {
   pendingFees: number;
   pendingReports: number;
   activeFraudFlags: number;
+  pendingCreators: number;     // ⭐ FIX-E-4-C: Creator KYC pending count
 }
 
 export default function AdminFundingSubNav({
@@ -36,6 +37,7 @@ export default function AdminFundingSubNav({
     pendingFees: 0,
     pendingReports: 0,
     activeFraudFlags: 0,
+    pendingCreators: 0,    // ⭐ FIX-E-4-C
   });
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function AdminFundingSubNav({
 
     const headers = { Authorization: `Bearer ${tk}` };
 
-    // Fetch all 5 badge counts in parallel
+    // Fetch all 6 badge counts in parallel
     Promise.all([
       fetch(`${API_URL}/funding/admin/campaigns?status=pending_review&limit=1`, { headers })
         .then(r => r.json()).catch(() => null),
@@ -56,13 +58,17 @@ export default function AdminFundingSubNav({
         .then(r => r.json()).catch(() => null),
       fetch(`${API_URL}/fraud/admin/stats`, { headers })
         .then(r => r.json()).catch(() => null),
-    ]).then(([campRes, donRes, feeRes, reportRes, fraudRes]) => {
+      // ⭐ FIX-E-4-C: Creator KYC stats
+      fetch(`${API_URL}/admin/creators/stats`, { headers })
+        .then(r => r.json()).catch(() => null),
+    ]).then(([campRes, donRes, feeRes, reportRes, fraudRes, creatorRes]) => {
       setBadges({
         pendingCampaigns: campRes?.meta?.total ?? 0,
         pendingDonations: donRes?.meta?.total ?? 0,
         pendingFees: feeRes?.data?.pending_count ?? 0,
         pendingReports: reportRes?.data?.pending ?? 0,
         activeFraudFlags: fraudRes?.data?.active ?? 0,
+        pendingCreators: creatorRes?.data?.pending ?? 0,    // ⭐
       });
     });
   }, [refreshKey]);
@@ -79,6 +85,7 @@ export default function AdminFundingSubNav({
     { href: '/admin/funding/fees',      label: 'Fee Settlement', badge: badges.pendingFees },
     { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
     { href: '/admin/funding/reports',   label: 'Laporan',        badge: badges.pendingReports },
+    { href: '/admin/funding/penggalang', label: 'Penggalang',    badge: badges.pendingCreators },  // ⭐ FIX-E-4-C
     { href: '/admin/funding/fraud',     label: 'Fraud',          badge: badges.activeFraudFlags, accent: 'red' },
     { href: '/admin/funding/settings',  label: 'Pengaturan' },
   ];
