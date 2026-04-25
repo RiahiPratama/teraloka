@@ -54,8 +54,8 @@ export default function DonatePage() {
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [message, setMessage] = useState('');
 
-  // Penggalang fee opt-in (default true)
-  const [includePenggalangFee, setIncludePenggalangFee] = useState(true);
+  // Penggalang fee opt-in (default FALSE — ethical opt-in pure, donor aktif klik)
+  const [includePenggalangFee, setIncludePenggalangFee] = useState(false);
 
   // Submit state
   const [submitting, setSubmitting] = useState(false);
@@ -324,16 +324,25 @@ export default function DonatePage() {
 
         {/* 2. Fee Penggalang Opt-In — only show if professional mode */}
         {showPenggalangFeeOption && amount >= MIN_DONATION && (
-          <div className="bg-white rounded-2xl border border-pink-100 shadow-sm p-5">
+          <div className={`bg-white rounded-2xl border shadow-sm p-5 transition-colors ${
+            includePenggalangFee ? 'border-pink-200' : 'border-gray-100'
+          }`}>
             <h2 className="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
               <HeartHandshake size={16} className="text-[#EC4899]" />
               Bantu Operasional Penggalang
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider ml-auto">
+                Opsional
+              </span>
             </h2>
             <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-              Penggalang ambil {campaign.penggalang_fee_percent}% dari donasi untuk transport, dokumentasi, dan logistik. Kamu bisa pilih untuk tidak ikut bantu.
+              Penggalang ambil <strong>{campaign.penggalang_fee_percent}%</strong> dari donasi untuk transport, dokumentasi, dan logistik. <strong>Pilihan kamu</strong> — bisa skip atau bantu.
             </p>
 
-            <label className="flex items-start gap-3 p-3 rounded-xl bg-pink-50 border border-pink-100 cursor-pointer hover:bg-pink-100 transition-colors">
+            <label className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
+              includePenggalangFee
+                ? 'bg-pink-50 border-pink-300'
+                : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+            }`}>
               <input
                 type="checkbox"
                 checked={includePenggalangFee}
@@ -341,12 +350,25 @@ export default function DonatePage() {
                 className="mt-0.5 w-4 h-4 accent-[#EC4899]"
               />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-gray-800">
-                  Ya, saya bantu fee operasional penggalang
-                </p>
-                <p className="text-xs text-gray-600 mt-0.5">
-                  Tambah Rp {feePenggalang.toLocaleString('id-ID')} untuk operasional
-                </p>
+                {includePenggalangFee ? (
+                  <>
+                    <p className="text-sm font-bold text-[#BE185D]">
+                      ✅ Kamu bantu Rp {feePenggalang.toLocaleString('id-ID')} untuk operasional penggalang
+                    </p>
+                    <p className="text-xs text-gray-600 mt-0.5">
+                      Klik untuk batalkan jika berubah pikiran.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-bold text-gray-700">
+                      Ingin juga bantu operasional penggalang?
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      Klik checkbox untuk tambah Rp {Math.round(amount * (campaign.penggalang_fee_percent / 100)).toLocaleString('id-ID')}
+                    </p>
+                  </>
+                )}
               </div>
             </label>
           </div>
@@ -455,24 +477,14 @@ export default function DonatePage() {
                   <span className="font-semibold text-gray-900">{formatRupiah(feePenggalang)}</span>
                 </div>
               )}
-              <div className="flex justify-between text-sm pt-2 border-t border-[#003526]/10">
-                <span className="text-gray-700">Subtotal</span>
-                <span className="font-semibold text-gray-900">{formatRupiah(totalEstimate.subtotal)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-700">+ Kode Unik (verifikasi)</span>
-                <span className="font-semibold text-gray-900">100 - 999</span>
-              </div>
               <div className="flex justify-between text-base font-bold pt-2 border-t border-[#003526]/10">
-                <span className="text-[#003526]">Total Transfer</span>
-                <span className="text-[#003526]">
-                  ~ {formatRupiah(totalEstimate.totalMin)}
-                </span>
+                <span className="text-[#003526]">Subtotal</span>
+                <span className="text-[#003526]">{formatRupiah(totalEstimate.subtotal)}</span>
               </div>
-              <div className="flex items-start gap-1.5 mt-2">
+              <div className="flex items-start gap-1.5 mt-2 pt-2 border-t border-[#003526]/10">
                 <Info size={11} className="text-gray-500 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-gray-500 leading-tight">
-                  Nominal final ditambah <strong>3 digit kode unik</strong> (100-999) untuk verifikasi. Akan ditampilkan di halaman berikutnya.
+                <p className="text-[11px] text-gray-500 leading-relaxed">
+                  Total final akan ditampilkan di halaman konfirmasi, ditambah <strong>3-digit kode unik</strong> (100-999) untuk verifikasi otomatis transfer.
                 </p>
               </div>
             </div>

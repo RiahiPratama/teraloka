@@ -5,6 +5,7 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Siren } from 'lucide-react';
+import FeeModeSection from '@/components/owner/campaign/FeeModeSection';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -84,6 +85,10 @@ export default function NewCampaignPage() {
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
 
+  // ⭐ FIX-FEE: Mode operasional kampanye
+  const [operationalFeeMode, setOperationalFeeMode] = useState<'volunteer' | 'professional'>('volunteer');
+  const [penggalangFeePercent, setPenggalangFeePercent] = useState<number>(0);
+
   const bankName = bankValue === 'Lainnya' ? bankCustom : bankValue;
 
   if (!user || !token) return (
@@ -157,6 +162,9 @@ export default function NewCampaignPage() {
           is_urgent: isUrgent,
           is_independent: isIndependent,   // ⭐ NEW: perorangan/komunitas flag
           partner_name: partnerName,
+          // ⭐ FIX-FEE: Mode operasional
+          operational_fee_mode: operationalFeeMode,
+          penggalang_fee_percent: penggalangFeePercent,
         }),
       });
       const data = await res.json();
@@ -167,6 +175,7 @@ export default function NewCampaignPage() {
   };
 
   // ⭐ Step 1 validation expanded: cover + proof_documents required
+  // ⭐ FIX-FEE: Step 2 validation expanded: kalau professional, percent harus > 0
   const canNext = [
     !!(beneficiaryName.trim() && beneficiaryRelation.trim() && category && idDocs.length >= 1),
     !!(
@@ -176,7 +185,14 @@ export default function NewCampaignPage() {
       coverUrl &&                  // ⭐ Cover wajib
       proofDocs.length >= 1        // ⭐ Min 1 dokumen pendukung
     ),
-    !!(partnerName.trim() && bankName.trim() && bankAccountNumber.trim() && bankAccountName.trim()),
+    !!(
+      partnerName.trim() &&
+      bankName.trim() &&
+      bankAccountNumber.trim() &&
+      bankAccountName.trim() &&
+      // ⭐ FIX-FEE: kalau professional mode, percent harus > 0
+      (operationalFeeMode === 'volunteer' || (operationalFeeMode === 'professional' && penggalangFeePercent > 0))
+    ),
     true,
   ][step];
 
@@ -524,6 +540,16 @@ export default function NewCampaignPage() {
                     <p className="text-sm text-gray-600">a/n {bankAccountName}</p>
                   </div>
                 )}
+
+                {/* ⭐ FIX-FEE: Mode Operasional Section */}
+                <div className="pt-4 border-t border-gray-100">
+                  <FeeModeSection
+                    mode={operationalFeeMode}
+                    percent={penggalangFeePercent}
+                    onModeChange={setOperationalFeeMode}
+                    onPercentChange={setPenggalangFeePercent}
+                  />
+                </div>
               </div>
             )}
 

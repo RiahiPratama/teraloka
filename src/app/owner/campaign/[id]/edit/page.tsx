@@ -11,6 +11,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, Siren,
   UserCircle2, FileText, Landmark, Info, X,
 } from 'lucide-react';
+import FeeModeSection from '@/components/owner/campaign/FeeModeSection';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const TOKEN_KEY = 'tl_token';
@@ -73,6 +74,9 @@ interface Campaign {
   bank_account_number?: string;
   bank_account_name?: string;
   proof_documents?: string[];
+  // ⭐ FIX-FEE: Mode operasional
+  operational_fee_mode?: 'volunteer' | 'professional';
+  penggalang_fee_percent?: number;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -122,6 +126,10 @@ export default function EditCampaignPage() {
   const [bankCustom, setBankCustom] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
+
+  // ⭐ FIX-FEE: Mode operasional
+  const [operationalFeeMode, setOperationalFeeMode] = useState<'volunteer' | 'professional'>('volunteer');
+  const [penggalangFeePercent, setPenggalangFeePercent] = useState<number>(0);
 
   // UI state
   const [saving, setSaving] = useState(false);
@@ -183,6 +191,10 @@ export default function EditCampaignPage() {
           setBankValue('Lainnya');
           setBankCustom(c.bank_name);
         }
+
+        // ⭐ FIX-FEE: Pre-fill mode operasional
+        setOperationalFeeMode((c.operational_fee_mode as 'volunteer' | 'professional') ?? 'volunteer');
+        setPenggalangFeePercent(Number(c.penggalang_fee_percent ?? 0));
       } catch {
         setLoadError('Koneksi bermasalah. Refresh halaman ya.');
       } finally {
@@ -249,6 +261,9 @@ export default function EditCampaignPage() {
           partner_name: partnerName.trim(),
           proof_documents: proofDocs,
           beneficiary_id_documents: idDocs,
+          // ⭐ FIX-FEE: Mode operasional
+          operational_fee_mode: operationalFeeMode,
+          penggalang_fee_percent: penggalangFeePercent,
         }),
       });
 
@@ -791,6 +806,18 @@ export default function EditCampaignPage() {
               <p className="text-sm text-gray-600">a/n {bankAccountName}</p>
             </div>
           )}
+
+          {/* ⭐ FIX-FEE: Mode Operasional Section */}
+          <div className="pt-4 border-t border-gray-100">
+            <FeeModeSection
+              mode={operationalFeeMode}
+              percent={penggalangFeePercent}
+              onModeChange={setOperationalFeeMode}
+              onPercentChange={setPenggalangFeePercent}
+              locked={campaign?.status === 'active' || campaign?.status === 'completed'}
+              lockedReason="Mode operasional tidak dapat diubah setelah kampanye aktif. Hubungi admin TeraLoka jika perlu perubahan."
+            />
+          </div>
         </FormSection>
 
       </div>
