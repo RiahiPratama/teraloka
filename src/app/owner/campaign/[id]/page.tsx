@@ -11,6 +11,7 @@ import {
   Users, Clock, TrendingUp, AlertCircle, Loader2, Siren,
   Calendar, Landmark, UserCircle2, Tag, FileText,
   ExternalLink, MessageCircle, Sparkles, AlertTriangle,
+  Eye, EyeOff, Wallet, Shield, Building2, User,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -29,12 +30,14 @@ interface Campaign {
   cover_image_url?: string;
   beneficiary_name?: string;
   beneficiary_relation?: string;
+  beneficiary_id_documents?: string[];
   description?: string;
   target_amount: number;
   collected_amount: number;
   donor_count: number;
   deadline?: string | null;
   is_urgent: boolean;
+  is_independent?: boolean;
   partner_name?: string;
   bank_name?: string;
   bank_account_number?: string;
@@ -45,6 +48,11 @@ interface Campaign {
   created_at: string;
   updated_at?: string;
   verified_at?: string | null;
+  // Jejak keuangan (financial trail) — populated by getMyCampaignDetail
+  total_collected?: number;
+  total_disbursed?: number;
+  total_used?: number;
+  saldo_estimate?: number;
 }
 
 interface Donation {
@@ -335,7 +343,7 @@ export default function CampaignDetailPage() {
           </div>
 
           {/* Status badge */}
-          <div className="flex items-center gap-2 mt-3">
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
             <span
               className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider"
               style={{ color: meta.color, backgroundColor: 'rgba(255,255,255,0.95)' }}
@@ -343,6 +351,24 @@ export default function CampaignDetailPage() {
               <StatusIcon size={11} strokeWidth={2.5} />
               {meta.label}
             </span>
+
+            {/* Perorangan / Komunitas badge */}
+            <span
+              className="inline-flex items-center gap-1 text-white/90 bg-white/15 backdrop-blur text-[9px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full border border-white/20"
+            >
+              {campaign.is_independent ? (
+                <>
+                  <User size={9} />
+                  Perorangan
+                </>
+              ) : (
+                <>
+                  <Building2 size={9} />
+                  Komunitas
+                </>
+              )}
+            </span>
+
             {campaign.is_urgent && (
               <span className="inline-flex items-center gap-1 bg-red-500 text-white text-[9px] font-extrabold uppercase tracking-wider px-2 py-1 rounded-full">
                 <Siren size={9} />
@@ -384,8 +410,8 @@ export default function CampaignDetailPage() {
 
             {/* Pending review notice */}
             {campaign.status === 'pending_review' && (
-              <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-4">
-                <p className="text-[10px] font-bold text-amber-700 mb-1 uppercase tracking-wider flex items-center gap-1">
+              <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-4 space-y-2">
+                <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider flex items-center gap-1">
                   <Hourglass size={11} />
                   Menunggu Review
                 </p>
@@ -393,13 +419,19 @@ export default function CampaignDetailPage() {
                   {meta.tagline} Kalau ada perubahan yang perlu dilakukan,
                   tarik kembali kampanye ini untuk edit.
                 </p>
+                <div className="flex items-start gap-2 pt-2 border-t border-amber-100/50">
+                  <EyeOff size={11} className="text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-700 leading-relaxed">
+                    <strong className="font-bold">Belum tampil di publik.</strong> Kampanye akan otomatis tayang di halaman BADONASI setelah disetujui admin TeraLoka.
+                  </p>
+                </div>
               </div>
             )}
 
             {/* Draft notice */}
             {campaign.status === 'draft' && (
-              <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 mb-4">
-                <p className="text-[10px] font-bold text-gray-600 mb-1 uppercase tracking-wider flex items-center gap-1">
+              <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 mb-4 space-y-2">
+                <p className="text-[10px] font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1">
                   <FileEdit size={11} />
                   Draft
                 </p>
@@ -493,6 +525,11 @@ export default function CampaignDetailPage() {
           onSubmit={() => setModalType('submit')}
           onResubmit={() => setModalType('resubmit')}
         />
+
+        {/* Jejak Keuangan — only show for active/completed (when there's actual data) */}
+        {['active', 'completed'].includes(campaign.status) && (
+          <JejakKeuanganSection campaign={campaign} />
+        )}
 
         {/* Info Section */}
         <InfoSection campaign={campaign} />
@@ -672,6 +709,121 @@ function ActionButtons({
   return null;
 }
 
+// ═══════════════════════════════════════════════════════════════
+// JejakKeuanganSection — Financial trail untuk transparansi
+// ═══════════════════════════════════════════════════════════════
+
+function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
+  const collected = campaign.total_collected ?? campaign.collected_amount ?? 0;
+  const disbursed = campaign.total_disbursed ?? 0;
+  const used      = campaign.total_used ?? 0;
+  const saldo     = campaign.saldo_estimate ?? Math.max(0, collected - disbursed);
+
+  // Bank summary untuk sublabel "Belum Disalurkan" (anti-ambiguitas)
+  // Format: "Bank Mandiri ••••7890" — masking demi privacy + spesifikitas
+  const bankSummary = campaign.bank_name && campaign.bank_account_number
+    ? `${campaign.bank_name} ••••${campaign.bank_account_number.slice(-4)}`
+    : 'rekening partner';
+
+  const stats = [
+    {
+      label: 'Terkumpul',
+      sublabel: 'Dari donor',
+      value: collected,
+      Icon: HeartHandshake,
+      color: '#BE185D',
+      bg: 'bg-pink-50',
+      border: 'border-pink-100',
+    },
+    {
+      label: 'Disalurkan',
+      sublabel: `Dari ${bankSummary}`,
+      value: disbursed,
+      Icon: Send,
+      color: '#0891B2',
+      bg: 'bg-cyan-50',
+      border: 'border-cyan-100',
+    },
+    {
+      label: 'Direalisasikan',
+      sublabel: 'Untuk penerima manfaat',
+      value: used,
+      Icon: CheckCircle2,
+      color: '#047857',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-100',
+    },
+    {
+      label: 'Belum Disalurkan',
+      sublabel: `Di ${bankSummary}`,
+      value: saldo,
+      Icon: Wallet,
+      color: '#B45309',
+      bg: 'bg-amber-50',
+      border: 'border-amber-100',
+    },
+  ];
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-[#003526]/5 to-transparent">
+        <h2 className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+          <TrendingUp size={13} className="text-[#003526]" />
+          Jejak Keuangan
+        </h2>
+        <p className="text-[10px] text-gray-400 mt-0.5">
+          Transparansi aliran dana kampanye
+        </p>
+      </div>
+
+      {/* Disclaimer: TeraLoka role clarification */}
+      <div className="px-5 py-3 bg-blue-50/60 border-b border-blue-100">
+        <p className="text-[11px] text-blue-900 leading-relaxed flex items-start gap-2">
+          <Shield size={12} className="text-blue-600 shrink-0 mt-0.5" />
+          <span>
+            <strong className="font-bold">TeraLoka adalah platform transparansi</strong>, bukan penampung dana. Seluruh donasi masuk langsung ke rekening partner penyalur kampanye ini.
+          </span>
+        </p>
+      </div>
+
+      <div className="p-3 grid grid-cols-2 gap-2">
+        {stats.map((s) => {
+          const SIcon = s.Icon;
+          return (
+            <div
+              key={s.label}
+              className={`${s.bg} ${s.border} border rounded-xl p-3`}
+            >
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <SIcon size={12} style={{ color: s.color }} strokeWidth={2.5} />
+                <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: s.color }}>
+                  {s.label}
+                </p>
+              </div>
+              <p className="text-sm font-extrabold text-gray-900 leading-tight">
+                {formatRupiah(s.value)}
+              </p>
+              <p className="text-[10px] text-gray-500 mt-0.5">{s.sublabel}</p>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Saldo warning kalau saldo > 0 dan belum semua direalisasikan */}
+      {saldo > 0 && used < disbursed && (
+        <div className="px-5 py-3 bg-amber-50/50 border-t border-amber-100">
+          <p className="text-[11px] text-amber-700 leading-relaxed flex items-start gap-2">
+            <AlertCircle size={12} className="text-amber-600 shrink-0 mt-0.5" />
+            <span>
+              <strong className="font-bold">Pengingat transparansi:</strong> Masih ada saldo aktif di rekening partner. Jangan lupa upload laporan realisasi dana saat sudah digunakan untuk kebutuhan penerima manfaat.
+            </span>
+          </p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function InfoSection({ campaign }: { campaign: Campaign }) {
   const info: { icon: any; label: string; value?: string }[] = [
     {
@@ -689,8 +841,8 @@ function InfoSection({ campaign }: { campaign: Campaign }) {
         : undefined,
     },
     {
-      icon: Landmark,
-      label: 'Partner',
+      icon: campaign.is_independent ? User : Building2,
+      label: campaign.is_independent ? 'Penggalang Perorangan' : 'Komunitas / Lembaga',
       value: campaign.partner_name,
     },
     {
@@ -761,12 +913,18 @@ function InfoSection({ campaign }: { campaign: Campaign }) {
           </div>
         )}
 
-        {/* Proof documents */}
+        {/* Proof documents — PUBLIC */}
         {campaign.proof_documents && campaign.proof_documents.length > 0 && (
           <div className="px-5 py-3">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2">
-              Dokumen Bukti ({campaign.proof_documents.length})
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Eye size={11} className="text-emerald-600" />
+                Dokumen Bukti ({campaign.proof_documents.length})
+              </p>
+              <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                Publik
+              </span>
+            </div>
             <div className="grid grid-cols-3 gap-2">
               {campaign.proof_documents.map((url, i) => (
                 <a
@@ -777,6 +935,38 @@ function InfoSection({ campaign }: { campaign: Campaign }) {
                   className="aspect-square rounded-lg overflow-hidden bg-gray-100 hover:ring-2 hover:ring-[#003526] transition-all"
                 >
                   <img src={url} alt={`Bukti ${i + 1}`} className="w-full h-full object-cover" />
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Identitas Penerima — RAHASIA (only visible to owner & admin) */}
+        {campaign.beneficiary_id_documents && campaign.beneficiary_id_documents.length > 0 && (
+          <div className="px-5 py-3 bg-blue-50/30 border-t border-blue-100">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-blue-700 uppercase tracking-wider flex items-center gap-1.5">
+                <Shield size={11} />
+                Identitas Penerima ({campaign.beneficiary_id_documents.length})
+              </p>
+              <span className="text-[9px] font-bold text-red-700 bg-red-50 px-1.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                <EyeOff size={9} />
+                Rahasia
+              </span>
+            </div>
+            <p className="text-[10px] text-blue-700/80 mb-2 leading-relaxed">
+              Hanya kamu (penggalang) dan admin TeraLoka yang bisa lihat. Tidak ditampilkan ke donor publik.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {campaign.beneficiary_id_documents.map((url, i) => (
+                <a
+                  key={i}
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="aspect-square rounded-lg overflow-hidden bg-white hover:ring-2 hover:ring-blue-500 transition-all border border-blue-100"
+                >
+                  <img src={url} alt={`Identitas ${i + 1}`} className="w-full h-full object-cover" />
                 </a>
               ))}
             </div>
@@ -875,7 +1065,7 @@ function ReportsSection({
       <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
         <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5">
           <FileText size={13} />
-          Laporan Penggunaan Dana
+          Laporan Realisasi Dana
         </h2>
         {canCreate && (
           <Link
