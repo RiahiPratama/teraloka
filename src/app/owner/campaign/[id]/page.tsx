@@ -11,7 +11,7 @@ import {
   Users, Clock, TrendingUp, AlertCircle, Loader2, Siren,
   Calendar, Landmark, UserCircle2, Tag, FileText,
   ExternalLink, MessageCircle, Sparkles, AlertTriangle,
-  Eye, EyeOff, Wallet, Shield, Building2, User,
+  Eye, EyeOff, Wallet, Shield, Building2, User, ChevronRight,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -536,7 +536,7 @@ export default function CampaignDetailPage() {
 
         {/* Donors (if any) */}
         {donations.length > 0 && (
-          <DonorsSection donations={donations} totalDonors={campaign.donor_count} />
+          <DonorsSection donations={donations} totalDonors={campaign.donor_count} campaignId={campaign.id} />
         )}
 
         {/* Usage Reports (if any) */}
@@ -980,23 +980,30 @@ function InfoSection({ campaign }: { campaign: Campaign }) {
 function DonorsSection({
   donations,
   totalDonors,
+  campaignId,
 }: {
   donations: Donation[];
   totalDonors: number;
+  campaignId: string;
 }) {
+  // Compact view: show max 5 latest donations
+  const MAX_PREVIEW = 5;
+  const previewDonations = donations.slice(0, MAX_PREVIEW);
+  const hasMore = donations.length > MAX_PREVIEW || totalDonors > MAX_PREVIEW;
+
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
         <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5">
           <Users size={13} />
-          Donatur
+          Donatur Terbaru
         </h2>
         <span className="text-[10px] font-bold text-gray-400">
-          {donations.length} dari {totalDonors}
+          {previewDonations.length} dari {totalDonors}
         </span>
       </div>
       <div className="divide-y divide-gray-50">
-        {donations.map(d => (
+        {previewDonations.map(d => (
           <div key={d.id} className="px-5 py-3 flex items-start gap-3">
             <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-100 to-pink-50 flex items-center justify-center shrink-0">
               <HeartHandshake size={15} className="text-[#BE185D]" />
@@ -1041,6 +1048,30 @@ function DonorsSection({
           </div>
         ))}
       </div>
+      {/* "Lihat Semua Donasi" button — links to dedicated per-campaign view */}
+      {hasMore && (
+        <Link
+          href={`/owner/campaign/${campaignId}/donations`}
+          className="block px-5 py-3 border-t border-gray-100 bg-gray-50/50 hover:bg-gray-100 transition-colors text-center"
+        >
+          <p className="text-xs font-bold text-[#003526] flex items-center justify-center gap-1.5">
+            Lihat Semua Donasi ({totalDonors})
+            <ChevronRight size={12} />
+          </p>
+        </Link>
+      )}
+      {/* Even if not hasMore, still link if there are donations to filter/manage */}
+      {!hasMore && donations.length > 0 && (
+        <Link
+          href={`/owner/campaign/${campaignId}/donations`}
+          className="block px-5 py-3 border-t border-gray-100 bg-gray-50/50 hover:bg-gray-100 transition-colors text-center"
+        >
+          <p className="text-xs font-bold text-gray-600 flex items-center justify-center gap-1.5">
+            Kelola Donasi
+            <ChevronRight size={12} />
+          </p>
+        </Link>
+      )}
     </div>
   );
 }
