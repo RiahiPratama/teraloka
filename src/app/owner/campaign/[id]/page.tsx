@@ -180,6 +180,16 @@ export default function CampaignDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, campaignId]);
 
+  // ⭐ FIX: useMemo MUST be called unconditionally (Rules of Hooks).
+  // Use optional chaining to safely access campaign.deadline when null.
+  const daysLeft = useMemo(() => {
+    if (!campaign?.deadline) return null;
+    const now = new Date();
+    const end = new Date(campaign.deadline);
+    const diff = end.getTime() - now.getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+  }, [campaign?.deadline]);
+
   // Action handlers
   async function handleAction(type: 'delete' | 'withdraw' | 'submit' | 'resubmit') {
     if (!token || !campaign) return;
@@ -299,14 +309,6 @@ export default function CampaignDetailPage() {
   const progress = campaign.target_amount > 0
     ? Math.min((campaign.collected_amount / campaign.target_amount) * 100, 100)
     : 0;
-
-  const daysLeft = useMemo(() => {
-    if (!campaign.deadline) return null;
-    const now = new Date();
-    const end = new Date(campaign.deadline);
-    const diff = end.getTime() - now.getTime();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
-  }, [campaign.deadline]);
 
   const totalReportedUsage = reports
     .filter(r => r.status === 'approved' || r.status === 'pending')
