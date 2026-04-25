@@ -988,82 +988,156 @@ function DonorsSection({
   totalDonors: number;
   campaignId: string;
 }) {
-  // Compact view: show max 5 latest donations
+  // ─── Smart count breakdown ──────────────────────────
+  // Filosofi: Owner page = action area. Penggalang HARUS lihat semua status
+  // untuk action (verify pending). Bukan filter ke verified only.
+  // Backend (Otak) compute aggregate "donor_count" hanya untuk verified.
+  // Frontend (Wajah) tampilkan semua status dengan visual differentiation.
+  const verifiedCount = donations.filter(d => d.verification_status === 'verified').length;
+  const pendingCount  = donations.filter(d => d.verification_status === 'pending').length;
+  const rejectedCount = donations.filter(d => d.verification_status === 'rejected').length;
+
+  // ─── Sort: pending first (urgent action), then verified, then rejected ──
+  const sortedDonations = [...donations].sort((a, b) => {
+    const order: Record<string, number> = { pending: 0, verified: 1, rejected: 2 };
+    const aOrder = order[a.verification_status] ?? 3;
+    const bOrder = order[b.verification_status] ?? 3;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    // Within same status, newest first
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+
+  // Compact view: show max 5 (after sort, so pending shown if any)
   const MAX_PREVIEW = 5;
-  const previewDonations = donations.slice(0, MAX_PREVIEW);
-  const hasMore = donations.length > MAX_PREVIEW || totalDonors > MAX_PREVIEW;
+  const previewDonations = sortedDonations.slice(0, MAX_PREVIEW);
+  const hasMore = donations.length > MAX_PREVIEW;
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between">
-        <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5">
-          <Users size={13} />
-          Donatur Terbaru
-        </h2>
-        <span className="text-[10px] font-bold text-gray-400">
-          {previewDonations.length} dari {totalDonors}
-        </span>
+      {/* Header dengan smart count */}
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h2 className="text-xs font-bold text-gray-600 uppercase tracking-wider flex items-center gap-1.5">
+            <Users size={13} />
+            Donatur Terbaru
+          </h2>
+          <span className="text-[10px] font-bold text-gray-500">
+            {donations.length} donasi
+          </span>
+        </div>
+        {/* Status breakdown chips */}
+        {donations.length > 0 && (
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {verifiedCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded">
+                <CheckCircle2 size={9} />
+                {verifiedCount} verified
+              </span>
+            )}
+            {pendingCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                <Hourglass size={9} />
+                {pendingCount} pending
+              </span>
+            )}
+            {rejectedCount > 0 && (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-red-100 text-red-700 px-1.5 py-0.5 rounded">
+                <XCircle size={9} />
+                {rejectedCount} rejected
+              </span>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Donor list */}
       <div className="divide-y divide-gray-50">
-        {previewDonations.map(d => (
-          <div key={d.id} className="px-5 py-3 flex items-start gap-3">
-            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-100 to-pink-50 flex items-center justify-center shrink-0">
-              <HeartHandshake size={15} className="text-[#BE185D]" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold text-gray-800 truncate">
-                    {d.is_anonymous ? 'Hamba Allah' : (d.donor_name || 'Donatur')}
+        {previewDonations.map(d => {
+          // Status visual props
+          const statusMeta = (() => {
+            switch (d.verification_status) {
+              case 'verified':
+                return { label: 'Verified', color: '#047857', bg: 'bg-emerald-100', Icon: CheckCircle2, amountColor: '#BE185D' };
+              case 'rejected':
+                return { label: 'Rejected', color: '#DC2626', bg: 'bg-red-100', Icon: XCircle, amountColor: '#9CA3AF' };
+              default: // pending
+                return { label: 'Pending', color: '#B45309', bg: 'bg-amber-100', Icon: Hourglass, amountColor: '#B45309' };
+            }
+          })();
+          const StatusIcon = statusMeta.Icon;
+
+          return (
+            <div key={d.id} className="px-5 py-3 flex items-start gap-3">
+              <div className="w-9 h-9 rounded-full bg-gradient-to-br from-pink-100 to-pink-50 flex items-center justify-center shrink-0">
+                <HeartHandshake size={15} className="text-[#BE185D]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-start justify-between gap-2 mb-0.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="text-sm font-bold text-gray-800 truncate">
+                        {d.is_anonymous ? 'Hamba Allah' : (d.donor_name || 'Donatur')}
+                      </p>
+                      {/* Status badge */}
+                      <span
+                        className={`shrink-0 inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${statusMeta.bg}`}
+                        style={{ color: statusMeta.color }}
+                      >
+                        <StatusIcon size={8} />
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                    {d.donor_phone && !d.is_anonymous && (
+                      <p className="text-[10px] text-gray-400 font-mono">{d.donor_phone}</p>
+                    )}
+                  </div>
+                  <p
+                    className="text-sm font-extrabold whitespace-nowrap"
+                    style={{ color: statusMeta.amountColor }}
+                  >
+                    {formatRupiah(d.amount)}
                   </p>
-                  {d.donor_phone && !d.is_anonymous && (
-                    <p className="text-[10px] text-gray-400 font-mono">{d.donor_phone}</p>
-                  )}
                 </div>
-                <p className="text-sm font-extrabold text-[#BE185D] whitespace-nowrap">
-                  {formatRupiah(d.amount)}
+                {d.message && (
+                  <div className="mt-1.5 rounded-lg bg-pink-50/50 border border-pink-100 px-2.5 py-1.5">
+                    <p className="text-[11px] text-gray-700 leading-relaxed italic">
+                      &ldquo;{d.message}&rdquo;
+                    </p>
+                    {(d.aamiin_count ?? 0) > 0 && (
+                      <p className="text-[10px] text-[#BE185D] font-bold mt-1 flex items-center gap-0.5">
+                        <Sparkles size={9} />
+                        {d.aamiin_count} Aamiin
+                      </p>
+                    )}
+                  </div>
+                )}
+                <p className="text-[10px] text-gray-400 mt-1">
+                  {new Date(d.created_at).toLocaleDateString('id-ID', {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </p>
               </div>
-              {d.message && (
-                <div className="mt-1.5 rounded-lg bg-pink-50/50 border border-pink-100 px-2.5 py-1.5">
-                  <p className="text-[11px] text-gray-700 leading-relaxed italic">
-                    &ldquo;{d.message}&rdquo;
-                  </p>
-                  {(d.aamiin_count ?? 0) > 0 && (
-                    <p className="text-[10px] text-[#BE185D] font-bold mt-1 flex items-center gap-0.5">
-                      <Sparkles size={9} />
-                      {d.aamiin_count} Aamiin
-                    </p>
-                  )}
-                </div>
-              )}
-              <p className="text-[10px] text-gray-400 mt-1">
-                {new Date(d.created_at).toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                })}
-              </p>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
-      {/* "Lihat Semua Donasi" button — links to dedicated per-campaign view */}
-      {hasMore && (
+
+      {/* Footer link */}
+      {hasMore ? (
         <Link
           href={`/owner/campaign/${campaignId}/donations`}
           className="block px-5 py-3 border-t border-gray-100 bg-gray-50/50 hover:bg-gray-100 transition-colors text-center"
         >
           <p className="text-xs font-bold text-[#003526] flex items-center justify-center gap-1.5">
-            Lihat Semua Donasi ({totalDonors})
+            Lihat Semua Donasi ({donations.length})
             <ChevronRight size={12} />
           </p>
         </Link>
-      )}
-      {/* Even if not hasMore, still link if there are donations to filter/manage */}
-      {!hasMore && donations.length > 0 && (
+      ) : donations.length > 0 ? (
         <Link
           href={`/owner/campaign/${campaignId}/donations`}
           className="block px-5 py-3 border-t border-gray-100 bg-gray-50/50 hover:bg-gray-100 transition-colors text-center"
@@ -1073,7 +1147,7 @@ function DonorsSection({
             <ChevronRight size={12} />
           </p>
         </Link>
-      )}
+      ) : null}
     </div>
   );
 }
