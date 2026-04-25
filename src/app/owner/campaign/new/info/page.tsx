@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
-import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Loader2 } from 'lucide-react';
+import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 
 const REQUIREMENTS = [
   {
@@ -13,14 +13,19 @@ const REQUIREMENTS = [
     desc: 'Penggalang dana adalah warga yang berdomisili atau terdaftar sebagai pengguna TeraLoka dengan nomor WA terverifikasi.',
   },
   {
+    icon: 'badge',
+    title: 'Verifikasi Identitas (1-3 Hari Kerja)',
+    desc: 'Verifikasi identitas penggalang via KTP/KK/Akta. Dokumen disimpan terenkripsi dan hanya dilihat tim verifikasi TeraLoka. Estimasi proses 1-3 hari kerja.',
+  },
+  {
     icon: 'volunteer_activism',
     title: 'Kategori Kemanusiaan',
     desc: 'Campaign hanya untuk kebutuhan kemanusiaan: kesehatan, bencana, duka/musibah, anak yatim, lansia, atau hunian darurat.',
   },
   {
     icon: 'account_balance',
-    title: 'Rekening Komunitas Partner',
-    desc: 'Dana masuk ke rekening komunitas/lembaga partner yang terpercaya — bukan rekening pribadi penggalang.',
+    title: 'Rekening Atas Nama Penggalang',
+    desc: 'Default: rekening PRIBADI atas nama penggalang dana. Untuk kampanye komunitas: rekening lembaga/komunitas terdaftar boleh digunakan jika sudah partnership resmi dengan TeraLoka.',
   },
   {
     icon: 'receipt_long',
@@ -36,8 +41,9 @@ const STEPS = [
 ];
 
 const COMMITMENTS = [
-  '100% donasi sampai ke penerima — tidak ada potongan platform',
-  'Dana masuk langsung ke rekening komunitas partner',
+  '100% donasi sampai ke penerima — TIDAK ada potongan dari nominal donasi',
+  'Fee operasional adalah TAMBAHAN dari donor (bukan dipotong dari donasi)',
+  'Dana masuk ke rekening sesuai pilihan kampanye (pribadi atau komunitas partner)',
   'Semua laporan penggunaan dana dipublikasikan secara terbuka',
   'Tim TeraLoka berhak menghentikan campaign jika ada pelanggaran',
   'Identitas donatur dilindungi sesuai preferensi mereka',
@@ -47,6 +53,7 @@ export default function CampaignInfoPage() {
   const { user, token, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
+  const [showAnatomy, setShowAnatomy] = useState(false); // FIX: dropdown anatomi
 
   // ⭐ FIX-E: KYC profile state
   const [kycChecking, setKycChecking] = useState(true);
@@ -133,30 +140,43 @@ export default function CampaignInfoPage() {
     <div className="min-h-screen bg-[#f9f9f8]">
 
       {/* Hero */}
-      <div className="bg-[#003526] px-6 pt-10 pb-14">
-        <div className="mx-auto max-w-lg text-center">
-          <div className="inline-flex items-center gap-2 bg-white/10 rounded-full px-4 py-2 mb-5">
-            <span className="material-symbols-outlined text-[#95d3ba] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>volunteer_activism</span>
-            <span className="text-xs font-bold text-[#95d3ba] uppercase tracking-wider">BADONASI TeraLoka</span>
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-10 pb-14 relative overflow-hidden">
+        {/* Pink accent decoration */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#EC4899] rounded-full opacity-5 blur-3xl"></div>
+
+        <div className="mx-auto max-w-lg text-center relative z-10">
+          <div className="inline-flex items-center gap-2 bg-[#EC4899] rounded-full px-4 py-2 mb-5 shadow-lg shadow-pink-500/30">
+            <span className="material-symbols-outlined text-white text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>volunteer_activism</span>
+            <span className="text-xs font-extrabold text-white uppercase tracking-wider">BADONASI TeraLoka</span>
           </div>
           <h1 className="text-3xl font-extrabold text-white leading-tight tracking-tight">
-            Galang Dana<br />untuk Sesama
+            Galang Dana<br />untuk <span className="text-[#F472B6]">Sesama</span>
           </h1>
-          <p className="mt-3 text-[#95d3ba] text-sm leading-relaxed max-w-sm mx-auto">
-            Platform galang dana kemanusiaan untuk warga Maluku Utara. Transparan, terpercaya, dan 100% dana sampai ke penerima.
+
+          {/* Tagline restructured for cleaner emphasis */}
+          <p className="mt-3 text-[#95d3ba] text-sm leading-relaxed">
+            Platform galang dana kemanusiaan untuk warga Maluku Utara.
+          </p>
+          <p className="mt-1.5 text-[#95d3ba] text-sm leading-relaxed">
+            Transparan, terpercaya, dan
+          </p>
+          <p className="mt-1 text-[#F472B6] text-base font-extrabold leading-tight">
+            100% donasi sampai ke penerima.
           </p>
 
           {/* Stats */}
           <div className="grid grid-cols-3 gap-3 mt-8">
             {[
-              { label: 'Transparansi', value: '100%', icon: 'verified' },
-              { label: 'Potongan Platform', value: 'Rp 0', icon: 'money_off' },
-              { label: 'Proses Verifikasi', value: '1×24 jam', icon: 'schedule' },
+              { label: '100% Sampai Penerima', value: 'Rp 0', icon: 'money_off', sublabel: 'Potongan' },
+              { label: 'Verifikasi Identitas', value: '1-3 hari', icon: 'verified', sublabel: 'Estimasi' },
+              { label: 'Review Campaign', value: '1×24 jam', icon: 'schedule', sublabel: 'Proses' },
             ].map(s => (
-              <div key={s.label} className="bg-white/10 rounded-2xl p-3">
-                <span className="material-symbols-outlined text-[#95d3ba] text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
+              <div key={s.label} className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/5">
+                <span className="material-symbols-outlined text-[#F9A8D4] text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
                 <p className="text-white font-extrabold text-base mt-1">{s.value}</p>
-                <p className="text-[#95d3ba]/70 text-xs">{s.label}</p>
+                <p className="text-[#95d3ba]/70 text-[10px] uppercase tracking-wide font-bold">{s.sublabel}</p>
+                <p className="text-[#95d3ba]/60 text-[10px] mt-0.5 leading-tight">{s.label}</p>
               </div>
             ))}
           </div>
@@ -298,13 +318,117 @@ export default function CampaignInfoPage() {
           </div>
         </div>
 
-        {/* Proses transparansi */}
+        {/* Sistem Transparansi Dana — ENHANCED with anatomi 4 komponen */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-          <h2 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
             <span className="material-symbols-outlined text-[#003526] text-lg">bar_chart</span>
             Sistem Transparansi Dana
           </h2>
+          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            Bagaimana donasi sampai ke penerima manfaat — transparent untuk donor dan penggalang.
+          </p>
+
+          {/* Anatomi Donasi — DROPDOWN (collapsed default) */}
+          <button
+            onClick={() => setShowAnatomy(!showAnatomy)}
+            className="w-full rounded-xl bg-gradient-to-br from-[#003526]/5 to-[#EC4899]/5 border border-[#003526]/10 p-4 mb-4 hover:from-[#003526]/8 hover:to-[#EC4899]/8 transition-all text-left"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 flex-1 min-w-0">
+                <span className="material-symbols-outlined text-[#EC4899] text-base shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
+                <div className="min-w-0">
+                  <p className="text-xs font-extrabold text-[#003526] uppercase tracking-wider">
+                    Lihat Skema Anatomi Donasi
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    {showAnatomy ? 'Klik untuk tutup' : 'Klik untuk lihat contoh perhitungan'}
+                  </p>
+                </div>
+              </div>
+              {showAnatomy ? (
+                <ChevronUp size={18} className="text-[#003526] shrink-0" />
+              ) : (
+                <ChevronDown size={18} className="text-[#003526] shrink-0" />
+              )}
+            </div>
+          </button>
+
+          {/* Anatomi content — show kalau expanded */}
+          {showAnatomy && (
+            <div className="rounded-xl bg-gradient-to-br from-[#003526]/5 to-[#EC4899]/5 border border-[#003526]/10 p-4 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>insights</span>
+                <p className="text-xs font-extrabold text-[#003526] uppercase tracking-wider">
+                  Contoh: Donor donasi Rp 200.000
+                </p>
+              </div>
+
+              {/* Visual flow */}
+              <div className="bg-white rounded-lg p-3 mb-3">
+                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">
+                  Donor Transfer Total Rp 210.234:
+                </p>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-emerald-50 border border-emerald-100">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-base">👤</span>
+                      <p className="text-xs font-bold text-emerald-900">Penerima Manfaat</p>
+                    </div>
+                    <p className="text-sm font-extrabold text-emerald-700 whitespace-nowrap">Rp 200.000</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-gray-50 border border-gray-100">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-base">🏢</span>
+                      <p className="text-[11px] text-gray-600">Fee TeraLoka <span className="text-[10px] text-gray-400">(operasional)</span></p>
+                    </div>
+                    <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 4.000</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-pink-50 border border-pink-100">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-base">💪</span>
+                      <p className="text-[11px] text-gray-600">Fee Penggalang Campaign <span className="text-[10px] text-[#EC4899] font-bold">(opt-in donor)</span></p>
+                    </div>
+                    <p className="text-xs font-bold text-[#BE185D] whitespace-nowrap">Rp 6.000</p>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-blue-50 border border-blue-100">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-base">🔐</span>
+                      <p className="text-[11px] text-gray-600">Kode Unik <span className="text-[10px] text-gray-400">(verifikasi)</span></p>
+                    </div>
+                    <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 234</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Key callout */}
+              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+                <p className="text-xs font-extrabold text-emerald-900 mb-1 flex items-center gap-1.5">
+                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                  Donasi UTUH 100% Sampai ke Penerima
+                </p>
+                <ul className="space-y-1 mt-2">
+                  <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                    <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                    <span>Fee operasional adalah <strong>TAMBAHAN</strong> dari donor — bukan dipotong dari donasi</span>
+                  </li>
+                  <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                    <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                    <span>Donor pilih sendiri untuk opt-in fee penggalang (default OFF)</span>
+                  </li>
+                  <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                    <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                    <span>Kode unik kecil untuk verifikasi otomatis transfer</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          )}
+
+          {/* Compliance & monitoring */}
           <div className="space-y-2">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Akuntabilitas & Pengawasan
+            </p>
             {[
               { icon: 'receipt', text: 'Setiap donasi masuk tercatat dan dipublikasikan (dengan perlindungan privasi donatur)' },
               { icon: 'description', text: 'Laporan penggunaan dana wajib diupload dengan bukti transfer/kwitansi' },
@@ -325,22 +449,36 @@ export default function CampaignInfoPage() {
 
           <label className="flex cursor-pointer items-start gap-3 bg-gray-50 rounded-xl p-4">
             <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[#003526] shrink-0" />
+              className="mt-0.5 h-4 w-4 accent-[#EC4899] shrink-0" />
             <span className="text-sm text-gray-700 leading-relaxed">
               Saya memahami dan menyetujui semua syarat, ketentuan, dan komitmen transparansi BADONASI TeraLoka di atas. Saya bertanggung jawab penuh atas kebenaran informasi dan penggunaan dana yang saya galang.
             </span>
           </label>
 
           <button onClick={handleLanjut} disabled={!agreed}
-            className="w-full bg-[#003526] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 transition-opacity flex items-center justify-center gap-2">
+            className="w-full bg-gradient-to-r from-[#003526] to-[#BE185D] hover:from-[#1B6B4A] hover:to-[#EC4899] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
             <span className="material-symbols-outlined text-lg">volunteer_activism</span>
-            {user ? 'Lanjut Buat Campaign →' : 'Login & Lanjut Buat Campaign →'}
+            {user ? 'Saya Siap, Lanjut Buat Campaign →' : 'Login & Lanjut Buat Campaign →'}
           </button>
+
+          {/* Trust signals */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {[
+              { icon: 'verified', text: 'Verifikasi Gratis' },
+              { icon: 'savings', text: 'Donasi Utuh' },
+              { icon: 'visibility', text: 'Transparan 100%' },
+            ].map(t => (
+              <div key={t.text} className="text-center">
+                <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>{t.icon}</span>
+                <p className="text-[10px] text-gray-600 font-semibold mt-0.5 leading-tight">{t.text}</p>
+              </div>
+            ))}
+          </div>
 
           {!user && (
             <p className="text-center text-xs text-gray-400">
               Belum punya akun?{' '}
-              <Link href="/login" className="text-[#003526] font-semibold hover:underline">Daftar via WhatsApp</Link>
+              <Link href="/login" className="text-[#EC4899] font-semibold hover:underline">Daftar via WhatsApp</Link>
             </p>
           )}
         </div>

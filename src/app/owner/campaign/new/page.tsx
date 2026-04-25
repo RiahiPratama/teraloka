@@ -1,637 +1,459 @@
 'use client';
 
-import { useState } from 'react';
-import ImageUpload from '@/components/ui/ImageUpload';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Siren } from 'lucide-react';
-import FeeModeSection from '@/components/owner/campaign/FeeModeSection';
+import Link from 'next/link';
+import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Loader2 } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
-
-const BANKS = [
-  { value: 'Bank Maluku Utara', label: '🏦 Bank Maluku Utara (Lokal)', local: true },
-  { value: 'BRI', label: 'BRI — Bank Rakyat Indonesia' },
-  { value: 'BNI', label: 'BNI — Bank Negara Indonesia' },
-  { value: 'Bank Mandiri', label: 'Bank Mandiri' },
-  { value: 'BSI', label: 'BSI — Bank Syariah Indonesia' },
-  { value: 'BCA', label: 'BCA — Bank Central Asia' },
-  { value: 'BTN', label: 'BTN — Bank Tabungan Negara' },
-  { value: 'CIMB Niaga', label: 'CIMB Niaga' },
-  { value: 'Bank Danamon', label: 'Bank Danamon' },
-  { value: 'Permata Bank', label: 'Permata Bank' },
-  { value: 'Bank Muamalat', label: 'Bank Muamalat' },
-  { value: 'Bank Mega', label: 'Bank Mega' },
-  { value: 'OCBC NISP', label: 'OCBC NISP' },
-  { value: 'Maybank', label: 'Maybank Indonesia' },
-  { value: 'Bank Bukopin', label: 'Bank Bukopin' },
-  { value: 'Bank Maluku', label: 'Bank Maluku' },
-  { value: 'Bank Papua', label: 'Bank Papua' },
-  { value: 'BPD Maluku Utara', label: 'BPD Maluku Utara' },
-  { value: 'Lainnya', label: 'Lainnya (ketik manual)' },
-];
-
-// Kategori kemanusiaan — icon pakai Lucide (modern, konsisten dengan seluruh app).
-// Warna tint per kategori biar gampang dikenali secara visual.
-const CATEGORIES = [
-  { key: 'kesehatan',      label: 'Kesehatan',      Icon: Stethoscope,   color: '#D85A30', desc: 'Biaya pengobatan, operasi, perawatan' },
-  { key: 'bencana',        label: 'Bencana Alam',   Icon: CloudRainWind, color: '#378ADD', desc: 'Banjir, gempa, tanah longsor' },
-  { key: 'duka',           label: 'Duka / Musibah', Icon: Flower,        color: '#888780', desc: 'Biaya pemakaman, musibah mendadak' },
-  { key: 'anak_yatim',     label: 'Anak Yatim',     Icon: Baby,          color: '#E8963A', desc: 'Beasiswa, kebutuhan anak kurang mampu' },
-  { key: 'lansia',         label: 'Lansia',         Icon: UserRound,     color: '#BA7517', desc: 'Bantuan orang tua tidak mampu' },
-  { key: 'hunian_darurat', label: 'Hunian Darurat', Icon: Home,          color: '#0891B2', desc: 'Rumah rusak, tidak layak huni' },
+const REQUIREMENTS = [
+  {
+    icon: 'person',
+    title: 'Warga Maluku Utara',
+    desc: 'Penggalang dana adalah warga yang berdomisili atau terdaftar sebagai pengguna TeraLoka dengan nomor WA terverifikasi.',
+  },
+  {
+    icon: 'badge',
+    title: 'KYC Wajib (1-3 Hari Kerja)',
+    desc: 'Verifikasi identitas via KTP/KK/Akta. Dokumen disimpan terenkripsi dan hanya dilihat tim verifikasi TeraLoka. Estimasi proses 1-3 hari kerja.',
+  },
+  {
+    icon: 'volunteer_activism',
+    title: 'Kategori Kemanusiaan',
+    desc: 'Campaign hanya untuk kebutuhan kemanusiaan: kesehatan, bencana, duka/musibah, anak yatim, lansia, atau hunian darurat.',
+  },
+  {
+    icon: 'account_balance',
+    title: 'Rekening Atas Nama Penggalang',
+    desc: 'Default: rekening PRIBADI atas nama penggalang dana. Untuk kampanye komunitas: rekening lembaga/komunitas terdaftar boleh digunakan jika sudah partnership resmi dengan TeraLoka.',
+  },
+  {
+    icon: 'receipt_long',
+    title: 'Laporan Penggunaan Dana',
+    desc: 'Penggalang wajib upload laporan penggunaan dana beserta bukti setiap Rp 1.000.000 yang digunakan.',
+  },
 ];
 
 const STEPS = [
-  { label: 'Data Penerima', icon: 'person' },
-  { label: 'Detail Campaign', icon: 'campaign' },
-  { label: 'Rekening Partner', icon: 'account_balance' },
-  { label: 'Review', icon: 'fact_check' },
+  { num: 1, icon: 'edit_note', label: 'Isi Formulir', desc: 'Data penerima, cerita, target dana, dan rekening partner' },
+  { num: 2, icon: 'pending_actions', label: 'Verifikasi Admin', desc: 'Tim TeraLoka meninjau dalam 1×24 jam' },
+  { num: 3, icon: 'campaign', label: 'Campaign Aktif', desc: 'Campaign tampil di BADONASI dan bisa menerima donasi' },
 ];
 
-function formatRupiah(val: string) {
-  return val.replace(/\D/g, '').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-}
+const COMMITMENTS = [
+  '100% donasi sampai ke penerima — TIDAK ada potongan dari nominal donasi',
+  'Fee operasional adalah TAMBAHAN dari donor (bukan dipotong dari donasi)',
+  'Dana masuk ke rekening sesuai pilihan kampanye (pribadi atau komunitas partner)',
+  'Semua laporan penggunaan dana dipublikasikan secara terbuka',
+  'Tim TeraLoka berhak menghentikan campaign jika ada pelanggaran',
+  'Identitas donatur dilindungi sesuai preferensi mereka',
+];
 
-export default function NewCampaignPage() {
+export default function CampaignInfoPage() {
+  const { user, token, isLoading: authLoading } = useAuth();
   const router = useRouter();
-  const { user, token } = useAuth();
+  const [agreed, setAgreed] = useState(false);
 
-  const [step, setStep]       = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [error, setError]     = useState('');
-  const [submitted, setSubmitted] = useState(false);
-  const [coverUrl, setCoverUrl]   = useState('');
-  const [proofDocs, setProofDocs] = useState<string[]>([]);   // ⭐ NEW: dokumen pendukung
-  const [idDocs, setIdDocs] = useState<string[]>([]);         // ⭐ NEW: identitas penerima (RAHASIA, admin only)
+  // ⭐ FIX-E: KYC profile state
+  const [kycChecking, setKycChecking] = useState(true);
+  const [kycComplete, setKycComplete] = useState<boolean | null>(null);
 
-  // Step 0
-  const [beneficiaryName, setBeneficiaryName] = useState('');
-  const [beneficiaryRelation, setBeneficiaryRelation] = useState('');
-  const [category, setCategory] = useState('');
+  // ⭐ FIX-E: Pre-check creator profile on mount
+  // Auto-redirect kalau profile belum lengkap — user ga perlu baca preface
+  // dulu, langsung dibawa ke flow KYC. After complete, return ke sini.
+  useEffect(() => {
+    if (authLoading) return;
 
-  // Step 1
-  const [title, setTitle]           = useState('');
-  const [description, setDescription] = useState('');
-  const [targetAmount, setTargetAmount] = useState('');
-  const [deadline, setDeadline]     = useState('');
-  const [isUrgent, setIsUrgent]     = useState(false);
+    // Belum login? Skip check, biarkan handleLanjut yang handle redirect login
+    if (!user || !token) {
+      setKycChecking(false);
+      return;
+    }
 
-  // Step 2
-  const [isIndependent, setIsIndependent] = useState(false); // ⭐ NEW: penggalang perorangan/komunitas
-  const [partnerName, setPartnerName]     = useState('');
-  const [bankValue, setBankValue]         = useState('');
-  const [bankCustom, setBankCustom]       = useState('');
-  const [bankAccountNumber, setBankAccountNumber] = useState('');
-  const [bankAccountName, setBankAccountName] = useState('');
+    const checkProfile = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/me/creator-profile`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
 
-  // ⭐ FIX-FEE: Mode operasional kampanye
-  const [operationalFeeMode, setOperationalFeeMode] = useState<'volunteer' | 'professional'>('volunteer');
-  const [penggalangFeePercent, setPenggalangFeePercent] = useState<number>(0);
+        if (!res.ok) {
+          // Kalau API error, biarkan user lanjut — error akan muncul di backend
+          setKycComplete(true);
+          return;
+        }
 
-  const bankName = bankValue === 'Lainnya' ? bankCustom : bankValue;
+        const json = await res.json();
+        const isComplete = json?.data?.is_complete === true;
+        setKycComplete(isComplete);
 
-  if (!user || !token) return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4">
-      <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-[#003526]/10 flex items-center justify-center">
-          <span className="material-symbols-outlined text-[#003526] text-3xl">lock</span>
-        </div>
-        <h2 className="text-lg font-bold text-gray-900">Login Diperlukan</h2>
-        <p className="mt-2 text-sm text-gray-500">Kamu harus login untuk mengajukan campaign BADONASI.</p>
-        <button onClick={() => router.push('/login')} className="mt-5 w-full rounded-xl bg-[#003526] px-6 py-3 text-sm font-bold text-white">Login Sekarang</button>
-      </div>
-    </div>
-  );
+        // Auto-redirect kalau belum lengkap
+        if (!isComplete) {
+          router.replace(
+            `/owner/profile/complete?return=${encodeURIComponent('/owner/campaign/new/info')}`
+          );
+        }
+      } catch {
+        // Network error — biarkan user lanjut, backend tetap akan block
+        setKycComplete(true);
+      } finally {
+        setKycChecking(false);
+      }
+    };
 
-  // ⭐ Success state — redirect ke dashboard penggalang (BUKAN /fundraising)
-  if (submitted) return (
-    <div className="flex min-h-[70vh] items-center justify-center px-4">
-      <div className="w-full max-w-sm text-center">
-        <div className="mx-auto mb-4 w-20 h-20 rounded-full bg-[#003526] flex items-center justify-center">
-          <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
-        </div>
-        <h2 className="text-xl font-bold text-gray-900">Campaign Diajukan!</h2>
-        <p className="mt-2 text-sm text-gray-500 leading-relaxed">
-          Tim TeraLoka akan memverifikasi dalam 1×24 jam. Setelah disetujui, campaign tampil di BADONASI.
-        </p>
-        <div className="mt-3 rounded-xl bg-amber-50 border border-amber-100 px-4 py-3 text-left">
-          <p className="text-xs text-amber-700 flex items-start gap-2">
-            <span className="material-symbols-outlined text-sm shrink-0">info</span>
-            Dana donasi masuk ke rekening komunitas partner. Laporan penggunaan dana wajib diupload secara berkala.
-          </p>
-        </div>
-        <div className="mt-5 space-y-2">
-          {/* ⭐ Primary CTA — ke dashboard penggalang */}
-          <button
-            onClick={() => router.push('/owner/campaign')}
-            className="w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white hover:opacity-90 transition-opacity"
-          >
-            Lihat Kampanye Saya →
-          </button>
-          {/* Secondary — ke BADONASI public */}
-          <button
-            onClick={() => router.push('/fundraising')}
-            className="w-full rounded-xl border border-gray-200 py-3 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            Kembali ke BADONASI
-          </button>
-        </div>
-      </div>
-    </div>
-  );
+    checkProfile();
+  }, [authLoading, user, token, router]);
 
-  const handleSubmit = async () => {
-    setLoading(true); setError('');
-    try {
-      const res = await fetch(`${API}/funding/campaigns`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          title, description, category,
-          cover_image_url: coverUrl || null,
-          proof_documents: proofDocs,       // ⭐ NEW: kirim dokumen pendukung
-          beneficiary_id_documents: idDocs, // ⭐ NEW: identitas penerima (rahasia)
-          beneficiary_name: beneficiaryName,
-          beneficiary_relation: beneficiaryRelation,
-          target_amount: Number(targetAmount.replace(/\D/g, '')),
-          bank_name: bankName,
-          bank_account_number: bankAccountNumber,
-          bank_account_name: bankAccountName,
-          deadline: deadline || null,
-          is_urgent: isUrgent,
-          is_independent: isIndependent,   // ⭐ NEW: perorangan/komunitas flag
-          partner_name: partnerName,
-          // ⭐ FIX-FEE: Mode operasional
-          operational_fee_mode: operationalFeeMode,
-          penggalang_fee_percent: penggalangFeePercent,
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) setSubmitted(true);
-      else setError(data.error?.message ?? 'Gagal mengajukan campaign.');
-    } catch { setError('Koneksi bermasalah. Coba lagi.'); }
-    finally { setLoading(false); }
+  const handleLanjut = () => {
+    if (!agreed) return;
+    if (!user) {
+      router.push('/login?redirect=/owner/campaign/new/info');
+      return;
+    }
+    // Defensive: kalau KYC belum lengkap (race condition), redirect ke complete
+    if (kycComplete === false) {
+      router.push(
+        `/owner/profile/complete?return=${encodeURIComponent('/owner/campaign/new/info')}`
+      );
+      return;
+    }
+    router.push('/owner/campaign/new');
   };
 
-  // ⭐ Step 1 validation expanded: cover + proof_documents required
-  // ⭐ FIX-FEE: Step 2 validation expanded: kalau professional, percent harus > 0
-  const canNext = [
-    !!(beneficiaryName.trim() && beneficiaryRelation.trim() && category && idDocs.length >= 1),
-    !!(
-      title.trim().length >= 10 &&
-      description.trim().length >= 30 &&
-      targetAmount &&
-      coverUrl &&                  // ⭐ Cover wajib
-      proofDocs.length >= 1        // ⭐ Min 1 dokumen pendukung
-    ),
-    !!(
-      partnerName.trim() &&
-      bankName.trim() &&
-      bankAccountNumber.trim() &&
-      bankAccountName.trim() &&
-      // ⭐ FIX-FEE: kalau professional mode, percent harus > 0
-      (operationalFeeMode === 'volunteer' || (operationalFeeMode === 'professional' && penggalangFeePercent > 0))
-    ),
-    true,
-  ][step];
-
-  const selectedCat = CATEGORIES.find(c => c.key === category);
+  // ⭐ FIX-E: Loading state while checking KYC
+  // (mencegah flicker preface-content saat akan auto-redirect)
+  if (authLoading || kycChecking || (user && kycComplete === false)) {
+    return (
+      <div className="min-h-screen bg-[#f9f9f8] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="animate-spin text-[#003526] mx-auto mb-3" size={32} />
+          <p className="text-sm text-gray-600">
+            {kycComplete === false ? 'Mengarahkan ke halaman verifikasi...' : 'Memuat...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f9f9f8]">
-      {/* Header */}
-      <div className="bg-[#003526] px-6 pt-8 pb-10">
-        <div className="mx-auto max-w-lg">
-          <button onClick={() => router.back()} className="flex items-center gap-1 text-[#95d3ba] text-sm mb-4 hover:text-white transition-colors">
-            <span className="material-symbols-outlined text-sm">arrow_back</span> Kembali
-          </button>
-          <h1 className="text-xl font-extrabold text-white">Ajukan Campaign</h1>
-          <p className="text-sm text-[#95d3ba] mt-1">BADONASI — Galang Dana Kemanusiaan Maluku Utara</p>
-        </div>
-      </div>
 
-      <div className="mx-auto max-w-lg px-4 -mt-4 pb-24">
+      {/* Hero */}
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-10 pb-14 relative overflow-hidden">
+        {/* Pink accent decoration */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#EC4899] rounded-full opacity-5 blur-3xl"></div>
 
-        {/* Step indicator */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-          <div className="flex items-center">
-            {STEPS.map((s, i) => (
-              <div key={i} className="flex items-center flex-1 last:flex-none">
-                <div className="flex flex-col items-center">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                    i < step ? 'bg-[#003526] text-white' :
-                    i === step ? 'border-2 border-[#003526] text-[#003526]' :
-                    'bg-gray-100 text-gray-400'
-                  }`}>
-                    {i < step ? <span className="material-symbols-outlined text-sm">check</span> : i + 1}
-                  </div>
-                  <span className={`text-xs mt-1 font-medium hidden sm:block whitespace-nowrap ${i === step ? 'text-[#003526]' : 'text-gray-400'}`}>{s.label}</span>
-                </div>
-                {i < STEPS.length - 1 && <div className={`flex-1 h-0.5 mx-1 mb-4 ${i < step ? 'bg-[#003526]' : 'bg-gray-200'}`} />}
+        <div className="mx-auto max-w-lg text-center relative z-10">
+          <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-4 py-2 mb-5 border border-[#EC4899]/30">
+            <span className="material-symbols-outlined text-[#F9A8D4] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>volunteer_activism</span>
+            <span className="text-xs font-bold text-[#F9A8D4] uppercase tracking-wider">BADONASI TeraLoka</span>
+          </div>
+          <h1 className="text-3xl font-extrabold text-white leading-tight tracking-tight">
+            Galang Dana<br />untuk <span className="text-[#F472B6]">Sesama</span>
+          </h1>
+          <p className="mt-3 text-[#95d3ba] text-sm leading-relaxed max-w-sm mx-auto">
+            Platform galang dana kemanusiaan untuk warga Maluku Utara. Transparan, terpercaya, dan <strong className="text-[#F472B6]">100% donasi sampai ke penerima</strong>.
+          </p>
+
+          {/* Stats */}
+          <div className="grid grid-cols-3 gap-3 mt-8">
+            {[
+              { label: '100% Sampai Penerima', value: 'Rp 0', icon: 'money_off', sublabel: 'Potongan' },
+              { label: 'Verifikasi KYC', value: '1-3 hari', icon: 'verified', sublabel: 'Estimasi' },
+              { label: 'Review Campaign', value: '1×24 jam', icon: 'schedule', sublabel: 'Proses' },
+            ].map(s => (
+              <div key={s.label} className="bg-white/10 backdrop-blur-sm rounded-2xl p-3 border border-white/5">
+                <span className="material-symbols-outlined text-[#F9A8D4] text-lg" style={{ fontVariationSettings: "'FILL' 1" }}>{s.icon}</span>
+                <p className="text-white font-extrabold text-base mt-1">{s.value}</p>
+                <p className="text-[#95d3ba]/70 text-[10px] uppercase tracking-wide font-bold">{s.sublabel}</p>
+                <p className="text-[#95d3ba]/60 text-[10px] mt-0.5 leading-tight">{s.label}</p>
               </div>
             ))}
           </div>
-          <p className="text-xs text-center text-[#003526] font-semibold mt-2 sm:hidden">
-            Langkah {step + 1}: {STEPS[step].label}
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-lg px-4 -mt-5 pb-24 space-y-4">
+
+        {/* Alur pendaftaran */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#003526] text-lg">route</span>
+            Alur Pendaftaran Campaign
+          </h2>
+          <div className="space-y-4">
+            {STEPS.map((s, i) => (
+              <div key={s.num} className="flex gap-4">
+                <div className="flex flex-col items-center">
+                  <div className="w-9 h-9 rounded-full bg-[#003526] text-white flex items-center justify-center text-sm font-bold shrink-0">
+                    {s.num}
+                  </div>
+                  {i < STEPS.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 mt-1 mb-0" style={{ minHeight: 24 }} />}
+                </div>
+                <div className="flex-1 pb-4">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="material-symbols-outlined text-[#003526] text-base">{s.icon}</span>
+                    <p className="text-sm font-bold text-gray-900">{s.label}</p>
+                  </div>
+                  <p className="text-xs text-gray-500 leading-relaxed">{s.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Syarat & ketentuan */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#003526] text-lg">checklist</span>
+            Syarat Penggalang Dana
+          </h2>
+          <div className="space-y-3">
+            {REQUIREMENTS.map(req => (
+              <div key={req.title} className="flex gap-3 p-3 bg-gray-50 rounded-xl">
+                <div className="w-9 h-9 rounded-xl bg-[#003526]/8 flex items-center justify-center shrink-0">
+                  <span className="material-symbols-outlined text-[#003526] text-base">{req.icon}</span>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-gray-800">{req.title}</p>
+                  <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">{req.desc}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Komitmen TeraLoka */}
+        <div className="bg-[#003526]/5 border border-[#003526]/10 rounded-2xl p-5">
+          <h2 className="text-sm font-bold text-[#003526] mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+            Komitmen TeraLoka BADONASI
+          </h2>
+          <ul className="space-y-2">
+            {COMMITMENTS.map((c, i) => (
+              <li key={i} className="flex items-start gap-2 text-xs text-gray-700">
+                <span className="material-symbols-outlined text-[#003526] text-sm shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                {c}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        {/* Perlindungan Data Identitas */}
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+          <h2 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-base text-blue-600" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
+            Perlindungan Data Identitas
+          </h2>
+          <p className="text-xs text-blue-900 leading-relaxed mb-3">
+            <strong>TeraLoka memisahkan dokumen identitas (KTP/KK/Akta) dari dokumen bukti pendukung:</strong>
+          </p>
+          <div className="space-y-2.5">
+            <div className="flex items-start gap-2.5 bg-white/60 rounded-lg p-3">
+              <span className="material-symbols-outlined text-base shrink-0 text-red-600 mt-0.5">visibility_off</span>
+              <div className="text-xs text-blue-900 leading-relaxed">
+                <strong className="font-bold">🔒 Identitas Penerima (RAHASIA)</strong>
+                <br />
+                Foto KTP, KK, Akta Kelahiran <strong>HANYA dilihat tim verifikasi TeraLoka</strong>. Tidak akan ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP (Perlindungan Data Pribadi).
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 bg-white/60 rounded-lg p-3">
+              <span className="material-symbols-outlined text-base shrink-0 text-emerald-600 mt-0.5">visibility</span>
+              <div className="text-xs text-blue-900 leading-relaxed">
+                <strong className="font-bold">🌐 Dokumen Pendukung (PUBLIK)</strong>
+                <br />
+                Foto lokasi, surat dokter (KTP/NIK diblur), surat keterangan kelurahan — <strong>ditampilkan ke donor</strong> untuk transparansi dan kepercayaan.
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-blue-700 mt-3 italic leading-relaxed">
+            ⚠️ Jangan upload KTP atau dokumen ber-NIK di bagian "Dokumen Pendukung". Saat upload bukti, redaksi/blur informasi sensitif terlebih dahulu.
           </p>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-          <div className="p-5">
-
-            {/* Step 0 */}
-            {step === 0 && (
-              <div className="space-y-5">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Data Penerima Manfaat</p>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Penerima Manfaat</label>
-                  <input type="text" value={beneficiaryName} onChange={e => setBeneficiaryName(e.target.value)}
-                    placeholder="Nama lengkap yang dibantu"
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Hubungan dengan Pengaju</label>
-                  <input type="text" value={beneficiaryRelation} onChange={e => setBeneficiaryRelation(e.target.value)}
-                    placeholder="Contoh: diri sendiri, keluarga, tetangga, warga"
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3 block">Kategori Kemanusiaan</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {CATEGORIES.map(cat => {
-                      const CatIcon = cat.Icon;
-                      const isActive = category === cat.key;
-                      return (
-                        <button key={cat.key} onClick={() => setCategory(cat.key)}
-                          className={`flex items-start gap-3 p-3.5 rounded-xl text-left border-2 transition-all ${
-                            isActive ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                          }`}>
-                          <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                            style={{ background: `${cat.color}15`, border: `0.5px solid ${cat.color}40` }}>
-                            <CatIcon size={18} strokeWidth={2} style={{ color: cat.color }} />
-                          </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs font-bold ${isActive ? 'text-[#003526]' : 'text-gray-700'}`}>{cat.label}</p>
-                            <p className="text-xs text-gray-400 mt-0.5 leading-tight">{cat.desc}</p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* ⭐ NEW: Identitas Penerima Manfaat (RAHASIA, admin-only) */}
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
-                    <span className="material-symbols-outlined text-sm text-[#003526]">lock</span>
-                    Identitas Penerima Manfaat
-                    <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">RAHASIA</span>
-                  </label>
-
-                  <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mt-2">
-                    <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
-                      <span className="material-symbols-outlined text-sm shrink-0 text-blue-600">verified_user</span>
-                      <span>
-                        <strong className="font-bold">🔒 Hanya admin TeraLoka yang bisa lihat.</strong> Identitas penerima TIDAK ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP.
-                      </span>
-                    </p>
-                  </div>
-
-                  <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mt-2">
-                    <p className="text-[11px] text-amber-800 leading-relaxed">
-                      <strong className="font-bold">Upload 1-3 file</strong> sesuai kondisi penerima:
-                      <br />🪪 <strong>KTP penerima</strong> (bila dewasa)
-                      <br />👨‍👧 <strong>KTP Wali + Akta Kelahiran</strong> (bila anak-anak)
-                      <br />📋 <strong>Kartu Keluarga (KK)</strong> sebagai alternatif
-                      <br />📃 <strong>Surat Keterangan RT/RW/Kelurahan</strong> (kasus tanpa dokumen formal)
-                    </p>
-                  </div>
-
-                  <div className="mt-3">
-                    <ImageUpload bucket="campaigns" label=""
-                      maxFiles={3} maxSizeMB={5}
-                      onUpload={(urls: string[]) => setIdDocs(urls)}
-                      existingUrls={idDocs} />
-                    {idDocs.length > 0 && (
-                      <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
-                        <span className="material-symbols-outlined text-sm">check_circle</span>
-                        {idDocs.length} file identitas tersimpan (rahasia)
-                      </p>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Step 1 */}
-            {step === 1 && (
-              <div className="space-y-5">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Detail Campaign</p>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Judul Campaign</label>
-                  <input type="text" value={title} onChange={e => setTitle(e.target.value)}
-                    placeholder="Contoh: Bantu Ibu Fatima Biaya Operasi"
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                  <p className="mt-1 text-right text-xs text-gray-400">{title.length}/100</p>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Cerita & Kebutuhan</label>
-                  <textarea value={description} onChange={e => setDescription(e.target.value)}
-                    placeholder="Ceritakan kondisi penerima, kebutuhan mendesak, dan bagaimana dana akan digunakan..."
-                    rows={6} className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] resize-none" />
-                  <p className="mt-1 text-right text-xs text-gray-400">{description.length} karakter (min. 30)</p>
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Target Dana</label>
-                  <div className="relative mt-2">
-                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">Rp</span>
-                    <input type="text" value={targetAmount} onChange={e => setTargetAmount(formatRupiah(e.target.value))}
-                      placeholder="5.000.000"
-                      className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm outline-none focus:border-[#003526]" />
-                  </div>
-                </div>
-
-                {/* ⭐ Foto Cover — required */}
-                <div>
-                  <ImageUpload bucket="campaigns" label="Foto Cover Campaign"
-                    onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
-                    existingUrls={coverUrl ? [coverUrl] : []} />
-                  <p className="mt-1.5 text-xs text-gray-500">
-                    Foto utama yang ditampilkan di halaman kampanye (wajib).
-                  </p>
-                </div>
-
-                {/* ⭐ NEW: Dokumen Pendukung — required min 1 */}
-                <div>
-                  <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mb-3">
-                    <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
-                      <span className="material-symbols-outlined text-sm shrink-0 text-blue-600">verified_user</span>
-                      <span>
-                        <strong className="font-bold">Dokumen Pendukung (Wajib)</strong>
-                        <br />
-                        Upload bukti kondisi penerima untuk verifikasi tim TeraLoka.
-                        Contoh: KTP, surat dokter, foto lokasi, surat kelurahan, dll.
-                      </span>
-                    </p>
-                  </div>
-                  <ImageUpload bucket="campaigns" label="Upload Dokumen (minimal 1, bisa lebih)"
-                    maxFiles={5} maxSizeMB={5}
-                    onUpload={(urls: string[]) => setProofDocs(urls)}
-                    existingUrls={proofDocs} />
-                  {proofDocs.length > 0 && (
-                    <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm">check_circle</span>
-                      {proofDocs.length} dokumen tersimpan
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    Batas Waktu <span className="text-gray-300 font-normal">(Opsional)</span>
-                  </label>
-                  <input type="date" value={deadline} onChange={e => setDeadline(e.target.value)}
-                    min={new Date().toISOString().split('T')[0]}
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                </div>
-                <label className="flex cursor-pointer items-start gap-3 p-4 rounded-xl bg-red-50 border border-red-100">
-                  <input type="checkbox" checked={isUrgent} onChange={e => setIsUrgent(e.target.checked)} className="mt-0.5 h-4 w-4 accent-red-600" />
-                  <div>
-                    <p className="text-sm font-bold text-red-700">🚨 Tandai sebagai Mendesak</p>
-                    <p className="text-xs text-red-500 mt-0.5">Campaign akan diprioritaskan di halaman utama BADONASI</p>
-                  </div>
-                </label>
-              </div>
-            )}
-
-            {/* Step 2 — Bank dropdown */}
-            {step === 2 && (
-              <div className="space-y-5">
-                <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
-                    {isIndependent ? 'Rekening Penggalang Pribadi' : 'Rekening Komunitas Partner'}
-                  </p>
-                  <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mt-3">
-                    <p className="text-xs text-amber-800 leading-relaxed flex items-start gap-2">
-                      <span className="material-symbols-outlined text-sm shrink-0 text-amber-600">info</span>
-                      Dana donasi masuk langsung ke rekening {isIndependent ? 'penggalang' : 'komunitas partner'}. TeraLoka hanya mempublish laporan dana untuk transparansi publik.
-                    </p>
-                  </div>
-                </div>
-
-                {/* ⭐ NEW: Toggle Perorangan / Komunitas */}
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">
-                    Penggalang Atas Nama
-                  </label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsIndependent(false);
-                        // Clear partner_name kalau pindah dari perorangan ke komunitas
-                        if (isIndependent) setPartnerName('');
-                      }}
-                      className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
-                        !isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className="text-2xl">🏢</span>
-                      <p className={`text-xs font-bold ${!isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
-                        Komunitas / Lembaga
-                      </p>
-                      <p className="text-[10px] text-gray-400 leading-tight">
-                        Yayasan, panti, ormas, dll
-                      </p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsIndependent(true);
-                        // Pre-fill partner_name dengan nama user kalau pindah ke perorangan
-                        if (!isIndependent && user?.name) setPartnerName(user.name);
-                      }}
-                      className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
-                        isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                      }`}
-                    >
-                      <span className="text-2xl">👤</span>
-                      <p className={`text-xs font-bold ${isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
-                        Perorangan / Pribadi
-                      </p>
-                      <p className="text-[10px] text-gray-400 leading-tight">
-                        Saya sendiri yang menggalang
-                      </p>
-                    </button>
-                  </div>
-
-                  {/* Reminder buat perorangan */}
-                  {isIndependent && (
-                    <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
-                      <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
-                        <span className="material-symbols-outlined text-sm shrink-0 text-blue-600">verified_user</span>
-                        Penggalang perorangan akan diverifikasi extra ketat oleh tim TeraLoka. Pastikan dokumen pendukung lengkap dan kuat.
-                      </p>
+        {/* Kategori yang diizinkan */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#003526] text-lg">category</span>
+            Kategori yang Diizinkan
+          </h2>
+          <div className="grid grid-cols-3 gap-2">
+            {[
+              { Icon: Stethoscope,   label: 'Kesehatan',       color: '#D85A30' },
+              { Icon: CloudRainWind, label: 'Bencana',         color: '#378ADD' },
+              { Icon: Flower,        label: 'Duka',            color: '#888780' },
+              { Icon: Baby,          label: 'Anak Yatim',      color: '#E8963A' },
+              { Icon: UserRound,     label: 'Lansia',          color: '#BA7517' },
+              { Icon: Home,          label: 'Hunian Darurat',  color: '#0891B2' },
+            ].map(c => {
+              const CIcon = c.Icon;
+              return (
+                <div key={c.label} className="text-center bg-gray-50 rounded-xl p-3">
+                  <div className="flex justify-center mb-1.5">
+                    <div className="w-10 h-10 rounded-lg flex items-center justify-center"
+                      style={{ background: `${c.color}15`, border: `0.5px solid ${c.color}40` }}>
+                      <CIcon size={20} strokeWidth={2} style={{ color: c.color }} />
                     </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                    {isIndependent ? 'Nama Penggalang' : 'Nama Komunitas / Lembaga Partner'}
-                  </label>
-                  <input type="text" value={partnerName} onChange={e => setPartnerName(e.target.value)}
-                    placeholder={isIndependent ? 'Nama lengkap kamu' : 'Contoh: Yayasan Peduli Maluku Utara'}
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                </div>
-
-                {/* Bank dropdown */}
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Bank</label>
-                  <select value={bankValue} onChange={e => setBankValue(e.target.value)}
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] bg-white appearance-none cursor-pointer">
-                    <option value="">— Pilih Bank —</option>
-                    <optgroup label="🏦 Bank Lokal Maluku Utara">
-                      {BANKS.filter(b => b.local).map(b => (
-                        <option key={b.value} value={b.value}>{b.label}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="🏛️ Bank Nasional">
-                      {BANKS.filter(b => !b.local && b.value !== 'Lainnya').map(b => (
-                        <option key={b.value} value={b.value}>{b.label}</option>
-                      ))}
-                    </optgroup>
-                    <optgroup label="Lainnya">
-                      <option value="Lainnya">Lainnya (ketik manual)</option>
-                    </optgroup>
-                  </select>
-                  {bankValue === 'Lainnya' && (
-                    <input type="text" value={bankCustom} onChange={e => setBankCustom(e.target.value)}
-                      placeholder="Nama bank..."
-                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                  )}
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Pemilik Rekening</label>
-                  <input type="text" value={bankAccountName} onChange={e => setBankAccountName(e.target.value)}
-                    placeholder="Sesuai nama di buku tabungan"
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                </div>
-
-                <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nomor Rekening</label>
-                  <input type="text" value={bankAccountNumber}
-                    onChange={e => setBankAccountNumber(e.target.value.replace(/\D/g, ''))}
-                    placeholder="Nomor rekening tanpa spasi"
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] font-mono tracking-wider" />
-                </div>
-
-                {/* Preview rekening */}
-                {bankName && bankAccountNumber && bankAccountName && (
-                  <div className="rounded-xl bg-green-50 border border-green-100 p-4">
-                    <p className="text-xs font-bold text-green-700 mb-2 flex items-center gap-1">
-                      <span className="material-symbols-outlined text-sm">account_balance</span>
-                      Preview Rekening Donasi
-                    </p>
-                    <p className="text-base font-black text-gray-900">{bankName}</p>
-                    <p className="text-xl font-mono font-bold text-[#003526] mt-0.5">{bankAccountNumber}</p>
-                    <p className="text-sm text-gray-600">a/n {bankAccountName}</p>
                   </div>
-                )}
-
-                {/* ⭐ FIX-FEE: Mode Operasional Section */}
-                <div className="pt-4 border-t border-gray-100">
-                  <FeeModeSection
-                    mode={operationalFeeMode}
-                    percent={penggalangFeePercent}
-                    onModeChange={setOperationalFeeMode}
-                    onPercentChange={setPenggalangFeePercent}
-                  />
+                  <p className="text-xs font-semibold text-gray-700">{c.label}</p>
                 </div>
-              </div>
-            )}
-
-            {/* Step 3: Review */}
-            {step === 3 && (
-              <div className="space-y-4">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Review Campaign</p>
-                {selectedCat && (() => {
-                  const SelectedIcon = selectedCat.Icon;
-                  return (
-                    <div className="flex items-center gap-3 p-3 bg-[#003526]/5 rounded-xl">
-                      <div className="w-11 h-11 rounded-lg flex items-center justify-center shrink-0"
-                        style={{ background: `${selectedCat.color}15`, border: `0.5px solid ${selectedCat.color}40` }}>
-                        <SelectedIcon size={22} strokeWidth={2} style={{ color: selectedCat.color }} />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Kategori</p>
-                        <p className="text-sm font-bold text-[#003526]">{selectedCat.label}</p>
-                      </div>
-                    </div>
-                  );
-                })()}
-                <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100">
-                  {[
-                    { label: 'Penerima Manfaat', value: `${beneficiaryName} (${beneficiaryRelation})` },
-                    { label: 'Identitas Penerima', value: `${idDocs.length} file (🔒 rahasia, admin only)` },
-                    { label: 'Judul Campaign', value: title },
-                    { label: 'Target Dana', value: `Rp ${targetAmount}` },
-                    { label: 'Tipe Penggalang', value: isIndependent ? '👤 Perorangan / Pribadi' : '🏢 Komunitas / Lembaga' },
-                    { label: isIndependent ? 'Nama Penggalang' : 'Komunitas Partner', value: partnerName },
-                    { label: 'Rekening Donasi', value: `${bankName} ${bankAccountNumber} a/n ${bankAccountName}` },
-                    { label: 'Dokumen Pendukung', value: `${proofDocs.length} dokumen terupload` },
-                    ...(deadline ? [{ label: 'Batas Waktu', value: new Date(deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) }] : []),
-                  ].map(item => (
-                    <div key={item.label} className="px-4 py-3">
-                      <p className="text-xs text-gray-400">{item.label}</p>
-                      <p className="text-sm font-semibold text-gray-800 mt-0.5">{item.value}</p>
-                    </div>
-                  ))}
-                </div>
-                {isUrgent && (
-                  <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 flex items-center gap-2">
-                    <Siren size={16} strokeWidth={2.2} style={{ color: '#dc2626' }} />
-                    <p className="text-xs font-bold text-red-700">Ditandai sebagai Mendesak</p>
-                  </div>
-                )}
-                <div className="rounded-xl border border-gray-100 p-4">
-                  <p className="text-xs text-gray-500 leading-relaxed">
-                    Dengan mengajukan campaign ini, saya menyatakan semua informasi benar dan bersedia mempertanggungjawabkan penggunaan dana kepada publik melalui laporan transparansi di TeraLoka.
-                  </p>
-                </div>
-                {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
-              </div>
-            )}
+              );
+            })}
           </div>
-
-          {/* Navigation buttons */}
-          <div className="px-5 pb-5 flex gap-2">
-            {step > 0 && (
-              <button onClick={() => setStep(s => s - 1)}
-                className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600 hover:bg-gray-50">
-                ← Kembali
-              </button>
-            )}
-            {step < 3 ? (
-              <button onClick={() => setStep(s => s + 1)} disabled={!canNext}
-                className="flex-1 rounded-xl bg-[#003526] py-3 text-sm font-bold text-white disabled:opacity-40">
-                Lanjut →
-              </button>
-            ) : (
-              <button onClick={handleSubmit} disabled={loading}
-                className="flex-1 rounded-xl bg-[#003526] py-3 text-sm font-bold text-white disabled:opacity-50">
-                {loading ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    Mengajukan...
-                  </span>
-                ) : '💚 Ajukan Campaign'}
-              </button>
-            )}
+          <div className="mt-3 rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+            <p className="text-xs text-red-700 flex items-start gap-2">
+              <span className="material-symbols-outlined text-sm shrink-0">block</span>
+              Campaign untuk tujuan komersial, bisnis, atau politik tidak diizinkan dan akan ditolak otomatis.
+            </p>
           </div>
         </div>
+
+        {/* Sistem Transparansi Dana — ENHANCED with anatomi 4 komponen */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <h2 className="text-sm font-bold text-gray-800 mb-1 flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#003526] text-lg">bar_chart</span>
+            Sistem Transparansi Dana
+          </h2>
+          <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+            Bagaimana donasi sampai ke penerima manfaat — transparent untuk donor dan penggalang.
+          </p>
+
+          {/* Anatomi Donasi — visual breakdown */}
+          <div className="rounded-xl bg-gradient-to-br from-[#003526]/5 to-[#EC4899]/5 border border-[#003526]/10 p-4 mb-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>account_tree</span>
+              <p className="text-xs font-extrabold text-[#003526] uppercase tracking-wider">
+                Contoh: Donor donasi Rp 50.000
+              </p>
+            </div>
+
+            {/* Visual flow */}
+            <div className="bg-white rounded-lg p-3 mb-3">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">
+                Donor Transfer Total Rp 53.234:
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-emerald-50 border border-emerald-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">👤</span>
+                    <p className="text-xs font-bold text-emerald-900">Penerima Manfaat</p>
+                  </div>
+                  <p className="text-sm font-extrabold text-emerald-700 whitespace-nowrap">Rp 50.000</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">🏢</span>
+                    <p className="text-[11px] text-gray-600">Fee TeraLoka <span className="text-[10px] text-gray-400">(operasional)</span></p>
+                  </div>
+                  <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 1.500</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-pink-50 border border-pink-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">💪</span>
+                    <p className="text-[11px] text-gray-600">Fee Penggalang <span className="text-[10px] text-[#EC4899] font-bold">(opt-in donor)</span></p>
+                  </div>
+                  <p className="text-xs font-bold text-[#BE185D] whitespace-nowrap">Rp 1.500</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-blue-50 border border-blue-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">🔐</span>
+                    <p className="text-[11px] text-gray-600">Kode Unik <span className="text-[10px] text-gray-400">(verifikasi)</span></p>
+                  </div>
+                  <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 234</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Key callout */}
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+              <p className="text-xs font-extrabold text-emerald-900 mb-1 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                Donasi UTUH 100% Sampai ke Penerima
+              </p>
+              <ul className="space-y-1 mt-2">
+                <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                  <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                  <span>Fee operasional adalah <strong>TAMBAHAN</strong> dari donor — bukan dipotong dari donasi</span>
+                </li>
+                <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                  <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                  <span>Donor pilih sendiri untuk opt-in fee penggalang (default OFF)</span>
+                </li>
+                <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                  <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                  <span>Kode unik kecil untuk verifikasi otomatis transfer</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          {/* Compliance & monitoring */}
+          <div className="space-y-2">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Akuntabilitas & Pengawasan
+            </p>
+            {[
+              { icon: 'receipt', text: 'Setiap donasi masuk tercatat dan dipublikasikan (dengan perlindungan privasi donatur)' },
+              { icon: 'description', text: 'Laporan penggunaan dana wajib diupload dengan bukti transfer/kwitansi' },
+              { icon: 'groups', text: 'Publik bisa memantau semua aktivitas dana di halaman transparansi campaign' },
+              { icon: 'gavel', text: 'Campaign yang tidak submit laporan dalam 7 hari akan dibekukan sementara' },
+            ].map((item, i) => (
+              <div key={i} className="flex items-start gap-3 py-2 border-b border-gray-50 last:border-0">
+                <span className="material-symbols-outlined text-[#003526] text-base shrink-0 mt-0.5">{item.icon}</span>
+                <p className="text-xs text-gray-600 leading-relaxed">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Agreement + CTA */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+          <h2 className="text-sm font-bold text-gray-800">Persetujuan</h2>
+
+          <label className="flex cursor-pointer items-start gap-3 bg-gray-50 rounded-xl p-4">
+            <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+              className="mt-0.5 h-4 w-4 accent-[#EC4899] shrink-0" />
+            <span className="text-sm text-gray-700 leading-relaxed">
+              Saya memahami dan menyetujui semua syarat, ketentuan, dan komitmen transparansi BADONASI TeraLoka di atas. Saya bertanggung jawab penuh atas kebenaran informasi dan penggunaan dana yang saya galang.
+            </span>
+          </label>
+
+          <button onClick={handleLanjut} disabled={!agreed}
+            className="w-full bg-gradient-to-r from-[#003526] to-[#BE185D] hover:from-[#1B6B4A] hover:to-[#EC4899] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
+            <span className="material-symbols-outlined text-lg">volunteer_activism</span>
+            {user ? 'Saya Siap, Lanjut Buat Campaign →' : 'Login & Lanjut Buat Campaign →'}
+          </button>
+
+          {/* Trust signals */}
+          <div className="grid grid-cols-3 gap-2 pt-1">
+            {[
+              { icon: 'verified', text: 'Verifikasi Gratis' },
+              { icon: 'savings', text: 'Donasi Utuh' },
+              { icon: 'visibility', text: 'Transparan 100%' },
+            ].map(t => (
+              <div key={t.text} className="text-center">
+                <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>{t.icon}</span>
+                <p className="text-[10px] text-gray-600 font-semibold mt-0.5 leading-tight">{t.text}</p>
+              </div>
+            ))}
+          </div>
+
+          {!user && (
+            <p className="text-center text-xs text-gray-400">
+              Belum punya akun?{' '}
+              <Link href="/login" className="text-[#EC4899] font-semibold hover:underline">Daftar via WhatsApp</Link>
+            </p>
+          )}
+        </div>
+
+        <p className="text-center text-xs text-gray-400 pb-4">
+          Ada pertanyaan?{' '}
+          <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer"
+            className="text-[#003526] font-semibold hover:underline">
+            Hubungi Tim TeraLoka →
+          </a>
+        </p>
       </div>
     </div>
   );
