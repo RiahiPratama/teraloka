@@ -66,6 +66,7 @@ interface Campaign {
   target_amount: number;
   deadline?: string | null;
   is_urgent: boolean;
+  is_independent?: boolean;
   partner_name?: string;
   bank_name?: string;
   bank_account_number?: string;
@@ -114,6 +115,7 @@ export default function EditCampaignPage() {
   const [proofDocs, setProofDocs] = useState<string[]>([]);
 
   const [partnerName, setPartnerName] = useState('');
+  const [isIndependent, setIsIndependent] = useState(false);
   const [bankValue, setBankValue] = useState('');
   const [bankCustom, setBankCustom] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
@@ -166,6 +168,7 @@ export default function EditCampaignPage() {
         setCoverUrl(c.cover_image_url ?? '');
         setProofDocs(c.proof_documents ?? []);
         setPartnerName(c.partner_name ?? '');
+        setIsIndependent(c.is_independent ?? false);
         setBankAccountNumber(c.bank_account_number ?? '');
         setBankAccountName(c.bank_account_name ?? '');
 
@@ -238,6 +241,7 @@ export default function EditCampaignPage() {
           bank_account_name: bankAccountName.trim(),
           deadline: deadline || null,
           is_urgent: isUrgent,
+          is_independent: isIndependent,
           partner_name: partnerName.trim(),
           proof_documents: proofDocs,
         }),
@@ -562,15 +566,17 @@ export default function EditCampaignPage() {
             />
           </FormField>
 
-          <FormField label="Dokumen Bukti (minimal 1)">
+          <FormField label="Dokumen Bukti (minimal 1, bisa lebih)">
             <ImageUpload
               bucket="campaigns"
               label=""
+              maxFiles={5}
+              maxSizeMB={5}
               onUpload={(urls: string[]) => setProofDocs(urls)}
               existingUrls={proofDocs}
             />
             <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed">
-              Upload foto/dokumen bukti kondisi penerima (KTP, surat dokter, foto lokasi, dll)
+              Upload foto/dokumen bukti kondisi penerima (KTP, surat dokter, foto lokasi, dll). Maksimal 5 file, 5MB per file.
             </p>
           </FormField>
 
@@ -606,22 +612,73 @@ export default function EditCampaignPage() {
         {/* SECTION 3: Rekening Partner */}
         <FormSection
           icon={Landmark}
-          title="Rekening Komunitas Partner"
+          title={isIndependent ? 'Rekening Penggalang Pribadi' : 'Rekening Komunitas Partner'}
           number="3"
         >
           <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-3">
             <p className="text-[11px] text-amber-800 leading-relaxed flex items-start gap-2">
               <Info size={13} className="shrink-0 mt-0.5 text-amber-600" />
-              Dana donasi masuk langsung ke rekening komunitas partner. TeraLoka hanya mempublish laporan dana untuk transparansi publik.
+              Dana donasi masuk langsung ke rekening {isIndependent ? 'penggalang' : 'komunitas partner'}. TeraLoka hanya mempublish laporan dana untuk transparansi publik.
             </p>
           </div>
 
-          <FormField label="Nama Komunitas / Lembaga Partner">
+          {/* Toggle Perorangan / Komunitas */}
+          <FormField label="Penggalang Atas Nama">
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsIndependent(false);
+                  if (isIndependent) setPartnerName('');
+                }}
+                className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
+                  !isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                <span className="text-2xl">🏢</span>
+                <p className={`text-xs font-bold ${!isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
+                  Komunitas / Lembaga
+                </p>
+                <p className="text-[10px] text-gray-400 leading-tight">
+                  Yayasan, panti, ormas, dll
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsIndependent(true);
+                  if (!isIndependent && user?.name) setPartnerName(user.name);
+                }}
+                className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
+                  isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                }`}
+              >
+                <span className="text-2xl">👤</span>
+                <p className={`text-xs font-bold ${isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
+                  Perorangan / Pribadi
+                </p>
+                <p className="text-[10px] text-gray-400 leading-tight">
+                  Saya sendiri yang menggalang
+                </p>
+              </button>
+            </div>
+
+            {isIndependent && (
+              <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
+                <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
+                  <Info size={13} className="shrink-0 mt-0.5 text-blue-600" />
+                  Penggalang perorangan akan diverifikasi extra ketat oleh tim TeraLoka. Pastikan dokumen pendukung lengkap dan kuat.
+                </p>
+              </div>
+            )}
+          </FormField>
+
+          <FormField label={isIndependent ? 'Nama Penggalang' : 'Nama Komunitas / Lembaga Partner'}>
             <input
               type="text"
               value={partnerName}
               onChange={e => setPartnerName(e.target.value)}
-              placeholder="Contoh: Yayasan Peduli Maluku Utara"
+              placeholder={isIndependent ? 'Nama lengkap kamu' : 'Contoh: Yayasan Peduli Maluku Utara'}
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
             />
           </FormField>

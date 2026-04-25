@@ -76,6 +76,7 @@ export default function NewCampaignPage() {
   const [isUrgent, setIsUrgent]     = useState(false);
 
   // Step 2
+  const [isIndependent, setIsIndependent] = useState(false); // ⭐ NEW: penggalang perorangan/komunitas
   const [partnerName, setPartnerName]     = useState('');
   const [bankValue, setBankValue]         = useState('');
   const [bankCustom, setBankCustom]       = useState('');
@@ -152,6 +153,7 @@ export default function NewCampaignPage() {
           bank_account_name: bankAccountName,
           deadline: deadline || null,
           is_urgent: isUrgent,
+          is_independent: isIndependent,   // ⭐ NEW: perorangan/komunitas flag
           partner_name: partnerName,
         }),
       });
@@ -315,6 +317,7 @@ export default function NewCampaignPage() {
                     </p>
                   </div>
                   <ImageUpload bucket="campaigns" label="Upload Dokumen (minimal 1, bisa lebih)"
+                    maxFiles={5} maxSizeMB={5}
                     onUpload={(urls: string[]) => setProofDocs(urls)}
                     existingUrls={proofDocs} />
                   {proofDocs.length > 0 && (
@@ -347,19 +350,80 @@ export default function NewCampaignPage() {
             {step === 2 && (
               <div className="space-y-5">
                 <div>
-                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">Rekening Komunitas Partner</p>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-1">
+                    {isIndependent ? 'Rekening Penggalang Pribadi' : 'Rekening Komunitas Partner'}
+                  </p>
                   <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mt-3">
                     <p className="text-xs text-amber-800 leading-relaxed flex items-start gap-2">
                       <span className="material-symbols-outlined text-sm shrink-0 text-amber-600">info</span>
-                      Dana donasi masuk langsung ke rekening komunitas partner. TeraLoka hanya mempublish laporan dana untuk transparansi publik.
+                      Dana donasi masuk langsung ke rekening {isIndependent ? 'penggalang' : 'komunitas partner'}. TeraLoka hanya mempublish laporan dana untuk transparansi publik.
                     </p>
                   </div>
                 </div>
 
+                {/* ⭐ NEW: Toggle Perorangan / Komunitas */}
                 <div>
-                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">Nama Komunitas / Lembaga Partner</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-2 block">
+                    Penggalang Atas Nama
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsIndependent(false);
+                        // Clear partner_name kalau pindah dari perorangan ke komunitas
+                        if (isIndependent) setPartnerName('');
+                      }}
+                      className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
+                        !isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="text-2xl">🏢</span>
+                      <p className={`text-xs font-bold ${!isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
+                        Komunitas / Lembaga
+                      </p>
+                      <p className="text-[10px] text-gray-400 leading-tight">
+                        Yayasan, panti, ormas, dll
+                      </p>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsIndependent(true);
+                        // Pre-fill partner_name dengan nama user kalau pindah ke perorangan
+                        if (!isIndependent && user?.name) setPartnerName(user.name);
+                      }}
+                      className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
+                        isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className="text-2xl">👤</span>
+                      <p className={`text-xs font-bold ${isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
+                        Perorangan / Pribadi
+                      </p>
+                      <p className="text-[10px] text-gray-400 leading-tight">
+                        Saya sendiri yang menggalang
+                      </p>
+                    </button>
+                  </div>
+
+                  {/* Reminder buat perorangan */}
+                  {isIndependent && (
+                    <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
+                      <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
+                        <span className="material-symbols-outlined text-sm shrink-0 text-blue-600">verified_user</span>
+                        Penggalang perorangan akan diverifikasi extra ketat oleh tim TeraLoka. Pastikan dokumen pendukung lengkap dan kuat.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                    {isIndependent ? 'Nama Penggalang' : 'Nama Komunitas / Lembaga Partner'}
+                  </label>
                   <input type="text" value={partnerName} onChange={e => setPartnerName(e.target.value)}
-                    placeholder="Contoh: Yayasan Peduli Maluku Utara"
+                    placeholder={isIndependent ? 'Nama lengkap kamu' : 'Contoh: Yayasan Peduli Maluku Utara'}
                     className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
                 </div>
 
@@ -444,7 +508,8 @@ export default function NewCampaignPage() {
                     { label: 'Penerima Manfaat', value: `${beneficiaryName} (${beneficiaryRelation})` },
                     { label: 'Judul Campaign', value: title },
                     { label: 'Target Dana', value: `Rp ${targetAmount}` },
-                    { label: 'Komunitas Partner', value: partnerName },
+                    { label: 'Tipe Penggalang', value: isIndependent ? '👤 Perorangan / Pribadi' : '🏢 Komunitas / Lembaga' },
+                    { label: isIndependent ? 'Nama Penggalang' : 'Komunitas Partner', value: partnerName },
                     { label: 'Rekening Donasi', value: `${bankName} ${bankAccountNumber} a/n ${bankAccountName}` },
                     { label: 'Dokumen Pendukung', value: `${proofDocs.length} dokumen terupload` },
                     ...(deadline ? [{ label: 'Batas Waktu', value: new Date(deadline).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) }] : []),
