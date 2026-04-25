@@ -249,7 +249,7 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
 
           {/* Target Transfer Box */}
           <div
-            className="rounded-xl border-2 p-4 space-y-1"
+            className="rounded-xl border-2 p-4 space-y-2"
             style={{ borderColor: '#003526', backgroundColor: '#f0f9f4' }}
           >
             <p className="text-xs font-medium" style={{ color: '#003526' }}>
@@ -258,9 +258,25 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
             <p className="text-3xl font-bold" style={{ color: '#003526' }}>
               Rp {formatRp(donation.total_transfer)}
             </p>
-            <p className="text-xs text-gray-600">
-              Donasi Rp {formatRp(donation.amount)} + Fee Rp {formatRp(donation.operational_fee)} − 500 + kode {donation.donation_code}
-            </p>
+            {/* Breakdown — Model A Simple Addition */}
+            <div className="text-xs text-gray-600 space-y-0.5 pt-1 border-t border-green-200">
+              <div className="flex justify-between">
+                <span>Donasi</span>
+                <span>Rp {formatRp(donation.amount)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Fee operasional</span>
+                <span>Rp {formatRp(donation.operational_fee)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Kode unik (verifikasi)</span>
+                <span>+ {donation.donation_code}</span>
+              </div>
+              <div className="flex justify-between font-semibold pt-1 border-t border-green-300" style={{ color: '#003526' }}>
+                <span>Total</span>
+                <span>Rp {formatRp(donation.total_transfer)}</span>
+              </div>
+            </div>
           </div>
 
           {/* Bukti Transfer */}
@@ -321,10 +337,11 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
               {/* Real-time discrepancy preview */}
               {isValidAmount && (
                 <div
-                  className={`rounded-lg p-3 text-sm ${isExactMatch
+                  className={`rounded-lg p-3 text-sm ${
+                    isExactMatch
                       ? 'bg-green-50 border border-green-200 text-green-800'
                       : 'bg-amber-50 border border-amber-200 text-amber-800'
-                    }`}
+                  }`}
                 >
                   {isExactMatch ? (
                     <p>✅ <b>Nominal cocok persis.</b> Donasi siap diverifikasi.</p>
@@ -374,10 +391,11 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
                 {decisionOptions.filter((opt) => opt.show).map((opt) => (
                   <label
                     key={opt.value}
-                    className={`flex gap-3 rounded-lg border-2 p-3 cursor-pointer transition ${decision === opt.value
+                    className={`flex gap-3 rounded-lg border-2 p-3 cursor-pointer transition ${
+                      decision === opt.value
                         ? 'border-pink-500 bg-pink-50'
                         : 'border-gray-200 hover:border-gray-400'
-                      }`}
+                    }`}
                   >
                     <input
                       type="radio"
