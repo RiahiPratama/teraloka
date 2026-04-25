@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
-import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home } from 'lucide-react';
+import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Loader2 } from 'lucide-react';
 
 const REQUIREMENTS = [
   {
@@ -44,18 +44,90 @@ const COMMITMENTS = [
 ];
 
 export default function CampaignInfoPage() {
-  const { user } = useAuth();
+  const { user, token, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const [agreed, setAgreed] = useState(false);
 
+  // ⭐ FIX-E: KYC profile state
+  const [kycChecking, setKycChecking] = useState(true);
+  const [kycComplete, setKycComplete] = useState<boolean | null>(null);
+
+  // ⭐ FIX-E: Pre-check creator profile on mount
+  // Auto-redirect kalau profile belum lengkap — user ga perlu baca preface
+  // dulu, langsung dibawa ke flow KYC. After complete, return ke sini.
+  useEffect(() => {
+    if (authLoading) return;
+
+    // Belum login? Skip check, biarkan handleLanjut yang handle redirect login
+    if (!user || !token) {
+      setKycChecking(false);
+      return;
+    }
+
+    const checkProfile = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/me/creator-profile`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+
+        if (!res.ok) {
+          // Kalau API error, biarkan user lanjut — error akan muncul di backend
+          setKycComplete(true);
+          return;
+        }
+
+        const json = await res.json();
+        const isComplete = json?.data?.is_complete === true;
+        setKycComplete(isComplete);
+
+        // Auto-redirect kalau belum lengkap
+        if (!isComplete) {
+          router.replace(
+            `/owner/profile/complete?return=${encodeURIComponent('/owner/campaign/new/info')}`
+          );
+        }
+      } catch {
+        // Network error — biarkan user lanjut, backend tetap akan block
+        setKycComplete(true);
+      } finally {
+        setKycChecking(false);
+      }
+    };
+
+    checkProfile();
+  }, [authLoading, user, token, router]);
+
   const handleLanjut = () => {
     if (!agreed) return;
-    if (user) {
-      router.push('/owner/campaign/new');
-    } else {
-      router.push('/login?redirect=/owner/campaign/new');
+    if (!user) {
+      router.push('/login?redirect=/owner/campaign/new/info');
+      return;
     }
+    // Defensive: kalau KYC belum lengkap (race condition), redirect ke complete
+    if (kycComplete === false) {
+      router.push(
+        `/owner/profile/complete?return=${encodeURIComponent('/owner/campaign/new/info')}`
+      );
+      return;
+    }
+    router.push('/owner/campaign/new');
   };
+
+  // ⭐ FIX-E: Loading state while checking KYC
+  // (mencegah flicker preface-content saat akan auto-redirect)
+  if (authLoading || kycChecking || (user && kycComplete === false)) {
+    return (
+      <div className="min-h-screen bg-[#f9f9f8] flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="animate-spin text-[#003526] mx-auto mb-3" size={32} />
+          <p className="text-sm text-gray-600">
+            {kycComplete === false ? 'Mengarahkan ke halaman verifikasi...' : 'Memuat...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f9f9f8]">

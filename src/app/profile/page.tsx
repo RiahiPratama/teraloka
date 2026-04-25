@@ -28,10 +28,34 @@ export default function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
 
+  // ⭐ FIX-E: KYC state untuk Card "Verifikasi Penggalang BADONASI"
+  const [kycStatus, setKycStatus] = useState<'incomplete' | 'pending_verification' | 'verified' | 'loading'>('loading');
+
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/profile');
     if (user?.name) setName(user.name);
   }, [user, isLoading, router]);
+
+  // ⭐ FIX-E: Fetch creator profile status
+  useEffect(() => {
+    if (!user || !token) return;
+    const fetchKyc = async () => {
+      try {
+        const res = await fetch(`${API_URL}/me/creator-profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) {
+          setKycStatus('incomplete');
+          return;
+        }
+        const data = await res.json();
+        setKycStatus(data?.data?.status ?? 'incomplete');
+      } catch {
+        setKycStatus('incomplete');
+      }
+    };
+    fetchKyc();
+  }, [user, token]);
 
   const handleSave = async () => {
     if (!name.trim() || !token) return;
@@ -135,6 +159,113 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
+
+        {/* ⭐ FIX-E: KYC Quick Card — Verifikasi Penggalang BADONASI */}
+        {(() => {
+          const kycMeta = (() => {
+            if (kycStatus === 'verified') return {
+              emoji: '🟢',
+              label: 'TERVERIFIKASI',
+              labelColor: '#047857',
+              labelBg: 'rgba(4,120,87,0.1)',
+              desc: 'Identitas kamu sudah diverifikasi admin. Bisa galang dana langsung.',
+              btnText: 'Kelola Verifikasi',
+              btnHref: '/owner/profile',
+              btnBg: '#1B6B4A',
+            };
+            if (kycStatus === 'pending_verification') return {
+              emoji: '🟡',
+              label: 'MENUNGGU VERIFIKASI',
+              labelColor: '#B45309',
+              labelBg: 'rgba(180,83,9,0.1)',
+              desc: 'Tim TeraLoka sedang meninjau dokumen kamu. Sambil menunggu, kamu sudah bisa galang dana.',
+              btnText: 'Lihat Detail',
+              btnHref: '/owner/profile',
+              btnBg: '#B45309',
+            };
+            if (kycStatus === 'loading') return {
+              emoji: '⏳',
+              label: 'MEMUAT...',
+              labelColor: '#6B7280',
+              labelBg: 'rgba(107,114,128,0.1)',
+              desc: 'Sedang memuat status verifikasi...',
+              btnText: 'Lihat Detail',
+              btnHref: '/owner/profile',
+              btnBg: '#9CA3AF',
+            };
+            return {
+              emoji: '🔴',
+              label: 'BELUM LENGKAP',
+              labelColor: '#B91C1C',
+              labelBg: 'rgba(185,28,28,0.1)',
+              desc: 'Lengkapi profil verifikasi untuk bisa galang dana donasi di TeraLoka.',
+              btnText: 'Lengkapi Sekarang',
+              btnHref: '/owner/profile/complete',
+              btnBg: '#1B6B4A',
+            };
+          })();
+
+          return (
+            <div style={{
+              background: '#fff',
+              borderRadius: 16,
+              padding: '18px',
+              border: `2px solid ${kycMeta.labelColor}30`,
+              marginBottom: 16,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10, marginBottom: 12 }}>
+                <div style={{
+                  width: 36, height: 36, borderRadius: 10,
+                  background: 'rgba(27,107,74,0.08)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 18, flexShrink: 0,
+                }}>
+                  🛡️
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <h2 style={{ fontSize: 14, fontWeight: 700, color: '#111827', marginBottom: 2 }}>
+                    Verifikasi Penggalang BADONASI
+                  </h2>
+                  <p style={{ fontSize: 11, color: '#6B7280' }}>
+                    Wajib untuk galang dana donasi
+                  </p>
+                </div>
+              </div>
+
+              {/* Status badge */}
+              <div style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: kycMeta.labelBg,
+                padding: '5px 10px', borderRadius: 20,
+                marginBottom: 10,
+              }}>
+                <span style={{ fontSize: 12 }}>{kycMeta.emoji}</span>
+                <span style={{ fontSize: 11, fontWeight: 700, color: kycMeta.labelColor, letterSpacing: '0.5px' }}>
+                  {kycMeta.label}
+                </span>
+              </div>
+
+              <p style={{ fontSize: 12, color: '#4B5563', lineHeight: 1.5, marginBottom: 14 }}>
+                {kycMeta.desc}
+              </p>
+
+              <Link href={kycMeta.btnHref} style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                width: '100%', padding: '11px', borderRadius: 10,
+                background: kycMeta.btnBg, color: '#fff',
+                fontSize: 13, fontWeight: 700,
+                textDecoration: 'none',
+                transition: 'opacity 0.2s',
+              }}
+                onMouseEnter={(e) => { e.currentTarget.style.opacity = '0.9'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.opacity = '1'; }}
+              >
+                {kycMeta.btnText} →
+              </Link>
+            </div>
+          );
+        })()}
 
         {/* Edit form */}
         <div style={{
