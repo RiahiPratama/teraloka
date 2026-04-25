@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import {
   ArrowLeft, Shield, User, Edit3, CheckCircle2, Clock,
   AlertCircle, Phone, Calendar, IdCard, EyeOff, Loader2,
-  ExternalLink,
+  ExternalLink, Wifi, WifiOff, MapPin,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -33,7 +33,7 @@ interface CreatorProfile {
   creator_verified_at: string | null;
 }
 
-type TabKey = 'verifikasi' | 'akun';
+type TabKey = 'verifikasi' | 'akun' | 'status';
 type CreatorStatus = 'incomplete' | 'pending_verification' | 'verified';
 
 export default function OwnerProfilePage() {
@@ -119,7 +119,7 @@ export default function OwnerProfilePage() {
 
       {/* Tabs Navigation */}
       <div className="max-w-lg mx-auto px-4 -mt-4 relative z-10">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 grid grid-cols-2 gap-1">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 grid grid-cols-3 gap-1">
           <TabButton
             active={activeTab === 'verifikasi'}
             onClick={() => setActiveTab('verifikasi')}
@@ -133,6 +133,12 @@ export default function OwnerProfilePage() {
             icon={User}
             label="Akun"
           />
+          <TabButton
+            active={activeTab === 'status'}
+            onClick={() => setActiveTab('status')}
+            icon={Wifi}
+            label="Status"
+          />
         </div>
       </div>
 
@@ -143,6 +149,9 @@ export default function OwnerProfilePage() {
         )}
         {activeTab === 'akun' && (
           <AkunTab profile={profile} />
+        )}
+        {activeTab === 'status' && token && (
+          <StatusTab token={token} />
         )}
       </div>
     </div>
@@ -473,4 +482,289 @@ function roleLabel(role: string): string {
     super_admin: 'Super Admin',
   };
   return map[role] ?? role;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// StatusTab — Offline Mode toggle (FIX-G-B3)
+//
+// Filosofi: Penggalang Maluku Utara kadang offline (sinyal, sakit, traveling).
+// Kampanye TETAP terima donasi. Yang adjust: verification responsibility.
+// Saat offline > 3 hari, admin TeraLoka jadi backup verifier.
+// ═══════════════════════════════════════════════════════════════
+
+interface OfflineStatus {
+  is_offline_mode: boolean;
+  offline_mode_set_at: string | null;
+  offline_mode_until: string | null;
+}
+
+function StatusTab({ token }: { token: string }) {
+  const [status, setStatus] = useState<OfflineStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [untilDate, setUntilDate] = useState<string>('');
+  const [err, setErr] = useState<string | null>(null);
+
+  // Fetch initial status
+  useEffect(() => {
+    const fetchStatus = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/funding/my/profile/offline-mode`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const json = await res.json();
+        if (json.success) setStatus(json.data);
+      } catch {
+        setErr('Gagal memuat status');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStatus();
+  }, [token]);
+
+  async function toggleOfflineMode(enable: boolean) {
+    setUpdating(true);
+    setErr(null);
+    try {
+      const body: any = { enable };
+      if (enable && untilDate) body.until_date = untilDate;
+
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/funding/my/profile/offline-mode`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(body),
+        }
+      );
+      const json = await res.json();
+      if (json.success) {
+        // Re-fetch full status
+        const refreshRes = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/funding/my/profile/offline-mode`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const refreshJson = await refreshRes.json();
+        if (refreshJson.success) setStatus(refreshJson.data);
+        setShowConfirm(false);
+        setUntilDate('');
+      } else {
+        setErr(json.error?.message ?? 'Gagal update status');
+      }
+    } catch {
+      setErr('Koneksi bermasalah. Coba lagi.');
+    } finally {
+      setUpdating(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="bg-white rounded-2xl border border-gray-100 p-8 text-center">
+        <Loader2 size={24} className="animate-spin text-[#003526] mx-auto" />
+      </div>
+    );
+  }
+
+  const isOffline = status?.is_offline_mode ?? false;
+
+  return (
+    <div className="space-y-4">
+      {/* Status Card */}
+      <div
+        className={`rounded-2xl border p-5 ${
+          isOffline
+            ? 'bg-amber-50 border-amber-200'
+            : 'bg-emerald-50 border-emerald-200'
+        }`}
+      >
+        <div className="flex items-center gap-3 mb-3">
+          {isOffline ? (
+            <WifiOff size={24} className="text-amber-700" strokeWidth={2.2} />
+          ) : (
+            <Wifi size={24} className="text-emerald-700" strokeWidth={2.2} />
+          )}
+          <div>
+            <p
+              className={`text-xs font-extrabold uppercase tracking-wider ${
+                isOffline ? 'text-amber-700' : 'text-emerald-700'
+              }`}
+            >
+              {isOffline ? 'OFFLINE SEMENTARA' : 'ONLINE'}
+            </p>
+            <p
+              className={`text-base font-bold ${
+                isOffline ? 'text-amber-900' : 'text-emerald-900'
+              }`}
+            >
+              {isOffline ? 'Penggalang sedang tidak aktif' : 'Penggalang aktif'}
+            </p>
+          </div>
+        </div>
+
+        <p
+          className={`text-sm leading-relaxed ${
+            isOffline ? 'text-amber-800' : 'text-emerald-800'
+          }`}
+        >
+          {isOffline
+            ? 'Kampanye kamu tetap terima donasi. Admin TeraLoka akan bantu verifikasi donasi yang pending lebih dari 3 hari.'
+            : 'Kamu siap menerima dan verifikasi donasi seperti biasa.'}
+        </p>
+
+        {/* Show offline meta if active */}
+        {isOffline && status?.offline_mode_set_at && (
+          <div className="mt-4 pt-4 border-t border-amber-200 grid grid-cols-2 gap-3 text-xs">
+            <div>
+              <p className="font-bold text-amber-700 uppercase tracking-wider mb-1">
+                Sejak
+              </p>
+              <p className="text-amber-900">
+                {new Date(status.offline_mode_set_at).toLocaleDateString('id-ID', {
+                  day: 'numeric',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
+              </p>
+            </div>
+            <div>
+              <p className="font-bold text-amber-700 uppercase tracking-wider mb-1">
+                Sampai
+              </p>
+              <p className="text-amber-900">
+                {status.offline_mode_until
+                  ? new Date(status.offline_mode_until).toLocaleDateString('id-ID', {
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    })
+                  : '— (manual)'}
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Toggle button */}
+      {!showConfirm && (
+        <button
+          onClick={() => setShowConfirm(true)}
+          disabled={updating}
+          className={`w-full rounded-2xl py-3.5 px-4 text-sm font-bold transition-all shadow-sm ${
+            isOffline
+              ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+              : 'bg-amber-600 text-white hover:bg-amber-700'
+          } disabled:opacity-50`}
+        >
+          {isOffline ? 'Aktifkan Lagi (Online)' : 'Set Offline Sementara'}
+        </button>
+      )}
+
+      {/* Confirmation modal-style card */}
+      {showConfirm && (
+        <div className="bg-white border-2 border-[#003526] rounded-2xl p-5 space-y-4">
+          <div>
+            <p className="text-sm font-bold text-gray-900 mb-1">
+              {isOffline ? 'Aktifkan Penggalang Online?' : 'Set Mode Offline?'}
+            </p>
+            <p className="text-xs text-gray-600 leading-relaxed">
+              {isOffline
+                ? 'Kamu akan kembali aktif dan handle verifikasi donasi sendiri.'
+                : 'Kampanye tetap terima donasi. Admin TeraLoka akan auto-handle donasi pending > 3 hari.'}
+            </p>
+          </div>
+
+          {!isOffline && (
+            <div>
+              <label className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1">
+                <Calendar size={11} />
+                Sampai Tanggal (opsional)
+              </label>
+              <input
+                type="date"
+                value={untilDate}
+                onChange={e => setUntilDate(e.target.value)}
+                min={new Date().toISOString().slice(0, 10)}
+                className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#003526]"
+              />
+              <p className="text-[10px] text-gray-500 mt-1 leading-relaxed">
+                Kosongkan kalau ga tau kapan online lagi. Bisa aktivasi manual kapan saja.
+              </p>
+            </div>
+          )}
+
+          {err && (
+            <div className="rounded-xl bg-red-50 border border-red-200 p-3">
+              <p className="text-xs text-red-700">{err}</p>
+            </div>
+          )}
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                setShowConfirm(false);
+                setUntilDate('');
+                setErr(null);
+              }}
+              disabled={updating}
+              className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              Batal
+            </button>
+            <button
+              onClick={() => toggleOfflineMode(!isOffline)}
+              disabled={updating}
+              className={`flex-1 rounded-xl py-2.5 text-sm font-bold text-white shadow-sm disabled:opacity-50 ${
+                isOffline ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+              }`}
+            >
+              {updating ? (
+                <Loader2 size={14} className="animate-spin mx-auto" />
+              ) : isOffline ? 'Ya, Aktifkan' : 'Ya, Set Offline'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Info card */}
+      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
+        <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
+          <MapPin size={12} className="text-[#003526]" />
+          Tentang Mode Offline
+        </h3>
+        <ul className="space-y-2 text-xs text-gray-600 leading-relaxed">
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+            <span><strong>Kampanye tetap aktif</strong> — donor masih bisa donasi seperti biasa</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+            <span><strong>Banner notice di public page</strong> — donor tau verifikasi mungkin tertunda</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+            <span><strong>Auto-handle admin TeraLoka</strong> — donasi pending {'>'} 3 hari di-take-over</span>
+          </li>
+          <li className="flex items-start gap-2">
+            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+            <span><strong>Aktifkan kembali kapan saja</strong> — toggle off dan handle sendiri lagi</span>
+          </li>
+        </ul>
+
+        <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mt-3">
+          <p className="text-[11px] text-blue-900 leading-relaxed">
+            💡 Cocok untuk kamu yang ada di pulau tanpa sinyal, sakit, atau urusan mendadak. <strong>Kepercayaan donor tetap terjaga</strong> karena verifikasi tetap jalan.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
