@@ -38,7 +38,7 @@ type CreatorStatus = 'incomplete' | 'pending_verification' | 'verified';
 
 export default function OwnerProfilePage() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading, token } = useAuth();
+  const { user, isLoading: authLoading, token } = useAuth();
   const [profile, setProfile] = useState<CreatorProfile | null>(null);
   const [status, setStatus] = useState<CreatorStatus>('incomplete');
   const [loading, setLoading] = useState(true);
@@ -47,14 +47,14 @@ export default function OwnerProfilePage() {
 
   // Auth guard
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !user) {
       router.replace('/login?redirect=/owner/profile');
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, user, router]);
 
   // Fetch profile
   useEffect(() => {
-    if (!isAuthenticated || !token) return;
+    if (!user || !token) return;
 
     const fetchProfile = async () => {
       try {
@@ -78,7 +78,7 @@ export default function OwnerProfilePage() {
     };
 
     fetchProfile();
-  }, [isAuthenticated, token]);
+  }, [user, token]);
 
   if (authLoading || loading) {
     return (

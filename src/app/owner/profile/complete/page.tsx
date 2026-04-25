@@ -42,7 +42,7 @@ function ProfileCompletePageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnUrl = searchParams.get('return');
-  const { isAuthenticated, isLoading: authLoading, token } = useAuth();
+  const { user, isLoading: authLoading, token } = useAuth();
 
   // Form state
   const [fullName, setFullName] = useState('');
@@ -61,17 +61,17 @@ function ProfileCompletePageInner() {
 
   // Auth guard
   useEffect(() => {
-    if (!authLoading && !isAuthenticated) {
+    if (!authLoading && !user) {
       const redirectTarget = returnUrl
         ? `/owner/profile/complete?return=${encodeURIComponent(returnUrl)}`
         : '/owner/profile/complete';
       router.replace(`/login?redirect=${encodeURIComponent(redirectTarget)}`);
     }
-  }, [authLoading, isAuthenticated, router, returnUrl]);
+  }, [authLoading, user, router, returnUrl]);
 
   // Pre-fill from existing profile (if user editing)
   useEffect(() => {
-    if (!isAuthenticated || !token) return;
+    if (!user || !token) return;
 
     const fetchProfile = async () => {
       try {
@@ -94,7 +94,7 @@ function ProfileCompletePageInner() {
     };
 
     fetchProfile();
-  }, [isAuthenticated, token]);
+  }, [user, token]);
 
   const validate = (): boolean => {
     const errors: typeof fieldErrors = {};
