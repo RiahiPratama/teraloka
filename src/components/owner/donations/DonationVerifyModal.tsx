@@ -32,6 +32,7 @@ export interface DonationForVerify {
   is_anonymous: boolean;
   amount: number;
   operational_fee: number;
+  penggalang_fee?: number | null;  // FIX-FEE: optional penggalang fee (mode=professional)
   total_transfer: number;
   donation_code: string;
   message?: string | null;
@@ -258,16 +259,25 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
             <p className="text-3xl font-bold" style={{ color: '#003526' }}>
               Rp {formatRp(donation.total_transfer)}
             </p>
-            {/* Breakdown — Model A Simple Addition */}
+            {/* Breakdown — Model A Simple Addition (+ optional penggalang_fee) */}
             <div className="text-xs text-gray-600 space-y-0.5 pt-1 border-t border-green-200">
               <div className="flex justify-between">
                 <span>Donasi</span>
                 <span>Rp {formatRp(donation.amount)}</span>
               </div>
               <div className="flex justify-between">
-                <span>Fee operasional</span>
+                <span>Fee Operasional TeraLoka</span>
                 <span>Rp {formatRp(donation.operational_fee)}</span>
               </div>
+              {/* Penggalang fee — only show if mode=professional (penggalang_fee > 0) */}
+              {donation.penggalang_fee !== null && 
+               donation.penggalang_fee !== undefined && 
+               Number(donation.penggalang_fee) > 0 && (
+                <div className="flex justify-between">
+                  <span>Fee Operasional Penggalang</span>
+                  <span>Rp {formatRp(Number(donation.penggalang_fee))}</span>
+                </div>
+              )}
               <div className="flex justify-between">
                 <span>Kode unik (verifikasi)</span>
                 <span>+ {donation.donation_code}</span>
