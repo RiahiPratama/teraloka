@@ -720,49 +720,13 @@ export default async function CampaignPage({ params }: Props) {
         </div>
       )}
 
-      {/* PENCAIRAN DANA */}
-      {disbursements.length > 0 && (
-        <div className="mx-auto max-w-lg px-4 mt-4">
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider mb-1 flex items-center gap-2">
-              <Wallet size={16} className="text-amber-600" />
-              Detail Pencairan Dana
-            </h2>
-            <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-              Breakdown per tahap pencairan ke penerima / institusi partner.
-            </p>
-
-            <div className="space-y-3">
-              {disbursements.map((d: any) => (
-                <div key={d.id} className="rounded-xl bg-amber-50/50 border border-amber-100 p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider">
-                        Tahap {d.stage_number} · {formatLongDate(d.disbursed_at)}
-                      </p>
-                      <p className="text-sm font-bold text-gray-900 mt-0.5">
-                        {d.disbursed_to}
-                      </p>
-                    </div>
-                    <span className="text-base font-extrabold text-amber-700 shrink-0">
-                      {formatRupiah(d.amount)}
-                    </span>
-                  </div>
-                  {d.notes && (
-                    <p className="text-xs text-gray-600 leading-relaxed mb-2">{d.notes}</p>
-                  )}
-                  {d.proof_url && (
-                    <a href={d.proof_url} target="_blank" rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] font-semibold text-amber-700 hover:underline">
-                      <ImageIcon size={11} /> Lihat bukti transfer
-                    </a>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* PENCAIRAN DANA section dihapus — duplikat dengan Aliran Dana timeline.
+          Aliran Dana sudah show timeline kronologis lengkap dengan disbursement
+          detail (stage, date, amount, partner, notes, proof). No additional value
+          from a separate "Detail Pencairan Dana" section.
+          
+          Filosofi: Less duplicate = better UX. Single source of truth untuk
+          financial transparency. */}
 
       {/* RINCIAN PENGGUNAAN DANA */}
       {reports.length > 0 && (
