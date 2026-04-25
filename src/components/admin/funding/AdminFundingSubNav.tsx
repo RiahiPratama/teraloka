@@ -81,12 +81,12 @@ export default function AdminFundingSubNav({
   }[] = [
     { href: '/admin/funding',           label: 'Dashboard' },
     { href: '/admin/funding/campaigns', label: 'Kampanye',       badge: badges.pendingCampaigns },
+    { href: '/admin/funding/penggalang',label: 'Penggalang',     badge: badges.pendingCreators },
     { href: '/admin/funding/donations', label: 'Donasi',         badge: badges.pendingDonations },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement', badge: badges.pendingFees },
-    { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
     { href: '/admin/funding/reports',   label: 'Laporan',        badge: badges.pendingReports },
-    { href: '/admin/funding/penggalang', label: 'Penggalang',    badge: badges.pendingCreators },  // ⭐ FIX-E-4-C
+    { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
     { href: '/admin/funding/fraud',     label: 'Fraud',          badge: badges.activeFraudFlags, accent: 'red' },
+    { href: '/admin/funding/fees',      label: 'Fee Settlement', badge: badges.pendingFees },
     { href: '/admin/funding/settings',  label: 'Pengaturan' },
   ];
 
