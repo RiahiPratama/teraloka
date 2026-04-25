@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
-import { useAuth } from '@/lib/useAuth';
+import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DonationVerifyModal, { DonationForVerify } from '@/components/owner/donations/DonationVerifyModal';
 import DonationRejectModal from '@/components/owner/donations/DonationRejectModal';
