@@ -1,26 +1,23 @@
 'use client';
 
 /**
- * /admin/funding/escalations — Auto-Escalation Admin Page (FIX-G-B3)
+ * /admin/funding/escalations — Auto-Escalation Admin Page (FIX-G-C)
+ * 
+ * THEME-AWARE: Uses AdminThemeContext for dark/light mode support
+ * (matches existing admin pages like AdminFundingDonationsPage).
  * 
  * Filosofi: Donasi pending > 3 hari + penggalang offline = auto-escalate
  * to admin. Admin verify atau reject dari sini.
- * 
- * Workflow:
- *   1. Admin click "Scan Escalations" — backend cari kandidat
- *   2. Result: list of donations yang baru di-escalate
- *   3. Admin take-over: verify atau reject dari list
- *   4. Refresh list
- * 
- * Architecture: Backend (Otak) compute, frontend (Wajah) display + action.
  */
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useContext } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
 import {
-  ArrowLeft, Search, Loader2, AlertTriangle, RefreshCw, CheckCircle2,
-  XCircle, Clock, Users, Wallet, Eye, ChevronRight,
+  ArrowLeft, Loader2, AlertTriangle, RefreshCw, CheckCircle2,
+  XCircle, Clock, Eye, ChevronRight,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -64,6 +61,7 @@ interface ScanResult {
 }
 
 export default function AdminEscalationsPage() {
+  const { t } = useContext(AdminThemeContext);
   const { user, token, isLoading: authLoading } = useAuth();
 
   const [donations, setDonations] = useState<EscalatedDonation[]>([]);
@@ -76,6 +74,7 @@ export default function AdminEscalationsPage() {
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
   const [showScanPreview, setShowScanPreview] = useState(false);
   const [dryRun, setDryRun] = useState(true);
+  const [subNavRefresh, setSubNavRefresh] = useState(0);
 
   const fetchEscalated = useCallback(async () => {
     if (!token) return;
@@ -123,9 +122,9 @@ export default function AdminEscalationsPage() {
       if (json.success) {
         setScanResult(json.data);
         setShowScanPreview(true);
-        // Refresh list if not dry-run
         if (!dryRun) {
           await fetchEscalated();
+          setSubNavRefresh(v => v + 1);
         }
       }
     } catch {
@@ -138,19 +137,32 @@ export default function AdminEscalationsPage() {
   // ── Auth guard ──
   if (authLoading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-[#003526]" />
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: t.mainBg }}>
+        <Loader2 size={28} style={{ animation: 'spin 1s linear infinite', color: '#EC4899' }} />
       </div>
     );
   }
 
   if (!user || !token) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center px-4">
-        <div className="text-center">
-          <p className="text-4xl mb-3">🔒</p>
-          <h2 className="text-lg font-bold">Login dibutuhkan</h2>
-          <Link href="/login" className="mt-3 inline-block rounded-xl bg-[#003526] px-5 py-2.5 text-sm font-bold text-white">
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 16px', background: t.mainBg }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 32, marginBottom: 12 }}>🔒</p>
+          <h2 style={{ fontSize: 18, fontWeight: 700, color: t.textPrimary }}>Login dibutuhkan</h2>
+          <Link
+            href="/login"
+            style={{
+              marginTop: 12,
+              display: 'inline-block',
+              borderRadius: 12,
+              background: '#003526',
+              padding: '10px 20px',
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#fff',
+              textDecoration: 'none',
+            }}
+          >
             Login
           </Link>
         </div>
@@ -159,66 +171,116 @@ export default function AdminEscalationsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-20">
+    <div style={{ minHeight: '100vh', background: t.mainBg, paddingBottom: 80 }}>
       {/* Header */}
-      <div className="bg-gradient-to-br from-[#003526] to-[#1B6B4A] text-white">
-        <div className="mx-auto max-w-5xl px-4 py-6">
+      <div style={{ padding: '24px 16px 16px', borderBottom: `1px solid ${t.sidebarBorder}` }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto' }}>
           <Link
             href="/admin/funding"
-            className="inline-flex items-center gap-1.5 text-white/80 hover:text-white text-sm mb-4"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: 13,
+              color: t.textDim,
+              textDecoration: 'none',
+              marginBottom: 12,
+            }}
           >
-            <ArrowLeft size={16} /> Admin BADONASI
+            <ArrowLeft size={14} /> Admin BADONASI
           </Link>
-          <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle size={18} className="text-amber-300" />
-            <p className="text-xs font-bold uppercase tracking-widest text-amber-300">
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <AlertTriangle size={18} style={{ color: '#F59E0B' }} />
+            <p style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 1.5, color: '#F59E0B' }}>
               Auto-Escalation
             </p>
           </div>
-          <h1 className="text-2xl font-extrabold">Donasi Tertunda</h1>
-          <p className="text-white/70 text-sm mt-1 leading-relaxed">
+          <h1 style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary }}>
+            Donasi Tertunda
+          </h1>
+          <p style={{ fontSize: 13, color: t.textDim, marginTop: 4, lineHeight: 1.5 }}>
             Donasi pending {'>'} 3 hari dari penggalang yang sedang offline. Admin take-over verifikasi.
           </p>
         </div>
       </div>
 
-      <div className="mx-auto max-w-5xl px-4 -mt-4">
+      {/* SubNav */}
+      <div style={{ padding: '16px 16px 0', maxWidth: 1280, margin: '0 auto' }}>
+        <AdminFundingSubNav refreshKey={subNavRefresh} />
+      </div>
+
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px' }}>
         {/* Scan Card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4">
-          <div className="flex items-start justify-between gap-4 mb-4">
-            <div className="flex-1">
-              <h2 className="text-sm font-extrabold uppercase tracking-wider text-gray-700 flex items-center gap-1.5 mb-1">
-                <RefreshCw size={13} className="text-[#003526]" />
-                Scan Auto-Escalation
-              </h2>
-              <p className="text-xs text-gray-500 leading-relaxed">
-                Cari donasi pending {'>'} 3 hari dari penggalang offline. Mark sebagai escalated supaya admin handle.
-              </p>
-            </div>
+        <div style={{
+          background: t.navHover,
+          border: `1px solid ${t.sidebarBorder}`,
+          borderRadius: 12,
+          padding: 20,
+          marginBottom: 16,
+        }}>
+          <div style={{ marginBottom: 16 }}>
+            <h2 style={{
+              fontSize: 12,
+              fontWeight: 800,
+              textTransform: 'uppercase',
+              letterSpacing: 1.2,
+              color: t.textPrimary,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              marginBottom: 4,
+            }}>
+              <RefreshCw size={13} style={{ color: '#EC4899' }} />
+              Scan Auto-Escalation
+            </h2>
+            <p style={{ fontSize: 12, color: t.textDim, lineHeight: 1.5 }}>
+              Cari donasi pending {'>'} 3 hari dari penggalang offline. Mark sebagai escalated supaya admin handle.
+            </p>
           </div>
 
-          <div className="flex items-center gap-3 mb-4">
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={dryRun}
-                onChange={e => setDryRun(e.target.checked)}
-                className="w-4 h-4 accent-[#003526]"
-              />
-              <span className="text-xs text-gray-700 font-medium">
-                Dry-run (preview tanpa update)
-              </span>
-            </label>
-          </div>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            marginBottom: 16,
+          }}>
+            <input
+              type="checkbox"
+              checked={dryRun}
+              onChange={e => setDryRun(e.target.checked)}
+              style={{ width: 16, height: 16, accentColor: '#EC4899' }}
+            />
+            <span style={{ fontSize: 12, color: t.textPrimary, fontWeight: 500 }}>
+              Dry-run (preview tanpa update)
+            </span>
+          </label>
 
           <button
             onClick={handleScan}
             disabled={scanning}
-            className="w-full rounded-xl bg-[#003526] py-3 text-sm font-bold text-white hover:bg-[#1B6B4A] disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
+            style={{
+              width: '100%',
+              borderRadius: 10,
+              background: '#003526',
+              padding: '12px',
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#fff',
+              border: 'none',
+              cursor: scanning ? 'not-allowed' : 'pointer',
+              opacity: scanning ? 0.5 : 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 8,
+              transition: 'opacity 150ms',
+            }}
           >
             {scanning ? (
               <>
-                <Loader2 size={14} className="animate-spin" />
+                <Loader2 size={14} style={{ animation: 'spin 1s linear infinite' }} />
                 Sedang scan...
               </>
             ) : (
@@ -231,50 +293,84 @@ export default function AdminEscalationsPage() {
 
           {/* Scan result */}
           {showScanPreview && scanResult && (
-            <div className="mt-4 rounded-xl border border-blue-100 bg-blue-50 p-4">
-              <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-extrabold text-blue-900">
+            <div style={{
+              marginTop: 16,
+              borderRadius: 10,
+              background: 'rgba(59, 130, 246, 0.08)',
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+              padding: 16,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                <p style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>
                   📊 Hasil Scan
                 </p>
                 <button
                   onClick={() => setShowScanPreview(false)}
-                  className="text-xs text-blue-700 hover:underline"
+                  style={{
+                    fontSize: 11,
+                    color: '#3B82F6',
+                    background: 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                  }}
                 >
                   Tutup
                 </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 mb-3">
-                <div className="rounded-lg bg-white border border-blue-200 p-3 text-center">
-                  <p className="text-xs text-blue-700">Total Pending</p>
-                  <p className="text-2xl font-extrabold text-blue-900">{scanResult.scanned}</p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                <div style={{
+                  background: t.navHover,
+                  border: `1px solid ${t.sidebarBorder}`,
+                  borderRadius: 8,
+                  padding: 12,
+                  textAlign: 'center',
+                }}>
+                  <p style={{ fontSize: 11, color: t.textDim }}>Total Pending</p>
+                  <p style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary }}>{scanResult.scanned}</p>
                 </div>
-                <div className="rounded-lg bg-white border border-amber-200 p-3 text-center">
-                  <p className="text-xs text-amber-700">
+                <div style={{
+                  background: t.navHover,
+                  border: '1px solid rgba(245, 158, 11, 0.4)',
+                  borderRadius: 8,
+                  padding: 12,
+                  textAlign: 'center',
+                }}>
+                  <p style={{ fontSize: 11, color: '#F59E0B' }}>
                     {dryRun ? 'Akan di-escalate' : 'Di-escalate'}
                   </p>
-                  <p className="text-2xl font-extrabold text-amber-700">
+                  <p style={{ fontSize: 24, fontWeight: 800, color: '#F59E0B' }}>
                     {dryRun ? scanResult.candidates.length : scanResult.escalated}
                   </p>
                 </div>
               </div>
 
               {scanResult.candidates.length > 0 && (
-                <div className="space-y-2 max-h-60 overflow-y-auto">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 240, overflowY: 'auto' }}>
                   {scanResult.candidates.slice(0, 10).map(c => (
-                    <div key={c.donation_id} className="rounded-lg bg-white border border-gray-200 p-3 text-xs">
-                      <div className="flex items-start justify-between gap-2 mb-1">
-                        <p className="font-bold text-gray-900 truncate flex-1">{c.campaign_title}</p>
-                        <span className="font-extrabold text-[#BE185D] shrink-0">
+                    <div key={c.donation_id} style={{
+                      background: t.navHover,
+                      border: `1px solid ${t.sidebarBorder}`,
+                      borderRadius: 8,
+                      padding: 10,
+                      fontSize: 11,
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 4 }}>
+                        <p style={{ fontWeight: 700, color: t.textPrimary, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {c.campaign_title}
+                        </p>
+                        <span style={{ fontWeight: 800, color: '#BE185D' }}>
                           Rp {c.amount.toLocaleString('id-ID')}
                         </span>
                       </div>
-                      <p className="text-gray-600">
+                      <p style={{ color: t.textDim }}>
                         {c.donor_name} · Kode {c.donation_code} · {c.days_pending} hari pending
                       </p>
                     </div>
                   ))}
                   {scanResult.candidates.length > 10 && (
-                    <p className="text-[10px] text-gray-500 text-center">
+                    <p style={{ fontSize: 10, color: t.textMuted, textAlign: 'center', padding: 4 }}>
                       Dan {scanResult.candidates.length - 10} donasi lainnya...
                     </p>
                   )}
@@ -282,8 +378,8 @@ export default function AdminEscalationsPage() {
               )}
 
               {!dryRun && scanResult.escalated > 0 && (
-                <p className="text-[11px] text-amber-700 mt-2 font-medium">
-                  ✓ Donasi di atas sudah di-escalate. Refresh list untuk lihat di tabel bawah.
+                <p style={{ fontSize: 11, color: '#F59E0B', marginTop: 8, fontWeight: 500 }}>
+                  ✓ Donasi di atas sudah di-escalate. List di bawah ter-refresh.
                 </p>
               )}
             </div>
@@ -291,16 +387,31 @@ export default function AdminEscalationsPage() {
         </div>
 
         {/* Filter tabs */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-1.5 grid grid-cols-3 gap-1 mb-4">
+        <div style={{
+          background: t.navHover,
+          border: `1px solid ${t.sidebarBorder}`,
+          borderRadius: 12,
+          padding: 6,
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: 4,
+          marginBottom: 16,
+        }}>
           {(['unresolved', 'resolved', 'all'] as const).map(s => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
-                statusFilter === s
-                  ? 'bg-[#003526] text-white'
-                  : 'text-gray-600 hover:bg-gray-50'
-              }`}
+              style={{
+                padding: '8px 12px',
+                borderRadius: 10,
+                fontSize: 11,
+                fontWeight: 700,
+                background: statusFilter === s ? '#003526' : 'transparent',
+                color: statusFilter === s ? '#fff' : t.textDim,
+                border: 'none',
+                cursor: 'pointer',
+                transition: 'all 150ms',
+              }}
             >
               {s === 'unresolved' ? 'Belum Selesai' : s === 'resolved' ? 'Sudah Selesai' : 'Semua'}
             </button>
@@ -308,18 +419,30 @@ export default function AdminEscalationsPage() {
         </div>
 
         {/* Escalated list */}
-        <div className="space-y-2">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {loading ? (
-            <div className="bg-white rounded-2xl p-12 text-center border border-gray-100">
-              <Loader2 size={24} className="animate-spin text-[#003526] mx-auto" />
+            <div style={{
+              background: t.navHover,
+              border: `1px solid ${t.sidebarBorder}`,
+              borderRadius: 12,
+              padding: 48,
+              textAlign: 'center',
+            }}>
+              <Loader2 size={24} style={{ animation: 'spin 1s linear infinite', color: '#EC4899' }} />
             </div>
           ) : donations.length === 0 ? (
-            <div className="bg-white rounded-2xl p-8 text-center border border-gray-100">
-              <CheckCircle2 size={36} className="text-emerald-300 mx-auto mb-2" />
-              <p className="text-sm font-bold text-gray-700 mb-1">
+            <div style={{
+              background: t.navHover,
+              border: `1px solid ${t.sidebarBorder}`,
+              borderRadius: 12,
+              padding: 32,
+              textAlign: 'center',
+            }}>
+              <CheckCircle2 size={36} style={{ color: '#10B981', margin: '0 auto 8px' }} />
+              <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>
                 Tidak ada donasi tertunda
               </p>
-              <p className="text-xs text-gray-500">
+              <p style={{ fontSize: 12, color: t.textDim }}>
                 {statusFilter === 'unresolved'
                   ? 'Semua donasi sudah handled. Klik scan untuk cek lagi.'
                   : 'Tidak ada hasil dengan filter ini.'}
@@ -327,11 +450,11 @@ export default function AdminEscalationsPage() {
             </div>
           ) : (
             <>
-              <p className="text-xs text-gray-500 mb-2">
+              <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 4 }}>
                 Menampilkan {donations.length} dari {total} donasi
               </p>
               {donations.map(d => (
-                <EscalatedDonationCard key={d.id} donation={d} />
+                <EscalatedDonationCard key={d.id} donation={d} t={t} />
               ))}
             </>
           )}
@@ -342,18 +465,18 @@ export default function AdminEscalationsPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// EscalatedDonationCard
+// EscalatedDonationCard — theme-aware
 // ═══════════════════════════════════════════════════════════════
 
-function EscalatedDonationCard({ donation }: { donation: EscalatedDonation }) {
+function EscalatedDonationCard({ donation, t }: { donation: EscalatedDonation; t: any }) {
   const statusMeta = (() => {
     switch (donation.verification_status) {
       case 'verified':
-        return { label: 'Verified', color: '#047857', bg: 'bg-emerald-100', Icon: CheckCircle2 };
+        return { label: 'Verified', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', Icon: CheckCircle2 };
       case 'rejected':
-        return { label: 'Rejected', color: '#DC2626', bg: 'bg-red-100', Icon: XCircle };
+        return { label: 'Rejected', color: '#EF4444', bg: 'rgba(239, 68, 68, 0.15)', Icon: XCircle };
       default:
-        return { label: 'Pending', color: '#B45309', bg: 'bg-amber-100', Icon: Clock };
+        return { label: 'Pending', color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', Icon: Clock };
     }
   })();
   const StatusIcon = statusMeta.Icon;
@@ -364,55 +487,96 @@ function EscalatedDonationCard({ donation }: { donation: EscalatedDonation }) {
   );
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-gray-900 truncate">
+    <div style={{
+      background: t.navHover,
+      border: `1px solid ${t.sidebarBorder}`,
+      borderRadius: 12,
+      padding: 16,
+      transition: 'border-color 150ms',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, marginBottom: 8 }}>
+        <div style={{ minWidth: 0, flex: 1 }}>
+          <p style={{
+            fontSize: 13,
+            fontWeight: 700,
+            color: t.textPrimary,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+          }}>
             {donation.campaigns?.title || 'Campaign'}
           </p>
-          <p className="text-[11px] text-gray-500 mt-0.5">
+          <p style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
             Donor: {donation.is_anonymous ? 'Hamba Allah' : donation.donor_name} · Kode {donation.donation_code}
           </p>
         </div>
-        <span
-          className={`shrink-0 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${statusMeta.bg}`}
-          style={{ color: statusMeta.color }}
-        >
+        <span style={{
+          flexShrink: 0,
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: 4,
+          borderRadius: 999,
+          padding: '2px 8px',
+          fontSize: 10,
+          fontWeight: 700,
+          background: statusMeta.bg,
+          color: statusMeta.color,
+        }}>
           <StatusIcon size={9} />
           {statusMeta.label}
         </span>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 mb-3">
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
         <div>
-          <p className="text-[10px] text-gray-400 uppercase">Donasi</p>
-          <p className="text-sm font-extrabold text-[#BE185D]">
+          <p style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Donasi</p>
+          <p style={{ fontSize: 13, fontWeight: 800, color: '#BE185D' }}>
             Rp {Number(donation.amount).toLocaleString('id-ID')}
           </p>
         </div>
         <div>
-          <p className="text-[10px] text-gray-400 uppercase">Total Transfer</p>
-          <p className="text-sm font-bold text-gray-700">
+          <p style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: 0.5 }}>Total Transfer</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary }}>
             Rp {Number(donation.total_transfer).toLocaleString('id-ID')}
           </p>
         </div>
       </div>
 
-      <div className="rounded-lg bg-amber-50 border border-amber-100 px-3 py-2 mb-2">
-        <p className="text-[10px] font-bold text-amber-700 uppercase tracking-wider mb-0.5">
+      <div style={{
+        background: 'rgba(245, 158, 11, 0.1)',
+        border: '1px solid rgba(245, 158, 11, 0.3)',
+        borderRadius: 8,
+        padding: '8px 12px',
+        marginBottom: 8,
+      }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
           Alasan Escalation
         </p>
-        <p className="text-[11px] text-amber-900 leading-relaxed">
+        <p style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.5 }}>
           {donation.escalation_reason || '—'}
         </p>
-        <p className="text-[10px] text-amber-700 mt-1">
+        <p style={{ fontSize: 10, color: '#F59E0B', marginTop: 4 }}>
           Di-escalate {daysSinceEscalated === 0 ? 'hari ini' : `${daysSinceEscalated} hari lalu`}
         </p>
       </div>
 
       <Link
         href={`/admin/funding/donations/${donation.id}`}
-        className="flex items-center justify-center gap-1.5 w-full rounded-xl bg-[#003526] py-2 text-xs font-bold text-white hover:bg-[#1B6B4A] transition-colors"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 6,
+          width: '100%',
+          borderRadius: 10,
+          background: '#003526',
+          padding: '8px',
+          fontSize: 11,
+          fontWeight: 700,
+          color: '#fff',
+          textDecoration: 'none',
+          transition: 'opacity 150ms',
+        }}
       >
         <Eye size={12} />
         Take-Over Verifikasi
