@@ -873,9 +873,41 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
                 dateStyle: 'medium', timeStyle: 'short',
               })}
             </p>
+            {/* FIX-G-C: Show verifier name + role */}
+            {(d as any).verifier && (
+              <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 11, color: t.textPrimary, fontWeight: 600 }}>
+                  {(d as any).verifier.name || 'Admin'}
+                </span>
+                <RoleBadgeAdmin role={(d as any).verifier.role} />
+              </div>
+            )}
           </div>
         )}
       </div>
+
+      {/* FIX-G-C: Escalation indicator */}
+      {(d as any).escalated_to_admin_at && (
+        <div style={{
+          background: 'rgba(245, 158, 11, 0.1)',
+          border: '1px solid rgba(245, 158, 11, 0.3)',
+          borderRadius: 8,
+          padding: 10,
+          marginTop: 8,
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+            <span style={{ fontSize: 14 }}>⚡</span>
+            <p style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+              Auto-Escalated
+            </p>
+          </div>
+          {(d as any).escalation_reason && (
+            <p style={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
+              {(d as any).escalation_reason}
+            </p>
+          )}
+        </div>
+      )}
 
       {d.rejection_reason && (
         <div>
@@ -904,5 +936,46 @@ function Row({ label, value, t, bold }: { label: string; value: string; t: any; 
         {value}
       </span>
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FIX-G-C: RoleBadgeAdmin — visual indicator role admin
+// (using inline styles since this page uses theme system, not Tailwind)
+// ═══════════════════════════════════════════════════════════════
+
+function RoleBadgeAdmin({ role }: { role: string }) {
+  const meta = (() => {
+    switch (role) {
+      case 'super_admin':
+        return { label: 'Super Admin', color: '#7C3AED', bg: '#F3E8FF', icon: '⭐' };
+      case 'admin_funding':
+        return { label: 'Admin BADONASI', color: '#047857', bg: '#D1FAE5', icon: '🛡️' };
+      case 'admin_content':
+        return { label: 'Admin Konten', color: '#1D4ED8', bg: '#DBEAFE', icon: '📝' };
+      case 'user':
+        return { label: 'Penggalang', color: '#4B5563', bg: '#F3F4F6', icon: '👤' };
+      default:
+        return { label: role, color: '#4B5563', bg: '#F3F4F6', icon: '🔹' };
+    }
+  })();
+
+  return (
+    <span style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: 3,
+      background: meta.bg,
+      color: meta.color,
+      fontSize: 9,
+      fontWeight: 700,
+      padding: '2px 6px',
+      borderRadius: 999,
+      textTransform: 'uppercase',
+      letterSpacing: 0.4,
+    }}>
+      <span style={{ fontSize: 8 }}>{meta.icon}</span>
+      {meta.label}
+    </span>
   );
 }

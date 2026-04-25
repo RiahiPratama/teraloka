@@ -29,6 +29,15 @@ interface DonationDetail {
   verification_status: string;
   rejection_reason: string | null;
   verified_at: string | null;
+  verified_by: string | null;
+  escalated_to_admin_at: string | null;
+  escalation_reason: string | null;
+  // FIX-G-C: Verifier info
+  verifier?: {
+    id: string;
+    name: string | null;
+    role: string;
+  } | null;
   created_at: string;
   campaigns: {
     id: string;
@@ -190,30 +199,69 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         </p>
       </div>
 
+      {/* Escalation banner — FIX-G-C: show if donation was auto-escalated */}
+      {donation.escalated_to_admin_at && (
+        <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-xl">⚡</span>
+            <p className="text-sm font-bold text-amber-900">Auto-Escalated ke Admin</p>
+          </div>
+          {donation.escalation_reason && (
+            <p className="text-xs text-amber-800 pl-8 leading-relaxed">
+              <strong>Alasan:</strong> {donation.escalation_reason}
+            </p>
+          )}
+          <p className="text-[10px] text-amber-700 pl-8 mt-1">
+            Di-escalate {formatFullDate(donation.escalated_to_admin_at)}
+          </p>
+        </div>
+      )}
+
       {/* Status banner */}
       {isVerified && (
-        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-4 flex items-center gap-3">
-          <CheckCircle2 size={20} className="text-emerald-600" />
-          <div>
-            <p className="text-sm font-bold text-emerald-900">Sudah Terverifikasi</p>
-            <p className="text-xs text-emerald-700">
-              Diverifikasi pada {formatFullDate(donation.verified_at!)}
-            </p>
+        <div className="mb-4 rounded-xl bg-emerald-50 border border-emerald-200 p-4">
+          <div className="flex items-start gap-3">
+            <CheckCircle2 size={20} className="text-emerald-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <p className="text-sm font-bold text-emerald-900">Sudah Terverifikasi</p>
+                {donation.verifier && <RoleBadge role={donation.verifier.role} />}
+              </div>
+              <p className="text-xs text-emerald-700">
+                Diverifikasi pada {formatFullDate(donation.verified_at!)}
+              </p>
+              {donation.verifier && (
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  oleh <strong>{donation.verifier.name || 'Admin'}</strong>
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
 
       {isRejected && (
         <div className="mb-4 rounded-xl bg-red-50 border border-red-200 p-4">
-          <div className="flex items-center gap-3 mb-2">
-            <XCircle size={20} className="text-red-600" />
-            <p className="text-sm font-bold text-red-900">Di-reject</p>
+          <div className="flex items-start gap-3">
+            <XCircle size={20} className="text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <p className="text-sm font-bold text-red-900">Di-reject</p>
+                {donation.verifier && <RoleBadge role={donation.verifier.role} />}
+              </div>
+              {donation.verifier && (
+                <p className="text-xs text-red-700 mb-1">
+                  oleh <strong>{donation.verifier.name || 'Admin'}</strong>
+                  {donation.verified_at && ` · ${formatFullDate(donation.verified_at)}`}
+                </p>
+              )}
+              {donation.rejection_reason && (
+                <p className="text-xs text-red-700 mt-1">
+                  <strong>Alasan:</strong> {donation.rejection_reason}
+                </p>
+              )}
+            </div>
           </div>
-          {donation.rejection_reason && (
-            <p className="text-xs text-red-700 mt-2 pl-8">
-              <strong>Alasan:</strong> {donation.rejection_reason}
-            </p>
-          )}
         </div>
       )}
 
@@ -450,5 +498,36 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
     </div>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// FIX-G-C: RoleBadge — visual indicator role admin yang verify
+// ═══════════════════════════════════════════════════════════════
+
+function RoleBadge({ role }: { role: string }) {
+  const meta = (() => {
+    switch (role) {
+      case 'super_admin':
+        return { label: 'Super Admin', color: '#7C3AED', bg: '#F3E8FF', icon: '⭐' };
+      case 'admin_funding':
+        return { label: 'Admin BADONASI', color: '#047857', bg: '#D1FAE5', icon: '🛡️' };
+      case 'admin_content':
+        return { label: 'Admin Konten', color: '#1D4ED8', bg: '#DBEAFE', icon: '📝' };
+      case 'user':
+        return { label: 'Penggalang', color: '#4B5563', bg: '#F3F4F6', icon: '👤' };
+      default:
+        return { label: role, color: '#4B5563', bg: '#F3F4F6', icon: '🔹' };
+    }
+  })();
+
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: meta.bg, color: meta.color }}
+    >
+      <span style={{ fontSize: 9 }}>{meta.icon}</span>
+      {meta.label}
+    </span>
   );
 }

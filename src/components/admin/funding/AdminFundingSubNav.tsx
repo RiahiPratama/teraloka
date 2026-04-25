@@ -20,6 +20,7 @@ interface Badges {
   pendingReports: number;
   activeFraudFlags: number;
   pendingCreators: number;     // ⭐ FIX-E-4-C: Creator KYC pending count
+  pendingEscalations: number;  // ⭐ FIX-G-C: Auto-escalated donations
 }
 
 export default function AdminFundingSubNav({
@@ -38,6 +39,7 @@ export default function AdminFundingSubNav({
     pendingReports: 0,
     activeFraudFlags: 0,
     pendingCreators: 0,    // ⭐ FIX-E-4-C
+    pendingEscalations: 0, // ⭐ FIX-G-C
   });
 
   useEffect(() => {
@@ -46,7 +48,7 @@ export default function AdminFundingSubNav({
 
     const headers = { Authorization: `Bearer ${tk}` };
 
-    // Fetch all 6 badge counts in parallel
+    // Fetch all 7 badge counts in parallel
     Promise.all([
       fetch(`${API_URL}/funding/admin/campaigns?status=pending_review&limit=1`, { headers })
         .then(r => r.json()).catch(() => null),
@@ -61,7 +63,10 @@ export default function AdminFundingSubNav({
       // ⭐ FIX-E-4-C: Creator KYC stats
       fetch(`${API_URL}/admin/creators/stats`, { headers })
         .then(r => r.json()).catch(() => null),
-    ]).then(([campRes, donRes, feeRes, reportRes, fraudRes, creatorRes]) => {
+      // ⭐ FIX-G-C: Escalations count (unresolved)
+      fetch(`${API_URL}/funding/admin/escalations?status=unresolved&limit=1`, { headers })
+        .then(r => r.json()).catch(() => null),
+    ]).then(([campRes, donRes, feeRes, reportRes, fraudRes, creatorRes, escRes]) => {
       setBadges({
         pendingCampaigns: campRes?.meta?.total ?? 0,
         pendingDonations: donRes?.meta?.total ?? 0,
@@ -69,6 +74,7 @@ export default function AdminFundingSubNav({
         pendingReports: reportRes?.data?.pending ?? 0,
         activeFraudFlags: fraudRes?.data?.active ?? 0,
         pendingCreators: creatorRes?.data?.pending ?? 0,    // ⭐
+        pendingEscalations: escRes?.meta?.total ?? 0,        // ⭐ FIX-G-C
       });
     });
   }, [refreshKey]);
@@ -83,6 +89,7 @@ export default function AdminFundingSubNav({
     { href: '/admin/funding/campaigns', label: 'Kampanye',       badge: badges.pendingCampaigns },
     { href: '/admin/funding/penggalang',label: 'Penggalang',     badge: badges.pendingCreators },
     { href: '/admin/funding/donations', label: 'Donasi',         badge: badges.pendingDonations },
+    { href: '/admin/funding/escalations', label: 'Escalations',  badge: badges.pendingEscalations, accent: 'red' },
     { href: '/admin/funding/reports',   label: 'Laporan',        badge: badges.pendingReports },
     { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
     { href: '/admin/funding/fraud',     label: 'Fraud',          badge: badges.activeFraudFlags, accent: 'red' },
