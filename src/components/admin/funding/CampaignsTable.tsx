@@ -59,6 +59,10 @@ export interface Campaign {
   bank_account_name?: string;
   proof_documents?: string[];
   is_verified?: boolean;
+
+  // ── FIX-E-4: Beneficiary KYC fields (admin verifikasi) ──
+  beneficiary_id_documents?: string[];   // KTP penerima manfaat (RAHASIA — admin only)
+  is_independent?: boolean;              // Perorangan vs Komunitas/Lembaga
 }
 
 function shortRupiah(n: number): string {

@@ -104,6 +104,23 @@ export default function AdminCampaignsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
+  // ⭐ FIX-E-4-B: Mandatory checklist before approve (anti-rubber-stamp UX)
+  // Admin wajib centang semua checklist sebelum tombol Approve aktif
+  const [approveChecklist, setApproveChecklist] = useState<{
+    documentsClear: boolean;
+    nameMatches: boolean;
+    nikValid: boolean;
+    notManipulated: boolean;
+    doubleChecked: boolean;
+  }>({
+    documentsClear: false,
+    nameMatches: false,
+    nikValid: false,
+    notManipulated: false,
+    doubleChecked: false,
+  });
+  const allChecked = Object.values(approveChecklist).every(Boolean);
+
   // M4-C: Fraud flags list modal state
   const [fraudModal, setFraudModal] = useState<{
     open: boolean;
@@ -271,6 +288,16 @@ export default function AdminCampaignsPage() {
   function switchLayout(view: 'table' | 'list') { updateUrl({ view }); }
 
   function onRowAction(action: 'detail' | 'approve' | 'reject', campaign: Campaign) {
+    // ⭐ FIX-E-4-B: Reset checklist setiap buka modal approve baru
+    if (action === 'approve') {
+      setApproveChecklist({
+        documentsClear: false,
+        nameMatches: false,
+        nikValid: false,
+        notManipulated: false,
+        doubleChecked: false,
+      });
+    }
     setModal({ type: action, campaign });
   }
 
@@ -649,13 +676,154 @@ export default function AdminCampaignsPage() {
                       <strong>Kampanye akan langsung publik.</strong> Pastikan identitas & dokumen valid.
                     </div>
                   </div>
+
                   <CampaignSummary c={modal.campaign} t={t} />
+
+                  {/* ⭐ FIX-E-4-B: Side-by-side beneficiary KTP review */}
+                  {modal.campaign.beneficiary_id_documents && modal.campaign.beneficiary_id_documents.length > 0 ? (
+                    <div style={{
+                      marginTop: 16, padding: 14, borderRadius: 12,
+                      background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.2)',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: '#3B82F6', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                          🔒 Identitas Penerima Manfaat
+                        </p>
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, color: '#EF4444',
+                          background: 'rgba(239,68,68,0.1)', padding: '3px 7px', borderRadius: 6,
+                          letterSpacing: '0.5px',
+                        }}>
+                          RAHASIA
+                        </span>
+                      </div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                        {/* Side: KTP Images */}
+                        <div>
+                          <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 6, fontWeight: 600 }}>
+                            📷 Foto KTP / Identitas ({modal.campaign.beneficiary_id_documents.length})
+                          </p>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+                            {modal.campaign.beneficiary_id_documents.map((url, i) => (
+                              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                                style={{
+                                  aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
+                                  border: `1px solid ${t.sidebarBorder}`, background: t.navHover,
+                                  display: 'block',
+                                }}>
+                                <img src={url} alt={`KTP ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                              </a>
+                            ))}
+                          </div>
+                          <p style={{ fontSize: 10, color: t.textMuted, marginTop: 6, fontStyle: 'italic' }}>
+                            Klik gambar untuk view full size
+                          </p>
+                        </div>
+
+                        {/* Side: Typed Data */}
+                        <div>
+                          <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 6, fontWeight: 600 }}>
+                            📝 Data Yang Diketik
+                          </p>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            <div>
+                              <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>Nama:</p>
+                              <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>{modal.campaign.beneficiary_name}</p>
+                            </div>
+                            {modal.campaign.beneficiary_relation && (
+                              <div>
+                                <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>Hubungan:</p>
+                                <p style={{ fontSize: 12, color: t.textPrimary }}>{modal.campaign.beneficiary_relation}</p>
+                              </div>
+                            )}
+                            <div>
+                              <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 2 }}>Tipe:</p>
+                              <p style={{ fontSize: 12, color: t.textPrimary }}>
+                                {modal.campaign.is_independent ? '👤 Perorangan' : '🏢 Komunitas/Lembaga'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{
+                      marginTop: 16, padding: 12, borderRadius: 12,
+                      background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)',
+                      fontSize: 12, color: '#B45309', lineHeight: 1.5,
+                    }}>
+                      ⚠️ <strong>KTP penerima manfaat tidak ada.</strong> Pertimbangkan untuk reject jika kampanye butuh verifikasi identitas.
+                    </div>
+                  )}
+
+                  {/* ⭐ FIX-E-4-B: Mandatory Checklist (anti-rubber-stamp) */}
+                  <div style={{
+                    marginTop: 16, padding: 14, borderRadius: 12,
+                    background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.3)',
+                  }}>
+                    <p style={{
+                      fontSize: 11, fontWeight: 700, color: '#B45309',
+                      textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 10,
+                    }}>
+                      ⚠️ Checklist Wajib (Centang Semua)
+                    </p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {[
+                        { key: 'documentsClear', label: 'Foto KTP terbaca jelas (tidak blur/buram)' },
+                        { key: 'nameMatches', label: 'Nama di KTP cocok dengan yang diketik penggalang' },
+                        { key: 'nikValid', label: 'NIK pada KTP terlihat valid (16 digit)' },
+                        { key: 'notManipulated', label: 'Foto KTP tidak terlihat dimanipulasi/edited' },
+                        { key: 'doubleChecked', label: 'Saya sudah double-check semua data dengan teliti' },
+                      ].map(item => {
+                        const checked = approveChecklist[item.key as keyof typeof approveChecklist];
+                        return (
+                          <label key={item.key} style={{
+                            display: 'flex', alignItems: 'flex-start', gap: 8,
+                            cursor: 'pointer', padding: 4, borderRadius: 6,
+                          }}>
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => setApproveChecklist(prev => ({
+                                ...prev,
+                                [item.key]: e.target.checked,
+                              }))}
+                              disabled={submitting}
+                              style={{
+                                marginTop: 2, width: 16, height: 16,
+                                accentColor: '#10B981', cursor: 'pointer', flexShrink: 0,
+                              }}
+                            />
+                            <span style={{
+                              fontSize: 12, color: checked ? t.textPrimary : t.textDim,
+                              lineHeight: 1.5,
+                              fontWeight: checked ? 600 : 400,
+                            }}>
+                              {item.label}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {!allChecked && (
+                      <p style={{
+                        marginTop: 10, fontSize: 11, color: '#B45309',
+                        fontStyle: 'italic',
+                      }}>
+                        Tombol Approve aktif setelah semua dicentang.
+                      </p>
+                    )}
+                  </div>
+
                   <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
                     <button onClick={() => setModal(null)} disabled={submitting}
                       style={cancelBtnStyle(t)}>Batal</button>
-                    <button onClick={() => handleApprove(modal.campaign)} disabled={submitting}
-                      style={primaryBtnStyle('#10B981', '#059669', submitting)}>
-                      {submitting ? 'Memproses...' : '✓ Ya, Approve'}
+                    <button
+                      onClick={() => handleApprove(modal.campaign)}
+                      disabled={submitting || !allChecked}
+                      style={primaryBtnStyle('#10B981', '#059669', submitting || !allChecked)}
+                    >
+                      {submitting ? 'Memproses...' : allChecked ? '✓ Ya, Approve' : '🔒 Lengkapi Checklist'}
                     </button>
                   </div>
                 </>
@@ -878,11 +1046,55 @@ function CampaignDetail({ c, t }: { c: Campaign; t: any }) {
           </p>
         </div>
       )}
+      {/* ⭐ FIX-E-4-B: Beneficiary KTP (RAHASIA — admin only) */}
+      {c.beneficiary_id_documents && c.beneficiary_id_documents.length > 0 && (
+        <div style={{
+          padding: 14, borderRadius: 12,
+          background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.2)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <p style={{ fontSize: 10, color: '#3B82F6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              🔒 Identitas Penerima Manfaat ({c.beneficiary_id_documents.length})
+            </p>
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: '#EF4444',
+              background: 'rgba(239,68,68,0.1)', padding: '3px 7px', borderRadius: 6,
+              letterSpacing: '0.5px',
+            }}>
+              RAHASIA
+            </span>
+          </div>
+          <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 8, fontStyle: 'italic' }}>
+            Hanya terlihat oleh admin. Tidak ditampilkan ke publik.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+            {c.beneficiary_id_documents.map((url, i) => (
+              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+                style={{
+                  aspectRatio: '1', background: t.navHover, borderRadius: 10, overflow: 'hidden',
+                  border: `1px solid ${t.sidebarBorder}`, display: 'block',
+                }}>
+                <img src={url} alt={`KTP ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {c.proof_documents && c.proof_documents.length > 0 && (
         <div>
-          <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
-            Dokumen Pendukung ({c.proof_documents.length})
-          </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+            <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, textTransform: 'uppercase' }}>
+              Dokumen Pendukung ({c.proof_documents.length})
+            </p>
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: '#10B981',
+              background: 'rgba(16,185,129,0.1)', padding: '3px 7px', borderRadius: 6,
+              letterSpacing: '0.5px',
+            }}>
+              PUBLIK
+            </span>
+          </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
             {c.proof_documents.map((url, i) => (
               <a key={i} href={url} target="_blank" rel="noopener noreferrer"
