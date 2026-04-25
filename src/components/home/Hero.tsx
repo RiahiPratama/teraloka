@@ -28,8 +28,8 @@ const SERVICE_PILLS = [
     href: '/kos', color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)', border: 'rgba(27,107,74,0.15)',
   },
   {
-    icon: '💚', label: 'DONASI', sub: 'Bantu Sesama',
-    href: '/fundraising', color: '#E8963A', bg: 'rgba(232,150,58,0.07)', border: 'rgba(232,150,58,0.15)',
+    icon: '💖', label: 'DONASI', sub: 'Bantu Sesama',
+    href: '/fundraising', color: '#EC4899', bg: 'rgba(236,72,153,0.07)', border: 'rgba(236,72,153,0.15)',
   },
 ]
 
@@ -379,14 +379,14 @@ export default function Hero() {
           >
             <span style={{
               fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em',
-              color: '#E8963A', background: 'rgba(232,150,58,0.1)',
+              color: '#EC4899', background: 'rgba(236,72,153,0.1)',
               padding: '2px 7px', borderRadius: 99, display: 'inline-block', marginBottom: 7,
             }}>BADONASI</span>
             <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text)', marginBottom: 4 }}>Donasi Aktif</div>
             <div style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 8, lineHeight: 1.4 }}>
               Bantu warga yang membutuhkan
             </div>
-            <div style={{ fontSize: 10, fontWeight: 700, color: '#E8963A' }}>Lihat Donasi →</div>
+            <div style={{ fontSize: 10, fontWeight: 700, color: '#EC4899' }}>Lihat Donasi →</div>
           </Link>
         </div>
       </div>

@@ -2,23 +2,31 @@ import Link from 'next/link'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1'
 
-async function getCampaignStats() {
+async function getPublicStats() {
   try {
-    const res = await fetch(`${API}/funding/campaigns?status=active&limit=1`, { next: { revalidate: 300 } })
+    const res = await fetch(`${API}/funding/stats/public`, { next: { revalidate: 300 } })
     const data = await res.json()
-    if (data.success) return { count: data.meta?.total ?? 0 }
-    return { count: 0 }
-  } catch { return { count: 0 } }
+    if (data.success && data.data) {
+      return {
+        active_campaigns: data.data.active_campaigns ?? 0,
+        total_collected: data.data.total_collected ?? 0,
+      }
+    }
+    return { active_campaigns: 0, total_collected: 0 }
+  } catch {
+    return { active_campaigns: 0, total_collected: 0 }
+  }
 }
 
 function formatRupiah(n: number) {
+  if (n >= 1000000000) return `Rp ${(n / 1000000000).toFixed(1).replace('.0', '')} M`
   if (n >= 1000000) return `Rp ${(n / 1000000).toFixed(1).replace('.0', '')} jt`
   if (n >= 1000) return `Rp ${(n / 1000).toFixed(0)} rb`
   return `Rp ${n}`
 }
 
 export default async function ContextualServices() {
-  const campaignStats = await getCampaignStats()
+  const stats = await getPublicStats()
 
   return (
     <section style={{
@@ -43,7 +51,7 @@ export default async function ContextualServices() {
         {/* Fix: 1 kolom mobile → 3 kolom desktop */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
 
-          {/* Card 1: Speedboat */}
+          {/* Card 1: Speedboat (BAPASIAR) */}
           <div style={{
             background: '#fff', borderRadius: 20,
             border: '1px solid var(--border-light)', overflow: 'hidden',
@@ -75,19 +83,19 @@ export default async function ContextualServices() {
                 </div>
               </div>
             </div>
-            <Link href="/speed" style={{
+            <Link href="/bapasiar/speedboat" style={{
               display: 'block', textDecoration: 'none',
-              background: 'var(--surface-low)',
-              borderTop: '1px solid var(--border-light)',
+              background: 'rgba(8,145,178,0.07)',
+              borderTop: '1px solid rgba(8,145,178,0.15)',
               padding: '12px 20px',
-              fontSize: 13, fontWeight: 700, color: 'var(--primary)',
+              fontSize: 13, fontWeight: 700, color: '#0891B2',
               textAlign: 'center',
             }}>
               Lihat Jadwal →
             </Link>
           </div>
 
-          {/* Card 2: Kos */}
+          {/* Card 2: Kos (BAKOS) */}
           <div style={{
             background: 'var(--primary)', borderRadius: 20, overflow: 'hidden',
           }}>
@@ -114,7 +122,7 @@ export default async function ContextualServices() {
                 </p>
               </div>
             </div>
-            <Link href="/kos" style={{
+            <Link href="/bakos" style={{
               display: 'block', textDecoration: 'none',
               background: '#fff',
               padding: '12px 20px',
@@ -125,48 +133,58 @@ export default async function ContextualServices() {
             </Link>
           </div>
 
-          {/* Card 3: Donasi */}
+          {/* Card 3: Donasi (BADONASI) — full pink solid, signature service */}
           <div style={{
-            background: '#fff', borderRadius: 20,
-            border: '1px solid var(--border-light)', overflow: 'hidden',
+            background: 'linear-gradient(135deg, #BE185D 0%, #EC4899 100%)',
+            borderRadius: 20, overflow: 'hidden',
+            position: 'relative',
           }}>
-            <div style={{ padding: '20px 20px 0' }}>
+            {/* Subtle decoration */}
+            <div style={{
+              position: 'absolute', top: -20, right: -20,
+              width: 120, height: 120, borderRadius: '50%',
+              background: 'rgba(255,255,255,0.08)',
+              pointerEvents: 'none',
+            }} />
+
+            <div style={{ padding: '20px 20px 0', position: 'relative' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 12,
-                  background: 'rgba(232,150,58,0.1)',
+                  background: 'rgba(255,255,255,0.2)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#E8963A" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="#fff" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
                   </svg>
                 </div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)' }}>Donasi Aktif</p>
-                  <p style={{ fontSize: 11, color: 'var(--text-muted)' }}>Bantu warga yang membutuhkan</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Donasi Aktif</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.8)' }}>Bantu warga yang membutuhkan</p>
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 mb-5">
-                <div style={{ background: 'var(--surface-low)', borderRadius: 10, padding: '10px 12px' }}>
-                  <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Kampanye Aktif</p>
-                  <p style={{ fontSize: 20, fontWeight: 800, color: '#E8963A' }}>
-                    {campaignStats.count > 0 ? campaignStats.count : '—'}
+                <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', marginBottom: 2 }}>Kampanye Aktif</p>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: '#fff' }}>
+                    {stats.active_campaigns > 0 ? stats.active_campaigns : '—'}
                   </p>
                 </div>
-                <div style={{ background: 'var(--surface-low)', borderRadius: 10, padding: '10px 12px' }}>
-                  <p style={{ fontSize: 10, color: 'var(--text-muted)', marginBottom: 2 }}>Total Terkumpul</p>
-                  <p style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)' }}>
-                    {formatRupiah(24850000)}
+                <div style={{ background: 'rgba(255,255,255,0.15)', borderRadius: 10, padding: '10px 12px' }}>
+                  <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.75)', marginBottom: 2 }}>Total Terkumpul</p>
+                  <p style={{ fontSize: 13, fontWeight: 800, color: '#fff' }}>
+                    {formatRupiah(stats.total_collected)}
                   </p>
                 </div>
               </div>
             </div>
             <Link href="/fundraising" style={{
               display: 'block', textDecoration: 'none',
-              background: '#FFF7ED', borderTop: '1px solid #FED7AA',
+              background: '#fff',
               padding: '12px 20px',
-              fontSize: 13, fontWeight: 700, color: '#C2410C',
+              fontSize: 13, fontWeight: 800, color: '#BE185D',
               textAlign: 'center',
+              position: 'relative',
             }}>
               Lihat Donasi →
             </Link>
