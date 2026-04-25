@@ -62,6 +62,7 @@ interface Campaign {
   cover_image_url?: string;
   beneficiary_name?: string;
   beneficiary_relation?: string;
+  beneficiary_id_documents?: string[];
   description?: string;
   target_amount: number;
   deadline?: string | null;
@@ -113,6 +114,7 @@ export default function EditCampaignPage() {
   const [isUrgent, setIsUrgent] = useState(false);
   const [coverUrl, setCoverUrl] = useState('');
   const [proofDocs, setProofDocs] = useState<string[]>([]);
+  const [idDocs, setIdDocs] = useState<string[]>([]);
 
   const [partnerName, setPartnerName] = useState('');
   const [isIndependent, setIsIndependent] = useState(false);
@@ -167,6 +169,7 @@ export default function EditCampaignPage() {
         setIsUrgent(c.is_urgent ?? false);
         setCoverUrl(c.cover_image_url ?? '');
         setProofDocs(c.proof_documents ?? []);
+        setIdDocs(c.beneficiary_id_documents ?? []);
         setPartnerName(c.partner_name ?? '');
         setIsIndependent(c.is_independent ?? false);
         setBankAccountNumber(c.bank_account_number ?? '');
@@ -194,6 +197,7 @@ export default function EditCampaignPage() {
     if (!beneficiaryName.trim()) return 'Nama penerima wajib diisi';
     if (!beneficiaryRelation.trim()) return 'Hubungan dengan penerima wajib diisi';
     if (!category) return 'Pilih kategori';
+    if (idDocs.length < 1) return 'Identitas penerima wajib (KTP/KK/Akta — minimal 1 file)';
     if (title.trim().length < 10) return 'Judul minimal 10 karakter';
     if (description.trim().length < 30) return 'Cerita minimal 30 karakter';
     const target = parseRupiahInput(targetAmount);
@@ -244,6 +248,7 @@ export default function EditCampaignPage() {
           is_independent: isIndependent,
           partner_name: partnerName.trim(),
           proof_documents: proofDocs,
+          beneficiary_id_documents: idDocs,
         }),
       });
 
@@ -508,6 +513,43 @@ export default function EditCampaignPage() {
                 );
               })}
             </div>
+          </FormField>
+
+          {/* Identitas Penerima Manfaat (RAHASIA, admin-only) */}
+          <FormField label="🔒 Identitas Penerima Manfaat (RAHASIA)">
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mb-3">
+              <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
+                <Info size={13} className="shrink-0 mt-0.5 text-blue-600" />
+                <span>
+                  <strong className="font-bold">Hanya admin TeraLoka yang bisa lihat.</strong> Identitas penerima TIDAK ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP.
+                </span>
+              </p>
+            </div>
+
+            <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-3">
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                <strong className="font-bold">Upload 1-3 file</strong> sesuai kondisi:
+                <br />🪪 KTP penerima (bila dewasa)
+                <br />👨‍👧 KTP Wali + Akta Kelahiran (bila anak-anak)
+                <br />📋 Kartu Keluarga (KK) sebagai alternatif
+                <br />📃 Surat Keterangan RT/RW/Kelurahan
+              </p>
+            </div>
+
+            <ImageUpload
+              bucket="campaigns"
+              label=""
+              maxFiles={3}
+              maxSizeMB={5}
+              onUpload={(urls: string[]) => setIdDocs(urls)}
+              existingUrls={idDocs}
+            />
+            {idDocs.length > 0 && (
+              <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
+                <CheckCircle2 size={13} />
+                {idDocs.length} file identitas tersimpan (rahasia)
+              </p>
+            )}
           </FormField>
         </FormSection>
 

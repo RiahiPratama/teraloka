@@ -157,6 +157,38 @@ export default function CampaignInfoPage() {
           </ul>
         </div>
 
+        {/* Perlindungan Data Identitas */}
+        <div className="bg-blue-50 border border-blue-100 rounded-2xl p-5">
+          <h2 className="text-sm font-bold text-blue-900 mb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined text-base text-blue-600" style={{ fontVariationSettings: "'FILL' 1" }}>lock</span>
+            Perlindungan Data Identitas
+          </h2>
+          <p className="text-xs text-blue-900 leading-relaxed mb-3">
+            <strong>TeraLoka memisahkan dokumen identitas (KTP/KK/Akta) dari dokumen bukti pendukung:</strong>
+          </p>
+          <div className="space-y-2.5">
+            <div className="flex items-start gap-2.5 bg-white/60 rounded-lg p-3">
+              <span className="material-symbols-outlined text-base shrink-0 text-red-600 mt-0.5">visibility_off</span>
+              <div className="text-xs text-blue-900 leading-relaxed">
+                <strong className="font-bold">🔒 Identitas Penerima (RAHASIA)</strong>
+                <br />
+                Foto KTP, KK, Akta Kelahiran <strong>HANYA dilihat tim verifikasi TeraLoka</strong>. Tidak akan ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP (Perlindungan Data Pribadi).
+              </div>
+            </div>
+            <div className="flex items-start gap-2.5 bg-white/60 rounded-lg p-3">
+              <span className="material-symbols-outlined text-base shrink-0 text-emerald-600 mt-0.5">visibility</span>
+              <div className="text-xs text-blue-900 leading-relaxed">
+                <strong className="font-bold">🌐 Dokumen Pendukung (PUBLIK)</strong>
+                <br />
+                Foto lokasi, surat dokter (KTP/NIK diblur), surat keterangan kelurahan — <strong>ditampilkan ke donor</strong> untuk transparansi dan kepercayaan.
+              </div>
+            </div>
+          </div>
+          <p className="text-[11px] text-blue-700 mt-3 italic leading-relaxed">
+            ⚠️ Jangan upload KTP atau dokumen ber-NIK di bagian "Dokumen Pendukung". Saat upload bukti, redaksi/blur informasi sensitif terlebih dahulu.
+          </p>
+        </div>
+
         {/* Kategori yang diizinkan */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-800 mb-3 flex items-center gap-2">

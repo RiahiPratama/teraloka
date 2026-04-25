@@ -62,6 +62,7 @@ export default function NewCampaignPage() {
   const [submitted, setSubmitted] = useState(false);
   const [coverUrl, setCoverUrl]   = useState('');
   const [proofDocs, setProofDocs] = useState<string[]>([]);   // ⭐ NEW: dokumen pendukung
+  const [idDocs, setIdDocs] = useState<string[]>([]);         // ⭐ NEW: identitas penerima (RAHASIA, admin only)
 
   // Step 0
   const [beneficiaryName, setBeneficiaryName] = useState('');
@@ -145,6 +146,7 @@ export default function NewCampaignPage() {
           title, description, category,
           cover_image_url: coverUrl || null,
           proof_documents: proofDocs,       // ⭐ NEW: kirim dokumen pendukung
+          beneficiary_id_documents: idDocs, // ⭐ NEW: identitas penerima (rahasia)
           beneficiary_name: beneficiaryName,
           beneficiary_relation: beneficiaryRelation,
           target_amount: Number(targetAmount.replace(/\D/g, '')),
@@ -166,7 +168,7 @@ export default function NewCampaignPage() {
 
   // ⭐ Step 1 validation expanded: cover + proof_documents required
   const canNext = [
-    !!(beneficiaryName.trim() && beneficiaryRelation.trim() && category),
+    !!(beneficiaryName.trim() && beneficiaryRelation.trim() && category && idDocs.length >= 1),
     !!(
       title.trim().length >= 10 &&
       description.trim().length >= 30 &&
@@ -260,6 +262,47 @@ export default function NewCampaignPage() {
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* ⭐ NEW: Identitas Penerima Manfaat (RAHASIA, admin-only) */}
+                <div>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wide flex items-center gap-1.5">
+                    <span className="material-symbols-outlined text-sm text-[#003526]">lock</span>
+                    Identitas Penerima Manfaat
+                    <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider">RAHASIA</span>
+                  </label>
+
+                  <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mt-2">
+                    <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
+                      <span className="material-symbols-outlined text-sm shrink-0 text-blue-600">verified_user</span>
+                      <span>
+                        <strong className="font-bold">🔒 Hanya admin TeraLoka yang bisa lihat.</strong> Identitas penerima TIDAK ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP.
+                      </span>
+                    </p>
+                  </div>
+
+                  <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mt-2">
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      <strong className="font-bold">Upload 1-3 file</strong> sesuai kondisi penerima:
+                      <br />🪪 <strong>KTP penerima</strong> (bila dewasa)
+                      <br />👨‍👧 <strong>KTP Wali + Akta Kelahiran</strong> (bila anak-anak)
+                      <br />📋 <strong>Kartu Keluarga (KK)</strong> sebagai alternatif
+                      <br />📃 <strong>Surat Keterangan RT/RW/Kelurahan</strong> (kasus tanpa dokumen formal)
+                    </p>
+                  </div>
+
+                  <div className="mt-3">
+                    <ImageUpload bucket="campaigns" label=""
+                      maxFiles={3} maxSizeMB={5}
+                      onUpload={(urls: string[]) => setIdDocs(urls)}
+                      existingUrls={idDocs} />
+                    {idDocs.length > 0 && (
+                      <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
+                        <span className="material-symbols-outlined text-sm">check_circle</span>
+                        {idDocs.length} file identitas tersimpan (rahasia)
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -506,6 +549,7 @@ export default function NewCampaignPage() {
                 <div className="rounded-xl border border-gray-100 bg-gray-50 divide-y divide-gray-100">
                   {[
                     { label: 'Penerima Manfaat', value: `${beneficiaryName} (${beneficiaryRelation})` },
+                    { label: 'Identitas Penerima', value: `${idDocs.length} file (🔒 rahasia, admin only)` },
                     { label: 'Judul Campaign', value: title },
                     { label: 'Target Dana', value: `Rp ${targetAmount}` },
                     { label: 'Tipe Penggalang', value: isIndependent ? '👤 Perorangan / Pribadi' : '🏢 Komunitas / Lembaga' },
