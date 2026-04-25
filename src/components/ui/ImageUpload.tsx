@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { FileText, X, Upload, Loader2 } from 'lucide-react';
 
 interface ImageUploadProps {
-  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads' | 'donations';
+  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads' | 'donations' | 'kyc';
   onUpload: (urls: string[]) => void;
   existingUrls?: string[];
   label?: string;
@@ -21,6 +21,7 @@ const BUCKET_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
   reports:   { maxFiles: 3, maxSizeMB: 3 },
   ads:       { maxFiles: 1, maxSizeMB: 0.5 },
   donations: { maxFiles: 1, maxSizeMB: 5 },
+  kyc:       { maxFiles: 3, maxSizeMB: 5 },  // ← FIX-E: KTP penggalang (1-3 docs)
 };
 
 // Bucket 'donations' accepts PDF (bukti transfer dari e-banking export).
