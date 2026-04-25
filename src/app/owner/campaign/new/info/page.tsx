@@ -140,7 +140,7 @@ export default function CampaignInfoPage() {
     <div className="min-h-screen bg-[#f9f9f8]">
 
       {/* Hero */}
-      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-10 pb-14 relative overflow-hidden">
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-10 pb-20 relative overflow-hidden">
         {/* Pink accent decoration */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
         <div className="absolute bottom-0 left-0 w-40 h-40 bg-[#EC4899] rounded-full opacity-5 blur-3xl"></div>
@@ -183,7 +183,7 @@ export default function CampaignInfoPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 -mt-5 pb-24 space-y-4">
+      <div className="mx-auto max-w-lg px-4 -mt-8 pb-24 space-y-4">
 
         {/* Alur pendaftaran */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
