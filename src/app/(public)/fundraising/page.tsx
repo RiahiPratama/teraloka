@@ -187,48 +187,78 @@ export default async function FundraisingPage({
                   dari <span className="font-bold">{stats.total_donors.toLocaleString('id-ID')}</span> donatur baik hati
                 </p>
 
-                {/* TRANSPARENCY CARD */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10 text-left">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                        <CheckCircle2 size={14} className="text-emerald-300" strokeWidth={2.5} />
+                {/* TRANSPARENCY CARD — 3 STATE VISIBILITY */}
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-4 border border-white/10 text-left space-y-3">
+                  
+                  {/* State 1: Sudah Tersalurkan */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0">
+                          <CheckCircle2 size={14} className="text-emerald-300" strokeWidth={2.5} />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-bold text-[#95d3ba] uppercase tracking-wider">
+                            Sudah Tersalurkan
+                          </p>
+                          <p className="text-base font-black text-white leading-tight">
+                            {formatRupiah(stats.total_disbursed)}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-[#95d3ba] uppercase tracking-wider">
-                          Sudah Tersalurkan
+                      <div className="text-right shrink-0">
+                        <p className="text-xl font-black text-emerald-300 leading-none">
+                          {disbursePct}%
                         </p>
-                        <p className="text-lg font-black text-white leading-tight">
-                          {shortRupiah(stats.total_disbursed)}
+                        <p className="text-[9px] text-[#95d3ba] uppercase tracking-wider font-semibold">
+                          dari terkumpul
                         </p>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-emerald-300 leading-none">
-                        {disbursePct}%
-                      </p>
-                      <p className="text-[9px] text-[#95d3ba] uppercase tracking-wider font-semibold">
-                        dari terkumpul
-                      </p>
+
+                    {/* Progress bar */}
+                    <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all"
+                        style={{ width: `${disbursePct}%` }}
+                      />
                     </div>
                   </div>
 
-                  {/* Progress bar */}
-                  <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-emerald-400 to-emerald-300 transition-all"
-                      style={{ width: `${disbursePct}%` }}
-                    />
-                  </div>
+                  {/* State 2: Saldo di Penggalang (NEW) */}
+                  {pending > 0 && (
+                    <div className="pt-3 border-t border-white/10">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-[#EC4899]/20 flex items-center justify-center shrink-0">
+                            <span className="text-sm">💼</span>
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold text-[#F9A8D4] uppercase tracking-wider">
+                              Saldo di Penggalang
+                            </p>
+                            <p className="text-base font-black text-white leading-tight">
+                              {formatRupiah(pending)}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xl font-black text-[#F472B6] leading-none">
+                            {100 - disbursePct}%
+                          </p>
+                          <p className="text-[9px] text-[#95d3ba] uppercase tracking-wider font-semibold">
+                            akan disalurkan
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Info note */}
-                  <div className="mt-3 flex items-start gap-1.5">
+                  <div className="pt-2 flex items-start gap-1.5 border-t border-white/10">
                     <Info size={11} className="text-[#95d3ba] shrink-0 mt-0.5" />
                     <p className="text-[10px] text-[#95d3ba] leading-relaxed">
-                      Dana yang sudah dicairkan dari rekening komunitas ke penerima manfaat.
-                      {pending > 0 && (
-                        <> Sisanya <strong className="text-white">{shortRupiah(pending)}</strong> dalam proses penyaluran.</>
-                      )}
+                      Donasi 100% UTUH ke penerima manfaat. Penggalang menyalurkan dana via rekening kampanye (pribadi atau komunitas terdaftar) sesuai kebutuhan.
                     </p>
                   </div>
                 </div>
