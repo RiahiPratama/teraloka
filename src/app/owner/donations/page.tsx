@@ -60,6 +60,19 @@ interface CampaignOption {
   title: string;
 }
 
+interface FinancialSummary {
+  total_collected: number;
+  total_disbursed: number;
+  saldo: number;
+  total_fee_penggalang: number;
+  total_kode_unik: number;
+  penggalang_revenue: number;
+  total_donors: number;
+  pending_count: number;
+  verified_count: number;
+  platform_phase: string;
+}
+
 const SMART_VIEWS: Array<{ value: SmartView; label: string; emoji: string; color: string }> = [
   { value: 'perlu_verifikasi', label: 'Perlu Verifikasi', emoji: '🔴', color: '#DC2626' },
   { value: 'hampir_telat', label: 'Hampir Telat', emoji: '⏰', color: '#EA580C' },
@@ -107,6 +120,10 @@ function DonationsPageContent() {
   const [total, setTotal] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
+  // Financial summary state (FIX-OWNER-FIN: ringkasan keuangan penggalang)
+  const [summary, setSummary] = useState<FinancialSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+
   // Modal state
   const [verifyDonation, setVerifyDonation] = useState<DonationForVerify | null>(null);
   const [rejectDonation, setRejectDonation] = useState<DonationListItem | null>(null);
@@ -137,6 +154,29 @@ function DonationsPageContent() {
       })
       .catch(() => {});
   }, [token]);
+
+  // Fetch financial summary on mount + after successful verify/reject
+  const fetchSummary = useCallback(async () => {
+    if (!token) return;
+    setSummaryLoading(true);
+    try {
+      const res = await fetch(`${API_URL}/funding/my/financial-summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const j = await res.json();
+      if (j?.success && j.data) {
+        setSummary(j.data);
+      }
+    } catch {
+      // silent fail — summary is supplementary
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    fetchSummary();
+  }, [fetchSummary]);
 
   // Fetch donations based on filters
   const fetchDonations = useCallback(async () => {
@@ -281,60 +321,71 @@ function DonationsPageContent() {
   const totalPages = Math.ceil(total / 20);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="border-b border-gray-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 py-5">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Inbox Donasi</h1>
-              <p className="text-sm text-gray-600 mt-0.5">
-                Verifikasi donasi yang masuk ke rekening Anda
+    <div className="min-h-screen bg-[#f9f9f8]">
+      {/* Header — BADONASI gradient, mobile-first */}
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] relative overflow-hidden">
+        {/* Pink accent decorations */}
+        <div className="absolute top-0 right-0 w-32 h-32 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-24 h-24 bg-[#EC4899] rounded-full opacity-5 blur-2xl"></div>
+
+        <div className="relative mx-auto max-w-2xl px-4 py-5">
+          <button
+            onClick={() => router.push('/owner')}
+            className="inline-flex items-center gap-1.5 text-xs text-[#F9A8D4] hover:text-white transition-colors mb-3 font-semibold"
+          >
+            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            Kembali ke Hub
+          </button>
+
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-[#EC4899] flex items-center justify-center shadow-lg shadow-pink-500/30 shrink-0">
+              <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>inbox</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <h1 className="text-xl font-extrabold text-white leading-tight">Inbox Donasi</h1>
+              <p className="text-xs text-[#95d3ba] mt-0.5 leading-relaxed">
+                Verifikasi donasi ke rekening kampanye
               </p>
             </div>
-            <button
-              onClick={() => router.push('/owner')}
-              className="text-sm text-pink-600 hover:underline"
-            >
-              ← Kembali ke Hub
-            </button>
           </div>
         </div>
       </div>
 
-      <div className="mx-auto max-w-6xl px-4 py-6 space-y-4">
-        {/* Smart Views Pills */}
-        <div className="overflow-x-auto pb-1 -mx-1 px-1">
+      <div className="mx-auto max-w-2xl px-4 py-5 space-y-3 pb-20">
+        {/* Financial Summary — owner transparency dashboard */}
+        <FinancialSummaryCard summary={summary} loading={summaryLoading} />
+
+        {/* Smart Views Pills — mobile-first horizontal scroll */}
+        <div className="overflow-x-auto -mx-4 px-4 pb-1 scrollbar-hide">
           <div className="flex gap-2 min-w-max">
-            {SMART_VIEWS.map((view) => (
-              <button
-                key={view.value}
-                onClick={() => {
-                  setSmartView(view.value);
-                  setPage(1);
-                }}
-                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition border-2 ${
-                  smartView === view.value
-                    ? 'border-current text-white shadow-sm'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                }`}
-                style={
-                  smartView === view.value
-                    ? { backgroundColor: view.color, borderColor: view.color }
-                    : undefined
-                }
-              >
-                <span className="mr-1.5">{view.emoji}</span>
-                {view.label}
-              </button>
-            ))}
+            {SMART_VIEWS.map((view) => {
+              const isActive = smartView === view.value;
+              return (
+                <button
+                  key={view.value}
+                  onClick={() => {
+                    setSmartView(view.value);
+                    setPage(1);
+                  }}
+                  className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+                    isActive
+                      ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
+                      : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
+                  }`}
+                >
+                  <span className="mr-1">{view.emoji}</span>
+                  {view.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Filter Row */}
-        <div className="flex flex-wrap gap-2 items-center">
-          {/* Search */}
-          <div className="flex-1 min-w-[200px]">
+        {/* Filter Row — mobile stack, sm+ side by side */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          {/* Search with icon */}
+          <div className="flex-1 relative">
+            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">search</span>
             <input
               type="search"
               value={searchQuery}
@@ -342,8 +393,8 @@ function DonationsPageContent() {
                 setSearchQuery(e.target.value);
                 setPage(1);
               }}
-              placeholder="Cari nama donatur atau kode unik..."
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-pink-500 focus:ring-1 focus:ring-pink-500 focus:outline-none"
+              placeholder="Cari nama donatur atau kode..."
+              className="w-full rounded-xl border border-gray-200 pl-10 pr-3 py-3 text-sm focus:border-[#EC4899] focus:ring-2 focus:ring-[#EC4899]/20 focus:outline-none transition-all bg-white"
             />
           </div>
 
@@ -354,7 +405,7 @@ function DonationsPageContent() {
               setCampaignFilter(e.target.value);
               setPage(1);
             }}
-            className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-pink-500 focus:ring-1 focus:ring-pink-500 focus:outline-none bg-white"
+            className="rounded-xl border border-gray-200 px-3 py-3 text-sm focus:border-[#EC4899] focus:ring-2 focus:ring-[#EC4899]/20 focus:outline-none bg-white transition-all sm:min-w-[180px]"
           >
             <option value="all">Semua Kampanye</option>
             {campaigns.map((c) => (
@@ -366,8 +417,19 @@ function DonationsPageContent() {
         </div>
 
         {/* Stats */}
-        <div className="text-sm text-gray-600">
-          {loading ? 'Memuat...' : `${total} donasi`}
+        <div className="flex items-center gap-2 text-sm">
+          {loading ? (
+            <span className="text-gray-500 flex items-center gap-2">
+              <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              Memuat...
+            </span>
+          ) : (
+            <span className="text-gray-700">
+              <strong className="text-[#003526] font-extrabold">{total}</strong>
+              <span className="text-gray-500"> donasi</span>
+              {searchQuery && <span className="text-gray-500 italic"> · cocok dengan pencarian</span>}
+            </span>
+          )}
         </div>
 
         {/* Error */}
@@ -379,19 +441,14 @@ function DonationsPageContent() {
 
         {/* Donation List */}
         {loading && donations.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">Memuat donasi...</div>
-        ) : donations.length === 0 ? (
-          <div className="rounded-xl bg-white border border-gray-200 p-8 text-center">
-            <p className="text-4xl mb-3">📭</p>
-            <p className="text-gray-700 font-medium mb-1">Belum ada donasi</p>
-            <p className="text-sm text-gray-500">
-              {smartView === 'perlu_verifikasi'
-                ? 'Tidak ada donasi yang perlu diverifikasi saat ini.'
-                : 'Tidak ada donasi yang cocok dengan filter saat ini.'}
-            </p>
+          <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center">
+            <span className="material-symbols-outlined text-3xl text-[#EC4899] animate-spin">progress_activity</span>
+            <p className="text-sm text-gray-500 mt-2">Memuat donasi...</p>
           </div>
+        ) : donations.length === 0 ? (
+          <EmptyState smartView={smartView} hasFilter={!!searchQuery || campaignFilter !== 'all'} />
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {donations.map((d) => (
               <DonationCard
                 key={d.id}
@@ -417,25 +474,27 @@ function DonationsPageContent() {
           </div>
         )}
 
-        {/* Pagination */}
+        {/* Pagination — mobile compact, sm+ with text */}
         {totalPages > 1 && (
-          <div className="flex justify-center gap-2 pt-4">
+          <div className="flex justify-center items-center gap-2 pt-4">
             <button
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-gray-50"
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#EC4899]/40 hover:text-[#003526] transition-all flex items-center gap-1.5"
             >
-              ← Sebelumnya
+              <span className="material-symbols-outlined text-base">chevron_left</span>
+              <span className="hidden sm:inline">Sebelumnya</span>
             </button>
-            <span className="px-3 py-1.5 text-sm text-gray-600">
-              {page} / {totalPages}
+            <span className="px-3 py-2 text-sm font-bold text-[#003526]">
+              {page} <span className="text-gray-400 font-normal">/</span> {totalPages}
             </span>
             <button
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm disabled:opacity-50 hover:bg-gray-50"
+              className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#EC4899]/40 hover:text-[#003526] transition-all flex items-center gap-1.5"
             >
-              Selanjutnya →
+              <span className="hidden sm:inline">Selanjutnya</span>
+              <span className="material-symbols-outlined text-base">chevron_right</span>
             </button>
           </div>
         )}
@@ -447,7 +506,7 @@ function DonationsPageContent() {
           donation={verifyDonation}
           isOpen={!!verifyDonation}
           onClose={() => setVerifyDonation(null)}
-          onSuccess={() => fetchDonations()}
+          onSuccess={() => { fetchDonations(); fetchSummary(); }}
         />
       )}
       {rejectDonation && (
@@ -458,7 +517,7 @@ function DonationsPageContent() {
           totalTransfer={Number(rejectDonation.total_transfer)}
           isOpen={!!rejectDonation}
           onClose={() => setRejectDonation(null)}
-          onSuccess={() => fetchDonations()}
+          onSuccess={() => { fetchDonations(); fetchSummary(); }}
         />
       )}
     </div>
@@ -594,25 +653,258 @@ function DonationCard({
 
       {/* Actions (only for pending) */}
       {isPending && (
-        <div className="flex gap-2 pt-2 border-t border-gray-100">
+        <div className="flex gap-2 pt-3 border-t border-gray-100">
           <button
             onClick={onVerify}
-            className="flex-1 rounded-lg px-3 py-2 text-sm font-medium text-white transition"
-            style={{ backgroundColor: '#003526' }}
+            className="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-95 shadow-sm shadow-pink-500/20 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003526] to-[#BE185D]"
           >
-            ✓ Verifikasi Diterima
+            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+            Verifikasi Diterima
           </button>
           <button
             onClick={onReject}
-            className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            className="rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 hover:border-red-300 transition-all flex items-center gap-1.5"
           >
+            <span className="material-symbols-outlined text-base">close</span>
             Reject
           </button>
         </div>
       )}
 
       {/* Created time */}
-      <p className="text-xs text-gray-400 mt-2">{formatDateTime(donation.created_at)}</p>
+      <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
+        <span className="material-symbols-outlined text-xs">schedule</span>
+        {formatDateTime(donation.created_at)}
+      </p>
+    </div>
+  );
+}
+
+// ───── FinancialSummaryCard — owner transparency dashboard ─────
+function FinancialSummaryCard({
+  summary,
+  loading,
+}: {
+  summary: FinancialSummary | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <div className="rounded-2xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] p-4 text-center">
+        <span className="material-symbols-outlined text-2xl text-[#F9A8D4] animate-spin">progress_activity</span>
+        <p className="text-xs text-[#95d3ba] mt-1">Memuat ringkasan keuangan...</p>
+      </div>
+    );
+  }
+  if (!summary) return null;
+
+  const isPhase1 = summary.platform_phase === 'phase1_penggalang_account';
+
+  return (
+    <div className="rounded-2xl bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] p-4 relative overflow-hidden shadow-lg">
+      {/* Pink decoration */}
+      <div className="absolute top-0 right-0 w-24 h-24 bg-[#EC4899] rounded-full opacity-10 blur-2xl"></div>
+
+      <div className="relative">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-lg bg-[#EC4899] flex items-center justify-center shrink-0">
+            <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] font-bold text-[#F9A8D4] uppercase tracking-widest">Ringkasan Keuangan Saya</p>
+            <p className="text-xs text-[#95d3ba]">Real-time dari semua kampanye</p>
+          </div>
+        </div>
+
+        {/* Main metric: Saldo (yang masih di rekening) */}
+        <div className="bg-white/10 backdrop-blur-sm rounded-xl p-3 mb-2 border border-white/10">
+          <p className="text-[10px] text-[#F9A8D4] font-bold uppercase tracking-wider mb-1">💼 Saldo di Rekening</p>
+          <p className="text-2xl font-extrabold text-white leading-none">
+            {formatRupiahFull(summary.saldo)}
+          </p>
+          <p className="text-[10px] text-[#95d3ba] mt-1">
+            Yang akan disalurkan ke penerima manfaat
+          </p>
+        </div>
+
+        {/* 2x2 grid: Terkumpul, Disalurkan, Donatur, Pending */}
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <SummaryStat
+            icon="trending_up"
+            label="Terkumpul"
+            value={formatRupiahCompact(summary.total_collected)}
+            sublabel={`${summary.verified_count} donasi`}
+            color="#10B981"
+          />
+          <SummaryStat
+            icon="check_circle"
+            label="Disalurkan"
+            value={formatRupiahCompact(summary.total_disbursed)}
+            sublabel="Ke penerima"
+            color="#34D399"
+          />
+          <SummaryStat
+            icon="groups"
+            label="Donatur"
+            value={`${summary.total_donors}`}
+            sublabel="orang"
+            color="#F472B6"
+          />
+          <SummaryStat
+            icon="pending_actions"
+            label="Belum Verify"
+            value={`${summary.pending_count}`}
+            sublabel="donasi"
+            color={summary.pending_count > 0 ? '#FBBF24' : '#6B7280'}
+          />
+        </div>
+
+        {/* Revenue section: Fee Penggalang + Kode Unik (phase-aware) */}
+        <div className="rounded-xl bg-gradient-to-r from-[#EC4899]/20 to-[#BE185D]/20 backdrop-blur-sm p-3 border border-[#EC4899]/30">
+          <p className="text-[10px] text-[#F9A8D4] font-bold uppercase tracking-wider mb-2">
+            🌸 Pendapatan Penggalang
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <p className="text-[10px] text-[#F9A8D4] mb-0.5">Fee Penggalang</p>
+              <p className="text-sm font-extrabold text-white">
+                {formatRupiahCompact(summary.total_fee_penggalang)}
+              </p>
+              <p className="text-[9px] text-[#95d3ba]">opt-in dari donor</p>
+            </div>
+            <div>
+              <p className="text-[10px] text-[#F9A8D4] mb-0.5">
+                Kode Unik {isPhase1 ? '' : '(ke TeraLoka)'}
+              </p>
+              <p className={`text-sm font-extrabold ${isPhase1 ? 'text-white' : 'text-[#95d3ba] line-through'}`}>
+                {formatRupiahCompact(summary.total_kode_unik)}
+              </p>
+              <p className="text-[9px] text-[#95d3ba]">
+                {isPhase1 ? 'kompensasi verifikasi' : 'Phase 2: ke platform'}
+              </p>
+            </div>
+          </div>
+          <div className="mt-2 pt-2 border-t border-[#EC4899]/20">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] text-[#F9A8D4] font-bold uppercase tracking-wider">Total Pendapatan</p>
+              <p className="text-base font-extrabold text-[#F472B6]">
+                {formatRupiahFull(summary.penggalang_revenue)}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryStat({
+  icon,
+  label,
+  value,
+  sublabel,
+  color,
+}: {
+  icon: string;
+  label: string;
+  value: string;
+  sublabel: string;
+  color: string;
+}) {
+  return (
+    <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/5">
+      <div className="flex items-center gap-1.5 mb-1">
+        <span className="material-symbols-outlined text-sm" style={{ color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        <p className="text-[10px] text-[#95d3ba] font-bold uppercase tracking-wider">{label}</p>
+      </div>
+      <p className="text-base font-extrabold text-white leading-tight">{value}</p>
+      <p className="text-[9px] text-[#95d3ba] mt-0.5">{sublabel}</p>
+    </div>
+  );
+}
+
+// Format helpers — full rupiah for trust, compact for stat grids
+function formatRupiahFull(num: number): string {
+  return 'Rp ' + new Intl.NumberFormat('id-ID').format(num);
+}
+
+function formatRupiahCompact(num: number): string {
+  if (num >= 1_000_000_000) return 'Rp ' + (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
+  if (num >= 1_000_000) return 'Rp ' + (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
+  if (num >= 1_000) return 'Rp ' + (num / 1_000).toFixed(0) + 'rb';
+  return 'Rp ' + num.toLocaleString('id-ID');
+}
+
+// ───── EmptyState (smart-view aware) ─────
+function EmptyState({ smartView, hasFilter }: { smartView: SmartView; hasFilter: boolean }) {
+  // Smart-view aware messaging — purpose-driven, motivating
+  const meta = (() => {
+    if (hasFilter) {
+      return {
+        icon: 'search_off',
+        title: 'Tidak ada hasil',
+        message: 'Coba ubah kata kunci atau pilih semua kampanye untuk melihat lebih banyak donasi.',
+        accent: '#6B7280', // gray
+      };
+    }
+    switch (smartView) {
+      case 'perlu_verifikasi':
+        return {
+          icon: 'celebration',
+          title: 'Semua sudah diverifikasi! 🎉',
+          message: 'Tidak ada donasi yang menunggu. Penerima dapat dana tepat waktu — terima kasih atas kepedulian Anda!',
+          accent: '#10B981', // emerald
+        };
+      case 'hampir_telat':
+        return {
+          icon: 'thumb_up',
+          title: 'Aman terkendali',
+          message: 'Tidak ada donasi yang tertunda lama. Pertahankan ritme verifikasi yang baik!',
+          accent: '#10B981',
+        };
+      case 'under_audit':
+        return {
+          icon: 'check_circle',
+          title: 'Bersih dari audit',
+          message: 'Tidak ada donasi dalam status audit. Semua transaksi tercatat dengan jelas.',
+          accent: '#10B981',
+        };
+      case 'mismatch_diterima':
+        return {
+          icon: 'balance',
+          title: 'Cocok semua',
+          message: 'Tidak ada donasi dengan selisih nominal. Donatur transfer sesuai nominal yang diharapkan.',
+          accent: '#10B981',
+        };
+      case 'verified_today':
+        return {
+          icon: 'today',
+          title: 'Belum ada verifikasi hari ini',
+          message: 'Belum ada donasi yang diverifikasi hari ini. Cek tab "Perlu Verifikasi" untuk mulai.',
+          accent: '#EC4899', // pink — gentle nudge
+        };
+      default:
+        return {
+          icon: 'inbox',
+          title: 'Belum ada donasi',
+          message: 'Saat ada donasi masuk ke kampanye Anda, akan muncul di sini.',
+          accent: '#6B7280',
+        };
+    }
+  })();
+
+  return (
+    <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center shadow-sm">
+      <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center"
+           style={{ background: `${meta.accent}15` }}>
+        <span className="material-symbols-outlined text-2xl"
+              style={{ color: meta.accent, fontVariationSettings: "'FILL' 1" }}>
+          {meta.icon}
+        </span>
+      </div>
+      <p className="text-sm font-bold text-gray-800 mb-1">{meta.title}</p>
+      <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">{meta.message}</p>
     </div>
   );
 }
