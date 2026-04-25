@@ -181,12 +181,8 @@ export default function OwnerDashboard() {
                 <p className="text-[10px] text-white/80 mt-0.5">Donatur</p>
               </div>
               <div className="rounded-xl bg-white/10 backdrop-blur-sm p-3 text-center">
-                <p className="text-sm font-extrabold text-white truncate">
-                  {totalCollected >= 1_000_000
-                    ? `${(totalCollected / 1_000_000).toFixed(1)}jt`
-                    : totalCollected >= 1_000
-                    ? `${Math.round(totalCollected / 1_000)}rb`
-                    : totalCollected}
+                <p className="text-[11px] font-extrabold text-white truncate leading-tight">
+                  {formatRupiah(totalCollected)}
                 </p>
                 <p className="text-[10px] text-white/80 mt-0.5">Terkumpul</p>
               </div>

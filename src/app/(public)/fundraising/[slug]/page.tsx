@@ -413,10 +413,10 @@ export default async function CampaignPage({ params }: Props) {
               </div>
               <div className="text-center p-2.5 rounded-xl bg-gray-50">
                 <Target size={14} className="mx-auto text-[#003526] mb-1" />
-                <p className="text-base font-extrabold text-gray-900">
-                  {Math.round(((Number(campaign.target_amount) - Number(campaign.collected_amount)) / 1000000) * 10) / 10}jt
+                <p className="text-xs font-extrabold text-gray-900 leading-tight break-words">
+                  {formatRupiah(Math.max(0, Number(campaign.target_amount) - Number(campaign.collected_amount)))}
                 </p>
-                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold">Kurang</p>
+                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-semibold mt-0.5">Kurang</p>
               </div>
             </div>
 
