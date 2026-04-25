@@ -20,8 +20,8 @@
  * No business logic in frontend — just UI state + API calls.
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import { useAuth } from '@/hooks/useAuth';
+import { useEffect, useState, useCallback, Suspense } from 'react';
+import { useAuth } from '@/lib/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import DonationVerifyModal, { DonationForVerify } from '@/components/owner/donations/DonationVerifyModal';
 import DonationRejectModal from '@/components/owner/donations/DonationRejectModal';
@@ -69,6 +69,22 @@ const SMART_VIEWS: Array<{ value: SmartView; label: string; emoji: string; color
 ];
 
 export default function OwnerDonationsPage() {
+  return (
+    <Suspense fallback={<DonationsLoadingFallback />}>
+      <DonationsPageContent />
+    </Suspense>
+  );
+}
+
+function DonationsLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <p className="text-gray-500">Memuat inbox donasi...</p>
+    </div>
+  );
+}
+
+function DonationsPageContent() {
   const { user, token, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -119,7 +135,7 @@ export default function OwnerDonationsPage() {
           setCampaigns(j.data.map((c: any) => ({ id: c.id, title: c.title })));
         }
       })
-      .catch(() => { });
+      .catch(() => {});
   }, [token]);
 
   // Fetch donations based on filters
@@ -297,10 +313,11 @@ export default function OwnerDonationsPage() {
                   setSmartView(view.value);
                   setPage(1);
                 }}
-                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition border-2 ${smartView === view.value
+                className={`flex-shrink-0 rounded-full px-4 py-2 text-sm font-medium transition border-2 ${
+                  smartView === view.value
                     ? 'border-current text-white shadow-sm'
                     : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
-                  }`}
+                }`}
                 style={
                   smartView === view.value
                     ? { backgroundColor: view.color, borderColor: view.color }
@@ -468,10 +485,10 @@ function DonationCard({
   const statusBadge = isPending
     ? { bg: '#FEF3C7', text: '#92400E', label: 'Pending' }
     : isVerified
-      ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
-      : isRejected
-        ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
-        : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
+    ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
+    : isRejected
+    ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
+    : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
 
   // Discrepancy display — defensive against undefined/null/string from backend
   const hasDiscrepancy = donation.discrepancy_decision && donation.discrepancy_decision !== 'exact_match';
