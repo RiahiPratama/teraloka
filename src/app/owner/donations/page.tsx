@@ -381,40 +381,64 @@ function DonationsPageContent() {
           </div>
         </div>
 
-        {/* Filter Row — mobile stack, sm+ side by side */}
-        <div className="flex flex-col sm:flex-row gap-2">
-          {/* Search with icon */}
-          <div className="flex-1 relative">
-            <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">search</span>
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => {
-                setSearchQuery(e.target.value);
-                setPage(1);
-              }}
-              placeholder="Cari nama donatur atau kode..."
-              className="w-full rounded-xl border border-gray-200 pl-10 pr-3 py-3 text-sm focus:border-[#EC4899] focus:ring-2 focus:ring-[#EC4899]/20 focus:outline-none transition-all bg-white"
-            />
-          </div>
-
-          {/* Campaign filter */}
-          <select
-            value={campaignFilter}
+        {/* Filter Row — search full-width mobile-first */}
+        <div className="relative">
+          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">search</span>
+          <input
+            type="search"
+            value={searchQuery}
             onChange={(e) => {
-              setCampaignFilter(e.target.value);
+              setSearchQuery(e.target.value);
               setPage(1);
             }}
-            className="rounded-xl border border-gray-200 px-3 py-3 text-sm focus:border-[#EC4899] focus:ring-2 focus:ring-[#EC4899]/20 focus:outline-none bg-white transition-all sm:min-w-[180px]"
-          >
-            <option value="all">Semua Kampanye</option>
-            {campaigns.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+            placeholder="Cari nama donatur atau kode..."
+            className="w-full rounded-xl border border-gray-200 pl-10 pr-3 py-3 text-sm focus:border-[#EC4899] focus:ring-2 focus:ring-[#EC4899]/20 focus:outline-none transition-all bg-white"
+          />
         </div>
+
+        {/* Campaign Filter Pills — horizontal scroll mobile */}
+        {campaigns.length > 0 && (
+          <div className="overflow-x-auto -mx-4 px-4 pb-1 scrollbar-hide">
+            <div className="flex gap-2 min-w-max">
+              <button
+                onClick={() => {
+                  setCampaignFilter('all');
+                  setPage(1);
+                }}
+                className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  campaignFilter === 'all'
+                    ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
+                    : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-sm">apps</span>
+                Semua Kampanye
+              </button>
+              {campaigns.map((c) => {
+                const isActive = campaignFilter === c.id;
+                const truncatedTitle = c.title.length > 22 ? c.title.slice(0, 22) + '…' : c.title;
+                return (
+                  <button
+                    key={c.id}
+                    onClick={() => {
+                      setCampaignFilter(c.id);
+                      setPage(1);
+                    }}
+                    className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${
+                      isActive
+                        ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
+                        : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
+                    }`}
+                    title={c.title}
+                  >
+                    <span className="material-symbols-outlined text-sm">campaign</span>
+                    {truncatedTitle}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Stats */}
         <div className="flex items-center gap-2 text-sm">
@@ -733,14 +757,14 @@ function FinancialSummaryCard({
           <SummaryStat
             icon="trending_up"
             label="Terkumpul"
-            value={formatRupiahCompact(summary.total_collected)}
+            value={formatRupiahFull(summary.total_collected)}
             sublabel={`${summary.verified_count} donasi`}
             color="#10B981"
           />
           <SummaryStat
             icon="check_circle"
             label="Disalurkan"
-            value={formatRupiahCompact(summary.total_disbursed)}
+            value={formatRupiahFull(summary.total_disbursed)}
             sublabel="Ke penerima"
             color="#34D399"
           />
@@ -769,7 +793,7 @@ function FinancialSummaryCard({
             <div>
               <p className="text-[10px] text-[#F9A8D4] mb-0.5">Fee Penggalang</p>
               <p className="text-sm font-extrabold text-white">
-                {formatRupiahCompact(summary.total_fee_penggalang)}
+                {formatRupiahFull(summary.total_fee_penggalang)}
               </p>
               <p className="text-[9px] text-[#95d3ba]">opt-in dari donor</p>
             </div>
@@ -778,7 +802,7 @@ function FinancialSummaryCard({
                 Kode Unik {isPhase1 ? '' : '(ke TeraLoka)'}
               </p>
               <p className={`text-sm font-extrabold ${isPhase1 ? 'text-white' : 'text-[#95d3ba] line-through'}`}>
-                {formatRupiahCompact(summary.total_kode_unik)}
+                {formatRupiahFull(summary.total_kode_unik)}
               </p>
               <p className="text-[9px] text-[#95d3ba]">
                 {isPhase1 ? 'kompensasi verifikasi' : 'Phase 2: ke platform'}
@@ -818,7 +842,7 @@ function SummaryStat({
         <span className="material-symbols-outlined text-sm" style={{ color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
         <p className="text-[10px] text-[#95d3ba] font-bold uppercase tracking-wider">{label}</p>
       </div>
-      <p className="text-base font-extrabold text-white leading-tight">{value}</p>
+      <p className="text-sm font-extrabold text-white leading-tight truncate">{value}</p>
       <p className="text-[9px] text-[#95d3ba] mt-0.5">{sublabel}</p>
     </div>
   );

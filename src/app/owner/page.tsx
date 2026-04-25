@@ -123,31 +123,50 @@ export default function OwnerDashboard() {
   const hasAnyCampaign = totalCampaigns > 0;
 
   return (
-    <div className="mx-auto max-w-lg px-4 py-6 pb-20">
-      {/* Header */}
-      <div className="mb-5">
-        <h1 className="text-xl font-bold text-[#1B6B4A]">Portal Mitra</h1>
-        <p className="text-sm text-gray-500">Halo, {user.name ?? '+' + user.phone} 👋</p>
+    <div className="min-h-screen bg-gradient-to-b from-[#f9f9f8] via-white to-[#f9f9f8]">
+      <div className="mx-auto max-w-lg px-4 py-6 pb-20">
+      {/* Header — Premium with avatar */}
+      <div className="mb-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] flex items-center justify-center shadow-lg shadow-[#003526]/20">
+            <span className="text-white text-lg font-extrabold">
+              {(user.name ?? user.phone).charAt(0).toUpperCase()}
+            </span>
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Portal Mitra</p>
+            <p className="text-base font-extrabold text-[#003526] truncate">
+              Halo, {user.name ?? '+' + user.phone} <span className="inline-block animate-pulse">👋</span>
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* ═══════════════════════════════════════════════════ */}
       {/* SECTION 1: BADONASI                                  */}
       {/* ═══════════════════════════════════════════════════ */}
-      <div className="mb-6 rounded-2xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] p-5 text-white shadow-md">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <HeartHandshake size={18} className="text-[#F472B6]" />
-            <h2 className="text-base font-extrabold">BADONASI</h2>
+      <div className="mb-6 rounded-3xl bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] p-5 text-white shadow-xl shadow-[#003526]/20 relative overflow-hidden">
+        {/* Premium decorations */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-[#EC4899] rounded-full opacity-10 blur-3xl -translate-y-1/2 translate-x-1/4"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#F472B6] rounded-full opacity-10 blur-3xl translate-y-1/3 -translate-x-1/4"></div>
+
+        <div className="relative">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-xl bg-[#EC4899]/20 flex items-center justify-center">
+                <HeartHandshake size={16} className="text-[#F472B6]" strokeWidth={2.4} />
+              </div>
+              <h2 className="text-base font-extrabold tracking-tight">BADONASI</h2>
+            </div>
+            {hasAnyCampaign && (
+              <Link
+                href="/owner/campaign"
+                className="text-xs font-bold text-[#F472B6] hover:text-white flex items-center gap-1 transition-colors"
+              >
+                Lihat Semua <ChevronRight size={12} />
+              </Link>
+            )}
           </div>
-          {hasAnyCampaign && (
-            <Link
-              href="/owner/campaign"
-              className="text-xs font-semibold text-[#95d3ba] hover:text-white flex items-center gap-1"
-            >
-              Lihat Semua <ChevronRight size={12} />
-            </Link>
-          )}
-        </div>
 
         {fetchingBadonasi ? (
           <div className="flex items-center justify-center py-6">
@@ -207,33 +226,51 @@ export default function OwnerDashboard() {
               </Link>
             )}
 
-            {/* Quick action buttons */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Quick action buttons — 3 pills */}
+            <div className="grid grid-cols-3 gap-2">
               <Link
                 href="/owner/campaign/new/info"
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-white py-2.5 text-xs font-bold text-[#003526] hover:bg-gray-100 transition-colors"
+                className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white py-2.5 px-2 text-[11px] font-bold text-[#003526] hover:bg-gray-100 transition-colors"
               >
-                <Plus size={13} />
-                Kampanye Baru
+                <Plus size={14} />
+                <span className="text-center leading-tight">Kampanye<br />Baru</span>
+              </Link>
+              <Link
+                href="/owner/campaign"
+                className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 py-2.5 px-2 text-[11px] font-bold text-white hover:bg-white/25 transition-colors"
+              >
+                <Megaphone size={14} />
+                <span className="text-center leading-tight">Seluruh<br />Kampanye</span>
               </Link>
               <Link
                 href="/owner/donations"
-                className="flex items-center justify-center gap-1.5 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 py-2.5 text-xs font-bold text-white hover:bg-white/25 transition-colors"
+                className="relative flex flex-col items-center justify-center gap-1 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 py-2.5 px-2 text-[11px] font-bold text-white hover:bg-white/25 transition-colors"
               >
-                <Inbox size={13} />
-                Donasi Masuk
+                {pendingDonations > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 min-w-[18px] h-[18px] px-1 rounded-full bg-[#EC4899] text-white text-[9px] font-extrabold flex items-center justify-center shadow-md shadow-pink-500/40">
+                    {pendingDonations > 99 ? '99+' : pendingDonations}
+                  </span>
+                )}
+                <Inbox size={14} />
+                <span className="text-center leading-tight">Laporan<br />Donasi</span>
               </Link>
             </div>
           </>
         )}
+        </div>
       </div>
 
-      {/* Status breakdown — only if has campaigns */}
+      {/* Status breakdown — premium card */}
       {hasAnyCampaign && campaignStats && (
-        <div className="mb-6 rounded-2xl bg-white border border-gray-100 shadow-sm p-4">
-          <p className="text-xs font-bold text-gray-500 uppercase tracking-wide mb-3">
-            Status Kampanye
-          </p>
+        <div className="mb-6 rounded-3xl bg-white border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#003526] to-[#1B6B4A] flex items-center justify-center">
+              <TrendingUp size={13} className="text-white" strokeWidth={2.5} />
+            </div>
+            <p className="text-xs font-extrabold text-gray-700 uppercase tracking-widest">
+              Status Kampanye
+            </p>
+          </div>
           <div className="grid grid-cols-5 gap-2">
             <StatusPill label="Draft"    count={campaignStats.draft}          Icon={FileEdit}    color="#6B7280" />
             <StatusPill label="Review"   count={campaignStats.pending_review} Icon={Hourglass}    color="#B45309" />
@@ -247,125 +284,132 @@ export default function OwnerDashboard() {
       {/* ═══════════════════════════════════════════════════ */}
       {/* SECTION 2: LISTING (Kos, Properti, dll)              */}
       {/* ═══════════════════════════════════════════════════ */}
-      <div className="mb-3 flex items-center gap-2">
-        <Home size={16} className="text-[#1B6B4A]" />
-        <h2 className="text-base font-extrabold text-gray-900">Listing</h2>
-        <span className="text-xs text-gray-400">Kos, Properti, Kendaraan, Jasa</span>
-      </div>
+      <div className="mb-6 rounded-3xl bg-white border border-gray-100 shadow-sm p-5">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1B6B4A] to-[#0891B2] flex items-center justify-center shadow-md shadow-[#1B6B4A]/20">
+              <Home size={14} className="text-white" strokeWidth={2.4} />
+            </div>
+            <div>
+              <h2 className="text-base font-extrabold text-gray-900 leading-tight">Listing</h2>
+              <p className="text-[10px] text-gray-400 leading-tight">Kos, Properti, Kendaraan, Jasa</p>
+            </div>
+          </div>
+        </div>
 
-      {/* Listing stats */}
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        <div className="rounded-xl bg-gray-50 p-3 text-center">
-          <p className="text-base font-extrabold text-gray-900">{listings.length}</p>
-          <p className="text-[10px] text-gray-500 mt-0.5">Total Listing</p>
+        {/* Listing stats — premium hover */}
+        <div className="mb-4 grid grid-cols-3 gap-2">
+          <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
+            <p className="text-lg font-extrabold text-gray-900">{listings.length}</p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Total Listing</p>
+          </div>
+          <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
+            <p className="text-lg font-extrabold text-gray-900 flex items-center justify-center gap-1">
+              <Eye size={13} className="text-[#0891B2]" />
+              {totalViews}
+            </p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Views</p>
+          </div>
+          <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
+            <p className="text-lg font-extrabold text-gray-900 flex items-center justify-center gap-1">
+              <MessageCircle size={13} className="text-[#E8963A]" />
+              {totalContacts}
+            </p>
+            <p className="text-[10px] text-gray-500 mt-0.5">Kontak</p>
+          </div>
         </div>
-        <div className="rounded-xl bg-gray-50 p-3 text-center">
-          <p className="text-base font-extrabold text-gray-900 flex items-center justify-center gap-1">
-            <Eye size={12} />
-            {totalViews}
-          </p>
-          <p className="text-[10px] text-gray-500 mt-0.5">Views</p>
-        </div>
-        <div className="rounded-xl bg-gray-50 p-3 text-center">
-          <p className="text-base font-extrabold text-gray-900 flex items-center justify-center gap-1">
-            <MessageCircle size={12} />
-            {totalContacts}
-          </p>
-          <p className="text-[10px] text-gray-500 mt-0.5">Kontak</p>
-        </div>
-      </div>
 
-      {/* Tombol tambah listing per tipe */}
-      <div className="mb-5">
-        <p className="mb-2 text-xs font-medium text-gray-600">Daftarkan listing baru:</p>
-        <div className="grid grid-cols-2 gap-2">
-          {LISTING_TYPES.map(t => {
-            const TIcon = t.Icon;
-            return (
-              <Link
-                key={t.key}
-                href={t.href}
-                className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-xs font-medium text-gray-700 transition-colors hover:border-[#1B6B4A] hover:text-[#1B6B4A]"
-              >
-                <div
-                  className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
-                  style={{ background: `${t.color}15` }}
+        {/* Daftar baru — premium grid */}
+        <div>
+          <p className="mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Daftarkan listing baru</p>
+          <div className="grid grid-cols-2 gap-2">
+            {LISTING_TYPES.map(t => {
+              const TIcon = t.Icon;
+              return (
+                <Link
+                  key={t.key}
+                  href={t.href}
+                  className="group flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-3 text-xs font-bold text-gray-700 transition-all hover:border-[#1B6B4A] hover:shadow-md hover:-translate-y-0.5"
                 >
-                  <TIcon size={14} style={{ color: t.color }} />
-                </div>
-                <span>{t.label}</span>
-              </Link>
-            );
-          })}
+                  <div
+                    className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110"
+                    style={{ background: `${t.color}15` }}
+                  >
+                    <TIcon size={16} style={{ color: t.color }} strokeWidth={2.4} />
+                  </div>
+                  <span className="group-hover:text-[#1B6B4A] transition-colors">{t.label}</span>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       </div>
 
-      {/* Listing list */}
-      <div>
-        <p className="mb-3 text-xs font-medium text-gray-600">Listing kamu:</p>
-        {fetchingListings ? (
-          <div className="flex items-center justify-center py-6">
-            <Loader2 size={18} className="animate-spin text-gray-400" />
-          </div>
-        ) : listings.length === 0 ? (
-          <div className="rounded-xl bg-gray-50 p-8 text-center">
-            <p className="text-sm text-gray-500">Belum ada listing. Tambah sekarang!</p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {listings.map((item: any) => (
-              <div key={item.id} className="rounded-xl border border-gray-200 bg-white p-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 truncate">{item.title}</p>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {item.price ? formatRupiah(item.price) : 'Harga negosiasi'}
-                      {item.price_period ? `/${item.price_period}` : ''}
-                      {item.is_negotiable && <span className="ml-1 text-[#1B6B4A]">(nego)</span>}
-                    </p>
+      {/* Listing list — premium */}
+      {(fetchingListings || listings.length > 0) && (
+        <div>
+          <p className="mb-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Listing Saya</p>
+          {fetchingListings ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 size={20} className="animate-spin text-gray-300" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {listings.map((item: any) => (
+                <div key={item.id} className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-gray-900 truncate">{item.title}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {item.price ? formatRupiah(item.price) : 'Harga negosiasi'}
+                        {item.price_period ? `/${item.price_period}` : ''}
+                        {item.is_negotiable && <span className="ml-1 text-[#1B6B4A] font-semibold">(nego)</span>}
+                      </p>
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
+                      item.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                      item.status === 'draft' ? 'bg-amber-100 text-amber-700' :
+                      'bg-gray-100 text-gray-500'
+                    }`}>
+                      {item.status === 'active' ? 'Aktif' : item.status === 'draft' ? 'Draft' : item.status}
+                    </span>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    item.status === 'active' ? 'bg-green-100 text-green-700' :
-                    item.status === 'draft' ? 'bg-yellow-100 text-yellow-700' :
-                    'bg-gray-100 text-gray-500'
-                  }`}>
-                    {item.status === 'active' ? 'Aktif' : item.status === 'draft' ? 'Draft' : item.status}
-                  </span>
-                </div>
 
-                {item.listing_tier && (
-                  <p className="mt-1 text-xs text-gray-400">
-                    Tier: {item.listing_tier} · {item.listing_fee > 0 ? formatRupiah(item.listing_fee) + '/bln' : 'Gratis'}
-                  </p>
-                )}
-
-                <div className="mt-2 flex gap-4 text-xs text-gray-400">
-                  <span>👁 {item.view_count ?? 0} views</span>
-                  <span>💬 {item.contact_count ?? 0} kontak</span>
-                  {item.rating_avg > 0 && <span>⭐ {item.rating_avg}</span>}
-                </div>
-
-                {/* Tombol aksi */}
-                <div className="mt-3 flex gap-2">
-                  {item.type === 'kos' && (
-                    <Link
-                      href={`/owner/listing/${item.id}/rooms`}
-                      className="flex-1 rounded-lg bg-[#1B6B4A] py-2 text-center text-xs font-medium text-white"
-                    >
-                      🛏️ Kelola Kamar
-                    </Link>
+                  {item.listing_tier && (
+                    <p className="mt-1.5 text-[11px] text-gray-400">
+                      Tier: <span className="font-semibold text-gray-600">{item.listing_tier}</span> · {item.listing_fee > 0 ? formatRupiah(item.listing_fee) + '/bln' : 'Gratis'}
+                    </p>
                   )}
-                  <Link
-                    href={`/owner/listing/${item.id}/edit`}
-                    className="flex-1 rounded-lg border border-gray-200 py-2 text-center text-xs font-medium text-gray-600"
-                  >
-                    Edit
-                  </Link>
+
+                  <div className="mt-2 flex gap-3 text-xs text-gray-400">
+                    <span className="flex items-center gap-1"><Eye size={11} />{item.view_count ?? 0}</span>
+                    <span className="flex items-center gap-1"><MessageCircle size={11} />{item.contact_count ?? 0}</span>
+                    {item.rating_avg > 0 && <span>⭐ {item.rating_avg}</span>}
+                  </div>
+
+                  {/* Tombol aksi */}
+                  <div className="mt-3 flex gap-2">
+                    {item.type === 'kos' && (
+                      <Link
+                        href={`/owner/listing/${item.id}/rooms`}
+                        className="flex-1 rounded-xl bg-gradient-to-r from-[#1B6B4A] to-[#0891B2] py-2 text-center text-xs font-bold text-white shadow-sm hover:shadow-md transition-shadow"
+                      >
+                        🛏️ Kelola Kamar
+                      </Link>
+                    )}
+                    <Link
+                      href={`/owner/listing/${item.id}/edit`}
+                      className="flex-1 rounded-xl border border-gray-200 bg-white py-2 text-center text-xs font-bold text-gray-600 hover:border-[#1B6B4A] hover:text-[#1B6B4A] transition-colors"
+                    >
+                      Edit
+                    </Link>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+              ))}
+            </div>
+          )}
+        </div>
+      )}
       </div>
     </div>
   );
@@ -387,15 +431,15 @@ function StatusPill({
   color: string;
 }) {
   return (
-    <div className="text-center">
+    <div className="text-center group cursor-default">
       <div
-        className="w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-1"
+        className="w-10 h-10 rounded-2xl flex items-center justify-center mx-auto mb-1.5 transition-transform group-hover:scale-110"
         style={{ background: `${color}15` }}
       >
-        <Icon size={14} style={{ color }} />
+        <Icon size={15} style={{ color }} strokeWidth={2.4} />
       </div>
       <p className="text-base font-extrabold text-gray-900">{count}</p>
-      <p className="text-[10px] text-gray-500 mt-0.5">{label}</p>
+      <p className="text-[10px] text-gray-500 mt-0.5 font-semibold">{label}</p>
     </div>
   );
 }
