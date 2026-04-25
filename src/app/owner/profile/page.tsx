@@ -614,8 +614,8 @@ function StatusTab({ token }: { token: string }) {
           }`}
         >
           {isOffline
-            ? 'Kampanye kamu tetap terima donasi. Admin TeraLoka akan bantu verifikasi donasi yang pending lebih dari 3 hari.'
-            : 'Kamu siap menerima dan verifikasi donasi seperti biasa.'}
+            ? 'Kampanye tetap terima donasi. Penerima donasi menunggu kabar baik dari kamu — segera aktifkan online begitu sinyal kembali.'
+            : 'Kamu siap menerima dan verifikasi donasi seperti biasa. Setiap aktivitas kamu membantu donasi cepat sampai ke yang membutuhkan.'}
         </p>
 
         {/* Show offline meta if active */}
@@ -664,7 +664,7 @@ function StatusTab({ token }: { token: string }) {
               : 'bg-amber-600 text-white hover:bg-amber-700'
           } disabled:opacity-50`}
         >
-          {isOffline ? 'Aktifkan Lagi (Online)' : 'Set Offline Sementara'}
+          {isOffline ? 'Aktifkan Lagi (Online)' : 'Set Mode Offline Darurat'}
         </button>
       )}
 
@@ -673,12 +673,12 @@ function StatusTab({ token }: { token: string }) {
         <div className="bg-white border-2 border-[#003526] rounded-2xl p-5 space-y-4">
           <div>
             <p className="text-sm font-bold text-gray-900 mb-1">
-              {isOffline ? 'Aktifkan Penggalang Online?' : 'Set Mode Offline?'}
+              {isOffline ? 'Aktifkan Penggalang Online?' : 'Set Mode Offline Darurat?'}
             </p>
             <p className="text-xs text-gray-600 leading-relaxed">
               {isOffline
-                ? 'Kamu akan kembali aktif dan handle verifikasi donasi sendiri.'
-                : 'Kampanye tetap terima donasi. Admin TeraLoka akan auto-handle donasi pending > 3 hari.'}
+                ? 'Kamu akan kembali aktif dan handle verifikasi donasi sendiri. Penerima donasi pasti senang!'
+                : 'Mode ini untuk darurat (sinyal hilang, sakit, traveling penting). Penerima donasi kamu menunggu kabar baik — pastikan online lagi sesegera mungkin.'}
             </p>
           </div>
 
@@ -734,34 +734,79 @@ function StatusTab({ token }: { token: string }) {
         </div>
       )}
 
-      {/* Info card */}
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 space-y-3">
-        <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-700 flex items-center gap-1.5">
-          <MapPin size={12} className="text-[#003526]" />
-          Tentang Mode Offline
-        </h3>
-        <ul className="space-y-2 text-xs text-gray-600 leading-relaxed">
-          <li className="flex items-start gap-2">
-            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-            <span><strong>Kampanye tetap aktif</strong> — donor masih bisa donasi seperti biasa</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-            <span><strong>Banner notice di public page</strong> — donor tau verifikasi mungkin tertunda</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-            <span><strong>Auto-handle admin TeraLoka</strong> — donasi pending {'>'} 3 hari di-take-over</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-            <span><strong>Aktifkan kembali kapan saja</strong> — toggle off dan handle sendiri lagi</span>
-          </li>
-        </ul>
+      {/* Info card — purpose-driven, empathy-first */}
+      <div className="bg-white rounded-2xl border border-emerald-200 p-5 space-y-4">
+        {/* Hero message — connect to purpose */}
+        <div className="rounded-xl bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100 p-4">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl shrink-0">💚</div>
+            <div className="flex-1">
+              <p className="text-sm font-extrabold text-emerald-900 leading-snug mb-1">
+                Aktifnya Anda Sangat Membantu Penerima Donasi
+              </p>
+              <p className="text-xs text-emerald-800 leading-relaxed">
+                Setiap verifikasi cepat dari kamu = bantuan lebih cepat sampai ke yang membutuhkan. Kepercayaan donor pun terjaga.
+              </p>
+            </div>
+          </div>
+        </div>
 
-        <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mt-3">
+        {/* Section 1: Kapan pakai mode offline */}
+        <div className="border-t border-gray-100 pt-3">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-700 flex items-center gap-1.5 mb-2.5">
+            <AlertCircle size={12} className="text-amber-700" />
+            Kapan Mode Offline Tepat Digunakan
+          </h3>
+          <ul className="space-y-1.5 text-[11px] text-gray-700 leading-relaxed">
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 mt-0.5 shrink-0">•</span>
+              <span>Berada di pulau terpencil tanpa sinyal internet</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 mt-0.5 shrink-0">•</span>
+              <span>Sakit yang menghambat akses HP / laptop</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 mt-0.5 shrink-0">•</span>
+              <span>Urusan keluarga mendadak (duka, dll)</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-amber-600 mt-0.5 shrink-0">•</span>
+              <span>Perjalanan dinas yang tidak bisa ditunda</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Section 2: Cara kerja saat offline */}
+        <div className="border-t border-gray-100 pt-3">
+          <h3 className="text-xs font-extrabold uppercase tracking-wider text-gray-700 flex items-center gap-1.5 mb-2.5">
+            <MapPin size={12} className="text-[#003526]" />
+            Cara Kerja Saat Offline
+          </h3>
+          <ul className="space-y-1.5 text-[11px] text-gray-700 leading-relaxed">
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+              <span>Kampanye tetap aktif menerima donasi</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+              <span>Donor melihat banner pemberitahuan di public page</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+              <span>Donasi tertunda lebih dari 3 hari di-flag untuk review tim TeraLoka</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+              <span>Aktifkan kembali kapan saja begitu sinyal/kondisi membaik</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Closing — gentle reminder */}
+        <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mt-1">
           <p className="text-[11px] text-blue-900 leading-relaxed">
-            💡 Cocok untuk kamu yang ada di pulau tanpa sinyal, sakit, atau urusan mendadak. <strong>Kepercayaan donor tetap terjaga</strong> karena verifikasi tetap jalan.
+            🤝 <strong>Mari jaga kepercayaan bersama.</strong> Donor mempercayakan dananya, penerima menanti bantuan — peran kamu sebagai penggalang sangat berarti untuk seluruh ekosistem BADONASI.
           </p>
         </div>
       </div>
