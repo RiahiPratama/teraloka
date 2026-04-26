@@ -41,6 +41,10 @@ const AGE_BUCKET_CONFIG: Record<AgeBucket, {
 };
 
 // ── Helpers ──────────────────────────────────────
+function formatRupiah(n: number): string {
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
 function shortRupiah(n: number): string {
   if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
@@ -176,7 +180,7 @@ function PartnerCard({
               Pending
             </span>
             <span style={{ fontSize: 15, fontWeight: 800, color: bucket.color }}>
-              {shortRupiah(partner.total_fee_pending)}
+              {formatRupiah(partner.total_fee_pending)}
             </span>
           </div>
         )}
@@ -274,7 +278,7 @@ function AmountRow({
         )}
       </div>
       <span style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary }}>
-        {shortRupiah(value)}
+        {formatRupiah(value)}
       </span>
     </div>
   );

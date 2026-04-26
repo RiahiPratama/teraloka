@@ -149,15 +149,15 @@ export default function CashflowFlowDiagram({ data }: { data: FlowData }) {
 
         {/* PARTNER BOX */}
         <rect x="370" y="60" width="190" height="100" rx="14"
-              fill="#EC4899" fillOpacity="0.12" stroke="#EC4899" strokeWidth="2" />
+              fill="#F59E0B" fillOpacity="0.12" stroke="#F59E0B" strokeWidth="2" />
         <text x="465" y="90" textAnchor="middle" fontSize="11" fontWeight="700"
-              fill="#EC4899" letterSpacing="1.5">
+              fill="#F59E0B" letterSpacing="1.5">
           PARTNER
         </text>
-        <text x="465" y="120" textAnchor="middle" fontSize="18" fontWeight="800" fill="#EC4899">
+        <text x="465" y="120" textAnchor="middle" fontSize="18" fontWeight="800" fill="#F59E0B">
           {data.active_campaigns}
         </text>
-        <text x="465" y="142" textAnchor="middle" fontSize="11" fill="#EC4899" opacity="0.8">
+        <text x="465" y="142" textAnchor="middle" fontSize="11" fill="#F59E0B" opacity="0.8">
           kampanye aktif
         </text>
 
