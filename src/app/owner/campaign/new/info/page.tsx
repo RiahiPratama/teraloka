@@ -105,7 +105,14 @@ export default function CampaignInfoPage() {
     checkProfile();
   }, [authLoading, user, token, router]);
 
-  const handleLanjut = () => {
+  // ⭐ Sprint C1: Submit + create draft + redirect ke /[id]/edit
+  // Filosofi: /info = pre-flight check, klik "Saya siap" = commit untuk create draft.
+  // Backend createMyDraft butuh title minimum → auto-generate placeholder.
+  // User customize title + semua field di /[id]/edit page.
+  const [creating, setCreating] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  const handleLanjut = async () => {
     if (!agreed) return;
     if (!user) {
       router.push('/login?redirect=/owner/campaign/new/info');
@@ -118,7 +125,57 @@ export default function CampaignInfoPage() {
       );
       return;
     }
-    router.push('/owner/campaign/new');
+
+    // ⭐ Auto-create draft + redirect ke /edit
+    setCreating(true);
+    setCreateError(null);
+
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+      // Generate placeholder title with current date
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('id-ID', {
+        day: 'numeric', month: 'short', year: 'numeric',
+      });
+      const placeholderTitle = `Kampanye Baru — ${dateStr}`;
+
+      const res = await fetch(`${apiUrl}/funding/my/campaigns`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ title: placeholderTitle }),
+      });
+
+      const json = await res.json();
+
+      if (!res.ok || !json.success) {
+        // Profile incomplete (race condition with KYC check)
+        if (json?.error?.code === 'PROFILE_INCOMPLETE') {
+          router.push(
+            `/owner/profile/complete?return=${encodeURIComponent('/owner/campaign/new/info')}`
+          );
+          return;
+        }
+        throw new Error(json?.error?.message ?? 'Gagal membuat draft kampanye');
+      }
+
+      const draftId = json.data?.id;
+      if (!draftId) {
+        throw new Error('Server tidak mengembalikan ID draft kampanye');
+      }
+
+      // Sukses → redirect ke /[id]/edit untuk lengkapi form
+      router.push(`/owner/campaign/${draftId}/edit`);
+    } catch (err: any) {
+      console.error('[campaign/new/info] create draft failed:', err);
+      setCreateError(
+        err?.message ?? 'Terjadi kesalahan saat membuat draft. Silakan coba lagi.'
+      );
+      setCreating(false);
+    }
   };
 
   // ⭐ FIX-E: Loading state while checking KYC
@@ -455,11 +512,41 @@ export default function CampaignInfoPage() {
             </span>
           </label>
 
-          <button onClick={handleLanjut} disabled={!agreed}
-            className="w-full bg-gradient-to-r from-[#003526] to-[#BE185D] hover:from-[#1B6B4A] hover:to-[#EC4899] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg">
-            <span className="material-symbols-outlined text-lg">volunteer_activism</span>
-            {user ? 'Saya Siap, Lanjut Buat Campaign →' : 'Login & Lanjut Buat Campaign →'}
+          <button
+            onClick={handleLanjut}
+            disabled={!agreed || creating}
+            className="w-full bg-gradient-to-r from-[#003526] to-[#BE185D] hover:from-[#1B6B4A] hover:to-[#EC4899] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
+          >
+            {creating ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Membuat draft kampanye...
+              </>
+            ) : (
+              <>
+                <span className="material-symbols-outlined text-lg">volunteer_activism</span>
+                {user ? 'Saya Siap, Lanjut Buat Campaign →' : 'Login & Lanjut Buat Campaign →'}
+              </>
+            )}
           </button>
+
+          {/* ⭐ Sprint C1: Error feedback kalau create draft gagal */}
+          {createError && (
+            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+              <span className="material-symbols-outlined text-red-600 text-base mt-0.5">error</span>
+              <div className="flex-1">
+                <p className="text-xs font-bold text-red-800 mb-0.5">Gagal membuat draft</p>
+                <p className="text-xs text-red-700 leading-relaxed">{createError}</p>
+              </div>
+              <button
+                onClick={() => setCreateError(null)}
+                className="text-red-600 hover:text-red-800"
+                aria-label="Tutup pesan error"
+              >
+                <span className="material-symbols-outlined text-base">close</span>
+              </button>
+            </div>
+          )}
 
           {/* Trust signals */}
           <div className="grid grid-cols-3 gap-2 pt-1">
