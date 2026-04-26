@@ -133,6 +133,37 @@ export default function CampaignInfoPage() {
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
+      // ⭐ FIX-DUPLICATE-DRAFT: Smart check — re-use existing empty draft kalau ada.
+      // Mencegah user create banyak draft kosong saat klik "Saya Siap" berkali-kali.
+      // Kriteria "empty draft":
+      //   - Title masih placeholder "Kampanye Baru —*"
+      //   - beneficiary_name kosong/null (tanda user belum isi data apapun)
+      try {
+        const listRes = await fetch(
+          `${apiUrl}/funding/my/campaigns?status=draft&limit=20`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const listJson = await listRes.json();
+
+        if (listRes.ok && listJson.success && Array.isArray(listJson.data)) {
+          const emptyDraft = listJson.data.find((c: any) =>
+            typeof c.title === 'string' &&
+            c.title.startsWith('Kampanye Baru —') &&
+            (!c.beneficiary_name || c.beneficiary_name.trim() === '')
+          );
+
+          if (emptyDraft) {
+            // Re-use existing empty draft, JANGAN create new
+            router.push(`/owner/campaign/${emptyDraft.id}/edit`);
+            return;
+          }
+        }
+      } catch (checkErr) {
+        // Non-blocking: kalau check gagal (network/etc), tetap lanjut create new
+        console.warn('[campaign/new/info] empty draft check failed, proceeding with new', checkErr);
+      }
+
+      // No empty draft — create new
       // Generate placeholder title with current date
       const now = new Date();
       const dateStr = now.toLocaleDateString('id-ID', {
