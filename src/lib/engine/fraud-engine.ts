@@ -1,15 +1,21 @@
-import { createClient } from '@/lib/supabase/server';
+import { createAdminClient } from '@/lib/supabase/admin';
 
 /**
  * Fraud Engine — Listing scam detection, trust score, BADONASI fraud
  * WAJIB live SEBELUM BADONASI launch
+ *
+ * NOTE: Uses ADMIN client (service_role) because:
+ * - Writes to fraud_flags table (RLS enabled, service_role required)
+ * - Writes to trust_scores table (RLS enabled, service_role required)
+ * - Reads from listings, profiles, community_reports (works with anon, but
+ *   admin client preferred for consistency in fraud workflow)
  */
 
 // ============================================================
 // Listing scam detection
 // ============================================================
 export async function detectListingFraud(listingId: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: listing } = await supabase
     .from('listings')
@@ -61,7 +67,7 @@ export async function detectListingFraud(listingId: string) {
 // Update trust score
 // ============================================================
 export async function updateTrustScore(userId: string) {
-  const supabase = await createClient();
+  const supabase = createAdminClient();
 
   const { data: profile } = await supabase
     .from('profiles')
