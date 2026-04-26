@@ -153,7 +153,6 @@ export default function EditCampaignPage() {
   const [stepError, setStepError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
-  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
 
   // Bank computed value
   const bankName = bankValue === 'Lainnya' ? bankCustom : bankValue;
@@ -343,32 +342,6 @@ export default function EditCampaignPage() {
     }
   }
 
-  // ─── Withdraw handler (pending_review → draft) ────────────────
-  async function handleWithdraw() {
-    if (!token || !campaign) return;
-    setSaving(true);
-    setSaveError('');
-
-    try {
-      const res = await fetch(`${API}/funding/my/campaigns/${campaign.id}/withdraw`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        setSaveError(json.error?.message ?? 'Gagal menarik kembali kampanye');
-        return;
-      }
-      // Sukses → reload dengan status draft
-      setCampaign({ ...campaign, ...json.data });
-    } catch {
-      setSaveError('Koneksi bermasalah. Coba lagi.');
-    } finally {
-      setSaving(false);
-      setWithdrawModalOpen(false);
-    }
-  }
-
   // ─── Step navigation ───────────────────────────────────────────
   async function handleNextStep() {
     setStepError('');
@@ -471,7 +444,11 @@ export default function EditCampaignPage() {
 
   if (!campaign) return null;
 
-  const submitButtonLabel = campaign.status === 'rejected' ? 'Ajukan Ulang' : 'Ajukan untuk Peninjauan';
+  const submitButtonLabel =
+    campaign.status === 'pending_review' ? 'Simpan Perubahan' :
+    campaign.status === 'rejected' ? 'Ajukan Ulang' :
+    'Ajukan untuk Peninjauan';
+  const isPendingReview = campaign.status === 'pending_review';
 
   return (
     <div className="min-h-screen bg-[#f9f9f8] pb-32">
@@ -657,7 +634,7 @@ export default function EditCampaignPage() {
             <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
             <div className="text-xs text-amber-900 leading-relaxed">
               <p className="font-bold mb-0.5">Kampanye sedang ditinjau</p>
-              <p>Perubahan apapun mungkin membuat tim TeraLoka meninjau ulang kampanye kamu dari awal. Jika perubahan signifikan, sebaiknya tarik kembali terlebih dahulu, kemudian lakukan pengeditan.</p>
+              <p>Anda tetap dapat memperbaiki data jika ada kekeliruan — perubahan akan ikut terlihat saat admin meninjau.</p>
             </div>
           </div>
         )}
@@ -1000,9 +977,9 @@ export default function EditCampaignPage() {
             {campaign.status === 'pending_review' ? (
               <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3">
                 <div className="flex items-start gap-2">
-                  <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                  <Info size={14} className="text-amber-600 mt-0.5 shrink-0" />
                   <p className="text-xs text-amber-900 leading-relaxed">
-                    Kampanye ini sudah <strong>masuk antrian peninjauan</strong>. Perubahan field tetap tersimpan melalui <strong>Simpan Draft</strong>. Namun jika diperlukan perubahan signifikan, sebaiknya <strong>Tarik Kembali ke Draft</strong> terlebih dahulu, kemudian ajukan ulang setelah selesai diperbaiki.
+                    Kampanye sedang ditinjau admin TeraLoka. Anda tetap dapat memperbaiki data jika ada kekeliruan — perubahan akan ikut terlihat saat admin meninjau.
                   </p>
                 </div>
               </div>
@@ -1120,20 +1097,9 @@ export default function EditCampaignPage() {
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <>Lanjut <ArrowRight size={14} /></>}
             </button>
-          ) : campaign.status === 'pending_review' ? (
-            // ⭐ pending_review: TIDAK boleh re-submit (sudah di antrian admin).
-            // Ganti tombol jadi "Tarik Kembali ke Draft" agar user bisa edit ulang.
-            <button
-              onClick={() => setWithdrawModalOpen(true)}
-              disabled={saving}
-              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:opacity-90 shadow-md disabled:opacity-50 transition-opacity"
-            >
-              {saving ? <Loader2 size={14} className="animate-spin" /> : <>Tarik Kembali ke Draft <ArrowLeft size={14} /></>}
-            </button>
           ) : (
-            // draft / rejected: tombol submit normal
             <button
-              onClick={() => setSubmitModalOpen(true)}
+              onClick={() => isPendingReview ? handleSave() : setSubmitModalOpen(true)}
               disabled={saving || !stepCompleted[1] || !stepCompleted[2] || !stepCompleted[3]}
               className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:opacity-90 shadow-md disabled:opacity-50 transition-opacity"
             >
@@ -1152,7 +1118,7 @@ export default function EditCampaignPage() {
               <h3 className="text-base font-bold text-gray-900">Konfirmasi Pengajuan</h3>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed mb-4">
-              Setelah diajukan, kampanye akan masuk ke antrian peninjauan admin TeraLoka (1-2 hari kerja). Anda tetap dapat menariknya kembali ke draft jika perlu melakukan pengeditan.
+              Setelah diajukan, kampanye akan masuk ke antrian peninjauan admin TeraLoka (1-2 hari kerja). Anda tetap dapat mengedit data jika diperlukan.
             </p>
             <div className="flex gap-2">
               <button
@@ -1167,37 +1133,6 @@ export default function EditCampaignPage() {
                 className="flex-1 px-3 py-2.5 rounded-xl bg-[#EC4899] text-white font-bold text-sm hover:bg-[#BE185D] disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <>Ajukan <Send size={12} /></>}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Withdraw Confirmation Modal — pending_review → draft */}
-      {withdrawModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <ArrowLeft size={20} className="text-amber-600" />
-              <h3 className="text-base font-bold text-gray-900">Tarik Kembali ke Draft?</h3>
-            </div>
-            <p className="text-sm text-gray-700 leading-relaxed mb-4">
-              Kampanye akan dikeluarkan dari antrian peninjauan dan kembali ke status <strong>draft</strong>. Anda dapat mengeditnya secara bebas, kemudian ajukan ulang nanti. Tindakan ini aman — belum ada donasi yang masuk.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setWithdrawModalOpen(false)}
-                disabled={saving}
-                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 disabled:opacity-50"
-              >
-                Batal
-              </button>
-              <button
-                onClick={handleWithdraw}
-                disabled={saving}
-                className="flex-1 px-3 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-sm hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-1.5"
-              >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <>Tarik Kembali <ArrowLeft size={12} /></>}
               </button>
             </div>
           </div>
