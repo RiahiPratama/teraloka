@@ -10,7 +10,7 @@ import {
   Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home,
   Loader2, AlertCircle, CheckCircle2, Siren, Edit3,
   UserCircle2, FileText, Landmark, Info, X, Check,
-  ShieldCheck, Lock,
+  ShieldCheck, Lock, Eye, LayoutDashboard,
 } from 'lucide-react';
 import FeeModeSection from '@/components/owner/campaign/FeeModeSection';
 
@@ -153,6 +153,7 @@ export default function EditCampaignPage() {
   const [stepError, setStepError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [submittedScreen, setSubmittedScreen] = useState<null | 'submitted' | 'resubmitted'>(null);
 
   // Bank computed value
   const bankName = bankValue === 'Lainnya' ? bankCustom : bankValue;
@@ -323,7 +324,10 @@ export default function EditCampaignPage() {
           setSaveError(`Tersimpan, namun gagal diajukan: ${submitJson.error?.message ?? 'Unknown error'}`);
           return false;
         }
-        router.replace(`/owner/campaign/${campaign.id}`);
+        // Show success screen — variant berdasarkan status sebelum submit
+        // draft → submitted (pertama kali ajukan)
+        // rejected → resubmitted (ajukan ulang setelah revisi)
+        setSubmittedScreen(campaign.status === 'rejected' ? 'resubmitted' : 'submitted');
         return true;
       }
 
@@ -449,6 +453,98 @@ export default function EditCampaignPage() {
     campaign.status === 'rejected' ? 'Ajukan Ulang' :
     'Ajukan untuk Peninjauan';
   const isPendingReview = campaign.status === 'pending_review';
+
+  // ─── Success Screen — Full Page Replace ────────────────────────
+  // Tampil setelah submit pertama (draft→pending) atau resubmit (rejected→pending)
+  // Tidak tampil untuk save biasa di pending_review (cuma redirect ke detail)
+  if (submittedScreen) {
+    const isResubmit = submittedScreen === 'resubmitted';
+    const heading = isResubmit ? 'Kampanye Diajukan Ulang!' : 'Kampanye Berhasil Diajukan!';
+    const subheading = isResubmit
+      ? 'Tim TeraLoka akan meninjau revisi Anda dalam 1-2 hari kerja.'
+      : 'Tim TeraLoka akan meninjau kampanye Anda dalam 1-2 hari kerja.';
+
+    return (
+      <div className="min-h-screen bg-[#f9f9f8] flex flex-col">
+        {/* Hero subtle gradient */}
+        <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] text-white relative overflow-hidden pt-12 pb-16">
+          <div className="absolute top-0 right-0 w-64 h-64 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#EC4899] rounded-full opacity-5 blur-3xl"></div>
+
+          <div className="max-w-md mx-auto px-4 relative z-10 text-center">
+            {/* Pulsing success icon */}
+            <div className="relative inline-flex items-center justify-center mb-5">
+              <div className="absolute inset-0 bg-[#EC4899] rounded-full opacity-30 blur-2xl animate-pulse"></div>
+              <div className="relative w-20 h-20 bg-gradient-to-br from-[#EC4899] to-[#BE185D] rounded-full flex items-center justify-center shadow-2xl ring-4 ring-white/20">
+                <Check size={40} strokeWidth={3} className="text-white" />
+              </div>
+            </div>
+
+            <h1 className="text-2xl sm:text-3xl font-extrabold mb-2 leading-tight">
+              {heading}
+            </h1>
+            <p className="text-sm text-white/80 leading-relaxed max-w-sm mx-auto">
+              {subheading}
+            </p>
+          </div>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 max-w-md mx-auto w-full px-4 -mt-8 pb-12">
+          {/* Timeline card */}
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-5">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-8 h-8 rounded-xl bg-[#003526]/10 flex items-center justify-center">
+                <Info size={16} className="text-[#003526]" />
+              </div>
+              <h3 className="font-bold text-gray-900 text-sm">Apa Selanjutnya?</h3>
+            </div>
+            <ol className="space-y-2.5 text-xs text-gray-700">
+              <li className="flex gap-2.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#003526] text-white text-[10px] font-bold flex items-center justify-center">1</span>
+                <span>Tim TeraLoka meninjau data {isResubmit ? 'revisi' : 'kampanye'} Anda secara menyeluruh.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#003526] text-white text-[10px] font-bold flex items-center justify-center">2</span>
+                <span>Notifikasi WhatsApp akan dikirim setelah peninjauan selesai.</span>
+              </li>
+              <li className="flex gap-2.5">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#003526] text-white text-[10px] font-bold flex items-center justify-center">3</span>
+                <span>Jika disetujui, kampanye akan tampil di halaman donasi publik.</span>
+              </li>
+            </ol>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="space-y-2.5">
+            {/* Primary: Lihat Kampanye Saya */}
+            <button
+              onClick={() => router.push(`/owner/campaign/${campaign.id}`)}
+              className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 shadow-md transition-opacity"
+            >
+              <Eye size={16} /> Lihat Kampanye Saya
+            </button>
+
+            {/* Secondary: Portal Mitra */}
+            <button
+              onClick={() => router.push('/owner/campaign')}
+              className="w-full px-4 py-3 rounded-xl bg-white border border-[#003526] text-[#003526] font-semibold text-sm flex items-center justify-center gap-2 hover:bg-[#003526]/5 transition-colors"
+            >
+              <LayoutDashboard size={16} /> Ke Portal Mitra
+            </button>
+
+            {/* Tertiary: Kembali ke Teraloka */}
+            <button
+              onClick={() => router.push('/')}
+              className="w-full px-4 py-3 rounded-xl text-gray-600 font-medium text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+            >
+              <Home size={16} /> Kembali ke TeraLoka
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#f9f9f8] pb-32">
