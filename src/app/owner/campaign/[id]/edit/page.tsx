@@ -461,66 +461,116 @@ export default function EditCampaignPage() {
     const isResubmit = submittedScreen === 'resubmitted';
     const heading = isResubmit ? 'Kampanye Diajukan Ulang!' : 'Kampanye Berhasil Diajukan!';
     const subheading = isResubmit
-      ? 'Tim TeraLoka akan meninjau revisi Anda dalam 1-2 hari kerja.'
-      : 'Tim TeraLoka akan meninjau kampanye Anda dalam 1-2 hari kerja.';
+      ? 'Terima kasih atas revisinya. Tim TeraLoka akan meninjau dalam 1-2 hari kerja.'
+      : 'Terima kasih atas kebaikan Anda membantu sesama. Tim TeraLoka akan meninjau dalam 1-2 hari kerja.';
 
     return (
-      <div className="min-h-screen bg-[#f9f9f8] flex flex-col">
-        {/* Hero subtle gradient */}
-        <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] text-white relative overflow-hidden pt-12 pb-16">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-48 h-48 bg-[#EC4899] rounded-full opacity-5 blur-3xl"></div>
+      <div className="min-h-screen bg-[#f9f9f8] relative overflow-hidden">
+        {/* Animations */}
+        <style jsx>{`
+          @keyframes bounceIn {
+            0%   { opacity: 0; transform: scale(0); }
+            60%  { opacity: 1; transform: scale(1.15); }
+            80%  { transform: scale(0.95); }
+            100% { transform: scale(1); }
+          }
+          @keyframes sparkle {
+            0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+            50%      { opacity: 1; transform: scale(1) rotate(180deg); }
+          }
+          @keyframes fadeUp {
+            0%   { opacity: 0; transform: translateY(12px); }
+            100% { opacity: 1; transform: translateY(0); }
+          }
+          @keyframes pulseRing {
+            0%   { transform: scale(1); opacity: 0.6; }
+            100% { transform: scale(1.6); opacity: 0; }
+          }
+          .anim-bounce  { animation: bounceIn 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+          .anim-sparkle { animation: sparkle 1.4s ease-in-out infinite; }
+          .anim-pulse-ring { animation: pulseRing 2s ease-out infinite; }
+          .anim-fade-1 { opacity: 0; animation: fadeUp 0.5s ease-out 0.4s forwards; }
+          .anim-fade-2 { opacity: 0; animation: fadeUp 0.5s ease-out 0.6s forwards; }
+          .anim-fade-3 { opacity: 0; animation: fadeUp 0.5s ease-out 0.8s forwards; }
+          .anim-fade-4 { opacity: 0; animation: fadeUp 0.5s ease-out 1.0s forwards; }
+        `}</style>
 
-          <div className="max-w-md mx-auto px-4 relative z-10 text-center">
-            {/* Pulsing success icon */}
-            <div className="relative inline-flex items-center justify-center mb-5">
-              <div className="absolute inset-0 bg-[#EC4899] rounded-full opacity-30 blur-2xl animate-pulse"></div>
-              <div className="relative w-20 h-20 bg-gradient-to-br from-[#EC4899] to-[#BE185D] rounded-full flex items-center justify-center shadow-2xl ring-4 ring-white/20">
-                <Check size={40} strokeWidth={3} className="text-white" />
-              </div>
+        {/* Decorative blur orbs background */}
+        <div className="absolute top-0 right-0 w-72 h-72 bg-[#EC4899] rounded-full opacity-10 blur-3xl pointer-events-none"></div>
+        <div className="absolute top-1/3 left-0 w-64 h-64 bg-[#1B6B4A] rounded-full opacity-10 blur-3xl pointer-events-none"></div>
+        <div className="absolute bottom-0 right-1/4 w-56 h-56 bg-[#F472B6] rounded-full opacity-10 blur-3xl pointer-events-none"></div>
+
+        {/* Main content centered */}
+        <div className="relative z-10 max-w-md mx-auto px-4 pt-10 pb-12">
+
+          {/* Animated check icon with sparkle decorations */}
+          <div className="relative flex justify-center mb-6">
+            {/* Sparkles around the check */}
+            <span className="absolute top-0 left-8 text-[#EC4899] text-xl anim-sparkle" style={{ animationDelay: '0.0s' }}>✦</span>
+            <span className="absolute top-4 right-6 text-[#1B6B4A] text-base anim-sparkle" style={{ animationDelay: '0.3s' }}>✦</span>
+            <span className="absolute bottom-2 left-4 text-[#F472B6] text-sm anim-sparkle" style={{ animationDelay: '0.6s' }}>✦</span>
+            <span className="absolute bottom-6 right-10 text-[#0891B2] text-lg anim-sparkle" style={{ animationDelay: '0.9s' }}>✦</span>
+            <span className="absolute top-12 left-2 text-[#E8963A] text-sm anim-sparkle" style={{ animationDelay: '1.2s' }}>✦</span>
+            <span className="absolute top-8 right-2 text-[#EC4899] text-base anim-sparkle" style={{ animationDelay: '0.5s' }}>✦</span>
+
+            {/* Pulse ring behind check */}
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-[#EC4899] rounded-full anim-pulse-ring"></div>
+
+            {/* Bouncing check icon */}
+            <div className="relative w-24 h-24 bg-gradient-to-br from-[#EC4899] to-[#BE185D] rounded-full flex items-center justify-center shadow-xl ring-8 ring-white anim-bounce">
+              <Check size={48} strokeWidth={3} className="text-white" />
             </div>
+          </div>
 
-            <h1 className="text-2xl sm:text-3xl font-extrabold mb-2 leading-tight">
+          {/* Heading */}
+          <div className="text-center mb-6 anim-fade-1">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-[#003526] mb-2 leading-tight">
               {heading}
             </h1>
-            <p className="text-sm text-white/80 leading-relaxed max-w-sm mx-auto">
+            <p className="text-sm text-gray-600 leading-relaxed">
               {subheading}
             </p>
           </div>
-        </div>
 
-        {/* Content */}
-        <div className="flex-1 max-w-md mx-auto w-full px-4 -mt-8 pb-12">
           {/* Timeline card */}
-          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-5">
+          <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm mb-5 anim-fade-2">
             <div className="flex items-center gap-2 mb-3">
-              <div className="w-8 h-8 rounded-xl bg-[#003526]/10 flex items-center justify-center">
-                <Info size={16} className="text-[#003526]" />
+              <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] flex items-center justify-center">
+                <Info size={16} className="text-white" />
               </div>
               <h3 className="font-bold text-gray-900 text-sm">Apa Selanjutnya?</h3>
             </div>
-            <ol className="space-y-2.5 text-xs text-gray-700">
-              <li className="flex gap-2.5">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#003526] text-white text-[10px] font-bold flex items-center justify-center">1</span>
-                <span>Tim TeraLoka meninjau data {isResubmit ? 'revisi' : 'kampanye'} Anda secara menyeluruh.</span>
+            <ol className="space-y-3 text-sm text-gray-700">
+              <li className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-[#003526] to-[#1B6B4A] text-white text-xs font-bold flex items-center justify-center">1</span>
+                <span className="leading-relaxed pt-0.5">Tim TeraLoka meninjau data {isResubmit ? 'revisi' : 'kampanye'} Anda secara menyeluruh.</span>
               </li>
-              <li className="flex gap-2.5">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#003526] text-white text-[10px] font-bold flex items-center justify-center">2</span>
-                <span>Notifikasi WhatsApp akan dikirim setelah peninjauan selesai.</span>
+              <li className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-[#003526] to-[#1B6B4A] text-white text-xs font-bold flex items-center justify-center">2</span>
+                <span className="leading-relaxed pt-0.5">Notifikasi WhatsApp dikirim setelah peninjauan selesai.</span>
               </li>
-              <li className="flex gap-2.5">
-                <span className="flex-shrink-0 w-5 h-5 rounded-full bg-[#003526] text-white text-[10px] font-bold flex items-center justify-center">3</span>
-                <span>Jika disetujui, kampanye akan tampil di halaman donasi publik.</span>
+              <li className="flex gap-3 items-start">
+                <span className="flex-shrink-0 w-6 h-6 rounded-full bg-gradient-to-br from-[#003526] to-[#1B6B4A] text-white text-xs font-bold flex items-center justify-center">3</span>
+                <span className="leading-relaxed pt-0.5">Jika disetujui, kampanye akan tampil di halaman donasi publik.</span>
               </li>
             </ol>
           </div>
 
-          {/* CTA Buttons */}
-          <div className="space-y-2.5">
+          {/* Inspirational quote — warm touch */}
+          <div className="text-center mb-5 anim-fade-3">
+            <p className="text-xs italic text-gray-500 leading-relaxed px-4">
+              {isResubmit
+                ? '"Kebaikan tidak pernah menjadi sia-sia, terima kasih sudah memperbaiki dengan ikhlas."'
+                : '"Sebaik-baiknya manusia, adalah yang bermanfaat bagi orang lain."'}
+            </p>
+          </div>
+
+          {/* CTAs */}
+          <div className="space-y-2.5 anim-fade-4">
             {/* Primary: Lihat Kampanye Saya */}
             <button
               onClick={() => router.push(`/owner/campaign/${campaign.id}`)}
-              className="w-full px-4 py-3 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-2 hover:opacity-90 shadow-md transition-opacity"
+              className="w-full px-4 py-3.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-2 hover:shadow-lg hover:opacity-95 shadow-md transition-all"
             >
               <Eye size={16} /> Lihat Kampanye Saya
             </button>
@@ -528,7 +578,7 @@ export default function EditCampaignPage() {
             {/* Secondary: Portal Mitra */}
             <button
               onClick={() => router.push('/owner/campaign')}
-              className="w-full px-4 py-3 rounded-xl bg-white border border-[#003526] text-[#003526] font-semibold text-sm flex items-center justify-center gap-2 hover:bg-[#003526]/5 transition-colors"
+              className="w-full px-4 py-3.5 rounded-xl bg-white border-2 border-[#003526] text-[#003526] font-semibold text-sm flex items-center justify-center gap-2 hover:bg-[#003526] hover:text-white transition-all"
             >
               <LayoutDashboard size={16} /> Ke Portal Mitra
             </button>
@@ -536,9 +586,9 @@ export default function EditCampaignPage() {
             {/* Tertiary: Kembali ke Teraloka */}
             <button
               onClick={() => router.push('/')}
-              className="w-full px-4 py-3 rounded-xl text-gray-600 font-medium text-sm flex items-center justify-center gap-2 hover:bg-gray-100 transition-colors"
+              className="w-full px-4 py-2.5 rounded-xl text-gray-500 font-medium text-xs flex items-center justify-center gap-1.5 hover:text-[#003526] hover:bg-gray-100/50 transition-colors"
             >
-              <Home size={16} /> Kembali ke TeraLoka
+              <Home size={13} /> Kembali ke Beranda TeraLoka
             </button>
           </div>
         </div>
