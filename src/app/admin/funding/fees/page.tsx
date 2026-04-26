@@ -345,19 +345,19 @@ export default function AdminFeesPage() {
         }}>
           <StatCard
             label="Total Expected"
-            value={shortRupiah(summary.total_expected)}
+            value={formatRupiah(summary.total_expected)}
             subtext={`${summary.pending_count + summary.remitted_count} donasi verified`}
             color="#6366F1" t={t}
           />
           <StatCard
             label="Sudah Remitted"
-            value={shortRupiah(summary.total_remitted)}
+            value={formatRupiah(summary.total_remitted)}
             subtext={`${summary.remitted_count} donasi · ${summary.total_expected > 0 ? Math.round((summary.total_remitted / summary.total_expected) * 100) : 0}%`}
             color="#10B981" t={t}
           />
           <StatCard
             label="⚠️ Pending Settle"
-            value={shortRupiah(summary.total_pending)}
+            value={formatRupiah(summary.total_pending)}
             subtext={`${summary.pending_count} donasi · ${summary.partner_count} partner`}
             color="#EC4899" t={t}
             alert={summary.total_pending > 0}
@@ -604,15 +604,17 @@ function StatCard({
     }}>
       <p style={{
         fontSize: 11, fontWeight: 700, color: alert ? color : t.textMuted,
-        textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+        textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8,
       }}>
         {label}
       </p>
-      <p style={{ fontSize: 20, fontWeight: 800, color, marginBottom: 2 }}>
+      {/* PRIMARY — angka rupiah ditonjolkan */}
+      <p style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 4, lineHeight: 1.2 }}>
         {value}
       </p>
+      {/* SECONDARY — subtext lebih kecil & dimmer */}
       {subtext && (
-        <p style={{ fontSize: 10, color: t.textMuted }}>
+        <p style={{ fontSize: 10, color: t.textMuted, opacity: 0.75, fontWeight: 500 }}>
           {subtext}
         </p>
       )}

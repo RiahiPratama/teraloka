@@ -36,6 +36,10 @@ const SORT_OPTIONS = [
 ];
 
 // ── Helpers ──────────────────────────────────────
+function formatRupiah(n: number): string {
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
 function shortRupiah(n: number): string {
   if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
@@ -279,19 +283,19 @@ export default function AdminCashflowPage() {
         }}>
           <StatCard
             label="Total Masuk"
-            value={shortRupiah(summary.total_in)}
+            value={formatRupiah(summary.total_in)}
             subtext={`${summary.donation_count} donasi · ${summary.donor_count} donatur`}
             color="#6366F1" t={t}
           />
           <StatCard
             label="Disalurkan"
-            value={shortRupiah(summary.total_disbursed)}
+            value={formatRupiah(summary.total_disbursed)}
             subtext={`${summary.report_count} laporan (${summary.approved_report_count} approved)`}
             color="#10B981" t={t}
           />
           <StatCard
             label="Sisa di Partner"
-            value={shortRupiah(summary.remaining_at_partner)}
+            value={formatRupiah(summary.remaining_at_partner)}
             subtext={summary.total_in > 0
               ? `${summary.disbursement_rate}% sudah disalurkan`
               : 'Belum ada dana masuk'}
@@ -300,8 +304,8 @@ export default function AdminCashflowPage() {
           />
           <StatCard
             label="Fee TeraLoka"
-            value={shortRupiah(summary.total_fee_remitted)}
-            subtext={`dari expected ${shortRupiah(summary.total_fee_expected)}`}
+            value={formatRupiah(summary.total_fee_remitted)}
+            subtext={`dari expected ${formatRupiah(summary.total_fee_expected)}`}
             color="#BE185D" t={t}
           />
         </div>
@@ -404,15 +408,17 @@ function StatCard({
       <p style={{
         fontSize: 11, fontWeight: 700,
         color: alert ? color : t.textMuted,
-        textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+        textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8,
       }}>
         {label}
       </p>
-      <p style={{ fontSize: 20, fontWeight: 800, color, marginBottom: 2 }}>
+      {/* PRIMARY — angka rupiah ditonjolkan */}
+      <p style={{ fontSize: 22, fontWeight: 800, color, marginBottom: 4, lineHeight: 1.2 }}>
         {value}
       </p>
+      {/* SECONDARY — subtext lebih kecil & dimmer */}
       {subtext && (
-        <p style={{ fontSize: 10, color: t.textMuted }}>
+        <p style={{ fontSize: 10, color: t.textMuted, opacity: 0.75, fontWeight: 500 }}>
           {subtext}
         </p>
       )}

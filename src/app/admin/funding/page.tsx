@@ -18,6 +18,10 @@ const Icons = {
   ArrowRight: () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>,
 };
 
+function formatRupiah(n: number): string {
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
 function shortRupiah(n: number): string {
   if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
@@ -45,21 +49,14 @@ export default function AdminFundingDashboard() {
       fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, {
         headers: { Authorization: `Bearer ${tk}` },
       }).then(r => r.json()).catch(() => null),
-      fetch(`${API_URL}/funding/campaigns?limit=100`).then(r => r.json()).catch(() => null),
-    ]).then(([pC, pD, campRes]) => {
-      let total_raised = 0;
-      let active = 0;
-      if (campRes?.data) {
-        campRes.data.forEach((c: any) => {
-          total_raised += c.collected_amount || 0;
-          if (c.status === 'active') active++;
-        });
-      }
+      // Single source of truth — Hono BRAIN does aggregation
+      fetch(`${API_URL}/funding/stats/public`).then(r => r.json()).catch(() => null),
+    ]).then(([pC, pD, statsRes]) => {
       setStats({
         pending_campaigns: pC?.meta?.total ?? 0,
         pending_donations: pD?.meta?.total ?? 0,
-        total_raised,
-        active_campaigns: active,
+        total_raised: statsRes?.data?.total_collected ?? 0,
+        active_campaigns: statsRes?.data?.active_campaigns ?? 0,
       });
       setLoading(false);
     });
@@ -136,7 +133,7 @@ export default function AdminFundingDashboard() {
           value={loading ? '...' : stats.pending_donations.toLocaleString('id-ID')}
           accent="#F59E0B" highlight={stats.pending_donations > 0} />
         <StatCard t={t} icon={<Icons.Wallet />} label="Total Terkumpul"
-          value={loading ? '...' : shortRupiah(stats.total_raised)} accent="#0891B2" />
+          value={loading ? '...' : formatRupiah(stats.total_raised)} accent="#0891B2" />
         <StatCard t={t} icon={<Icons.CheckCircle />} label="Kampanye Aktif"
           value={loading ? '...' : stats.active_campaigns.toLocaleString('id-ID')} accent="#10B981" />
       </div>

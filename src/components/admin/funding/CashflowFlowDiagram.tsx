@@ -4,6 +4,10 @@ import { useContext } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 // ── Helpers ──────────────────────────────────────
+function formatRupiah(n: number): string {
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
 function shortRupiah(n: number): string {
   if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
@@ -101,7 +105,7 @@ export default function CashflowFlowDiagram({ data }: { data: FlowData }) {
         <line x1="260" y1="110" x2="370" y2="110"
               stroke="#EC4899" strokeWidth="3" markerEnd="url(#arrow-pink)" />
         <text x="315" y="95" textAnchor="middle" fontSize="13" fontWeight="700" fill="#EC4899">
-          {shortRupiah(data.total_in)}
+          {formatRupiah(data.total_in)}
         </text>
         <text x="315" y="128" textAnchor="middle" fontSize="10" fill="#EC4899" opacity="0.7">
           masuk
@@ -111,7 +115,7 @@ export default function CashflowFlowDiagram({ data }: { data: FlowData }) {
         <line x1="560" y1="110" x2="670" y2="110"
               stroke="#10B981" strokeWidth="3" markerEnd="url(#arrow-green)" />
         <text x="615" y="95" textAnchor="middle" fontSize="13" fontWeight="700" fill="#10B981">
-          {shortRupiah(data.total_disbursed)}
+          {formatRupiah(data.total_disbursed)}
         </text>
         <text x="615" y="128" textAnchor="middle" fontSize="10" fill="#10B981" opacity="0.7">
           disalurkan
@@ -121,7 +125,7 @@ export default function CashflowFlowDiagram({ data }: { data: FlowData }) {
         <line x1="465" y1="170" x2="465" y2="260"
               stroke="#EA580C" strokeWidth="3" strokeDasharray="6 4" markerEnd="url(#arrow-orange)" />
         <text x="480" y="218" fontSize="12" fontWeight="700" fill="#EA580C">
-          {shortRupiah(data.total_fee_expected)}
+          {formatRupiah(data.total_fee_expected)}
         </text>
         <text x="480" y="234" fontSize="9" fill="#EA580C" opacity="0.7">
           fee operasional
@@ -179,10 +183,10 @@ export default function CashflowFlowDiagram({ data }: { data: FlowData }) {
           TERALOKA
         </text>
         <text x="465" y="316" textAnchor="middle" fontSize="15" fontWeight="800" fill="#BE185D">
-          {shortRupiah(data.total_fee_remitted)}
+          {formatRupiah(data.total_fee_remitted)}
         </text>
         <text x="465" y="336" textAnchor="middle" fontSize="10" fill="#BE185D" opacity="0.8">
-          dari expected {shortRupiah(data.total_fee_expected)}
+          dari expected {formatRupiah(data.total_fee_expected)}
         </text>
 
         {/* Remaining at partner indicator (subtle) */}
@@ -190,7 +194,7 @@ export default function CashflowFlowDiagram({ data }: { data: FlowData }) {
           <g>
             <text x="465" y="180" textAnchor="middle" fontSize="10" fontWeight="600"
                   fill={t.textMuted} opacity="0.8">
-              ⌛ sisa di partner: {shortRupiah(data.remaining_at_partner)}
+              ⌛ sisa di partner: {formatRupiah(data.remaining_at_partner)}
             </text>
           </g>
         )}
