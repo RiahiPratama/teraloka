@@ -1099,7 +1099,17 @@ export default function EditCampaignPage() {
             </button>
           ) : (
             <button
-              onClick={() => isPendingReview ? handleSave() : setSubmitModalOpen(true)}
+              onClick={async () => {
+                if (isPendingReview) {
+                  const ok = await handleSave();
+                  if (ok) {
+                    // Redirect ke detail page — fresh fetch, user lihat data terbaru
+                    router.push(`/owner/campaign/${campaign.id}?saved=1`);
+                  }
+                } else {
+                  setSubmitModalOpen(true);
+                }
+              }}
               disabled={saving || !stepCompleted[1] || !stepCompleted[2] || !stepCompleted[3]}
               className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:opacity-90 shadow-md disabled:opacity-50 transition-opacity"
             >
