@@ -1,15 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import ImageUpload from '@/components/ui/ImageUpload';
 import {
-  ArrowLeft, HeartHandshake, Save, Send, AlertTriangle,
+  ArrowLeft, ArrowRight, HeartHandshake, Save, Send, AlertTriangle,
   Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home,
-  Loader2, AlertCircle, CheckCircle2, Siren,
-  UserCircle2, FileText, Landmark, Info, X,
+  Loader2, AlertCircle, CheckCircle2, Siren, Edit3,
+  UserCircle2, FileText, Landmark, Info, X, Check,
+  ShieldCheck, Lock,
 } from 'lucide-react';
 import FeeModeSection from '@/components/owner/campaign/FeeModeSection';
 
@@ -17,7 +18,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/
 const TOKEN_KEY = 'tl_token';
 
 // ═══════════════════════════════════════════════════════════════
-// Constants (matched with wizard for consistency)
+// Constants
 // ═══════════════════════════════════════════════════════════════
 
 const BANKS = [
@@ -50,6 +51,15 @@ const CATEGORIES = [
   { key: 'hunian_darurat', label: 'Hunian Darurat', Icon: Home,          color: '#0891B2', desc: 'Rumah rusak, tidak layak huni' },
 ];
 
+const STEPS = [
+  { num: 1, label: 'Penerima',   icon: UserCircle2, desc: 'Data penerima manfaat' },
+  { num: 2, label: 'Detail',     icon: FileText,    desc: 'Cerita & target dana' },
+  { num: 3, label: 'Rekening',   icon: Landmark,    desc: 'Bank & operasional' },
+  { num: 4, label: 'Review',     icon: CheckCircle2, desc: 'Tinjau & submit' },
+] as const;
+
+type StepNum = 1 | 2 | 3 | 4;
+
 // ═══════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════
@@ -74,7 +84,6 @@ interface Campaign {
   bank_account_number?: string;
   bank_account_name?: string;
   proof_documents?: string[];
-  // ⭐ FIX-FEE: Mode operasional
   operational_fee_mode?: 'volunteer' | 'professional';
   penggalang_fee_percent?: number;
 }
@@ -91,8 +100,12 @@ function parseRupiahInput(val: string): number {
   return Number(val.replace(/\D/g, '')) || 0;
 }
 
+function formatRupiah(n: number): string {
+  return 'Rp ' + n.toLocaleString('id-ID');
+}
+
 // ═══════════════════════════════════════════════════════════════
-// Main Page
+// Main Page — Wizard 4-Step
 // ═══════════════════════════════════════════════════════════════
 
 export default function EditCampaignPage() {
@@ -101,16 +114,21 @@ export default function EditCampaignPage() {
   const campaignId = params?.id as string;
   const { user, token, isLoading: authLoading } = useAuth();
 
-  // Campaign data
+  // Wizard state
+  const [currentStep, setCurrentStep] = useState<StepNum>(1);
+
+  // Campaign state
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
 
-  // Form state
+  // Step 1 — Penerima
   const [beneficiaryName, setBeneficiaryName] = useState('');
   const [beneficiaryRelation, setBeneficiaryRelation] = useState('');
   const [category, setCategory] = useState('');
+  const [idDocs, setIdDocs] = useState<string[]>([]);
 
+  // Step 2 — Detail
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [targetAmount, setTargetAmount] = useState('');
@@ -118,25 +136,25 @@ export default function EditCampaignPage() {
   const [isUrgent, setIsUrgent] = useState(false);
   const [coverUrl, setCoverUrl] = useState('');
   const [proofDocs, setProofDocs] = useState<string[]>([]);
-  const [idDocs, setIdDocs] = useState<string[]>([]);
 
+  // Step 3 — Rekening
   const [partnerName, setPartnerName] = useState('');
   const [isIndependent, setIsIndependent] = useState(false);
   const [bankValue, setBankValue] = useState('');
   const [bankCustom, setBankCustom] = useState('');
   const [bankAccountNumber, setBankAccountNumber] = useState('');
   const [bankAccountName, setBankAccountName] = useState('');
-
-  // ⭐ FIX-FEE: Mode operasional
   const [operationalFeeMode, setOperationalFeeMode] = useState<'volunteer' | 'professional'>('volunteer');
   const [penggalangFeePercent, setPenggalangFeePercent] = useState<number>(0);
 
-  // UI state
+  // Save state
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [stepError, setStepError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
 
+  // Bank computed value
   const bankName = bankValue === 'Lainnya' ? bankCustom : bankValue;
 
   // Fetch campaign
@@ -157,7 +175,6 @@ export default function EditCampaignPage() {
 
         const c: Campaign = json.data;
 
-        // Block edit for active/completed
         if (['active', 'completed'].includes(c.status)) {
           setLoadError(`Kampanye dengan status "${c.status}" tidak bisa diedit. Hanya admin yang bisa mengubah kampanye aktif/selesai.`);
           setCampaign(c);
@@ -166,7 +183,6 @@ export default function EditCampaignPage() {
 
         setCampaign(c);
 
-        // Pre-fill form
         setBeneficiaryName(c.beneficiary_name ?? '');
         setBeneficiaryRelation(c.beneficiary_relation ?? '');
         setCategory(c.category ?? '');
@@ -183,7 +199,6 @@ export default function EditCampaignPage() {
         setBankAccountNumber(c.bank_account_number ?? '');
         setBankAccountName(c.bank_account_name ?? '');
 
-        // Bank pre-fill logic
         const matchingBank = BANKS.find(b => b.value === c.bank_name);
         if (matchingBank) {
           setBankValue(matchingBank.value);
@@ -192,7 +207,6 @@ export default function EditCampaignPage() {
           setBankCustom(c.bank_name);
         }
 
-        // ⭐ FIX-FEE: Pre-fill mode operasional
         setOperationalFeeMode((c.operational_fee_mode as 'volunteer' | 'professional') ?? 'volunteer');
         setPenggalangFeePercent(Number(c.penggalang_fee_percent ?? 0));
       } catch {
@@ -204,31 +218,59 @@ export default function EditCampaignPage() {
     fetchCampaign();
   }, [token, campaignId]);
 
-  // Validation
-  function validate(): string | null {
-    if (!beneficiaryName.trim()) return 'Nama penerima wajib diisi';
-    if (!beneficiaryRelation.trim()) return 'Hubungan dengan penerima wajib diisi';
-    if (!category) return 'Pilih kategori';
+  // ─── Per-step Validation ───────────────────────────────────────
+  function validateStep1(): string | null {
+    if (!beneficiaryName.trim()) return 'Nama penerima manfaat wajib diisi';
+    if (!beneficiaryRelation.trim()) return 'Hubungan dengan pengaju wajib diisi';
+    if (!category) return 'Pilih kategori kemanusiaan';
     if (idDocs.length < 1) return 'Identitas penerima wajib (KTP/KK/Akta — minimal 1 file)';
-    if (title.trim().length < 10) return 'Judul minimal 10 karakter';
-    if (description.trim().length < 30) return 'Cerita minimal 30 karakter';
+    return null;
+  }
+
+  function validateStep2(): string | null {
+    if (title.trim().length < 10) return 'Judul kampanye minimal 10 karakter';
+    if (description.trim().length < 30) return 'Cerita & kebutuhan minimal 30 karakter';
     const target = parseRupiahInput(targetAmount);
-    if (target <= 0) return 'Target dana harus lebih dari 0';
-    if (!partnerName.trim()) return 'Nama partner wajib diisi';
+    if (target <= 0) return 'Target dana harus lebih dari Rp 0';
+    if (!coverUrl) return 'Foto cover kampanye wajib diupload';
+    if (proofDocs.length < 1) return 'Dokumen bukti wajib (minimal 1 file)';
+    return null;
+  }
+
+  function validateStep3(): string | null {
+    if (!partnerName.trim()) {
+      return isIndependent ? 'Nama penggalang wajib diisi' : 'Nama komunitas/lembaga wajib diisi';
+    }
     if (!bankName.trim()) return 'Pilih bank';
     if (!bankAccountNumber.trim()) return 'Nomor rekening wajib diisi';
     if (!bankAccountName.trim()) return 'Nama pemilik rekening wajib diisi';
     return null;
   }
 
-  // Save handler
-  async function handleSave(options: { thenSubmit?: boolean } = {}) {
+  function validateAll(): string | null {
+    return validateStep1() ?? validateStep2() ?? validateStep3();
+  }
+
+  // ─── Step status checks ────────────────────────────────────────
+  const stepCompleted = useMemo(() => ({
+    1: validateStep1() === null,
+    2: validateStep2() === null,
+    3: validateStep3() === null,
+  }), [
+    beneficiaryName, beneficiaryRelation, category, idDocs,
+    title, description, targetAmount, coverUrl, proofDocs,
+    partnerName, bankName, bankAccountNumber, bankAccountName, isIndependent,
+  ]);
+
+  // ─── Save handler (PATCH backend) ──────────────────────────────
+  async function handleSave(options: { thenSubmit?: boolean; silent?: boolean } = {}) {
     if (!token || !campaign) return;
 
-    const validationError = validate();
+    const validationError = options.thenSubmit ? validateAll() : null;
     if (validationError) {
       setSaveError(validationError);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+      setSubmitModalOpen(false);
       return;
     }
 
@@ -237,7 +279,6 @@ export default function EditCampaignPage() {
     setSaveSuccess(false);
 
     try {
-      // PATCH save
       const patchRes = await fetch(`${API}/funding/my/campaigns/${campaign.id}`, {
         method: 'PATCH',
         headers: {
@@ -245,23 +286,22 @@ export default function EditCampaignPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
-          title: title.trim(),
-          description: description.trim(),
-          category,
+          title: title.trim() || undefined,
+          description: description.trim() || undefined,
+          category: category || undefined,
           cover_image_url: coverUrl || null,
-          beneficiary_name: beneficiaryName.trim(),
-          beneficiary_relation: beneficiaryRelation.trim(),
+          beneficiary_name: beneficiaryName.trim() || undefined,
+          beneficiary_relation: beneficiaryRelation.trim() || undefined,
           target_amount: parseRupiahInput(targetAmount),
-          bank_name: bankName.trim(),
-          bank_account_number: bankAccountNumber.trim(),
-          bank_account_name: bankAccountName.trim(),
+          bank_name: bankName.trim() || undefined,
+          bank_account_number: bankAccountNumber.trim() || undefined,
+          bank_account_name: bankAccountName.trim() || undefined,
           deadline: deadline || null,
           is_urgent: isUrgent,
           is_independent: isIndependent,
-          partner_name: partnerName.trim(),
+          partner_name: partnerName.trim() || undefined,
           proof_documents: proofDocs,
           beneficiary_id_documents: idDocs,
-          // ⭐ FIX-FEE: Mode operasional
           operational_fee_mode: operationalFeeMode,
           penggalang_fee_percent: penggalangFeePercent,
         }),
@@ -270,10 +310,9 @@ export default function EditCampaignPage() {
       const patchJson = await patchRes.json();
       if (!patchRes.ok || !patchJson.success) {
         setSaveError(patchJson.error?.message ?? 'Gagal menyimpan');
-        return;
+        return false;
       }
 
-      // If thenSubmit: chain with POST /submit
       if (options.thenSubmit) {
         const submitRes = await fetch(`${API}/funding/my/campaigns/${campaign.id}/submit`, {
           method: 'POST',
@@ -281,27 +320,67 @@ export default function EditCampaignPage() {
         });
         const submitJson = await submitRes.json();
         if (!submitRes.ok || !submitJson.success) {
-          setSaveError(
-            `Tersimpan, tapi gagal submit: ${submitJson.error?.message ?? 'Unknown error'}`
-          );
-          return;
+          setSaveError(`Tersimpan, tapi gagal submit: ${submitJson.error?.message ?? 'Unknown error'}`);
+          return false;
         }
-        // Success: redirect to detail
         router.replace(`/owner/campaign/${campaign.id}`);
-        return;
+        return true;
       }
 
-      // Plain save: show success
-      setSaveSuccess(true);
+      if (!options.silent) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 2500);
+      }
       setCampaign({ ...campaign, ...patchJson.data });
-      // Auto-dismiss success after 3s
-      setTimeout(() => setSaveSuccess(false), 3000);
+      return true;
     } catch {
       setSaveError('Koneksi bermasalah. Coba lagi.');
+      return false;
     } finally {
       setSaving(false);
       setSubmitModalOpen(false);
     }
+  }
+
+  // ─── Step navigation ───────────────────────────────────────────
+  async function handleNextStep() {
+    setStepError('');
+
+    let validator: (() => string | null) | null = null;
+    if (currentStep === 1) validator = validateStep1;
+    else if (currentStep === 2) validator = validateStep2;
+    else if (currentStep === 3) validator = validateStep3;
+
+    if (validator) {
+      const err = validator();
+      if (err) {
+        setStepError(err);
+        return;
+      }
+    }
+
+    // Auto-save on advance (silent)
+    const saved = await handleSave({ silent: true });
+    if (!saved) return;
+
+    if (currentStep < 4) {
+      setCurrentStep((s) => (s + 1) as StepNum);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function handlePrevStep() {
+    setStepError('');
+    if (currentStep > 1) {
+      setCurrentStep((s) => (s - 1) as StepNum);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }
+
+  function jumpToStep(step: StepNum) {
+    setStepError('');
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
   // ── Auth guard ──
@@ -318,18 +397,18 @@ export default function EditCampaignPage() {
       <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-[#003526]/10 flex items-center justify-center">
-            <HeartHandshake size={28} className="text-[#003526]" />
+            <UserCircle2 size={32} className="text-[#003526]" />
           </div>
           <h2 className="text-lg font-bold text-gray-900">Login Dulu</h2>
-          <p className="mt-2 text-sm text-gray-500">
-            Kamu perlu login untuk mengedit kampanye.
+          <p className="mt-2 text-sm text-gray-600">
+            Lo perlu login dulu sebelum bisa edit kampanye.
           </p>
-          <button
-            onClick={() => router.push(`/login?redirect=/owner/campaign/${campaignId}/edit`)}
-            className="mt-5 w-full rounded-xl bg-[#003526] px-6 py-3 text-sm font-bold text-white"
+          <Link
+            href="/login"
+            className="mt-4 inline-flex items-center justify-center rounded-xl bg-[#003526] px-6 py-2.5 text-sm font-semibold text-white"
           >
             Login Sekarang
-          </button>
+          </Link>
         </div>
       </div>
     );
@@ -337,35 +416,26 @@ export default function EditCampaignPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f9f9f8]">
-        <div className="bg-[#003526] px-4 pt-6 pb-14"></div>
-        <div className="mx-auto max-w-lg px-4 -mt-8 space-y-4">
-          <div className="h-40 bg-white rounded-2xl animate-pulse" />
-          <div className="h-64 bg-white rounded-2xl animate-pulse" />
-          <div className="h-40 bg-white rounded-2xl animate-pulse" />
-        </div>
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 size={28} className="animate-spin text-[#003526]" />
       </div>
     );
   }
 
-  // Block edit for active/completed
   if (loadError) {
     return (
-      <div className="min-h-screen bg-[#f9f9f8] flex items-center justify-center px-4">
+      <div className="flex min-h-[60vh] items-center justify-center px-4">
         <div className="text-center max-w-sm">
           <div className="mx-auto mb-4 w-16 h-16 rounded-full bg-red-50 flex items-center justify-center">
-            <AlertCircle size={28} className="text-red-500" />
+            <AlertCircle size={32} className="text-red-600" />
           </div>
           <h2 className="text-lg font-bold text-gray-900">Tidak Bisa Diedit</h2>
-          <p className="mt-2 text-sm text-gray-500 leading-relaxed">
-            {loadError}
-          </p>
+          <p className="mt-2 text-sm text-gray-600">{loadError}</p>
           <Link
-            href={campaign ? `/owner/campaign/${campaign.id}` : '/owner/campaign'}
-            className="mt-5 inline-flex items-center gap-1.5 rounded-xl bg-[#003526] px-5 py-2.5 text-sm font-bold text-white"
+            href="/owner/campaign"
+            className="mt-4 inline-flex items-center gap-2 rounded-xl bg-[#003526] px-6 py-2.5 text-sm font-semibold text-white"
           >
-            <ArrowLeft size={14} />
-            Kembali
+            <ArrowLeft size={16} /> Kembali ke Kampanye Saya
           </Link>
         </div>
       </div>
@@ -374,594 +444,764 @@ export default function EditCampaignPage() {
 
   if (!campaign) return null;
 
-  const selectedCat = CATEGORIES.find(c => c.key === category);
-
-  // Submit button label varies by status
-  const getPrimaryCTA = () => {
-    if (campaign.status === 'draft') return { label: 'Submit untuk Review', icon: Send };
-    if (campaign.status === 'rejected') return { label: 'Submit Ulang', icon: Send };
-    return null;
-  };
-
-  const primaryCTA = getPrimaryCTA();
+  const submitButtonLabel = campaign.status === 'rejected' ? 'Submit Ulang' : 'Submit untuk Review';
 
   return (
     <div className="min-h-screen bg-[#f9f9f8] pb-32">
+      {/* Hero — match BADONASI public + NewInfo style (pb-24 untuk floating pill space) */}
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] text-white px-4 pt-8 pb-24 relative overflow-hidden">
+        {/* Pink accent decoration */}
+        <div className="absolute top-0 right-0 w-40 h-40 bg-[#EC4899] rounded-full opacity-10 blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 w-32 h-32 bg-[#EC4899] rounded-full opacity-5 blur-3xl"></div>
 
-      {/* Header */}
-      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-4 pt-6 pb-10 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-56 h-56 rounded-full bg-[#EC4899]/15 blur-3xl -translate-y-1/3 translate-x-1/3"></div>
-
-        <div className="relative mx-auto max-w-lg">
+        <div className="max-w-2xl mx-auto relative z-10">
           <Link
             href={`/owner/campaign/${campaign.id}`}
-            className="inline-flex items-center gap-1.5 text-[#95d3ba] text-xs mb-3 hover:text-white transition-colors"
+            className="inline-flex items-center gap-1.5 text-sm font-medium text-white/80 hover:text-white mb-4"
           >
-            <ArrowLeft size={13} />
-            Detail Kampanye
+            <ArrowLeft size={16} /> Detail Kampanye
           </Link>
 
-          <div className="flex items-center gap-2">
-            <HeartHandshake size={18} className="text-[#F472B6] shrink-0" strokeWidth={2.2} />
-            <div>
-              <p className="text-[10px] font-bold text-[#F472B6] uppercase tracking-widest">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-[#EC4899]/20 backdrop-blur-sm flex items-center justify-center shrink-0 border border-[#EC4899]/30">
+              <HeartHandshake size={24} className="text-[#F472B6]" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-[11px] font-extrabold text-[#F472B6] uppercase tracking-widest mb-0.5">
                 BADONASI · Edit Kampanye
               </p>
-              <h1 className="text-lg font-extrabold text-white leading-tight">
-                {campaign.title || '(Tanpa judul)'}
-              </h1>
+              <h1 className="text-xl font-extrabold truncate">{campaign.title || 'Kampanye Baru'}</h1>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Form content */}
-      <div className="mx-auto max-w-lg px-4 -mt-4 space-y-4">
+      {/* ════════════════════════════════════════════════════════════
+          FLOATING SECTION: Trust Pill + Stepper Bridge
+          ════════════════════════════════════════════════════════════
+          Design system:
+          • Pill: trust info (status-aware), pulled up from hero -mt-14
+          • Stepper: 4 circles MELAYANG keluar pill bottom (-mt-5)
+                     dengan white ring (ilusi menggantung di udara)
+          • Body content: pt-2 untuk slight gap dari stepper
+      */}
+      <div className="max-w-2xl mx-auto px-4 -mt-14 relative z-20">
 
-        {/* Status-based warning banner */}
+        {/* Trust Pill — status-aware */}
+        <div className="relative z-20">
+          {campaign.status === 'draft' && (
+            <div className="bg-white rounded-2xl shadow-md border border-gray-100 px-4 py-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                <ShieldCheck size={20} className="text-emerald-600" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-gray-800">Data tersimpan otomatis</p>
+                <p className="text-xs text-gray-400">Identitas penerima dirahasiakan & terenkripsi.</p>
+              </div>
+            </div>
+          )}
+
+          {campaign.status === 'pending_review' && (
+            <div className="bg-white rounded-2xl shadow-md border border-amber-200 px-4 py-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <Loader2 size={20} className="text-amber-600 animate-spin" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-gray-800">Sedang direview admin TeraLoka</p>
+                <p className="text-xs text-gray-400">Hasil review dalam 1-2 hari kerja.</p>
+              </div>
+            </div>
+          )}
+
+          {campaign.status === 'rejected' && (
+            <div className="bg-white rounded-2xl shadow-md border border-red-200 px-4 py-3.5 flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center shrink-0">
+                <AlertCircle size={20} className="text-red-600" strokeWidth={2.2} />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-gray-800">Perlu diperbaiki sebelum submit ulang</p>
+                <p className="text-xs text-gray-400">Cek feedback admin di halaman detail kampanye.</p>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ────────────────────────────────────────────────────────
+            STEPPER BRIDGE — floating between pill & content
+            ────────────────────────────────────────────────────────
+            • -mt-5 → overlap pill bottom edge (visual hanging)
+            • z-30 → above pill (z-20) and content (z-0)
+            • White ring 4px → "menggantung di udara" illusion
+            • Size hierarchy: active 44px > completed 36px > pending 32px
+            • Mobile: connector max-w-[32px], gap-1
+            • Desktop: connector max-w-[64px], gap-2
+        */}
+        <div className={`
+          relative z-30 -mt-5 mb-3 flex items-center justify-center
+          ${campaign.status === 'pending_review' ? 'opacity-60 pointer-events-none' : ''}
+        `}>
+          {STEPS.map((step, idx) => {
+            const StepIcon = step.icon;
+            const isActive = step.num === currentStep;
+            const isCompleted = step.num < currentStep || (
+              step.num <= 3 && stepCompleted[step.num as 1 | 2 | 3]
+            );
+            const isClickable = step.num < currentStep || (
+              step.num === currentStep ||
+              (step.num <= 3 && stepCompleted[step.num as 1 | 2 | 3]) ||
+              step.num === currentStep + 1
+            );
+
+            return (
+              <div key={step.num} className="flex items-center">
+                <button
+                  onClick={() => isClickable && jumpToStep(step.num as StepNum)}
+                  disabled={!isClickable}
+                  aria-label={`Step ${step.num}: ${step.label}`}
+                  className={`
+                    relative flex items-center justify-center transition-all duration-300
+                    ${isClickable ? 'cursor-pointer hover:scale-105' : 'cursor-not-allowed'}
+                  `}
+                >
+                  {/* Active glow halo (behind circle) */}
+                  {isActive && (
+                    <span className="absolute inset-0 -m-2 bg-gradient-to-br from-[#EC4899]/30 to-[#BE185D]/10 rounded-full blur-md animate-pulse" />
+                  )}
+
+                  {/* Step circle */}
+                  <span className={`
+                    relative flex items-center justify-center rounded-full font-extrabold
+                    ring-4 ring-white transition-all duration-300
+                    ${isActive
+                      ? 'w-11 h-11 bg-gradient-to-br from-[#EC4899] to-[#BE185D] text-white shadow-lg shadow-[#EC4899]/40 text-sm'
+                      : ''}
+                    ${!isActive && isCompleted
+                      ? 'w-9 h-9 bg-gradient-to-br from-[#003526] to-[#1B6B4A] text-white shadow-md shadow-[#003526]/25 text-xs'
+                      : ''}
+                    ${!isActive && !isCompleted
+                      ? 'w-8 h-8 bg-white border-2 border-gray-200 text-gray-400 text-xs'
+                      : ''}
+                  `}>
+                    {isCompleted && !isActive ? (
+                      <Check size={16} strokeWidth={3} />
+                    ) : isActive ? (
+                      <StepIcon size={18} strokeWidth={2.5} />
+                    ) : (
+                      <span>{step.num}</span>
+                    )}
+                  </span>
+                </button>
+
+                {/* Connector line */}
+                {idx < STEPS.length - 1 && (
+                  <div className="
+                    w-8 sm:w-12 md:w-16 h-0.5 mx-1 sm:mx-1.5 rounded-full overflow-hidden
+                    bg-gray-200
+                  ">
+                    <div className={`
+                      h-full rounded-full transition-all duration-700 ease-out
+                      ${step.num < currentStep
+                        ? 'w-full bg-gradient-to-r from-[#003526] to-[#1B6B4A]'
+                        : 'w-0'}
+                    `} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Active step label (below stepper, mobile-friendly) */}
+        <div className="text-center mb-1">
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-[#EC4899]">
+            Step {currentStep} · {STEPS[currentStep - 1].label}
+          </p>
+          <p className="text-[10px] text-gray-500 mt-0.5">
+            {STEPS[currentStep - 1].desc}
+          </p>
+        </div>
+
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 pt-2 pb-5 space-y-4">
+        {/* Status banners */}
         {campaign.status === 'pending_review' && (
-          <div className="rounded-2xl bg-amber-50 border border-amber-200 p-4 flex items-start gap-3">
-            <AlertTriangle size={18} className="text-amber-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-bold text-amber-900 mb-1">
-                Kampanye sedang direview
-              </p>
-              <p className="text-xs text-amber-800 leading-relaxed">
-                Perubahan apapun mungkin membuat tim TeraLoka me-review ulang kampanye kamu dari awal. Kalau perubahan mayor, lebih baik tarik kembali dulu lalu edit.
-              </p>
+          <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-amber-900 leading-relaxed">
+              <p className="font-bold mb-0.5">Kampanye sedang direview</p>
+              <p>Perubahan apapun mungkin membuat tim TeraLoka me-review ulang kampanye kamu dari awal. Kalau perubahan mayor, lebih baik tarik kembali dulu lalu edit.</p>
             </div>
           </div>
         )}
 
         {campaign.status === 'rejected' && (
-          <div className="rounded-2xl bg-red-50 border border-red-200 p-4 flex items-start gap-3">
-            <AlertCircle size={18} className="text-red-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-xs font-bold text-red-900 mb-1">
-                Kampanye ditolak — perbaiki lalu submit ulang
-              </p>
-              <p className="text-xs text-red-800 leading-relaxed">
-                Setelah memperbaiki, klik <strong>Submit Ulang</strong> untuk mengirim kembali ke tim review.
-              </p>
+          <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
+            <div className="text-xs text-red-900 leading-relaxed">
+              <p className="font-bold mb-0.5">Kampanye di-reject sebelumnya</p>
+              <p>Perbaiki sesuai feedback admin, lalu submit ulang. Detail alasan reject ada di halaman detail kampanye.</p>
             </div>
           </div>
         )}
 
-        {/* Error banner */}
+        {/* Save error banner */}
         {saveError && (
-          <div className="rounded-2xl bg-red-50 border border-red-100 p-4 flex items-start gap-3">
-            <AlertCircle size={18} className="text-red-500 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-xs font-bold text-red-700 mb-0.5">Gagal menyimpan</p>
-              <p className="text-xs text-red-600">{saveError}</p>
+          <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-start gap-2">
+            <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
+            <div className="flex-1 text-xs text-red-900">
+              <p className="font-bold mb-0.5">Gagal menyimpan</p>
+              <p>{saveError}</p>
             </div>
-            <button onClick={() => setSaveError('')} className="shrink-0 text-red-500 hover:text-red-700">
-              <X size={14} />
+            <button onClick={() => setSaveError('')} className="text-red-600 hover:text-red-800">
+              <X size={16} />
             </button>
           </div>
         )}
 
-        {/* Success banner */}
+        {/* Save success toast */}
         {saveSuccess && (
-          <div className="rounded-2xl bg-emerald-50 border border-emerald-100 p-4 flex items-start gap-3">
-            <CheckCircle2 size={18} className="text-emerald-600 shrink-0 mt-0.5" />
-            <div className="flex-1">
-              <p className="text-xs font-bold text-emerald-700 mb-0.5">Tersimpan!</p>
-              <p className="text-xs text-emerald-600">Perubahan kampanye berhasil disimpan.</p>
-            </div>
+          <div className="rounded-xl bg-green-50 border border-green-200 p-3 flex items-center gap-2">
+            <CheckCircle2 size={16} className="text-green-600" />
+            <p className="text-xs text-green-900 font-semibold">Tersimpan ✓</p>
           </div>
         )}
 
-        {/* SECTION 1: Data Penerima */}
-        <FormSection
-          icon={UserCircle2}
-          title="Data Penerima Manfaat"
-          number="1"
-        >
-          <FormField label="Nama Penerima Manfaat">
-            <input
-              type="text"
-              value={beneficiaryName}
-              onChange={e => setBeneficiaryName(e.target.value)}
-              placeholder="Nama lengkap yang dibantu"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
-            />
-          </FormField>
+        {/* Step error inline */}
+        {stepError && (
+          <div className="rounded-xl bg-orange-50 border border-orange-200 p-3 flex items-start gap-2">
+            <AlertTriangle size={16} className="text-orange-600 mt-0.5 shrink-0" />
+            <p className="text-xs text-orange-900 font-semibold">{stepError}</p>
+          </div>
+        )}
 
-          <FormField label="Hubungan dengan Pengaju">
-            <input
-              type="text"
-              value={beneficiaryRelation}
-              onChange={e => setBeneficiaryRelation(e.target.value)}
-              placeholder="Contoh: diri sendiri, keluarga, tetangga"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
-            />
-          </FormField>
+        {/* ═══════════ STEP 1: PENERIMA MANFAAT ═══════════ */}
+        {currentStep === 1 && (
+          <StepCard title="Data Penerima Manfaat" icon={UserCircle2}>
+            <FormField label="Nama Penerima Manfaat">
+              <input
+                type="text"
+                value={beneficiaryName}
+                onChange={e => setBeneficiaryName(e.target.value)}
+                placeholder="Nama lengkap penerima dana"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+              />
+            </FormField>
 
-          <FormField label="Kategori Kemanusiaan">
-            <div className="grid grid-cols-2 gap-2">
-              {CATEGORIES.map(cat => {
-                const CatIcon = cat.Icon;
-                const isActive = category === cat.key;
-                return (
-                  <button
-                    key={cat.key}
-                    type="button"
-                    onClick={() => setCategory(cat.key)}
-                    className={`flex items-start gap-3 p-3 rounded-xl text-left border-2 transition-all ${
-                      isActive ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                    }`}
-                  >
-                    <div
-                      className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0"
-                      style={{ background: `${cat.color}15`, border: `0.5px solid ${cat.color}40` }}
+            <FormField label="Hubungan dengan Pengaju">
+              <input
+                type="text"
+                value={beneficiaryRelation}
+                onChange={e => setBeneficiaryRelation(e.target.value)}
+                placeholder="Mis: Anak, Tetangga, Diri Sendiri"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+              />
+            </FormField>
+
+            <FormField label="Kategori Kemanusiaan">
+              <div className="grid grid-cols-2 gap-2.5">
+                {CATEGORIES.map((cat) => {
+                  const isActive = category === cat.key;
+                  return (
+                    <button
+                      key={cat.key}
+                      type="button"
+                      onClick={() => setCategory(cat.key)}
+                      className={`
+                        text-left p-3.5 rounded-xl border-2 transition-all
+                        ${isActive
+                          ? 'border-[#EC4899] bg-gradient-to-br from-[#EC4899]/5 to-[#BE185D]/5 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                        }
+                      `}
                     >
-                      <CatIcon size={18} strokeWidth={2} style={{ color: cat.color }} />
-                    </div>
-                    <div className="min-w-0">
-                      <p className={`text-xs font-bold ${isActive ? 'text-[#003526]' : 'text-gray-700'}`}>
-                        {cat.label}
-                      </p>
-                      <p className="text-[10px] text-gray-400 mt-0.5 leading-tight">{cat.desc}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </FormField>
+                      <div className="flex items-center gap-2 mb-1">
+                        <div
+                          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: `${cat.color}15` }}
+                        >
+                          <cat.Icon size={18} style={{ color: cat.color }} />
+                        </div>
+                        <p className="text-xs font-extrabold text-gray-900">{cat.label}</p>
+                      </div>
+                      <p className="text-[10px] text-gray-500 leading-tight">{cat.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </FormField>
 
-          {/* Identitas Penerima Manfaat (RAHASIA, admin-only) */}
-          <FormField label="🔒 Identitas Penerima Manfaat (RAHASIA)">
-            <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 mb-3">
-              <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
-                <Info size={13} className="shrink-0 mt-0.5 text-blue-600" />
-                <span>
-                  <strong className="font-bold">Hanya admin TeraLoka yang bisa lihat.</strong> Identitas penerima TIDAK ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP.
+            <FormField label="🔒 Identitas Penerima Manfaat (RAHASIA)">
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 mb-3">
+                <p className="text-xs text-blue-900 leading-relaxed">
+                  <strong>Hanya admin TeraLoka yang bisa lihat.</strong> Identitas penerima TIDAK ditampilkan ke donor/publik. Disimpan terenkripsi sesuai UU PDP.
+                </p>
+              </div>
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3">
+                <p className="text-xs text-amber-900 leading-relaxed">
+                  <strong>Upload 1-3 file</strong> sesuai kondisi:<br />
+                  🪪 KTP penerima (bila dewasa)<br />
+                  👶 KTP Wali + Akta Kelahiran (bila anak-anak)<br />
+                  📋 Kartu Keluarga (KK) sebagai alternatif<br />
+                  📄 Surat Keterangan RT/RW/Kelurahan
+                </p>
+              </div>
+              <ImageUpload
+                bucket="campaigns"
+                label=""
+                maxFiles={3}
+                maxSizeMB={5}
+                onUpload={(urls: string[]) => setIdDocs(urls)}
+                existingUrls={idDocs}
+              />
+              {idDocs.length > 0 && (
+                <p className="mt-2 text-xs text-green-700 font-semibold">
+                  ✓ {idDocs.length} file identitas tersimpan (rahasia)
+                </p>
+              )}
+            </FormField>
+          </StepCard>
+        )}
+
+        {/* ═══════════ STEP 2: DETAIL KAMPANYE ═══════════ */}
+        {currentStep === 2 && (
+          <StepCard title="Detail Kampanye" icon={FileText}>
+            <FormField label="Judul Kampanye">
+              <input
+                type="text"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                placeholder="Mis: Bantu Operasi Jantung Bu Marlina"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+              />
+              <p className="mt-1 text-[11px] text-gray-500">Min 10 karakter — buat singkat & jelas</p>
+            </FormField>
+
+            <FormField label="Cerita & Kebutuhan">
+              <textarea
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Ceritakan kondisi penerima, kenapa butuh bantuan, dan bagaimana dana akan digunakan..."
+                rows={6}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm resize-none"
+              />
+              <p className="mt-1 text-[11px] text-gray-500">
+                Min 30 karakter · {description.length} char
+              </p>
+            </FormField>
+
+            <FormField label="Target Dana">
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-semibold">
+                  Rp
                 </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={targetAmount}
+                  onChange={e => setTargetAmount(formatRupiahInput(e.target.value))}
+                  placeholder="0"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm font-semibold"
+                />
+              </div>
+            </FormField>
+
+            <FormField label="Foto Cover Kampanye">
+              <ImageUpload
+                bucket="campaigns"
+                label=""
+                onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
+                existingUrls={coverUrl ? [coverUrl] : []}
+              />
+            </FormField>
+
+            <FormField label="Dokumen Bukti (minimal 1, bisa lebih)">
+              <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
+                Foto lokasi, surat dokter (KTP/NIK diblur), surat keterangan kelurahan. Ditampilkan ke donor untuk transparansi.<br />
+                <strong className="text-amber-700">⚠️ Jangan upload KTP/NIK polos di sini</strong> — KTP penerima sudah di Step 1 (rahasia).
               </p>
-            </div>
+              <ImageUpload
+                bucket="campaigns"
+                label=""
+                maxFiles={5}
+                maxSizeMB={5}
+                onUpload={(urls: string[]) => setProofDocs(urls)}
+                existingUrls={proofDocs}
+              />
+            </FormField>
 
-            <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-3">
-              <p className="text-[11px] text-amber-800 leading-relaxed">
-                <strong className="font-bold">Upload 1-3 file</strong> sesuai kondisi:
-                <br />🪪 KTP penerima (bila dewasa)
-                <br />👨‍👧 KTP Wali + Akta Kelahiran (bila anak-anak)
-                <br />📋 Kartu Keluarga (KK) sebagai alternatif
-                <br />📃 Surat Keterangan RT/RW/Kelurahan
+            <FormField label="Batas Waktu (Opsional)">
+              <input
+                type="date"
+                value={deadline}
+                onChange={e => setDeadline(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+              />
+              <p className="mt-1 text-[11px] text-gray-500">
+                Kosongkan kalau tidak ada deadline spesifik
               </p>
-            </div>
+            </FormField>
 
-            <ImageUpload
-              bucket="campaigns"
-              label=""
-              maxFiles={3}
-              maxSizeMB={5}
-              onUpload={(urls: string[]) => setIdDocs(urls)}
-              existingUrls={idDocs}
-            />
-            {idDocs.length > 0 && (
-              <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 size={13} />
-                {idDocs.length} file identitas tersimpan (rahasia)
-              </p>
-            )}
-          </FormField>
-        </FormSection>
+            <FormField label="Status Urgensi">
+              <label className="flex items-start gap-3 p-3 rounded-xl border-2 border-gray-200 cursor-pointer hover:border-orange-300 transition-all">
+                <input
+                  type="checkbox"
+                  checked={isUrgent}
+                  onChange={e => setIsUrgent(e.target.checked)}
+                  className="mt-0.5 w-4 h-4 accent-orange-600"
+                />
+                <div className="flex-1">
+                  <div className="flex items-center gap-1.5">
+                    <Siren size={14} className="text-orange-600" />
+                    <span className="text-sm font-bold text-gray-900">Tandai sebagai URGENT</span>
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-0.5">
+                    Kampanye urgent ditampilkan di slide depan BADONASI dengan label merah
+                  </p>
+                </div>
+              </label>
+            </FormField>
+          </StepCard>
+        )}
 
-        {/* SECTION 2: Detail Kampanye */}
-        <FormSection
-          icon={FileText}
-          title="Detail Kampanye"
-          number="2"
-        >
-          <FormField label="Judul Kampanye">
-            <input
-              type="text"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-              placeholder="Contoh: Bantu Ibu Fatima Biaya Operasi"
-              maxLength={100}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
-            />
-            <p className="mt-1 text-right text-[10px] text-gray-400">{title.length}/100</p>
-          </FormField>
+        {/* ═══════════ STEP 3: REKENING & FEE ═══════════ */}
+        {currentStep === 3 && (
+          <StepCard title="Penggalang & Rekening" icon={Landmark}>
+            <FormField label="Penggalang Atas Nama">
+              <div className="grid grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setIsIndependent(true)}
+                  className={`
+                    p-3.5 rounded-xl border-2 transition-all text-left
+                    ${isIndependent
+                      ? 'border-[#EC4899] bg-gradient-to-br from-[#EC4899]/5 to-[#BE185D]/5 shadow-sm'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                    }
+                  `}
+                >
+                  <p className="text-sm font-extrabold text-gray-900 mb-0.5">Perorangan</p>
+                  <p className="text-[10px] text-gray-500">Penggalang individu</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsIndependent(false)}
+                  className={`
+                    p-3.5 rounded-xl border-2 transition-all text-left
+                    ${!isIndependent
+                      ? 'border-[#EC4899] bg-gradient-to-br from-[#EC4899]/5 to-[#BE185D]/5 shadow-sm'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                    }
+                  `}
+                >
+                  <p className="text-sm font-extrabold text-gray-900 mb-0.5">Komunitas/Lembaga</p>
+                  <p className="text-[10px] text-gray-500">Atas nama partner</p>
+                </button>
+              </div>
+            </FormField>
 
-          <FormField label="Cerita & Kebutuhan">
-            <textarea
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Ceritakan kondisi penerima, kebutuhan mendesak, dan bagaimana dana akan digunakan..."
-              rows={6}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] resize-none"
-            />
-            <p className="mt-1 text-right text-[10px] text-gray-400">
-              {description.length} karakter (min. 30)
-            </p>
-          </FormField>
-
-          <FormField label="Target Dana">
-            <div className="relative">
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-400 font-medium">
-                Rp
-              </span>
+            <FormField label={isIndependent ? 'Nama Penggalang' : 'Nama Komunitas / Lembaga Partner'}>
               <input
                 type="text"
-                value={targetAmount}
-                onChange={e => setTargetAmount(formatRupiahInput(e.target.value))}
-                placeholder="5.000.000"
-                className="w-full rounded-xl border border-gray-200 py-3 pl-12 pr-4 text-sm outline-none focus:border-[#003526]"
+                value={partnerName}
+                onChange={e => setPartnerName(e.target.value)}
+                placeholder={isIndependent ? 'Nama lengkap kamu' : 'Mis: Komunitas Peduli Maluku'}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+              />
+            </FormField>
+
+            <FormField label="Bank">
+              <select
+                value={bankValue}
+                onChange={e => setBankValue(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm bg-white"
+              >
+                <option value="">Pilih bank...</option>
+                {BANKS.map(b => (
+                  <option key={b.value} value={b.value}>{b.label}</option>
+                ))}
+                <option value="Lainnya">Lainnya...</option>
+              </select>
+
+              {bankValue === 'Lainnya' && (
+                <input
+                  type="text"
+                  value={bankCustom}
+                  onChange={e => setBankCustom(e.target.value)}
+                  placeholder="Nama bank custom"
+                  className="mt-2 w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+                />
+              )}
+            </FormField>
+
+            <FormField label="Nomor Rekening">
+              <input
+                type="text"
+                inputMode="numeric"
+                value={bankAccountNumber}
+                onChange={e => setBankAccountNumber(e.target.value.replace(/\D/g, ''))}
+                placeholder="1234567890"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm font-mono"
+              />
+            </FormField>
+
+            <FormField label="Nama Pemilik Rekening">
+              <input
+                type="text"
+                value={bankAccountName}
+                onChange={e => setBankAccountName(e.target.value)}
+                placeholder="Nama persis sesuai buku tabungan"
+                className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+              />
+            </FormField>
+
+            <div className="pt-2 border-t border-gray-100">
+              <FeeModeSection
+                mode={operationalFeeMode}
+                percent={penggalangFeePercent}
+                onModeChange={setOperationalFeeMode}
+                onPercentChange={setPenggalangFeePercent}
+                locked={campaign?.status === 'active' || campaign?.status === 'completed'}
               />
             </div>
-          </FormField>
+          </StepCard>
+        )}
 
-          <FormField label="Foto Cover Kampanye">
-            <ImageUpload
-              bucket="campaigns"
-              label=""
-              onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
-              existingUrls={coverUrl ? [coverUrl] : []}
-            />
-          </FormField>
-
-          <FormField label="Dokumen Bukti (minimal 1, bisa lebih)">
-            <ImageUpload
-              bucket="campaigns"
-              label=""
-              maxFiles={5}
-              maxSizeMB={5}
-              onUpload={(urls: string[]) => setProofDocs(urls)}
-              existingUrls={proofDocs}
-            />
-            <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed">
-              Upload foto/dokumen bukti kondisi penerima (KTP, surat dokter, foto lokasi, dll). Maksimal 5 file, 5MB per file.
-            </p>
-          </FormField>
-
-          <FormField label="Batas Waktu (Opsional)">
-            <input
-              type="date"
-              value={deadline}
-              onChange={e => setDeadline(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
-            />
-          </FormField>
-
-          <label className="flex cursor-pointer items-start gap-3 p-3.5 rounded-xl bg-red-50 border border-red-100">
-            <input
-              type="checkbox"
-              checked={isUrgent}
-              onChange={e => setIsUrgent(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-red-600"
-            />
-            <div className="flex items-start gap-2">
-              <Siren size={16} className="text-red-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-bold text-red-700">Tandai sebagai Mendesak</p>
-                <p className="text-[10px] text-red-500 mt-0.5 leading-relaxed">
-                  Campaign akan diprioritaskan di halaman utama BADONASI
+        {/* ═══════════ STEP 4: REVIEW & SUBMIT ═══════════ */}
+        {currentStep === 4 && (
+          <StepCard title="Tinjau & Submit" icon={CheckCircle2}>
+            <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 mb-3">
+              <div className="flex items-start gap-2">
+                <Info size={14} className="text-blue-600 mt-0.5 shrink-0" />
+                <p className="text-xs text-blue-900 leading-relaxed">
+                  Tinjau semua data di bawah. Klik <strong>Edit</strong> di section yang mau diubah. Kalau semua oke, klik <strong>{submitButtonLabel}</strong> di bawah.
                 </p>
               </div>
             </div>
-          </label>
-        </FormSection>
 
-        {/* SECTION 3: Rekening Partner */}
-        <FormSection
-          icon={Landmark}
-          title={isIndependent ? 'Rekening Penggalang Pribadi' : 'Rekening Komunitas Partner'}
-          number="3"
-        >
-          <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 mb-3">
-            <p className="text-[11px] text-amber-800 leading-relaxed flex items-start gap-2">
-              <Info size={13} className="shrink-0 mt-0.5 text-amber-600" />
-              Dana donasi masuk langsung ke rekening {isIndependent ? 'penggalang' : 'komunitas partner'}. TeraLoka hanya mempublish laporan dana untuk transparansi publik.
-            </p>
-          </div>
-
-          {/* Toggle Perorangan / Komunitas */}
-          <FormField label="Penggalang Atas Nama">
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsIndependent(false);
-                  if (isIndependent) setPartnerName('');
-                }}
-                className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
-                  !isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                }`}
-              >
-                <span className="text-2xl">🏢</span>
-                <p className={`text-xs font-bold ${!isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
-                  Komunitas / Lembaga
-                </p>
-                <p className="text-[10px] text-gray-400 leading-tight">
-                  Yayasan, panti, ormas, dll
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsIndependent(true);
-                  if (!isIndependent && user?.name) setPartnerName(user.name);
-                }}
-                className={`flex flex-col items-center gap-1.5 p-3.5 rounded-xl text-center border-2 transition-all ${
-                  isIndependent ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
-                }`}
-              >
-                <span className="text-2xl">👤</span>
-                <p className={`text-xs font-bold ${isIndependent ? 'text-[#003526]' : 'text-gray-700'}`}>
-                  Perorangan / Pribadi
-                </p>
-                <p className="text-[10px] text-gray-400 leading-tight">
-                  Saya sendiri yang menggalang
-                </p>
-              </button>
-            </div>
-
-            {isIndependent && (
-              <div className="mt-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
-                <p className="text-xs text-blue-800 leading-relaxed flex items-start gap-2">
-                  <Info size={13} className="shrink-0 mt-0.5 text-blue-600" />
-                  Penggalang perorangan akan diverifikasi extra ketat oleh tim TeraLoka. Pastikan dokumen pendukung lengkap dan kuat.
-                </p>
-              </div>
-            )}
-          </FormField>
-
-          <FormField label={isIndependent ? 'Nama Penggalang' : 'Nama Komunitas / Lembaga Partner'}>
-            <input
-              type="text"
-              value={partnerName}
-              onChange={e => setPartnerName(e.target.value)}
-              placeholder={isIndependent ? 'Nama lengkap kamu' : 'Contoh: Yayasan Peduli Maluku Utara'}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
-            />
-          </FormField>
-
-          <FormField label="Bank">
-            <select
-              value={bankValue}
-              onChange={e => setBankValue(e.target.value)}
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] bg-white appearance-none cursor-pointer"
+            {/* Section 1 Review — Penerima */}
+            <ReviewSection
+              title="1. Penerima Manfaat"
+              icon={UserCircle2}
+              valid={stepCompleted[1]}
+              onEdit={() => jumpToStep(1)}
             >
-              <option value="">— Pilih Bank —</option>
-              <optgroup label="🏦 Bank Lokal Maluku Utara">
-                {BANKS.filter(b => b.local).map(b => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="🏛️ Bank Nasional">
-                {BANKS.filter(b => !b.local).map(b => (
-                  <option key={b.value} value={b.value}>{b.label}</option>
-                ))}
-              </optgroup>
-              <optgroup label="Lainnya">
-                <option value="Lainnya">Lainnya (ketik manual)</option>
-              </optgroup>
-            </select>
-            {bankValue === 'Lainnya' && (
-              <input
-                type="text"
-                value={bankCustom}
-                onChange={e => setBankCustom(e.target.value)}
-                placeholder="Nama bank..."
-                className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
+              <ReviewRow label="Nama Penerima" value={beneficiaryName} />
+              <ReviewRow label="Hubungan" value={beneficiaryRelation} />
+              <ReviewRow label="Kategori" value={CATEGORIES.find(c => c.key === category)?.label ?? '—'} />
+              <ReviewRow
+                label="Identitas (rahasia)"
+                value={idDocs.length > 0 ? `${idDocs.length} file tersimpan 🔒` : '—'}
               />
-            )}
-          </FormField>
+            </ReviewSection>
 
-          <FormField label="Nama Pemilik Rekening">
-            <input
-              type="text"
-              value={bankAccountName}
-              onChange={e => setBankAccountName(e.target.value)}
-              placeholder="Sesuai nama di buku tabungan"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
-            />
-          </FormField>
+            {/* Section 2 Review — Detail */}
+            <ReviewSection
+              title="2. Detail Kampanye"
+              icon={FileText}
+              valid={stepCompleted[2]}
+              onEdit={() => jumpToStep(2)}
+            >
+              <ReviewRow label="Judul" value={title} />
+              <ReviewRow label="Target Dana" value={formatRupiah(parseRupiahInput(targetAmount))} />
+              <ReviewRow
+                label="Cerita"
+                value={description.length > 100 ? description.slice(0, 100) + '...' : description}
+              />
+              <ReviewRow label="Foto Cover" value={coverUrl ? '✓ Sudah upload' : '—'} />
+              <ReviewRow label="Dokumen Bukti" value={`${proofDocs.length} file`} />
+              <ReviewRow label="Deadline" value={deadline || '— (opsional)'} />
+              <ReviewRow label="Urgent" value={isUrgent ? '🚨 Ya' : 'Tidak'} />
+            </ReviewSection>
 
-          <FormField label="Nomor Rekening">
-            <input
-              type="text"
-              value={bankAccountNumber}
-              onChange={e => setBankAccountNumber(e.target.value.replace(/\D/g, ''))}
-              placeholder="Nomor rekening tanpa spasi"
-              className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] font-mono tracking-wider"
-            />
-          </FormField>
+            {/* Section 3 Review — Bank */}
+            <ReviewSection
+              title="3. Penggalang & Rekening"
+              icon={Landmark}
+              valid={stepCompleted[3]}
+              onEdit={() => jumpToStep(3)}
+            >
+              <ReviewRow label="Tipe Penggalang" value={isIndependent ? 'Perorangan' : 'Komunitas/Lembaga'} />
+              <ReviewRow label="Nama" value={partnerName} />
+              <ReviewRow label="Bank" value={bankName || '—'} />
+              <ReviewRow label="No. Rekening" value={bankAccountNumber} />
+              <ReviewRow label="Atas Nama" value={bankAccountName} />
+              <ReviewRow
+                label="Mode Operasional"
+                value={operationalFeeMode === 'volunteer' ? 'Volunteer (0%)' : `Professional (${penggalangFeePercent}%)`}
+              />
+            </ReviewSection>
 
-          {/* Preview */}
-          {bankName && bankAccountNumber && bankAccountName && (
-            <div className="rounded-xl bg-emerald-50 border border-emerald-100 p-4">
-              <p className="text-[10px] font-bold text-emerald-700 mb-2 uppercase tracking-wider flex items-center gap-1">
-                <Landmark size={11} />
-                Preview Rekening Donasi
-              </p>
-              <p className="text-sm font-black text-gray-900">{bankName}</p>
-              <p className="text-lg font-mono font-bold text-[#003526] mt-0.5">
-                {bankAccountNumber}
-              </p>
-              <p className="text-sm text-gray-600">a/n {bankAccountName}</p>
+            {/* Submit confirmation */}
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mt-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                <div className="text-xs text-amber-900 leading-relaxed">
+                  <p className="font-bold mb-1">Sebelum submit, pastikan:</p>
+                  <ul className="space-y-0.5 list-disc list-inside">
+                    <li>Semua data benar (terutama rekening)</li>
+                    <li>Cerita kampanye jelas & jujur</li>
+                    <li>Bukti pendukung valid (tidak rekayasa)</li>
+                    <li>Setelah submit, perubahan akan ditinjau ulang oleh admin</li>
+                  </ul>
+                </div>
+              </div>
             </div>
-          )}
-
-          {/* ⭐ FIX-FEE: Mode Operasional Section */}
-          <div className="pt-4 border-t border-gray-100">
-            <FeeModeSection
-              mode={operationalFeeMode}
-              percent={penggalangFeePercent}
-              onModeChange={setOperationalFeeMode}
-              onPercentChange={setPenggalangFeePercent}
-              locked={campaign?.status === 'active' || campaign?.status === 'completed'}
-              lockedReason="Mode operasional tidak dapat diubah setelah kampanye aktif. Hubungi admin TeraLoka jika perlu perubahan."
-            />
-          </div>
-        </FormSection>
-
+          </StepCard>
+        )}
       </div>
 
-      {/* Sticky Bottom Action Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
-        <div className="mx-auto max-w-lg px-4 py-3 space-y-2">
-          {primaryCTA ? (
-            // Draft or Rejected: [Save] + [Submit (CTA)]
-            (() => {
-              const CTAIcon = primaryCTA.icon;
-              return (
-                <div className="grid grid-cols-5 gap-2">
-                  <button
-                    onClick={() => handleSave()}
-                    disabled={saving}
-                    className="col-span-2 flex items-center justify-center gap-1.5 py-3 rounded-xl border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    Simpan
-                  </button>
-                  <button
-                    onClick={() => setSubmitModalOpen(true)}
-                    disabled={saving}
-                    className="col-span-3 flex items-center justify-center gap-1.5 py-3 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-sm font-extrabold text-white shadow-md hover:opacity-90 transition-opacity disabled:opacity-50"
-                  >
-                    {saving ? <Loader2 size={14} className="animate-spin" /> : <CTAIcon size={14} />}
-                    {primaryCTA.label}
-                  </button>
-                </div>
-              );
-            })()
-          ) : (
-            // Pending: just [Save Changes] (single button)
+      {/* Sticky Footer Navigation */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-lg">
+        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-2">
+          {currentStep > 1 && (
             <button
-              onClick={() => handleSave()}
+              onClick={handlePrevStep}
               disabled={saving}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#003526] text-sm font-extrabold text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+              className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-gray-300 bg-white text-gray-700 font-semibold text-sm flex items-center gap-1.5 hover:bg-gray-50 disabled:opacity-50 transition-colors"
             >
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />}
-              Simpan Perubahan
+              <ArrowLeft size={14} /> <span className="hidden sm:inline">Kembali</span>
+            </button>
+          )}
+
+          <button
+            onClick={() => handleSave()}
+            disabled={saving}
+            className="flex-shrink-0 px-3 py-2.5 rounded-xl border border-[#003526] bg-white text-[#003526] font-semibold text-sm flex items-center gap-1.5 hover:bg-[#003526]/5 disabled:opacity-50 transition-colors"
+          >
+            {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+            <span className="hidden sm:inline">Simpan Draft</span>
+            <span className="sm:hidden">Simpan</span>
+          </button>
+
+          {currentStep < 4 ? (
+            <button
+              onClick={handleNextStep}
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:opacity-90 shadow-md disabled:opacity-50 transition-opacity"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <>Lanjut <ArrowRight size={14} /></>}
+            </button>
+          ) : (
+            <button
+              onClick={() => setSubmitModalOpen(true)}
+              disabled={saving || !stepCompleted[1] || !stepCompleted[2] || !stepCompleted[3]}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:opacity-90 shadow-md disabled:opacity-50 transition-opacity"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <>{submitButtonLabel} <Send size={14} /></>}
             </button>
           )}
         </div>
       </div>
 
       {/* Submit Confirmation Modal */}
-      {submitModalOpen && primaryCTA && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center px-4">
+      {submitModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl max-w-sm w-full p-5">
-            <div className="mx-auto w-12 h-12 rounded-full bg-pink-50 flex items-center justify-center mb-3">
-              <Send size={22} className="text-[#BE185D]" />
+            <div className="flex items-center gap-2 mb-3">
+              <Send size={20} className="text-[#EC4899]" />
+              <h3 className="text-base font-bold text-gray-900">Konfirmasi Submit</h3>
             </div>
-            <h3 className="text-base font-bold text-gray-900 text-center mb-2">
-              {campaign.status === 'rejected' ? 'Submit Ulang?' : 'Submit untuk Review?'}
-            </h3>
-            <p className="text-xs text-gray-600 text-center mb-4 leading-relaxed">
-              {campaign.status === 'rejected'
-                ? 'Perubahan akan disimpan dulu, lalu dikirim ulang ke tim TeraLoka. Pastikan sudah diperbaiki sesuai feedback sebelumnya.'
-                : 'Perubahan akan disimpan dulu, lalu kampanye dikirim ke tim TeraLoka untuk direview. Proses review biasanya 1-2 hari kerja.'}
+            <p className="text-sm text-gray-700 leading-relaxed mb-4">
+              Setelah submit, kampanye akan masuk ke antrian review admin TeraLoka (1-2 hari kerja). Lo masih bisa tarik kembali ke draft kalau perlu edit lagi.
             </p>
-
-            {saveError && (
-              <div className="rounded-lg bg-red-50 border border-red-100 px-3 py-2 mb-3">
-                <p className="text-xs text-red-700">{saveError}</p>
-              </div>
-            )}
-
             <div className="flex gap-2">
               <button
                 onClick={() => setSubmitModalOpen(false)}
-                disabled={saving}
-                className="flex-1 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50"
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50"
               >
                 Batal
               </button>
               <button
                 onClick={() => handleSave({ thenSubmit: true })}
                 disabled={saving}
-                className="flex-1 py-2.5 rounded-xl bg-[#003526] text-sm font-bold text-white hover:opacity-90 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+                className="flex-1 px-3 py-2.5 rounded-xl bg-[#EC4899] text-white font-bold text-sm hover:bg-[#BE185D] disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {saving ? (
-                  <>
-                    <Loader2 size={14} className="animate-spin" />
-                    Memproses...
-                  </>
-                ) : (
-                  <>
-                    <Send size={14} />
-                    {primaryCTA.label}
-                  </>
-                )}
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <>Submit <Send size={12} /></>}
               </button>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Subcomponents
+// Sub-components
 // ═══════════════════════════════════════════════════════════════
 
-function FormSection({
-  icon: Icon,
-  title,
-  number,
-  children,
-}: {
-  icon: any;
+function StepCard({ title, icon: Icon, children }: {
   title: string;
-  number: string;
+  icon: any;
   children: React.ReactNode;
 }) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gradient-to-r from-[#003526]/5 to-transparent flex items-center gap-2">
-        <div className="w-6 h-6 rounded-full bg-[#003526] text-white flex items-center justify-center text-[10px] font-extrabold shrink-0">
-          {number}
+      <div className="bg-gradient-to-r from-[#003526] to-[#1B6B4A] px-5 py-3.5 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-xl bg-[#EC4899]/20 backdrop-blur-sm border border-[#EC4899]/30 flex items-center justify-center shrink-0">
+          <Icon size={16} className="text-[#F472B6]" />
         </div>
-        <Icon size={15} className="text-[#003526]" />
-        <h2 className="text-sm font-bold text-gray-800">{title}</h2>
+        <h2 className="text-sm font-extrabold text-white tracking-wide">{title}</h2>
       </div>
-      <div className="p-5 space-y-4">{children}</div>
+      <div className="p-5 space-y-4">
+        {children}
+      </div>
     </div>
   );
 }
 
-function FormField({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+function FormField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2 block">
+      <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5">
         {label}
       </label>
       {children}
+    </div>
+  );
+}
+
+function ReviewSection({
+  title, icon: Icon, valid, onEdit, children,
+}: {
+  title: string;
+  icon: any;
+  valid: boolean;
+  onEdit: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className={`
+      rounded-xl border-2 p-3 mb-3
+      ${valid ? 'border-green-200 bg-green-50/30' : 'border-red-200 bg-red-50/30'}
+    `}>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Icon size={14} className={valid ? 'text-green-700' : 'text-red-600'} />
+          <p className={`text-xs font-bold ${valid ? 'text-green-900' : 'text-red-900'}`}>
+            {title} {valid ? '✓' : '⚠️ Belum lengkap'}
+          </p>
+        </div>
+        <button
+          onClick={onEdit}
+          className="text-xs font-semibold text-[#EC4899] hover:text-[#BE185D] flex items-center gap-1"
+        >
+          <Edit3 size={12} /> Edit
+        </button>
+      </div>
+      <div className="space-y-1">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ReviewRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-xs">
+      <span className="text-gray-500 shrink-0">{label}:</span>
+      <span className="text-gray-900 font-medium text-right break-words">{value || '—'}</span>
     </div>
   );
 }
