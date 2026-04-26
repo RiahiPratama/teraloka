@@ -8,7 +8,7 @@ export default function CTASection() {
   const [secondaryHover, setSecondaryHover] = useState(false)
 
   return (
-    <section style={{ padding: '0 24px 96px' }}>
+    <section style={{ padding: '0 24px 32px' }}>
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
         <div
           className="cta-bg"
