@@ -148,7 +148,7 @@ export default async function FundraisingPage({
   const pending = stats.total_raised - stats.total_disbursed;
 
   return (
-    <div className="min-h-screen bg-[#f9f9f8] pb-24">
+    <div className="min-h-screen bg-[#f9f9f8] pb-24 md:pb-8">
 
       {/* ════════════════════════════════════════════════ */}
       {/* HERO — Transparency Showcase                      */}
