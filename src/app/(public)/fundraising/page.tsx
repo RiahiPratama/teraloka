@@ -70,37 +70,28 @@ export default async function FundraisingPage({
     const { data } = await query;
     campaigns = data ?? [];
 
-    // ═══ STATS 1: Campaigns (total terkumpul + donatur + aktif) ═══
-    const allRes = await supabase
-      .schema('funding')
-      .from('campaigns')
-      .select('collected_amount, donor_count, status')
-      .in('status', ['active', 'completed']);
+    // ═══ STATS: Single source of truth via Hono API ═══
+    // BRAIN tier handles aggregation (Supabase = MEMORY only)
+    // Returns LIFETIME stats: collected, disbursed, donors, active campaigns, reports
+    try {
+      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+      const statsRes = await fetch(`${API_URL}/funding/stats/public`, {
+        next: { revalidate: 300 }, // 5 min cache (edge)
+      });
 
-    if (allRes.data) {
-      stats.total_raised = allRes.data.reduce((s: number, c: any) => s + (c.collected_amount || 0), 0);
-      stats.total_donors = allRes.data.reduce((s: number, c: any) => s + (c.donor_count || 0), 0);
-      stats.active_campaigns = allRes.data.filter((c: any) => c.status === 'active').length;
+      if (statsRes.ok) {
+        const json = await statsRes.json();
+        if (json.success && json.data) {
+          stats.total_raised = json.data.total_collected ?? 0;
+          stats.total_donors = json.data.total_donors ?? 0;
+          stats.active_campaigns = json.data.active_campaigns ?? 0;
+          stats.total_disbursed = json.data.total_disbursed ?? 0;
+          stats.approved_reports = json.data.approved_reports ?? 0;
+        }
+      }
+    } catch {
+      // fail silent — stats remain at default 0
     }
-
-    // ═══ STATS 2: Disbursements (total TERSALURKAN) ═══
-    const disbRes = await supabase
-      .schema('funding')
-      .from('disbursements')
-      .select('amount');
-
-    if (disbRes.data) {
-      stats.total_disbursed = disbRes.data.reduce((s: number, d: any) => s + (d.amount || 0), 0);
-    }
-
-    // ═══ STATS 3: Approved Usage Reports (count) ═══
-    const reportsRes = await supabase
-      .schema('funding')
-      .from('usage_reports')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'approved');
-
-    stats.approved_reports = reportsRes.count ?? 0;
 
     // Donor Wall
     const donationsRes = await supabase
