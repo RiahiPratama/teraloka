@@ -55,7 +55,7 @@ const STEPS = [
   { num: 1, label: 'Penerima',   icon: UserCircle2, desc: 'Data penerima manfaat' },
   { num: 2, label: 'Detail',     icon: FileText,    desc: 'Cerita & target dana' },
   { num: 3, label: 'Rekening',   icon: Landmark,    desc: 'Bank & operasional' },
-  { num: 4, label: 'Review',     icon: CheckCircle2, desc: 'Tinjau & submit' },
+  { num: 4, label: 'Review',     icon: CheckCircle2, desc: 'Tinjau & ajukan' },
 ] as const;
 
 type StepNum = 1 | 2 | 3 | 4;
@@ -153,6 +153,7 @@ export default function EditCampaignPage() {
   const [stepError, setStepError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [withdrawModalOpen, setWithdrawModalOpen] = useState(false);
 
   // Bank computed value
   const bankName = bankValue === 'Lainnya' ? bankCustom : bankValue;
@@ -320,7 +321,7 @@ export default function EditCampaignPage() {
         });
         const submitJson = await submitRes.json();
         if (!submitRes.ok || !submitJson.success) {
-          setSaveError(`Tersimpan, tapi gagal submit: ${submitJson.error?.message ?? 'Unknown error'}`);
+          setSaveError(`Tersimpan, namun gagal diajukan: ${submitJson.error?.message ?? 'Unknown error'}`);
           return false;
         }
         router.replace(`/owner/campaign/${campaign.id}`);
@@ -339,6 +340,32 @@ export default function EditCampaignPage() {
     } finally {
       setSaving(false);
       setSubmitModalOpen(false);
+    }
+  }
+
+  // ─── Withdraw handler (pending_review → draft) ────────────────
+  async function handleWithdraw() {
+    if (!token || !campaign) return;
+    setSaving(true);
+    setSaveError('');
+
+    try {
+      const res = await fetch(`${API}/funding/my/campaigns/${campaign.id}/withdraw`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        setSaveError(json.error?.message ?? 'Gagal menarik kembali kampanye');
+        return;
+      }
+      // Sukses → reload dengan status draft
+      setCampaign({ ...campaign, ...json.data });
+    } catch {
+      setSaveError('Koneksi bermasalah. Coba lagi.');
+    } finally {
+      setSaving(false);
+      setWithdrawModalOpen(false);
     }
   }
 
@@ -401,7 +428,7 @@ export default function EditCampaignPage() {
           </div>
           <h2 className="text-lg font-bold text-gray-900">Login Dulu</h2>
           <p className="mt-2 text-sm text-gray-600">
-            Lo perlu login dulu sebelum bisa edit kampanye.
+            Anda perlu login terlebih dahulu sebelum dapat mengedit kampanye.
           </p>
           <Link
             href="/login"
@@ -444,7 +471,7 @@ export default function EditCampaignPage() {
 
   if (!campaign) return null;
 
-  const submitButtonLabel = campaign.status === 'rejected' ? 'Submit Ulang' : 'Submit untuk Review';
+  const submitButtonLabel = campaign.status === 'rejected' ? 'Ajukan Ulang' : 'Ajukan untuk Peninjauan';
 
   return (
     <div className="min-h-screen bg-[#f9f9f8] pb-32">
@@ -507,8 +534,8 @@ export default function EditCampaignPage() {
                 <Loader2 size={20} className="text-amber-600 animate-spin" strokeWidth={2.2} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-gray-800">Sedang direview admin TeraLoka</p>
-                <p className="text-xs text-gray-400">Hasil review dalam 1-2 hari kerja.</p>
+                <p className="text-xs font-bold text-gray-800">Sedang ditinjau admin TeraLoka</p>
+                <p className="text-xs text-gray-400">Hasil peninjauan dalam 1-2 hari kerja.</p>
               </div>
             </div>
           )}
@@ -519,8 +546,8 @@ export default function EditCampaignPage() {
                 <AlertCircle size={20} className="text-red-600" strokeWidth={2.2} />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-bold text-gray-800">Perlu diperbaiki sebelum submit ulang</p>
-                <p className="text-xs text-gray-400">Cek feedback admin di halaman detail kampanye.</p>
+                <p className="text-xs font-bold text-gray-800">Perlu diperbaiki sebelum diajukan ulang</p>
+                <p className="text-xs text-gray-400">Lihat masukan admin di halaman detail kampanye.</p>
               </div>
             </div>
           )}
@@ -629,8 +656,8 @@ export default function EditCampaignPage() {
           <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 flex items-start gap-2">
             <AlertTriangle size={16} className="text-amber-600 mt-0.5 shrink-0" />
             <div className="text-xs text-amber-900 leading-relaxed">
-              <p className="font-bold mb-0.5">Kampanye sedang direview</p>
-              <p>Perubahan apapun mungkin membuat tim TeraLoka me-review ulang kampanye kamu dari awal. Kalau perubahan mayor, lebih baik tarik kembali dulu lalu edit.</p>
+              <p className="font-bold mb-0.5">Kampanye sedang ditinjau</p>
+              <p>Perubahan apapun mungkin membuat tim TeraLoka meninjau ulang kampanye kamu dari awal. Jika perubahan signifikan, sebaiknya tarik kembali terlebih dahulu, kemudian lakukan pengeditan.</p>
             </div>
           </div>
         )}
@@ -639,8 +666,8 @@ export default function EditCampaignPage() {
           <div className="rounded-xl bg-red-50 border border-red-200 p-3 flex items-start gap-2">
             <AlertCircle size={16} className="text-red-600 mt-0.5 shrink-0" />
             <div className="text-xs text-red-900 leading-relaxed">
-              <p className="font-bold mb-0.5">Kampanye di-reject sebelumnya</p>
-              <p>Perbaiki sesuai feedback admin, lalu submit ulang. Detail alasan reject ada di halaman detail kampanye.</p>
+              <p className="font-bold mb-0.5">Kampanye sebelumnya ditolak</p>
+              <p>Perbaiki sesuai masukan admin, kemudian ajukan ulang. Detail alasan penolakan ada di halaman detail kampanye.</p>
             </div>
           </div>
         )}
@@ -838,7 +865,7 @@ export default function EditCampaignPage() {
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
               />
               <p className="mt-1 text-[11px] text-gray-500">
-                Kosongkan kalau tidak ada deadline spesifik
+                Kosongkan jika tidak ada batas waktu tertentu
               </p>
             </FormField>
 
@@ -905,7 +932,7 @@ export default function EditCampaignPage() {
                 type="text"
                 value={partnerName}
                 onChange={e => setPartnerName(e.target.value)}
-                placeholder={isIndependent ? 'Nama lengkap kamu' : 'Mis: Komunitas Peduli Maluku'}
+                placeholder={isIndependent ? 'Nama lengkap kamu' : 'Misal: Komunitas Peduli Maluku'}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
               />
             </FormField>
@@ -969,15 +996,26 @@ export default function EditCampaignPage() {
 
         {/* ═══════════ STEP 4: REVIEW & SUBMIT ═══════════ */}
         {currentStep === 4 && (
-          <StepCard title="Tinjau & Submit" icon={CheckCircle2}>
-            <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 mb-3">
-              <div className="flex items-start gap-2">
-                <Info size={14} className="text-blue-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-blue-900 leading-relaxed">
-                  Tinjau semua data di bawah. Klik <strong>Edit</strong> di section yang mau diubah. Kalau semua oke, klik <strong>{submitButtonLabel}</strong> di bawah.
-                </p>
+          <StepCard title="Tinjau & Ajukan" icon={CheckCircle2}>
+            {campaign.status === 'pending_review' ? (
+              <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    Kampanye ini sudah <strong>masuk antrian peninjauan</strong>. Perubahan field tetap tersimpan melalui <strong>Simpan Draft</strong>. Namun jika diperlukan perubahan signifikan, sebaiknya <strong>Tarik Kembali ke Draft</strong> terlebih dahulu, kemudian ajukan ulang setelah selesai diperbaiki.
+                  </p>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 mb-3">
+                <div className="flex items-start gap-2">
+                  <Info size={14} className="text-blue-600 mt-0.5 shrink-0" />
+                  <p className="text-xs text-blue-900 leading-relaxed">
+                    Tinjau semua data di bawah. Klik <strong>Edit</strong> pada bagian yang ingin diubah. Jika semua sudah sesuai, klik <strong>{submitButtonLabel}</strong> di bawah.
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Section 1 Review — Penerima */}
             <ReviewSection
@@ -1037,12 +1075,12 @@ export default function EditCampaignPage() {
               <div className="flex items-start gap-2">
                 <AlertTriangle size={14} className="text-amber-600 mt-0.5 shrink-0" />
                 <div className="text-xs text-amber-900 leading-relaxed">
-                  <p className="font-bold mb-1">Sebelum submit, pastikan:</p>
+                  <p className="font-bold mb-1">Sebelum mengajukan, pastikan:</p>
                   <ul className="space-y-0.5 list-disc list-inside">
                     <li>Semua data benar (terutama rekening)</li>
                     <li>Cerita kampanye jelas & jujur</li>
                     <li>Bukti pendukung valid (tidak rekayasa)</li>
-                    <li>Setelah submit, perubahan akan ditinjau ulang oleh admin</li>
+                    <li>Setelah diajukan, perubahan akan ditinjau ulang oleh admin</li>
                   </ul>
                 </div>
               </div>
@@ -1082,7 +1120,18 @@ export default function EditCampaignPage() {
             >
               {saving ? <Loader2 size={14} className="animate-spin" /> : <>Lanjut <ArrowRight size={14} /></>}
             </button>
+          ) : campaign.status === 'pending_review' ? (
+            // ⭐ pending_review: TIDAK boleh re-submit (sudah di antrian admin).
+            // Ganti tombol jadi "Tarik Kembali ke Draft" agar user bisa edit ulang.
+            <button
+              onClick={() => setWithdrawModalOpen(true)}
+              disabled={saving}
+              className="flex-1 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-white font-bold text-sm flex items-center justify-center gap-1.5 hover:opacity-90 shadow-md disabled:opacity-50 transition-opacity"
+            >
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <>Tarik Kembali ke Draft <ArrowLeft size={14} /></>}
+            </button>
           ) : (
+            // draft / rejected: tombol submit normal
             <button
               onClick={() => setSubmitModalOpen(true)}
               disabled={saving || !stepCompleted[1] || !stepCompleted[2] || !stepCompleted[3]}
@@ -1100,10 +1149,10 @@ export default function EditCampaignPage() {
           <div className="bg-white rounded-2xl max-w-sm w-full p-5">
             <div className="flex items-center gap-2 mb-3">
               <Send size={20} className="text-[#EC4899]" />
-              <h3 className="text-base font-bold text-gray-900">Konfirmasi Submit</h3>
+              <h3 className="text-base font-bold text-gray-900">Konfirmasi Pengajuan</h3>
             </div>
             <p className="text-sm text-gray-700 leading-relaxed mb-4">
-              Setelah submit, kampanye akan masuk ke antrian review admin TeraLoka (1-2 hari kerja). Lo masih bisa tarik kembali ke draft kalau perlu edit lagi.
+              Setelah diajukan, kampanye akan masuk ke antrian peninjauan admin TeraLoka (1-2 hari kerja). Anda tetap dapat menariknya kembali ke draft jika perlu melakukan pengeditan.
             </p>
             <div className="flex gap-2">
               <button
@@ -1117,7 +1166,38 @@ export default function EditCampaignPage() {
                 disabled={saving}
                 className="flex-1 px-3 py-2.5 rounded-xl bg-[#EC4899] text-white font-bold text-sm hover:bg-[#BE185D] disabled:opacity-50 flex items-center justify-center gap-1.5"
               >
-                {saving ? <Loader2 size={14} className="animate-spin" /> : <>Submit <Send size={12} /></>}
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <>Ajukan <Send size={12} /></>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Withdraw Confirmation Modal — pending_review → draft */}
+      {withdrawModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <ArrowLeft size={20} className="text-amber-600" />
+              <h3 className="text-base font-bold text-gray-900">Tarik Kembali ke Draft?</h3>
+            </div>
+            <p className="text-sm text-gray-700 leading-relaxed mb-4">
+              Kampanye akan dikeluarkan dari antrian peninjauan dan kembali ke status <strong>draft</strong>. Anda dapat mengeditnya secara bebas, kemudian ajukan ulang nanti. Tindakan ini aman — belum ada donasi yang masuk.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setWithdrawModalOpen(false)}
+                disabled={saving}
+                className="flex-1 px-3 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleWithdraw}
+                disabled={saving}
+                className="flex-1 px-3 py-2.5 rounded-xl bg-amber-500 text-white font-bold text-sm hover:bg-amber-600 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {saving ? <Loader2 size={14} className="animate-spin" /> : <>Tarik Kembali <ArrowLeft size={12} /></>}
               </button>
             </div>
           </div>
