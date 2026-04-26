@@ -208,7 +208,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 -mt-4 pb-24 md:pb-8">
+      <div className="mx-auto max-w-lg px-4 -mt-4 pb-8">
         <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
 
           {/* STEP 1: FORM */}
