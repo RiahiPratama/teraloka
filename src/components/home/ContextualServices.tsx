@@ -48,14 +48,34 @@ export default async function ContextualServices() {
           </p>
         </div>
 
-        {/* Fix: 1 kolom mobile → 3 kolom desktop */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Cards container — mobile horizontal carousel, desktop 3-col grid */}
+        <div
+          className="
+            flex md:grid
+            md:grid-cols-3
+            overflow-x-auto md:overflow-visible
+            snap-x snap-mandatory md:snap-none
+            gap-4
+            -mx-6 px-6 md:mx-0 md:px-0
+            pb-2 md:pb-0
+            scrollbar-none
+          "
+          style={{
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
 
           {/* Card 1: Speedboat (BAPASIAR) */}
-          <div style={{
-            background: '#fff', borderRadius: 20,
-            border: '1px solid var(--border-light)', overflow: 'hidden',
-          }}>
+          <div
+            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            style={{
+              background: '#fff', borderRadius: 20,
+              border: '1px solid var(--border-light)', overflow: 'hidden',
+              minWidth: 'min(85vw, 320px)',
+            }}
+          >
             <div style={{ padding: '20px 20px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <div style={{
@@ -96,9 +116,13 @@ export default async function ContextualServices() {
           </div>
 
           {/* Card 2: Kos (BAKOS) */}
-          <div style={{
-            background: 'var(--primary)', borderRadius: 20, overflow: 'hidden',
-          }}>
+          <div
+            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            style={{
+              background: 'var(--primary)', borderRadius: 20, overflow: 'hidden',
+              minWidth: 'min(85vw, 320px)',
+            }}
+          >
             <div style={{ padding: '20px 20px 0' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
                 <div style={{
@@ -134,11 +158,15 @@ export default async function ContextualServices() {
           </div>
 
           {/* Card 3: Donasi (BADONASI) — full pink solid, signature service */}
-          <div style={{
-            background: 'linear-gradient(135deg, #BE185D 0%, #EC4899 100%)',
-            borderRadius: 20, overflow: 'hidden',
-            position: 'relative',
-          }}>
+          <div
+            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            style={{
+              background: 'linear-gradient(135deg, #BE185D 0%, #EC4899 100%)',
+              borderRadius: 20, overflow: 'hidden',
+              position: 'relative',
+              minWidth: 'min(85vw, 320px)',
+            }}
+          >
             {/* Subtle decoration */}
             <div style={{
               position: 'absolute', top: -20, right: -20,
@@ -189,6 +217,16 @@ export default async function ContextualServices() {
               Lihat Donasi →
             </Link>
           </div>
+        </div>
+
+        {/* Mobile scroll hint — subtle 3 dots, mobile only */}
+        <div
+          className="flex md:hidden justify-center items-center gap-1.5 mt-4"
+          aria-hidden="true"
+        >
+          <div style={{ width: 24, height: 4, borderRadius: 99, background: 'var(--text-muted)', opacity: 0.4 }} />
+          <div style={{ width: 6, height: 4, borderRadius: 99, background: 'var(--text-muted)', opacity: 0.2 }} />
+          <div style={{ width: 6, height: 4, borderRadius: 99, background: 'var(--text-muted)', opacity: 0.2 }} />
         </div>
       </div>
     </section>
