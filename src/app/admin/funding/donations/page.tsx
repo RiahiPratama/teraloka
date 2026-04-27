@@ -16,7 +16,6 @@ import DonationsAdvancedFiltersDrawer, {
   type DonationFiltersState, EMPTY_DONATION_FILTERS, countActiveDonationFilters,
 } from '@/components/admin/funding/DonationsAdvancedFiltersDrawer';
 import DonationsBulkActionsToolbar from '@/components/admin/funding/DonationsBulkActionsToolbar';
-import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -91,6 +90,13 @@ export default function AdminDonationsPage() {
     pending: 0, pendingOver24h: 0, verifiedToday: 0, rejectedToday: 0,
   });
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
+  // ⭐ Sprint 2.3 Phase 3a: Accrual breakdown (4 metrics)
+  const [accrualStats, setAccrualStats] = useState({
+    accrualAmount: 0,    accrualCount: 0,    // Total semua donations (verified + pending + rejected)
+    pendingAmount: 0,    pendingCount: 0,    // Donations menunggu verifikasi
+    rejectedAmount: 0,   rejectedCount: 0,   // Donations ditolak
+    aktualAmount: 0,     aktualCount: 0,     // = accrual − pending − rejected (verified saja)
+  });
   const [smartViewCounts, setSmartViewCounts] = useState<DonationSmartViewCounts | null>(null);
   const [subNavRefresh, setSubNavRefresh] = useState(0);
 
@@ -207,11 +213,58 @@ export default function AdminDonationsPage() {
     } catch {}
   }, []);
 
+  // ⭐ Sprint 2.3 Phase 3a: Fetch accrual breakdown (sum amount per status)
+  const fetchAccrualStats = useCallback(async () => {
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+    try {
+      // Fetch each status with high limit untuk dapat semua amount
+      const statuses = ['pending', 'verified', 'rejected'];
+      const results = await Promise.all(
+        statuses.map(s =>
+          fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1000`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }).then(r => r.json()).catch(() => null)
+        )
+      );
+
+      // Sum amount per status
+      const sumByStatus = (data: any[] | undefined) => {
+        if (!Array.isArray(data)) return 0;
+        return data.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+      };
+
+      const pendingData = results[0]?.data ?? [];
+      const verifiedData = results[1]?.data ?? [];
+      const rejectedData = results[2]?.data ?? [];
+
+      const pendingAmount = sumByStatus(pendingData);
+      const aktualAmount = sumByStatus(verifiedData);
+      const rejectedAmount = sumByStatus(rejectedData);
+      const accrualAmount = pendingAmount + aktualAmount + rejectedAmount;
+
+      const pendingCount = results[0]?.meta?.total ?? 0;
+      const aktualCount = results[1]?.meta?.total ?? 0;
+      const rejectedCount = results[2]?.meta?.total ?? 0;
+      const accrualCount = pendingCount + aktualCount + rejectedCount;
+
+      setAccrualStats({
+        accrualAmount, accrualCount,
+        pendingAmount, pendingCount,
+        rejectedAmount, rejectedCount,
+        aktualAmount, aktualCount,
+      });
+    } catch (err) {
+      console.error('Fetch accrual stats failed:', err);
+    }
+  }, []);
+
   useEffect(() => { fetchDonations(); }, [fetchDonations]);
   useEffect(() => {
     fetchStatusCounts();
     fetchSmartViewCounts();
-  }, [fetchStatusCounts, fetchSmartViewCounts]);
+    fetchAccrualStats();  // ⭐ Sprint 2.3 Phase 3a
+  }, [fetchStatusCounts, fetchSmartViewCounts, fetchAccrualStats]);
 
   useEffect(() => { setSearchInput(urlSearch); }, [urlSearch]);
 
@@ -350,8 +403,7 @@ export default function AdminDonationsPage() {
   // ═══════ Render ═══════
 
   return (
-    <AdminAuthGuard>
-      <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
 
       {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
@@ -368,6 +420,63 @@ export default function AdminDonationsPage() {
       </p>
 
       <AdminFundingSubNav refreshKey={subNavRefresh} />
+
+      {/* ⭐ Sprint 2.3 Phase 3a: Accrual Breakdown — formula visual */}
+      <div style={{
+        background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
+        borderRadius: 12, padding: 16, marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
+          <p style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            📊 Rekonsiliasi Donasi
+          </p>
+          <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic' }}>
+            Rumus: Aktual = Akrual − Pending − Ditolak
+          </p>
+        </div>
+
+        <div style={{
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          gap: 10,
+        }}>
+          <AccrualCard
+            label="📥 AKRUAL (Total)"
+            sublabel="Semua donasi tercatat"
+            amount={accrualStats.accrualAmount}
+            count={accrualStats.accrualCount}
+            color="#3B82F6"
+            t={t}
+          />
+          <AccrualCard
+            label="⏸️ PENDING"
+            sublabel="Menunggu verifikasi"
+            amount={accrualStats.pendingAmount}
+            count={accrualStats.pendingCount}
+            color="#F59E0B"
+            t={t}
+            operator="−"
+          />
+          <AccrualCard
+            label="❌ DITOLAK"
+            sublabel="Tidak masuk hitungan"
+            amount={accrualStats.rejectedAmount}
+            count={accrualStats.rejectedCount}
+            color="#EF4444"
+            t={t}
+            operator="−"
+          />
+          <AccrualCard
+            label="✅ AKTUAL"
+            sublabel="Real terkumpul (verified)"
+            amount={accrualStats.aktualAmount}
+            count={accrualStats.aktualCount}
+            color="#10B981"
+            t={t}
+            operator="="
+            highlight
+          />
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div style={{
@@ -700,8 +809,7 @@ export default function AdminDonationsPage() {
           {toast.msg}
         </div>
       )}
-      </div>
-    </AdminAuthGuard>
+    </div>
   );
 }
 
@@ -749,6 +857,49 @@ function StatCard({ label, value, color, t, alert }: {
         {label}
       </p>
       <p style={{ fontSize: 24, fontWeight: 800, color }}>{value}</p>
+    </div>
+  );
+}
+
+// ⭐ Sprint 2.3 Phase 3a: AccrualCard — for donation rekonsiliasi (4 cards)
+function AccrualCard({ label, sublabel, amount, count, color, t, operator, highlight }: {
+  label: string; sublabel: string; amount: number; count: number;
+  color: string; t: any; operator?: string; highlight?: boolean;
+}) {
+  return (
+    <div style={{
+      position: 'relative',
+      background: highlight ? `${color}10` : t.navHover,
+      border: `2px solid ${highlight ? color : 'transparent'}`,
+      borderRadius: 12,
+      padding: 12,
+    }}>
+      {operator && (
+        <span style={{
+          position: 'absolute', top: -10, left: 12,
+          background: t.mainBg, color, fontSize: 16, fontWeight: 800,
+          width: 24, height: 24, borderRadius: '50%',
+          border: `2px solid ${color}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {operator}
+        </span>
+      )}
+      <p style={{
+        fontSize: 10, fontWeight: 700, color,
+        letterSpacing: '0.04em', marginBottom: 2, marginTop: operator ? 6 : 0,
+      }}>
+        {label}
+      </p>
+      <p style={{ fontSize: 9, color: t.textDim, marginBottom: 8 }}>
+        {sublabel}
+      </p>
+      <p style={{ fontSize: 18, fontWeight: 800, color: t.textPrimary, lineHeight: 1.1 }}>
+        {shortRupiah(amount)}
+      </p>
+      <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+        {count} transaksi
+      </p>
     </div>
   );
 }
