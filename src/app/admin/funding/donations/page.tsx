@@ -16,6 +16,7 @@ import DonationsAdvancedFiltersDrawer, {
   type DonationFiltersState, EMPTY_DONATION_FILTERS, countActiveDonationFilters,
 } from '@/components/admin/funding/DonationsAdvancedFiltersDrawer';
 import DonationsBulkActionsToolbar from '@/components/admin/funding/DonationsBulkActionsToolbar';
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -349,7 +350,8 @@ export default function AdminDonationsPage() {
   // ═══════ Render ═══════
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+    <AdminAuthGuard>
+      <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
 
       {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
@@ -698,7 +700,8 @@ export default function AdminDonationsPage() {
           {toast.msg}
         </div>
       )}
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 

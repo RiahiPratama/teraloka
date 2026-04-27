@@ -10,6 +10,7 @@ import ReportsTable, { type UsageReport } from '@/components/admin/funding/Repor
 import ReportReviewModal from '@/components/admin/funding/ReportReviewModal';
 import ReportCreateModal from '@/components/admin/funding/ReportCreateModal';
 import Pagination from '@/components/admin/funding/Pagination';
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -181,7 +182,8 @@ export default function AdminReportsPage() {
   const hasPendingAmount = (stats?.pending_amount ?? 0) > 0;
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+    <AdminAuthGuard>
+      <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
 
       {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
@@ -441,7 +443,8 @@ export default function AdminReportsPage() {
           {toast.msg}
         </div>
       )}
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 

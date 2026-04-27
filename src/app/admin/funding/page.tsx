@@ -5,6 +5,7 @@ import { useEffect, useState, useContext } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -63,7 +64,8 @@ export default function AdminFundingDashboard() {
   }, [token]);
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1280, color: t.textPrimary }}>
+    <AdminAuthGuard>
+      <div style={{ padding: '24px 32px', maxWidth: 1280, color: t.textPrimary }}>
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
@@ -161,7 +163,8 @@ export default function AdminFundingDashboard() {
         </div>
       </div>
 
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 

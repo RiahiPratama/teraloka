@@ -15,6 +15,7 @@ import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 import {
   ArrowLeft, Loader2, AlertTriangle, RefreshCw, CheckCircle2,
   XCircle, Clock, Eye, ChevronRight,
@@ -171,7 +172,8 @@ export default function AdminEscalationsPage() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', background: t.mainBg, paddingBottom: 80 }}>
+    <AdminAuthGuard>
+      <div style={{ minHeight: '100vh', background: t.mainBg, paddingBottom: 80 }}>
       {/* Header */}
       <div style={{ padding: '24px 16px 16px', borderBottom: `1px solid ${t.sidebarBorder}` }}>
         <div style={{ maxWidth: 1280, margin: '0 auto' }}>
@@ -460,7 +462,8 @@ export default function AdminEscalationsPage() {
           )}
         </div>
       </div>
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 

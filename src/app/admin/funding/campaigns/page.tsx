@@ -15,6 +15,7 @@ import AdvancedFiltersDrawer, {
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
 import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';     // ← M1-Polish
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -414,7 +415,8 @@ export default function AdminCampaignsPage() {
   // ═══════ Render ═══════
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+    <AdminAuthGuard>
+      <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
 
       {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
@@ -942,7 +944,8 @@ export default function AdminCampaignsPage() {
           {toast.msg}
         </div>
       )}
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState, useContext, useCallback, useMemo } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -251,7 +252,8 @@ export default function AdminPenggalangPage() {
   const totalPages = Math.ceil(total / LIMIT);
 
   return (
-    <div style={{ minHeight: '100vh', background: t.mainBg, padding: '24px 28px' }}>
+    <AdminAuthGuard>
+      <div style={{ minHeight: '100vh', background: t.mainBg, padding: '24px 28px' }}>
       <AdminFundingSubNav refreshKey={refreshKey} />
 
       {/* Header */}
@@ -643,7 +645,8 @@ export default function AdminPenggalangPage() {
           {toast.msg}
         </div>
       )}
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 

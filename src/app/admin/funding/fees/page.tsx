@@ -10,6 +10,7 @@ import PartnerFeeCards, { type PartnerFeeSummary } from '@/components/admin/fund
 import PendingFeesTable, { type PendingFeeDonation } from '@/components/admin/funding/PendingFeesTable';
 import RecordRemittanceModal from '@/components/admin/funding/RecordRemittanceModal';
 import Pagination from '@/components/admin/funding/Pagination';
+import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -320,7 +321,8 @@ export default function AdminFeesPage() {
   const hasCritical = aging && (aging.buckets.critical.count > 0 || aging.buckets.overdue.count > 0);
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+    <AdminAuthGuard>
+      <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
       {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
         <Link href="/admin/funding" style={{ fontSize: 12, color: t.textDim, textDecoration: 'none' }}>Dashboard</Link>
@@ -584,7 +586,8 @@ export default function AdminFeesPage() {
           {toast.msg}
         </div>
       )}
-    </div>
+      </div>
+    </AdminAuthGuard>
   );
 }
 
