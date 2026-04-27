@@ -63,6 +63,13 @@ export interface Campaign {
   // ── FIX-E-4: Beneficiary KYC fields (admin verifikasi) ──
   beneficiary_id_documents?: string[];   // KTP penerima manfaat (RAHASIA — admin only)
   is_independent?: boolean;              // Perorangan vs Komunitas/Lembaga
+
+  // ── ⭐ Sprint 2.2: Beneficiary Phone Foundation (close ATTACK 3 + 9) ──
+  beneficiary_type?: 'individu' | 'keluarga' | 'kelompok';
+  beneficiary_phone?: string;            // Nomor HP (RAHASIA — admin only)
+  beneficiary_phone_owner?: 'self' | 'wali' | 'coordinator';
+  beneficiary_phone_owner_name?: string; // Nama pemilik HP kalau bukan beneficiary sendiri
+  beneficiary_count?: number;            // Jumlah penerima (1 untuk individu, dst)
 }
 
 function shortRupiah(n: number): string {

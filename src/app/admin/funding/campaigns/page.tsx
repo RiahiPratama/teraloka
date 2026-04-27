@@ -15,7 +15,6 @@ import AdvancedFiltersDrawer, {
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
 import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';     // ← M1-Polish
-import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -415,8 +414,7 @@ export default function AdminCampaignsPage() {
   // ═══════ Render ═══════
 
   return (
-    <AdminAuthGuard>
-      <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+    <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
 
       {/* Breadcrumb */}
       <div style={{ marginBottom: 8 }}>
@@ -944,8 +942,7 @@ export default function AdminCampaignsPage() {
           {toast.msg}
         </div>
       )}
-      </div>
-    </AdminAuthGuard>
+    </div>
   );
 }
 
@@ -1049,6 +1046,117 @@ function CampaignDetail({ c, t }: { c: Campaign; t: any }) {
           </p>
         </div>
       )}
+
+      {/* ⭐ Sprint 2.2: Beneficiary Phone & Type (RAHASIA — admin only) */}
+      {c.beneficiary_phone && (
+        <div style={{
+          padding: 14, borderRadius: 12,
+          background: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.2)',
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+            <p style={{ fontSize: 10, color: '#A855F7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              📞 Kontak Penerima Manfaat
+            </p>
+            <span style={{
+              fontSize: 9, fontWeight: 700, color: '#EF4444',
+              background: 'rgba(239,68,68,0.1)', padding: '3px 7px', borderRadius: 6,
+              letterSpacing: '0.5px',
+            }}>
+              RAHASIA
+            </span>
+          </div>
+
+          {/* Tipe Beneficiary */}
+          <div style={{ marginBottom: 10 }}>
+            <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 4 }}>
+              Tipe Penerima
+            </p>
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 8, background: t.navHover }}>
+              <span style={{ fontSize: 14 }}>
+                {c.beneficiary_type === 'individu' && '👤'}
+                {c.beneficiary_type === 'keluarga' && '🏠'}
+                {c.beneficiary_type === 'kelompok' && '👥'}
+                {!c.beneficiary_type && '👤'}
+              </span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, textTransform: 'capitalize' }}>
+                {c.beneficiary_type ?? 'individu'}
+              </span>
+              {c.beneficiary_type === 'kelompok' && c.beneficiary_count && c.beneficiary_count > 1 && (
+                <span style={{ fontSize: 11, color: t.textDim, marginLeft: 4 }}>
+                  ({c.beneficiary_count} orang/KK)
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Phone clickable */}
+          <div style={{ marginBottom: 10 }}>
+            <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 4 }}>
+              {c.beneficiary_phone_owner === 'self' && 'Nomor HP Penerima'}
+              {c.beneficiary_phone_owner === 'wali' && 'Nomor HP Wali/Penanggung Jawab'}
+              {c.beneficiary_phone_owner === 'coordinator' && 'Nomor HP Koordinator'}
+              {!c.beneficiary_phone_owner && 'Nomor HP'}
+            </p>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary, fontFamily: 'monospace' }}>
+                {c.beneficiary_phone}
+              </p>
+              <a
+                href={`https://wa.me/${c.beneficiary_phone.replace(/[^\d]/g, '')}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  fontSize: 11, fontWeight: 700, color: '#fff',
+                  background: '#25D366', padding: '5px 12px', borderRadius: 8,
+                  textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                💬 Verify via WA
+              </a>
+              <a
+                href={`tel:+${c.beneficiary_phone.replace(/[^\d]/g, '')}`}
+                style={{
+                  fontSize: 11, fontWeight: 700, color: '#fff',
+                  background: '#3B82F6', padding: '5px 12px', borderRadius: 8,
+                  textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4,
+                }}
+              >
+                📞 Call
+              </a>
+            </div>
+          </div>
+
+          {/* Owner name (kalau bukan self) */}
+          {c.beneficiary_phone_owner && c.beneficiary_phone_owner !== 'self' && c.beneficiary_phone_owner_name && (
+            <div style={{ marginBottom: 10 }}>
+              <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 4 }}>
+                Nama Pemilik HP
+              </p>
+              <p style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary }}>
+                {c.beneficiary_phone_owner_name}
+              </p>
+            </div>
+          )}
+
+          {/* Verification Checklist */}
+          <div style={{
+            marginTop: 12, padding: 10, borderRadius: 8,
+            background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.2)',
+          }}>
+            <p style={{ fontSize: 10, color: '#D97706', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: 6 }}>
+              ⚠️ Checklist Verifikasi Admin
+            </p>
+            <div style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.7 }}>
+              <p>☐ KTP/KK cocok dengan nama penerima</p>
+              <p>☐ Sudah hubungi via WA/Call ke nomor di atas</p>
+              <p>☐ Penerima/wali/koordinator konfirmasi mengetahui kampanye</p>
+              <p>☐ Cerita masuk akal &amp; konsisten dengan dokumen</p>
+              <p>☐ Dokumen pendukung lengkap &amp; valid</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ⭐ FIX-E-4-B: Beneficiary KTP (RAHASIA — admin only) */}
       {c.beneficiary_id_documents && c.beneficiary_id_documents.length > 0 && (
         <div style={{
