@@ -11,6 +11,7 @@ import {
   Loader2, AlertCircle, CheckCircle2, Siren, Edit3,
   UserCircle2, FileText, Landmark, Info, X, Check,
   ShieldCheck, Lock, Eye, LayoutDashboard,
+  Phone, Users, User as UserIcon,
 } from 'lucide-react';
 import FeeModeSection from '@/components/owner/campaign/FeeModeSection';
 
@@ -60,6 +61,34 @@ const STEPS = [
 
 type StepNum = 1 | 2 | 3 | 4;
 
+// ⭐ Sprint 2.2: Beneficiary types
+const BENEFICIARY_TYPES = [
+  {
+    key: 'individu',
+    label: 'Individu',
+    desc: '1 orang',
+    Icon: UserIcon,
+    color: '#0891B2',
+  },
+  {
+    key: 'keluarga',
+    label: 'Keluarga',
+    desc: '1 KK (suami/istri + anak)',
+    Icon: Home,
+    color: '#E8963A',
+  },
+  {
+    key: 'kelompok',
+    label: 'Kelompok',
+    desc: 'Banyak orang/keluarga',
+    Icon: Users,
+    color: '#EC4899',
+  },
+] as const;
+
+type BeneficiaryType = 'individu' | 'keluarga' | 'kelompok';
+type BeneficiaryPhoneOwner = 'self' | 'wali' | 'coordinator';
+
 // ═══════════════════════════════════════════════════════════════
 // Types
 // ═══════════════════════════════════════════════════════════════
@@ -74,6 +103,12 @@ interface Campaign {
   beneficiary_name?: string;
   beneficiary_relation?: string;
   beneficiary_id_documents?: string[];
+  // ⭐ Sprint 2.2: Beneficiary phone fields
+  beneficiary_type?: BeneficiaryType;
+  beneficiary_phone?: string;
+  beneficiary_phone_owner?: BeneficiaryPhoneOwner;
+  beneficiary_phone_owner_name?: string;
+  beneficiary_count?: number;
   description?: string;
   target_amount: number;
   deadline?: string | null;
@@ -104,6 +139,18 @@ function formatRupiah(n: number): string {
   return 'Rp ' + n.toLocaleString('id-ID');
 }
 
+// ⭐ Sprint 2.2: Indonesia phone validation
+function isValidIndonesiaPhone(phone: string): boolean {
+  if (!phone || typeof phone !== 'string') return false;
+  // Format: +62XXX, 62XXX, atau 0XXX, dengan 8-13 digit total
+  return /^(\+62|62|0)8\d{8,12}$/.test(phone.replace(/[\s-]/g, ''));
+}
+
+function formatPhoneInput(val: string): string {
+  // Allow only +, digit, space, dash for typing
+  return val.replace(/[^\d+\s-]/g, '');
+}
+
 // ═══════════════════════════════════════════════════════════════
 // Main Page — Wizard 4-Step
 // ═══════════════════════════════════════════════════════════════
@@ -127,6 +174,13 @@ export default function EditCampaignPage() {
   const [beneficiaryRelation, setBeneficiaryRelation] = useState('');
   const [category, setCategory] = useState('');
   const [idDocs, setIdDocs] = useState<string[]>([]);
+
+  // ⭐ Sprint 2.2: Beneficiary phone fields
+  const [beneficiaryType, setBeneficiaryType] = useState<BeneficiaryType>('individu');
+  const [beneficiaryPhone, setBeneficiaryPhone] = useState('');
+  const [beneficiaryPhoneOwner, setBeneficiaryPhoneOwner] = useState<BeneficiaryPhoneOwner>('self');
+  const [beneficiaryPhoneOwnerName, setBeneficiaryPhoneOwnerName] = useState('');
+  const [beneficiaryCount, setBeneficiaryCount] = useState<number>(1);
 
   // Step 2 — Detail
   const [title, setTitle] = useState('');
@@ -186,6 +240,12 @@ export default function EditCampaignPage() {
 
         setBeneficiaryName(c.beneficiary_name ?? '');
         setBeneficiaryRelation(c.beneficiary_relation ?? '');
+        // ⭐ Sprint 2.2: Load beneficiary phone fields
+        setBeneficiaryType((c.beneficiary_type as BeneficiaryType) ?? 'individu');
+        setBeneficiaryPhone(c.beneficiary_phone ?? '');
+        setBeneficiaryPhoneOwner((c.beneficiary_phone_owner as BeneficiaryPhoneOwner) ?? 'self');
+        setBeneficiaryPhoneOwnerName(c.beneficiary_phone_owner_name ?? '');
+        setBeneficiaryCount(Number(c.beneficiary_count ?? 1));
         setCategory(c.category ?? '');
         setTitle(c.title ?? '');
         setDescription(c.description ?? '');
@@ -225,6 +285,38 @@ export default function EditCampaignPage() {
     if (!beneficiaryRelation.trim()) return 'Hubungan dengan pengaju wajib diisi';
     if (!category) return 'Pilih kategori kemanusiaan';
     if (idDocs.length < 1) return 'Identitas penerima wajib (KTP/KK/Akta — minimal 1 file)';
+
+    // ⭐ Sprint 2.2: Beneficiary phone validation
+    if (!beneficiaryType) return 'Tipe penerima manfaat wajib dipilih';
+
+    // Validate phone owner consistency dengan tipe
+    if ((beneficiaryType === 'individu' || beneficiaryType === 'keluarga') && beneficiaryPhoneOwner === 'coordinator') {
+      return `Untuk ${beneficiaryType}, pemilik HP harus "self" atau "wali"`;
+    }
+    if (beneficiaryType === 'kelompok' && beneficiaryPhoneOwner === 'wali') {
+      return 'Untuk kelompok, pemilik HP harus "self" (jika koordinator = penerima) atau "coordinator"';
+    }
+
+    // Phone wajib + format valid
+    if (!beneficiaryPhone.trim()) {
+      return 'Nomor HP kontak wajib diisi (penerima atau wali/koordinator)';
+    }
+    if (!isValidIndonesiaPhone(beneficiaryPhone)) {
+      return 'Format nomor HP tidak valid. Contoh: 081234567890 atau 6281234567890';
+    }
+
+    // Owner name wajib kalau bukan 'self'
+    if (beneficiaryPhoneOwner !== 'self' && !beneficiaryPhoneOwnerName.trim()) {
+      return beneficiaryPhoneOwner === 'wali'
+        ? 'Nama wali/penanggung jawab wajib diisi'
+        : 'Nama koordinator wajib diisi';
+    }
+
+    // Kelompok wajib count >= 2
+    if (beneficiaryType === 'kelompok' && beneficiaryCount < 2) {
+      return 'Untuk penerima kelompok, jumlah penerima minimal 2 orang';
+    }
+
     return null;
   }
 
@@ -259,6 +351,9 @@ export default function EditCampaignPage() {
     3: validateStep3() === null,
   }), [
     beneficiaryName, beneficiaryRelation, category, idDocs,
+    // ⭐ Sprint 2.2: beneficiary phone fields
+    beneficiaryType, beneficiaryPhone, beneficiaryPhoneOwner,
+    beneficiaryPhoneOwnerName, beneficiaryCount,
     title, description, targetAmount, coverUrl, proofDocs,
     partnerName, bankName, bankAccountNumber, bankAccountName, isIndependent,
   ]);
@@ -293,6 +388,12 @@ export default function EditCampaignPage() {
           cover_image_url: coverUrl || null,
           beneficiary_name: beneficiaryName.trim() || undefined,
           beneficiary_relation: beneficiaryRelation.trim() || undefined,
+          // ⭐ Sprint 2.2: Beneficiary phone fields
+          beneficiary_type: beneficiaryType,
+          beneficiary_phone: beneficiaryPhone.trim() || undefined,
+          beneficiary_phone_owner: beneficiaryPhoneOwner,
+          beneficiary_phone_owner_name: beneficiaryPhoneOwnerName.trim() || undefined,
+          beneficiary_count: beneficiaryCount,
           target_amount: parseRupiahInput(targetAmount),
           bank_name: bankName.trim() || undefined,
           bank_account_number: bankAccountNumber.trim() || undefined,
@@ -828,12 +929,70 @@ export default function EditCampaignPage() {
         {/* ═══════════ STEP 1: PENERIMA MANFAAT ═══════════ */}
         {currentStep === 1 && (
           <StepCard title="Data Penerima Manfaat" icon={UserCircle2}>
-            <FormField label="Nama Penerima Manfaat">
+            {/* ⭐ Sprint 2.2: Beneficiary Type Selector */}
+            <FormField label="Tipe Penerima Manfaat">
+              <div className="grid grid-cols-3 gap-2.5">
+                {BENEFICIARY_TYPES.map((bt) => {
+                  const isActive = beneficiaryType === bt.key;
+                  return (
+                    <button
+                      key={bt.key}
+                      type="button"
+                      onClick={() => {
+                        setBeneficiaryType(bt.key as BeneficiaryType);
+                        // Reset owner kalau switch type
+                        if (bt.key === 'kelompok' && beneficiaryPhoneOwner === 'wali') {
+                          setBeneficiaryPhoneOwner('coordinator');
+                        } else if ((bt.key === 'individu' || bt.key === 'keluarga') && beneficiaryPhoneOwner === 'coordinator') {
+                          setBeneficiaryPhoneOwner('self');
+                        }
+                        // Reset count kalau bukan kelompok
+                        if (bt.key !== 'kelompok') {
+                          setBeneficiaryCount(1);
+                        } else if (beneficiaryCount < 2) {
+                          setBeneficiaryCount(2);
+                        }
+                      }}
+                      className={`
+                        text-center p-3.5 rounded-xl border-2 transition-all
+                        ${isActive
+                          ? 'border-[#EC4899] bg-gradient-to-br from-[#EC4899]/5 to-[#BE185D]/5 shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      <div
+                        className="w-11 h-11 mx-auto rounded-xl flex items-center justify-center shrink-0 mb-2"
+                        style={{ background: `${bt.color}15` }}
+                      >
+                        <bt.Icon size={22} style={{ color: bt.color }} />
+                      </div>
+                      <p className="text-xs font-extrabold text-gray-900">{bt.label}</p>
+                      <p className="text-[10px] text-gray-500 leading-tight mt-0.5">{bt.desc}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            </FormField>
+
+            <FormField label={
+              beneficiaryType === 'kelompok'
+                ? 'Nama Kelompok'
+                : beneficiaryType === 'keluarga'
+                ? 'Nama Kepala Keluarga'
+                : 'Nama Penerima Manfaat'
+            }>
               <input
                 type="text"
                 value={beneficiaryName}
                 onChange={e => setBeneficiaryName(e.target.value)}
-                placeholder="Nama lengkap penerima dana"
+                placeholder={
+                  beneficiaryType === 'kelompok'
+                    ? 'Mis: Korban Gempa Mareku, Panti Asuhan Al-Ikhlas'
+                    : beneficiaryType === 'keluarga'
+                    ? 'Nama kepala keluarga'
+                    : 'Nama lengkap penerima dana'
+                }
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
               />
             </FormField>
@@ -843,10 +1002,36 @@ export default function EditCampaignPage() {
                 type="text"
                 value={beneficiaryRelation}
                 onChange={e => setBeneficiaryRelation(e.target.value)}
-                placeholder="Mis: Anak, Tetangga, Diri Sendiri"
+                placeholder={
+                  beneficiaryType === 'kelompok'
+                    ? 'Mis: Komunitas tempat saya tinggal, RT/RW saya'
+                    : 'Mis: Anak, Tetangga, Diri Sendiri'
+                }
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
               />
             </FormField>
+
+            {/* ⭐ Sprint 2.2: Beneficiary Count (kelompok only) */}
+            {beneficiaryType === 'kelompok' && (
+              <FormField label="Estimasi Jumlah Penerima">
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="2"
+                    value={beneficiaryCount}
+                    onChange={e => setBeneficiaryCount(Math.max(2, Number(e.target.value) || 2))}
+                    placeholder="Contoh: 200"
+                    className="w-full px-3 py-2.5 pr-20 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+                  />
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                    orang/KK
+                  </span>
+                </div>
+                <p className="mt-1.5 text-[11px] text-gray-500">
+                  Estimasi total penerima manfaat dari kelompok ini
+                </p>
+              </FormField>
+            )}
 
             <FormField label="Kategori Kemanusiaan">
               <div className="grid grid-cols-2 gap-2.5">
@@ -879,6 +1064,133 @@ export default function EditCampaignPage() {
                   );
                 })}
               </div>
+            </FormField>
+
+            {/* ⭐ Sprint 2.2: Beneficiary Phone Section */}
+            <FormField label="📞 Kontak Penerima Manfaat">
+              <div className="rounded-xl bg-blue-50 border border-blue-200 p-3 mb-3">
+                <p className="text-xs text-blue-900 leading-relaxed">
+                  <strong>Penting untuk verifikasi admin TeraLoka.</strong>{' '}
+                  Nomor HP digunakan admin untuk konfirmasi via WA bahwa penerima/wali/koordinator memang mengetahui kampanye ini.{' '}
+                  Nomor TIDAK ditampilkan ke publik.
+                </p>
+              </div>
+
+              {/* Toggle: penerima tidak punya HP — hanya untuk individu/keluarga */}
+              {(beneficiaryType === 'individu' || beneficiaryType === 'keluarga') && (
+                <div className="rounded-xl bg-amber-50 border border-amber-200 p-3 mb-3">
+                  <label className="flex items-start gap-2.5 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={beneficiaryPhoneOwner === 'wali'}
+                      onChange={e => {
+                        const useWali = e.target.checked;
+                        setBeneficiaryPhoneOwner(useWali ? 'wali' : 'self');
+                        if (!useWali) {
+                          setBeneficiaryPhoneOwnerName('');
+                        }
+                      }}
+                      className="mt-0.5 w-4 h-4 rounded accent-amber-600 cursor-pointer"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-amber-900">
+                        {beneficiaryType === 'individu' ? 'Penerima' : 'Kepala keluarga'} tidak punya HP
+                      </p>
+                      <p className="text-[11px] text-amber-800 mt-0.5">
+                        Centang jika lansia/sakit/anak/HP rusak saat bencana. Akan menggunakan HP wali atau anggota keluarga lain.
+                      </p>
+                    </div>
+                  </label>
+                </div>
+              )}
+
+              {/* Phone owner display label */}
+              <div className="mb-2">
+                <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+                  {beneficiaryPhoneOwner === 'self' && (beneficiaryType === 'individu' ? 'Nomor HP Penerima' : beneficiaryType === 'keluarga' ? 'Nomor HP Kepala Keluarga' : 'Nomor HP Koordinator (= Penerima)')}
+                  {beneficiaryPhoneOwner === 'wali' && 'Nomor HP Wali/Penanggung Jawab'}
+                  {beneficiaryPhoneOwner === 'coordinator' && 'Nomor HP Koordinator/Penanggung Jawab'}
+                </p>
+              </div>
+
+              {/* Phone input */}
+              <div className="relative mb-3">
+                <Phone size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="tel"
+                  value={beneficiaryPhone}
+                  onChange={e => setBeneficiaryPhone(formatPhoneInput(e.target.value))}
+                  placeholder="Contoh: 081234567890 atau 6281234567890"
+                  className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm font-mono"
+                />
+              </div>
+
+              {/* Owner name (kalau bukan self) */}
+              {beneficiaryPhoneOwner !== 'self' && (
+                <>
+                  <div className="mb-2">
+                    <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide">
+                      {beneficiaryPhoneOwner === 'wali'
+                        ? 'Nama Wali/Penanggung Jawab'
+                        : 'Nama Koordinator'}
+                    </p>
+                  </div>
+                  <div className="relative mb-3">
+                    <UserIcon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      value={beneficiaryPhoneOwnerName}
+                      onChange={e => setBeneficiaryPhoneOwnerName(e.target.value)}
+                      placeholder={
+                        beneficiaryPhoneOwner === 'wali'
+                          ? 'Nama lengkap wali (mis: anak, saudara)'
+                          : 'Nama lengkap koordinator'
+                      }
+                      className="w-full pl-10 pr-3 py-2.5 border border-gray-200 rounded-xl focus:border-[#003526] focus:outline-none text-sm"
+                    />
+                  </div>
+                </>
+              )}
+
+              {/* Coordinator selection — kelompok only */}
+              {beneficiaryType === 'kelompok' && (
+                <div className="rounded-xl bg-purple-50 border border-purple-200 p-3">
+                  <p className="text-xs text-purple-900 leading-relaxed mb-2">
+                    <strong>Apakah koordinator = salah satu penerima?</strong>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBeneficiaryPhoneOwner('self');
+                        setBeneficiaryPhoneOwnerName('');
+                      }}
+                      className={`
+                        p-2.5 rounded-lg border-2 text-xs font-bold transition-all
+                        ${beneficiaryPhoneOwner === 'self'
+                          ? 'border-purple-500 bg-purple-100 text-purple-900'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      ✓ Ya, koordinator = penerima
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBeneficiaryPhoneOwner('coordinator')}
+                      className={`
+                        p-2.5 rounded-lg border-2 text-xs font-bold transition-all
+                        ${beneficiaryPhoneOwner === 'coordinator'
+                          ? 'border-purple-500 bg-purple-100 text-purple-900'
+                          : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                        }
+                      `}
+                    >
+                      ✗ Tidak, beda orang
+                    </button>
+                  </div>
+                </div>
+              )}
             </FormField>
 
             <FormField label="🔒 Identitas Penerima Manfaat (RAHASIA)">
