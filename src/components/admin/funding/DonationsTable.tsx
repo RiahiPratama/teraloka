@@ -43,7 +43,8 @@ export interface Donation {
 function shortRupiah(n: number): string {
   if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
+  if (n >= 10_000) return 'Rp ' + Math.round(n / 1_000) + 'rb';
+  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(1).replace(/\.0$/, '') + 'rb';
   return 'Rp ' + n.toLocaleString('id-ID');
 }
 
