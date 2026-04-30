@@ -38,6 +38,7 @@ interface DonationListItem {
   is_anonymous: boolean;
   amount: number;
   operational_fee: number;
+  penggalang_fee?: number | null;
   total_transfer: number;
   amount_received: number | null;
   discrepancy_amount: number | null;
@@ -484,6 +485,7 @@ function DonationsPageContent() {
                     is_anonymous: d.is_anonymous,
                     amount: Number(d.amount),
                     operational_fee: Number(d.operational_fee),
+                    penggalang_fee: Number(d.penggalang_fee ?? 0),
                     total_transfer: Number(d.total_transfer),
                     donation_code: d.donation_code,
                     message: d.message,

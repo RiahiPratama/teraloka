@@ -25,6 +25,7 @@ export interface Donation {
   is_anonymous: boolean;
   amount: number;
   operational_fee: number;
+  penggalang_fee?: number;
   total_transfer: number;
   verification_status: string; // pending | verified | rejected
   verified_at?: string;

@@ -106,6 +106,8 @@ export default function AdminDonationsPage() {
 
   const [modal, setModal] = useState<{ type: 'verify' | 'reject' | 'detail'; donation: Donation } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  // ⭐ Discrepancy: nominal aktual yang masuk ke rekening
+  const [amountReceived, setAmountReceived] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -350,12 +352,16 @@ export default function AdminDonationsPage() {
       const res = await fetch(`${API_URL}/funding/donations/${d.id}/verify`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify' }),
+        body: JSON.stringify({
+          action: 'verify',
+          amount_received: amountReceived ? Number(amountReceived.replace(/\D/g, '')) : undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal verify');
       showToast(true, `✓ Donasi ${d.donation_code} ter-verifikasi`);
       setModal(null);
+      setAmountReceived('');
       fetchDonations();
       fetchStatusCounts();
       fetchSmartViewCounts();
@@ -446,6 +452,7 @@ export default function AdminDonationsPage() {
             count={accrualStats.accrualCount}
             color="#3B82F6"
             t={t}
+            onClick={() => updateUrl({ status: 'all', page: 1 })}
           />
           <AccrualCard
             label="⏸️ PENDING"
@@ -455,6 +462,7 @@ export default function AdminDonationsPage() {
             color="#F59E0B"
             t={t}
             operator="−"
+            onClick={() => updateUrl({ status: 'pending', page: 1 })}
           />
           <AccrualCard
             label="❌ DITOLAK"
@@ -464,6 +472,7 @@ export default function AdminDonationsPage() {
             color="#EF4444"
             t={t}
             operator="−"
+            onClick={() => updateUrl({ status: 'rejected', page: 1 })}
           />
           <AccrualCard
             label="✅ AKTUAL"
@@ -474,6 +483,7 @@ export default function AdminDonationsPage() {
             t={t}
             operator="="
             highlight
+            onClick={() => updateUrl({ status: 'verified', page: 1 })}
           />
         </div>
       </div>
@@ -709,8 +719,67 @@ export default function AdminDonationsPage() {
                     </div>
                   </div>
                   <DonationSummary d={modal.donation} t={t} />
-                  <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
-                    <button onClick={() => setModal(null)} disabled={submitting} style={cancelBtnStyle(t)}>Batal</button>
+
+                  {/* ⭐ Discrepancy input */}
+                  <div style={{
+                    marginTop: 16, padding: 14, borderRadius: 12,
+                    border: `1px solid ${t.sidebarBorder}`, background: t.mainBg,
+                  }}>
+                    <label style={{ display: 'block', fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 8 }}>
+                      💰 Nominal Diterima di Rekening
+                      <span style={{ fontWeight: 400, color: t.textDim, marginLeft: 6 }}>(opsional, dianjurkan)</span>
+                    </label>
+                    <div style={{ position: 'relative' }}>
+                      <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', fontSize: 13, fontWeight: 700, color: t.textDim }}>Rp</span>
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        value={amountReceived}
+                        onChange={e => {
+                          const digits = e.target.value.replace(/\D/g, '');
+                          setAmountReceived(digits ? Number(digits).toLocaleString('id-ID') : '');
+                        }}
+                        placeholder={modal.donation.total_transfer.toLocaleString('id-ID')}
+                        style={{
+                          width: '100%', paddingLeft: 36, paddingRight: 12, paddingTop: 10, paddingBottom: 10,
+                          borderRadius: 10, border: `1px solid ${t.sidebarBorder}`,
+                          background: t.mainBg, color: t.textPrimary, fontSize: 14,
+                          fontFamily: 'monospace', outline: 'none', boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                    {(() => {
+                      const received = Number(amountReceived.replace(/\D/g, ''));
+                      if (!received) return null;
+                      const diff = received - modal.donation.total_transfer;
+                      if (diff === 0) return (
+                        <p style={{ marginTop: 8, fontSize: 12, fontWeight: 700, color: '#10B981' }}>
+                          ✅ SESUAI PERSIS — Aman untuk diverifikasi
+                        </p>
+                      );
+                      if (diff < 0) return (
+                        <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: '#EF4444', marginBottom: 2 }}>
+                            ⚠️ KURANG BAYAR — Rp {Math.abs(diff).toLocaleString('id-ID')}
+                          </p>
+                          <p style={{ fontSize: 11, color: '#EF4444' }}>
+                            Disarankan TOLAK dan minta donor transfer ulang dengan nominal persis.
+                          </p>
+                        </div>
+                      );
+                      return (
+                        <div style={{ marginTop: 8, padding: '8px 12px', borderRadius: 8, background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.3)' }}>
+                          <p style={{ fontSize: 12, fontWeight: 700, color: '#CA8A04', marginBottom: 2 }}>
+                            ⚠️ LEBIH BAYAR — Rp {diff.toLocaleString('id-ID')}
+                          </p>
+                          <p style={{ fontSize: 11, color: '#CA8A04' }}>Selisih lebih akan dicatat otomatis.</p>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+                    <button onClick={() => { setModal(null); setAmountReceived(''); }} disabled={submitting} style={cancelBtnStyle(t)}>Batal</button>
                     <button onClick={() => handleVerify(modal.donation)} disabled={submitting}
                       style={primaryBtnStyle('#10B981', '#059669', submitting)}>
                       {submitting ? 'Memproses...' : '✓ Ya, Verify'}
@@ -822,6 +891,10 @@ function shortRupiah(n: number): string {
   return 'Rp ' + n.toLocaleString('id-ID');
 }
 
+function exactRupiah(n: number): string {
+  return 'Rp ' + Number(n).toLocaleString('id-ID');
+}
+
 function cancelBtnStyle(t: any): React.CSSProperties {
   return {
     flex: 1, padding: '12px 16px', borderRadius: 12,
@@ -862,18 +935,26 @@ function StatCard({ label, value, color, t, alert }: {
 }
 
 // ⭐ Sprint 2.3 Phase 3a: AccrualCard — for donation rekonsiliasi (4 cards)
-function AccrualCard({ label, sublabel, amount, count, color, t, operator, highlight }: {
+function AccrualCard({ label, sublabel, amount, count, color, t, operator, highlight, onClick }: {
   label: string; sublabel: string; amount: number; count: number;
-  color: string; t: any; operator?: string; highlight?: boolean;
+  color: string; t: any; operator?: string; highlight?: boolean; onClick?: () => void;
 }) {
   return (
-    <div style={{
-      position: 'relative',
-      background: highlight ? `${color}10` : t.navHover,
-      border: `2px solid ${highlight ? color : 'transparent'}`,
-      borderRadius: 12,
-      padding: 12,
-    }}>
+    <div
+      onClick={onClick}
+      title={onClick ? 'Klik untuk filter tabel' : undefined}
+      style={{
+        position: 'relative',
+        background: highlight ? `${color}10` : t.navHover,
+        border: `2px solid ${highlight ? color : 'transparent'}`,
+        borderRadius: 12,
+        padding: 12,
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'opacity 0.15s',
+      }}
+      onMouseEnter={e => { if (onClick) (e.currentTarget as HTMLElement).style.opacity = '0.8'; }}
+      onMouseLeave={e => { if (onClick) (e.currentTarget as HTMLElement).style.opacity = '1'; }}
+    >
       {operator && (
         <span style={{
           position: 'absolute', top: -10, left: 12,
@@ -889,13 +970,13 @@ function AccrualCard({ label, sublabel, amount, count, color, t, operator, highl
         fontSize: 10, fontWeight: 700, color,
         letterSpacing: '0.04em', marginBottom: 2, marginTop: operator ? 6 : 0,
       }}>
-        {label}
+        {label} {onClick && <span style={{ fontSize: 8, opacity: 0.6 }}>↗</span>}
       </p>
       <p style={{ fontSize: 9, color: t.textDim, marginBottom: 8 }}>
         {sublabel}
       </p>
-      <p style={{ fontSize: 18, fontWeight: 800, color: t.textPrimary, lineHeight: 1.1 }}>
-        {shortRupiah(amount)}
+      <p style={{ fontSize: 16, fontWeight: 800, color: t.textPrimary, lineHeight: 1.1, fontFamily: 'monospace' }}>
+        {exactRupiah(amount)}
       </p>
       <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
         {count} transaksi
@@ -905,32 +986,55 @@ function AccrualCard({ label, sublabel, amount, count, color, t, operator, highl
 }
 
 function DonationSummary({ d, t }: { d: Donation; t: any }) {
+  const kodeNum = parseInt(d.donation_code, 10) || 0;
+  const penggalangFee = (d as any).penggalang_fee ?? 0;
   return (
     <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 8 }}>
-        <span style={{ fontSize: 18, fontWeight: 800, color: t.textPrimary }}>
-          {shortRupiah(d.amount)}
-        </span>
-        <span style={{
-          fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
-          color: t.textDim, background: t.mainBg, padding: '3px 8px', borderRadius: 6,
-        }}>
-          {d.donation_code}
-        </span>
-      </div>
-      <p style={{ fontSize: 12, color: t.textPrimary, fontWeight: 600 }}>
+      {/* Donor + campaign */}
+      <p style={{ fontSize: 13, color: t.textPrimary, fontWeight: 700, marginBottom: 2 }}>
         {d.is_anonymous ? '🎭 Anonim' : d.donor_name}
       </p>
       {d.donor_phone && (
-        <p style={{ fontSize: 11, color: t.textDim, fontFamily: 'monospace', marginTop: 2 }}>
+        <p style={{ fontSize: 11, color: t.textDim, fontFamily: 'monospace', marginBottom: 2 }}>
           {d.donor_phone}
         </p>
       )}
       {d.campaign && (
-        <p style={{ fontSize: 11, color: t.textDim, marginTop: 6 }}>
+        <p style={{ fontSize: 11, color: t.textDim, marginBottom: 12 }}>
           untuk <strong style={{ color: t.textPrimary }}>{d.campaign.title}</strong>
         </p>
       )}
+
+      {/* Rincian Transfer — exact */}
+      <div style={{ borderTop: `1px solid ${t.sidebarBorder}`, paddingTop: 10 }}>
+        <p style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', marginBottom: 8 }}>
+          Rincian Transfer
+        </p>
+        <SummaryRow label="Donasi" value={exactRupiah(d.amount)} t={t} />
+        {d.operational_fee > 0 && (
+          <SummaryRow label="Fee Operasional (3%)" value={exactRupiah(d.operational_fee)} t={t} />
+        )}
+        {penggalangFee > 0 && (
+          <SummaryRow label="Fee Penggalang" value={exactRupiah(penggalangFee)} t={t} />
+        )}
+        <SummaryRow label={`Kode Unik (+${d.donation_code})`} value={exactRupiah(kodeNum)} t={t} />
+        <div style={{ borderTop: `1px solid ${t.sidebarBorder}`, marginTop: 6, paddingTop: 6 }}>
+          <SummaryRow label="TOTAL TRANSFER" value={exactRupiah(d.total_transfer)} t={t} bold />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SummaryRow({ label, value, t, bold }: { label: string; value: string; t: any; bold?: boolean }) {
+  return (
+    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+      <span style={{ fontSize: 12, color: bold ? t.textPrimary : t.textDim, fontWeight: bold ? 700 : 400 }}>
+        {label}
+      </span>
+      <span style={{ fontSize: 12, color: t.textPrimary, fontWeight: bold ? 800 : 600, fontFamily: 'monospace' }}>
+        {value}
+      </span>
     </div>
   );
 }
@@ -950,7 +1054,7 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
           Jumlah Donasi
         </p>
         <p style={{ fontSize: 32, fontWeight: 900, color: '#BE185D' }}>
-          {shortRupiah(d.amount)}
+          {exactRupiah(d.amount)}
         </p>
         <p style={{ fontSize: 12, color: t.textDim, marginTop: 4, fontFamily: 'monospace' }}>
           Kode: <strong>{d.donation_code}</strong>
@@ -998,10 +1102,16 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
           Rincian Transfer
         </p>
         <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
-          <Row label="Donasi" value={shortRupiah(d.amount)} t={t} />
-          <Row label="Fee Operasional" value={shortRupiah(d.operational_fee)} t={t} />
+          <Row label="Donasi" value={exactRupiah(d.amount)} t={t} />
+          {d.operational_fee > 0 && (
+            <Row label="Fee Operasional TeraLoka" value={exactRupiah(d.operational_fee)} t={t} />
+          )}
+          {(d as any).penggalang_fee > 0 && (
+            <Row label="Fee Penggalang" value={exactRupiah((d as any).penggalang_fee)} t={t} />
+          )}
+          <Row label={`Kode Unik (verifikasi)`} value={`+ ${parseInt(d.donation_code, 10).toLocaleString('id-ID')}`} t={t} />
           <div style={{ borderTop: `1px solid ${t.sidebarBorder}`, marginTop: 8, paddingTop: 8 }}>
-            <Row label="Total Transfer" value={shortRupiah(d.total_transfer)} t={t} bold />
+            <Row label="Total Transfer" value={exactRupiah(d.total_transfer)} t={t} bold />
           </div>
         </div>
       </div>
