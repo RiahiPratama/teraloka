@@ -58,6 +58,9 @@ interface Summary {
   total_accrual: number;           // Total masuk rekening (donasi+fee+kode)
   total_collected: number;         // Nominal donasi saja
   total_operational_fee: number;   // Fee TeraLoka (kewajiban setor)
+  total_fee_remitted: number;      // Sudah disetor ke TeraLoka
+  total_fee_pending: number;       // Belum disetor
+  last_remitted_at: string | null;
   total_under_audit: number;
   total_disbursed: number;
   total_disbursed_pending: number;
@@ -71,15 +74,6 @@ interface Summary {
   under_audit_count: number;
   rejected_count: number;
   platform_phase: string;
-}
-
-interface FeeSummary {
-  total_fee_collected: number;
-  total_fee_remitted: number;
-  total_fee_pending: number;
-  remitted_count: number;
-  pending_count: number;
-  last_remitted_at: string | null;
 }
 
 interface Donation {
@@ -135,7 +129,6 @@ function FinancialContent() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading]   = useState(true);
   const [donLoading, setDonLoading] = useState(true);
-  const [feeSummary, setFeeSummary] = useState<FeeSummary | null>(null);
 
   function updateUrl(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -195,18 +188,6 @@ function FinancialContent() {
     setDonLoading(false);
   }, [token, dateRange, campaignId]);
 
-  // Fetch fee summary (remitted vs pending)
-  const fetchFeeSummary = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await fetch(`${API}/funding/my/fee-summary`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const json = await res.json();
-      if (json.success) setFeeSummary(json.data);
-    } catch {}
-  }, [token]);
-
   // Fetch campaign list for filter
   const fetchCampaigns = useCallback(async () => {
     if (!token) return;
@@ -222,7 +203,6 @@ function FinancialContent() {
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
   useEffect(() => { fetchDonations(); }, [fetchDonations]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
-  useEffect(() => { fetchFeeSummary(); }, [fetchFeeSummary]);
 
   // Filter donations for display
   const displayDonations = donations.filter(d => {
@@ -336,28 +316,28 @@ function FinancialContent() {
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <FinRow label="Total Fee Terkumpul dari Donor" value={rp(summary.total_operational_fee)} color="#78350F" />
-                    {feeSummary && feeSummary.total_fee_remitted > 0 && (
+                    {feeSummary && (summary.total_fee_remitted ?? 0) > 0 && (
                       <FinRow
-                        label={`Sudah Disetor ke TeraLoka (${feeSummary.remitted_count} donasi)`}
-                        value={`−${rp(feeSummary.total_fee_remitted)}`}
+                        label={'Sudah Disetor ke TeraLoka'}
+                        value={`−${rp(summary.total_fee_remitted ?? 0)}`}
                         color="#10B981"
                       />
                     )}
                     <div style={{ borderTop: '1px solid #FDE68A', paddingTop: 8, marginTop: 2 }}>
                       <FinRow
                         label="Belum Disetor (wajib setor ke TeraLoka)"
-                        value={rp(feeSummary ? feeSummary.total_fee_pending : summary.total_operational_fee)}
+                        value={rp(summary.total_fee_pending ?? summary.total_operational_fee)}
                         color="#92400E"
                         bold
                       />
                     </div>
                   </div>
-                  {feeSummary?.last_remitted_at && (
+                  {summary.last_remitted_at && (
                     <p style={{ fontSize: 10, color: '#B45309', marginTop: 8 }}>
-                      Terakhir disetor: {new Date(feeSummary.last_remitted_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      Terakhir disetor: {new Date(summary.last_remitted_at!).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
                   )}
-                  {feeSummary && feeSummary.total_fee_pending > 0 && (
+                  {(summary.total_fee_pending ?? 0) > 0 && (
                     <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(146,64,14,0.08)', borderRadius: 8 }}>
                       <p style={{ fontSize: 10, color: '#92400E', fontWeight: 600 }}>
                         ⚠️ Setor ke rekening TeraLoka sesuai jadwal settlement bulanan
