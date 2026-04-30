@@ -245,14 +245,13 @@ export default function Hero() {
           </div>
 
           {/* ── Service Pills — DESKTOP ONLY ── */}
-          {/* ⭐ FIX: mounted guard mencegah SSR/client mismatch akibat browser extension */}
-          {mounted && (
-            <div className="hidden md:grid" style={{
-              gridTemplateColumns: 'repeat(4, 1fr)',
-              gap: 10,
-              maxWidth: 480,
-            }}>
-              {SERVICE_PILLS.map(pill => (
+          {/* ⭐ FIX: div always rendered (avoid SSR mismatch), children mount-guarded */}
+          <div className="hidden md:grid" suppressHydrationWarning style={{
+            gridTemplateColumns: 'repeat(4, 1fr)',
+            gap: 10,
+            maxWidth: 480,
+          }}>
+            {mounted && SERVICE_PILLS.map(pill => (
                 <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
                   <div
                     style={{
@@ -295,9 +294,8 @@ export default function Hero() {
                     <div style={{ fontSize: 11, color: pill.color }}>→</div>
                   </div>
                 </Link>
-              ))}
-            </div>
-          )}
+            ))}
+          </div>
         </div>
 
         {/* RIGHT — floating cards (desktop only) */}

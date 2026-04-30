@@ -96,7 +96,7 @@ export default function AdminEscalationsPage() {
       const json = await res.json();
       if (json.success) {
         showToast(true, '✓ Donasi berhasil diverifikasi dari Escalations');
-        fetchDonations();
+        fetchEscalated();
         setSubNavRefresh(r => r + 1);
       } else showToast(false, json.error?.message ?? 'Gagal verify');
     } catch { showToast(false, 'Koneksi bermasalah'); }
@@ -119,7 +119,7 @@ export default function AdminEscalationsPage() {
       if (json.success) {
         showToast(true, '✗ Donasi ditolak dari Escalations');
         setRejectModal(null); setRejectReason('');
-        fetchDonations();
+        fetchEscalated();
         setSubNavRefresh(r => r + 1);
       } else showToast(false, json.error?.message ?? 'Gagal reject');
     } catch { showToast(false, 'Koneksi bermasalah'); }
