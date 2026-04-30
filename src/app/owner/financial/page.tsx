@@ -73,6 +73,15 @@ interface Summary {
   platform_phase: string;
 }
 
+interface FeeSummary {
+  total_fee_collected: number;
+  total_fee_remitted: number;
+  total_fee_pending: number;
+  remitted_count: number;
+  pending_count: number;
+  last_remitted_at: string | null;
+}
+
 interface Donation {
   id: string;
   donation_code: string;
@@ -126,6 +135,7 @@ function FinancialContent() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading]   = useState(true);
   const [donLoading, setDonLoading] = useState(true);
+  const [feeSummary, setFeeSummary] = useState<FeeSummary | null>(null);
 
   function updateUrl(updates: Record<string, string | null>) {
     const params = new URLSearchParams(searchParams.toString());
@@ -186,6 +196,18 @@ function FinancialContent() {
     setDonLoading(false);
   }, [token, dateRange, campaignId]);
 
+  // Fetch fee summary (remitted vs pending)
+  const fetchFeeSummary = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API}/funding/my/fee-summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) setFeeSummary(json.data);
+    } catch {}
+  }, [token]);
+
   // Fetch campaign list for filter
   const fetchCampaigns = useCallback(async () => {
     if (!token) return;
@@ -201,6 +223,7 @@ function FinancialContent() {
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
   useEffect(() => { fetchDonations(); }, [fetchDonations]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  useEffect(() => { fetchFeeSummary(); }, [fetchFeeSummary]);
 
   // Filter donations for display
   const displayDonations = donations.filter(d => {
@@ -356,19 +379,42 @@ function FinancialContent() {
                 )}
               </div>
 
-              {/* 3. Fee TeraLoka (kewajiban) */}
+              {/* 3. Fee TeraLoka (kewajiban) — dengan breakdown remitted vs pending */}
               {summary.total_operational_fee > 0 && (
                 <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                  <p style={{ fontSize: 10, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
                     🏦 Fee TeraLoka — Kewajiban Setor
                   </p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <p style={{ fontSize: 12, color: '#78350F' }}>Fee operasional platform (sudah diterima dari donor)</p>
-                    <p style={{ fontSize: 16, fontWeight: 800, color: '#92400E', fontFamily: 'monospace' }}>{rp(summary.total_operational_fee)}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    <FinRow label="Total Fee Terkumpul dari Donor" value={rp(summary.total_operational_fee)} color="#78350F" />
+                    {feeSummary && feeSummary.total_fee_remitted > 0 && (
+                      <FinRow
+                        label={`Sudah Disetor ke TeraLoka (${feeSummary.remitted_count} donasi)`}
+                        value={`−${rp(feeSummary.total_fee_remitted)}`}
+                        color="#10B981"
+                      />
+                    )}
+                    <div style={{ borderTop: '1px solid #FDE68A', paddingTop: 8, marginTop: 2 }}>
+                      <FinRow
+                        label="Belum Disetor (wajib setor ke TeraLoka)"
+                        value={rp(feeSummary ? feeSummary.total_fee_pending : summary.total_operational_fee)}
+                        color="#92400E"
+                        bold
+                      />
+                    </div>
                   </div>
-                  <p style={{ fontSize: 10, color: '#B45309', marginTop: 6 }}>
-                    Disetor ke TeraLoka secara periodik sesuai jadwal settlement
-                  </p>
+                  {feeSummary?.last_remitted_at && (
+                    <p style={{ fontSize: 10, color: '#B45309', marginTop: 8 }}>
+                      Terakhir disetor: {new Date(feeSummary.last_remitted_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                    </p>
+                  )}
+                  {feeSummary && feeSummary.total_fee_pending > 0 && (
+                    <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(146,64,14,0.08)', borderRadius: 8 }}>
+                      <p style={{ fontSize: 10, color: '#92400E', fontWeight: 600 }}>
+                        ⚠️ Setor ke rekening TeraLoka sesuai jadwal settlement bulanan
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
