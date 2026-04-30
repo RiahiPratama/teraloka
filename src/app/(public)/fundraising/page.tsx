@@ -325,7 +325,7 @@ export default async function FundraisingPage({
           </div>
           <div>
             <p className="text-xs font-bold text-gray-800">100% transparan & terverifikasi</p>
-            <p className="text-xs text-gray-400">Dana langsung ke Penerima Manfaat, diserahkan langsung oleh Penggalang.</p>
+            <p className="text-xs text-gray-400">Donasi 100% utuh ke Penerima Manfaat, disalurkan oleh Penggalang terverifikasi.</p>
           </div>
         </div>
 

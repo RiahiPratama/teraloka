@@ -9,11 +9,24 @@ import { formatRupiah } from '@/utils/format';
 import {
   ArrowLeft, Loader2, CheckCircle2, XCircle, AlertCircle,
   UserRound, Calendar, Phone, Hash, MessageCircle, ImageIcon,
-  ExternalLink, ShieldCheck, Calculator,
+  ExternalLink, ShieldCheck, Calculator, TrendingDown, TrendingUp,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const ADMIN_ROLES = ['admin_funding', 'super_admin'];
+
+// ─── Helpers ─────────────────────────────────────────────────────
+
+function formatRupiahInput(raw: string): string {
+  const digits = raw.replace(/\D/g, '');
+  return digits ? Number(digits).toLocaleString('id-ID') : '';
+}
+
+function parseRupiah(formatted: string): number {
+  return Number(formatted.replace(/\D/g, '')) || 0;
+}
+
+// ─── Types ───────────────────────────────────────────────────────
 
 interface DonationDetail {
   id: string;
@@ -32,6 +45,9 @@ interface DonationDetail {
   verified_by: string | null;
   escalated_to_admin_at: string | null;
   escalation_reason: string | null;
+  // ⭐ Discrepancy tracking
+  amount_received: number | null;
+  discrepancy_amount: number | null;
   // FIX-G-C: Verifier info
   verifier?: {
     id: string;
@@ -66,6 +82,8 @@ function maskPhone(phone: string | null): string {
   return phone.slice(0, 4) + '*'.repeat(phone.length - 8) + phone.slice(-4);
 }
 
+// ─── Main Page ───────────────────────────────────────────────────
+
 export default function AdminDonationDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const { id } = use(params);
@@ -80,6 +98,9 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
+
+  // ⭐ Discrepancy: nominal yang masuk ke rekening (input admin)
+  const [amountReceived, setAmountReceived] = useState('');
 
   // Auth guard
   useEffect(() => {
@@ -97,6 +118,10 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         const json = await res.json();
         if (json.success && json.data) {
           setDonation(json.data);
+          // Pre-fill kalau sudah pernah diisi sebelumnya
+          if (json.data.amount_received) {
+            setAmountReceived(Number(json.data.amount_received).toLocaleString('id-ID'));
+          }
         } else {
           setFetchError(json?.error?.message || 'Donasi tidak ditemukan.');
         }
@@ -119,6 +144,8 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
     setSubmitting(true);
     setActionError('');
 
+    const amountReceivedNum = parseRupiah(amountReceived);
+
     try {
       const res = await fetch(`${API}/funding/donations/${id}/verify`, {
         method: 'POST',
@@ -129,6 +156,8 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         body: JSON.stringify({
           action,
           reason: action === 'reject' ? rejectReason.trim() : undefined,
+          // ⭐ Kirim amount_received kalau ada
+          amount_received: amountReceivedNum > 0 ? amountReceivedNum : undefined,
         }),
       });
 
@@ -159,9 +188,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
     );
   }
 
-  if (!user || !ADMIN_ROLES.includes(user.role)) {
-    return null;
-  }
+  if (!user || !ADMIN_ROLES.includes(user.role)) return null;
 
   if (fetchError || !donation) {
     return (
@@ -181,6 +208,14 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
   const isVerified = donation.verification_status === 'verified';
   const isRejected = donation.verification_status === 'rejected';
 
+  // ⭐ Discrepancy calculation
+  const amountReceivedNum = parseRupiah(amountReceived);
+  const hasAmountInput = amountReceivedNum > 0;
+  const discrepancy = hasAmountInput ? amountReceivedNum - donation.total_transfer : 0;
+  const isUnderPaid = discrepancy < 0;
+  const isOverPaid = discrepancy > 0;
+  const isExact = discrepancy === 0 && hasAmountInput;
+
   return (
     <div className="p-6 max-w-3xl mx-auto pb-32">
       {/* Back */}
@@ -199,7 +234,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         </p>
       </div>
 
-      {/* Escalation banner — FIX-G-C: show if donation was auto-escalated */}
+      {/* Escalation banner */}
       {donation.escalated_to_admin_at && (
         <div className="mb-4 rounded-xl bg-amber-50 border border-amber-200 p-4">
           <div className="flex items-center gap-3 mb-2">
@@ -234,6 +269,19 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
                 <p className="text-xs text-emerald-700 mt-0.5">
                   oleh <strong>{donation.verifier.name || 'Admin'}</strong>
                 </p>
+              )}
+              {/* Show recorded discrepancy if any */}
+              {donation.amount_received && (
+                <div className="mt-2 pt-2 border-t border-emerald-200">
+                  <p className="text-xs text-emerald-700">
+                    Nominal diterima: <strong>{formatRupiah(donation.amount_received)}</strong>
+                    {donation.discrepancy_amount !== null && donation.discrepancy_amount !== 0 && (
+                      <span className={`ml-2 font-bold ${donation.discrepancy_amount < 0 ? 'text-red-600' : 'text-amber-600'}`}>
+                        ({donation.discrepancy_amount > 0 ? '+' : ''}{formatRupiah(donation.discrepancy_amount)})
+                      </span>
+                    )}
+                  </p>
+                </div>
               )}
             </div>
           </div>
@@ -282,11 +330,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
           {donation.campaigns.cover_image_url && (
-            <img
-              src={donation.campaigns.cover_image_url}
-              alt=""
-              className="w-14 h-14 rounded-xl object-cover shrink-0"
-            />
+            <img src={donation.campaigns.cover_image_url} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0" />
           )}
           <div className="min-w-0 flex-1">
             <p className="text-sm font-bold text-gray-900 truncate">{donation.campaigns.title}</p>
@@ -361,10 +405,90 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="mt-3 rounded-lg bg-amber-50 border border-amber-100 p-3">
           <p className="text-[11px] text-amber-800 leading-relaxed">
-            💡 <strong>Verifikasi:</strong> nominal yang masuk ke rekening <strong>{donation.campaigns.bank_name} · {donation.campaigns.bank_account_number}</strong> harus <strong>PERSIS {formatRupiah(donation.total_transfer)}</strong>. Kalau beda → reject.
+            💡 <strong>Verifikasi:</strong> nominal yang masuk ke rekening <strong>{donation.campaigns.bank_name} · {donation.campaigns.bank_account_number}</strong> harus <strong>PERSIS {formatRupiah(donation.total_transfer)}</strong>. Kalau beda → input nominal aktual di bawah.
           </p>
         </div>
       </div>
+
+      {/* ⭐ Discrepancy Input + Analysis */}
+      {isPending && (
+        <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Calculator size={16} className="text-[#003526]" />
+            <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">
+              Nominal Diterima di Rekening
+            </p>
+            <span className="ml-auto text-[10px] text-gray-400 font-medium">
+              Opsional — tapi sangat dianjurkan
+            </span>
+          </div>
+
+          <div className="relative mb-3">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">Rp</span>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={amountReceived}
+              onChange={e => setAmountReceived(formatRupiahInput(e.target.value))}
+              placeholder={donation.total_transfer.toLocaleString('id-ID')}
+              className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-mono focus:border-[#003526] focus:outline-none focus:ring-2 focus:ring-[#003526]/20"
+            />
+          </div>
+
+          {/* Analysis card */}
+          {isExact && (
+            <div className="rounded-xl bg-emerald-50 border border-emerald-200 px-4 py-3 flex items-center gap-2.5">
+              <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+              <div>
+                <p className="text-sm font-bold text-emerald-800">SESUAI PERSIS ✅</p>
+                <p className="text-xs text-emerald-600">Nominal transfer cocok. Aman untuk di-verify.</p>
+              </div>
+            </div>
+          )}
+
+          {isUnderPaid && (
+            <div className="rounded-xl bg-red-50 border-2 border-red-300 px-4 py-3">
+              <div className="flex items-start gap-2.5">
+                <TrendingDown size={16} className="text-red-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-red-800">⚠️ KURANG BAYAR</p>
+                  <p className="text-xs text-red-700 mt-0.5 leading-relaxed">
+                    Nominal masuk <strong>{formatRupiah(amountReceivedNum)}</strong> — kurang{' '}
+                    <strong>{formatRupiah(Math.abs(discrepancy))}</strong> dari yang seharusnya ({formatRupiah(donation.total_transfer)}).
+                  </p>
+                  <p className="text-xs font-bold text-red-700 mt-1.5">
+                    → Disarankan REJECT. Minta donor transfer ulang dengan nominal persis.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isOverPaid && (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3">
+              <div className="flex items-start gap-2.5">
+                <TrendingUp size={16} className="text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">⚠️ LEBIH BAYAR</p>
+                  <p className="text-xs text-amber-700 mt-0.5 leading-relaxed">
+                    Nominal masuk <strong>{formatRupiah(amountReceivedNum)}</strong> — lebih{' '}
+                    <strong>{formatRupiah(discrepancy)}</strong> dari yang seharusnya. Kelebihan dicatat otomatis.
+                  </p>
+                  <p className="text-xs text-amber-600 mt-1.5 font-semibold">
+                    → Bisa di-verify. Selisih lebih tersimpan untuk transparansi.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!hasAmountInput && (
+            <p className="text-[11px] text-gray-400 leading-relaxed">
+              Input nominal dari mutasi rekening untuk verifikasi selisih otomatis. Kosongkan jika tidak mau input.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* Message */}
       {donation.message && (
@@ -386,17 +510,10 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
           <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Bukti Transfer</p>
         </div>
         {donation.transfer_proof_url ? (
-          <a
-            href={donation.transfer_proof_url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="block rounded-xl overflow-hidden bg-gray-100 border border-gray-200 hover:border-gray-300 transition-colors"
-          >
-            <img
-              src={donation.transfer_proof_url}
-              alt="Bukti transfer"
-              className="w-full max-h-[500px] object-contain bg-gray-50"
-            />
+          <a href={donation.transfer_proof_url} target="_blank" rel="noopener noreferrer"
+            className="block rounded-xl overflow-hidden bg-gray-100 border border-gray-200 hover:border-gray-300 transition-colors">
+            <img src={donation.transfer_proof_url} alt="Bukti transfer"
+              className="w-full max-h-[500px] object-contain bg-gray-50" />
             <div className="py-2 text-center bg-gray-50 border-t border-gray-200">
               <p className="text-xs text-gray-600 font-semibold inline-flex items-center gap-1">
                 <ExternalLink size={11} /> Klik untuk ukuran penuh
@@ -419,10 +536,34 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         </div>
       )}
 
-      {/* Action buttons (only if pending) */}
+      {/* ⭐ Action bar — sticky bottom dengan discrepancy warning */}
       {isPending && !actionSuccess && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg p-4">
-          <div className="max-w-3xl mx-auto flex gap-3">
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-lg">
+          {/* Discrepancy warning strip di atas tombol */}
+          {isUnderPaid && (
+            <div className="bg-red-600 px-4 py-2 flex items-center gap-2">
+              <TrendingDown size={13} className="text-white shrink-0" />
+              <p className="text-xs font-bold text-white">
+                KURANG BAYAR {formatRupiah(Math.abs(discrepancy))} — Disarankan REJECT
+              </p>
+            </div>
+          )}
+          {isOverPaid && (
+            <div className="bg-amber-500 px-4 py-2 flex items-center gap-2">
+              <TrendingUp size={13} className="text-white shrink-0" />
+              <p className="text-xs font-bold text-white">
+                LEBIH BAYAR {formatRupiah(discrepancy)} — Bisa di-verify, selisih tercatat
+              </p>
+            </div>
+          )}
+          {isExact && (
+            <div className="bg-emerald-600 px-4 py-2 flex items-center gap-2">
+              <CheckCircle2 size={13} className="text-white shrink-0" />
+              <p className="text-xs font-bold text-white">SESUAI PERSIS — Aman untuk di-verify</p>
+            </div>
+          )}
+
+          <div className="p-4 max-w-3xl mx-auto flex gap-3">
             <button
               onClick={() => setShowRejectModal(true)}
               disabled={submitting}
@@ -451,7 +592,8 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
 
       {/* Reject modal */}
       {showRejectModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={() => !submitting && setShowRejectModal(false)}>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => !submitting && setShowRejectModal(false)}>
           <div className="bg-white rounded-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-11 h-11 rounded-full bg-red-50 flex items-center justify-center">
@@ -460,6 +602,15 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
               <h3 className="text-lg font-bold text-gray-900">Reject Donasi</h3>
             </div>
 
+            {/* Show discrepancy context in reject modal */}
+            {isUnderPaid && (
+              <div className="mb-3 rounded-lg bg-red-50 border border-red-200 px-3 py-2">
+                <p className="text-xs font-bold text-red-700">
+                  Kurang bayar {formatRupiah(Math.abs(discrepancy))} — cantumkan di alasan reject di bawah.
+                </p>
+              </div>
+            )}
+
             <p className="text-sm text-gray-600 mb-4 leading-relaxed">
               Alasan akan dikirim ke donor. Pastikan jelas agar donor bisa memperbaiki.
             </p>
@@ -467,7 +618,9 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
             <textarea
               value={rejectReason}
               onChange={e => setRejectReason(e.target.value)}
-              placeholder="Contoh: Nominal transfer Rp 50.000 tidak sesuai dengan yang dikonfirmasi (Rp 50.036). Mohon transfer ulang dengan nominal persis."
+              placeholder={isUnderPaid
+                ? `Nominal transfer Rp ${amountReceivedNum.toLocaleString('id-ID')} tidak sesuai (seharusnya Rp ${donation.total_transfer.toLocaleString('id-ID')}). Mohon transfer ulang dengan nominal persis termasuk kode unik.`
+                : 'Contoh: Nominal transfer tidak sesuai. Mohon transfer ulang dengan nominal persis.'}
               rows={4}
               maxLength={500}
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-red-400 resize-none"
@@ -487,11 +640,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
                 disabled={submitting || !rejectReason.trim()}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl bg-red-600 text-white text-sm font-bold hover:bg-red-700 transition-colors disabled:opacity-50"
               >
-                {submitting ? (
-                  <Loader2 size={16} className="animate-spin" />
-                ) : (
-                  'Kirim Reject'
-                )}
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Kirim Reject'}
               </button>
             </div>
           </div>
@@ -501,31 +650,21 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
   );
 }
 
-// ═══════════════════════════════════════════════════════════════
-// FIX-G-C: RoleBadge — visual indicator role admin yang verify
-// ═══════════════════════════════════════════════════════════════
+// ─── RoleBadge ───────────────────────────────────────────────────
 
 function RoleBadge({ role }: { role: string }) {
   const meta = (() => {
     switch (role) {
-      case 'super_admin':
-        return { label: 'Super Admin', color: '#7C3AED', bg: '#F3E8FF', icon: '⭐' };
-      case 'admin_funding':
-        return { label: 'Admin BADONASI', color: '#047857', bg: '#D1FAE5', icon: '🛡️' };
-      case 'admin_content':
-        return { label: 'Admin Konten', color: '#1D4ED8', bg: '#DBEAFE', icon: '📝' };
-      case 'user':
-        return { label: 'Penggalang', color: '#4B5563', bg: '#F3F4F6', icon: '👤' };
-      default:
-        return { label: role, color: '#4B5563', bg: '#F3F4F6', icon: '🔹' };
+      case 'super_admin':    return { label: 'Super Admin',     color: '#7C3AED', bg: '#F3E8FF', icon: '⭐' };
+      case 'admin_funding':  return { label: 'Admin BADONASI',  color: '#047857', bg: '#D1FAE5', icon: '🛡️' };
+      case 'admin_content':  return { label: 'Admin Konten',    color: '#1D4ED8', bg: '#DBEAFE', icon: '📝' };
+      case 'user':           return { label: 'Penggalang',      color: '#4B5563', bg: '#F3F4F6', icon: '👤' };
+      default:               return { label: role,              color: '#4B5563', bg: '#F3F4F6', icon: '🔹' };
     }
   })();
-
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
-      style={{ background: meta.bg, color: meta.color }}
-    >
+    <span className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+      style={{ background: meta.bg, color: meta.color }}>
       <span style={{ fontSize: 9 }}>{meta.icon}</span>
       {meta.label}
     </span>
