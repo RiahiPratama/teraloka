@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useContext } from 'react';
+import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
@@ -95,12 +96,31 @@ export default function AdminDisbursementsPage() {
   const { t } = useContext(AdminThemeContext);
   const { token } = useAuth();
 
+  const searchParams = useSearchParams();
+  const router       = useRouter();
+  const pathname     = usePathname();
+
+  // ── URL-synced state ──
+  const activeStatus = searchParams.get('status') ?? 'pending';
+  const page         = Number(searchParams.get('page')) || 1;
+  const activeSort   = searchParams.get('sort') ?? 'newest';
+  const urlSearch    = searchParams.get('q') ?? '';
+  const activeSmartView = searchParams.get('sv') ?? '';
+
   const [disbursements, setDisbursements] = useState<Disbursement[]>([]);
   const [total, setTotal]     = useState(0);
   const [loading, setLoading] = useState(true);
-  const [activeStatus, setActiveStatus] = useState<string>('pending');
-  const [page, setPage]       = useState(1);
+  const [searchInput, setSearchInput] = useState(urlSearch);
   const [subNavKey, setSubNavKey] = useState(0);
+
+  function updateUrl(updates: Record<string, string | number | null>) {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.entries(updates).forEach(([k, v]) => {
+      if (v === null || v === '') params.delete(k);
+      else params.set(k, String(v));
+    });
+    router.push(`${pathname}?${params.toString()}`);
+  }
 
   const [stats, setStats] = useState({
     pending: 0, verified_total: 0, flagged: 0,
@@ -121,10 +141,12 @@ export default function AdminDisbursementsPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        status: activeStatus,
         page: String(page),
         limit: String(LIMIT),
+        sort: activeSort,
       });
+      if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
+      if (urlSearch) params.set('search', urlSearch);
       const res = await fetch(`${API_URL}/funding/admin/disbursements?${params}`, {
         headers: { Authorization: `Bearer ${tk}` },
       });
@@ -136,7 +158,7 @@ export default function AdminDisbursementsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeStatus, page]);
+  }, [activeStatus, page, activeSort, urlSearch]);
 
   // ── Fetch stats ────────────────────────────────────────────
   const fetchStats = useCallback(async () => {
@@ -160,13 +182,19 @@ export default function AdminDisbursementsPage() {
     } catch {}
   }, []);
 
-  useEffect(() => {
-    fetchDisbursements();
-  }, [fetchDisbursements]);
+  useEffect(() => { fetchDisbursements(); }, [fetchDisbursements]);
+  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => { setSearchInput(urlSearch); }, [urlSearch]);
 
+  // Debounce search → URL update
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    if (searchInput === urlSearch) return;
+    const timer = setTimeout(() => {
+      updateUrl({ q: searchInput || null, page: 1 });
+    }, 300);
+    return () => clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchInput]);
 
   // ── Toast helper ───────────────────────────────────────────
   function showToast(ok: boolean, msg: string) {
@@ -302,9 +330,85 @@ export default function AdminDisbursementsPage() {
           <StatCard t={t} icon={<Icons.Clock />} label="Menunggu Verifikasi"
             value={stats.pending.toString()} accent="#F59E0B" highlight={stats.pending > 0} />
           <StatCard t={t} icon={<Icons.Wallet />} label="Total Tersalurkan"
-            value={shortRupiah(stats.verified_total)} accent="#10B981" />
+            value={formatRupiah(stats.verified_total)} accent="#10B981" />
           <StatCard t={t} icon={<Icons.AlertTri />} label="Perlu Review"
             value={stats.flagged.toString()} accent="#F97316" highlight={stats.flagged > 0} />
+        </div>
+
+        {/* ⭐ Search + Sort */}
+        <div style={{ display: 'flex', gap: 12, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1, minWidth: 240 }}>
+            <span style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', color: t.textDim, fontSize: 14 }}>🔍</span>
+            <input
+              type="text"
+              placeholder="Cari penerima, kampanye..."
+              value={searchInput}
+              onChange={e => setSearchInput(e.target.value)}
+              style={{
+                width: '100%', padding: '9px 12px 9px 36px',
+                borderRadius: 10, border: `1px solid ${t.sidebarBorder}`,
+                background: t.mainBg, color: t.textPrimary, fontSize: 13,
+                outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <select
+            value={activeSort}
+            onChange={e => updateUrl({ sort: e.target.value, page: 1 })}
+            style={{
+              padding: '9px 32px 9px 12px', borderRadius: 10,
+              border: `1px solid ${t.sidebarBorder}`,
+              background: t.mainBg, color: t.textPrimary,
+              fontSize: 13, fontWeight: 600, cursor: 'pointer', outline: 'none',
+            }}
+          >
+            <option value="newest">Terbaru</option>
+            <option value="oldest">Terlama</option>
+            <option value="amount_high">Nominal Tertinggi</option>
+            <option value="amount_low">Nominal Terendah</option>
+          </select>
+        </div>
+
+        {/* ⭐ Smart Views */}
+        <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+          {[
+            { key: 'pending_lama',   label: '⏰ Pending >48 Jam',  color: '#EF4444' },
+            { key: 'jumlah_besar',   label: '💰 Jumlah Besar >1jt', color: '#F59E0B' },
+            { key: 'flagged',        label: '🚩 Sedang Direview',   color: '#F97316' },
+          ].map(sv => {
+            const active = activeSmartView === sv.key;
+            return (
+              <button
+                key={sv.key}
+                onClick={() => updateUrl({
+                  sv: active ? null : sv.key,
+                  status: sv.key === 'flagged' ? 'flagged' : 'all',
+                  page: 1,
+                })}
+                style={{
+                  padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                  border: `1.5px solid ${active ? sv.color : t.sidebarBorder}`,
+                  background: active ? `${sv.color}15` : 'transparent',
+                  color: active ? sv.color : t.textDim,
+                  cursor: 'pointer', transition: 'all 150ms',
+                }}
+              >
+                {sv.label}
+              </button>
+            );
+          })}
+          {(activeSmartView || urlSearch) && (
+            <button
+              onClick={() => updateUrl({ sv: null, q: null, status: 'pending', page: 1 })}
+              style={{
+                padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                border: `1.5px solid ${t.sidebarBorder}`,
+                background: 'transparent', color: t.textDim, cursor: 'pointer',
+              }}
+            >
+              ✕ Reset
+            </button>
+          )}
         </div>
 
         {/* Status Tabs */}
@@ -314,7 +418,7 @@ export default function AdminDisbursementsPage() {
             return (
               <button
                 key={tab.key}
-                onClick={() => { setActiveStatus(tab.key); setPage(1); }}
+                onClick={() => updateUrl({ status: tab.key, page: 1, sv: null })}
                 style={{
                   padding: '8px 16px', fontSize: 13, fontWeight: 600, border: 'none',
                   background: 'none', cursor: 'pointer',

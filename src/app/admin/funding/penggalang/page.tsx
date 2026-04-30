@@ -66,6 +66,10 @@ export default function AdminPenggalangPage() {
   const [stats, setStats] = useState({ pending: 0, verified: 0, rejected: 0, total_creators: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshKey, setRefreshKey] = useState(0);
+  // ⭐ Track record: campaign + donation stats per creator
+  const [trackRecord, setTrackRecord] = useState<Record<string, {
+    campaigns: number; active: number; total_collected: number;
+  }>>({});
 
   // Modal state
   const [modal, setModal] = useState<{
@@ -134,6 +138,31 @@ export default function AdminPenggalangPage() {
   }, []);
 
   useEffect(() => { fetchCreators(); }, [fetchCreators, refreshKey]);
+
+  // ⭐ Fetch track record untuk creators yang terload
+  useEffect(() => {
+    if (!creators.length) return;
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+
+    Promise.all(
+      creators.map(c =>
+        fetch(`${API_URL}/funding/admin/campaigns?limit=100&creator_id=${c.id}`, {
+          headers: { Authorization: `Bearer ${tk}` },
+        }).then(r => r.json()).catch(() => null)
+      )
+    ).then(results => {
+      const record: Record<string, { campaigns: number; active: number; total_collected: number }> = {};
+      creators.forEach((c, i) => {
+        const data = results[i]?.data ?? [];
+        const total = results[i]?.meta?.total ?? data.length;
+        const active = data.filter((cam: any) => cam.status === 'active').length;
+        const collected = data.reduce((sum: number, cam: any) => sum + Number(cam.collected_amount ?? 0), 0);
+        record[c.id] = { campaigns: total, active, total_collected: collected };
+      });
+      setTrackRecord(record);
+    });
+  }, [creators]);
   useEffect(() => { fetchStats(); }, [fetchStats, refreshKey]);
 
   // ─── Toast auto-hide ──────────────────────────────────
@@ -353,6 +382,7 @@ export default function AdminPenggalangPage() {
                 <th style={thStyle(t)}>Phone</th>
                 <th style={thStyle(t)}>Tgl Daftar</th>
                 <th style={thStyle(t)}>KTP</th>
+                <th style={thStyle(t)}>Track Record</th>
                 <th style={thStyle(t)}>Status</th>
                 <th style={{ ...thStyle(t), textAlign: 'right' }}>Action</th>
               </tr>
@@ -397,6 +427,27 @@ export default function AdminPenggalangPage() {
                         ? `📷 ${c.creator_id_documents.length} dokumen`
                         : '✗ Belum upload'}
                     </span>
+                  </td>
+                  <td style={tdStyle(t)}>
+                    {trackRecord[c.id] ? (
+                      <div style={{ fontSize: 11 }}>
+                        <div style={{ fontWeight: 700, color: t.textPrimary }}>
+                          {trackRecord[c.id].campaigns} kampanye
+                          {trackRecord[c.id].active > 0 && (
+                            <span style={{ marginLeft: 6, color: '#10B981', fontWeight: 600 }}>
+                              ({trackRecord[c.id].active} aktif)
+                            </span>
+                          )}
+                        </div>
+                        {trackRecord[c.id].total_collected > 0 && (
+                          <div style={{ color: '#EC4899', fontWeight: 600, marginTop: 2 }}>
+                            Rp {Number(trackRecord[c.id].total_collected).toLocaleString('id-ID')}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span style={{ fontSize: 11, color: t.textMuted }}>...</span>
+                    )}
                   </td>
                   <td style={tdStyle(t)}>
                     <StatusBadge status={c.status} rejectedAt={c.creator_kyc_rejected_at} />

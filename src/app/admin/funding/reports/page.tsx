@@ -300,6 +300,62 @@ export default function AdminReportsPage() {
         })}
       </div>
 
+      {/* ⭐ Smart Views */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
+        {[
+          {
+            key: 'overdue',
+            label: '🔴 Pending >7 Hari',
+            filter: () => { setActiveTab('pending'); setPage(1); },
+            active: false,
+            desc: 'Laporan pending lebih dari 7 hari',
+          },
+          {
+            key: 'no_report',
+            label: '⚠️ Kampanye Belum Laporan',
+            filter: () => { setActiveTab('all'); setPage(1); },
+            active: false,
+            desc: stats ? `${stats.campaigns_without_report} kampanye aktif belum laporan` : '',
+          },
+          {
+            key: 'approved',
+            label: '✅ Sudah Approve',
+            filter: () => switchTab('approved'),
+            active: activeTab === 'approved',
+            desc: '',
+          },
+        ].map(sv => (
+          <button
+            key={sv.key}
+            onClick={sv.filter}
+            title={sv.desc}
+            style={{
+              padding: '6px 14px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+              border: `1.5px solid ${
+                sv.key === 'no_report' && stats && stats.campaigns_without_report > 0
+                  ? '#EA580C'
+                  : sv.active ? '#EC4899' : t.sidebarBorder
+              }`,
+              background: sv.active ? 'rgba(236,72,153,0.1)' : 'transparent',
+              color: sv.key === 'no_report' && stats && stats.campaigns_without_report > 0
+                ? '#EA580C'
+                : sv.active ? '#EC4899' : t.textDim,
+              cursor: 'pointer',
+            }}
+          >
+            {sv.label}
+            {sv.key === 'no_report' && stats && stats.campaigns_without_report > 0 && (
+              <span style={{
+                marginLeft: 6, background: '#EA580C', color: '#fff',
+                fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 999,
+              }}>
+                {stats.campaigns_without_report}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
       {/* Search + Sort + Create */}
       <div style={{
         display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap', alignItems: 'center',

@@ -61,6 +61,8 @@ interface ScanResult {
   }>;
 }
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
 export default function AdminEscalationsPage() {
   const { t } = useContext(AdminThemeContext);
   const { user, token, isLoading: authLoading } = useAuth();
@@ -69,6 +71,60 @@ export default function AdminEscalationsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('unresolved');
+
+  // ⭐ Inline verify/reject state
+  const [verifyingId, setVerifyingId]       = useState<string | null>(null);
+  const [rejectModal, setRejectModal]       = useState<{ id: string; code: string } | null>(null);
+  const [rejectReason, setRejectReason]     = useState('');
+  const [actionSubmitting, setActionSubmitting] = useState(false);
+  const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  function showToast(ok: boolean, msg: string) {
+    setToast({ ok, msg });
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  async function handleInlineVerify(donationId: string) {
+    if (!token) return;
+    setVerifyingId(donationId);
+    try {
+      const res = await fetch(`${API_URL}/funding/donations/${donationId}/verify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify' }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(true, '✓ Donasi berhasil diverifikasi dari Escalations');
+        fetchDonations();
+        setSubNavRefresh(r => r + 1);
+      } else showToast(false, json.error?.message ?? 'Gagal verify');
+    } catch { showToast(false, 'Koneksi bermasalah'); }
+    finally { setVerifyingId(null); }
+  }
+
+  async function handleInlineReject() {
+    if (!token || !rejectModal) return;
+    if (rejectReason.trim().length < 10) {
+      showToast(false, 'Alasan minimal 10 karakter'); return;
+    }
+    setActionSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/funding/donations/${rejectModal.id}/verify`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'reject', reason: rejectReason.trim() }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(true, '✗ Donasi ditolak dari Escalations');
+        setRejectModal(null); setRejectReason('');
+        fetchDonations();
+        setSubNavRefresh(r => r + 1);
+      } else showToast(false, json.error?.message ?? 'Gagal reject');
+    } catch { showToast(false, 'Koneksi bermasalah'); }
+    finally { setActionSubmitting(false); }
+  }
 
   // Scan state
   const [scanning, setScanning] = useState(false);
@@ -213,6 +269,31 @@ export default function AdminEscalationsPage() {
       </div>
 
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px' }}>
+
+        {/* ⭐ Stats Header */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12, marginBottom: 20 }}>
+          <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 10, padding: 14, textAlign: 'center' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>Total Escalated</p>
+            <p style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary }}>{total}</p>
+          </div>
+          <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 10, padding: 14, textAlign: 'center' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', marginBottom: 4 }}>Unresolved</p>
+            <p style={{ fontSize: 24, fontWeight: 800, color: '#F59E0B' }}>
+              {donations.filter(d => d.verification_status === 'pending').length}
+            </p>
+          </div>
+          <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 10, padding: 14, textAlign: 'center' }}>
+            <p style={{ fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', marginBottom: 4 }}>Rata-rata Hari</p>
+            <p style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary }}>
+              {donations.length > 0
+                ? Math.round(donations.reduce((sum, d) => {
+                    return sum + Math.floor((Date.now() - new Date(d.escalated_to_admin_at).getTime()) / 86400000);
+                  }, 0) / donations.length)
+                : 0}
+            </p>
+          </div>
+        </div>
+
         {/* Scan Card */}
         <div style={{
           background: t.navHover,
@@ -456,13 +537,88 @@ export default function AdminEscalationsPage() {
                 Menampilkan {donations.length} dari {total} donasi
               </p>
               {donations.map(d => (
-                <EscalatedDonationCard key={d.id} donation={d} t={t} />
+                <EscalatedDonationCard
+                  key={d.id}
+                  donation={d}
+                  t={t}
+                  isVerifying={verifyingId === d.id}
+                  onVerify={() => handleInlineVerify(d.id)}
+                  onReject={() => setRejectModal({ id: d.id, code: d.donation_code })}
+                />
               ))}
             </>
           )}
         </div>
       </div>
       </div>
+      {/* ⭐ Reject Modal */}
+      {rejectModal && (
+        <div onClick={() => !actionSubmitting && setRejectModal(null)} style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
+          zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+        }}>
+          <div onClick={e => e.stopPropagation()} style={{
+            background: t.mainBg, borderRadius: 16, padding: 24, maxWidth: 440, width: '100%',
+          }}>
+            <h3 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary, marginBottom: 8 }}>
+              ✗ Tolak Donasi {rejectModal.code}
+            </h3>
+            <p style={{ fontSize: 12, color: t.textDim, marginBottom: 16 }}>
+              Alasan penolakan akan dikirim ke donor. Pastikan jelas.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Contoh: Transfer belum masuk rekening setelah 48 jam..."
+              rows={4} maxLength={500} disabled={actionSubmitting}
+              style={{
+                width: '100%', padding: '10px 12px', borderRadius: 10,
+                border: `1px solid ${t.sidebarBorder}`, background: t.mainBg,
+                color: t.textPrimary, fontSize: 13, resize: 'none',
+                fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+              }}
+            />
+            <p style={{ fontSize: 11, color: t.textMuted, textAlign: 'right', marginBottom: 16 }}>
+              {rejectReason.length}/500 · min 10 karakter
+            </p>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                onClick={() => { setRejectModal(null); setRejectReason(''); }}
+                disabled={actionSubmitting}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: 10,
+                  border: `1px solid ${t.sidebarBorder}`, background: 'transparent',
+                  color: t.textPrimary, fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                }}>Batal</button>
+              <button
+                onClick={handleInlineReject}
+                disabled={actionSubmitting || rejectReason.trim().length < 10}
+                style={{
+                  flex: 1, padding: '10px', borderRadius: 10, border: 'none',
+                  background: '#EF4444', color: '#fff',
+                  fontWeight: 700, fontSize: 13,
+                  cursor: actionSubmitting || rejectReason.trim().length < 10 ? 'not-allowed' : 'pointer',
+                  opacity: actionSubmitting || rejectReason.trim().length < 10 ? 0.5 : 1,
+                }}>
+                {actionSubmitting ? 'Mengirim...' : '✗ Tolak Donasi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 24, right: 24, zIndex: 70,
+          padding: '12px 20px', borderRadius: 12,
+          background: toast.ok ? '#10B981' : '#EF4444', color: '#fff',
+          fontWeight: 600, fontSize: 14, boxShadow: '0 12px 32px rgba(0,0,0,0.25)',
+        }}>
+          {toast.msg}
+        </div>
+      )}
+
     </AdminAuthGuard>
   );
 }
@@ -471,7 +627,14 @@ export default function AdminEscalationsPage() {
 // EscalatedDonationCard — theme-aware
 // ═══════════════════════════════════════════════════════════════
 
-function EscalatedDonationCard({ donation, t }: { donation: EscalatedDonation; t: any }) {
+function EscalatedDonationCard({
+  donation, t, isVerifying, onVerify, onReject,
+}: {
+  donation: EscalatedDonation; t: any;
+  isVerifying?: boolean;
+  onVerify?: () => void;
+  onReject?: () => void;
+}) {
   const statusMeta = (() => {
     switch (donation.verification_status) {
       case 'verified':
@@ -563,28 +726,58 @@ function EscalatedDonationCard({ donation, t }: { donation: EscalatedDonation; t
         </p>
       </div>
 
-      <Link
-        href={`/admin/funding/donations/${donation.id}`}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: 6,
-          width: '100%',
-          borderRadius: 10,
-          background: '#003526',
-          padding: '8px',
-          fontSize: 11,
-          fontWeight: 700,
-          color: '#fff',
-          textDecoration: 'none',
-          transition: 'opacity 150ms',
-        }}
-      >
-        <Eye size={12} />
-        Take-Over Verifikasi
-        <ChevronRight size={12} />
-      </Link>
+      {donation.verification_status === 'pending' ? (
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            onClick={onVerify}
+            disabled={isVerifying}
+            style={{
+              flex: 1, padding: '8px', borderRadius: 10, border: 'none',
+              background: '#10B981', color: '#fff',
+              fontSize: 11, fontWeight: 700, cursor: isVerifying ? 'not-allowed' : 'pointer',
+              opacity: isVerifying ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            }}
+          >
+            {isVerifying ? '...' : '✓ Verify'}
+          </button>
+          <button
+            onClick={onReject}
+            disabled={isVerifying}
+            style={{
+              flex: 1, padding: '8px', borderRadius: 10, border: 'none',
+              background: 'rgba(239,68,68,0.12)', color: '#EF4444',
+              fontSize: 11, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+            }}
+          >
+            ✗ Tolak
+          </button>
+          <Link
+            href={`/admin/funding/donations/${donation.id}`}
+            style={{
+              padding: '8px 10px', borderRadius: 10,
+              background: t.navHover, color: t.textDim,
+              fontSize: 11, fontWeight: 600, textDecoration: 'none',
+              display: 'flex', alignItems: 'center', gap: 4,
+              border: `1px solid ${t.sidebarBorder}`,
+            }}
+          >
+            <Eye size={11} /> Detail
+          </Link>
+        </div>
+      ) : (
+        <Link
+          href={`/admin/funding/donations/${donation.id}`}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            width: '100%', borderRadius: 10, background: t.navHover,
+            padding: '8px', fontSize: 11, fontWeight: 700, color: t.textPrimary,
+            textDecoration: 'none', border: `1px solid ${t.sidebarBorder}`,
+          }}
+        >
+          <Eye size={12} /> Lihat Detail
+        </Link>
+      )}
     </div>
   );
 }
