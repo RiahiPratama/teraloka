@@ -20,6 +20,9 @@
  * - Script handle migrasi legacy key 'tl_admin_theme' → 'teraloka-theme'
  *   biar consistent dengan ThemeProvider di runtime.
  * - Try/catch melindungi mode incognito strict yang ngeblock localStorage.
+ * - suppressHydrationWarning: React tidak bisa tahu konten script ini
+ *   saat SSR — flag ini memberi tahu React untuk skip hydration mismatch
+ *   check pada element ini (intentional, bukan workaround).
  */
 
 const themeScript = `
@@ -61,6 +64,7 @@ const themeScript = `
 export function ThemeScript() {
   return (
     <script
+      suppressHydrationWarning  // ← FIX: script ini intentionally berbeda SSR vs client
       // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: themeScript }}
     />

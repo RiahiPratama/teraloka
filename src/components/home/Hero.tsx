@@ -45,8 +45,13 @@ export default function Hero() {
   const [search, setSearch]               = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
   const [weather, setWeather]             = useState<any>(null)
+  // ⭐ FIX: mounted flag — render SERVICE_PILLS client-only
+  // Browser extensions (Dark Reader dll) memodifikasi DOM sebelum React hydrate
+  // menyebabkan SSR vs client mismatch. Client-only render = no mismatch.
+  const [mounted, setMounted]             = useState(false)
 
   useEffect(() => {
+    setMounted(true)
     fetch(`${API}/public/weather`)
       .then(r => r.json())
       .then(d => { if (d.success) setWeather(d.data) })
@@ -240,56 +245,59 @@ export default function Hero() {
           </div>
 
           {/* ── Service Pills — DESKTOP ONLY ── */}
-          <div className="hidden md:grid" style={{
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: 10,
-            maxWidth: 480,
-          }}>
-            {SERVICE_PILLS.map(pill => (
-              <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
-                <div
-                  style={{
-                    background: '#fff',
-                    border: `1.5px solid ${pill.border}`,
-                    borderRadius: 14,
-                    padding: '12px 10px',
-                    display: 'flex', flexDirection: 'column', gap: 6,
-                    boxShadow: '0 2px 8px rgba(0,53,38,0.05)',
-                    transition: 'all 0.15s',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={e => {
-                    ;(e.currentTarget as HTMLElement).style.background = pill.bg
-                    ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
-                    ;(e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,53,38,0.1)'
-                  }}
-                  onMouseLeave={e => {
-                    ;(e.currentTarget as HTMLElement).style.background = '#fff'
-                    ;(e.currentTarget as HTMLElement).style.transform = 'none'
-                    ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,53,38,0.05)'
-                  }}
-                >
-                  <div style={{
-                    width: 32, height: 32, borderRadius: 8,
-                    background: pill.bg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    fontSize: 16,
-                  }}>
-                    {pill.icon}
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: pill.color, lineHeight: 1.2 }}>
-                      {pill.label}
+          {/* ⭐ FIX: mounted guard mencegah SSR/client mismatch akibat browser extension */}
+          {mounted && (
+            <div className="hidden md:grid" style={{
+              gridTemplateColumns: 'repeat(4, 1fr)',
+              gap: 10,
+              maxWidth: 480,
+            }}>
+              {SERVICE_PILLS.map(pill => (
+                <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
+                  <div
+                    style={{
+                      background: '#fff',
+                      border: `1.5px solid ${pill.border}`,
+                      borderRadius: 14,
+                      padding: '12px 10px',
+                      display: 'flex', flexDirection: 'column', gap: 6,
+                      boxShadow: '0 2px 8px rgba(0,53,38,0.05)',
+                      transition: 'all 0.15s',
+                      cursor: 'pointer',
+                    }}
+                    onMouseEnter={e => {
+                      ;(e.currentTarget as HTMLElement).style.background = pill.bg
+                      ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,53,38,0.1)'
+                    }}
+                    onMouseLeave={e => {
+                      ;(e.currentTarget as HTMLElement).style.background = '#fff'
+                      ;(e.currentTarget as HTMLElement).style.transform = 'none'
+                      ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,53,38,0.05)'
+                    }}
+                  >
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8,
+                      background: pill.bg,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 16,
+                    }}>
+                      {pill.icon}
                     </div>
-                    <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 1 }}>
-                      {pill.sub}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: pill.color, lineHeight: 1.2 }}>
+                        {pill.label}
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 1 }}>
+                        {pill.sub}
+                      </div>
                     </div>
+                    <div style={{ fontSize: 11, color: pill.color }}>→</div>
                   </div>
-                  <div style={{ fontSize: 11, color: pill.color }}>→</div>
-                </div>
-              </Link>
-            ))}
-          </div>
+                </Link>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* RIGHT — floating cards (desktop only) */}

@@ -7,7 +7,7 @@ import {
   ArrowLeft, ShieldCheck, HeartHandshake, Users,
   TrendingUp, FileText, Calendar, CheckCircle2, Clock,
 } from 'lucide-react';
-import CampaignCard from '../_components/CampaignCard';
+import CampaignCard from '../../_components/CampaignCard';
 
 export const dynamic = 'force-dynamic';
 
