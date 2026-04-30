@@ -189,6 +189,10 @@ export default function DonatePage() {
       // Only include flag if professional mode (avoid noise di volunteer)
       if (campaign.operational_fee_mode === 'professional') {
         body.include_penggalang_fee = includePenggalangFee;
+        // Kirim custom amount kalau diisi — backend enforce batas
+        if (includePenggalangFee && customPenggalangFeeRaw > 0) {
+          body.custom_penggalang_fee = customPenggalangFeeRaw;
+        }
       }
 
       const res = await fetch(`${API}/funding/donate`, {
