@@ -147,7 +147,7 @@ export default function AdminPenggalangPage() {
 
     Promise.all(
       creators.map(c =>
-        fetch(`${API_URL}/funding/admin/campaigns?limit=100&creator_id=${c.id}`, {
+        fetch(`${API_URL}/funding/admin/creators/${c.id}/campaigns?limit=100`, {
           headers: { Authorization: `Bearer ${tk}` },
         }).then(r => r.json()).catch(() => null)
       )

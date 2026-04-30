@@ -114,7 +114,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
 
     async function fetchDonation() {
       try {
-        const res = await fetch(`${API}/funding/donations/${id}`);
+        const res = await fetch(`${API}/funding/admin/donations/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('tl_token') ?? ''}` } });
         const json = await res.json();
         if (json.success && json.data) {
           setDonation(json.data);
