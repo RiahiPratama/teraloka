@@ -1,5 +1,8 @@
+'use client';
+
 import Link from 'next/link';
-import { ShieldCheck, Heart, Users, Clock, CheckCircle2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ShieldCheck, Heart, Users, Clock, CheckCircle2, UserCircle2 } from 'lucide-react';
 import { formatRupiah } from '@/utils/format';
 
 type Campaign = {
@@ -16,6 +19,9 @@ type Campaign = {
   is_verified?: boolean;
   status?: string;
   deadline?: string;
+  // ⭐ Transparansi: penggalang info
+  creator_name?: string;
+  creator_id?: string;
 };
 
 type Props = {
@@ -49,6 +55,28 @@ function categoryLabel(cat?: string): string {
   return map[cat ?? ''] ?? (cat?.replace(/_/g, ' ') ?? 'Kemanusiaan');
 }
 
+// ⭐ Creator chip — button bukan Link karena nested inside card Link (invalid HTML)
+// Pakai router.push + stopPropagation biar klik chip tidak trigger card navigation
+function CreatorChip({ name, id }: { name?: string; id?: string }) {
+  const router = useRouter();
+  if (!name || !id) return null;
+  return (
+    <button
+      onClick={e => {
+        e.preventDefault();
+        e.stopPropagation();
+        router.push(`/fundraising/penggalang/${id}`);
+      }}
+      className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#0891B2] hover:text-[#003526] transition-colors mt-0.5 group/creator"
+    >
+      <UserCircle2 size={11} className="shrink-0" />
+      <span className="group-hover/creator:underline truncate max-w-[120px]">
+        {name}
+      </span>
+    </button>
+  );
+}
+
 export default function CampaignCard({ campaign: c, variant }: Props) {
   const pct = c.target_amount > 0 ? Math.min((c.collected_amount / c.target_amount) * 100, 100) : 0;
   const isCompleted = c.status === 'completed' || pct >= 100;
@@ -76,11 +104,8 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
               <Heart size={40} strokeWidth={1.8} className="text-[#EC4899]" />
             </div>
           )}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none" />
 
-          {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent pointer-events-none"></div>
-
-          {/* Top-right: Verified badge */}
           {c.is_verified && (
             <div className="absolute top-3 right-3">
               <div className="inline-flex items-center gap-1 bg-white/95 backdrop-blur-sm text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
@@ -89,8 +114,6 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
               </div>
             </div>
           )}
-
-          {/* Top-left: Urgent or Completed badge */}
           <div className="absolute top-3 left-3">
             {isCompleted ? (
               <div className="inline-flex items-center gap-1 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm">
@@ -104,8 +127,6 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
               </div>
             ) : null}
           </div>
-
-          {/* Bottom-left: Category */}
           <div className="absolute bottom-3 left-3">
             <span className="inline-block bg-white/90 backdrop-blur-sm text-gray-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
               {categoryLabel(c.category)}
@@ -115,7 +136,7 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-2 mb-1">
+          <h3 className="text-[15px] font-bold text-gray-900 leading-snug line-clamp-2 mb-0.5">
             {c.title}
           </h3>
           {c.beneficiary_name && (
@@ -123,6 +144,9 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
               untuk <span className="font-medium text-gray-700">{c.beneficiary_name}</span>
             </p>
           )}
+
+          {/* ⭐ Creator chip */}
+          <CreatorChip name={c.creator_name} id={c.creator_id} />
 
           {/* Progress */}
           <div className="mt-3">
@@ -189,8 +213,6 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
             <Heart size={28} strokeWidth={1.8} className="text-[#EC4899]" />
           </div>
         )}
-
-        {/* Completed overlay */}
         {isCompleted && (
           <div className="absolute inset-0 bg-emerald-500/90 flex items-center justify-center">
             <div className="text-center text-white">
@@ -199,14 +221,9 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
             </div>
           </div>
         )}
-
-        {/* Verified badge (compact) */}
         {!isCompleted && c.is_verified && (
           <div className="absolute top-1 right-1">
-            <span
-              className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 shadow-sm"
-              title="Terverifikasi"
-            >
+            <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500 shadow-sm" title="Terverifikasi">
               <ShieldCheck size={10} strokeWidth={3} className="text-white" />
             </span>
           </div>
@@ -215,22 +232,26 @@ export default function CampaignCard({ campaign: c, variant }: Props) {
 
       {/* Content */}
       <div className="flex-1 min-w-0 py-0.5">
-        {/* Category */}
         <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-0.5">
           {categoryLabel(c.category)}
         </p>
-
-        {/* Title */}
         <h3 className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug">
           {c.title}
         </h3>
 
-        {/* Beneficiary */}
-        {c.beneficiary_name && (
-          <p className="text-[11px] text-gray-400 mt-0.5 truncate">
-            untuk {c.beneficiary_name}
-          </p>
-        )}
+        {/* Beneficiary + Creator di satu baris */}
+        <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
+          {c.beneficiary_name && (
+            <p className="text-[11px] text-gray-400 truncate">
+              untuk {c.beneficiary_name}
+            </p>
+          )}
+          {c.creator_name && c.creator_id && (
+            <span className="text-[10px] text-gray-300">·</span>
+          )}
+          {/* ⭐ Creator chip */}
+          <CreatorChip name={c.creator_name} id={c.creator_id} />
+        </div>
 
         {/* Progress */}
         <div className="mt-2 h-1 w-full rounded-full bg-gray-100 overflow-hidden">

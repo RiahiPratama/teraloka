@@ -70,6 +70,32 @@ export default async function FundraisingPage({
     const { data } = await query;
     campaigns = data ?? [];
 
+    // ⭐ Transparansi: Batch fetch creator names untuk ditampilkan di card
+    // "Kenal orangnya dulu, baru percaya" — cultural fit Maluku Utara
+    if (campaigns.length > 0) {
+      const creatorIds = [...new Set(
+        campaigns.map((c: any) => c.creator_id).filter(Boolean)
+      )] as string[];
+
+      if (creatorIds.length > 0) {
+        const { data: creators } = await supabase
+          .from('users')
+          .select('id, name')
+          .in('id', creatorIds);
+
+        const creatorMap: Record<string, string> = {};
+        for (const u of creators ?? []) {
+          creatorMap[u.id] = u.name || 'Penggalang';
+        }
+
+        campaigns = campaigns.map((c: any) => ({
+          ...c,
+          creator_name: creatorMap[c.creator_id] || 'Penggalang',
+          creator_id:   c.creator_id ?? null,
+        }));
+      }
+    }
+
     // ═══ STATS: Single source of truth via Hono API ═══
     // BRAIN tier handles aggregation (Supabase = MEMORY only)
     // Returns LIFETIME stats: collected, disbursed, donors, active campaigns, reports
@@ -299,7 +325,7 @@ export default async function FundraisingPage({
           </div>
           <div>
             <p className="text-xs font-bold text-gray-800">100% transparan & terverifikasi</p>
-            <p className="text-xs text-gray-400">Dana langsung ke penerima via transfer bank.</p>
+            <p className="text-xs text-gray-400">Dana langsung ke Penerima Manfaat, diserahkan langsung oleh Penggalang.</p>
           </div>
         </div>
 
