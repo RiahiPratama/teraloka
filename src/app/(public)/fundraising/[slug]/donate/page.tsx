@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import {
   ArrowLeft, Heart, HeartHandshake, MessageCircle, User,
@@ -35,15 +34,12 @@ interface Campaign {
 
 const AMOUNT_PRESETS = [25000, 50000, 100000, 250000, 500000, 1000000];
 
-const NAME_PRESETS = ['Hamba Allah', 'Anonim'];
+const QUICK_NAMES = ['Hamba Allah', 'Keluarga Besar'];
 
 export default function DonatePage() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
-
-  // Auth — autofill donor info kalau sudah login
-  const { user } = useAuth();
 
   // Campaign data
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -60,8 +56,8 @@ export default function DonatePage() {
 
   // Penggalang fee opt-in (default FALSE — ethical opt-in pure, donor aktif klik)
   const [includePenggalangFee, setIncludePenggalangFee] = useState(false);
-  // Custom penggalang fee amount (professional mode — donor bisa atur sendiri)
-  const [customPenggalangFee, setCustomPenggalangFee] = useState('');
+  const [customPenggalangFeeRaw, setCustomPenggalangFeeRaw] = useState(0); // raw number
+  const [customPenggalangFeeDisplay, setCustomPenggalangFeeDisplay] = useState(''); // formatted display
 
   // Submit state
   const [submitting, setSubmitting] = useState(false);
@@ -104,11 +100,11 @@ export default function DonatePage() {
   const feeTeraloka = useMemo(() => calculateTeralokaFee(amount), [amount]);
 
   const feePenggalang = useMemo(() => {
-    if (!campaign) return 0;
-    if (!includePenggalangFee) return 0;
-    // Professional mode: pakai custom amount kalau diisi, fallback ke perhitungan %
-    if (campaign.operational_fee_mode === 'professional' && customPenggalangFee) {
-      return Number(customPenggalangFee.replace(/\D/g, '')) || 0;
+    if (!campaign || !includePenggalangFee) return 0;
+    // Professional mode: pakai custom amount kalau diisi (raw number, no parsing ambiguity)
+    if (campaign.operational_fee_mode === 'professional' && customPenggalangFeeRaw > 0) {
+      // Batasi: max = donation amount
+      return Math.min(customPenggalangFeeRaw, amount);
     }
     return calculatePenggalangFee(
       amount,
@@ -116,7 +112,7 @@ export default function DonatePage() {
       campaign.penggalang_fee_percent,
       includePenggalangFee
     );
-  }, [amount, campaign, includePenggalangFee, customPenggalangFee]);
+  }, [amount, campaign, includePenggalangFee, customPenggalangFeeRaw]);
 
   const totalEstimate = useMemo(
     () => calculateTotalEstimate(amount, feeTeraloka, feePenggalang),
@@ -184,7 +180,7 @@ export default function DonatePage() {
       const body: any = {
         campaign_id: campaign.id,
         donor_name: isAnonymous ? 'Anonim' : donorName.trim(),
-        donor_phone: donorPhone.trim() || undefined,
+        donor_phone: donorPhone.trim() || null,
         is_anonymous: isAnonymous,
         amount,
         message: message.trim() || undefined,
@@ -357,7 +353,13 @@ export default function DonatePage() {
               <input
                 type="checkbox"
                 checked={includePenggalangFee}
-                onChange={e => setIncludePenggalangFee(e.target.checked)}
+                onChange={e => {
+                  setIncludePenggalangFee(e.target.checked);
+                  if (!e.target.checked) {
+                    setCustomPenggalangFeeRaw(0);
+                    setCustomPenggalangFeeDisplay('');
+                  }
+                }}
                 className="mt-0.5 w-4 h-4 accent-[#EC4899]"
               />
               <div className="flex-1 min-w-0">
@@ -382,32 +384,6 @@ export default function DonatePage() {
                 )}
               </div>
             </label>
-
-            {/* Custom amount input — hanya muncul kalau checkbox aktif */}
-            {includePenggalangFee && (
-              <div className="mt-3">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-                  Sesuaikan nominal (opsional)
-                </label>
-                <div className="relative mt-1.5">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">Rp</span>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={customPenggalangFee}
-                    onChange={e => {
-                      const digits = e.target.value.replace(/\D/g, '');
-                      setCustomPenggalangFee(digits ? Number(digits).toLocaleString('id-ID') : '');
-                    }}
-                    placeholder={Math.round(amount * (campaign.penggalang_fee_percent / 100)).toLocaleString('id-ID')}
-                    className="w-full rounded-xl border border-pink-200 pl-10 pr-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-[#EC4899] bg-pink-50/30"
-                  />
-                </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Kosongkan untuk pakai default ({campaign.penggalang_fee_percent}% = {formatRupiah(Math.round(amount * (campaign.penggalang_fee_percent / 100)))})
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -429,12 +405,13 @@ export default function DonatePage() {
                   setDonorName(e.target.value);
                   setIsAnonymous(false);
                 }}
-                placeholder={user?.name || "Masukkan nama Anda"}
+                placeholder="Masukkan nama Anda"
                 disabled={isAnonymous}
                 className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] disabled:bg-gray-50"
               />
               <div className="flex flex-wrap gap-2 mt-2">
-                {NAME_PRESETS.map(name => (
+                <p className="w-full text-xs text-gray-400">Atau pilih cepat:</p>
+                {QUICK_NAMES.map(name => (
                   <button
                     key={name}
                     type="button"
@@ -453,7 +430,7 @@ export default function DonatePage() {
                       : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                   }`}
                 >
-                  {isAnonymous ? '✓ Anonim' : 'Pilih Anonim'}
+                  {isAnonymous ? '✓ Anonim' : '🎭 Donasi Anonim'}
                 </button>
               </div>
             </div>
@@ -470,11 +447,7 @@ export default function DonatePage() {
                 placeholder="081234567890"
                 className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
               />
-              <p className="text-xs text-gray-400 mt-1">
-                {user?.phone && donorPhone === user.phone
-                  ? '✓ Terisi otomatis dari akunmu'
-                  : 'Untuk konfirmasi donasi via WA'}
-              </p>
+              <p className="text-xs text-gray-400 mt-1">Untuk konfirmasi donasi via WA</p>
             </div>
           </div>
         </div>

@@ -8,6 +8,7 @@ import {
   Copy, Check, Hash, Loader2, Sparkles,
 } from 'lucide-react';
 import { formatRupiah } from '@/utils/format';
+import ShareBar from './_components/ShareBar';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -69,13 +70,7 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
     });
   }
 
-  // WA share link (untuk CTA bagikan campaign)
-  function getWAShareUrl() {
-    if (!donation?.campaigns) return '#';
-    const campaignUrl = `https://teraloka.vercel.app/fundraising/${slug}`;
-    const text = `Yuk bantu campaign ini di BADONASI! "${donation.campaigns.title}" — setiap donasi sangat berarti 🙏\n\n${campaignUrl}`;
-    return `https://wa.me/?text=${encodeURIComponent(text)}`;
-  }
+
 
   // Loading
   if (loading) {
@@ -202,14 +197,15 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
       {/* CTAs */}
       <div className="mx-auto max-w-md px-4 space-y-2.5">
         {donation?.campaigns && (
-          <a
-            href={getWAShareUrl()}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-sm font-bold py-4 rounded-2xl hover:opacity-90 transition-opacity shadow-md">
-            <Share2 size={16} />
-            Ajak Teman untuk Donasi
-          </a>
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+            <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <Share2 size={12} /> Ajak Teman Donasi
+            </p>
+            <ShareBar
+              url={`https://teraloka.vercel.app/fundraising/${slug}`}
+              title={donation.campaigns?.title ?? 'Bantu campaign ini di BADONASI!'}
+            />
+          </div>
         )}
 
         <Link
