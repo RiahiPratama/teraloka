@@ -675,7 +675,7 @@ function ActionButtons({
           Lihat Halaman Publik
         </Link>
         <Link
-          href={`/owner/campaign/${campaign.id}/reports/new`}
+          href={`/owner/campaign/${campaign.id}/reports`}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-sm font-extrabold text-white shadow-md hover:opacity-90 transition-opacity"
         >
           <FileText size={15} />
@@ -698,7 +698,7 @@ function ActionButtons({
           Lihat Halaman Publik
         </Link>
         <Link
-          href={`/owner/campaign/${campaign.id}/reports/new`}
+          href={`/owner/campaign/${campaign.id}/reports`}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#003526] text-sm font-bold text-white hover:opacity-90 transition-opacity"
         >
           <FileText size={15} />
@@ -1176,7 +1176,7 @@ function ReportsSection({
         </h2>
         {canCreate && (
           <Link
-            href={`/owner/campaign/${campaignId}/reports/new`}
+            href={`/owner/campaign/${campaignId}/reports`}
             className="text-[10px] font-bold text-[#BE185D] hover:underline"
           >
             + Buat Laporan
