@@ -252,7 +252,7 @@ export default function AdminDonationsPage() {
       const accrualCount = pendingCount + aktualCount + rejectedCount;
 
       setAccrualStats({
-        accrualAmount, accrualCount,
+        accrualAmount, accrualCount,  // = sum donation.amount all statuses
         pendingAmount, pendingCount,
         rejectedAmount, rejectedCount,
         aktualAmount, aktualCount,
@@ -438,7 +438,7 @@ export default function AdminDonationsPage() {
             📊 Rekonsiliasi Donasi
           </p>
           <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic' }}>
-            Rumus: Aktual = Akrual − Pending − Ditolak
+            Rumus: Aktual = Total Nominal − Pending − Ditolak
           </p>
         </div>
 
@@ -447,8 +447,8 @@ export default function AdminDonationsPage() {
           gap: 10,
         }}>
           <AccrualCard
-            label="📥 AKRUAL (Total)"
-            sublabel="Semua donasi tercatat"
+            label="📊 TOTAL NOMINAL"
+            sublabel="Komitmen donasi semua status"
             amount={accrualStats.accrualAmount}
             count={accrualStats.accrualCount}
             color="#3B82F6"
