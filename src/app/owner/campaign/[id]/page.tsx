@@ -11,7 +11,7 @@ import {
   Users, Clock, TrendingUp, AlertCircle, Loader2, Siren,
   Calendar, Landmark, UserCircle2, Tag, FileText,
   ExternalLink, MessageCircle, Sparkles, AlertTriangle,
-  Eye, EyeOff, Wallet, Shield, Building2, User, ChevronRight,
+  Eye, EyeOff, Wallet, Shield, Building2, User, ChevronRight, Banknote,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -680,6 +680,13 @@ function ActionButtons({
         >
           <FileText size={15} />
           Buat Laporan Dana
+        </Link>
+        <Link
+          href={`/owner/campaign/${campaign.id}/disbursements`}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
+        >
+          <Banknote size={14} />
+          Ajukan Pencairan Dana
         </Link>
       </div>
     );
