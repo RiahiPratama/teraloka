@@ -25,10 +25,10 @@ export interface Donation {
   is_anonymous: boolean;
   amount: number;
   operational_fee: number;
-  penggalang_fee?: number;
   total_transfer: number;
   verification_status: string; // pending | verified | rejected
   verified_at?: string;
+  verified_by_role?: string | null;
   rejection_reason?: string;
   created_at: string;
   // Enriched
@@ -296,15 +296,44 @@ export default function DonationsTable({
 
                   {/* Status */}
                   <td style={tdStyle(t, 'center')}>
-                    <span style={{
-                      display: 'inline-block',
-                      background: statusStyle.bg, color: statusStyle.text,
-                      fontSize: 10, fontWeight: 700,
-                      padding: '3px 8px', borderRadius: 999,
-                      textTransform: 'uppercase', letterSpacing: '0.04em',
-                    }}>
-                      {statusStyle.label}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                      <span style={{
+                        display: 'inline-block',
+                        background: statusStyle.bg, color: statusStyle.text,
+                        fontSize: 10, fontWeight: 700,
+                        padding: '3px 8px', borderRadius: 999,
+                        textTransform: 'uppercase', letterSpacing: '0.04em',
+                      }}>
+                        {statusStyle.label}
+                      </span>
+                      {/* ⭐ Verified by role badge */}
+                      {d.verification_status === 'verified' && d.verified_by_role && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700,
+                          padding: '1px 6px', borderRadius: 999,
+                          background: d.verified_by_role === 'penggalang'
+                            ? 'rgba(245,158,11,0.15)' : 'rgba(16,185,129,0.15)',
+                          color: d.verified_by_role === 'penggalang' ? '#B45309' : '#047857',
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {d.verified_by_role === 'penggalang' ? '👤 Penggalang' : '🛡️ Admin'}
+                        </span>
+                      )}
+                      {d.verification_status === 'rejected' && d.verified_by_role && (
+                        <span style={{
+                          fontSize: 9, fontWeight: 700,
+                          padding: '1px 6px', borderRadius: 999,
+                          background: d.verified_by_role === 'penggalang'
+                            ? 'rgba(245,158,11,0.15)' : 'rgba(239,68,68,0.15)',
+                          color: d.verified_by_role === 'penggalang' ? '#B45309' : '#DC2626',
+                          textTransform: 'uppercase', letterSpacing: '0.04em',
+                          whiteSpace: 'nowrap',
+                        }}>
+                          {d.verified_by_role === 'penggalang' ? '👤 Penggalang' : '🛡️ Admin'}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Actions */}
