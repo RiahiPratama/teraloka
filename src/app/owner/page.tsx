@@ -9,7 +9,7 @@ import {
   HeartHandshake, Plus, Inbox, ChevronRight, Loader2,
   Megaphone, FileEdit, Hourglass, CheckCircle2, XCircle,
   Home, Building2, Car, Wrench, Eye, MessageCircle,
-  TrendingUp, AlertTriangle, FileText,
+  TrendingUp, AlertTriangle, FileText, BarChart2,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -229,7 +229,7 @@ export default function OwnerDashboard() {
                     <p className="text-[11px] font-extrabold text-white truncate leading-tight">
                       {formatRupiah(totalCollected)}
                     </p>
-                    <p className="text-[10px] text-white/80 mt-0.5">Terkumpul</p>
+                    <p className="text-[10px] text-white/80 mt-0.5">Dana Masuk</p>
                   </div>
                 </div>
 
@@ -305,6 +305,21 @@ export default function OwnerDashboard() {
                     </div>
                   )}
                 </div>
+
+                {/* ⭐ Laporan Keuangan — full width button */}
+                <Link
+                  href="/owner/financial"
+                  className="mt-2 flex items-center justify-between w-full rounded-xl bg-[#EC4899]/20 backdrop-blur-sm border border-[#EC4899]/30 px-3 py-2.5 hover:bg-[#EC4899]/30 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart2 size={14} className="text-[#F9A8D4] shrink-0" />
+                    <div>
+                      <p className="text-[11px] font-bold text-white">Laporan Keuangan</p>
+                      <p className="text-[9px] text-white/70">Accrual · Saldo · Fee · Pendapatan · CSV</p>
+                    </div>
+                  </div>
+                  <ChevronRight size={14} className="text-white/80 shrink-0" />
+                </Link>
               </>
             )}
           </div>

@@ -772,9 +772,9 @@ function FinancialSummaryCard({
         <div className="grid grid-cols-2 gap-2 mb-2">
           <SummaryStat
             icon="trending_up"
-            label="Terkumpul"
+            label="Donasi Masuk"
             value={formatRupiahFull(summary.total_collected)}
-            sublabel={`${summary.verified_count} donasi`}
+            sublabel={`${summary.verified_count} verified`}
             color="#10B981"
           />
           <SummaryStat
@@ -800,40 +800,20 @@ function FinancialSummaryCard({
           />
         </div>
 
-        {/* Revenue section: Fee Penggalang + Kode Unik (phase-aware) */}
-        <div className="rounded-xl bg-gradient-to-r from-[#EC4899]/20 to-[#BE185D]/20 backdrop-blur-sm p-3 border border-[#EC4899]/30">
-          <p className="text-[10px] text-[#F9A8D4] font-bold uppercase tracking-wider mb-2">
-            🌸 Pendapatan Penggalang
-          </p>
-          <div className="grid grid-cols-2 gap-2">
+        {/* Link ke Laporan Keuangan */}
+        <a
+          href="/owner/financial"
+          className="flex items-center justify-between w-full rounded-xl bg-white/10 backdrop-blur-sm p-3 border border-white/10 hover:bg-white/20 transition-all"
+        >
+          <div className="flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#F9A8D4] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>bar_chart</span>
             <div>
-              <p className="text-[10px] text-[#F9A8D4] mb-0.5">Fee Penggalang</p>
-              <p className="text-sm font-extrabold text-white">
-                {formatRupiahFull(summary.total_fee_penggalang)}
-              </p>
-              <p className="text-[9px] text-[#95d3ba]">opt-in dari donor</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-[#F9A8D4] mb-0.5">
-                Kode Unik {isPhase1 ? '' : '(ke TeraLoka)'}
-              </p>
-              <p className={`text-sm font-extrabold ${isPhase1 ? 'text-white' : 'text-[#95d3ba] line-through'}`}>
-                {formatRupiahFull(summary.total_kode_unik)}
-              </p>
-              <p className="text-[9px] text-[#95d3ba]">
-                {isPhase1 ? 'kompensasi verifikasi' : 'Phase 2: ke platform'}
-              </p>
+              <p className="text-[11px] font-bold text-white">Laporan Keuangan Lengkap</p>
+              <p className="text-[9px] text-[#95d3ba]">Accrual · Saldo · Fee · Pendapatan · CSV Export</p>
             </div>
           </div>
-          <div className="mt-2 pt-2 border-t border-[#EC4899]/20">
-            <div className="flex items-center justify-between">
-              <p className="text-[10px] text-[#F9A8D4] font-bold uppercase tracking-wider">Total Pendapatan</p>
-              <p className="text-base font-extrabold text-[#F472B6]">
-                {formatRupiahFull(summary.penggalang_revenue)}
-              </p>
-            </div>
-          </div>
-        </div>
+          <span className="text-[#F9A8D4] text-lg">→</span>
+        </a>
       </div>
     </div>
   );
