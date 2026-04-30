@@ -168,6 +168,7 @@ export default async function CampaignPage({ params }: Props) {
       .from('disbursements')
       .select('*')
       .eq('campaign_id', campaign.id)
+      .eq('status', 'verified')
       .order('stage_number', { ascending: true });
     disbursements = data ?? [];
   } catch { }
@@ -257,7 +258,7 @@ export default async function CampaignPage({ params }: Props) {
       title: `Pencairan Tahap ${d.stage_number}`,
       subtitle: d.disbursed_to,
       notes: d.notes,
-      proof_url: d.proof_url,
+      proof_url: d.evidence_urls?.[0],
       stage_number: d.stage_number,
     });
   });
