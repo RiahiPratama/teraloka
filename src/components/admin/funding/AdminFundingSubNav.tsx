@@ -90,17 +90,22 @@ export default function AdminFundingSubNav({
     badge?: number;
     accent?: 'red';
   }[] = [
-    { href: '/admin/funding',           label: 'Dashboard' },
-    { href: '/admin/funding/campaigns', label: 'Kampanye',       badge: badges.pendingCampaigns },
-    { href: '/admin/funding/penggalang',label: 'Penggalang',     badge: badges.pendingCreators },
-    { href: '/admin/funding/donations', label: 'Donasi',         badge: badges.pendingDonations },
-    { href: '/admin/funding/disbursements', label: 'Pencairan',    badge: badges.pendingDisbursements },
-    { href: '/admin/funding/escalations', label: 'Escalations',  badge: badges.pendingEscalations, accent: 'red' },
-    { href: '/admin/funding/reports',   label: 'Laporan',        badge: badges.pendingReports },
-    { href: '/admin/funding/cashflow',  label: 'Aliran Uang' },
-    { href: '/admin/funding/fraud',     label: 'Fraud',          badge: badges.activeFraudFlags, accent: 'red' },
-    { href: '/admin/funding/fees',      label: 'Fee Settlement', badge: badges.pendingFees },
-    { href: '/admin/funding/settings',  label: 'Pengaturan' },
+    // ── Setup ──────────────────────────────────────────────────
+    { href: '/admin/funding',               label: 'Dashboard' },
+    { href: '/admin/funding/campaigns',     label: 'Kampanye',       badge: badges.pendingCampaigns },
+    // ── Transaction Flow ───────────────────────────────────────
+    { href: '/admin/funding/donations',     label: 'Donasi',         badge: badges.pendingDonations },
+    { href: '/admin/funding/reports',       label: 'Laporan',        badge: badges.pendingReports },
+    { href: '/admin/funding/disbursements', label: 'Pencairan',      badge: badges.pendingDisbursements },
+    // ── Monitoring ─────────────────────────────────────────────
+    { href: '/admin/funding/cashflow',      label: 'Aliran Uang' },
+    { href: '/admin/funding/fees',          label: 'Fee Settlement', badge: badges.pendingFees },
+    // ── Risk Layer ─────────────────────────────────────────────
+    { href: '/admin/funding/fraud',         label: 'Fraud',          badge: badges.activeFraudFlags,   accent: 'red' },
+    { href: '/admin/funding/escalations',   label: 'Escalations',    badge: badges.pendingEscalations, accent: 'red' },
+    // ── Config ─────────────────────────────────────────────────
+    { href: '/admin/funding/penggalang',    label: 'Penggalang',     badge: badges.pendingCreators },
+    { href: '/admin/funding/settings',      label: 'Pengaturan' },
   ];
 
   return (
