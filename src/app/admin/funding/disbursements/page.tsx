@@ -570,11 +570,11 @@ export default function AdminDisbursementsPage() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div style={{ display: 'flex', justifyContent: 'center', gap: 8 }}>
-            <PaginationBtn disabled={page <= 1} onClick={() => setPage(p => p - 1)}>← Prev</PaginationBtn>
+            <PaginationBtn disabled={page <= 1} onClick={() => updateUrl({ page: page - 1 })}>← Prev</PaginationBtn>
             <span style={{ padding: '8px 16px', fontSize: 13, color: t.textDim }}>
               {page} / {totalPages}
             </span>
-            <PaginationBtn disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next →</PaginationBtn>
+            <PaginationBtn disabled={page >= totalPages} onClick={() => updateUrl({ page: page + 1 })}>Next →</PaginationBtn>
           </div>
         )}
 
