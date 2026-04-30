@@ -426,6 +426,12 @@ export default function DonatePage() {
                 <p className="text-xs text-gray-400 mt-1">
                   Opsional · Kosongkan untuk tidak menambahkan
                 </p>
+                {/* ℹ️ Inline hint — informational, backend yang enforce */}
+                {customPenggalangFeeRaw > Math.round(amount * 0.05) && (
+                  <p className="text-xs text-amber-600 mt-1.5 font-medium">
+                    ℹ️ Maks 5% dari donasi (Rp {Math.round(amount * 0.05).toLocaleString('id-ID')}). Akan disesuaikan saat submit.
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -491,7 +497,11 @@ export default function DonatePage() {
                 placeholder="081234567890"
                 className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
               />
-              <p className="text-xs text-gray-400 mt-1">Untuk konfirmasi donasi via WA</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {isAnonymous
+                  ? 'Nama tampil sebagai Anonim ke publik. Nomor HP disimpan untuk konfirmasi & audit.'
+                  : 'Untuk konfirmasi donasi via WA'}
+              </p>
             </div>
           </div>
         </div>
