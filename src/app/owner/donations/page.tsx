@@ -64,6 +64,8 @@ interface CampaignOption {
 interface FinancialSummary {
   total_collected: number;
   total_disbursed: number;
+  total_disbursed_pending?: number;
+  total_under_audit?: number;
   saldo: number;
   total_fee_penggalang: number;
   total_kode_unik: number;
@@ -752,6 +754,18 @@ function FinancialSummaryCard({
           <p className="text-[10px] text-[#95d3ba] mt-1">
             Yang akan disalurkan ke penerima manfaat
           </p>
+          {/* Saldo breakdown - supaya penggalang tidak bingung */}
+          {(summary.total_disbursed_pending ?? 0) > 0 && (
+            <div className="mt-2 pt-2 border-t border-white/10">
+              <div className="flex justify-between items-center">
+                <span className="text-[10px] text-[#FBBF24]">⏳ Pencairan pending (belum disetujui admin)</span>
+                <span className="text-[10px] font-bold text-[#FBBF24]">-{formatRupiahFull(summary.total_disbursed_pending ?? 0)}</span>
+              </div>
+              <p className="text-[9px] text-[#95d3ba] mt-0.5">
+                Saldo = Terkumpul − Dicairkan − Pending Cair
+              </p>
+            </div>
+          )}
         </div>
 
         {/* 2x2 grid: Terkumpul, Disalurkan, Donatur, Pending */}
