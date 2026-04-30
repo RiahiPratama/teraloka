@@ -30,10 +30,11 @@ const Icons = {
 };
 
 const STATUS_TABS = [
-  { key: 'pending',  label: 'Pending' },
-  { key: 'verified', label: 'Verified' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'all',      label: 'Semua' },
+  { key: 'pending',     label: 'Pending' },
+  { key: 'verified',    label: 'Verified' },
+  { key: 'under_audit', label: '⚡ Under Audit' },
+  { key: 'rejected',    label: 'Rejected' },
+  { key: 'all',         label: 'Semua' },
 ];
 
 const SORT_OPTIONS = [
@@ -190,7 +191,7 @@ export default function AdminDonationsPage() {
   const fetchStatusCounts = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
-    const statuses = ['pending', 'verified', 'rejected'];
+    const statuses = ['pending', 'verified', 'under_audit', 'rejected'];
     const results = await Promise.all(
       statuses.map(s =>
         fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1`, {
@@ -221,7 +222,7 @@ export default function AdminDonationsPage() {
     if (!tk) return;
     try {
       // Fetch each status with high limit untuk dapat semua amount
-      const statuses = ['pending', 'verified', 'rejected'];
+      const statuses = ['pending', 'verified', 'under_audit', 'rejected'];
       const results = await Promise.all(
         statuses.map(s =>
           fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1000`, {

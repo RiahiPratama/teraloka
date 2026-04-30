@@ -66,9 +66,10 @@ function isRoundAmount(amount: number): boolean {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  pending:  { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B', label: 'Pending' },
-  verified: { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Verified' },
-  rejected: { bg: 'rgba(239,68,68,0.15)', text: '#EF4444', label: 'Rejected' },
+  pending:     { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B', label: 'Pending' },
+  verified:    { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Verified' },
+  rejected:    { bg: 'rgba(239,68,68,0.15)',  text: '#EF4444', label: 'Rejected' },
+  under_audit: { bg: 'rgba(234,179,8,0.15)',  text: '#CA8A04', label: 'Under Audit' },
 };
 
 const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
