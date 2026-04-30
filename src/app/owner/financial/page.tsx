@@ -158,14 +158,13 @@ function FinancialContent() {
     return getMonthRange(0); // this_month
   }, [periodKey, customFrom, customTo]);
 
-  // Fetch summary
+  // Fetch summary — SELALU all-time (cumulative ledger), bukan per periode
+  // Period filter hanya untuk tabel transaksi
   const fetchSummary = useCallback(async () => {
     if (!token) return;
     setLoading(true);
-    const { from, to } = dateRange();
     const params = new URLSearchParams();
-    if (from) params.set('from', from);
-    if (to)   params.set('to', to);
+    // Intentionally NO date filter — financial summary adalah running ledger
     if (campaignId) params.set('campaign_id', campaignId);
     try {
       const res = await fetch(`${API}/funding/my/financial-summary?${params}`, {
@@ -175,7 +174,7 @@ function FinancialContent() {
       if (json.success) setSummary(json.data);
     } catch {}
     setLoading(false);
-  }, [token, dateRange, campaignId]);
+  }, [token, campaignId]);
 
   // Fetch donations list
   const fetchDonations = useCallback(async () => {
@@ -260,62 +259,7 @@ function FinancialContent() {
 
       <div style={{ maxWidth: 720, margin: '0 auto', padding: '20px 16px' }}>
 
-        {/* Period Filter */}
-        <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,53,38,0.06)' }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-            Periode
-          </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: periodKey === 'custom' ? 12 : 0 }}>
-            {PERIOD_PRESETS.map(p => (
-              <button
-                key={p.key}
-                onClick={() => updateUrl({ period: p.key, from: null, to: null })}
-                style={{
-                  padding: '7px 14px', borderRadius: 20, fontSize: 13, fontWeight: 600,
-                  border: `1.5px solid ${periodKey === p.key ? '#003526' : '#E5E7EB'}`,
-                  background: periodKey === p.key ? '#003526' : '#fff',
-                  color: periodKey === p.key ? '#fff' : '#374151',
-                  cursor: 'pointer',
-                }}
-              >{p.label}</button>
-            ))}
-          </div>
-          {periodKey === 'custom' && (
-            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Dari</label>
-                <input type="date" value={customFrom}
-                  onChange={e => updateUrl({ from: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13, marginTop: 4 }} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: 11, color: '#6B7280', fontWeight: 600 }}>Sampai</label>
-                <input type="date" value={customTo}
-                  onChange={e => updateUrl({ to: e.target.value })}
-                  style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13, marginTop: 4 }} />
-              </div>
-            </div>
-          )}
 
-          {/* Campaign filter */}
-          {campaigns.length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <label style={{ fontSize: 11, color: '#6B7280', fontWeight: 600, display: 'block', marginBottom: 4 }}>
-                Filter Kampanye
-              </label>
-              <select
-                value={campaignId}
-                onChange={e => updateUrl({ campaign: e.target.value || null })}
-                style={{ width: '100%', padding: '8px 10px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 13, background: '#fff', color: '#111' }}
-              >
-                <option value="">Semua Kampanye</option>
-                {campaigns.map(c => (
-                  <option key={c.id} value={c.id}>{c.title}</option>
-                ))}
-              </select>
-            </div>
-          )}
-        </div>
 
         {/* Summary Cards */}
         {loading ? (
@@ -324,9 +268,14 @@ function FinancialContent() {
           <>
             {/* ── Akuntansi Layout ── */}
             <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,53,38,0.06)' }}>
-              <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
-                Ringkasan {periodLabel}
-              </p>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Ringkasan Kumulatif (Semua Waktu)
+                </p>
+                <span style={{ fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' }}>
+                  Tabel di bawah: {periodLabel}
+                </span>
+              </div>
 
               {/* 1. Accrual — Total Masuk Rekening */}
               <div style={{ background: 'rgba(0,53,38,0.04)', border: '1px solid rgba(0,53,38,0.12)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
@@ -455,24 +404,70 @@ function FinancialContent() {
 
         {/* Transaction Table */}
         <div style={{ background: '#fff', borderRadius: 16, overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,53,38,0.06)' }}>
-          <div style={{ padding: '14px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #F3F4F6' }}>
-            <p style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>
-              Riwayat Transaksi
-              <span style={{ fontSize: 12, fontWeight: 400, color: '#6B7280', marginLeft: 8 }}>
-                {totalTransaksi} donasi
-              </span>
-            </p>
-            <button
-              onClick={handleExport}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 6,
-                padding: '7px 14px', borderRadius: 10,
-                border: '1.5px solid #003526', background: '#003526', color: '#fff',
-                fontSize: 12, fontWeight: 700, cursor: 'pointer',
-              }}
-            >
-              ⬇ Export CSV
-            </button>
+          {/* Table header + filter controls */}
+          <div style={{ padding: '14px 16px', borderBottom: '1px solid #F3F4F6' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+              <p style={{ fontSize: 14, fontWeight: 700, color: '#111' }}>
+                Riwayat Transaksi
+                <span style={{ fontSize: 12, fontWeight: 400, color: '#6B7280', marginLeft: 8 }}>
+                  {totalTransaksi} donasi
+                </span>
+              </p>
+              <button
+                onClick={handleExport}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 6,
+                  padding: '7px 14px', borderRadius: 10,
+                  border: '1.5px solid #003526', background: '#003526', color: '#fff',
+                  fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                }}
+              >
+                ⬇ Export CSV
+              </button>
+            </div>
+
+            {/* ⭐ Period + Campaign filter — di dalam table card */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 8 }}>
+              {PERIOD_PRESETS.map(p => (
+                <button
+                  key={p.key}
+                  onClick={() => updateUrl({ period: p.key, from: null, to: null })}
+                  style={{
+                    padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600,
+                    border: `1.5px solid ${periodKey === p.key ? '#003526' : '#E5E7EB'}`,
+                    background: periodKey === p.key ? '#003526' : '#fff',
+                    color: periodKey === p.key ? '#fff' : '#374151',
+                    cursor: 'pointer',
+                  }}
+                >{p.label}</button>
+              ))}
+            </div>
+
+            {periodKey === 'custom' && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
+                <input type="date" value={customFrom}
+                  onChange={e => updateUrl({ from: e.target.value })}
+                  placeholder="Dari"
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 12 }} />
+                <input type="date" value={customTo}
+                  onChange={e => updateUrl({ to: e.target.value })}
+                  placeholder="Sampai"
+                  style={{ flex: 1, padding: '7px 10px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 12 }} />
+              </div>
+            )}
+
+            {campaigns.length > 0 && (
+              <select
+                value={campaignId}
+                onChange={e => updateUrl({ campaign: e.target.value || null })}
+                style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1px solid #E5E7EB', fontSize: 12, background: '#fff', color: '#111' }}
+              >
+                <option value="">Semua Kampanye</option>
+                {campaigns.map(c => (
+                  <option key={c.id} value={c.id}>{c.title}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           {donLoading ? (

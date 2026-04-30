@@ -45,6 +45,8 @@ export default function OwnerDashboard() {
   const [campaignStats, setCampaignStats] = useState<CampaignStats | null>(null);
   const [pendingDonations, setPendingDonations] = useState<number>(0);
   const [fetchingBadonasi, setFetchingBadonasi] = useState(false);
+  // ⭐ Financial summary for accurate accrual display
+  const [accrualTotal, setAccrualTotal] = useState<number>(0);
 
   // ⭐ Opsi C: active campaign ID (kalau hanya 1 aktif)
   const [activeCampaignId, setActiveCampaignId] = useState<string | null>(null);
@@ -75,8 +77,13 @@ export default function OwnerDashboard() {
       fetch(`${API}/funding/my/donations?status=pending&limit=1`, {
         headers: { Authorization: `Bearer ${token}` },
       }).then(r => r.json()).catch(() => null),
+
+      // ⭐ Fetch total accrual (semua uang masuk termasuk fee + kode unik)
+      fetch(`${API}/funding/my/financial-summary`, {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(r => r.json()).catch(() => null),
     ])
-      .then(([statsRes, pendingRes]) => {
+      .then(([statsRes, pendingRes, financialRes]) => {
         if (statsRes?.success) {
           const stats: CampaignStats = statsRes.data;
           setCampaignStats(stats);
@@ -98,6 +105,15 @@ export default function OwnerDashboard() {
         if (pendingRes?.success) {
           const total = pendingRes?.meta?.total ?? pendingRes?.data?.total ?? 0;
           setPendingDonations(total);
+        }
+
+        // ⭐ Set accrual total (total_accrual = donasi + fee + kode unik + fee penggalang)
+        if (financialRes?.success) {
+          const f = financialRes.data;
+          const accrual = f.total_accrual
+            || (f.total_collected + f.total_operational_fee + f.total_kode_unik + f.total_fee_penggalang)
+            || 0;
+          setAccrualTotal(accrual);
         }
       })
       .finally(() => setFetchingBadonasi(false));
@@ -227,9 +243,9 @@ export default function OwnerDashboard() {
                   </div>
                   <div className="rounded-xl bg-white/10 backdrop-blur-sm p-3 text-center">
                     <p className="text-[11px] font-extrabold text-white truncate leading-tight">
-                      {formatRupiah(totalCollected)}
+                      {formatRupiah(accrualTotal || totalCollected)}
                     </p>
-                    <p className="text-[10px] text-white/80 mt-0.5">Dana Masuk</p>
+                    <p className="text-[10px] text-white/80 mt-0.5">Accrual</p>
                   </div>
                 </div>
 
