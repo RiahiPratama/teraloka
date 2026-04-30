@@ -62,6 +62,7 @@ export default function DonatePage() {
   // Submit state
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState('');
+  const [feeSuggestion, setFeeSuggestion] = useState<{ message: string; suggested: number } | null>(null);
 
   // Fetch campaign
   useEffect(() => {
@@ -205,7 +206,18 @@ export default function DonatePage() {
       const donationId = json?.data?.donation?.id ?? json?.data?.id;
 
       if (res.ok && json.success && donationId) {
+        setFeeSuggestion(null);
         router.push(`/fundraising/${slug}/konfirmasi?id=${donationId}`);
+      } else if (
+        json?.error?.code === 'PENGGALANG_FEE_EXCEEDED' ||
+        json?.error?.code === 'PENGGALANG_FEE_INVALID'
+      ) {
+        // Backend tolak fee terlalu besar — tampilkan saran ke donor
+        setFeeSuggestion({
+          message: json.error.message,
+          suggested: json.error.suggested_fee ?? 0,
+        });
+        setSubmitting(false);
       } else {
         setSubmitError(json?.error?.message || 'Gagal membuat donasi. Coba lagi.');
         setSubmitting(false);
@@ -538,6 +550,43 @@ export default function DonatePage() {
 
           {validationMsg && (
             <p className="text-xs text-amber-600 mb-3 text-center font-medium">{validationMsg}</p>
+          )}
+
+          {/* Fee suggestion banner */}
+          {feeSuggestion && (
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded-2xl p-4">
+              <p className="text-sm font-bold text-amber-800 mb-1">⚠️ Fee penggalang terlalu besar</p>
+              <p className="text-xs text-amber-700 leading-relaxed mb-3">{feeSuggestion.message}</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomPenggalangFeeRaw(feeSuggestion.suggested);
+                    setCustomPenggalangFeeDisplay(
+                      feeSuggestion.suggested > 0
+                        ? feeSuggestion.suggested.toLocaleString('id-ID')
+                        : ''
+                    );
+                    setFeeSuggestion(null);
+                  }}
+                  className="flex-1 bg-amber-600 text-white text-xs font-bold py-2.5 rounded-xl hover:bg-amber-700 transition-colors"
+                >
+                  Pakai Rp {feeSuggestion.suggested.toLocaleString('id-ID')}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIncludePenggalangFee(false);
+                    setCustomPenggalangFeeRaw(0);
+                    setCustomPenggalangFeeDisplay('');
+                    setFeeSuggestion(null);
+                  }}
+                  className="flex-1 border border-amber-300 text-amber-700 text-xs font-bold py-2.5 rounded-xl hover:bg-amber-100 transition-colors"
+                >
+                  Batalkan fee penggalang
+                </button>
+              </div>
+            </div>
           )}
 
           {submitError && (
