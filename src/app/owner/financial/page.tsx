@@ -316,7 +316,7 @@ function FinancialContent() {
                   </p>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                     <FinRow label="Total Fee Terkumpul dari Donor" value={rp(summary.total_operational_fee)} color="#78350F" />
-                    {feeSummary && (summary.total_fee_remitted ?? 0) > 0 && (
+                    {(summary.total_fee_remitted ?? 0) > 0 && (
                       <FinRow
                         label={'Sudah Disetor ke TeraLoka'}
                         value={`−${rp(summary.total_fee_remitted ?? 0)}`}
