@@ -55,7 +55,9 @@ function exportCSV(rows: any[], filename: string) {
 }
 
 interface Summary {
-  total_collected: number;
+  total_accrual: number;           // Total masuk rekening (donasi+fee+kode)
+  total_collected: number;         // Nominal donasi saja
+  total_operational_fee: number;   // Fee TeraLoka (kewajiban setor)
   total_under_audit: number;
   total_disbursed: number;
   total_disbursed_pending: number;
@@ -297,59 +299,91 @@ function FinancialContent() {
           <div style={{ textAlign: 'center', padding: 40, color: '#6B7280', fontSize: 13 }}>Memuat ringkasan...</div>
         ) : summary && (
           <>
-            {/* Main Financial Cards */}
+            {/* ── Akuntansi Layout ── */}
             <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginBottom: 16, boxShadow: '0 1px 4px rgba(0,53,38,0.06)' }}>
               <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 12 }}>
                 Ringkasan {periodLabel}
               </p>
 
-              {/* Verified */}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 10 }}>
-                <div style={{ background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 12, padding: 14 }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#10B981', marginBottom: 4 }}>✅ SUDAH DIVERIFIKASI</p>
-                  <p style={{ fontSize: 20, fontWeight: 800, color: '#065F46' }}>{rp(summary.total_collected)}</p>
-                  <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{summary.verified_count} donasi</p>
-                </div>
-                {summary.total_under_audit > 0 && (
-                  <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 12, padding: 14 }}>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', marginBottom: 4 }}>⏳ UNDER AUDIT</p>
-                    <p style={{ fontSize: 20, fontWeight: 800, color: '#92400E' }}>{rp(summary.total_under_audit)}</p>
-                    <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>{summary.under_audit_count} donasi • menunggu resolusi</p>
+              {/* 1. Accrual — Total Masuk Rekening */}
+              <div style={{ background: 'rgba(0,53,38,0.04)', border: '1px solid rgba(0,53,38,0.12)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#003526', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  📥 Accrual — Total Uang Masuk Rekening
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
+                  <FinRow label={`Nominal Donasi (${summary.verified_count} verified)`} value={rp(summary.total_collected)} color="#065F46" />
+                  <FinRow label="Fee Operasional (TeraLoka)" value={rp(summary.total_operational_fee)} color="#374151" />
+                  <FinRow label="Kode Unik Verifikasi" value={rp(summary.total_kode_unik)} color="#374151" />
+                  {summary.total_fee_penggalang > 0 && (
+                    <FinRow label="Fee Penggalang (opt-in)" value={rp(summary.total_fee_penggalang)} color="#374151" />
+                  )}
+                  <div style={{ borderTop: '1px solid rgba(0,53,38,0.1)', paddingTop: 8, marginTop: 2 }}>
+                    <FinRow label="TOTAL ACCRUAL" value={rp(summary.total_accrual || (summary.total_collected + summary.total_operational_fee + summary.total_kode_unik + summary.total_fee_penggalang))} color="#003526" bold />
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* Saldo Breakdown */}
+              {/* Under Audit badge */}
+              {summary.total_under_audit > 0 && (
+                <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>⏳ Under Audit — {summary.under_audit_count} donasi</p>
+                    <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Dana sudah masuk rekening, menunggu resolusi mismatch</p>
+                  </div>
+                  <p style={{ fontSize: 16, fontWeight: 800, color: '#92400E' }}>{rp(summary.total_under_audit)}</p>
+                </div>
+              )}
+
+              {/* 2. Saldo Breakdown */}
               <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: '#6B7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  💰 Saldo di Rekening
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                  💰 Saldo di Rekening (Dana Penerima)
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  <FinRow label="Terkumpul (verified)" value={rp(summary.total_collected)} color="#065F46" />
-                  <FinRow label="Sudah Dicairkan" value={`-${rp(summary.total_disbursed)}`} color="#EF4444" />
+                  <FinRow label="Nominal Donasi Terkumpul" value={rp(summary.total_collected)} color="#065F46" />
+                  <FinRow label="Sudah Disalurkan ke Penerima" value={`−${rp(summary.total_disbursed)}`} color="#EF4444" />
                   {summary.total_disbursed_pending > 0 && (
-                    <FinRow label="Pencairan Pending (belum disetujui admin)" value={`-${rp(summary.total_disbursed_pending)}`} color="#F59E0B" dim />
+                    <FinRow label="Pencairan Diajukan (pending approval)" value={`−${rp(summary.total_disbursed_pending)}`} color="#F59E0B" dim />
                   )}
                   <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: 8, marginTop: 2 }}>
                     <FinRow label="SALDO AKTUAL" value={rp(Math.max(0, summary.saldo))} color="#003526" bold />
                   </div>
                 </div>
+                {summary.total_disbursed_pending > 0 && (
+                  <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 8, fontStyle: 'italic' }}>
+                    * Saldo = Terkumpul − Disalurkan − Pencairan Pending
+                  </p>
+                )}
               </div>
 
-              {/* Revenue Breakdown */}
+              {/* 3. Fee TeraLoka (kewajiban) */}
+              {summary.total_operational_fee > 0 && (
+                <div style={{ background: '#FEF3C7', border: '1px solid #FDE68A', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#92400E', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>
+                    🏦 Fee TeraLoka — Kewajiban Setor
+                  </p>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <p style={{ fontSize: 12, color: '#78350F' }}>Fee operasional platform (sudah diterima dari donor)</p>
+                    <p style={{ fontSize: 16, fontWeight: 800, color: '#92400E', fontFamily: 'monospace' }}>{rp(summary.total_operational_fee)}</p>
+                  </div>
+                  <p style={{ fontSize: 10, color: '#B45309', marginTop: 6 }}>
+                    Disetor ke TeraLoka secara periodik sesuai jadwal settlement
+                  </p>
+                </div>
+              )}
+
+              {/* 4. Pendapatan Penggalang */}
               {(summary.total_fee_penggalang > 0 || summary.total_kode_unik > 0) && (
-                <div style={{ background: '#FFF8F0', border: '1px solid rgba(236,72,153,0.15)', borderRadius: 12, padding: 14 }}>
-                  <p style={{ fontSize: 11, fontWeight: 700, color: '#BE185D', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    🎁 Pendapatan Penggalang
+                <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 12, padding: 14 }}>
+                  <p style={{ fontSize: 10, fontWeight: 700, color: '#BE185D', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                    🎁 Pendapatan Pribadi Penggalang
                   </p>
                   {summary.total_fee_penggalang > 0 && (
-                    <FinRow label="Fee Penggalang (opt-in donor)" value={rp(summary.total_fee_penggalang)} color="#374151" />
+                    <FinRow label="Fee Operasional Penggalang (opt-in donor)" value={rp(summary.total_fee_penggalang)} color="#374151" />
                   )}
-                  {summary.total_kode_unik > 0 && (
-                    <FinRow label="Kode Unik (kompensasi verifikasi)" value={rp(summary.total_kode_unik)} color="#374151" />
-                  )}
+                  <FinRow label="Kode Unik (kompensasi verifikasi)" value={rp(summary.total_kode_unik)} color="#374151" />
                   <div style={{ borderTop: '1px solid #FECDD3', paddingTop: 8, marginTop: 6 }}>
-                    <FinRow label="TOTAL PENDAPATAN" value={rp(summary.penggalang_revenue)} color="#BE185D" bold />
+                    <FinRow label="TOTAL PENDAPATAN PRIBADI" value={rp(summary.penggalang_revenue)} color="#BE185D" bold />
                   </div>
                 </div>
               )}
