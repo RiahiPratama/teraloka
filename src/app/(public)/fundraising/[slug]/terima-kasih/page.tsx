@@ -8,7 +8,7 @@ import {
   Copy, Check, Hash, Loader2, Sparkles,
 } from 'lucide-react';
 import { formatRupiah } from '@/utils/format';
-import ShareBar from './_components/ShareBar';
+import ShareBar from '../_components/ShareBar';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
