@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
 import Link from 'next/link';
 import {
   ArrowLeft, Heart, HeartHandshake, MessageCircle, User,
@@ -41,6 +42,9 @@ export default function DonatePage() {
   const router = useRouter();
   const slug = params?.slug as string;
 
+  // Auth — autofill donor info kalau sudah login
+  const { user } = useAuth();
+
   // Campaign data
   const [campaign, setCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,6 +60,8 @@ export default function DonatePage() {
 
   // Penggalang fee opt-in (default FALSE — ethical opt-in pure, donor aktif klik)
   const [includePenggalangFee, setIncludePenggalangFee] = useState(false);
+  // Custom penggalang fee amount (professional mode — donor bisa atur sendiri)
+  const [customPenggalangFee, setCustomPenggalangFee] = useState('');
 
   // Submit state
   const [submitting, setSubmitting] = useState(false);
@@ -99,13 +105,18 @@ export default function DonatePage() {
 
   const feePenggalang = useMemo(() => {
     if (!campaign) return 0;
+    if (!includePenggalangFee) return 0;
+    // Professional mode: pakai custom amount kalau diisi, fallback ke perhitungan %
+    if (campaign.operational_fee_mode === 'professional' && customPenggalangFee) {
+      return Number(customPenggalangFee.replace(/\D/g, '')) || 0;
+    }
     return calculatePenggalangFee(
       amount,
       campaign.operational_fee_mode,
       campaign.penggalang_fee_percent,
       includePenggalangFee
     );
-  }, [amount, campaign, includePenggalangFee]);
+  }, [amount, campaign, includePenggalangFee, customPenggalangFee]);
 
   const totalEstimate = useMemo(
     () => calculateTotalEstimate(amount, feeTeraloka, feePenggalang),
@@ -371,6 +382,32 @@ export default function DonatePage() {
                 )}
               </div>
             </label>
+
+            {/* Custom amount input — hanya muncul kalau checkbox aktif */}
+            {includePenggalangFee && (
+              <div className="mt-3">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                  Sesuaikan nominal (opsional)
+                </label>
+                <div className="relative mt-1.5">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={customPenggalangFee}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '');
+                      setCustomPenggalangFee(digits ? Number(digits).toLocaleString('id-ID') : '');
+                    }}
+                    placeholder={Math.round(amount * (campaign.penggalang_fee_percent / 100)).toLocaleString('id-ID')}
+                    className="w-full rounded-xl border border-pink-200 pl-10 pr-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-[#EC4899] bg-pink-50/30"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Kosongkan untuk pakai default ({campaign.penggalang_fee_percent}% = {formatRupiah(Math.round(amount * (campaign.penggalang_fee_percent / 100)))})
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -392,7 +429,7 @@ export default function DonatePage() {
                   setDonorName(e.target.value);
                   setIsAnonymous(false);
                 }}
-                placeholder="Masukkan nama Anda"
+                placeholder={user?.name || "Masukkan nama Anda"}
                 disabled={isAnonymous}
                 className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] disabled:bg-gray-50"
               />
@@ -433,7 +470,11 @@ export default function DonatePage() {
                 placeholder="081234567890"
                 className="mt-1.5 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
               />
-              <p className="text-xs text-gray-400 mt-1">Untuk konfirmasi donasi via WA</p>
+              <p className="text-xs text-gray-400 mt-1">
+                {user?.phone && donorPhone === user.phone
+                  ? '✓ Terisi otomatis dari akunmu'
+                  : 'Untuk konfirmasi donasi via WA'}
+              </p>
             </div>
           </div>
         </div>
