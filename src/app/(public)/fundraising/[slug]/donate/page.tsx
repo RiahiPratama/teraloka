@@ -104,7 +104,7 @@ export default function DonatePage() {
     // Professional mode: pakai custom amount kalau diisi (raw number, no parsing ambiguity)
     if (campaign.operational_fee_mode === 'professional' && customPenggalangFeeRaw > 0) {
       // Batasi: max = donation amount
-      return Math.min(customPenggalangFeeRaw, amount);
+      return customPenggalangFeeRaw;
     }
     return calculatePenggalangFee(
       amount,
@@ -384,6 +384,34 @@ export default function DonatePage() {
                 )}
               </div>
             </label>
+
+            {/* ⭐ Custom fee input — muncul setelah checkbox dicentang */}
+            {includePenggalangFee && (
+              <div className="mt-3">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wide">
+                  Sesuaikan nominal (opsional)
+                </label>
+                <div className="relative mt-1.5">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-400">Rp</span>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={customPenggalangFeeDisplay}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/\D/g, '');
+                      const num = Number(raw) || 0;
+                      setCustomPenggalangFeeRaw(num);
+                      setCustomPenggalangFeeDisplay(raw ? num.toLocaleString('id-ID') : '');
+                    }}
+                    placeholder="0"
+                    className="w-full rounded-xl border border-pink-200 pl-10 pr-4 py-2.5 text-sm font-bold text-gray-900 outline-none focus:border-[#EC4899] bg-pink-50/30"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Opsional · Kosongkan untuk tidak menambahkan
+                </p>
+              </div>
+            )}
           </div>
         )}
 
