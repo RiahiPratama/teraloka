@@ -35,6 +35,7 @@ interface DonationDetail {
   is_anonymous: boolean;
   amount: number;
   operational_fee: number;
+  penggalang_fee?: number;
   total_transfer: number;
   donation_code: string;
   message: string | null;
@@ -114,7 +115,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
 
     async function fetchDonation() {
       try {
-        const res = await fetch(`${API}/funding/admin/donations/${id}`, { headers: { Authorization: `Bearer ${localStorage.getItem('tl_token') ?? ''}` } });
+        const res = await fetch(`${API}/funding/donations/${id}`);
         const json = await res.json();
         if (json.success && json.data) {
           setDonation(json.data);
@@ -325,17 +326,17 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
       <div className="bg-white rounded-2xl border border-gray-100 p-5 mb-4">
         <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold mb-2">Campaign</p>
         <Link
-          href={`/fundraising/${donation.campaigns.slug}`}
+          href={`/fundraising/${donation.campaigns?.slug ?? ''}`}
           target="_blank"
           className="flex items-center gap-3 hover:opacity-80 transition-opacity"
         >
-          {donation.campaigns.cover_image_url && (
-            <img src={donation.campaigns.cover_image_url} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0" />
+          {donation.campaigns?.cover_image_url && (
+            <img src={donation.campaigns?.cover_image_url} alt="" className="w-14 h-14 rounded-xl object-cover shrink-0" />
           )}
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold text-gray-900 truncate">{donation.campaigns.title}</p>
+            <p className="text-sm font-bold text-gray-900 truncate">{donation.campaigns?.title}</p>
             <p className="text-xs text-gray-500 mt-0.5">
-              Terkumpul {formatRupiah(donation.campaigns.collected_amount)} / {formatRupiah(donation.campaigns.target_amount)}
+              Terkumpul {formatRupiah(donation.campaigns?.collected_amount ?? 0)} / {formatRupiah(donation.campaigns?.target_amount ?? 0)}
             </p>
           </div>
           <ExternalLink size={14} className="text-gray-400 shrink-0" />
@@ -390,6 +391,12 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
               <span className="font-bold text-[#BA7517]">{formatRupiah(donation.operational_fee)}</span>
             </div>
           )}
+          {(donation.penggalang_fee ?? 0) > 0 && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Fee Penggalang</span>
+              <span className="font-bold text-[#EC4899]">{formatRupiah(donation.penggalang_fee!)}</span>
+            </div>
+          )}
           <div className="flex justify-between">
             <span className="text-gray-600 flex items-center gap-1.5">
               <Hash size={11} /> Kode unik
@@ -405,7 +412,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         </div>
         <div className="mt-3 rounded-lg bg-amber-50 border border-amber-100 p-3">
           <p className="text-[11px] text-amber-800 leading-relaxed">
-            💡 <strong>Verifikasi:</strong> nominal yang masuk ke rekening <strong>{donation.campaigns.bank_name} · {donation.campaigns.bank_account_number}</strong> harus <strong>PERSIS {formatRupiah(donation.total_transfer)}</strong>. Kalau beda → input nominal aktual di bawah.
+            💡 <strong>Verifikasi:</strong> nominal yang masuk ke rekening <strong>{donation.campaigns?.bank_name} · {donation.campaigns?.bank_account_number}</strong> harus <strong>PERSIS {formatRupiah(donation.total_transfer)}</strong>. Kalau beda → input nominal aktual di bawah.
           </p>
         </div>
       </div>

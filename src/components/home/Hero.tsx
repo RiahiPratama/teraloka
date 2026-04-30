@@ -245,13 +245,14 @@ export default function Hero() {
           </div>
 
           {/* ── Service Pills — DESKTOP ONLY ── */}
-          {/* ⭐ FIX: div always rendered (avoid SSR mismatch), children mount-guarded */}
-          <div className="hidden md:grid" suppressHydrationWarning style={{
+          {/* ⭐ FIX: selalu render (SSR + client), visibility dikontrol bukan conditional */}
+          <div className="hidden md:grid" style={{
             gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 10,
             maxWidth: 480,
+            visibility: mounted ? 'visible' : 'hidden',
           }}>
-            {mounted && SERVICE_PILLS.map(pill => (
+            {SERVICE_PILLS.map(pill => (
                 <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
                   <div
                     style={{
