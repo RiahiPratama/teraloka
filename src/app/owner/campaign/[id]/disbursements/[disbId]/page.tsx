@@ -312,51 +312,9 @@ export default function OwnerDisbursementDetailPage() {
           </div>
         </div>
 
-        {/* Beneficiary info */}
-        {(data.beneficiary_phone || data.beneficiary_ktp_url) && (
-          <div className="bg-white rounded-2xl border border-gray-100 p-5">
-            <div className="flex items-center gap-2 mb-3">
-              <ShieldCheck size={14} className="text-[#003526]" />
-              <p className="text-xs font-bold text-[#003526] uppercase tracking-widest">Identitas Penerima</p>
-            </div>
-
-            <div className="space-y-3">
-              {data.beneficiary_phone && (
-                <DetailField
-                  icon={Phone}
-                  label="Nomor HP"
-                  value={
-                    <a
-                      href={`https://wa.me/${data.beneficiary_phone.replace(/\D/g, '')}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="font-mono font-bold text-[#25D366] hover:underline inline-flex items-center gap-1"
-                    >
-                      {data.beneficiary_phone}
-                      <MessageCircle size={11} />
-                    </a>
-                  }
-                />
-              )}
-              {data.beneficiary_ktp_url && (
-                <div>
-                  <p className="text-xs text-gray-500 mb-2 flex items-center gap-1.5">
-                    <FileText size={11} />
-                    KTP / Identitas
-                  </p>
-                  <a
-                    href={data.beneficiary_ktp_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-block w-32 h-20 rounded-lg overflow-hidden border border-gray-200 hover:border-[#003526] active:scale-95 transition-all"
-                  >
-                    <img src={data.beneficiary_ktp_url} alt="KTP" className="w-full h-full object-cover" />
-                  </a>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+        {/* Identitas Penerima — HIDDEN di owner side
+            (Privacy: detail beneficiary cukup ditampilkan di dashboard admin saja
+             untuk verifikasi. Owner sudah tahu siapa penerimanya.) */}
 
         {/* Bukti pencairan */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">

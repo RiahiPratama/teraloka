@@ -723,13 +723,17 @@ function ActionButtons({
 
 function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
   const collected = campaign.total_collected ?? campaign.collected_amount ?? 0;
-  const disbursed = campaign.total_disbursed ?? 0;
-  const disbursedPending = campaign.total_disbursed_pending ?? 0;
+  const verified = campaign.total_disbursed ?? 0;
+  const pending = campaign.total_disbursed_pending ?? 0;
   const totalDonors = campaign.total_donors ?? campaign.donations_verified ?? 0;
   const disbVerifiedCount = campaign.disbursements_verified ?? 0;
   const disbPendingCount = campaign.disbursements_pending ?? 0;
-  // Saldo: collected - verified - pending (dana yang masih utuh di rekening)
-  const saldo = Math.max(0, collected - disbursed - disbursedPending);
+
+  // User's logic (konservatif): pending dianggap "masih di rekening" sampai admin verify
+  // SISA REK = collected - verified (TIDAK kurangi pending)
+  const sisaRek = Math.max(0, collected - verified);
+  // PROSES = 0 (tidak ada real-time transfer tracking — placeholder untuk masa depan)
+  const proses = 0;
 
   // Bank summary masking
   const bankSummary = campaign.bank_name && campaign.bank_account_number
@@ -750,16 +754,18 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
     {
       label: 'Sudah Cair',
       sublabel: disbVerifiedCount > 0 ? `${disbVerifiedCount}× pencairan` : 'Belum ada',
-      value: disbursed,
+      value: verified,
       Icon: CheckCircle2,
       color: '#0891B2',
       bg: 'bg-cyan-50',
       border: 'border-cyan-100',
     },
     {
-      label: 'Diproses',
-      sublabel: disbPendingCount > 0 ? `${disbPendingCount}× pending` : 'Tidak ada',
-      value: disbursedPending,
+      label: 'Proses Pencairan',
+      sublabel: disbPendingCount > 0
+        ? `${disbPendingCount}× sedang verifikasi`
+        : 'Tidak ada saat ini',
+      value: proses,
       Icon: Clock,
       color: '#B45309',
       bg: 'bg-amber-50',
@@ -768,7 +774,7 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
     {
       label: 'Sisa Rekening',
       sublabel: `Di ${bankSummary}`,
-      value: saldo,
+      value: sisaRek,
       Icon: Wallet,
       color: '#047857',
       bg: 'bg-emerald-50',
@@ -822,7 +828,7 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
         })}
       </div>
 
-      {/* Laporan Pertanggungjawaban — mirror dari status disbursement */}
+      {/* Laporan Pertanggungjawaban */}
       <div className="px-3 pb-3">
         <div className="bg-gradient-to-br from-[#003526]/5 to-[#003526]/8 border border-[#003526]/15 rounded-xl p-4">
           <div className="flex items-center gap-1.5 mb-3">
@@ -839,22 +845,29 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
                 <span className="text-xs font-medium text-gray-700">Disetujui</span>
               </div>
               <span className="text-sm font-extrabold text-emerald-700">
-                {formatRupiah(disbursed)}
+                {formatRupiah(verified)}
               </span>
             </div>
 
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <Clock size={14} className="text-amber-600" strokeWidth={2.5} />
-                <span className="text-xs font-medium text-gray-700">Menunggu Persetujuan</span>
+                <Wallet size={14} className="text-amber-600" strokeWidth={2.5} />
+                <span className="text-xs font-medium text-gray-700">Dana di Rekening Bank</span>
               </div>
               <span className="text-sm font-extrabold text-amber-700">
-                {formatRupiah(disbursedPending)}
+                {formatRupiah(sisaRek)}
               </span>
             </div>
           </div>
 
-          {disbursed === 0 && disbursedPending === 0 && (
+          {/* Sublabel info kalau ada pending */}
+          {pending > 0 && (
+            <p className="text-[10px] text-gray-500 italic mt-3 pt-3 border-t border-[#003526]/10 leading-relaxed">
+              💡 Termasuk <strong>{formatRupiah(pending)}</strong> dari {disbPendingCount}× pencairan yang sedang dalam proses verifikasi admin.
+            </p>
+          )}
+
+          {verified === 0 && sisaRek === 0 && (
             <p className="text-[11px] text-gray-500 italic text-center mt-3 pt-3 border-t border-[#003526]/10">
               Belum ada pencairan dana
             </p>
@@ -863,12 +876,12 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
       </div>
 
       {/* Saldo warning */}
-      {saldo > 0 && (
+      {sisaRek > 0 && pending === 0 && (
         <div className="px-5 py-3 bg-amber-50/50 border-t border-amber-100">
           <p className="text-[11px] text-amber-700 leading-relaxed flex items-start gap-2">
             <AlertCircle size={12} className="text-amber-600 shrink-0 mt-0.5" />
             <span>
-              <strong className="font-bold">Pengingat:</strong> Masih ada {formatRupiah(saldo)} di rekening yang belum dicairkan. Lanjutkan pencairan saat dana siap disalurkan ke penerima manfaat.
+              <strong className="font-bold">Pengingat:</strong> Masih ada {formatRupiah(sisaRek)} di rekening yang belum dicairkan. Lanjutkan pencairan saat dana siap disalurkan ke penerima manfaat.
             </span>
           </p>
         </div>
