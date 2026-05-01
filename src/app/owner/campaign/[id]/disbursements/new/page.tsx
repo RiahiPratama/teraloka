@@ -13,6 +13,7 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/Toast';
 import { formatRupiah } from '@/utils/format';
 import ImageUpload from '@/components/ui/ImageUpload';
 import {
@@ -50,6 +51,7 @@ export default function OwnerCampaignDisbursementNewPage() {
   const params = useParams();
   const campaignId = params.id as string;
   const { user, isLoading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<CampaignSummary | null>(null);
   const [financial, setFinancial] = useState<FinancialSummary | null>(null);
