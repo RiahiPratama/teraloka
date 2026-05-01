@@ -36,6 +36,17 @@ const AMOUNT_PRESETS = [25000, 50000, 100000, 250000, 500000, 1000000];
 
 const QUICK_NAMES = ['Hamba Allah', 'Keluarga Besar'];
 
+// Normalize phone ke format E.164 (62xxx) sesuai standar TeraLoka users.phone
+// Strip non-digit, convert 0xxx → 62xxx, +62xxx → 62xxx
+function normalizePhone(phone: string): string {
+  const digits = phone.replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('0')) return '62' + digits.slice(1);
+  if (digits.startsWith('62')) return digits;
+  if (digits.startsWith('8')) return '62' + digits; // user input 8xxx tanpa 0
+  return digits;
+}
+
 export default function DonatePage() {
   const params = useParams();
   const router = useRouter();
@@ -181,7 +192,7 @@ export default function DonatePage() {
       const body: any = {
         campaign_id: campaign.id,
         donor_name: isAnonymous ? 'Anonim' : donorName.trim(),
-        donor_phone: donorPhone.trim() || null,
+        donor_phone: donorPhone.trim() ? normalizePhone(donorPhone.trim()) : null,
         is_anonymous: isAnonymous,
         amount,
         message: message.trim() || undefined,
