@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { formatRupiah } from '@/utils/format';
 import type { Metadata } from 'next';
 import {
@@ -19,6 +18,17 @@ import UpdateAamiinButton from './_components/UpdateAamiinButton';
 export const dynamic = 'force-dynamic';
 
 type Props = { params: Promise<{ slug: string }> };
+
+// ════════════════════════════════════════════════════════════════
+// Backend API config
+// ────────────────────────────────────────────────────────────────
+// Filosofi LOCKED (May 1, 2026):
+//   "Backend adalah Otak, Database hanyalah Memori"
+// Public page TIDAK BOLEH query Supabase langsung.
+// Semua data via backend Hono API yang pakai service_role.
+// ════════════════════════════════════════════════════════════════
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://teraloka-api.vercel.app/api/v1';
 
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
   kesehatan:      { label: 'Kesehatan',      color: '#D85A30' },
@@ -75,15 +85,59 @@ function formatShortDate(date: string | Date | null): string {
   });
 }
 
+// ════════════════════════════════════════════════════════════════
+// Backend fetch helpers
+// ────────────────────────────────────────────────────────────────
+// Both helpers handle errors gracefully:
+//   - Network failures → log + return null/fallback
+//   - 404 from backend → return null (caller handles notFound)
+//   - Server errors → log + return null
+// Pattern 205 compliance: errors logged, NOT silently swallowed.
+// ════════════════════════════════════════════════════════════════
+
+async function fetchCampaignMetadata(slug: string) {
+  try {
+    // Lightweight endpoint untuk SEO — getCampaign returns full campaign row,
+    // we only need title/description/cover_image_url here.
+    const res = await fetch(`${API_URL}/funding/campaigns/${encodeURIComponent(slug)}`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      if (res.status !== 404) {
+        console.error('[generateMetadata] fetch failed', res.status, slug);
+      }
+      return null;
+    }
+    const json = await res.json();
+    return json.success ? json.data : null;
+  } catch (err) {
+    console.error('[generateMetadata] error', err);
+    return null;
+  }
+}
+
+async function fetchCampaignFullDetail(slug: string) {
+  try {
+    const res = await fetch(`${API_URL}/funding/campaigns/${encodeURIComponent(slug)}/detail`, {
+      cache: 'no-store',
+    });
+    if (!res.ok) {
+      if (res.status !== 404) {
+        console.error('[fetchCampaignFullDetail] fetch failed', res.status, slug);
+      }
+      return null;
+    }
+    const json = await res.json();
+    return json.success ? json.data : null;
+  } catch (err) {
+    console.error('[fetchCampaignFullDetail] error', err);
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const supabase = await createClient();
-  const { data } = await supabase
-    .schema('funding')
-    .from('campaigns')
-    .select('title, description, cover_image_url')
-    .eq('slug', slug)
-    .single();
+  const data = await fetchCampaignMetadata(slug);
   if (!data) return { title: 'Campaign tidak ditemukan' };
   return {
     title: `${data.title} | BADONASI`,
@@ -98,96 +152,27 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function CampaignPage({ params }: Props) {
   const { slug } = await params;
-  const supabase = await createClient();
 
-  const { data: campaign } = await supabase
-    .schema('funding')
-    .from('campaigns')
-    .select('*')
-    .eq('slug', slug)
-    .single();
+  // ⭐ Phase B Bug #3 fix: SINGLE fetch ke backend.
+  // Backend aggregates campaign + creator + donors + reports + updates
+  //                   + disbursements + donor_messages + computed totals.
+  // Was: 8 direct Supabase queries (silent catch hid RLS issues → CAIR Rp 0).
+  // Now: 1 fetch, backend service_role bypass RLS, errors visible in logs.
+  const detail = await fetchCampaignFullDetail(slug);
 
-  if (!campaign) notFound();
+  if (!detail) notFound();
 
-  let creator: {
-    name: string;
-    phone: string;
-    is_offline_mode?: boolean | null;
-    offline_mode_set_at?: string | null;
-    offline_mode_until?: string | null;
-  } | null = null;
-  try {
-    const { data } = await supabase
-      .from('users')
-      .select('name, phone, is_offline_mode, offline_mode_set_at, offline_mode_until')
-      .eq('id', campaign.creator_id)
-      .single();
-    creator = data;
-  } catch { }
-
-  let donors: any[] = [];
-  try {
-    const { data } = await supabase
-      .schema('funding')
-      .from('donations')
-      .select('donor_name, amount, is_anonymous, created_at')
-      .eq('campaign_id', campaign.id)
-      .eq('verification_status', 'verified')
-      .order('created_at', { ascending: false })
-      .limit(20);
-    donors = data ?? [];
-  } catch { }
-
-  let reports: any[] = [];
-  try {
-    const { data } = await supabase
-      .schema('funding')
-      .from('usage_reports')
-      .select('*')
-      .eq('campaign_id', campaign.id)
-      .eq('status', 'approved')
-      .order('report_number');
-    reports = data ?? [];
-  } catch { }
-
-  let updates: any[] = [];
-  try {
-    const { data } = await supabase
-      .schema('funding')
-      .from('campaign_updates')
-      .select('*')
-      .eq('campaign_id', campaign.id)
-      .order('created_at', { ascending: false });
-    updates = data ?? [];
-  } catch { }
-
-  let disbursements: any[] = [];
-  try {
-    const { data } = await supabase
-      .schema('funding')
-      .from('disbursements')
-      .select('*')
-      .eq('campaign_id', campaign.id)
-      .eq('status', 'verified')
-      .order('stage_number', { ascending: true });
-    disbursements = data ?? [];
-  } catch { }
-
-  let donorMessages: any[] = [];
-  try {
-    const { data } = await supabase
-      .schema('funding')
-      .from('donations')
-      .select('id, donor_name, amount, is_anonymous, message, aamiin_count, created_at')
-      .eq('campaign_id', campaign.id)
-      .eq('verification_status', 'verified')
-      .not('message', 'is', null)
-      .order('created_at', { ascending: false });
-    donorMessages = (data ?? []).map(d => ({
-      ...d,
-      donor_name: d.is_anonymous ? 'Hamba Allah' : d.donor_name,
-    }));
-  } catch { }
+  const {
+    campaign,
+    creator,
+    donors,
+    reports,
+    updates,
+    disbursements,
+    donorMessages,
+    totalDisbursed,
+    totalUsed,
+  } = detail;
 
   const progress = campaign.target_amount > 0
     ? Math.min((campaign.collected_amount / campaign.target_amount) * 100, 100)
@@ -197,8 +182,6 @@ export default async function CampaignPage({ params }: Props) {
   const isActive = campaign.status === 'active';
   const isCompleted = campaign.status === 'completed';
 
-  const totalDisbursed = disbursements.reduce((sum: number, d: any) => sum + Number(d.amount || 0), 0);
-  const totalUsed = reports.reduce((sum: number, r: any) => sum + Number(r.amount_used || 0), 0);
 
   // ═══════════════════════════════════════════════════════════
   // ALIRAN DANA TIMELINE — Merge all events chronologically
