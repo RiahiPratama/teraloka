@@ -196,9 +196,17 @@ export default function DonatePage() {
         }
       }
 
+      // Optional auth: kalau user login, kirim token agar donor_id ter-link
+      // Kalau guest (tidak login), donasi tetap jalan tanpa donor_id
+      const authToken = typeof window !== 'undefined'
+        ? localStorage.getItem('tl_token')
+        : null;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (authToken) headers.Authorization = `Bearer ${authToken}`;
+
       const res = await fetch(`${API}/funding/donate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(body),
       });
 
