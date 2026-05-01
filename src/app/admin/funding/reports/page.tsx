@@ -25,19 +25,19 @@ const Icons = {
 interface ReportStats {
   pending: number;
   approved: number;
-  rejected: number;
+  revision_needed: number;
   total: number;
   pending_amount: number;
   campaigns_without_report: number;
   active_campaigns_count: number;
 }
 
-type StatusTab = 'pending' | 'approved' | 'rejected' | 'all';
+type StatusTab = 'pending' | 'approved' | 'revision_needed' | 'all';
 
 const STATUS_TABS: { key: StatusTab; label: string; emoji: string }[] = [
   { key: 'pending',  label: 'Pending',  emoji: '⏳' },
   { key: 'approved', label: 'Approved', emoji: '✅' },
-  { key: 'rejected', label: 'Rejected', emoji: '❌' },
+  { key: 'revision_needed', label: 'Revisi', emoji: '✏️' },
   { key: 'all',      label: 'Semua',    emoji: '📋' },
 ];
 
@@ -221,9 +221,9 @@ export default function AdminReportsPage() {
             color="#10B981" t={t}
           />
           <StatCard
-            label="❌ Rejected"
-            value={String(stats.rejected)}
-            subtext="ditolak admin"
+            label="✏️ Revisi"
+            value={String(stats.revision_needed)}
+            subtext="butuh revisi"
             color="#EF4444" t={t}
           />
           <StatCard
