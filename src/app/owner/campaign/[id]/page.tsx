@@ -11,7 +11,7 @@ import {
   Users, Clock, TrendingUp, AlertCircle, Loader2, Siren,
   Calendar, Landmark, UserCircle2, Tag, FileText,
   ExternalLink, MessageCircle, Sparkles, AlertTriangle,
-  Eye, EyeOff, Wallet, Shield, Building2, User, ChevronRight, Banknote,
+  Eye, EyeOff, Wallet, Shield, Building2, User, ChevronRight,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -51,8 +51,14 @@ interface Campaign {
   // Jejak keuangan (financial trail) — populated by getMyCampaignDetail
   total_collected?: number;
   total_disbursed?: number;
+  total_disbursed_pending?: number;
   total_used?: number;
   saldo_estimate?: number;
+  // Counts dari counts object
+  total_donors?: number;
+  donations_verified?: number;
+  disbursements_verified?: number;
+  disbursements_pending?: number;
 }
 
 interface Donation {
@@ -675,18 +681,11 @@ function ActionButtons({
           Lihat Halaman Publik
         </Link>
         <Link
-          href={`/owner/campaign/${campaign.id}/reports`}
+          href={`/owner/campaign/${campaign.id}/reports/new`}
           className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-sm font-extrabold text-white shadow-md hover:opacity-90 transition-opacity"
         >
           <FileText size={15} />
           Buat Laporan Dana
-        </Link>
-        <Link
-          href={`/owner/campaign/${campaign.id}/disbursements`}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border border-gray-200 text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-        >
-          <Banknote size={14} />
-          Ajukan Pencairan Dana
         </Link>
       </div>
     );
@@ -705,7 +704,7 @@ function ActionButtons({
           Lihat Halaman Publik
         </Link>
         <Link
-          href={`/owner/campaign/${campaign.id}/reports`}
+          href={`/owner/campaign/${campaign.id}/reports/new`}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#003526] text-sm font-bold text-white hover:opacity-90 transition-opacity"
         >
           <FileText size={15} />
@@ -725,19 +724,23 @@ function ActionButtons({
 function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
   const collected = campaign.total_collected ?? campaign.collected_amount ?? 0;
   const disbursed = campaign.total_disbursed ?? 0;
-  const used      = campaign.total_used ?? 0;
-  const saldo     = campaign.saldo_estimate ?? Math.max(0, collected - disbursed);
+  const disbursedPending = campaign.total_disbursed_pending ?? 0;
+  const totalDonors = campaign.total_donors ?? campaign.donations_verified ?? 0;
+  const disbVerifiedCount = campaign.disbursements_verified ?? 0;
+  const disbPendingCount = campaign.disbursements_pending ?? 0;
+  // Saldo: collected - verified - pending (dana yang masih utuh di rekening)
+  const saldo = Math.max(0, collected - disbursed - disbursedPending);
 
-  // Bank summary untuk sublabel "Belum Disalurkan" (anti-ambiguitas)
-  // Format: "Bank Mandiri ••••7890" — masking demi privacy + spesifikitas
+  // Bank summary masking
   const bankSummary = campaign.bank_name && campaign.bank_account_number
     ? `${campaign.bank_name} ••••${campaign.bank_account_number.slice(-4)}`
     : 'rekening partner';
 
+  // 4 card aliran dana
   const stats = [
     {
       label: 'Terkumpul',
-      sublabel: 'Dari donor',
+      sublabel: totalDonors > 0 ? `Dari ${totalDonors} donatur` : 'Dari donor',
       value: collected,
       Icon: HeartHandshake,
       color: '#BE185D',
@@ -745,31 +748,31 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
       border: 'border-pink-100',
     },
     {
-      label: 'Disalurkan',
-      sublabel: `Dari ${bankSummary}`,
+      label: 'Sudah Cair',
+      sublabel: disbVerifiedCount > 0 ? `${disbVerifiedCount}× pencairan` : 'Belum ada',
       value: disbursed,
-      Icon: Send,
+      Icon: CheckCircle2,
       color: '#0891B2',
       bg: 'bg-cyan-50',
       border: 'border-cyan-100',
     },
     {
-      label: 'Direalisasikan',
-      sublabel: 'Untuk penerima manfaat',
-      value: used,
-      Icon: CheckCircle2,
-      color: '#047857',
-      bg: 'bg-emerald-50',
-      border: 'border-emerald-100',
-    },
-    {
-      label: 'Belum Disalurkan',
-      sublabel: `Di ${bankSummary}`,
-      value: saldo,
-      Icon: Wallet,
+      label: 'Diproses',
+      sublabel: disbPendingCount > 0 ? `${disbPendingCount}× pending` : 'Tidak ada',
+      value: disbursedPending,
+      Icon: Clock,
       color: '#B45309',
       bg: 'bg-amber-50',
       border: 'border-amber-100',
+    },
+    {
+      label: 'Sisa Rekening',
+      sublabel: `Di ${bankSummary}`,
+      value: saldo,
+      Icon: Wallet,
+      color: '#047857',
+      bg: 'bg-emerald-50',
+      border: 'border-emerald-100',
     },
   ];
 
@@ -795,6 +798,7 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
         </p>
       </div>
 
+      {/* 4-card grid: aliran dana */}
       <div className="p-3 grid grid-cols-2 gap-2">
         {stats.map((s) => {
           const SIcon = s.Icon;
@@ -818,13 +822,53 @@ function JejakKeuanganSection({ campaign }: { campaign: Campaign }) {
         })}
       </div>
 
-      {/* Saldo warning kalau saldo > 0 dan belum semua direalisasikan */}
-      {saldo > 0 && used < disbursed && (
+      {/* Laporan Pertanggungjawaban — mirror dari status disbursement */}
+      <div className="px-3 pb-3">
+        <div className="bg-gradient-to-br from-[#003526]/5 to-[#003526]/8 border border-[#003526]/15 rounded-xl p-4">
+          <div className="flex items-center gap-1.5 mb-3">
+            <FileText size={13} className="text-[#003526]" strokeWidth={2.5} />
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#003526]">
+              Laporan Pertanggungjawaban
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 size={14} className="text-emerald-600" strokeWidth={2.5} />
+                <span className="text-xs font-medium text-gray-700">Disetujui</span>
+              </div>
+              <span className="text-sm font-extrabold text-emerald-700">
+                {formatRupiah(disbursed)}
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Clock size={14} className="text-amber-600" strokeWidth={2.5} />
+                <span className="text-xs font-medium text-gray-700">Menunggu Persetujuan</span>
+              </div>
+              <span className="text-sm font-extrabold text-amber-700">
+                {formatRupiah(disbursedPending)}
+              </span>
+            </div>
+          </div>
+
+          {disbursed === 0 && disbursedPending === 0 && (
+            <p className="text-[11px] text-gray-500 italic text-center mt-3 pt-3 border-t border-[#003526]/10">
+              Belum ada pencairan dana
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Saldo warning */}
+      {saldo > 0 && (
         <div className="px-5 py-3 bg-amber-50/50 border-t border-amber-100">
           <p className="text-[11px] text-amber-700 leading-relaxed flex items-start gap-2">
             <AlertCircle size={12} className="text-amber-600 shrink-0 mt-0.5" />
             <span>
-              <strong className="font-bold">Pengingat transparansi:</strong> Masih ada saldo aktif di rekening partner. Jangan lupa upload laporan realisasi dana saat sudah digunakan untuk kebutuhan penerima manfaat.
+              <strong className="font-bold">Pengingat:</strong> Masih ada {formatRupiah(saldo)} di rekening yang belum dicairkan. Lanjutkan pencairan saat dana siap disalurkan ke penerima manfaat.
             </span>
           </p>
         </div>
@@ -1183,7 +1227,7 @@ function ReportsSection({
         </h2>
         {canCreate && (
           <Link
-            href={`/owner/campaign/${campaignId}/reports`}
+            href={`/owner/campaign/${campaignId}/reports/new`}
             className="text-[10px] font-bold text-[#BE185D] hover:underline"
           >
             + Buat Laporan
