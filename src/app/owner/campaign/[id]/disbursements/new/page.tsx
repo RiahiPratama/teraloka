@@ -49,7 +49,7 @@ export default function OwnerCampaignDisbursementNewPage() {
   const router = useRouter();
   const params = useParams();
   const campaignId = params.id as string;
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
 
   const [campaign, setCampaign] = useState<CampaignSummary | null>(null);
   const [financial, setFinancial] = useState<FinancialSummary | null>(null);

@@ -69,7 +69,7 @@ export default function OwnerCampaignDisbursementsPage() {
   const router = useRouter();
   const params = useParams();
   const campaignId = params.id as string;
-  const { user, loading: authLoading } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<CampaignSummary | null>(null);
