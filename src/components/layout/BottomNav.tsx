@@ -87,7 +87,7 @@ export default function BottomNav() {
     if (key === 'home') return pathname === '/'
     if (key === 'news') return pathname.startsWith('/news')
     if (key === 'speed') return pathname.startsWith('/speed') || pathname.startsWith('/ship') || pathname.startsWith('/ferry')
-    if (key === 'akun') return pathname === '/profile' || pathname === '/my-reports'
+    if (key === 'akun') return pathname === '/profile' || pathname.startsWith('/profile/') || pathname === '/my-reports'
     return false
   }
 
