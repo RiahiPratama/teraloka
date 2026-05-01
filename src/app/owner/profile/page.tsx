@@ -518,6 +518,21 @@ export default function OwnerProfilePage() {
         {/* Quick links */}
         <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           <Link
+            href="/"
+            className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-lg bg-[#0891B2]/10 flex items-center justify-center">
+                <span className="text-base">🏠</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-800">Beranda TeraLoka</p>
+                <p className="text-xs text-gray-500">Kembali ke halaman utama</p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-gray-400" />
+          </Link>
+          <Link
             href="/owner"
             className="flex items-center justify-between p-4 hover:bg-gray-50 transition-colors border-b border-gray-100"
           >

@@ -309,52 +309,104 @@ export default function Navbar() {
           <div className="absolute top-0 left-0 right-0 bg-white pb-8 px-6 rounded-b-3xl shadow-2xl"
             style={{ paddingTop: 'calc(44px + 60px + 16px)' }}
             onClick={e => e.stopPropagation()}>
-            <div className="grid grid-cols-2 gap-2 mb-6">
-              {NAV_LINKS.map(link => (
-                <Link key={link.href} href={link.href}
-                  onClick={(e) => handleNavClick(e, link.href, () => setMobileMenuOpen(false))}
-                  className="flex items-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm transition-colors hover:bg-gray-50"
-                  style={{ color: 'var(--text)', border: '1px solid var(--border-light)' }}>
-                  {link.label}
-                </Link>
-              ))}
+
+            {/* ─── User Profile Header (kalau login) ─────────────── */}
+            {user && (
+              <div className="flex items-center gap-3 mb-5 pb-5 border-b border-gray-100">
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1B6B4A] font-bold text-white text-lg">
+                  {user.name ? user.name[0].toUpperCase() : '+'}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-gray-800 text-base truncate">{user.name ?? 'Pengguna'}</p>
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5"
+                    style={{ background: roleMeta.bg, color: roleMeta.color }}>
+                    {roleMeta.label}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* ─── Navigasi: Beranda + Service tiles ─────────────── */}
+            <div className="mb-5">
+              <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                Jelajahi TeraLoka
+              </p>
+              <Link
+                href="/"
+                onClick={(e) => handleNavClick(e, '/', () => setMobileMenuOpen(false))}
+                className="flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm transition-colors hover:bg-gray-50 mb-2"
+                style={{ color: 'var(--primary)', border: '1.5px solid var(--primary)', background: 'rgba(0,53,38,0.04)' }}>
+                <span className="text-base">🏠</span> Beranda TeraLoka
+              </Link>
+              <div className="grid grid-cols-2 gap-2">
+                {NAV_LINKS.map(link => (
+                  <Link key={link.href} href={link.href}
+                    onClick={(e) => handleNavClick(e, link.href, () => setMobileMenuOpen(false))}
+                    className="flex items-center gap-2 px-4 py-3 rounded-2xl font-semibold text-sm transition-colors hover:bg-gray-50"
+                    style={{ color: 'var(--text)', border: '1px solid var(--border-light)' }}>
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
             </div>
+
+            {/* ─── Akun User (kalau login) ───────────────────────── */}
             {user ? (
               <>
-                <div className="border-t border-gray-100 pt-4 mb-3">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B6B4A] font-bold text-white">
-                      {user.name ? user.name[0].toUpperCase() : '+'}
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800 text-sm">{user.name ?? 'Pengguna'}</p>
-                      <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5"
-                        style={{ background: roleMeta.bg, color: roleMeta.color }}>
-                        {roleMeta.label}
-                      </span>
-                    </div>
-                  </div>
+                {/* Personal account */}
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                    Akun Saya
+                  </p>
                   <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { href: '/profile', icon: '👤', label: 'Profil Saya' },
-                      { href: '/my-reports', icon: '📢', label: 'Laporan Saya' },
-                      { href: '/owner', icon: '🏠', label: 'Portal Mitra' },
-                      { href: '/owner/campaign/new/info', icon: '💚', label: 'Ajukan Campaign' },
-                    ].map(item => (
-                      <Link key={item.href} href={item.href} onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
-                        <span>{item.icon}</span> {item.label}
-                      </Link>
-                    ))}
-                    {isAdmin && (
-                      <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
-                        className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold col-span-2 border"
-                        style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}15` }}>
-                        <span>⚙️</span> Admin Dashboard
-                      </Link>
-                    )}
+                    <Link href="/profile" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <span>👤</span> Profil Saya
+                    </Link>
+                    <Link href="/profile/donations" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <span>💚</span> Donasi Saya
+                    </Link>
+                    <Link href="/my-reports" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <span>📢</span> Laporan Saya
+                    </Link>
                   </div>
                 </div>
+
+                {/* Penggalang section */}
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                    Galang Dana
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link href="/owner" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <span>🏠</span> Portal Mitra
+                    </Link>
+                    <Link href="/owner/campaign/new/info" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border"
+                      style={{ color: '#1B6B4A', borderColor: '#1B6B4A', background: 'rgba(27,107,74,0.05)' }}>
+                      <span>💚</span> Ajukan Campaign
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Admin section (only if admin role) */}
+                {isAdmin && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{ color: roleMeta.bg }}>
+                      Tools Admin
+                    </p>
+                    <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border"
+                      style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}15` }}>
+                      <span>⚙️</span> Admin Dashboard
+                    </Link>
+                  </div>
+                )}
+
+                {/* Logout */}
                 <button onClick={handleLogout}
                   className="w-full py-3 rounded-2xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors">
                   🚪 Keluar
