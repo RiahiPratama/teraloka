@@ -22,6 +22,7 @@ interface Badges {
   pendingCreators: number;     // ⭐ FIX-E-4-C: Creator KYC pending count
   pendingEscalations: number;  // ⭐ FIX-G-C: Auto-escalated donations
   pendingDisbursements: number; // Pencairan pending admin review
+  pendingFeeRemittances: number; // Setor fee owner-submitted, menunggu admin verify
 }
 
 export default function AdminFundingSubNav({
@@ -42,6 +43,7 @@ export default function AdminFundingSubNav({
     pendingCreators: 0,    // ⭐ FIX-E-4-C
     pendingEscalations: 0, // ⭐ FIX-G-C
     pendingDisbursements: 0,
+    pendingFeeRemittances: 0,
   });
 
   useEffect(() => {
@@ -70,7 +72,10 @@ export default function AdminFundingSubNav({
         .then(r => r.json()).catch(() => null),
       fetch(`${API_URL}/funding/admin/escalations?status=unresolved&limit=1`, { headers })
         .then(r => r.json()).catch(() => null),
-    ]).then(([campRes, donRes, feeRes, reportRes, fraudRes, creatorRes, disbRes, escRes]) => {
+      // ⭐ Phase 4: Setor Fee owner-submitted (pending admin verify)
+      fetch(`${API_URL}/funding/admin/fee-remittances?status=pending&limit=1`, { headers })
+        .then(r => r.json()).catch(() => null),
+    ]).then(([campRes, donRes, feeRes, reportRes, fraudRes, creatorRes, disbRes, escRes, feeRemRes]) => {
       setBadges({
         pendingCampaigns: campRes?.meta?.total ?? 0,
         pendingDonations: donRes?.meta?.total ?? 0,
@@ -80,6 +85,7 @@ export default function AdminFundingSubNav({
         pendingCreators: creatorRes?.data?.pending ?? 0,    // ⭐
         pendingDisbursements: disbRes?.meta?.total ?? 0,
         pendingEscalations: escRes?.meta?.total ?? 0,        // ⭐ FIX-G-C
+        pendingFeeRemittances: feeRemRes?.meta?.total ?? 0,  // ⭐ Phase 4
       });
     });
   }, [refreshKey]);
@@ -100,6 +106,7 @@ export default function AdminFundingSubNav({
     // ── Monitoring ─────────────────────────────────────────────
     { href: '/admin/funding/cashflow',      label: 'Aliran Uang' },
     { href: '/admin/funding/fees',          label: 'Fee Settlement', badge: badges.pendingFees },
+    { href: '/admin/funding/fee-remittance', label: 'Setor Fee',     badge: badges.pendingFeeRemittances },
     // ── Risk Layer ─────────────────────────────────────────────
     { href: '/admin/funding/fraud',         label: 'Fraud',          badge: badges.activeFraudFlags,   accent: 'red' },
     { href: '/admin/funding/escalations',   label: 'Escalations',    badge: badges.pendingEscalations, accent: 'red' },
