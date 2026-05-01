@@ -22,7 +22,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Loader2, AlertCircle, CheckCircle2, XCircle,
   Hourglass, Calendar, FileText, ExternalLink, TrendingUp,
-  User, Hash, MessageCircle, Clock, ArrowRight,
+  User, Hash, MessageCircle, Clock, ArrowRight, RefreshCw,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -144,12 +144,14 @@ function DetailContent() {
 
   const [detail, setDetail] = useState<RemittanceDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // ── Fetch detail ───────────────────────────────────────────────
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     if (!token || !remittanceId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try {
       const res = await fetch(`${API}/funding/my/fee-remittances/${remittanceId}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -158,14 +160,33 @@ function DetailContent() {
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message || 'Setoran tidak ditemukan');
       }
+
+      // Detect status change saat silent refresh untuk feedback toast
+      if (silent && detail && detail.status !== json.data.status) {
+        const newStatusLabel =
+          json.data.status === 'verified' ? 'Terverifikasi ✅' :
+          json.data.status === 'rejected' ? 'Ditolak ❌' :
+          'Menunggu Review ⏳';
+        setToastMessage(`Status diperbarui: ${newStatusLabel}`);
+        setTimeout(() => setToastMessage(null), 3000);
+      } else if (silent) {
+        setToastMessage('Belum ada perubahan');
+        setTimeout(() => setToastMessage(null), 2000);
+      }
+
       setDetail(json.data);
     } catch (err: any) {
       console.error('[FeeRemittanceDetail] Load error:', err);
-      setError(err.message || 'Gagal memuat detail');
+      if (!silent) setError(err.message || 'Gagal memuat detail');
+      else {
+        setToastMessage('Gagal memuat data');
+        setTimeout(() => setToastMessage(null), 2000);
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
+      setRefreshing(false);
     }
-  }, [token, remittanceId]);
+  }, [token, remittanceId, detail]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -173,8 +194,26 @@ function DetailContent() {
       router.push(`/login?redirect=/owner/financial/fee-remittance/${remittanceId}`);
       return;
     }
-    loadData();
-  }, [authLoading, user, router, remittanceId, loadData]);
+    loadData(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading, user, router, remittanceId]);
+
+  // Auto-refresh saat tab balik focus (owner balik dari WA / app lain)
+  useEffect(() => {
+    function handleVisibility() {
+      if (detail && document.visibilityState === 'visible') {
+        loadData(true); // silent refresh
+      }
+    }
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [detail, loadData]);
+
+  // Manual refresh handler
+  function handleRefresh() {
+    setRefreshing(true);
+    loadData(true);
+  }
 
   // ── States ─────────────────────────────────────────────────────
 
@@ -216,6 +255,18 @@ function DetailContent() {
               {detail.id.slice(0, 8)}...
             </p>
           </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="p-2 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-opacity"
+            aria-label="Refresh status setoran"
+            title="Refresh status setoran"
+          >
+            <RefreshCw
+              size={18}
+              className={`text-gray-600 ${refreshing ? 'animate-spin' : ''}`}
+            />
+          </button>
         </div>
       </header>
 
@@ -403,6 +454,27 @@ function DetailContent() {
           </div>
         )}
       </div>
+
+      {/* Toast notification — feedback untuk refresh action */}
+      {toastMessage && (
+        <div
+          className="fixed left-1/2 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-xl shadow-lg text-sm font-semibold"
+          style={{
+            bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
+            transform: 'translateX(-50%)',
+            animation: 'slideUpFade 0.3s ease-out',
+          }}
+        >
+          {toastMessage}
+        </div>
+      )}
+
+      <style jsx>{`
+        @keyframes slideUpFade {
+          from { transform: translate(-50%, 20px); opacity: 0; }
+          to { transform: translate(-50%, 0); opacity: 1; }
+        }
+      `}</style>
     </div>
   );
 }
