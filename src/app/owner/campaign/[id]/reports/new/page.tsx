@@ -13,6 +13,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/Toast';
 import { formatRupiah } from '@/utils/format';
 import ImageUpload from '@/components/ui/ImageUpload';
 import {
@@ -61,6 +62,7 @@ export default function OwnerCampaignReportNewPage() {
   const params = useParams();
   const campaignId = params.id as string;
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<CampaignSummary | null>(null);
   const [loadingData, setLoadingData] = useState(true);
@@ -132,7 +134,7 @@ export default function OwnerCampaignReportNewPage() {
 
   function removeItem(id: string) {
     if (items.length === 1) {
-      alert('Minimal 1 item pengeluaran');
+      toast.warning('Minimal 1 item pengeluaran');
       return;
     }
     setItems(prev => prev.filter(it => it.id !== id));
@@ -140,7 +142,7 @@ export default function OwnerCampaignReportNewPage() {
 
   function addItem() {
     if (items.length >= 50) {
-      alert('Maksimal 50 item per laporan');
+      toast.warning('Maksimal 50 item per laporan');
       return;
     }
     const it = newItem();
@@ -184,9 +186,11 @@ export default function OwnerCampaignReportNewPage() {
         throw new Error(json?.error?.message || 'Gagal submit laporan');
       }
 
+      toast.success('Laporan berhasil dikirim, menunggu review admin');
       router.push(`/owner/campaign/${campaignId}/reports?created=1`);
     } catch (err: any) {
       setError(err.message);
+      toast.error(err.message);
       setSubmitting(false);
     }
   }

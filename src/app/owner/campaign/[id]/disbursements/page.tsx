@@ -13,6 +13,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useToast } from '@/components/ui/Toast';
 import { formatRupiah } from '@/utils/format';
 import {
   ArrowLeft, Plus, Loader2, AlertCircle, CheckCircle2, XCircle,
@@ -69,6 +70,7 @@ export default function OwnerCampaignDisbursementsPage() {
   const params = useParams();
   const campaignId = params.id as string;
   const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
 
   const [campaign, setCampaign] = useState<CampaignSummary | null>(null);
   const [disbursements, setDisbursements] = useState<Disbursement[]>([]);
@@ -121,8 +123,9 @@ export default function OwnerCampaignDisbursementsPage() {
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error?.message || 'Gagal hapus');
       setDisbursements(prev => prev.filter(d => d.id !== disbursementId));
+      toast.success('Pencairan berhasil dihapus');
     } catch (err: any) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setDeletingId(null);
     }
@@ -169,7 +172,7 @@ export default function OwnerCampaignDisbursementsPage() {
   const canRequest = campaign.status === 'active' || campaign.status === 'completed';
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50 pb-28">
       {/* Header */}
       <header className="bg-white border-b border-gray-100 sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">

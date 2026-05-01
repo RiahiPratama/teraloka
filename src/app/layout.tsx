@@ -4,6 +4,7 @@ import { ThemeProvider } from '@/lib/theme'
 import { ThemeScript } from '@/components/providers/theme-script'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { PostHogProvider } from '@/components/providers/PostHogProvider'
+import { ToastProvider } from '@/components/ui/Toast'
 import ConditionalBottomNav from '@/components/layout/ConditionalBottomNav'
 
 export const metadata: Metadata = {
@@ -47,14 +48,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             - PostHogProvider: track semua (anonymous + authenticated)
             - ThemeProvider: theme available di semua page
             - AuthProvider: auth context untuk authenticated features
+            - ToastProvider: global toast notification system
             
             Note: Suspense wrapping ditangani di dalam PostHogProvider sendiri
             kalau butuh (saat pakai useSearchParams). Simplified di sini. */}
         <PostHogProvider>
           <ThemeProvider>
             <AuthProvider>
-              {children}
-              <ConditionalBottomNav />
+              <ToastProvider>
+                {children}
+                <ConditionalBottomNav />
+              </ToastProvider>
             </AuthProvider>
           </ThemeProvider>
         </PostHogProvider>

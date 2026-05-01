@@ -145,9 +145,11 @@ export default function OwnerCampaignDisbursementNewPage() {
         throw new Error(json?.error?.message || 'Gagal mengajukan pencairan');
       }
 
+      toast.success('Pencairan berhasil diajukan, menunggu review admin');
       router.push(`/owner/campaign/${campaignId}/disbursements?created=1`);
     } catch (err: any) {
       setError(err.message);
+      toast.error(err.message);
       setSubmitting(false);
     }
   }
