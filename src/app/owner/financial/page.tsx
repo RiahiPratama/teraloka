@@ -95,6 +95,22 @@ interface Donation {
 
 interface Campaign { id: string; title: string; }
 
+interface MonthlyRevenue {
+  month: string;            // "2026-05"
+  label: string;            // "Mei 2026"
+  fee_penggalang: number;
+  kode_unik: number;
+  total: number;
+  donation_count: number;
+}
+
+interface MonthlyTracking {
+  months: MonthlyRevenue[];
+  total_revenue_period: number;
+  best_month: MonthlyRevenue | null;
+  growth_pct: number;
+}
+
 const PERIOD_PRESETS = [
   { label: 'Bulan Ini', key: 'this_month' },
   { label: 'Bulan Lalu', key: 'last_month' },
@@ -127,6 +143,8 @@ function FinancialContent() {
   const [summary, setSummary]   = useState<Summary | null>(null);
   const [donations, setDonations] = useState<Donation[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [monthly, setMonthly] = useState<MonthlyTracking | null>(null);
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
   const [loading, setLoading]   = useState(true);
   const [donLoading, setDonLoading] = useState(true);
 
@@ -188,6 +206,20 @@ function FinancialContent() {
     setDonLoading(false);
   }, [token, dateRange, campaignId]);
 
+  // Fetch monthly tracking penggalang revenue (12 bulan rolling)
+  const fetchMonthly = useCallback(async () => {
+    if (!token) return;
+    setMonthlyLoading(true);
+    try {
+      const res = await fetch(`${API}/funding/my/penggalang-revenue/monthly`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (json.success) setMonthly(json.data);
+    } catch {}
+    setMonthlyLoading(false);
+  }, [token]);
+
   // Fetch campaign list for filter
   const fetchCampaigns = useCallback(async () => {
     if (!token) return;
@@ -203,6 +235,7 @@ function FinancialContent() {
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
   useEffect(() => { fetchDonations(); }, [fetchDonations]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  useEffect(() => { fetchMonthly(); }, [fetchMonthly]);
 
   // Filter donations for display
   const displayDonations = donations.filter(d => {
@@ -555,6 +588,9 @@ function FinancialContent() {
           )}
         </div>
 
+        {/* Monthly Tracking — Pendapatan Penggalang per Bulan */}
+        <MonthlyRevenueSection monthly={monthly} loading={monthlyLoading} />
+
         {/* Note */}
         <p style={{ fontSize: 11, color: '#9CA3AF', textAlign: 'center', marginTop: 16, lineHeight: 1.5 }}>
           Laporan ini mencerminkan donasi yang sudah masuk rekening kamu (verified + under audit).<br />
@@ -566,6 +602,129 @@ function FinancialContent() {
 }
 
 // Sub-components
+
+// ─── Monthly Revenue Section ───────────────────────────────────
+// Pendapatan Penggalang tracking per bulan (12 bulan rolling)
+// Backend (Otak) compute, frontend display only.
+function MonthlyRevenueSection({ monthly, loading }: { monthly: MonthlyTracking | null; loading: boolean }) {
+  if (loading) {
+    return (
+      <div style={{ background: '#fff', borderRadius: 16, padding: 20, marginTop: 16, textAlign: 'center', color: '#6B7280', fontSize: 13 }}>
+        Memuat tracking pendapatan...
+      </div>
+    );
+  }
+
+  if (!monthly || monthly.total_revenue_period === 0) {
+    return null; // skip section kalau belum ada revenue
+  }
+
+  // Find max value for bar normalization
+  const maxTotal = Math.max(...monthly.months.map(m => m.total));
+
+  return (
+    <div style={{ background: '#fff', borderRadius: 16, padding: 16, marginTop: 16, boxShadow: '0 1px 4px rgba(0,53,38,0.06)' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <p style={{ fontSize: 11, fontWeight: 700, color: '#BE185D', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 2 }}>
+            📈 Pendapatan Penggalang per Bulan
+          </p>
+          <p style={{ fontSize: 11, color: '#9CA3AF' }}>
+            12 bulan terakhir · Fee penggalang + kode unik
+          </p>
+        </div>
+        {monthly.growth_pct !== 0 && (
+          <div style={{
+            fontSize: 11,
+            fontWeight: 700,
+            color: monthly.growth_pct > 0 ? '#047857' : '#DC2626',
+            background: monthly.growth_pct > 0 ? '#D1FAE5' : '#FEE2E2',
+            padding: '4px 10px',
+            borderRadius: 8,
+            whiteSpace: 'nowrap',
+          }}>
+            {monthly.growth_pct > 0 ? '↗' : '↘'} {Math.abs(monthly.growth_pct)}% vs bulan lalu
+          </div>
+        )}
+      </div>
+
+      {/* Summary stats row */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+        <div style={{ background: '#FFF1F2', border: '1px solid #FECDD3', borderRadius: 10, padding: 10 }}>
+          <p style={{ fontSize: 10, color: '#9F1239', fontWeight: 600, marginBottom: 2 }}>TOTAL 12 BULAN</p>
+          <p style={{ fontSize: 16, fontWeight: 800, color: '#BE185D', fontFamily: 'monospace' }}>
+            {rp(monthly.total_revenue_period)}
+          </p>
+        </div>
+        <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: 10 }}>
+          <p style={{ fontSize: 10, color: '#15803D', fontWeight: 600, marginBottom: 2 }}>BULAN TERBAIK</p>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#166534' }}>
+            {monthly.best_month?.label ?? '—'}
+          </p>
+          <p style={{ fontSize: 11, color: '#16A34A', fontFamily: 'monospace', fontWeight: 600 }}>
+            {monthly.best_month ? rp(monthly.best_month.total) : ''}
+          </p>
+        </div>
+      </div>
+
+      {/* Bar list per bulan */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        {monthly.months.slice().reverse().map((m, idx) => {
+          const isCurrentMonth = idx === 0;
+          const widthPct = maxTotal > 0 ? (m.total / maxTotal) * 100 : 0;
+          return (
+            <div key={m.month} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <span style={{
+                fontSize: 11,
+                color: isCurrentMonth ? '#BE185D' : '#6B7280',
+                fontWeight: isCurrentMonth ? 700 : 500,
+                minWidth: 80,
+                textAlign: 'right',
+              }}>
+                {m.label}
+              </span>
+              <div style={{ flex: 1, height: 22, background: '#F3F4F6', borderRadius: 6, position: 'relative', overflow: 'hidden' }}>
+                {m.total > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: 0, bottom: 0, left: 0,
+                    width: `${Math.max(widthPct, 8)}%`,
+                    background: isCurrentMonth
+                      ? 'linear-gradient(90deg, #BE185D, #EC4899)'
+                      : 'linear-gradient(90deg, #FB7185, #FDA4AF)',
+                    borderRadius: 6,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                    paddingRight: 8,
+                  }}>
+                    <span style={{ fontSize: 10, color: '#fff', fontWeight: 700, fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                      {rp(m.total)}
+                    </span>
+                  </div>
+                )}
+                {m.total === 0 && (
+                  <span style={{ position: 'absolute', top: '50%', left: 8, transform: 'translateY(-50%)', fontSize: 10, color: '#9CA3AF', fontStyle: 'italic' }}>
+                    Belum ada pendapatan
+                  </span>
+                )}
+              </div>
+              <span style={{ fontSize: 10, color: '#9CA3AF', minWidth: 40, textAlign: 'right' }}>
+                {m.donation_count > 0 ? `${m.donation_count}×` : '—'}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Footnote */}
+      <p style={{ fontSize: 10, color: '#9CA3AF', marginTop: 12, fontStyle: 'italic', textAlign: 'center' }}>
+        Tracking ini menggabungkan fee penggalang (opt-in donor) + kode unik verifikasi
+      </p>
+    </div>
+  );
+}
+
 function FinRow({ label, value, color, bold, dim }: { label: string; value: string; color: string; bold?: boolean; dim?: boolean }) {
   return (
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
