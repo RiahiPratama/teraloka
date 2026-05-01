@@ -338,11 +338,39 @@ function FinancialContent() {
                     </p>
                   )}
                   {(summary.total_fee_pending ?? 0) > 0 && (
-                    <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(146,64,14,0.08)', borderRadius: 8 }}>
-                      <p style={{ fontSize: 10, color: '#92400E', fontWeight: 600 }}>
-                        ⚠️ Setor ke rekening TeraLoka sesuai jadwal settlement bulanan
-                      </p>
-                    </div>
+                    <>
+                      <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(146,64,14,0.08)', borderRadius: 8 }}>
+                        <p style={{ fontSize: 10, color: '#92400E', fontWeight: 600 }}>
+                          ⚠️ Setor ke rekening TeraLoka sesuai jadwal settlement bulanan
+                        </p>
+                      </div>
+
+                      {/* ⭐ CTA Setor Fee — discoverability point utama (Phase 3) */}
+                      <Link
+                        href="/owner/financial/fee-remittance"
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          marginTop: 10,
+                          padding: '12px 14px',
+                          background: 'linear-gradient(135deg, #92400E, #B45309)',
+                          borderRadius: 10,
+                          textDecoration: 'none',
+                          boxShadow: '0 2px 8px rgba(146,64,14,0.25)',
+                        }}
+                      >
+                        <div>
+                          <p style={{ fontSize: 13, fontWeight: 700, color: '#fff', marginBottom: 2 }}>
+                            💸 Setor Fee Sekarang
+                          </p>
+                          <p style={{ fontSize: 10, color: 'rgba(255,255,255,0.85)' }}>
+                            Submit bukti transfer fee ke TeraLoka
+                          </p>
+                        </div>
+                        <span style={{ fontSize: 18, color: '#fff', fontWeight: 700 }}>→</span>
+                      </Link>
+                    </>
                   )}
                 </div>
               )}
