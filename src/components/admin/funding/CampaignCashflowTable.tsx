@@ -41,10 +41,13 @@ interface DrilldownDonation {
   amount: number;
   operational_fee: number;
   donation_code: string;
-  verification_status: 'pending' | 'verified' | 'rejected';
+  verification_status: 'pending' | 'verified' | 'rejected' | 'under_audit';
   verified_at?: string;
   fee_remitted_at?: string;
   created_at: string;
+  // Escalation context (auto-set saat penggalang offline extended)
+  escalated_to_admin_at?: string;
+  escalation_reason?: string;
 }
 
 // ── Helpers ──────────────────────────────────────
@@ -523,9 +526,12 @@ function ExpandedDonations({
 }
 
 const STATUS_META: Record<string, { bg: string; color: string; label: string }> = {
-  pending:  { bg: 'rgba(245,158,11,0.15)', color: '#F59E0B', label: 'Pending' },
-  verified: { bg: 'rgba(16,185,129,0.15)', color: '#10B981', label: 'Verified' },
-  rejected: { bg: 'rgba(239,68,68,0.15)',  color: '#EF4444', label: 'Rejected' },
+  pending:     { bg: 'rgba(245,158,11,0.15)', color: '#F59E0B', label: 'Pending' },
+  verified:    { bg: 'rgba(16,185,129,0.15)', color: '#10B981', label: 'Verified' },
+  rejected:    { bg: 'rgba(239,68,68,0.15)',  color: '#EF4444', label: 'Rejected' },
+  // Auto-escalated: penggalang offline extended → admin manual review needed
+  // Pattern: offline_mode flow (Sprint A — Anti-Fraud Layer 5)
+  under_audit: { bg: 'rgba(234,88,12,0.15)',  color: '#EA580C', label: 'Audit' },
 };
 
 // Safe fallback untuk verification_status yang tidak dikenali (defensive)
