@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState, useEffect, useCallback } from 'react';
+import { useContext, useState, useEffect, useCallback, Fragment } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
@@ -159,9 +159,8 @@ export default function CampaignCashflowTable({
               const isLoading = loadingCampaign === c.id;
 
               return (
-                <>
+                <Fragment key={c.id}>
                 <tr
-                  key={c.id}
                   onClick={() => toggleExpand(c.id)}
                   style={{
                     borderBottom: (isLast && !isExpanded) ? 'none' : `1px solid ${t.sidebarBorder}`,
@@ -340,7 +339,7 @@ export default function CampaignCashflowTable({
                     </td>
                   </tr>
                 )}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
@@ -456,7 +455,7 @@ function ExpandedDonations({
           <tbody>
             {donations.map((d, di) => {
               const isLastDon = di === donations.length - 1;
-              const statusMeta = STATUS_META[d.verification_status];
+              const statusMeta = getStatusMeta(d.verification_status);
               return (
                 <tr key={d.id}
                   style={{ borderBottom: isLastDon ? 'none' : `1px solid ${t.sidebarBorder}` }}
@@ -528,6 +527,22 @@ const STATUS_META: Record<string, { bg: string; color: string; label: string }> 
   verified: { bg: 'rgba(16,185,129,0.15)', color: '#10B981', label: 'Verified' },
   rejected: { bg: 'rgba(239,68,68,0.15)',  color: '#EF4444', label: 'Rejected' },
 };
+
+// Safe fallback untuk verification_status yang tidak dikenali (defensive)
+// Bisa terjadi kalau DB punya status baru (mis: 'flagged', 'escalated')
+// yang belum di-handle di UI.
+const STATUS_FALLBACK = { bg: 'rgba(107,114,128,0.15)', color: '#6B7280', label: 'Unknown' };
+
+function getStatusMeta(status: string | null | undefined) {
+  if (!status) return STATUS_FALLBACK;
+  const meta = STATUS_META[status];
+  if (!meta) {
+    // Pattern 205: log unknown status biar visible (jangan silent swallow)
+    console.warn('[CampaignCashflowTable] Unknown verification_status:', status);
+    return { ...STATUS_FALLBACK, label: status };
+  }
+  return meta;
+}
 
 // ── Style helpers ────────────────────────────────
 
