@@ -1,14 +1,14 @@
 'use client';
 
 // ═══════════════════════════════════════════════════════════════
-// /fundraising/[slug]/terima-kasih/page.tsx — v2 Dynamic Status
+// /fundraising/[slug]/terima-kasih/page.tsx — v3 Full Timeline
 //
-// Improvements:
-// - Status-aware hero (pending/verified/rejected)
-// - Timeline component showing donation journey
-// - Auto-poll setiap 30s kalau status pending (max 10 menit)
-// - Adaptive CTA per status
-// - Refined visual hierarchy
+// Improvements over v2:
+// - Pakai endpoint /donations/:id/timeline (return donation + disbursement + report)
+// - Timeline extended dengan step "Dana Disalurkan" (kalau ada disbursement)
+// - Timeline extended dengan step "Laporan Penggunaan" (kalau ada usage report)
+// - Financial summary card "Dana terkumpul vs disalurkan"
+// - Top 3 latest disbursements expandable
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef, use } from 'react';
@@ -17,18 +17,20 @@ import Link from 'next/link';
 import {
   HeartHandshake, CheckCircle2, Clock, Share2, Home, MessageCircle,
   Copy, Check, Hash, Loader2, Sparkles, AlertTriangle, XCircle,
-  RefreshCw, Upload, Phone,
+  RefreshCw, Upload, Phone, Wallet, FileText, Building2, ChevronDown,
+  ChevronUp, TrendingUp,
 } from 'lucide-react';
 import { formatRupiah } from '@/utils/format';
 import ShareBar from '../_components/ShareBar';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
-const POLL_INTERVAL_MS = 30000;       // 30 detik
-const MAX_POLL_DURATION_MS = 600000;  // 10 menit (lalu stop, user bisa manual refresh)
-const ADMIN_WA = '6281289539452';     // Riahi - super admin untuk klarifikasi
+const POLL_INTERVAL_MS = 30000;
+const MAX_POLL_DURATION_MS = 600000;
+const ADMIN_WA = '6281289539452';
 
 interface Donation {
   id: string;
+  campaign_id: string;
   donor_name: string;
   donor_phone?: string;
   is_anonymous: boolean;
@@ -41,7 +43,6 @@ interface Donation {
   transfer_proof_url?: string | null;
   verification_status: 'pending' | 'verified' | 'rejected';
   verified_at?: string | null;
-  verified_by?: string | null;
   rejection_reason?: string | null;
   created_at: string;
   campaigns?: {
@@ -56,12 +57,52 @@ interface Donation {
   };
 }
 
+interface Disbursement {
+  id: string;
+  stage_number: number;
+  amount: number;
+  disbursed_to: string;
+  disbursed_at: string;
+  method: string;
+  evidence_urls: string[];
+  handover_photo_url: string | null;
+  disbursement_notes: string | null;
+  status: string;
+  verified_at: string | null;
+  created_at: string;
+}
+
+interface UsageReport {
+  id: string;
+  report_number: number;
+  title: string;
+  description: string | null;
+  amount_used: number;
+  items: any;
+  proof_photos: string[];
+  status: string;
+  created_at: string;
+}
+
+interface TimelineData {
+  donation: Donation;
+  financial_summary: {
+    total_collected: number;
+    total_disbursed: number;
+    disbursement_percentage: number;
+    total_disbursements_count: number;
+  };
+  recent_disbursements: Disbursement[];
+  has_usage_report: boolean;
+  latest_usage_report: UsageReport | null;
+}
+
 export default function TerimaKasihPage({ params }: { params: Promise<{ slug: string }> }) {
   const searchParams = useSearchParams();
   const { slug } = use(params);
   const donationId = searchParams.get('id');
 
-  const [donation, setDonation] = useState<Donation | null>(null);
+  const [data, setData] = useState<TimelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -69,28 +110,33 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
   const pollStartRef = useRef<number>(0);
   const pollTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  async function fetchDonation(silent = false) {
+  async function fetchTimeline(silent = false) {
     if (!donationId) {
       setLoading(false);
       return null;
     }
     if (!silent) setRefreshing(true);
     try {
-      const res = await fetch(`${API}/funding/donations/${donationId}`, {
+      const res = await fetch(`${API}/funding/donations/${donationId}/timeline`, {
         cache: 'no-store',
       });
       const json = await res.json();
       if (json.success && json.data) {
-        // Detect status change for animation
-        if (donation && donation.verification_status !== json.data.verification_status) {
-          setStatusJustChanged(json.data.verification_status);
+        // Detect status change
+        if (data && data.donation.verification_status !== json.data.donation.verification_status) {
+          setStatusJustChanged(json.data.donation.verification_status);
           setTimeout(() => setStatusJustChanged(null), 5000);
         }
-        setDonation(json.data);
+        // Detect new disbursement
+        if (data && (data.recent_disbursements?.length ?? 0) < (json.data.recent_disbursements?.length ?? 0)) {
+          setStatusJustChanged('disbursement');
+          setTimeout(() => setStatusJustChanged(null), 5000);
+        }
+        setData(json.data);
         return json.data;
       }
     } catch {
-      // Silent fail — user sees existing state
+      // silent fail
     } finally {
       setLoading(false);
       if (!silent) setTimeout(() => setRefreshing(false), 400);
@@ -98,24 +144,26 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
     return null;
   }
 
-  // Initial fetch
   useEffect(() => {
-    fetchDonation();
+    fetchTimeline();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [donationId]);
 
-  // Auto-poll setiap 30s kalau status pending (max 10 menit)
+  // Auto-poll: lebih agresif kalau pending, tetap polling kalau verified untuk catch disbursement
   useEffect(() => {
-    if (!donation) return;
-    if (donation.verification_status !== 'pending') {
-      // Stop polling kalau sudah verified/rejected
+    if (!data) return;
+    const status = data.donation.verification_status;
+
+    // Stop polling kalau rejected (terminal state)
+    if (status === 'rejected') {
       if (pollTimerRef.current) {
         clearInterval(pollTimerRef.current);
         pollTimerRef.current = null;
       }
       return;
     }
-    if (pollTimerRef.current) return; // Already polling
+
+    if (pollTimerRef.current) return;
 
     pollStartRef.current = Date.now();
     pollTimerRef.current = setInterval(async () => {
@@ -125,11 +173,7 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
         pollTimerRef.current = null;
         return;
       }
-      const fresh = await fetchDonation(true);
-      if (fresh && fresh.verification_status !== 'pending') {
-        if (pollTimerRef.current) clearInterval(pollTimerRef.current);
-        pollTimerRef.current = null;
-      }
+      await fetchTimeline(true);
     }, POLL_INTERVAL_MS);
 
     return () => {
@@ -139,11 +183,11 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [donation?.verification_status]);
+  }, [data?.donation.verification_status]);
 
   function copyDonationCode() {
-    if (!donation?.donation_code) return;
-    navigator.clipboard.writeText(donation.donation_code).then(() => {
+    if (!data?.donation.donation_code) return;
+    navigator.clipboard.writeText(data.donation.donation_code).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     });
@@ -157,14 +201,17 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
     );
   }
 
-  const userMessage = donation?.message?.trim() || '';
+  const donation = data?.donation;
   const status = donation?.verification_status ?? 'pending';
   const hasProof = !!donation?.transfer_proof_url;
+  const userMessage = donation?.message?.trim() || '';
+  const hasDisbursements = (data?.recent_disbursements?.length ?? 0) > 0;
+  const hasReport = data?.has_usage_report ?? false;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#FDF2F8] via-white to-[#003526]/5 pb-8">
 
-      {/* Status change animation banner */}
+      {/* Status change banners */}
       {statusJustChanged === 'verified' && (
         <div className="mx-auto max-w-md px-4 pt-4">
           <div className="bg-emerald-500 text-white rounded-2xl p-4 flex items-center gap-3 shadow-lg animate-in slide-in-from-top">
@@ -181,18 +228,47 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
           </div>
         </div>
       )}
+      {statusJustChanged === 'disbursement' && (
+        <div className="mx-auto max-w-md px-4 pt-4">
+          <div className="bg-blue-600 text-white rounded-2xl p-4 flex items-center gap-3 shadow-lg animate-in slide-in-from-top">
+            <Wallet size={20} />
+            <p className="text-sm font-bold">Dana kampanye baru saja disalurkan! 💸</p>
+          </div>
+        </div>
+      )}
 
-      {/* Hero — Status-aware */}
+      {/* Hero */}
       <HeroSection donation={donation} status={status} />
 
-      {/* Status Timeline Card */}
-      {donation && (
+      {/* Main Timeline Card */}
+      {data && donation && (
         <div className="mx-auto max-w-md px-4 mb-4">
-          <StatusTimelineCard
-            donation={donation}
+          <FullTimelineCard
+            data={data}
             refreshing={refreshing}
-            onRefresh={() => fetchDonation(false)}
+            onRefresh={() => fetchTimeline(false)}
           />
+        </div>
+      )}
+
+      {/* Financial Summary Card — show if verified + has disbursements */}
+      {status === 'verified' && hasDisbursements && data && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <FinancialSummaryCard summary={data.financial_summary} />
+        </div>
+      )}
+
+      {/* Recent Disbursements — show if verified + has disbursements */}
+      {status === 'verified' && hasDisbursements && data && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <DisbursementsList disbursements={data.recent_disbursements} totalCount={data.financial_summary.total_disbursements_count} />
+        </div>
+      )}
+
+      {/* Usage Report Card — kalau ada */}
+      {status === 'verified' && hasReport && data?.latest_usage_report && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <UsageReportCard report={data.latest_usage_report} />
         </div>
       )}
 
@@ -238,7 +314,7 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
         </div>
       )}
 
-      {/* Donor's message/doa */}
+      {/* Donor's message */}
       {userMessage && (
         <div className="mx-auto max-w-md px-4 mb-4">
           <div className="bg-[#003526]/5 border border-[#003526]/10 rounded-2xl p-5">
@@ -254,7 +330,7 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
         </div>
       )}
 
-      {/* Status-specific message card */}
+      {/* Inspirational message — verified only */}
       {status === 'verified' && (
         <div className="mx-auto max-w-md px-4 mb-6">
           <div className="bg-gradient-to-br from-[#003526] to-[#1B6B4A] rounded-2xl p-5 text-white">
@@ -271,6 +347,7 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
         </div>
       )}
 
+      {/* Rejection CTA */}
       {status === 'rejected' && donation?.rejection_reason && (
         <div className="mx-auto max-w-md px-4 mb-6">
           <a
@@ -322,8 +399,8 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
   );
 }
 
-// ─── Hero Section (Status-aware) ─────────────────────────────────
-function HeroSection({ donation, status }: { donation: Donation | null; status: string }) {
+// ─── Hero (status-aware) ─────────────────────────────────────────
+function HeroSection({ donation, status }: { donation: Donation | undefined; status: string }) {
   const config = getHeroConfig(status, donation);
 
   return (
@@ -336,14 +413,7 @@ function HeroSection({ donation, status }: { donation: Donation | null; status: 
           >
             <config.icon size={48} className="text-white" />
           </div>
-          {status === 'verified' && (
-            <>
-              <Sparkles size={16} className="absolute -top-1 -right-2 text-yellow-400 animate-pulse" />
-              <Sparkles size={14} className="absolute top-4 -left-3 text-emerald-400 animate-pulse" style={{ animationDelay: '0.3s' }} />
-              <Sparkles size={12} className="absolute -bottom-1 right-2 text-[#003526] animate-pulse" style={{ animationDelay: '0.6s' }} />
-            </>
-          )}
-          {status === 'pending' && donation && (
+          {(status === 'verified' || status === 'pending') && donation && (
             <>
               <Sparkles size={16} className="absolute -top-1 -right-2 text-yellow-400 animate-pulse" />
               <Sparkles size={14} className="absolute top-4 -left-3 text-pink-400 animate-pulse" style={{ animationDelay: '0.3s' }} />
@@ -366,7 +436,7 @@ function HeroSection({ donation, status }: { donation: Donation | null; status: 
   );
 }
 
-function getHeroConfig(status: string, donation: Donation | null) {
+function getHeroConfig(status: string, donation: Donation | undefined) {
   if (status === 'verified') {
     return {
       icon: CheckCircle2,
@@ -374,9 +444,9 @@ function getHeroConfig(status: string, donation: Donation | null) {
       iconShadow: '0 20px 25px -5px rgba(16, 185, 129, 0.25)',
       eyebrow: 'Donasi Diterima ✓',
       eyebrowCls: 'text-emerald-600',
-      title: (d: Donation | null) =>
+      title: (d: Donation | undefined) =>
         d && !d.is_anonymous ? `Donasimu Sudah Tersalurkan, ${d.donor_name}!` : 'Donasimu Sudah Tersalurkan!',
-      subtitle: (d: Donation | null) => d ? (
+      subtitle: (d: Donation | undefined) => d ? (
         <>
           <span className="font-bold text-emerald-700">{formatRupiah(d.amount)}</span>
           {d.campaigns && <> untuk <span className="font-bold">{d.campaigns.title}</span></>}
@@ -394,22 +464,21 @@ function getHeroConfig(status: string, donation: Donation | null) {
       eyebrow: 'Mohon Maaf',
       eyebrowCls: 'text-red-600',
       title: () => 'Donasi Tidak Dapat Diverifikasi',
-      subtitle: (d: Donation | null) => d?.rejection_reason
+      subtitle: (d: Donation | undefined) => d?.rejection_reason
         ? <>Tim kami tidak dapat memproses donasi ini. Lihat detail di bawah untuk klarifikasi.</>
         : <>Mohon hubungi tim untuk informasi lebih lanjut.</>,
     };
   }
 
-  // Default: pending
   return {
     icon: HeartHandshake,
     iconBg: 'linear-gradient(135deg, #EC4899, #BE185D)',
     iconShadow: '0 20px 25px -5px rgba(236, 72, 153, 0.25)',
     eyebrow: 'Alhamdulillah',
     eyebrowCls: 'text-[#EC4899]',
-    title: (d: Donation | null) =>
+    title: (d: Donation | undefined) =>
       d && !d.is_anonymous ? `Terima Kasih, ${d.donor_name}!` : 'Terima Kasih!',
-    subtitle: (d: Donation | null) => d ? (
+    subtitle: (d: Donation | undefined) => d ? (
       <>
         Donasimu <span className="font-bold text-[#003526]">{formatRupiah(d.amount)}</span>
         {d.campaigns && <> untuk <span className="font-bold">{d.campaigns.title}</span></>}
@@ -419,19 +488,20 @@ function getHeroConfig(status: string, donation: Donation | null) {
   };
 }
 
-// ─── Status Timeline Card ────────────────────────────────────────
-function StatusTimelineCard({
-  donation, refreshing, onRefresh,
+// ─── Full Timeline Card (5-step) ─────────────────────────────────
+function FullTimelineCard({
+  data, refreshing, onRefresh,
 }: {
-  donation: Donation;
+  data: TimelineData;
   refreshing: boolean;
   onRefresh: () => void;
 }) {
+  const { donation, recent_disbursements, has_usage_report } = data;
   const status = donation.verification_status;
   const hasProof = !!donation.transfer_proof_url;
   const isPending = status === 'pending';
+  const hasDisbursements = recent_disbursements.length > 0;
 
-  // Header card config
   const headerConfig = (() => {
     if (status === 'verified') {
       return {
@@ -488,10 +558,11 @@ function StatusTimelineCard({
   })();
 
   const HeaderIcon = headerConfig.icon;
+  const showRefreshButton = status !== 'rejected';
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      {/* Status Header */}
+      {/* Header */}
       <div className={`${headerConfig.bg} ${headerConfig.border} border-b p-4`}>
         <div className="flex items-start gap-3">
           <div className={`w-10 h-10 rounded-full ${headerConfig.iconBg} flex items-center justify-center shrink-0`}>
@@ -500,7 +571,7 @@ function StatusTimelineCard({
           <div className="flex-1 min-w-0">
             <div className="flex items-center justify-between gap-2">
               <p className={`text-sm font-bold ${headerConfig.textTitle}`}>{headerConfig.title}</p>
-              {isPending && (
+              {showRefreshButton && (
                 <button
                   onClick={onRefresh}
                   disabled={refreshing}
@@ -515,7 +586,6 @@ function StatusTimelineCard({
           </div>
         </div>
 
-        {/* Quick CTA — bukti belum upload */}
         {isPending && !hasProof && donation.campaigns && (
           <Link
             href={`/fundraising/${donation.campaigns.slug}/konfirmasi?id=${donation.id}`}
@@ -526,7 +596,6 @@ function StatusTimelineCard({
           </Link>
         )}
 
-        {/* Rejection reason */}
         {status === 'rejected' && donation.rejection_reason && (
           <div className="mt-3 bg-white rounded-lg p-3 border border-red-100">
             <p className="text-[10px] font-bold text-red-700 uppercase mb-1 tracking-wider">Alasan Ditolak</p>
@@ -535,7 +604,7 @@ function StatusTimelineCard({
         )}
       </div>
 
-      {/* Timeline */}
+      {/* Timeline 5 steps */}
       <div className="p-4">
         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mb-3">Perjalanan Donasi</p>
         <div className="space-y-1">
@@ -564,11 +633,30 @@ function StatusTimelineCard({
             }
           />
           {status !== 'rejected' && (
-            <TimelineStep
-              future
-              label="Disalurkan ke penerima"
-              time={status === 'verified' ? 'Akan diproses penggalang' : 'Setelah donasi diverifikasi'}
-            />
+            <>
+              <TimelineStep
+                done={hasDisbursements}
+                future={!hasDisbursements && status !== 'verified'}
+                label="Dana disalurkan ke penerima"
+                time={
+                  hasDisbursements
+                    ? `${data.financial_summary.total_disbursements_count}× pencairan terverifikasi`
+                    : status === 'verified'
+                    ? 'Akan diproses penggalang'
+                    : 'Setelah donasi diverifikasi'
+                }
+              />
+              <TimelineStep
+                done={has_usage_report}
+                future={!has_usage_report}
+                label="Laporan penggunaan"
+                time={
+                  has_usage_report
+                    ? 'Penggalang sudah laporkan'
+                    : 'Setelah dana digunakan'
+                }
+              />
+            </>
           )}
         </div>
       </div>
@@ -613,6 +701,193 @@ function TimelineStep({
         <p className={`text-xs font-medium ${labelCls}`}>{label}</p>
         {time && <p className={`text-[10px] ${timeCls} mt-0.5`}>{time}</p>}
       </div>
+    </div>
+  );
+}
+
+// ─── Financial Summary Card ──────────────────────────────────────
+function FinancialSummaryCard({ summary }: { summary: TimelineData['financial_summary'] }) {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <TrendingUp size={14} className="text-[#003526]" />
+        <p className="text-xs font-bold text-[#003526] uppercase tracking-widest">Status Dana Kampanye</p>
+      </div>
+
+      <div className="space-y-2 mb-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">Total terkumpul</span>
+          <span className="text-sm font-bold text-gray-900">{formatRupiah(summary.total_collected)}</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-gray-500">Sudah disalurkan</span>
+          <span className="text-sm font-bold text-emerald-700">{formatRupiah(summary.total_disbursed)}</span>
+        </div>
+      </div>
+
+      {/* Progress bar */}
+      <div className="relative h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+        <div
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full transition-all"
+          style={{ width: `${summary.disbursement_percentage}%` }}
+        />
+      </div>
+      <p className="text-[11px] text-gray-500 text-center">
+        <span className="font-bold text-emerald-700">{summary.disbursement_percentage}%</span> dana tersalurkan
+        {' · '}
+        <span className="font-medium">{summary.total_disbursements_count} kali pencairan</span>
+      </p>
+    </div>
+  );
+}
+
+// ─── Disbursements List ──────────────────────────────────────────
+function DisbursementsList({
+  disbursements, totalCount,
+}: {
+  disbursements: Disbursement[]; totalCount: number;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const displayed = expanded ? disbursements : disbursements.slice(0, 1);
+  const hasMore = disbursements.length > 1 || totalCount > disbursements.length;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div className="p-5 pb-3">
+        <div className="flex items-center gap-2 mb-1">
+          <Wallet size={14} className="text-blue-600" />
+          <p className="text-xs font-bold text-blue-600 uppercase tracking-widest">Pencairan Dana</p>
+        </div>
+        <p className="text-xs text-gray-500">{totalCount} pencairan terverifikasi</p>
+      </div>
+
+      <div className="px-5 pb-5 space-y-2.5">
+        {displayed.map((d, i) => (
+          <DisbursementItem key={d.id} d={d} stage={d.stage_number || (i + 1)} />
+        ))}
+      </div>
+
+      {hasMore && (
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="w-full px-5 py-3 border-t border-gray-100 text-xs font-bold text-blue-600 hover:bg-blue-50 active:scale-[0.99] transition-all flex items-center justify-center gap-1"
+        >
+          {expanded ? (
+            <>Tutup <ChevronUp size={12} /></>
+          ) : (
+            <>
+              {disbursements.length > 1 ? `Lihat ${disbursements.length - 1} pencairan lainnya` : 'Lihat detail'}
+              <ChevronDown size={12} />
+            </>
+          )}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function DisbursementItem({ d, stage }: { d: Disbursement; stage: number }) {
+  return (
+    <div className="rounded-xl border border-gray-100 p-3 bg-gray-50/50">
+      <div className="flex items-start justify-between gap-2 mb-1.5">
+        <div className="flex items-center gap-1.5">
+          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-black">
+            {stage}
+          </span>
+          <span className="text-xs font-bold text-gray-900">{d.disbursed_to}</span>
+        </div>
+        <span className="text-sm font-black text-blue-700">{formatRupiah(d.amount)}</span>
+      </div>
+      <div className="flex items-center gap-3 text-[10px] text-gray-500 ml-7 mb-1">
+        <span className="flex items-center gap-1">
+          <Building2 size={10} />
+          {d.method}
+        </span>
+        <span>·</span>
+        <span>
+          {new Date(d.disbursed_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+        </span>
+      </div>
+      {d.disbursement_notes && (
+        <p className="text-[11px] text-gray-600 ml-7 mt-1.5 italic leading-relaxed">
+          &quot;{d.disbursement_notes}&quot;
+        </p>
+      )}
+      {d.evidence_urls && d.evidence_urls.length > 0 && (
+        <div className="ml-7 mt-2 flex gap-1.5 flex-wrap">
+          {d.evidence_urls.slice(0, 3).map((url, i) => (
+            <a
+              key={i}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-12 h-12 rounded-lg overflow-hidden border border-gray-200 hover:border-blue-400 active:scale-95 transition-all"
+            >
+              <img src={url} alt={`Bukti ${i + 1}`} className="w-full h-full object-cover" />
+            </a>
+          ))}
+          {d.evidence_urls.length > 3 && (
+            <div className="w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-500">
+              +{d.evidence_urls.length - 3}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Usage Report Card ───────────────────────────────────────────
+function UsageReportCard({ report }: { report: UsageReport }) {
+  const itemCount = Array.isArray(report.items) ? report.items.length : 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div className="flex items-center gap-2 mb-3">
+        <FileText size={14} className="text-purple-600" />
+        <p className="text-xs font-bold text-purple-600 uppercase tracking-widest">Laporan Penggunaan</p>
+      </div>
+
+      <p className="text-sm font-bold text-gray-900 mb-1">
+        Laporan #{report.report_number} · {report.title}
+      </p>
+      {report.description && (
+        <p className="text-xs text-gray-600 leading-relaxed mb-3 line-clamp-2">{report.description}</p>
+      )}
+
+      <div className="flex items-center justify-between mb-3 text-xs">
+        <span className="text-gray-500">Total dilaporkan</span>
+        <span className="font-bold text-purple-700">{formatRupiah(report.amount_used)}</span>
+      </div>
+
+      {itemCount > 0 && (
+        <div className="bg-purple-50 rounded-lg px-3 py-2 mb-3">
+          <p className="text-[11px] text-purple-800 font-medium">
+            Berisi <span className="font-bold">{itemCount} rincian penggunaan</span> untuk transparansi penuh
+          </p>
+        </div>
+      )}
+
+      {report.proof_photos && report.proof_photos.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap">
+          {report.proof_photos.slice(0, 4).map((url, i) => (
+            <a
+              key={i}
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-14 h-14 rounded-lg overflow-hidden border border-gray-200 hover:border-purple-400 active:scale-95 transition-all"
+            >
+              <img src={url} alt={`Bukti ${i + 1}`} className="w-full h-full object-cover" />
+            </a>
+          ))}
+          {report.proof_photos.length > 4 && (
+            <div className="w-14 h-14 rounded-lg border border-gray-200 bg-gray-50 flex items-center justify-center text-[10px] font-bold text-gray-500">
+              +{report.proof_photos.length - 4}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
