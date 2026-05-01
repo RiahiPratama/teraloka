@@ -325,7 +325,7 @@ function FinancialContent() {
                     )}
                     <div style={{ borderTop: '1px solid #FDE68A', paddingTop: 8, marginTop: 2 }}>
                       <FinRow
-                        label="Belum Disetor (wajib setor ke TeraLoka)"
+                        label="Yang Perlu Disetor"
                         value={rp(summary.total_fee_pending ?? summary.total_operational_fee)}
                         color="#92400E"
                         bold

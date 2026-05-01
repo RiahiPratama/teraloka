@@ -147,7 +147,7 @@ function NewFeeRemittanceContent() {
     const totalPending = pending?.total_fee_pending ?? 0;
     const maxAllowed = totalPending * 1.05;
     if (amountNum > maxAllowed) {
-      toast.error(`Setoran melebihi fee tertunggak. Maksimal ${rp(Math.floor(maxAllowed))}.`);
+      toast.error(`Setoran melebihi yang perlu disetor. Maksimal ${rp(Math.floor(maxAllowed))}.`);
       return;
     }
 
@@ -213,9 +213,9 @@ function NewFeeRemittanceContent() {
       amountHint = { text: `Melebihi maksimum ${rp(Math.floor(totalPending * 1.05))}`, color: '#DC2626' };
     } else if (amountNum < totalPending) {
       const sisa = totalPending - amountNum;
-      amountHint = { text: `Setoran sebagian. Sisa ${rp(sisa)} tetap tertunggak.`, color: '#B45309' };
+      amountHint = { text: `Setoran sebagian. Sisa ${rp(sisa)} masih belum disetor.`, color: '#B45309' };
     } else {
-      amountHint = { text: 'Sesuai dengan fee tertunggak', color: '#047857' };
+      amountHint = { text: 'Sesuai dengan yang perlu disetor', color: '#047857' };
     }
   }
 
@@ -243,7 +243,7 @@ function NewFeeRemittanceContent() {
         <div className="bg-gradient-to-br from-[#003526] to-[#0d4d3a] rounded-2xl p-4 text-white">
           <div className="flex items-center gap-2 mb-1">
             <Wallet size={14} className="opacity-80" />
-            <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Total Fee Tertunggak</p>
+            <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Total Yang Perlu Disetor</p>
           </div>
           <p className="text-2xl font-black">{rp(totalPending)}</p>
           <p className="text-xs opacity-70 mt-1">
@@ -354,7 +354,7 @@ function NewFeeRemittanceContent() {
       </div>
 
       {/* Sticky submit button */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-20">
+      <div className="fixed left-0 right-0 bg-white border-t border-gray-200 p-4 z-20" style={{ bottom: 'calc(60px + env(safe-area-inset-bottom, 0px))' }}>
         <div className="max-w-3xl mx-auto">
           <button
             onClick={handleSubmit}

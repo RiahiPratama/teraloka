@@ -236,7 +236,7 @@ function FeeRemittancePageContent() {
         <div className="bg-gradient-to-br from-[#003526] to-[#0d4d3a] rounded-2xl p-5 text-white">
           <div className="flex items-center gap-2 mb-2">
             <Wallet size={16} className="opacity-80" />
-            <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Fee Tertunggak</p>
+            <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Fee Belum Disetor</p>
           </div>
           <p className="text-3xl font-black mb-3">{rp(totalPending)}</p>
           <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/20 text-xs">
@@ -245,9 +245,9 @@ function FeeRemittancePageContent() {
               <p className="font-bold">{pending?.pending_donations_count ?? 0} donasi</p>
             </div>
             <div>
-              <p className="opacity-70 mb-0.5">Donasi Tertua</p>
+              <p className="opacity-70 mb-0.5">Sudah Menunggu</p>
               <p className="font-bold">
-                {oldestDays > 0 ? `${oldestDays} hari lalu` : 'Belum ada'}
+                {oldestDays > 0 ? `${oldestDays} hari` : 'Belum ada'}
               </p>
             </div>
           </div>
@@ -258,7 +258,7 @@ function FeeRemittancePageContent() {
           <div className="bg-orange-50 border border-orange-200 rounded-2xl p-3 flex items-start gap-2.5">
             <Clock size={16} className="text-orange-600 flex-shrink-0 mt-0.5" />
             <p className="text-xs text-orange-800 leading-relaxed">
-              <strong>Donasi tertua sudah {oldestDays} hari belum disetor.</strong> Mohon segera setor untuk menjaga akuntabilitas penyaluran fee.
+              <strong>Sudah {oldestDays} hari donasi terlama belum disetor.</strong> Yuk segera setor supaya akuntabilitas penyaluran fee tetap terjaga.
             </p>
           </div>
         )}
