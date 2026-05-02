@@ -770,18 +770,8 @@ function CreatorReviewBody({ creator, t }: { creator: Creator; t: any }) {
               <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 6, fontWeight: 600 }}>
                 📷 Foto KTP ({creator.creator_id_documents.length})
               </p>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-                {creator.creator_id_documents.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                    style={{
-                      aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
-                      border: `1px solid ${t.sidebarBorder}`, background: t.navHover,
-                      display: 'block',
-                    }}>
-                    <img src={url} alt={`KTP ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                  </a>
-                ))}
-              </div>
+              {/* ⭐ Issue 5: KYC bucket private — pakai KycImageGrid yang fetch signed URL */}
+              <KycImageGrid userId={creator.id} t={t} />
               <p style={{ fontSize: 10, color: t.textMuted, marginTop: 6, fontStyle: 'italic' }}>
                 Klik gambar untuk view full size
               </p>
@@ -867,4 +857,98 @@ function paginationBtnStyle(t: any, disabled: boolean): React.CSSProperties {
     cursor: disabled ? 'not-allowed' : 'pointer',
     opacity: disabled ? 0.5 : 1,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KycImageGrid — fetch signed URLs untuk KYC photos (private bucket)
+// ═══════════════════════════════════════════════════════════════
+//
+// Bucket 'kyc' adalah PRIVATE → URL public di DB tidak accessible.
+// Component ini fetch /admin/users/:id/kyc-documents untuk dapat
+// signed URL valid 1 jam, terus render image.
+//
+// Filosofi: Backend (Otak) handle signing, frontend (Wajah) display.
+//
+function KycImageGrid({ userId, t }: { userId: string; t: any }) {
+  const [signedUrls, setSignedUrls] = useState<string[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchSigned() {
+      try {
+        const token = localStorage.getItem('tl_token');
+        if (!token) {
+          setError('Sesi expired');
+          setLoading(false);
+          return;
+        }
+        const res = await fetch(`${API_URL}/admin/users/${userId}/kyc-documents`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const json = await res.json();
+        if (cancelled) return;
+
+        if (res.ok && json.success && json.data) {
+          setSignedUrls(json.data.signed_urls ?? []);
+        } else {
+          setError(json?.error?.message || 'Gagal load KYC');
+        }
+      } catch (err: any) {
+        if (!cancelled) setError(err?.message ?? 'Koneksi bermasalah');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    fetchSigned();
+    return () => { cancelled = true; };
+  }, [userId]);
+
+  if (loading) {
+    return (
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6,
+      }}>
+        {[1, 2].map((i) => (
+          <div key={i} style={{
+            aspectRatio: '1', borderRadius: 8,
+            background: t.navHover, border: `1px solid ${t.sidebarBorder}`,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            color: t.textMuted, fontSize: 10,
+          }}>
+            Loading...
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (error || !signedUrls || signedUrls.length === 0) {
+    return (
+      <div style={{
+        padding: 16, borderRadius: 8,
+        background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.2)',
+        color: '#EF4444', fontSize: 11, textAlign: 'center',
+      }}>
+        {error || 'Tidak ada KYC ter-upload'}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
+      {signedUrls.map((url, i) => (
+        <a key={i} href={url} target="_blank" rel="noopener noreferrer"
+          style={{
+            aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
+            border: `1px solid ${t.sidebarBorder}`, background: t.navHover,
+            display: 'block',
+          }}>
+          <img src={url} alt={`KTP ${i + 1}`}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </a>
+      ))}
+    </div>
+  );
 }
