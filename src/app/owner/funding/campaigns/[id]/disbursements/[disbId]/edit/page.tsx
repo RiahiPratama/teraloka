@@ -45,6 +45,7 @@ interface DisbursementDetail {
   campaigns?: {
     title: string;
     slug: string;
+    created_at: string;  // ⭐ Used untuk date input min constraint
   };
 }
 
@@ -356,9 +357,22 @@ export default function OwnerDisbursementEditPage() {
                 type="date"
                 value={disbursedAt}
                 onChange={e => setDisbursedAt(e.target.value)}
+                min={disb?.campaigns?.created_at?.slice(0, 10)}
                 max={new Date().toISOString().slice(0, 10)}
                 className="w-full px-3 py-3 rounded-xl border border-gray-200 text-sm outline-none focus:border-[#003526]"
               />
+              {/* ⭐ Helper text: explain valid date range */}
+              {disb?.campaigns?.created_at && (
+                <p className="text-[10px] text-gray-500 leading-relaxed mt-1 pl-1">
+                  Boleh dari{' '}
+                  <strong className="text-gray-700">
+                    {new Date(disb.campaigns.created_at).toLocaleDateString('id-ID', {
+                      day: 'numeric', month: 'short', year: 'numeric'
+                    })}
+                  </strong>
+                  {' '}sampai hari ini.
+                </p>
+              )}
             </div>
             <div>
               <label className="block text-xs font-bold text-gray-700 mb-1.5">

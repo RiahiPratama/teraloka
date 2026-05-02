@@ -30,6 +30,7 @@ interface CampaignSummary {
   title: string;
   status: string;
   collected_amount: number;
+  created_at: string;  // ⭐ Used untuk date input min constraint (validate disbursed_at >= campaign created)
 }
 
 interface FinancialSummary {
@@ -258,9 +259,22 @@ export default function OwnerCampaignDisbursementNewPage() {
               type="date"
               value={disbursedAt}
               onChange={e => setDisbursedAt(e.target.value)}
+              min={campaign?.created_at?.slice(0, 10)}
               max={new Date().toISOString().slice(0, 10)}
               className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
             />
+            {/* ⭐ Helper text: explain valid date range untuk donor + penggalang clarity */}
+            {campaign?.created_at && (
+              <p className="text-[11px] text-gray-500 leading-relaxed pl-1">
+                📅 Pilih tanggal saat dana benar-benar cair. Boleh dari{' '}
+                <strong className="text-gray-700">
+                  {new Date(campaign.created_at).toLocaleDateString('id-ID', {
+                    day: 'numeric', month: 'long', year: 'numeric'
+                  })}
+                </strong>
+                {' '}(kampanye dibuka) sampai hari ini.
+              </p>
+            )}
             <select
               value={method}
               onChange={e => setMethod(e.target.value)}
