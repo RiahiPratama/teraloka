@@ -5,6 +5,7 @@ import { ThemeScript } from '@/components/providers/theme-script'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { PostHogProvider } from '@/components/providers/PostHogProvider'
 import { ToastProvider } from '@/components/ui/Toast'
+import { ModalProvider } from '@/components/providers/ModalProvider'
 import ConditionalBottomNav from '@/components/layout/ConditionalBottomNav'
 
 export const metadata: Metadata = {
@@ -49,15 +50,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             - ThemeProvider: theme available di semua page
             - AuthProvider: auth context untuk authenticated features
             - ToastProvider: global toast notification system
-            
+            - ModalProvider: global modal counter (BottomNav auto-hide saat modal open)
+
             Note: Suspense wrapping ditangani di dalam PostHogProvider sendiri
-            kalau butuh (saat pakai useSearchParams). Simplified di sini. */}
+            kalau butuh (saat pakai useSearchParams). Simplified di sini.
+
+            ModalProvider HARUS membungkus {children} DAN <ConditionalBottomNav />
+            karena both side perlu akses state — modal (registerModal) dan
+            BottomNav (isAnyModalOpen). */}
         <PostHogProvider>
           <ThemeProvider>
             <AuthProvider>
               <ToastProvider>
-                {children}
-                <ConditionalBottomNav />
+                <ModalProvider>
+                  {children}
+                  <ConditionalBottomNav />
+                </ModalProvider>
               </ToastProvider>
             </AuthProvider>
           </ThemeProvider>

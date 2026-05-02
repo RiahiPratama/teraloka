@@ -11,17 +11,25 @@
 //
 // Behavior:
 //   - Auto-hide saat virtual keyboard muncul
+//   - Auto-hide saat any modal open (May 2, 2026 fix —
+//     tombol modal action gak ketutup BottomNav)
 //   - Smart context: kalau di campaign detail, tab Pencairan/Laporan
 //     link ke campaign-specific path (/owner/funding/campaigns/[id]/...)
 //
 // ⭐ REFACTOR May 2, 2026: Domain umbrella /owner/funding/* (schema-based)
 //    Konsisten dengan /admin/funding/* dan DB schema funding.
+//
+// ⭐ FIX May 2, 2026: Modal-aware via ModalContext
+//    Sebelumnya: modal action button ketutup BottomNav (penggalang stuck
+//    verify donasi karena "Lanjut" gak bisa diklik). Now: BottomNav
+//    auto-hide via translate-y-full saat any modal open.
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { LayoutDashboard, Banknote, ClipboardList, User } from 'lucide-react';
 import { useKeyboardOpen } from '@/utils/pwa-utils';
+import { useModal } from '@/components/providers/ModalProvider';
 
 interface NavItem {
   key: string;
@@ -33,6 +41,7 @@ interface NavItem {
 export default function OwnerBottomNav() {
   const pathname = usePathname();
   const keyboardOpen = useKeyboardOpen();
+  const { isAnyModalOpen } = useModal();
 
   // Extract campaignId from path if we're in /owner/funding/campaigns/[id]/*
   const campaignMatch = pathname.match(/^\/owner\/funding\/campaigns\/([^/]+)/);
@@ -86,12 +95,15 @@ export default function OwnerBottomNav() {
     return false;
   }
 
-  // Hide bottom nav saat keyboard muncul
+  // Hide bottom nav saat keyboard muncul (full unmount untuk reclaim space)
   if (keyboardOpen) return null;
+
+  // Hide bottom nav saat modal open (slide down via transform — preserve mount untuk smooth transition)
+  const hidden = isAnyModalOpen;
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 md:hidden transition-transform duration-200 ease-out"
       style={{
         background: 'rgba(255,255,255,0.96)',
         backdropFilter: 'blur(20px)',
@@ -99,7 +111,10 @@ export default function OwnerBottomNav() {
         borderTop: '1px solid var(--border-light, #E5E7EB)',
         boxShadow: '0 -4px 24px rgba(0,0,0,0.06)',
         paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        transform: hidden ? 'translateY(100%)' : 'translateY(0)',
+        pointerEvents: hidden ? 'none' : 'auto',
       }}
+      aria-hidden={hidden}
     >
       <div className="flex items-center justify-around px-2" style={{ height: 60 }}>
         {items.map(item => {
@@ -110,6 +125,7 @@ export default function OwnerBottomNav() {
               key={item.key}
               href={item.href}
               className="flex flex-col items-center justify-center gap-0.5 flex-1 h-full transition-opacity active:opacity-70"
+              tabIndex={hidden ? -1 : 0}
             >
               <Icon
                 size={22}

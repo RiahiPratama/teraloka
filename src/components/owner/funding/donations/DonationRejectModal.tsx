@@ -9,6 +9,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useModalRegister } from '@/components/providers/ModalProvider';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://teraloka-api.vercel.app/api/v1';
 
@@ -67,6 +68,7 @@ export default function DonationRejectModal({
   onSuccess,
 }: Props) {
   const { token } = useAuth();
+  useModalRegister(isOpen);  // ⭐ Hide BottomNav saat modal open
   const [reason, setReason] = useState<RejectReason | ''>('');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState(false);
