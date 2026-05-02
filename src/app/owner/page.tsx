@@ -158,14 +158,14 @@ export default function OwnerDashboard() {
 
   // ⭐ Opsi C: smart href untuk "Input Laporan"
   // - 0 aktif  → null (tombol disabled)
-  // - 1 aktif  → langsung ke /owner/campaign/{id}/reports
+  // - 1 aktif  → langsung ke /owner/funding/campaigns/{id}/reports
   // - >1 aktif → ke list kampanye filter active (user pilih)
   const reportHref =
     activeCampaigns === 0
       ? null
       : activeCampaigns === 1 && activeCampaignId
-        ? `/owner/campaign/${activeCampaignId}/reports`
-        : '/owner/campaign?tab=active';
+        ? `/owner/funding/campaigns/${activeCampaignId}/reports`
+        : '/owner/funding/campaigns?tab=active';
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#f9f9f8] via-white to-[#f9f9f8]">
@@ -203,7 +203,7 @@ export default function OwnerDashboard() {
               </div>
               {hasAnyCampaign && (
                 <Link
-                  href="/owner/campaign"
+                  href="/owner/funding/campaigns"
                   className="text-xs font-bold text-[#F472B6] hover:text-white flex items-center gap-1 transition-colors"
                 >
                   Lihat Semua <ChevronRight size={12} />
@@ -222,7 +222,7 @@ export default function OwnerDashboard() {
                   Mulai galang dana kemanusiaan untuk warga Maluku Utara.
                 </p>
                 <Link
-                  href="/owner/campaign/new/info"
+                  href="/owner/funding/campaigns/new/info"
                   className="inline-flex items-center gap-1.5 rounded-xl bg-white px-4 py-2 text-xs font-bold text-[#003526] hover:bg-gray-100 transition-colors"
                 >
                   <Plus size={14} />
@@ -252,7 +252,7 @@ export default function OwnerDashboard() {
                 {/* Pending donations alert */}
                 {pendingDonations > 0 && (
                   <Link
-                    href="/owner/donations"
+                    href="/owner/funding/donations"
                     className="flex items-center gap-2 rounded-xl bg-amber-500/20 backdrop-blur-sm border border-amber-300/30 px-3 py-2.5 mb-3 hover:bg-amber-500/30 transition-colors"
                   >
                     <AlertTriangle size={14} className="text-amber-200 shrink-0" />
@@ -270,7 +270,7 @@ export default function OwnerDashboard() {
                 <div className="grid grid-cols-2 gap-2">
                   {/* 1. Kampanye Baru */}
                   <Link
-                    href="/owner/campaign/new/info"
+                    href="/owner/funding/campaigns/new/info"
                     className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white py-3 px-2 text-[11px] font-bold text-[#003526] hover:bg-gray-100 transition-colors"
                   >
                     <Plus size={15} />
@@ -279,7 +279,7 @@ export default function OwnerDashboard() {
 
                   {/* 2. Seluruh Kampanye */}
                   <Link
-                    href="/owner/campaign"
+                    href="/owner/funding/campaigns"
                     className="flex flex-col items-center justify-center gap-1 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 py-3 px-2 text-[11px] font-bold text-white hover:bg-white/25 transition-colors"
                   >
                     <Megaphone size={15} />
@@ -288,7 +288,7 @@ export default function OwnerDashboard() {
 
                   {/* 3. Laporan Donasi */}
                   <Link
-                    href="/owner/donations"
+                    href="/owner/funding/donations"
                     className="relative flex flex-col items-center justify-center gap-1 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 py-3 px-2 text-[11px] font-bold text-white hover:bg-white/25 transition-colors"
                   >
                     {pendingDonations > 0 && (
@@ -324,7 +324,7 @@ export default function OwnerDashboard() {
 
                 {/* ⭐ Laporan Keuangan — full width button */}
                 <Link
-                  href="/owner/financial"
+                  href="/owner/funding/financial"
                   className="mt-2 flex items-center justify-between w-full rounded-xl bg-[#EC4899]/20 backdrop-blur-sm border border-[#EC4899]/30 px-3 py-2.5 hover:bg-[#EC4899]/30 transition-colors"
                 >
                   <div className="flex items-center gap-2">
@@ -353,11 +353,11 @@ export default function OwnerDashboard() {
               </p>
             </div>
             <div className="grid grid-cols-5 gap-2">
-              <StatusPill label="Draft"   count={campaignStats.draft}          Icon={FileEdit}    color="#6B7280" href="/owner/campaign?tab=draft" />
-              <StatusPill label="Review"  count={campaignStats.pending_review} Icon={Hourglass}   color="#B45309" href="/owner/campaign?tab=pending_review" />
-              <StatusPill label="Aktif"   count={campaignStats.active}         Icon={Megaphone}   color="#BE185D" href="/owner/campaign?tab=active" />
-              <StatusPill label="Selesai" count={campaignStats.completed}      Icon={CheckCircle2} color="#047857" href="/owner/campaign?tab=completed" />
-              <StatusPill label="Ditolak" count={campaignStats.rejected}       Icon={XCircle}     color="#DC2626" href="/owner/campaign?tab=rejected" />
+              <StatusPill label="Draft"   count={campaignStats.draft}          Icon={FileEdit}    color="#6B7280" href="/owner/funding/campaigns?tab=draft" />
+              <StatusPill label="Review"  count={campaignStats.pending_review} Icon={Hourglass}   color="#B45309" href="/owner/funding/campaigns?tab=pending_review" />
+              <StatusPill label="Aktif"   count={campaignStats.active}         Icon={Megaphone}   color="#BE185D" href="/owner/funding/campaigns?tab=active" />
+              <StatusPill label="Selesai" count={campaignStats.completed}      Icon={CheckCircle2} color="#047857" href="/owner/funding/campaigns?tab=completed" />
+              <StatusPill label="Ditolak" count={campaignStats.rejected}       Icon={XCircle}     color="#DC2626" href="/owner/funding/campaigns?tab=rejected" />
             </div>
           </div>
         )}

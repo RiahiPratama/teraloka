@@ -182,7 +182,7 @@ export default async function FundraisingPage({
               <h1 className="text-2xl font-extrabold text-white tracking-tight">BADONASI</h1>
             </div>
             <Link
-              href="/owner/campaign/new/info"
+              href="/owner/funding/campaigns/new/info"
               className="flex items-center gap-1.5 bg-gradient-to-r from-[#EC4899] to-[#BE185D] hover:opacity-90 transition-opacity text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg"
             >
               <span className="material-symbols-outlined text-sm">add</span>
@@ -369,7 +369,7 @@ export default async function FundraisingPage({
             <p className="font-semibold text-gray-700">Belum ada kampanye aktif</p>
             <p className="text-sm text-gray-400 mt-1">Jadilah yang pertama menggalang dana</p>
             <Link
-              href="/owner/campaign/new/info"
+              href="/owner/funding/campaigns/new/info"
               className="mt-4 inline-block bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md"
             >
               Mulai Galang Dana
@@ -405,7 +405,7 @@ export default async function FundraisingPage({
               Ajukan campaign untuk keluarga, tetangga, atau siapa pun yang butuh bantuan. Banyak yang butuh uluran tangan di sekitar torang.
             </p>
             <Link
-              href="/owner/campaign/new/info"
+              href="/owner/funding/campaigns/new/info"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md"
             >
               <span className="material-symbols-outlined text-sm">volunteer_activism</span>

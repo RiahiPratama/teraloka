@@ -239,7 +239,7 @@ export default function Navbar() {
                           { href: '/profile', icon: '👤', label: 'Profil Saya' },
                           { href: '/my-reports', icon: '📢', label: 'Laporan Saya' },
                           { href: '/owner', icon: '🏠', label: 'Portal Mitra' },
-                          { href: '/owner/campaign/new/info', icon: '💚', label: 'Ajukan Campaign' },
+                          { href: '/owner/funding/campaigns/new/info', icon: '💚', label: 'Ajukan Campaign' },
                         ].map(item => (
                           <Link key={item.href} href={item.href} onClick={() => setDropdownOpen(false)}
                             className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
@@ -384,7 +384,7 @@ export default function Navbar() {
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
                       <span>🏠</span> Portal Mitra
                     </Link>
-                    <Link href="/owner/campaign/new/info" onClick={() => setMobileMenuOpen(false)}
+                    <Link href="/owner/funding/campaigns/new/info" onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border"
                       style={{ color: '#1B6B4A', borderColor: '#1B6B4A', background: 'rgba(27,107,74,0.05)' }}>
                       <span>💚</span> Ajukan Campaign

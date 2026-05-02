@@ -12,7 +12,10 @@
 // Behavior:
 //   - Auto-hide saat virtual keyboard muncul
 //   - Smart context: kalau di campaign detail, tab Pencairan/Laporan
-//     link ke campaign-specific path
+//     link ke campaign-specific path (/owner/funding/campaigns/[id]/...)
+//
+// ⭐ REFACTOR May 2, 2026: Domain umbrella /owner/funding/* (schema-based)
+//    Konsisten dengan /admin/funding/* dan DB schema funding.
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
@@ -31,8 +34,8 @@ export default function OwnerBottomNav() {
   const pathname = usePathname();
   const keyboardOpen = useKeyboardOpen();
 
-  // Extract campaignId from path if we're in /owner/campaign/[id]/*
-  const campaignMatch = pathname.match(/^\/owner\/campaign\/([^/]+)/);
+  // Extract campaignId from path if we're in /owner/funding/campaigns/[id]/*
+  const campaignMatch = pathname.match(/^\/owner\/funding\/campaigns\/([^/]+)/);
   const campaignId = campaignMatch?.[1];
 
   const items: NavItem[] = [
@@ -45,13 +48,17 @@ export default function OwnerBottomNav() {
     {
       key: 'pencairan',
       label: 'Pencairan',
-      href: campaignId ? `/owner/campaign/${campaignId}/disbursements` : '/owner/disbursements',
+      href: campaignId
+        ? `/owner/funding/campaigns/${campaignId}/disbursements`
+        : '/owner/funding/disbursements',
       icon: Banknote,
     },
     {
       key: 'laporan',
       label: 'Laporan',
-      href: campaignId ? `/owner/campaign/${campaignId}/reports` : '/owner/reports',
+      href: campaignId
+        ? `/owner/funding/campaigns/${campaignId}/reports`
+        : '/owner/funding/reports',
       icon: ClipboardList,
     },
     {
@@ -64,7 +71,14 @@ export default function OwnerBottomNav() {
 
   function isActive(item: NavItem) {
     if (item.key === 'dashboard') {
-      return pathname === '/owner' || (pathname.startsWith('/owner/campaign/') && !pathname.match(/(disbursements|reports|profile)$/));
+      // Dashboard active saat: di /owner exact, atau di /owner/funding/campaigns/[id] tanpa sub-path action
+      return (
+        pathname === '/owner' ||
+        (pathname.startsWith('/owner/funding/campaigns/') &&
+          !pathname.match(/(disbursements|reports|profile)$/) &&
+          !pathname.includes('/disbursements/') &&
+          !pathname.includes('/reports/'))
+      );
     }
     if (item.key === 'pencairan') return pathname.includes('/disbursements');
     if (item.key === 'laporan')   return pathname.includes('/reports');

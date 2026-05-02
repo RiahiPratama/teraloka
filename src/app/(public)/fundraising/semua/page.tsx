@@ -181,7 +181,7 @@ export default async function SemuaKampanyePage({
               }
             </p>
             <Link
-              href={activeCat !== 'all' ? '/fundraising/semua' : '/owner/campaign/new/info'}
+              href={activeCat !== 'all' ? '/fundraising/semua' : '/owner/funding/campaigns/new/info'}
               className="mt-4 inline-block bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md"
             >
               {activeCat !== 'all' ? 'Lihat Semua Kategori' : 'Mulai Galang Dana'}
