@@ -5,6 +5,66 @@ import { posthog, isPostHogReady } from '@/lib/posthog';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const TOKEN_KEY = 'tl_token';
+const REQUEST_TIMEOUT_MS = 20_000; // 20 detik — accommodate Fonnte WA delay
+
+// ─── Helper: fetch dengan timeout + safe JSON parse + error normalization ───
+//
+// Mengatasi 3 masalah real di mobile network:
+//   1. Browser fetch tanpa timeout → request hang 60-120s → button "Mengirim..." stuck
+//   2. Response bukan JSON valid (HTML error page, plain text) → JSON.parse throw
+//   3. Network error generic ('Failed to fetch') → user binggung, gak tau harus apa
+//
+// Filosofi: Frontend (Wajah) harus graceful handle network instability,
+//           kasih user clear feedback, dan biarkan retry kerja normal.
+async function safeFetchJson(
+  url: string,
+  options: RequestInit = {},
+): Promise<{ ok: boolean; data: any; errorMessage?: string }> {
+  try {
+    const res = await fetch(url, {
+      ...options,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+
+    // Defensive JSON parse — kalau response bukan JSON valid, jangan crash
+    const text = await res.text();
+    let data: any = null;
+    try {
+      data = text ? JSON.parse(text) : null;
+    } catch {
+      return {
+        ok: false,
+        data: null,
+        errorMessage: 'Response server tidak valid. Coba lagi.',
+      };
+    }
+
+    return { ok: res.ok, data };
+  } catch (err: any) {
+    // AbortError (timeout) — paling umum di mobile network
+    if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
+      return {
+        ok: false,
+        data: null,
+        errorMessage: 'Permintaan timeout. Cek koneksi internet, coba lagi.',
+      };
+    }
+    // Network failure — biasanya offline atau DNS issue
+    if (err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError')) {
+      return {
+        ok: false,
+        data: null,
+        errorMessage: 'Tidak bisa connect ke server. Cek koneksi internet.',
+      };
+    }
+    // Generic fallback
+    return {
+      ok: false,
+      data: null,
+      errorMessage: 'Terjadi kesalahan koneksi. Coba lagi.',
+    };
+  }
+}
 
 export interface AuthUser {
   id: string;
@@ -82,47 +142,59 @@ export function useAuthProvider(): AuthContextType {
   }, []);
 
   async function fetchMe(t: string) {
-    try {
-      const res = await fetch(`${API}/auth/me`, {
-        headers: { Authorization: `Bearer ${t}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.data);
-        // Re-identify on page reload saat user masih authenticated
-        // (PostHog bisa lose identity across browser restart)
-        if (data.data) {
-          identifyUserInPostHog(data.data);
-        }
-      } else {
-        logout();
-      }
-    } catch {
+    const result = await safeFetchJson(`${API}/auth/me`, {
+      headers: { Authorization: `Bearer ${t}` },
+    });
+
+    if (result.ok && result.data?.data) {
+      setUser(result.data.data);
+      // Re-identify on page reload saat user masih authenticated
+      // (PostHog bisa lose identity across browser restart)
+      identifyUserInPostHog(result.data.data);
+    } else {
+      // Auth failed atau network error — clear session
       logout();
-    } finally {
-      setIsLoading(false);
     }
+    setIsLoading(false);
   }
 
   async function requestOtp(phone: string) {
-    const res = await fetch(`${API}/auth/otp/request`, {
+    const result = await safeFetchJson(`${API}/auth/otp/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone }),
     });
-    const data = await res.json();
-    return { success: data.success, message: data.data?.message ?? data.error?.message ?? 'Terjadi kesalahan' };
+
+    // Network error (timeout, offline, parse fail)
+    if (result.errorMessage) {
+      return { success: false, message: result.errorMessage };
+    }
+
+    // Backend response — sukses atau validation error
+    return {
+      success: result.data?.success === true,
+      message: result.data?.data?.message
+        ?? result.data?.error?.message
+        ?? 'Terjadi kesalahan',
+    };
   }
 
   async function verifyOtp(phone: string, otp: string) {
-    const res = await fetch(`${API}/auth/otp/verify`, {
+    const result = await safeFetchJson(`${API}/auth/otp/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone, otp }),
     });
-    const data = await res.json();
 
-    if (data.success && data.data?.token) {
+    // Network error
+    if (result.errorMessage) {
+      return { success: false, message: result.errorMessage, is_new: undefined };
+    }
+
+    const data = result.data;
+
+    // Sukses — save token + identify
+    if (data?.success && data?.data?.token) {
       localStorage.setItem(TOKEN_KEY, data.data.token);
       setToken(data.data.token);
       setUser(data.data.user);
@@ -134,15 +206,16 @@ export function useAuthProvider(): AuthContextType {
     }
 
     return {
-      success: data.success,
-      message: data.data?.message ?? data.error?.message ?? 'Terjadi kesalahan',
-      is_new: data.data?.is_new,
+      success: data?.success === true,
+      message: data?.data?.message ?? data?.error?.message ?? 'Terjadi kesalahan',
+      is_new: data?.data?.is_new,
     };
   }
 
   async function updateProfile(name: string) {
     if (!token) return false;
-    const res = await fetch(`${API}/auth/profile`, {
+
+    const result = await safeFetchJson(`${API}/auth/profile`, {
       method: 'PATCH',
       headers: {
         'Content-Type': 'application/json',
@@ -150,15 +223,18 @@ export function useAuthProvider(): AuthContextType {
       },
       body: JSON.stringify({ name }),
     });
-    const data = await res.json();
-    if (data.success) {
-      setUser(data.data);
-      // Re-identify dengan updated name
-      if (data.data) {
-        identifyUserInPostHog(data.data);
-      }
+
+    // Network error atau response invalid
+    if (result.errorMessage || !result.data?.success) {
+      return false;
     }
-    return data.success;
+
+    setUser(result.data.data);
+    // Re-identify dengan updated name
+    if (result.data.data) {
+      identifyUserInPostHog(result.data.data);
+    }
+    return true;
   }
 
   function logout() {
