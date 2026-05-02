@@ -197,6 +197,7 @@ export default async function CampaignPage({ params }: Props) {
     proof_url?: string;
     stage_number?: number;
     report_number?: number;
+    disbursement_id?: string;  // ⭐ Issue 5 Stage 5: parent reference for usage events
   };
 
   const timeline: TimelineEvent[] = [];
@@ -255,6 +256,7 @@ export default async function CampaignPage({ params }: Props) {
       title: `${r.title}`,
       subtitle: r.description,
       report_number: r.report_number,
+      disbursement_id: r.disbursement_id,  // ⭐ Issue 5 Stage 5: parent reference
     });
   });
 
@@ -650,10 +652,26 @@ export default async function CampaignPage({ params }: Props) {
               {timeline.map((evt, i) => {
                 const colors = TIMELINE_COLORS[evt.type];
                 const Icon = colors.icon;
+                // ⭐ Issue 5 Stage 5: Detect linked usage (child of disbursement)
+                const isLinkedUsage = evt.type === 'usage' && evt.disbursement_id;
+                const linkedDisbursement = isLinkedUsage
+                  ? disbursements.find((d: any) => d.id === evt.disbursement_id)
+                  : null;
                 return (
-                  <div key={`${evt.type}-${i}`} className="flex gap-3">
+                  <div
+                    key={`${evt.type}-${i}`}
+                    className={`flex gap-3 ${isLinkedUsage ? 'pl-6 sm:pl-8' : ''}`}
+                  >
                     {/* Timeline column */}
-                    <div className="flex flex-col items-center pt-1 shrink-0">
+                    <div className="flex flex-col items-center pt-1 shrink-0 relative">
+                      {isLinkedUsage && (
+                        <span
+                          className="absolute -left-3 sm:-left-4 top-0 text-blue-300 font-bold text-base leading-none select-none"
+                          aria-hidden="true"
+                        >
+                          ↳
+                        </span>
+                      )}
                       <div className={`w-4 h-4 rounded-full ${colors.dot} ring-4 ${colors.dotRing}`}></div>
                       {i < timeline.length - 1 && (
                         <div className="w-0.5 flex-1 bg-gray-100 mt-1"></div>
@@ -671,6 +689,13 @@ export default async function CampaignPage({ params }: Props) {
                         <span className="text-[11px] text-gray-400 font-medium">
                           {formatShortDate(evt.date)}
                         </span>
+                        {/* ⭐ Issue 5 Stage 5: Parent reference label */}
+                        {linkedDisbursement && (
+                          <span className="inline-flex items-center gap-1 text-[10px] text-blue-600 italic">
+                            <span className="text-blue-300">·</span>
+                            dari Pencairan Tahap {linkedDisbursement.stage_number}
+                          </span>
+                        )}
                       </div>
 
                       {/* Card */}
