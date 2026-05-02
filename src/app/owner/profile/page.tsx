@@ -100,6 +100,7 @@ export default function OwnerProfilePage() {
   const [nameInput, setNameInput] = useState('');
   const [creatorFullName, setCreatorFullName] = useState('');
   const [idDocs, setIdDocs] = useState<string[]>([]);
+  const [kycSignedUrls, setKycSignedUrls] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -125,6 +126,7 @@ export default function OwnerProfilePage() {
         setNameInput(profileRes.data.profile.name ?? '');
         setCreatorFullName(profileRes.data.profile.creator_full_name ?? '');
         setIdDocs(profileRes.data.profile.creator_id_documents ?? []);
+        setKycSignedUrls(profileRes.data.kyc_signed_urls ?? []);
       } else {
         toast.error(profileRes?.error?.message || 'Gagal load profil');
       }
@@ -494,9 +496,10 @@ export default function OwnerProfilePage() {
                     />
                   )}
 
-                  {profile.creator_id_documents && profile.creator_id_documents.length > 0 && (
+                  {/* ⭐ Issue 5: KYC bucket private — pakai signed URLs dari backend */}
+                  {kycSignedUrls && kycSignedUrls.length > 0 && (
                     <div className="grid grid-cols-3 gap-2 pt-2">
-                      {profile.creator_id_documents.map((url, i) => (
+                      {kycSignedUrls.map((url, i) => (
                         <a
                           key={i}
                           href={url}
