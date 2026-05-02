@@ -652,7 +652,12 @@ export default async function CampaignPage({ params }: Props) {
                       <div className={`rounded-xl ${colors.bg} border ${colors.border} p-3`}>
                         <div className="flex items-start justify-between gap-3 mb-1">
                           <p className="text-sm font-bold text-gray-900 leading-snug">{evt.title}</p>
-                          {evt.amount > 0 && (
+                          {/* ⭐ Single Source of Truth: Hide amount for 'usage' type
+                              Reason: Penggunaan dana detail (with amount) sudah ditampilkan
+                              di section "Rincian Penggunaan Dana" dengan breakdown items.
+                              Timeline focus pada NARRATIVE, bukan repetition of numbers.
+                              Pencairan + Dana Masuk tetap show amount (real money flow). */}
+                          {evt.amount > 0 && evt.type !== 'usage' && (
                             <span className={`shrink-0 text-sm font-extrabold ${colors.text}`}>
                               {formatRupiah(evt.amount)}
                             </span>
