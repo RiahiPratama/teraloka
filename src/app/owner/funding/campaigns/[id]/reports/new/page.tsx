@@ -19,7 +19,7 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import {
   ArrowLeft, Loader2, AlertCircle, Plus, Trash2, ChevronDown, ChevronUp,
   FileText, Tag, Calendar, Camera, Send, Info, AlertTriangle, CheckCircle2,
-  Receipt, Calculator,
+  Receipt, Calculator, Banknote, CheckCircle,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -47,6 +47,17 @@ interface CampaignSummary {
   collected_amount: number;
 }
 
+// ⭐ Issue 5: Disbursement source picker
+interface DisbursementOption {
+  id: string;
+  stage_number: number;
+  amount: number;
+  disbursed_at: string;
+  disbursed_to: string;
+  cumulative_used: number;
+  remaining: number;
+}
+
 const newItem = (): UsageItem => ({
   id: Math.random().toString(36).slice(2),
   name: '',
@@ -68,6 +79,10 @@ export default function OwnerCampaignReportNewPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [loadError, setLoadError] = useState('');
 
+  // ⭐ Issue 5: Disbursement picker state
+  const [disbursements, setDisbursements] = useState<DisbursementOption[]>([]);
+  const [selectedDisbId, setSelectedDisbId] = useState<string>('');
+
   // Form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -86,11 +101,25 @@ export default function OwnerCampaignReportNewPage() {
     async function load() {
       const token = localStorage.getItem(TOKEN_KEY);
       try {
-        const res = await fetch(`${API}/funding/my/campaigns/${campaignId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }).then(r => r.json());
-        if (!res.success) throw new Error(res?.error?.message || 'Gagal load kampanye');
-        setCampaign(res.data);
+        // ⭐ Issue 5: Parallel fetch — campaign + verified disbursements
+        const [campRes, disbRes] = await Promise.all([
+          fetch(`${API}/funding/my/campaigns/${campaignId}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then(r => r.json()),
+          fetch(`${API}/funding/my/campaigns/${campaignId}/disbursements/verified-with-remaining`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then(r => r.json()).catch(() => ({ success: false, data: [] })),
+        ]);
+
+        if (!campRes.success) throw new Error(campRes?.error?.message || 'Gagal load kampanye');
+        setCampaign(campRes.data);
+
+        // Set disbursements + auto-select first available
+        if (disbRes.success && Array.isArray(disbRes.data)) {
+          setDisbursements(disbRes.data);
+          const firstAvailable = disbRes.data.find((d: DisbursementOption) => d.remaining > 0);
+          if (firstAvailable) setSelectedDisbId(firstAvailable.id);
+        }
       } catch (err: any) {
         setLoadError(err.message);
       } finally {
@@ -112,7 +141,21 @@ export default function OwnerCampaignReportNewPage() {
     [items]
   );
 
+  // ⭐ Issue 5: Selected disbursement + over-limit detection
+  const selectedDisbursement = useMemo(
+    () => disbursements.find(d => d.id === selectedDisbId),
+    [disbursements, selectedDisbId]
+  );
+
+  const overDisbursementLimit = useMemo(
+    () => selectedDisbursement ? totalItems > selectedDisbursement.remaining : false,
+    [selectedDisbursement, totalItems]
+  );
+
   const validation = useMemo(() => {
+    // ⭐ Issue 5: Require disbursement source first
+    if (disbursements.length === 0) return 'Belum ada pencairan terverifikasi. Lakukan pencairan dulu.';
+    if (!selectedDisbId) return 'Pilih sumber pencairan dulu';
     if (!title.trim() || title.trim().length < 5) return 'Judul minimal 5 karakter';
     if (!description.trim() || description.trim().length < 20) return 'Deskripsi minimal 20 karakter';
     if (items.length === 0) return 'Minimal 1 item pengeluaran';
@@ -125,8 +168,13 @@ export default function OwnerCampaignReportNewPage() {
       if (it.amount > 100_000_000) return `Item #${i + 1}: nominal maksimal Rp 100jt`;
     }
     if (totalItems <= 0) return 'Total pengeluaran harus > 0';
+    // ⭐ Issue 5: Validate amount fits in selected disbursement remaining
+    if (overDisbursementLimit && selectedDisbursement) {
+      return `Total melebihi sisa Pencairan Tahap ${selectedDisbursement.stage_number} ` +
+        `(sisa: Rp ${selectedDisbursement.remaining.toLocaleString('id-ID')})`;
+    }
     return '';
-  }, [title, description, items, totalItems]);
+  }, [title, description, items, totalItems, disbursements, selectedDisbId, overDisbursementLimit, selectedDisbursement]);
 
   function updateItem(id: string, patch: Partial<UsageItem>) {
     setItems(prev => prev.map(it => it.id === id ? { ...it, ...patch } : it));
@@ -173,6 +221,7 @@ export default function OwnerCampaignReportNewPage() {
           Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
+          disbursement_id: selectedDisbId,  // ⭐ Issue 5: link to disbursement source
           title: title.trim(),
           description: description.trim(),
           amount_used: totalItems,
@@ -239,6 +288,85 @@ export default function OwnerCampaignReportNewPage() {
             Tambahkan setiap pengeluaran sebagai item terpisah. Total item akan otomatis menjadi nominal laporan.
           </div>
         </div>
+
+        {/* ⭐ Issue 5: Disbursement Source Picker — REQUIRED */}
+        <Section icon={<Banknote size={18} />} title="Sumber Pencairan" required hint="Pilih pencairan tahap mana yang dilaporkan penggunaannya">
+          {disbursements.length === 0 ? (
+            <div className="rounded-xl bg-amber-50 border border-amber-200 p-3.5 flex items-start gap-2.5">
+              <AlertTriangle size={16} className="text-amber-700 flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-amber-900 leading-relaxed">
+                <p className="font-bold mb-1">Belum ada pencairan terverifikasi</p>
+                Lakukan pencairan dulu (dan tunggu admin verify) sebelum melaporkan penggunaan dana.
+                <Link href={`/owner/funding/campaigns/${campaignId}/disbursements/new`}
+                      className="block mt-2 text-amber-700 font-bold underline">
+                  → Ajukan Pencairan Baru
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {disbursements.map((d) => {
+                const isAvailable = d.remaining > 0;
+                const isSelected = selectedDisbId === d.id;
+                const usagePct = d.amount > 0 ? Math.round((d.cumulative_used / d.amount) * 100) : 0;
+                return (
+                  <button
+                    key={d.id}
+                    type="button"
+                    onClick={() => isAvailable && setSelectedDisbId(d.id)}
+                    disabled={!isAvailable}
+                    className={`w-full text-left rounded-xl border p-3.5 transition-all ${
+                      isSelected
+                        ? 'border-[#003526] bg-[#003526]/5 ring-2 ring-[#003526]/20'
+                        : isAvailable
+                        ? 'border-gray-200 hover:border-gray-300 bg-white'
+                        : 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-gray-900">
+                          Pencairan Tahap {d.stage_number}
+                        </span>
+                        {isSelected && <CheckCircle size={14} className="text-[#003526]" />}
+                        {!isAvailable && (
+                          <span className="text-[9px] font-bold text-red-600 bg-red-50 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wider">
+                            Habis
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-sm font-extrabold text-[#003526] flex-shrink-0">
+                        {formatRupiah(d.amount)}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 mb-2">
+                      Cair {new Date(d.disbursed_at).toLocaleDateString('id-ID', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })} → {d.disbursed_to}
+                    </p>
+                    {/* Progress bar usage */}
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-1.5">
+                      <div
+                        className={`h-full transition-all ${
+                          usagePct >= 100 ? 'bg-red-400' : usagePct > 50 ? 'bg-amber-400' : 'bg-emerald-400'
+                        }`}
+                        style={{ width: `${Math.min(usagePct, 100)}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between text-[10px]">
+                      <span className="text-gray-500">
+                        Dilaporkan: {formatRupiah(d.cumulative_used)} ({usagePct}%)
+                      </span>
+                      <span className={isAvailable ? 'text-emerald-700 font-bold' : 'text-red-600 font-bold'}>
+                        Sisa: {formatRupiah(d.remaining)}
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </Section>
 
         {/* Title */}
         <Section icon={<FileText size={18} />} title="Judul Laporan" required>
