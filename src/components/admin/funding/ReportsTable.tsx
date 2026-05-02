@@ -21,7 +21,7 @@ export interface UsageReport {
   amount_used: number;
   items: any[] | null;
   proof_photos: string[] | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'revision_needed';
   approved_by: string | null;
   approved_at: string | null;
   rejection_reason: string | null;
@@ -69,9 +69,9 @@ function timeAgo(iso: string): string {
 }
 
 const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> = {
-  pending:  { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B', label: 'Pending' },
-  approved: { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Approved' },
-  rejected: { bg: 'rgba(239,68,68,0.15)', text: '#EF4444', label: 'Rejected' },
+  pending:         { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B', label: 'Pending' },
+  approved:        { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Approved' },
+  revision_needed: { bg: 'rgba(239,68,68,0.15)', text: '#EF4444', label: 'Revisi' },
 };
 
 // ═══════════════════════════════════════════════════════════════

@@ -386,15 +386,15 @@ export default function ReportReviewModal({
                 </div>
               )}
 
-              {/* Rejection Reason (if rejected) */}
-              {report.status === 'rejected' && report.rejection_reason && (
+              {/* Revision Reason (if revision_needed) */}
+              {report.status === 'revision_needed' && report.rejection_reason && (
                 <div style={{
                   background: 'rgba(239,68,68,0.08)',
                   border: '1px solid rgba(239,68,68,0.3)',
                   borderRadius: 10, padding: 12, marginBottom: 16,
                 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
-                    Alasan Penolakan
+                    Alasan Perlu Revisi
                   </p>
                   <p style={{ fontSize: 12, color: t.textPrimary, lineHeight: 1.5 }}>
                     {report.rejection_reason}
@@ -592,9 +592,9 @@ function ContextStat({ label, value, color, t }: { label: string; value: string;
 
 function StatusBadge({ status, small }: { status: string; small?: boolean }) {
   const style = {
-    pending:  { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B', label: 'Pending' },
-    approved: { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Approved' },
-    rejected: { bg: 'rgba(239,68,68,0.15)',  text: '#EF4444', label: 'Rejected' },
+    pending:         { bg: 'rgba(245,158,11,0.15)', text: '#F59E0B', label: 'Pending' },
+    approved:        { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Approved' },
+    revision_needed: { bg: 'rgba(239,68,68,0.15)',  text: '#EF4444', label: 'Revisi' },
   }[status] ?? { bg: '#E5E7EB', text: '#6B7280', label: status };
 
   return (

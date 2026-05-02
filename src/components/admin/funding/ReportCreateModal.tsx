@@ -111,6 +111,22 @@ export default function ReportCreateModal({
       .finally(() => setLoadingCampaigns(false));
   }, [open, onToast]);
 
+  // ⭐ CRITICAL: Hooks must be called BEFORE early return (React rules of hooks)
+  // Bug fix: useMemo di sini tadinya setelah `if (!open) return null` —
+  // trigger React error #310 'Rendered more hooks than during the previous render'
+  const selectedCampaign = useMemo(
+    () => campaigns.find(c => c.id === campaignId),
+    [campaigns, campaignId]
+  );
+
+  const urlList = useMemo(
+    () => photoUrls
+      .split('\n')
+      .map(l => l.trim())
+      .filter(l => l.length > 0),
+    [photoUrls]
+  );
+
   if (!open) return null;
 
   // ── Items handlers ──
@@ -147,19 +163,6 @@ export default function ReportCreateModal({
   const parsedAmount = Number(amountUsed) || 0;
   const itemsTotal = items.reduce((sum, r) => sum + r.total, 0);
   const itemsMismatch = items.length > 0 && itemsTotal !== parsedAmount;
-
-  const selectedCampaign = useMemo(
-    () => campaigns.find(c => c.id === campaignId),
-    [campaigns, campaignId]
-  );
-
-  const urlList = useMemo(
-    () => photoUrls
-      .split('\n')
-      .map(l => l.trim())
-      .filter(l => l.length > 0),
-    [photoUrls]
-  );
 
   const canSubmit =
     campaignId &&
