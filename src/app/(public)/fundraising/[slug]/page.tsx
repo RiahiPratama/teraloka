@@ -611,6 +611,31 @@ export default async function CampaignPage({ params }: Props) {
             </div>
           </div>
 
+          {/* ⭐ Sisa Belum Disalurkan — transparency for donor (closes the math gap) */}
+          {/* Logic: collected_amount - totalDisbursed = uang yang masih di rekening penggalang.
+              Hide kalau sisa <= 0 (avoid awkward "Rp 0" display).
+              Filosofi: Donor butuh tau sisa dana AMAN, bukan hilang. */}
+          {(() => {
+            const sisa = Math.max(0, Number(campaign.collected_amount || 0) - Number(totalDisbursed || 0));
+            if (sisa <= 0) return null;
+            return (
+              <div className="rounded-xl bg-gradient-to-br from-purple-50 to-pink-50 border border-purple-200 p-4 mb-5">
+                <div className="flex items-center justify-center gap-1.5 mb-1.5">
+                  <ShieldCheck size={12} className="text-purple-700" />
+                  <p className="text-[10px] font-bold text-purple-800 uppercase tracking-wider">
+                    Sisa Belum Disalurkan
+                  </p>
+                </div>
+                <p className="text-xl font-extrabold text-purple-900 text-center leading-none mb-1.5">
+                  {formatRupiah(sisa)}
+                </p>
+                <p className="text-[10px] text-purple-700 text-center leading-relaxed">
+                  Aman tersimpan di rekening penggalang. Akan disalurkan saat campaign mencapai milestone berikutnya atau sesuai kebutuhan beneficiary.
+                </p>
+              </div>
+            );
+          })()}
+
           {/* Timeline */}
           {!hasTimeline ? (
             <div className="py-8 text-center rounded-xl bg-gray-50 border border-dashed border-gray-200">
