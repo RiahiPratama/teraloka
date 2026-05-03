@@ -317,7 +317,7 @@ function LiveBALAPORFeed({ reports }: { reports: any[] }) {
           <Siren size={14} strokeWidth={2.2} />
           Warga lagi melapor
         </p>
-        <Link href="/reports" className="text-xs font-semibold hover:underline" style={{ color: '#993C1D' }}>
+        <Link href="/balapor" className="text-xs font-semibold hover:underline" style={{ color: '#993C1D' }}>
           Lihat semua →
         </Link>
       </div>
@@ -337,7 +337,7 @@ function LiveBALAPORFeed({ reports }: { reports: any[] }) {
           </div>
         ))}
       </div>
-      <Link href="/reports/new"
+      <Link href="/balapor/buat-laporan"
         className="block mt-3 text-center text-xs font-bold py-2.5 rounded-xl hover:opacity-90 transition-opacity"
         style={{ background: '#003526', color: '#fff' }}>
         + Laporkan Kejadian
@@ -646,7 +646,7 @@ function NewsPageContent() {
                 <div className="bg-[#003526] rounded-2xl p-5 text-center">
                   <p className="text-white font-bold text-sm mb-1">Ada berita di sekitarmu?</p>
                   <p className="text-xs mb-3" style={{ color: '#95d3ba' }}>Laporkan via BALAPOR.</p>
-                  <Link href="/reports" className="block text-center bg-white text-xs font-black px-4 py-2 rounded-xl" style={{ color: '#003526' }}>
+                  <Link href="/balapor/buat-laporan" className="block text-center bg-white text-xs font-black px-4 py-2 rounded-xl" style={{ color: '#003526' }}>
                     Lapor Sekarang →
                   </Link>
                 </div>

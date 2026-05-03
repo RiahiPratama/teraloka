@@ -212,7 +212,7 @@ const CONTEXT_CTA: Record<string, {
 const DEFAULT_CTA = {
   badge: '📢 Ada kejadian di sekitarmu?', headline: 'Laporkan via BALAPOR sekarang!',
   sub: 'Identitasmu terlindungi. Laporanmu bisa jadi artikel di BAKABAR.',
-  cta: 'Lapor Sekarang →', href: '/reports', bg: '#1F2937', accent: '#F87171', emoji: '🚨',
+  cta: 'Lapor Sekarang →', href: '/balapor/buat-laporan', bg: '#1F2937', accent: '#F87171', emoji: '🚨',
 };
 
 function ContextCTABanner({ category }: { category: string }) {
@@ -251,7 +251,7 @@ function MiniBALAPORFeed({ reports }: { reports: any[] }) {
           <Siren size={14} strokeWidth={2.2} />
           Warga lagi melapor
         </p>
-        <Link href="/reports" className="text-xs font-semibold hover:underline flex items-center gap-1" style={{ color: '#993C1D' }}>
+        <Link href="/balapor" className="text-xs font-semibold hover:underline flex items-center gap-1" style={{ color: '#993C1D' }}>
           Lihat semua <ArrowRight size={11} />
         </Link>
       </div>
@@ -276,7 +276,7 @@ function MiniBALAPORFeed({ reports }: { reports: any[] }) {
           </div>
         ))}
       </div>
-      <Link href="/reports/new"
+      <Link href="/balapor/buat-laporan"
         className="flex items-center justify-center gap-1.5 mt-3 text-center text-xs font-bold py-2.5 rounded-xl hover:opacity-90 transition-opacity"
         style={{ background: '#003526', color: '#fff' }}>
         + Laporkan Kejadian
@@ -607,7 +607,7 @@ export default async function ArticlePage({ params }: Props) {
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
                 <p className="text-[#95d3ba] text-xs mb-3 leading-relaxed">Laporkan via BALAPOR. Identitasmu terlindungi.</p>
-                <Link href="/reports" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">
+                <Link href="/balapor/buat-laporan" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">
                   Lapor Sekarang →
                 </Link>
               </div>
