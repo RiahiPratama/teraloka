@@ -41,9 +41,10 @@
  *   />
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { isMobile, triggerHaptic } from '@/utils/pwa-utils';
+import { ThemeContext } from '@/lib/theme/theme-provider';
 import {
   useLocationTree,
   useLocationChildren,
@@ -140,6 +141,84 @@ function saveScopeToStorage(storageKey: string | undefined, scope: LocationScope
   }
 }
 
+/**
+ * Auto-lift hex color untuk readability di dark mode.
+ * Convert hex → HSL → bump lightness → kembali ke hex.
+ *
+ * Match codebase pattern: globals.css punya status colors lifted 15-20%
+ * untuk dark bg. Apply same principle untuk brand color custom.
+ *
+ * Example:
+ *   '#003526' (TeraLoka green dark) di dark mode → '#0a6448' (lifted ~30%)
+ *   '#DC2626' (red urgent) di dark mode → '#ed5959' (lifted ~30%)
+ *   '#F59E0B' (orange) — already bright, lift minimal pengaruh
+ */
+function liftColorForDark(hex: string, lightnessBoost = 30): string {
+  // Sanitize input — fallback kalau invalid hex
+  const cleanHex = hex.replace('#', '').trim();
+  if (!/^[0-9a-f]{6}$/i.test(cleanHex)) return hex;
+
+  // hex → RGB
+  const r = parseInt(cleanHex.slice(0, 2), 16);
+  const g = parseInt(cleanHex.slice(2, 4), 16);
+  const b = parseInt(cleanHex.slice(4, 6), 16);
+
+  // RGB → HSL
+  const rNorm = r / 255;
+  const gNorm = g / 255;
+  const bNorm = b / 255;
+  const max = Math.max(rNorm, gNorm, bNorm);
+  const min = Math.min(rNorm, gNorm, bNorm);
+  const delta = max - min;
+
+  let h = 0;
+  let s = 0;
+  const l = (max + min) / 2;
+
+  if (delta !== 0) {
+    s = l > 0.5 ? delta / (2 - max - min) : delta / (max + min);
+    switch (max) {
+      case rNorm: h = ((gNorm - bNorm) / delta + (gNorm < bNorm ? 6 : 0)) / 6; break;
+      case gNorm: h = ((bNorm - rNorm) / delta + 2) / 6; break;
+      case bNorm: h = ((rNorm - gNorm) / delta + 4) / 6; break;
+    }
+  }
+
+  // Bump lightness (cap at 0.85 untuk avoid washed-out)
+  const newL = Math.min(0.85, l + lightnessBoost / 100);
+
+  // HSL → RGB
+  const hueToRgb = (p: number, q: number, t: number): number => {
+    let tNorm = t;
+    if (tNorm < 0) tNorm += 1;
+    if (tNorm > 1) tNorm -= 1;
+    if (tNorm < 1 / 6) return p + (q - p) * 6 * tNorm;
+    if (tNorm < 1 / 2) return q;
+    if (tNorm < 2 / 3) return p + (q - p) * (2 / 3 - tNorm) * 6;
+    return p;
+  };
+
+  let newR = newL;
+  let newG = newL;
+  let newB = newL;
+
+  if (s !== 0) {
+    const q = newL < 0.5 ? newL * (1 + s) : newL + s - newL * s;
+    const p = 2 * newL - q;
+    newR = hueToRgb(p, q, h + 1 / 3);
+    newG = hueToRgb(p, q, h);
+    newB = hueToRgb(p, q, h - 1 / 3);
+  }
+
+  // RGB → hex
+  const toHex = (n: number): string => {
+    const hex = Math.round(n * 255).toString(16);
+    return hex.length === 1 ? '0' + hex : hex;
+  };
+
+  return `#${toHex(newR)}${toHex(newG)}${toHex(newB)}`;
+}
+
 // ════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════
@@ -161,6 +240,17 @@ export default function GeographicScopePicker({
   const [drillStack, setDrillStack] = useState<Location[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [mobile, setMobile] = useState(false);
+
+  // ─── Theme-aware brand color ─────────────────────────────────
+  // Auto-lift brandColor di dark mode untuk readability.
+  // Mirror codebase pattern (status colors lifted 15-20% di dark bg).
+  // Fallback safe: kalau ThemeContext gak available, pakai brandColor as-is.
+  const themeCtx = useContext(ThemeContext);
+  const resolvedTheme = themeCtx?.resolvedTheme ?? 'light';
+  const effectiveBrandColor = useMemo(
+    () => (resolvedTheme === 'dark' ? liftColorForDark(brandColor, 30) : brandColor),
+    [resolvedTheme, brandColor],
+  );
 
   // ─── Restore last selection on mount ─────────────────────────
   useEffect(() => {
@@ -337,13 +427,13 @@ export default function GeographicScopePicker({
         className,
       )}
       style={{
-        borderColor: value ? brandColor : undefined,
+        borderColor: value ? effectiveBrandColor : undefined,
       }}
     >
       <span className="flex items-center gap-2 truncate">
         <span
           className="material-symbols-outlined shrink-0"
-          style={{ fontSize: size === 'compact' ? 18 : 20, color: brandColor }}
+          style={{ fontSize: size === 'compact' ? 18 : 20, color: effectiveBrandColor }}
           aria-hidden
         >
           {value ? 'location_on' : 'location_off'}
@@ -363,7 +453,7 @@ export default function GeographicScopePicker({
   const panelContent = (
     <div className="flex flex-col h-full">
       {/* Header: title + close + (back button if drilled) */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
           {drillStack.length > 0 && (
             <button
@@ -395,7 +485,7 @@ export default function GeographicScopePicker({
 
       {/* Breadcrumb trail (when drilled) */}
       {drillStack.length > 0 && (
-        <div className="px-4 py-2 bg-surface-muted border-b border-border text-xs text-text-muted truncate">
+        <div className="flex-shrink-0 px-4 py-2 bg-surface-muted border-b border-border text-xs text-text-muted truncate">
           {drillStack.map((loc, i) => (
             <span key={loc.id}>
               {i > 0 && ' › '}
@@ -406,7 +496,7 @@ export default function GeographicScopePicker({
       )}
 
       {/* Search input */}
-      <div className="px-4 py-3 border-b border-border">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-border">
         <div className="relative">
           <span
             className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
@@ -426,13 +516,13 @@ export default function GeographicScopePicker({
               'border border-border focus:outline-none',
               'focus:ring-2 focus:ring-current focus:border-current',
             )}
-            style={{ outlineColor: brandColor }}
+            style={{ outlineColor: effectiveBrandColor }}
           />
         </div>
       </div>
 
       {/* List */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
           <div className="flex items-center justify-center py-8 text-text-muted text-sm">
             <span className="material-symbols-outlined animate-spin mr-2" style={{ fontSize: 18 }}>
@@ -465,7 +555,7 @@ export default function GeographicScopePicker({
                       'transition-colors text-left',
                       isSelected && 'font-semibold',
                     )}
-                    style={isSelected ? { color: brandColor } : undefined}
+                    style={isSelected ? { color: effectiveBrandColor } : undefined}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span
@@ -488,7 +578,7 @@ export default function GeographicScopePicker({
                       {pickable && (
                         <span
                           className="text-xs px-2 py-0.5 rounded-full border"
-                          style={{ borderColor: brandColor, color: brandColor }}
+                          style={{ borderColor: effectiveBrandColor, color: effectiveBrandColor }}
                         >
                           Pilih
                         </span>
@@ -512,7 +602,7 @@ export default function GeographicScopePicker({
       </div>
 
       {/* Footer: GPS + Reset buttons */}
-      <div className="px-4 py-3 border-t border-border flex items-center gap-2">
+      <div className="flex-shrink-0 px-4 py-3 border-t border-border flex items-center gap-2">
         {allowGps && (
           <button
             type="button"
@@ -523,7 +613,7 @@ export default function GeographicScopePicker({
               'border-2 text-sm font-medium transition-all',
               'hover:bg-surface-muted disabled:opacity-50 disabled:cursor-wait',
             )}
-            style={{ borderColor: brandColor, color: brandColor }}
+            style={{ borderColor: effectiveBrandColor, color: effectiveBrandColor }}
           >
             <span
               className={cn(
@@ -555,7 +645,7 @@ export default function GeographicScopePicker({
 
       {/* Error display */}
       {(treeQuery.error || childrenQuery.error || searchResultsQuery.error || reverseGeo.error) && (
-        <div className="px-4 py-2 bg-status-critical/10 text-status-critical text-xs">
+        <div className="flex-shrink-0 px-4 py-2 bg-status-critical/10 text-status-critical text-xs">
           {treeQuery.error || childrenQuery.error || searchResultsQuery.error || reverseGeo.error}
         </div>
       )}
@@ -587,8 +677,8 @@ export default function GeographicScopePicker({
             className={cn(
               'fixed z-50 bg-surface-elevated shadow-2xl border border-border ring-1 ring-white/5 flex flex-col',
               mobile
-                ? 'inset-x-0 bottom-0 h-[70vh] rounded-t-2xl' // bottom sheet mobile
-                : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] max-h-[80vh] rounded-2xl', // centered modal desktop
+                ? 'inset-x-0 bottom-0 h-[80vh] max-h-[700px] rounded-t-2xl' // bottom sheet mobile (cap 700px)
+                : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[600px] max-h-[85vh] rounded-2xl', // centered modal desktop (fixed 600px, ceiling 85vh)
             )}
           >
             {panelContent}
