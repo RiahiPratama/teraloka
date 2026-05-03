@@ -330,7 +330,7 @@ export default function GeographicScopePicker({
         'flex items-center justify-between gap-2 w-full',
         'rounded-lg border-2 transition-all duration-150',
         size === 'compact' ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base',
-        'bg-surface text-text-primary',
+        'bg-surface text-text',
         'hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current',
         disabled && 'opacity-50 cursor-not-allowed',
         !value && 'text-text-muted',
@@ -369,7 +369,7 @@ export default function GeographicScopePicker({
             <button
               type="button"
               onClick={handleDrillBack}
-              className="material-symbols-outlined text-text-muted hover:text-text-primary"
+              className="material-symbols-outlined text-text-muted hover:text-text"
               aria-label="Kembali"
               style={{ fontSize: 22 }}
             >
@@ -385,7 +385,7 @@ export default function GeographicScopePicker({
         <button
           type="button"
           onClick={handleClose}
-          className="material-symbols-outlined text-text-muted hover:text-text-primary"
+          className="material-symbols-outlined text-text-muted hover:text-text"
           aria-label="Tutup"
           style={{ fontSize: 22 }}
         >
@@ -422,7 +422,7 @@ export default function GeographicScopePicker({
             placeholder="Cari wilayah…"
             className={cn(
               'w-full pl-10 pr-3 py-2 rounded-lg',
-              'bg-surface text-text-primary text-sm',
+              'bg-surface text-text text-sm',
               'border border-border focus:outline-none',
               'focus:ring-2 focus:ring-current focus:border-current',
             )}
@@ -476,7 +476,7 @@ export default function GeographicScopePicker({
                         {LOCATION_TYPE_ICON[loc.type]}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-sm text-text-primary truncate">
+                        <div className="text-sm text-text truncate">
                           {formatRefDisplay(loc)}
                         </div>
                         <div className="text-xs text-text-muted">
@@ -585,7 +585,7 @@ export default function GeographicScopePicker({
             aria-modal="true"
             aria-label="Pilih wilayah"
             className={cn(
-              'fixed z-50 bg-surface shadow-xl flex flex-col',
+              'fixed z-50 bg-surface-elevated shadow-2xl border border-border flex flex-col',
               mobile
                 ? 'inset-x-0 bottom-0 h-[70vh] rounded-t-2xl' // bottom sheet mobile
                 : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] max-h-[80vh] rounded-2xl', // centered modal desktop

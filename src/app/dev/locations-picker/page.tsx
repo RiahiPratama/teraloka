@@ -60,7 +60,7 @@ export default function LocationsPickerDevPage() {
               Pre-Sprint #0 Step 7 — Visual Verification
             </span>
           </div>
-          <h1 className="text-2xl font-bold text-text-primary mb-2">
+          <h1 className="text-2xl font-bold text-text mb-2">
             Geographic Scope Picker — Demo
           </h1>
           <p className="text-sm text-text-muted">
@@ -77,7 +77,7 @@ export default function LocationsPickerDevPage() {
           {/* ═══════════════════════════════════════════════════ */}
           <section className="rounded-xl border border-border bg-surface-muted p-5">
             <div className="mb-3">
-              <h2 className="text-lg font-semibold text-text-primary mb-1">
+              <h2 className="text-lg font-semibold text-text mb-1">
                 1. Citizen Mode (Default)
               </h2>
               <p className="text-xs text-text-muted">
@@ -105,7 +105,7 @@ export default function LocationsPickerDevPage() {
           {/* ═══════════════════════════════════════════════════ */}
           <section className="rounded-xl border border-border bg-surface-muted p-5">
             <div className="mb-3">
-              <h2 className="text-lg font-semibold text-text-primary mb-1">
+              <h2 className="text-lg font-semibold text-text mb-1">
                 2. BALAPOR Admin Mode
               </h2>
               <p className="text-xs text-text-muted">
@@ -134,7 +134,7 @@ export default function LocationsPickerDevPage() {
           {/* ═══════════════════════════════════════════════════ */}
           <section className="rounded-xl border border-border bg-surface-muted p-5">
             <div className="mb-3">
-              <h2 className="text-lg font-semibold text-text-primary mb-1">
+              <h2 className="text-lg font-semibold text-text mb-1">
                 3. BAKOS Admin Mode
               </h2>
               <p className="text-xs text-text-muted">
@@ -162,7 +162,7 @@ export default function LocationsPickerDevPage() {
           {/* ═══════════════════════════════════════════════════ */}
           <section className="rounded-xl border border-border bg-surface-muted p-5">
             <div className="mb-3">
-              <h2 className="text-lg font-semibold text-text-primary mb-1">
+              <h2 className="text-lg font-semibold text-text mb-1">
                 4. Type-Restricted (Kelurahan/Desa Only)
               </h2>
               <p className="text-xs text-text-muted">
@@ -189,7 +189,7 @@ export default function LocationsPickerDevPage() {
           {/* DEBUG: localStorage inspector                        */}
           {/* ═══════════════════════════════════════════════════ */}
           <section className="rounded-xl border border-border bg-surface-muted p-5">
-            <h2 className="text-lg font-semibold text-text-primary mb-3">
+            <h2 className="text-lg font-semibold text-text mb-3">
               localStorage Inspector
             </h2>
             <p className="text-xs text-text-muted mb-3">
@@ -218,10 +218,10 @@ export default function LocationsPickerDevPage() {
           {/* CHECKLIST: What to verify                            */}
           {/* ═══════════════════════════════════════════════════ */}
           <section className="rounded-xl border border-border bg-surface-muted p-5">
-            <h2 className="text-lg font-semibold text-text-primary mb-3">
+            <h2 className="text-lg font-semibold text-text mb-3">
               ✅ Verification Checklist
             </h2>
-            <ul className="space-y-2 text-sm text-text-primary">
+            <ul className="space-y-2 text-sm text-text">
               <li>☐ Click trigger button → panel open (modal di desktop, bottom sheet di mobile)</li>
               <li>☐ Search "tern" → list autocomplete tampil (debounced 300ms)</li>
               <li>☐ Click "Maluku Utara" → drill ke kab/kota (10 items)</li>
@@ -276,7 +276,7 @@ function StateInspector({ state }: { state: PickerState }) {
           <div className="text-xs font-semibold text-text-muted mb-1">
             Breadcrumb (auto-fetched):
           </div>
-          <div className="text-sm text-text-primary p-2 rounded border border-border bg-surface">
+          <div className="text-sm text-text p-2 rounded border border-border bg-surface">
             <div>
               <strong>Display:</strong> {state.breadcrumb.display}
             </div>
