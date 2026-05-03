@@ -572,7 +572,7 @@ export default function GeographicScopePicker({
           {/* Backdrop */}
           <div
             className={cn(
-              'fixed inset-0 z-40 bg-black/50 transition-opacity',
+              'fixed inset-0 z-40 bg-black/60 transition-opacity',
               mobile ? 'block' : 'block',
             )}
             onClick={handleClose}
@@ -585,7 +585,7 @@ export default function GeographicScopePicker({
             aria-modal="true"
             aria-label="Pilih wilayah"
             className={cn(
-              'fixed z-50 bg-surface-elevated shadow-2xl border border-border flex flex-col',
+              'fixed z-50 bg-surface-elevated shadow-2xl border border-border ring-1 ring-white/5 flex flex-col',
               mobile
                 ? 'inset-x-0 bottom-0 h-[70vh] rounded-t-2xl' // bottom sheet mobile
                 : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] max-h-[80vh] rounded-2xl', // centered modal desktop

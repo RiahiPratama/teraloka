@@ -264,7 +264,7 @@ function StateInspector({ state }: { state: PickerState }) {
         <div className="text-xs font-semibold text-text-muted mb-1">
           Current Scope (state):
         </div>
-        <pre className="text-xs bg-surface p-2 rounded border border-border overflow-x-auto">
+        <pre className="text-xs bg-surface-elevated text-text p-3 rounded-lg border-2 border-border overflow-x-auto font-mono">
           {state.scope
             ? JSON.stringify(state.scope, null, 2)
             : 'null'}
@@ -276,7 +276,7 @@ function StateInspector({ state }: { state: PickerState }) {
           <div className="text-xs font-semibold text-text-muted mb-1">
             Breadcrumb (auto-fetched):
           </div>
-          <div className="text-sm text-text p-2 rounded border border-border bg-surface">
+          <div className="text-sm text-text p-3 rounded-lg border-2 border-border bg-surface-elevated">
             <div>
               <strong>Display:</strong> {state.breadcrumb.display}
             </div>
