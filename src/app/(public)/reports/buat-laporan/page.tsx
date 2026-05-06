@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import ImageUpload from '@/components/ui/ImageUpload';
+import GeographicScopePicker from '@/components/shared/locations/GeographicScopePicker';
+import type { LocationScope } from '@/components/shared/locations/locations-types';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -45,10 +47,9 @@ export default function ReportsPage() {
   const [category, setCategory]     = useState('');
   const [title, setTitle]           = useState('');
   const [body, setBody]             = useState('');
-  const [location, setLocation]     = useState('');
-  const [coords, setCoords]         = useState<{ lat: number; lng: number } | null>(null);
-  const [geoLoading, setGeoLoading] = useState(false);
-  const [geoError, setGeoError]     = useState('');
+  // ── Geographic Scope (replaces free-text location + manual GPS) ──
+  const [scope, setScope]                 = useState<LocationScope | null>(null);
+  const [locationText, setLocationText]   = useState('');
   const [photos, setPhotos]         = useState<string[]>([]);
   const [notifOptIn, setNotifOptIn] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
@@ -74,9 +75,11 @@ export default function ReportsPage() {
           anonymity_level: anonymity,
           pseudonym: needsIdentityInput ? identityName.trim() : undefined,
           title, body, category,
-          location: location.trim() || undefined,
-          latitude: coords?.lat,
-          longitude: coords?.lng,
+          // Display string untuk publik (backward-compat dengan field 'location')
+          location: locationText || undefined,
+          // Structured location FK (NEW — untuk admin filter, analytics, BAANTAR)
+          // Backend bisa lookup type/coordinates/breadcrumb via JOIN ke public.locations
+          location_id: scope?.id,
           photos,
           notification_opt_in: notifOptIn,
         }),
@@ -132,20 +135,13 @@ export default function ReportsPage() {
     }
   };
 
-  const detectLocation = () => {
-    if (!navigator.geolocation) { setGeoError('Browser tidak mendukung geolokasi.'); return; }
-    setGeoLoading(true); setGeoError('');
-    navigator.geolocation.getCurrentPosition(
-      (pos) => { setCoords({ lat: pos.coords.latitude, lng: pos.coords.longitude }); setGeoLoading(false); },
-      () => { setGeoError('Gagal deteksi lokasi. Pastikan GPS aktif dan izin diberikan.'); setGeoLoading(false); },
-      { timeout: 10000, enableHighAccuracy: true }
-    );
-  };
+  // detectLocation() removed — GPS auto-detect handled by GeographicScopePicker
 
   const resetForm = () => {
     setStep('form'); setTitle(''); setBody(''); setCategory(''); setPhotos([]);
     setIdentityName(''); setTosAccepted(false); setSubmitError(''); setNotifOptIn(false);
-    setPhone(''); setOtp(''); setOtpSent(false); setOtpError(''); setLocation(''); setCoords(null);
+    setPhone(''); setOtp(''); setOtpSent(false); setOtpError('');
+    setScope(null); setLocationText('');
   };
 
   // ── SUCCESS ──────────────────────────────────────────────────
@@ -185,9 +181,11 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-[#f9f9f8]">
-      {/* Hero */}
-      <div className="bg-[#003526] px-6 pt-8 pb-10">
-        <div className="mx-auto max-w-lg">
+      {/* Hero — TeraLoka heritage gradient + BALAPOR red decorative accents */}
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-8 pb-10 relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#EF4444]/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+        <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#F87171]/10 blur-2xl"></div>
+        <div className="relative mx-auto max-w-lg">
           {/* Label BALAPOR */}
           <div className="inline-flex items-center gap-2 bg-white/15 rounded-full px-3 py-1.5 mb-4">
             <span className="material-symbols-outlined text-[#95d3ba] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>campaign</span>
@@ -221,12 +219,12 @@ export default function ReportsPage() {
                   {ANONYMITY.map((a) => (
                     <button key={a.key} onClick={() => setAnonymity(a.key)}
                       className={`flex flex-col items-center gap-2 rounded-xl p-3 text-center border-2 transition-all ${
-                        anonymity === a.key ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                        anonymity === a.key ? 'border-[#EF4444] bg-[#EF4444]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
                       }`}>
-                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${anonymity === a.key ? 'bg-[#003526]' : 'bg-white border border-gray-200'}`}>
+                      <div className={`w-10 h-10 rounded-full flex items-center justify-center ${anonymity === a.key ? 'bg-gradient-to-br from-[#EF4444] to-[#DC2626]' : 'bg-white border border-gray-200'}`}>
                         <span className={`material-symbols-outlined text-xl ${anonymity === a.key ? 'text-white' : 'text-gray-400'}`}>{a.icon}</span>
                       </div>
-                      <span className={`text-xs font-bold leading-tight ${anonymity === a.key ? 'text-[#003526]' : 'text-gray-500'}`}>{a.label}</span>
+                      <span className={`text-xs font-bold leading-tight ${anonymity === a.key ? 'text-[#DC2626]' : 'text-gray-500'}`}>{a.label}</span>
                     </button>
                   ))}
                 </div>
@@ -240,7 +238,7 @@ export default function ReportsPage() {
                 {needsIdentityInput && (
                   <input type="text" value={identityName} onChange={e => setIdentityName(e.target.value)}
                     placeholder={`Tulis ${selectedAnonimity.inputLabel.toLowerCase()} kamu...`}
-                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#003526]" />
+                    className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#EF4444]" />
                 )}
               </div>
 
@@ -254,17 +252,17 @@ export default function ReportsPage() {
                     return (
                       <button key={cat.key} onClick={() => setCategory(cat.key)}
                         className={`flex items-start gap-2.5 rounded-xl p-3 text-left border-2 transition-all ${
-                          isSelected ? 'border-[#003526] bg-[#003526]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
+                          isSelected ? 'border-[#EF4444] bg-[#EF4444]/5' : 'border-transparent bg-gray-50 hover:bg-gray-100'
                         }`}>
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'bg-[#003526]' : bg}`}>
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${isSelected ? 'bg-gradient-to-br from-[#EF4444] to-[#DC2626]' : bg}`}>
                           <span className={`material-symbols-outlined text-base ${isSelected ? 'text-white' : text}`}>{cat.icon}</span>
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between gap-1">
-                            <span className={`text-xs font-bold ${isSelected ? 'text-[#003526]' : 'text-gray-800'}`}>{cat.label}</span>
-                            {isSelected && <span className="material-symbols-outlined text-[#003526] text-sm shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
+                            <span className={`text-xs font-bold ${isSelected ? 'text-[#DC2626]' : 'text-gray-800'}`}>{cat.label}</span>
+                            {isSelected && <span className="material-symbols-outlined text-[#EF4444] text-sm shrink-0" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>}
                           </div>
-                          <p className={`text-xs mt-0.5 leading-tight ${isSelected ? 'text-[#003526]/60' : 'text-gray-400'}`}>{cat.desc}</p>
+                          <p className={`text-xs mt-0.5 leading-tight ${isSelected ? 'text-[#DC2626]/60' : 'text-gray-400'}`}>{cat.desc}</p>
                           {PHOTO_REQUIRED.includes(cat.key) && (
                             <span className="text-xs text-amber-500 flex items-center gap-0.5 mt-0.5">
                               <span className="material-symbols-outlined text-xs">photo_camera</span> Foto wajib
@@ -282,7 +280,7 @@ export default function ReportsPage() {
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Judul Laporan</label>
                 <input type="text" value={title} onChange={e => setTitle(e.target.value)}
                   placeholder="Berikan judul singkat dan jelas..."
-                  className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
+                  className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#EF4444]" />
               </div>
 
               {/* Deskripsi */}
@@ -290,45 +288,32 @@ export default function ReportsPage() {
                 <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">Deskripsi Kejadian</label>
                 <textarea value={body} onChange={e => setBody(e.target.value)}
                   placeholder="Ceritakan apa yang terjadi, di mana, kapan, dan dampaknya..."
-                  rows={5} className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] resize-none" />
+                  rows={5} className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#EF4444] resize-none" />
                 <p className="mt-1 text-right text-xs text-gray-400">{body.length} karakter</p>
               </div>
 
-              {/* Lokasi */}
+              {/* ── Lokasi Kejadian — GeographicScopePicker (BALAPOR theme) ── */}
               <div>
-                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                <label className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">
                   Lokasi Kejadian <span className="text-gray-300 font-normal">(Opsional)</span>
                 </label>
-                <input type="text" value={location} onChange={e => setLocation(e.target.value)}
-                  placeholder="Contoh: Jl. Sultan Baab RT 03, Kel. Soa-Sio, Ternate Utara"
-                  className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
-                <div className="mt-2">
-                  {!coords ? (
-                    <button onClick={detectLocation} disabled={geoLoading}
-                      className="flex items-center gap-2 text-xs text-[#003526] font-semibold bg-[#003526]/5 hover:bg-[#003526]/10 px-3 py-2 rounded-xl disabled:opacity-60">
-                      {geoLoading
-                        ? <span className="w-3.5 h-3.5 border-2 border-[#003526] border-t-transparent rounded-full animate-spin" />
-                        : <span className="material-symbols-outlined text-sm">my_location</span>}
-                      {geoLoading ? 'Mendeteksi...' : '📍 Deteksi Lokasi via GPS (Opsional)'}
-                    </button>
-                  ) : (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-emerald-600 font-medium flex items-center gap-1">
-                          <span className="material-symbols-outlined text-sm">location_on</span>
-                          GPS terdeteksi ({coords.lat.toFixed(4)}, {coords.lng.toFixed(4)})
-                        </p>
-                        <button onClick={() => setCoords(null)} className="text-xs text-gray-400 hover:text-red-500">Hapus</button>
-                      </div>
-                      <div className="rounded-xl overflow-hidden border border-gray-200 h-36">
-                        <iframe
-                          src={`https://www.openstreetmap.org/export/embed.html?bbox=${coords.lng - 0.005},${coords.lat - 0.005},${coords.lng + 0.005},${coords.lat + 0.005}&layer=mapnik&marker=${coords.lat},${coords.lng}`}
-                          width="100%" height="100%" style={{ border: 0 }} title="Lokasi" />
-                      </div>
-                    </div>
-                  )}
-                  {geoError && <p className="mt-1 text-xs text-red-500">{geoError}</p>}
-                </div>
+                <GeographicScopePicker
+                  value={scope}
+                  onChange={(newScope, newBreadcrumb) => {
+                    setScope(newScope);
+                    setLocationText(newBreadcrumb?.display_short ?? '');
+                  }}
+                  brandColor="#EF4444"
+                  storageKey="balapor_citizen_scope"
+                  allowGps={true}
+                  allowedTypes={['kelurahan', 'desa']}
+                  placeholder="Pilih wilayah kejadian"
+                  size="full"
+                />
+                <p className="mt-2 text-xs text-gray-400 flex items-start gap-1.5">
+                  <span className="material-symbols-outlined text-sm shrink-0" style={{ fontSize: 14 }}>info</span>
+                  <span>Pilih dari daftar atau cari, atau pakai GPS untuk auto-detect kelurahan kamu.</span>
+                </p>
               </div>
 
               {/* Foto */}
@@ -344,7 +329,7 @@ export default function ReportsPage() {
                     <p className="mt-0.5 text-xs text-gray-500">{notifOptIn ? 'Aktif — update via WA. Nomor tidak dipublikasikan.' : 'Nonaktif — pantau di "Laporan Saya".'}</p>
                   </div>
                   <button onClick={() => setNotifOptIn(!notifOptIn)}
-                    className={`mt-0.5 relative h-6 w-11 shrink-0 rounded-full transition-colors ${notifOptIn ? 'bg-[#003526]' : 'bg-gray-300'}`}>
+                    className={`mt-0.5 relative h-6 w-11 shrink-0 rounded-full transition-colors ${notifOptIn ? 'bg-gradient-to-r from-[#EF4444] to-[#DC2626]' : 'bg-gray-300'}`}>
                     <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${notifOptIn ? 'translate-x-5' : ''}`} />
                   </button>
                 </div>
@@ -352,7 +337,7 @@ export default function ReportsPage() {
 
               <button onClick={() => setStep('tos')}
                 disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0) || (needsIdentityInput && !identityName.trim())}
-                className="w-full rounded-xl bg-[#003526] py-3.5 text-sm font-bold text-white disabled:opacity-40">
+                className="w-full rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] py-3.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:opacity-95 transition-all disabled:opacity-40 disabled:hover:opacity-40 disabled:hover:shadow-md">
                 Lanjut ke Ketentuan →
               </button>
             </div>
@@ -389,14 +374,14 @@ export default function ReportsPage() {
               )}
 
               <label className="flex cursor-pointer items-start gap-3">
-                <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#003526]" />
+                <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#EF4444]" />
                 <span className="text-sm text-gray-700">Saya memahami dan menyetujui komitmen di atas.</span>
               </label>
 
               <div className="flex gap-2">
                 <button onClick={() => setStep('form')} className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600">← Kembali</button>
                 <button onClick={handleTosNext} disabled={!tosAccepted}
-                  className="flex-1 rounded-xl bg-[#003526] py-3 text-sm font-bold text-white disabled:opacity-40">
+                  className="flex-1 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] py-3 text-sm font-bold text-white shadow-md hover:shadow-lg hover:opacity-95 transition-all disabled:opacity-40 disabled:hover:opacity-40 disabled:hover:shadow-md">
                   {user ? 'Kirim Laporan' : 'Lanjut →'}
                 </button>
               </div>
@@ -425,14 +410,14 @@ export default function ReportsPage() {
                       <input type="tel" value={phone} onChange={e => setPhone(e.target.value)}
                         onKeyDown={e => e.key === 'Enter' && handleRequestOtp()}
                         placeholder="8123456789"
-                        className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]" />
+                        className="flex-1 rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#EF4444]" />
                     </div>
                   </div>
                   {otpError && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{otpError}</p>}
                   <div className="flex gap-2">
                     <button onClick={() => setStep('tos')} className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600">← Kembali</button>
                     <button onClick={handleRequestOtp} disabled={!phone.trim() || otpLoading}
-                      className="flex-1 rounded-xl bg-[#003526] py-3 text-sm font-bold text-white disabled:opacity-40">
+                      className="flex-1 rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] py-3 text-sm font-bold text-white shadow-md hover:shadow-lg hover:opacity-95 transition-all disabled:opacity-40 disabled:hover:opacity-40 disabled:hover:shadow-md">
                       {otpLoading ? 'Mengirim...' : 'Kirim OTP via WA'}
                     </button>
                   </div>
@@ -445,11 +430,11 @@ export default function ReportsPage() {
                     <input type="text" value={otp} onChange={e => setOtp(e.target.value)}
                       onKeyDown={e => e.key === 'Enter' && handleVerifyOtp()}
                       placeholder="______" maxLength={6}
-                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-4 text-center text-2xl font-bold tracking-[0.5em] outline-none focus:border-[#003526]" autoFocus />
+                      className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-4 text-center text-2xl font-bold tracking-[0.5em] outline-none focus:border-[#EF4444]" autoFocus />
                   </div>
                   {otpError && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{otpError}</p>}
                   <button onClick={handleVerifyOtp} disabled={otp.length < 4 || otpLoading}
-                    className="w-full rounded-xl bg-[#003526] py-3.5 text-sm font-bold text-white disabled:opacity-40">
+                    className="w-full rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] py-3.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:opacity-95 transition-all disabled:opacity-40 disabled:hover:opacity-40 disabled:hover:shadow-md">
                     {otpLoading ? 'Memverifikasi...' : 'Verifikasi & Kirim Laporan'}
                   </button>
                   <button onClick={() => { setOtpSent(false); setOtp(''); setOtpError(''); }}

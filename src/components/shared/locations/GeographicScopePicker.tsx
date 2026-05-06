@@ -420,10 +420,10 @@ export default function GeographicScopePicker({
         'flex items-center justify-between gap-2 w-full',
         'rounded-lg border-2 transition-all duration-150',
         size === 'compact' ? 'px-3 py-2 text-sm' : 'px-4 py-3 text-base',
-        'bg-surface text-text',
+        'bg-white text-gray-900',
         'hover:border-current focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current',
         disabled && 'opacity-50 cursor-not-allowed',
-        !value && 'text-text-muted',
+        !value && 'text-gray-500',
         className,
       )}
       style={{
@@ -441,7 +441,7 @@ export default function GeographicScopePicker({
         <span className="truncate">{displayLabel}</span>
       </span>
       <span
-        className="material-symbols-outlined shrink-0 text-text-muted"
+        className="material-symbols-outlined shrink-0 text-gray-500"
         aria-hidden
       >
         expand_more
@@ -453,13 +453,13 @@ export default function GeographicScopePicker({
   const panelContent = (
     <div className="flex flex-col h-full">
       {/* Header: title + close + (back button if drilled) */}
-      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
+      <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-gray-200">
         <div className="flex items-center gap-2 min-w-0">
           {drillStack.length > 0 && (
             <button
               type="button"
               onClick={handleDrillBack}
-              className="material-symbols-outlined text-text-muted hover:text-text"
+              className="material-symbols-outlined text-gray-500 hover:text-gray-900"
               aria-label="Kembali"
               style={{ fontSize: 22 }}
             >
@@ -475,7 +475,7 @@ export default function GeographicScopePicker({
         <button
           type="button"
           onClick={handleClose}
-          className="material-symbols-outlined text-text-muted hover:text-text"
+          className="material-symbols-outlined text-gray-500 hover:text-gray-900"
           aria-label="Tutup"
           style={{ fontSize: 22 }}
         >
@@ -485,7 +485,7 @@ export default function GeographicScopePicker({
 
       {/* Breadcrumb trail (when drilled) */}
       {drillStack.length > 0 && (
-        <div className="flex-shrink-0 px-4 py-2 bg-surface-muted border-b border-border text-xs text-text-muted truncate">
+        <div className="flex-shrink-0 px-4 py-2 bg-gray-50 border-b border-gray-200 text-xs text-gray-500 truncate">
           {drillStack.map((loc, i) => (
             <span key={loc.id}>
               {i > 0 && ' › '}
@@ -496,10 +496,10 @@ export default function GeographicScopePicker({
       )}
 
       {/* Search input */}
-      <div className="flex-shrink-0 px-4 py-3 border-b border-border">
+      <div className="flex-shrink-0 px-4 py-3 border-b border-gray-200">
         <div className="relative">
           <span
-            className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-text-muted"
+            className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-500"
             style={{ fontSize: 18 }}
             aria-hidden
           >
@@ -512,8 +512,8 @@ export default function GeographicScopePicker({
             placeholder="Cari wilayah…"
             className={cn(
               'w-full pl-10 pr-3 py-2 rounded-lg',
-              'bg-surface text-text text-sm',
-              'border border-border focus:outline-none',
+              'bg-white text-gray-900 text-sm',
+              'border border-gray-200 focus:outline-none',
               'focus:ring-2 focus:ring-current focus:border-current',
             )}
             style={{ outlineColor: effectiveBrandColor }}
@@ -524,14 +524,14 @@ export default function GeographicScopePicker({
       {/* List */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {isLoading ? (
-          <div className="flex items-center justify-center py-8 text-text-muted text-sm">
+          <div className="flex items-center justify-center py-8 text-gray-500 text-sm">
             <span className="material-symbols-outlined animate-spin mr-2" style={{ fontSize: 18 }}>
               progress_activity
             </span>
             Memuat…
           </div>
         ) : listItems.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-text-muted text-sm">
+          <div className="flex flex-col items-center justify-center py-8 text-gray-500 text-sm">
             <span className="material-symbols-outlined mb-2" style={{ fontSize: 32 }}>
               search_off
             </span>
@@ -551,7 +551,7 @@ export default function GeographicScopePicker({
                     onClick={() => handleSelect(loc)}
                     className={cn(
                       'w-full flex items-center justify-between gap-3 px-4 py-3',
-                      'hover:bg-surface-muted active:bg-surface-muted/70',
+                      'hover:bg-gray-50 active:bg-gray-100',
                       'transition-colors text-left',
                       isSelected && 'font-semibold',
                     )}
@@ -559,17 +559,17 @@ export default function GeographicScopePicker({
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <span
-                        className="material-symbols-outlined shrink-0 text-text-muted"
+                        className="material-symbols-outlined shrink-0 text-gray-500"
                         style={{ fontSize: 20 }}
                         aria-hidden
                       >
                         {LOCATION_TYPE_ICON[loc.type]}
                       </span>
                       <div className="min-w-0">
-                        <div className="text-sm text-text truncate">
+                        <div className="text-sm text-gray-900 truncate">
                           {formatRefDisplay(loc)}
                         </div>
-                        <div className="text-xs text-text-muted">
+                        <div className="text-xs text-gray-500">
                           {LOCATION_TYPE_LABEL[loc.type]}
                         </div>
                       </div>
@@ -585,7 +585,7 @@ export default function GeographicScopePicker({
                       )}
                       {hasChildren && (
                         <span
-                          className="material-symbols-outlined text-text-muted"
+                          className="material-symbols-outlined text-gray-500"
                           style={{ fontSize: 20 }}
                           aria-hidden
                         >
@@ -602,7 +602,7 @@ export default function GeographicScopePicker({
       </div>
 
       {/* Footer: GPS + Reset buttons */}
-      <div className="flex-shrink-0 px-4 py-3 border-t border-border flex items-center gap-2">
+      <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 flex items-center gap-2">
         {allowGps && (
           <button
             type="button"
@@ -611,7 +611,7 @@ export default function GeographicScopePicker({
             className={cn(
               'flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-lg',
               'border-2 text-sm font-medium transition-all',
-              'hover:bg-surface-muted disabled:opacity-50 disabled:cursor-wait',
+              'hover:bg-gray-50 disabled:opacity-50 disabled:cursor-wait',
             )}
             style={{ borderColor: effectiveBrandColor, color: effectiveBrandColor }}
           >
@@ -634,7 +634,7 @@ export default function GeographicScopePicker({
             onClick={handleClear}
             className={cn(
               'px-3 py-2 rounded-lg text-sm font-medium',
-              'border border-border text-text-muted hover:bg-surface-muted',
+              'border border-gray-200 text-gray-500 hover:bg-gray-50',
               'transition-all',
             )}
           >
@@ -645,7 +645,7 @@ export default function GeographicScopePicker({
 
       {/* Error display */}
       {(treeQuery.error || childrenQuery.error || searchResultsQuery.error || reverseGeo.error) && (
-        <div className="flex-shrink-0 px-4 py-2 bg-status-critical/10 text-status-critical text-xs">
+        <div className="flex-shrink-0 px-4 py-2 bg-red-50 text-red-600 text-xs">
           {treeQuery.error || childrenQuery.error || searchResultsQuery.error || reverseGeo.error}
         </div>
       )}
@@ -662,7 +662,7 @@ export default function GeographicScopePicker({
           {/* Backdrop */}
           <div
             className={cn(
-              'fixed inset-0 z-40 bg-black/60 transition-opacity',
+              'fixed inset-0 z-[70] bg-black/60 transition-opacity',
               mobile ? 'block' : 'block',
             )}
             onClick={handleClose}
@@ -675,7 +675,7 @@ export default function GeographicScopePicker({
             aria-modal="true"
             aria-label="Pilih wilayah"
             className={cn(
-              'fixed z-50 bg-surface-elevated shadow-2xl border border-border ring-1 ring-white/5 flex flex-col',
+              'fixed z-[80] bg-white shadow-2xl border border-gray-200 flex flex-col',
               mobile
                 ? 'inset-x-0 bottom-0 h-[80vh] max-h-[700px] rounded-t-2xl' // bottom sheet mobile (cap 700px)
                 : 'top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[480px] h-[600px] max-h-[85vh] rounded-2xl', // centered modal desktop (fixed 600px, ceiling 85vh)

@@ -43,6 +43,11 @@ const BUCKET_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
 
 const supportsPdf = (bucket: string) => bucket === 'donations';
 
+// Stable empty array reference — prevents infinite re-render in parent
+// when 'existingUrls' prop is not passed (default value would create new
+// array reference every render, triggering the useEffect sync below).
+const EMPTY_URLS: string[] = [];
+
 const isPdfUrl = (url: string) => url.toLowerCase().endsWith('.pdf');
 
 interface UploadingFile {
@@ -57,7 +62,7 @@ interface UploadingFile {
 export default function ImageUpload({
   bucket,
   onUpload,
-  existingUrls = [],
+  existingUrls = EMPTY_URLS,
   label = '',
   maxFiles,
   maxSizeMB,
@@ -82,8 +87,14 @@ export default function ImageUpload({
   }, []);
 
   // Sync external changes
+  // Compare by content (length + items) to avoid infinite loop when
+  // parent passes a new array reference every render with same content.
   useEffect(() => {
-    setUrls(existingUrls);
+    setUrls(prev => {
+      if (prev.length !== existingUrls.length) return existingUrls;
+      const changed = existingUrls.some((url, i) => url !== prev[i]);
+      return changed ? existingUrls : prev;
+    });
   }, [existingUrls]);
 
   const canAddMore = urls.length + uploading.length < _maxFiles;
