@@ -3,6 +3,7 @@
 /**
  * TeraLoka — ReportSidebar
  * Phase 2 · Batch 7b2 — Reports Map
+ * Updated: 7 Mei 2026 — TD-008 location display via getBestLocation
  * ------------------------------------------------------------
  * Right sidebar untuk Live Incidents tab. Gabungan dari 2 widget:
  *
@@ -13,11 +14,16 @@
  * (reports array), styling + spacing konsisten, less file sprawl.
  *
  * Map Live tab (mini) di-render terpisah di page.tsx.
+ *
+ * Location display priority (TD-008 fix):
+ *   location_name (dari JOIN public.locations) > location (legacy text) > "Lokasi tidak tercatat"
+ *   topLocations() utility auto-handle this via getBestLocation di types/reports.ts
  */
 
 import { cn } from '@/lib/utils';
 import { MapPin, Siren } from 'lucide-react';
 import {
+  getBestLocation,
   timeAgo,
   topLocations,
   type Report,
@@ -132,7 +138,7 @@ export function ReportSidebar({
                   </span>
                 </div>
                 <p className="text-[10px] text-text-muted truncate leading-relaxed">
-                  📍 {r.location || 'Lokasi tidak tercatat'} ·{' '}
+                  📍 {getBestLocation(r) || 'Lokasi tidak tercatat'} ·{' '}
                   {timeAgo(r.created_at)}
                 </p>
               </div>

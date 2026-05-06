@@ -1,6 +1,7 @@
 /**
  * TeraLoka — Report Type Definitions
  * Phase 2 · Batch 7b1 — Reports Page Migration (Shell + Overview)
+ * Updated: 7 Mei 2026 — TD-008 location JOIN + layanan_publik key fix
  * ------------------------------------------------------------
  * Shared types + config untuk admin reports page.
  *
@@ -26,7 +27,7 @@ export type ReportCategory =
   | 'keamanan'
   | 'infrastruktur'
   | 'lingkungan'
-  | 'layanan publik'
+  | 'layanan_publik'
   | 'kesehatan'
   | 'pendidikan'
   | 'transportasi'
@@ -35,9 +36,17 @@ export type ReportCategory =
 export interface Report {
   id: string;
   title: string;
-  status: string; // 'pending', 'verified', 'rejected', 'converted', etc
+  /** Backend enum: pending | reviewing | verified | rejected | published */
+  status: string;
   category: ReportCategory | string | null;
+  /** Legacy free-text location (pre-Phase A). Preserved untuk backward compat. */
   location: string | null;
+  /** FK ke public.locations (Phase A migration, 3 Mei 2026) */
+  location_id: string | null;
+  /** Hasil JOIN ke public.locations.name (di-enrich di backend via enrichWithLocation) */
+  location_name: string | null;
+  /** Hasil JOIN ke public.locations.type — kelurahan/desa/kecamatan/kota_kabupaten/provinsi */
+  location_type: string | null;
   latitude: number | null;
   longitude: number | null;
   created_at: string;
@@ -111,7 +120,7 @@ export const CATEGORY_CONFIG: Record<ReportCategory, CategoryConfigItem> = {
     emoji: '🌳',
     service: 'properti',
   },
-  'layanan publik': {
+  layanan_publik: {
     label: 'Layanan Publik',
     emoji: '🏛️',
     service: 'bakabar',
@@ -173,6 +182,22 @@ export const PRIORITY_FILTER_OPTIONS = [
 /* ─── Helpers ─── */
 
 /**
+ * Get best display location dari report.
+ * Priority: location_name (dari JOIN public.locations) > location (legacy text) > null
+ *
+ * Fungsi ini = single source of truth untuk display lokasi di UI.
+ * Pakai di mana saja yang render lokasi report.
+ *
+ * Example:
+ *   getBestLocation(r) ?? 'Lokasi tidak tercatat'
+ */
+export function getBestLocation(
+  r: Pick<Report, 'location_name' | 'location'>
+): string | null {
+  return r.location_name || r.location || null;
+}
+
+/**
  * Relative time dari date string.
  * "5 mnt lalu" / "3 jam lalu" / "2 hari lalu"
  */
@@ -228,6 +253,10 @@ export function groupByCategory(reports: Report[]): Record<string, Report[]> {
 /**
  * Count top locations (desc by count).
  * Return max top N.
+ *
+ * Post Phase A migration (TD-008):
+ *   - Priority: location_name (JOIN) > location (legacy) > skip
+ *   - Reports tanpa lokasi (kedua-duanya null) di-skip dari aggregasi
  */
 export function topLocations(
   reports: Report[],
@@ -235,7 +264,8 @@ export function topLocations(
 ): Array<{ location: string; count: number }> {
   const locCount: Record<string, number> = {};
   for (const r of reports) {
-    if (r.location) locCount[r.location] = (locCount[r.location] || 0) + 1;
+    const key = getBestLocation(r);
+    if (key) locCount[key] = (locCount[key] || 0) + 1;
   }
   return Object.entries(locCount)
     .map(([location, count]) => ({ location, count }))

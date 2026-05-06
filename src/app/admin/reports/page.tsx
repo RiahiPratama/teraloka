@@ -33,6 +33,7 @@ import { cn } from '@/lib/utils';
 import { ApiError, useApi } from '@/lib/api/client';
 import {
   computeReportStats,
+  getBestLocation,
   sortReportsByPriority,
   type Report,
   type ReportPriority,
@@ -592,7 +593,7 @@ export default function AdminReportsPage() {
                           {r.title}
                         </p>
                         <p className="text-[10px] text-text-muted leading-tight mt-0.5">
-                          {r.location || 'Lokasi tidak tercatat'} ·{' '}
+                          {getBestLocation(r) || 'Lokasi tidak tercatat'} ·{' '}
                           {timeAgoCompact(r.created_at)}
                         </p>
                       </div>

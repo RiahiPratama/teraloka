@@ -3,6 +3,7 @@
 /**
  * TeraLoka — ReportRow
  * Phase 2 · Batch 7b1 — Reports Page Migration
+ * Updated: 7 Mei 2026 — TD-008 location display via getBestLocation
  * ------------------------------------------------------------
  * Single report row untuk list tampilan di Overview + Live tabs.
  *
@@ -12,6 +13,9 @@
  *
  * Priority picker (3 tombol quick-change) akan di-tambah di Batch 7b2
  * via `actionSlot` prop (render prop pattern).
+ *
+ * Location display priority (TD-008 fix):
+ *   location_name (dari JOIN public.locations) > location (legacy text) > omit
  */
 
 import { Camera, MapPin } from 'lucide-react';
@@ -19,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { PriorityBadge } from './priority-badge';
 import {
   getCategoryConfig,
+  getBestLocation,
   isUnhandled,
   timeAgo,
   type Report,
@@ -48,6 +53,7 @@ export function ReportRow({
   const isClickable = Boolean(onClick);
   const categoryConfig = getCategoryConfig(report.category);
   const photoCount = report.photos?.length ?? 0;
+  const displayLocation = getBestLocation(report);
 
   const content = (
     <>
@@ -92,12 +98,12 @@ export function ReportRow({
                 {report.category || 'lainnya'}
               </span>
             </span>
-            {report.location && (
+            {displayLocation && (
               <>
                 <span className="text-text-subtle" aria-hidden="true">·</span>
                 <span className="flex items-center gap-0.5 min-w-0">
                   <MapPin size={10} className="shrink-0" />
-                  <span className="truncate">{report.location}</span>
+                  <span className="truncate">{displayLocation}</span>
                 </span>
               </>
             )}
@@ -115,7 +121,7 @@ export function ReportRow({
           </div>
         ) : (
           <div className="text-[10px] text-text-muted mt-0.5 truncate">
-            {report.location ? `📍 ${report.location} · ` : ''}
+            {displayLocation ? `📍 ${displayLocation} · ` : ''}
             {timeAgo(report.created_at)}
           </div>
         )}
