@@ -24,7 +24,7 @@
  *   />
  *
  *   <SidebarItem
- *     href="/admin/reports"
+ *     href="/admin/balapor"
  *     service="balapor"
  *     icon={<AlertTriangle size={15} />}
  *     label="BALAPOR"

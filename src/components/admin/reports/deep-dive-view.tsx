@@ -4,7 +4,7 @@
  * TeraLoka — DeepDiveView
  * Phase 2 · Batch 7b3 — Reports Deep Dive Analytics
  * ------------------------------------------------------------
- * Analytics panel untuk Deep Dive tab di /admin/reports.
+ * Analytics panel untuk Deep Dive tab di /admin/balapor.
  *
  * Sections (top → bottom):
  * 1. Stats row (4 cards): Total 30d / Per Hari / Urgent / Normal

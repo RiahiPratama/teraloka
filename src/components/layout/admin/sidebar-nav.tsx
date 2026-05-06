@@ -107,7 +107,7 @@ const NAV_SECTIONS: NavSectionConfig[] = [
     items: [
       // BAKABAR dropdown di-inject via withBakabarDropdown flag (posisi pertama)
       {
-        href: '/admin/reports',
+        href: '/admin/balapor',
         label: 'BALAPOR',
         sublabel: 'Laporan warga',
         service: 'balapor',

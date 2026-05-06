@@ -110,7 +110,7 @@ function deriveActionItems(stats: AdminStats | null): ActionItem[] {
       priority: 'urgent',
       service: 'balapor',
       icon: <AlertTriangle size={16} />,
-      href: '/admin/reports',
+      href: '/admin/balapor',
     });
   }
   if (stats.campaigns.pending > 0) {
@@ -169,7 +169,7 @@ function buildServiceHealthSections() {
           icon: <BalaporIcon size={14} />,
           label: 'BALAPOR',
           status: 'healthy' as const,
-          href: '/admin/reports',
+          href: '/admin/balapor',
         },
         {
           service: 'badonasi' as const,
@@ -494,7 +494,7 @@ export default function AdminOverviewPage() {
               : undefined
           }
           emptyMessage="Belum ada laporan"
-          href="/admin/reports"
+          href="/admin/balapor"
           loading={loading && !stats}
         />
       </div>

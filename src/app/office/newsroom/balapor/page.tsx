@@ -108,7 +108,7 @@ export default function BalaporPage() {
         params.set('status', activeFilter);
       }
       if (categoryFilter) params.set('category', categoryFilter);
-      const res  = await fetch(`${API_URL}/admin/reports?${params}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res  = await fetch(`${API_URL}/admin/balapor?${params}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
       setReports(data.data.data);
@@ -126,7 +126,7 @@ export default function BalaporPage() {
     if (!token) return;
     setAction(id + action);
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${id}/${action === 'verified' ? 'verify' : 'reject'}`, {
+      const res  = await fetch(`${API_URL}/admin/balapor/${id}/${action === 'verified' ? 'verify' : 'reject'}`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
       });
       const data = await res.json();
@@ -141,7 +141,7 @@ export default function BalaporPage() {
     if (!token) return;
     setAction(id + 'priority');
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${id}/priority`, {
+      const res  = await fetch(`${API_URL}/admin/balapor/${id}/priority`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ priority }),
       });
       const data = await res.json();
@@ -156,7 +156,7 @@ export default function BalaporPage() {
     if (!token) return;
     setAction(id + 'spam');
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${id}/spam`, {
+      const res  = await fetch(`${API_URL}/admin/balapor/${id}/spam`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ is_spam: true }),
       });
       const data = await res.json();
@@ -172,7 +172,7 @@ export default function BalaporPage() {
     if (!token) return;
     setAction(id + 'forward');
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${id}/forward`, {
+      const res  = await fetch(`${API_URL}/admin/balapor/${id}/forward`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
       });
       const data = await res.json();
@@ -188,7 +188,7 @@ export default function BalaporPage() {
     if (!confirm(`Convert "${title.slice(0,40)}..." jadi draft artikel via AI?`)) return;
     setConvert(id);
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${id}/convert`, {
+      const res  = await fetch(`${API_URL}/admin/balapor/${id}/convert`, {
         method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({}),
       });
       const data = await res.json();
@@ -204,7 +204,7 @@ export default function BalaporPage() {
     if (!confirm(`Hapus "${title.slice(0,50)}" permanen?`)) return;
     setAction(id + 'delete');
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      const res  = await fetch(`${API_URL}/admin/balapor/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
       showToast(`Laporan dihapus`);
@@ -218,7 +218,7 @@ export default function BalaporPage() {
     if (!token || !identityModal || identityReason.trim().length < 5) return;
     setIdentityLoading(true);
     try {
-      const res  = await fetch(`${API_URL}/admin/reports/${identityModal.reportId}/identity?reason=${encodeURIComponent(identityReason.trim())}`, { headers: { Authorization: `Bearer ${token}` } });
+      const res  = await fetch(`${API_URL}/admin/balapor/${identityModal.reportId}/identity?reason=${encodeURIComponent(identityReason.trim())}`, { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (!data.success) throw new Error(data.error?.message);
       setIdentityResult({ identity: data.data.identity, message: data.data.message, reason: identityReason.trim() });

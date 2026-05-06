@@ -14,7 +14,7 @@
  * Contoh:
  *   <SidebarGroup label="INFORMASI">
  *     <SidebarItem href="/admin/articles" ... />
- *     <SidebarItem href="/admin/reports" ... />
+ *     <SidebarItem href="/admin/balapor" ... />
  *     <SidebarItem href="/admin/funding" ... />
  *   </SidebarGroup>
  */

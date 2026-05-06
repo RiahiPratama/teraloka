@@ -25,7 +25,7 @@
  *   <PerluTindakanCard
  *     items={[
  *       { id: '1', label: '2 Laporan urgent', sublabel: 'Gempa Halmahera',
- *         priority: 'urgent', service: 'balapor', href: '/admin/reports?priority=urgent' },
+ *         priority: 'urgent', service: 'balapor', href: '/admin/balapor?priority=urgent' },
  *       { id: '2', label: '7 Artikel draft', sublabel: 'Menunggu publish',
  *         priority: 'medium', service: 'bakabar', href: '/admin/articles?status=draft' },
  *     ]}

@@ -32,7 +32,7 @@
  *         description: '8 laporan serupa dalam 2 jam — kemungkinan kejadian massal.',
  *         service: 'balapor',
  *         timestamp: new Date(),
- *         href: '/admin/reports?cluster=halmahera',
+ *         href: '/admin/balapor?cluster=halmahera',
  *       },
  *     ]}
  *   />
