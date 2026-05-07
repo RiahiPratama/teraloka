@@ -297,7 +297,7 @@ export default async function CampaignPage({ params }: Props) {
   const reportUrl = `/balapor/new?type=campaign&campaign_id=${campaign.id}&campaign_title=${encodeURIComponent(campaign.title)}`;
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-28">
+    <div className="min-h-screen bg-gray-50 pb-44">
 
       {/* Back */}
       <div className="mx-auto max-w-lg px-4 pt-4 pb-2">
