@@ -68,7 +68,7 @@ export default function ReportsPage() {
     setStep('submitting');
     setSubmitError('');
     try {
-      const res = await fetch(`${API}/content/reports`, {
+      const res = await fetch(`${API}/balapor/reports`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${authToken}` },
         body: JSON.stringify({

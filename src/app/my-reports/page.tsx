@@ -77,7 +77,7 @@ function MyReportsContent() {
   async function fetchReports() {
     setLoading(true)
     try {
-      const res = await fetch(`${API_URL}/content/reports/mine?page=${page}`, {
+      const res = await fetch(`${API_URL}/balapor/reports/me?page=${page}`, {
         headers: { Authorization: `Bearer ${token}` }
       })
       if (!res.ok) throw new Error('Gagal fetch')
@@ -94,7 +94,7 @@ function MyReportsContent() {
   async function toggleNotification(reportId: string, currentOptIn: boolean) {
     setTogglingId(reportId)
     try {
-      const res = await fetch(`${API_URL}/content/reports/mine/${reportId}/notification`, {
+      const res = await fetch(`${API_URL}/balapor/reports/me/${reportId}/notification`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
