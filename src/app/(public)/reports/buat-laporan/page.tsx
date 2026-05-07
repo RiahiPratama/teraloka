@@ -181,32 +181,57 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-[#f9f9f8]">
-      {/* Hero — TeraLoka heritage gradient + BALAPOR red decorative accents */}
-      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-8 pb-10 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 rounded-full bg-[#EF4444]/10 blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-        <div className="absolute bottom-0 left-0 w-40 h-40 rounded-full bg-[#F87171]/10 blur-2xl"></div>
-        <div className="relative mx-auto max-w-lg">
-          {/* Label BALAPOR */}
-          <div className="inline-flex items-center gap-2 bg-white/15 rounded-full px-3 py-1.5 mb-4">
-            <span className="material-symbols-outlined text-[#95d3ba] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>campaign</span>
-            <span className="text-xs font-black text-[#95d3ba] uppercase tracking-widest">BALAPOR</span>
+      {/* Hero — TeraLoka heritage green + BALAPOR red accents (mirror BADONASI pattern) */}
+      <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] px-6 pt-10 pb-12 relative overflow-hidden">
+        {/* Subtle red atmospheric glow */}
+        <div className="absolute top-0 right-0 w-72 h-72 rounded-full bg-[#EF4444]/12 blur-3xl -translate-y-1/3 translate-x-1/3"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 rounded-full bg-[#DC2626]/10 blur-3xl translate-y-1/3 -translate-x-1/4"></div>
+
+        <div className="relative mx-auto max-w-lg text-center">
+          {/* Label BALAPOR — red pill with glow (mirror BADONASI badge) */}
+          <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EF4444] to-[#DC2626] rounded-full px-4 py-2 mb-5 shadow-lg shadow-[#DC2626]/40">
+            <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>campaign</span>
+            <span className="text-xs font-black text-white uppercase tracking-widest">BALAPOR TERALOKA</span>
           </div>
-          <h1 className="text-2xl font-extrabold tracking-tight text-white leading-tight">
-            Dari Netizen,<br />Oleh Netizen,<br />Untuk Warga Maluku Utara
+
+          {/* Heading — "Maluku Utara" red accent */}
+          <h1 className="text-[26px] sm:text-[30px] font-extrabold tracking-tight text-white leading-[1.2]">
+            Dari Netizen, Oleh Netizen,<br />
+            Untuk Warga <span className="text-[#EF4444]">Maluku Utara</span>
           </h1>
-          <p className="mt-2 text-sm text-[#95d3ba] leading-relaxed">
+
+          {/* Tagline */}
+          <p className="mt-3 text-sm text-[#95d3ba] leading-relaxed max-w-md mx-auto">
             Sampaikan laporan secara aman dan terpercaya untuk Maluku Utara yang lebih baik.
           </p>
+
+          {/* Trust signals — glassy pills dengan red icon accent */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10">
+              <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>shield</span>
+              <span className="text-xs text-white font-semibold">Identitas dilindungi</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10">
+              <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
+              <span className="text-xs text-white font-semibold">Respons 1×24 jam</span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10">
+              <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+              <span className="text-xs text-white font-semibold">Diverifikasi tim</span>
+            </div>
+          </div>
+
           {user && (
-            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1">
-              <span className="material-symbols-outlined text-[#95d3ba] text-sm">verified_user</span>
-              <span className="text-xs text-[#95d3ba] font-medium">Login sebagai +{user.phone}</span>
+            <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 backdrop-blur-sm border border-white/10">
+              <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
+              <span className="text-xs text-white font-medium">Login sebagai +{user.phone}</span>
             </div>
           )}
         </div>
       </div>
 
-      <div className="mx-auto max-w-lg px-4 -mt-4 pb-8">
+      {/* Card — no overlap, clean separation */}
+      <div className="mx-auto max-w-lg px-4 pt-6 pb-8">
         <div className="rounded-2xl bg-white shadow-sm border border-gray-100 overflow-hidden">
 
           {/* STEP 1: FORM */}
