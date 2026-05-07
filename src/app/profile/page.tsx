@@ -403,6 +403,58 @@ export default function ProfilePage() {
           </div>
         )}
 
+        {/* ⭐ Aktivitas Saya — Citizen activity entry point (Sprint 1B leftover Issue C) */}
+        {/*
+          Mental model:
+          - Laporan BALAPOR Saya: HANYA service_user (laporan civic = aktivitas warga,
+            owner/admin/operator punya channel reporting internal lain)
+          - Donasi Saya: SEMUA role (semua manusia bisa donate sebagai pribadi)
+        */}
+        {(user.role === 'service_user' || user.role === 'owner_listing' || user.role.startsWith('admin') || user.role === 'super_admin' || user.role.startsWith('operator')) && (
+          <div style={{ background: '#fff', borderRadius: 16, border: '1px solid #E5E7EB', overflow: 'hidden', marginBottom: 16 }}>
+            <div style={{ padding: '14px 16px', borderBottom: '1px solid #F3F4F6' }}>
+              <h2 style={{ fontSize: 13, fontWeight: 700, color: '#374151' }}>📌 Aktivitas Saya</h2>
+            </div>
+            <div style={{ padding: '8px' }}>
+              {/* Laporan BALAPOR — service_user only */}
+              {user.role === 'service_user' && (
+                <Link href="/my-reports" style={{
+                  display: 'flex', alignItems: 'center', gap: 10,
+                  padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
+                  transition: 'background 0.15s',
+                }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#F9FAFB')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+                >
+                  <span style={{ fontSize: 16 }}>📋</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Laporan BALAPOR Saya</div>
+                    <div style={{ fontSize: 11, color: '#9CA3AF' }}>Pantau status laporan warga kamu</div>
+                  </div>
+                  <span style={{ color: '#D1D5DB' }}>→</span>
+                </Link>
+              )}
+
+              {/* Donasi Saya — ALL roles (semua manusia bisa donate) */}
+              <Link href="/my-donations" style={{
+                display: 'flex', alignItems: 'center', gap: 10,
+                padding: '10px 12px', borderRadius: 10, textDecoration: 'none',
+                transition: 'background 0.15s',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = '#F9FAFB')}
+              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <span style={{ fontSize: 16 }}>💝</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Donasi Saya</div>
+                  <div style={{ fontSize: 11, color: '#9CA3AF' }}>Riwayat donasi BADONASI kamu</div>
+                </div>
+                <span style={{ color: '#D1D5DB' }}>→</span>
+              </Link>
+            </div>
+          </div>
+        )}
+
         {/* Logout */}
         <button
           onClick={logout}
