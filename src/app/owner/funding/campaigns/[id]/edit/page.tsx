@@ -698,7 +698,7 @@ export default function EditCampaignPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9f8] pb-32">
+    <div className="min-h-screen bg-[#f9f9f8] pb-44">
       {/* Hero — match BADONASI public + NewInfo style (pb-24 untuk floating pill space) */}
       <div className="bg-gradient-to-br from-[#003526] via-[#003526] to-[#1B6B4A] text-white px-4 pt-8 pb-24 relative overflow-hidden">
         {/* Pink accent decoration */}
@@ -1525,7 +1525,14 @@ export default function EditCampaignPage() {
       </div>
 
       {/* Sticky Footer Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-lg">
+      {/*
+        Stack pattern (locked 7 Mei 2026):
+          - OwnerBottomNav: z-50, bottom-0 (~60px height)
+          - Sticky CTA: z-40, bottom-[calc(60px+env(safe-area-inset-bottom,0px))]
+            → CTA sit ABOVE OwnerBottomNav, tidak ke-overlap
+          - Container pb-44 reserve space untuk dual stack
+      */}
+      <div className="fixed bottom-[calc(60px+env(safe-area-inset-bottom,0px))] left-0 right-0 bg-white/95 backdrop-blur-md border-t border-gray-200 shadow-lg z-40">
         <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-2">
           {currentStep > 1 && (
             <button

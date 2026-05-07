@@ -1073,8 +1073,18 @@ export default async function CampaignPage({ params }: Props) {
       )}
 
       {/* STICKY CTA */}
+      {/*
+        Stack pattern (locked 7 Mei 2026):
+          - BottomNav publik: z-50, bottom-0 (~60px height)
+          - Sticky CTA: z-40, bottom-[calc(60px+env(safe-area-inset-bottom,0px))]
+            → CTA sit ABOVE BottomNav, tidak ke-overlap
+          - Container pb-44 reserve space untuk dual stack
+
+        Reasoning: Pattern industry standard (Tokopedia/Shopee) detail produk
+        — BottomNav primary nav + sticky CTA secondary action stacked vertical.
+      */}
       {isActive && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] z-30">
+        <div className="fixed bottom-[calc(60px+env(safe-area-inset-bottom,0px))] left-0 right-0 bg-white border-t border-gray-100 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] z-40">
           <div className="mx-auto max-w-lg px-4 py-3">
             <Link
               href={`/fundraising/${campaign.slug}/donate`}
