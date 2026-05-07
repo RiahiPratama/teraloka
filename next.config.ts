@@ -10,6 +10,10 @@ import type { NextConfig } from "next";
 // History:
 // May 2, 2026 — Owner BADONASI namespace migration ke /owner/funding/*
 // May 3, 2026 — BALAPOR pilot: URL public /balapor (folder TETAP /reports)
+// May 7, 2026 — Sprint 1B-B5: redirect /admin/reports + /profile/donations
+//               di-handle di src/proxy.ts (runtime) karena Vercel routes-
+//               manifest cache stale untuk rules baru. Akan di-migrate
+//               kembali ke sini saat cache issue resolved.
 //
 // Architectural philosophy locked:
 //   📁 DAPUR (folder/code): src/app/(public)/reports/page.tsx
