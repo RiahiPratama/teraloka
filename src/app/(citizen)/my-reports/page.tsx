@@ -4,7 +4,6 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, Suspense } from 'react'
 import { useAuth } from '@/hooks/useAuth'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!
@@ -33,42 +32,36 @@ const STATUS_CONFIG: Record<string, { color: string; icon: string; desc: string 
     icon: '⏳',
     desc: 'Laporan kamu sudah diterima, menunggu review tim'
   },
-  screened: {
+  reviewing: {
     color: 'bg-blue-100 text-blue-800',
     icon: '🔍',
     desc: 'Tim sedang meninjau laporan kamu'
   },
-  approved: {
+  verified: {
     color: 'bg-green-100 text-green-800',
     icon: '✅',
-    desc: 'Laporan terverifikasi, akan diproses menjadi artikel'
+    desc: 'Laporan sudah diverifikasi tim moderasi'
   },
   rejected: {
     color: 'bg-red-100 text-red-800',
     icon: '❌',
     desc: 'Laporan tidak dapat diproses saat ini'
   },
-  converted: {
+  published: {
     color: 'bg-purple-100 text-purple-800',
     icon: '📰',
-    desc: 'Laporan sudah menjadi artikel berita'
+    desc: 'Laporan sudah dipublish sebagai artikel berita'
   }
 }
 
 function MyReportsContent() {
-  const { user, token, isLoading } = useAuth()
-  const router = useRouter()
+  // Auth check: delegated to (citizen)/layout.tsx — user pasti ada di sini
+  const { user, token } = useAuth()
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
   const [page, setPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [togglingId, setTogglingId] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!isLoading && !user) {
-      router.push('/login?redirect=/my-reports')
-    }
-  }, [user, isLoading, router])
 
   useEffect(() => {
     if (user && token) fetchReports()
@@ -112,7 +105,7 @@ function MyReportsContent() {
     }
   }
 
-  if (isLoading || !user) {
+  if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600" />

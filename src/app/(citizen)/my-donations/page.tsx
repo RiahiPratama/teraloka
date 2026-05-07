@@ -1,7 +1,8 @@
 'use client';
 
 // ═══════════════════════════════════════════════════════════════
-// /profile/donations/page.tsx — v2 Refined Design
+// /my-donations/page.tsx — v2 Refined Design
+// Migrated from /profile/donations/ (7 Mei 2026, Sprint 1B citizen group)
 //
 // Improvements:
 // - Refined hero card (vibrant pink gradient + decorative heart)
@@ -13,9 +14,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import { formatRupiah } from '@/utils/format';
 import {
@@ -95,9 +94,8 @@ const TABS: Array<{ key: 'all' | DonationStatus; label: string }> = [
   { key: 'rejected', label: 'Ditolak' },
 ];
 
-export default function ProfileDonationsPage() {
-  const router = useRouter();
-  const { user, isLoading: authLoading } = useAuth();
+export default function MyDonationsPage() {
+  // Auth check: delegated to (citizen)/layout.tsx — user pasti ada di sini
   const { toast } = useToast();
 
   const [donations, setDonations] = useState<MyDonation[]>([]);
@@ -105,12 +103,6 @@ export default function ProfileDonationsPage() {
   const [activeTab, setActiveTab] = useState<'all' | DonationStatus>('all');
 
   useEffect(() => {
-    if (authLoading) return;
-    if (!user) {
-      router.push('/login?redirect=/profile/donations');
-      return;
-    }
-
     async function load() {
       const token = localStorage.getItem(TOKEN_KEY);
       try {
@@ -130,7 +122,7 @@ export default function ProfileDonationsPage() {
       }
     }
     load();
-  }, [authLoading, user, router, toast]);
+  }, [toast]);
 
   const filtered = useMemo(() => {
     if (activeTab === 'all') return donations;
@@ -162,7 +154,7 @@ export default function ProfileDonationsPage() {
     rejected: donations.filter(d => d.verification_status === 'rejected').length,
   }), [donations]);
 
-  if (loading || authLoading) return <LoadingSkeleton />;
+  if (loading) return <LoadingSkeleton />;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-28">
