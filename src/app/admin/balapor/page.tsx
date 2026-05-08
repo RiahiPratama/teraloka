@@ -26,6 +26,7 @@ import {
   CheckCircle2,
   RefreshCw,
   Siren,
+  Trash2,
   XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -42,6 +43,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
 import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
+import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
 import { ReportGroupList } from '@/components/admin/reports/report-group-list';
 import { ReportRow } from '@/components/admin/reports/report-row';
 import { ReportSidebar } from '@/components/admin/reports/report-sidebar';
@@ -92,6 +94,20 @@ const PRIORITY_OPTIONS = [
   { value: 'normal', label: '🟢 Normal' },
 ];
 
+/* ─── Lifecycle filter options (Sub-Sprint 1C-C-4) ─── */
+
+const LIFECYCLE_OPTIONS = [
+  { value: '', label: 'Semua' },
+  { value: 'pending', label: '🟡 Pending' },
+  { value: 'reviewing', label: '🔍 Reviewing' },
+  { value: 'verified', label: '✅ Verified' },
+  { value: 'published', label: '📰 Published' },
+  { value: 'stalemate', label: '⚠️ Stalemate' },
+  { value: 'stale', label: '⏸️ Stale' },
+  { value: 'resolved', label: '🎉 Resolved' },
+  { value: 'rejected', label: '❌ Rejected' },
+];
+
 /* ─── Page ─── */
 
 export default function AdminReportsPage() {
@@ -107,6 +123,7 @@ export default function AdminReportsPage() {
   // Filter state
   const [priorityFilter, setPriorityFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
+  const [lifecycleFilter, setLifecycleFilter] = useState<string>('');
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
@@ -132,6 +149,7 @@ export default function AdminReportsPage() {
     const params: Record<string, string | number> = { limit: 100 };
     if (priorityFilter) params.priority = priorityFilter;
     if (categoryFilter) params.category = categoryFilter;
+    if (lifecycleFilter) params.lifecycle_state = lifecycleFilter;
 
     api
       .get<ReportsListResponse>('/admin/balapor', {
@@ -153,7 +171,7 @@ export default function AdminReportsPage() {
       });
 
     return () => controller.abort();
-  }, [api, priorityFilter, categoryFilter, retryNonce]);
+  }, [api, priorityFilter, categoryFilter, lifecycleFilter, retryNonce]);
 
   /* ── Auto-refresh 60s (only on overview/live, not deepdive) ── */
   useEffect(() => {
@@ -183,6 +201,13 @@ export default function AdminReportsPage() {
 
   /* ── Derivations ── */
   const stats = computeReportStats(reports, total);
+
+  // Sub-Sprint 1C-C-2: count laporan dengan lifecycle_state='stalemate'
+  // Type assertion karena Report type belum extend dengan lifecycle_state field
+  // (backend admin endpoint Phase 3 already returns lifecycle_state — verified production)
+  const stalemateCount = reports.filter(
+    (r) => (r as Report & { lifecycle_state?: string }).lifecycle_state === 'stalemate'
+  ).length;
   const sortedReports = sortReportsByPriority(reports);
   const topIncidents = sortedReports.slice(0, 5);
 
@@ -260,7 +285,95 @@ export default function AdminReportsPage() {
   const handleResetFilters = useCallback(() => {
     setPriorityFilter('');
     setCategoryFilter('');
+    setLifecycleFilter('');
   }, []);
+
+  /* ── Soft delete state + handler (Sub-Sprint 1C-C-3) ── */
+  const [deleteTarget, setDeleteTarget] = useState<Report | null>(null);
+
+  const handleSoftDelete = useCallback(
+    async (params: {
+      reportId: string;
+      reason: string;
+      notes: string;
+      redactContent: boolean;
+    }) => {
+      const target = reports.find(r => r.id === params.reportId);
+      const titlePreview = target
+        ? target.title.slice(0, 30) + (target.title.length > 30 ? '…' : '')
+        : 'Laporan';
+
+      try {
+        await api.post(`/admin/balapor/${params.reportId}/soft-delete`, {
+          reason: params.reason,
+          notes: params.notes,
+          redact_content: params.redactContent,
+        });
+        showToast(`"${titlePreview}" dihapus`, true);
+        setRetryNonce(n => n + 1);
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Gagal menghapus laporan';
+        showToast(message, false);
+        throw err; // Re-throw biar modal tetap terbuka kalau gagal
+      }
+    },
+    [api, reports, showToast]
+  );
+
+  /* ── Verify + Reject handlers (Sub-Sprint 1C-C-4) ── */
+  const handleVerify = useCallback(
+    async (report: Report) => {
+      const titlePreview = report.title.slice(0, 30) + (report.title.length > 30 ? '…' : '');
+      const loadingKey = `${report.id}verify`;
+      setActionLoadingId(loadingKey);
+      try {
+        await api.patch(`/admin/balapor/${report.id}/verify`, {});
+        showToast(`✅ "${titlePreview}" diverifikasi`, true);
+        setRetryNonce(n => n + 1);
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Gagal verify laporan';
+        showToast(message, false);
+      } finally {
+        setActionLoadingId(null);
+      }
+    },
+    [api, showToast]
+  );
+
+  const handleReject = useCallback(
+    async (report: Report) => {
+      // MVP: pakai window.prompt() untuk reason (defer modal proper)
+      const reason = window.prompt(
+        `Alasan tolak laporan "${report.title.slice(0, 40)}"?\n(Min 5 karakter — akan ditampilkan ke pelapor)`,
+        ''
+      );
+      if (reason === null) return; // user cancel
+      if (reason.trim().length < 5) {
+        showToast('Alasan minimal 5 karakter', false);
+        return;
+      }
+
+      const titlePreview = report.title.slice(0, 30) + (report.title.length > 30 ? '…' : '');
+      const loadingKey = `${report.id}reject`;
+      setActionLoadingId(loadingKey);
+      try {
+        await api.patch(`/admin/balapor/${report.id}/reject`, {
+          reason: reason.trim(),
+        });
+        showToast(`❌ "${titlePreview}" ditolak`, true);
+        setRetryNonce(n => n + 1);
+      } catch (err) {
+        const message =
+          err instanceof ApiError ? err.message : 'Gagal reject laporan';
+        showToast(message, false);
+      } finally {
+        setActionLoadingId(null);
+      }
+    },
+    [api, showToast]
+  );
 
   return (
     <div className="max-w-7xl mx-auto space-y-5">
@@ -397,7 +510,11 @@ export default function AdminReportsPage() {
 
       {/* ── Stats row ── */}
       {!error && (
-        <ReportStats stats={stats} loading={loading && reports.length === 0} />
+        <ReportStats
+          stats={stats}
+          stalemateCount={stalemateCount}
+          loading={loading && reports.length === 0}
+        />
       )}
 
       {/* ── OVERVIEW TAB ── */}
@@ -429,6 +546,35 @@ export default function AdminReportsPage() {
                       key={opt.value || 'all'}
                       type="button"
                       onClick={() => setPriorityFilter(opt.value)}
+                      className={cn(
+                        'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+                        'text-[11px] font-semibold whitespace-nowrap',
+                        'border transition-colors',
+                        isActive
+                          ? 'bg-balapor text-white border-balapor'
+                          : 'bg-surface text-text-secondary border-border hover:bg-surface-muted'
+                      )}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Status filter (Sub-Sprint 1C-C-4) */}
+            <div className="bg-surface border border-border rounded-xl p-4">
+              <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2.5">
+                Filter Status
+              </div>
+              <div className="flex gap-1.5 flex-wrap">
+                {LIFECYCLE_OPTIONS.map((opt) => {
+                  const isActive = lifecycleFilter === opt.value;
+                  return (
+                    <button
+                      key={opt.value || 'all-lifecycle'}
+                      type="button"
+                      onClick={() => setLifecycleFilter(opt.value)}
                       className={cn(
                         'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full',
                         'text-[11px] font-semibold whitespace-nowrap',
@@ -510,9 +656,77 @@ export default function AdminReportsPage() {
                   />
                 </div>
               ) : (
-                topIncidents.map((r) => (
-                  <ReportRow key={r.id} report={r} variant="full" />
-                ))
+                topIncidents.map((r) => {
+                  const canModerate = r.status === 'pending' || r.status === 'reviewing';
+                  return (
+                    <ReportRow
+                      key={r.id}
+                      report={r}
+                      variant="full"
+                      actionSlot={
+                        <div className="flex items-center gap-1">
+                          {canModerate && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVerify(r);
+                                }}
+                                disabled={actionLoadingId === `${r.id}verify`}
+                                className={cn(
+                                  'h-6 w-6 rounded-md flex items-center justify-center',
+                                  'text-text-muted hover:text-status-healthy hover:bg-status-healthy/10',
+                                  'transition-colors disabled:opacity-50',
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-healthy/30'
+                                )}
+                                title="Verify laporan"
+                                aria-label={`Verify ${r.title}`}
+                              >
+                                <CheckCircle2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReject(r);
+                                }}
+                                disabled={actionLoadingId === `${r.id}reject`}
+                                className={cn(
+                                  'h-6 w-6 rounded-md flex items-center justify-center',
+                                  'text-text-muted hover:text-status-warning hover:bg-status-warning/10',
+                                  'transition-colors disabled:opacity-50',
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-warning/30'
+                                )}
+                                title="Reject laporan"
+                                aria-label={`Reject ${r.title}`}
+                              >
+                                <XCircle size={12} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(r);
+                            }}
+                            className={cn(
+                              'h-6 w-6 rounded-md flex items-center justify-center',
+                              'text-text-muted hover:text-status-critical hover:bg-status-critical/10',
+                              'transition-colors',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-critical/30'
+                            )}
+                            title="Hapus laporan"
+                            aria-label={`Hapus laporan ${r.title}`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      }
+                    />
+                  );
+                })
               )}
             </div>
 
@@ -722,6 +936,34 @@ export default function AdminReportsPage() {
                   })}
                 </div>
               </div>
+              {/* Status (Sub-Sprint 1C-C-4) */}
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
+                  Filter Status
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {LIFECYCLE_OPTIONS.map((opt) => {
+                    const isActive = lifecycleFilter === opt.value;
+                    return (
+                      <button
+                        key={opt.value || 'all-lifecycle'}
+                        type="button"
+                        onClick={() => setLifecycleFilter(opt.value)}
+                        className={cn(
+                          'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full',
+                          'text-[11px] font-semibold whitespace-nowrap',
+                          'border transition-colors',
+                          isActive
+                            ? 'bg-balapor text-white border-balapor'
+                            : 'bg-surface text-text-secondary border-border hover:bg-surface-muted'
+                        )}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
 
             {/* Grouped list */}
@@ -738,9 +980,12 @@ export default function AdminReportsPage() {
               <ReportGroupList
                 reports={reports}
                 onChangePriority={handleChangePriority}
+                onVerify={handleVerify}
+                onReject={handleReject}
+                onRequestDelete={(r) => setDeleteTarget(r)}
                 actionLoadingId={actionLoadingId}
                 previewPerGroup={3}
-                hasFilter={Boolean(priorityFilter || categoryFilter)}
+                hasFilter={Boolean(priorityFilter || categoryFilter || lifecycleFilter)}
                 onResetFilter={handleResetFilters}
               />
             )}
@@ -822,6 +1067,21 @@ export default function AdminReportsPage() {
           </p>
         </div>
       )}
+
+      {/* ── Delete Report Modal (Sub-Sprint 1C-C-3) ── */}
+      <DeleteReportModal
+        report={
+          deleteTarget
+            ? {
+                id: deleteTarget.id,
+                title: deleteTarget.title,
+                display_id: (deleteTarget as Report & { display_id?: string | null }).display_id ?? null,
+              }
+            : null
+        }
+        onClose={() => setDeleteTarget(null)}
+        onSubmit={handleSoftDelete}
+      />
     </div>
   );
 }

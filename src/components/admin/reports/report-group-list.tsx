@@ -22,7 +22,7 @@
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Trash2, XCircle } from 'lucide-react';
 import { ReportRow } from './report-row';
 import { PriorityPicker } from './priority-picker';
 import {
@@ -37,6 +37,12 @@ export interface ReportGroupListProps {
   reports: Report[];
   /** Callback saat user ubah priority lewat picker */
   onChangePriority: (report: Report, newPriority: ReportPriority) => void;
+  /** Callback verify laporan (Sub-Sprint 1C-C-4) */
+  onVerify?: (report: Report) => void;
+  /** Callback reject laporan (Sub-Sprint 1C-C-4) */
+  onReject?: (report: Report) => void;
+  /** Callback saat user click Hapus button (Sub-Sprint 1C-C-3) */
+  onRequestDelete?: (report: Report) => void;
   /** ID + action suffix (e.g. "${id}priority") yang lagi loading */
   actionLoadingId?: string | null;
   /** Max items preview per group. Default 3. */
@@ -51,6 +57,9 @@ export interface ReportGroupListProps {
 export function ReportGroupList({
   reports,
   onChangePriority,
+  onVerify,
+  onReject,
+  onRequestDelete,
   actionLoadingId,
   previewPerGroup = 3,
   hasFilter = false,
@@ -141,18 +150,82 @@ export function ReportGroupList({
             {/* Preview rows */}
             {preview.map((r) => {
               const isLoading = actionLoadingId === `${r.id}priority`;
+              const isVerifying = actionLoadingId === `${r.id}verify`;
+              const isRejecting = actionLoadingId === `${r.id}reject`;
+              const canModerate = r.status === 'pending' || r.status === 'reviewing';
               return (
                 <ReportRow
                   key={r.id}
                   report={r}
                   variant="full"
                   actionSlot={
-                    <PriorityPicker
-                      currentPriority={r.priority}
-                      onChange={(newP) => onChangePriority(r, newP)}
-                      loading={isLoading}
-                      size="sm"
-                    />
+                    <div className="flex items-center gap-1.5">
+                      <PriorityPicker
+                        currentPriority={r.priority}
+                        onChange={(newP) => onChangePriority(r, newP)}
+                        loading={isLoading}
+                        size="sm"
+                      />
+                      {canModerate && onVerify && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onVerify(r);
+                          }}
+                          disabled={isVerifying}
+                          className={cn(
+                            'h-6 w-6 rounded-md flex items-center justify-center',
+                            'text-text-muted hover:text-status-healthy hover:bg-status-healthy/10',
+                            'transition-colors disabled:opacity-50',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-healthy/30'
+                          )}
+                          title="Verify laporan"
+                          aria-label={`Verify ${r.title}`}
+                        >
+                          <CheckCircle2 size={12} />
+                        </button>
+                      )}
+                      {canModerate && onReject && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onReject(r);
+                          }}
+                          disabled={isRejecting}
+                          className={cn(
+                            'h-6 w-6 rounded-md flex items-center justify-center',
+                            'text-text-muted hover:text-status-warning hover:bg-status-warning/10',
+                            'transition-colors disabled:opacity-50',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-warning/30'
+                          )}
+                          title="Reject laporan"
+                          aria-label={`Reject ${r.title}`}
+                        >
+                          <XCircle size={12} />
+                        </button>
+                      )}
+                      {onRequestDelete && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onRequestDelete(r);
+                          }}
+                          className={cn(
+                            'h-6 w-6 rounded-md flex items-center justify-center',
+                            'text-text-muted hover:text-status-critical hover:bg-status-critical/10',
+                            'transition-colors',
+                            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-critical/30'
+                          )}
+                          title="Hapus laporan"
+                          aria-label={`Hapus laporan ${r.title}`}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      )}
+                    </div>
                   }
                 />
               );

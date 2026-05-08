@@ -16,12 +16,14 @@
  */
 
 import type { ReactNode } from 'react';
-import { AlertOctagon, AlertTriangle, Clock, Flame } from 'lucide-react';
+import { AlertOctagon, AlertTriangle, Clock, Flame, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReportStats as ReportStatsData } from '@/types/reports';
 
 export interface ReportStatsProps {
   stats: ReportStatsData;
+  /** Optional — count laporan dengan lifecycle_state='stalemate' (Sub-Sprint 1C-C-2) */
+  stalemateCount?: number;
   loading?: boolean;
   className?: string;
 }
@@ -37,7 +39,7 @@ interface StatDef {
   valueColor: string;
 }
 
-export function ReportStats({ stats, loading = false, className }: ReportStatsProps) {
+export function ReportStats({ stats, stalemateCount, loading = false, className }: ReportStatsProps) {
   const items: StatDef[] = [
     {
       id: 'total',
@@ -81,8 +83,26 @@ export function ReportStats({ stats, loading = false, className }: ReportStatsPr
     },
   ];
 
+  // Sub-Sprint 1C-C-2: Stalemate card (lifecycle integration)
+  // Only render kalau caller provide stalemateCount (Phase 4 backend deployed)
+  if (typeof stalemateCount === 'number') {
+    items.push({
+      id: 'stalemate',
+      icon: <ShieldAlert size={18} />,
+      label: 'Stalemate',
+      value: stalemateCount,
+      sub: 'Belum ada progress',
+      iconBg:
+        stalemateCount > 0
+          ? 'bg-orange-100 text-orange-700'
+          : 'bg-surface-muted text-text-muted',
+      valueColor:
+        stalemateCount > 0 ? 'text-orange-700' : 'text-text',
+    });
+  }
+
   return (
-    <div className={cn('grid grid-cols-2 md:grid-cols-4 gap-3', className)}>
+    <div className={cn('grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3', className)}>
       {items.map((s) => (
         <div
           key={s.id}
