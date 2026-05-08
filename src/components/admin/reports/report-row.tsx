@@ -88,6 +88,31 @@ export function ReportRow({
               ⚠ Pending
             </span>
           )}
+          {/* Status badges (Sub-Sprint 1C-C-4 visual fix) */}
+          {report.status === 'rejected' && (
+            <span
+              className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-status-critical/12 text-status-critical"
+              title="Laporan ditolak"
+            >
+              ❌ Rejected
+            </span>
+          )}
+          {report.status === 'verified' && (
+            <span
+              className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-status-healthy/12 text-status-healthy"
+              title="Tercatat resmi"
+            >
+              ✅ Verified
+            </span>
+          )}
+          {report.status === 'published' && (
+            <span
+              className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-balapor/12 text-balapor"
+              title="Jadi berita BAKABAR"
+            >
+              📰 BAKABAR
+            </span>
+          )}
         </div>
 
         {variant === 'full' ? (

@@ -43,6 +43,8 @@ export interface ReportGroupListProps {
   onReject?: (report: Report) => void;
   /** Callback saat user click Hapus button (Sub-Sprint 1C-C-3) */
   onRequestDelete?: (report: Report) => void;
+  /** Callback saat user click "+X lainnya" footer (Sub-Sprint 1C-C-4 visibility fix) */
+  onShowAllCategory?: (category: string) => void;
   /** ID + action suffix (e.g. "${id}priority") yang lagi loading */
   actionLoadingId?: string | null;
   /** Max items preview per group. Default 3. */
@@ -60,6 +62,7 @@ export function ReportGroupList({
   onVerify,
   onReject,
   onRequestDelete,
+  onShowAllCategory,
   actionLoadingId,
   previewPerGroup = 3,
   hasFilter = false,
@@ -231,13 +234,30 @@ export function ReportGroupList({
               );
             })}
 
-            {/* "X lainnya" footer */}
+            {/* "X lainnya" footer — clickable untuk expand category (Sub-Sprint 1C-C-4) */}
             {remaining > 0 && (
-              <div className="flex items-center justify-center px-4 py-2 border-t border-border bg-surface-muted/40">
-                <span className="text-[11px] font-semibold text-text-muted">
-                  +{remaining} laporan lainnya di kategori ini
-                </span>
-              </div>
+              onShowAllCategory ? (
+                <button
+                  type="button"
+                  onClick={() => onShowAllCategory(category)}
+                  className={cn(
+                    'flex items-center justify-center w-full px-4 py-2.5',
+                    'border-t border-border bg-surface-muted/40',
+                    'text-[11px] font-semibold text-balapor',
+                    'hover:bg-balapor/8 transition-colors',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30'
+                  )}
+                  title={`Filter ke kategori ${config.label} untuk lihat semua`}
+                >
+                  +{remaining} laporan lainnya — Lihat Semua →
+                </button>
+              ) : (
+                <div className="flex items-center justify-center px-4 py-2 border-t border-border bg-surface-muted/40">
+                  <span className="text-[11px] font-semibold text-text-muted">
+                    +{remaining} laporan lainnya di kategori ini
+                  </span>
+                </div>
+              )
             )}
           </div>
         );

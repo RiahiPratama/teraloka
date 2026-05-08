@@ -605,9 +605,9 @@ export default function AdminReportsPage() {
                 </div>
                 <button
                   type="button"
-                  disabled
-                  className="text-[11px] font-semibold text-text-subtle cursor-not-allowed"
-                  title="Live Incidents tab tersedia di batch berikutnya"
+                  onClick={() => setActiveTab('live')}
+                  className="text-[11px] font-semibold text-balapor hover:text-balapor/80 transition-colors"
+                  title="Buka tab Live Incidents untuk lihat semua laporan"
                 >
                   Lihat Semua →
                 </button>
@@ -983,8 +983,9 @@ export default function AdminReportsPage() {
                 onVerify={handleVerify}
                 onReject={handleReject}
                 onRequestDelete={(r) => setDeleteTarget(r)}
+                onShowAllCategory={(cat) => setCategoryFilter(cat)}
                 actionLoadingId={actionLoadingId}
-                previewPerGroup={3}
+                previewPerGroup={categoryFilter ? 999 : 3}
                 hasFilter={Boolean(priorityFilter || categoryFilter || lifecycleFilter)}
                 onResetFilter={handleResetFilters}
               />
