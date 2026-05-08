@@ -277,11 +277,15 @@ export function DeleteReportModal({ report, onClose, onSubmit }: DeleteReportMod
               rows={4}
               placeholder="Jelaskan konteks/bukti dasar penghapusan untuk audit log forensic..."
               className={cn(
-                'w-full px-3 py-2.5 rounded-lg border border-border bg-surface',
+                'w-full px-3 py-2.5 rounded-lg border bg-surface',
                 'text-sm text-text placeholder:text-text-subtle',
-                'focus:outline-none focus:ring-2 focus:ring-balapor/30 focus:border-balapor',
+                'focus:outline-none focus:ring-2',
                 'disabled:opacity-50',
-                'resize-none'
+                'resize-none',
+                // Sub-Sprint 1C-C-9 — visual error state
+                reason && notes.trim().length > 0 && notes.trim().length < 10
+                  ? 'border-status-critical/60 focus:ring-status-critical/30 focus:border-status-critical'
+                  : 'border-border focus:ring-balapor/30 focus:border-balapor'
               )}
             />
             <div className="flex items-center justify-between mt-1.5">
@@ -330,6 +334,17 @@ export function DeleteReportModal({ report, onClose, onSubmit }: DeleteReportMod
               data bisa di-restore via tab Audit Log.
             </p>
           </div>
+
+          {/* Validation error banner (Sub-Sprint 1C-C-9 UX fix) */}
+          {!isValid && (reason || notes.length > 0) && (
+            <div className="bg-status-critical/8 border border-status-critical/30 rounded-lg p-3">
+              <p className="text-xs text-status-critical font-semibold flex items-center gap-2">
+                <AlertTriangle size={13} />
+                {!reason && 'Pilih alasan hapus dulu'}
+                {reason && notes.trim().length < 10 && `Catatan detail wajib minimal 10 karakter (sekarang ${notes.trim().length})`}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Footer */}

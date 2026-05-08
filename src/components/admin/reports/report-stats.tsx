@@ -24,6 +24,8 @@ export interface ReportStatsProps {
   stats: ReportStatsData;
   /** Optional — count laporan dengan lifecycle_state='stalemate' (Sub-Sprint 1C-C-2) */
   stalemateCount?: number;
+  /** Optional — click handler per card. id values: total/urgent/high/unhandled/stalemate (Sub-Sprint 1C-C-8) */
+  onCardClick?: (id: string) => void;
   loading?: boolean;
   className?: string;
 }
@@ -39,7 +41,7 @@ interface StatDef {
   valueColor: string;
 }
 
-export function ReportStats({ stats, stalemateCount, loading = false, className }: ReportStatsProps) {
+export function ReportStats({ stats, stalemateCount, onCardClick, loading = false, className }: ReportStatsProps) {
   const items: StatDef[] = [
     {
       id: 'total',
@@ -103,47 +105,58 @@ export function ReportStats({ stats, stalemateCount, loading = false, className 
 
   return (
     <div className={cn('grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3', className)}>
-      {items.map((s) => (
-        <div
-          key={s.id}
-          className={cn(
-            'flex items-center gap-3 p-4',
-            'bg-surface border border-border rounded-xl',
-            'transition-colors'
-          )}
-        >
-          <div
+      {items.map((s) => {
+        const isClickable = Boolean(onCardClick);
+        const Wrapper = isClickable ? 'button' : 'div';
+        return (
+          <Wrapper
+            key={s.id}
+            type={isClickable ? 'button' : undefined}
+            onClick={isClickable ? () => onCardClick!(s.id) : undefined}
             className={cn(
-              'flex items-center justify-center h-10 w-10 rounded-lg shrink-0',
-              s.iconBg
+              'flex items-center gap-3 p-4',
+              'bg-surface border border-border rounded-xl',
+              'transition-all text-left w-full',
+              isClickable && [
+                'cursor-pointer hover:border-balapor/40 hover:bg-balapor/3',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30',
+              ]
             )}
+            title={isClickable ? `Filter ke ${s.label}` : undefined}
           >
-            {s.icon}
-          </div>
-          <div className="min-w-0">
-            {loading ? (
-              <>
-                <div className="h-7 w-12 rounded bg-surface-muted animate-pulse mb-1.5" />
-                <div className="h-2.5 w-20 rounded bg-surface-muted animate-pulse" />
-              </>
-            ) : (
-              <>
-                <div
-                  className={cn(
-                    'text-2xl font-extrabold tabular-nums leading-none tracking-tight',
-                    s.valueColor
-                  )}
-                >
-                  {s.value.toLocaleString('id-ID')}
-                </div>
-                <div className="text-[11px] text-text-muted mt-1 leading-tight">
-                  {s.sub}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      ))}
+            <div
+              className={cn(
+                'flex items-center justify-center h-10 w-10 rounded-lg shrink-0',
+                s.iconBg
+              )}
+            >
+              {s.icon}
+            </div>
+            <div className="min-w-0">
+              {loading ? (
+                <>
+                  <div className="h-7 w-12 rounded bg-surface-muted animate-pulse mb-1.5" />
+                  <div className="h-2.5 w-20 rounded bg-surface-muted animate-pulse" />
+                </>
+              ) : (
+                <>
+                  <div
+                    className={cn(
+                      'text-2xl font-extrabold tabular-nums leading-none tracking-tight',
+                      s.valueColor
+                    )}
+                  >
+                    {s.value.toLocaleString('id-ID')}
+                  </div>
+                  <div className="text-[11px] text-text-muted mt-1 leading-tight">
+                    {s.sub}
+                  </div>
+                </>
+              )}
+            </div>
+          </Wrapper>
+        );
+      })}
     </div>
   );
 }
