@@ -46,6 +46,12 @@ export interface ReportRowProps {
    * Kalau provided + photos > 0, photo icon jadi clickable button.
    */
   onPhotoClick?: (report: Report) => void;
+  /**
+   * Sub-Sprint 1C-C-11 — Click handler khusus civic feedback badge.
+   * Caller pass callback untuk open admin civic timeline modal.
+   * Kalau provided + ada civic status, badge jadi clickable button.
+   */
+  onCivicClick?: (report: Report) => void;
   /** Optional additional className */
   className?: string;
 }
@@ -56,6 +62,7 @@ export function ReportRow({
   actionSlot,
   onClick,
   onPhotoClick,
+  onCivicClick,
   className,
 }: ReportRowProps) {
   const unhandled = isUnhandled(report);
@@ -110,21 +117,44 @@ export function ReportRow({
               ⚠ Pending
             </span>
           )}
-          {/* Sub-Sprint 1C-C-10 — Civic feedback badge */}
+          {/* Sub-Sprint 1C-C-10/11 — Civic feedback badge (clickable kalau onCivicClick provided) */}
           {civicConfig && variant === 'full' && (
-            <span
-              className={cn(
-                'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
-                'text-[9px] font-bold uppercase tracking-wide border',
-                civicConfig.badgeBg,
-                civicConfig.badgeText,
-                civicConfig.badgeBorder
-              )}
-              title={`Civic feedback: ${civicConfig.label}`}
-            >
-              <span aria-hidden="true">{civicConfig.emoji}</span>
-              {civicConfig.compactLabel}
-            </span>
+            onCivicClick ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCivicClick(report);
+                }}
+                className={cn(
+                  'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
+                  'text-[9px] font-bold uppercase tracking-wide border cursor-pointer',
+                  'hover:opacity-80 transition-opacity',
+                  civicConfig.badgeBg,
+                  civicConfig.badgeText,
+                  civicConfig.badgeBorder
+                )}
+                title={`Lihat timeline civic feedback: ${civicConfig.label}`}
+                aria-label={`Lihat timeline civic feedback ${report.title}`}
+              >
+                <span aria-hidden="true">{civicConfig.emoji}</span>
+                {civicConfig.compactLabel}
+              </button>
+            ) : (
+              <span
+                className={cn(
+                  'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
+                  'text-[9px] font-bold uppercase tracking-wide border',
+                  civicConfig.badgeBg,
+                  civicConfig.badgeText,
+                  civicConfig.badgeBorder
+                )}
+                title={`Civic feedback: ${civicConfig.label}`}
+              >
+                <span aria-hidden="true">{civicConfig.emoji}</span>
+                {civicConfig.compactLabel}
+              </span>
+            )
           )}
         </div>
 

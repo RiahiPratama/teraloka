@@ -50,6 +50,11 @@ export interface ReportGroupListProps {
    * Forwarded ke ReportRow internal — opens lightbox saat user click photo icon.
    */
   onPhotoClick?: (report: Report) => void;
+  /**
+   * Sub-Sprint 1C-C-11 — Civic timeline modal trigger callback.
+   * Forwarded ke ReportRow internal — opens admin civic timeline modal saat civic badge clicked.
+   */
+  onCivicClick?: (report: Report) => void;
   /** ID + action suffix (e.g. "${id}priority") yang lagi loading */
   actionLoadingId?: string | null;
   /** Max items preview per group. Default 3. */
@@ -69,6 +74,7 @@ export function ReportGroupList({
   onRequestDelete,
   onShowAllCategory,
   onPhotoClick,
+  onCivicClick,
   actionLoadingId,
   previewPerGroup = 3,
   hasFilter = false,
@@ -168,6 +174,7 @@ export function ReportGroupList({
                   report={r}
                   variant="full"
                   onPhotoClick={onPhotoClick}
+                  onCivicClick={onCivicClick}
                   actionSlot={
                     <div className="flex items-center gap-1.5">
                       <PriorityPicker

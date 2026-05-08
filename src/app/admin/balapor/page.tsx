@@ -29,10 +29,12 @@ import {
   Newspaper,
   RefreshCw,
   ScrollText,
+  Search,
   Siren,
   Sparkles,
   Star,
   Trash2,
+  X,
   XCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -51,6 +53,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
 import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
+import { CivicTimelineAdminModal } from '@/components/admin/reports/civic-timeline-admin-modal';
 import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
 import { PhotoLightbox } from '@/components/admin/reports/photo-lightbox';
 import { RejectReportModal } from '@/components/admin/reports/reject-report-modal';
@@ -134,6 +137,17 @@ export default function AdminReportsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [lifecycleFilter, setLifecycleFilter] = useState<string>('');
+  /** Sub-Sprint 1C-C-11 hotfix — search input untuk find by display_id atau title */
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchInput, setSearchInput] = useState<string>('');
+
+  // Debounce search input → searchQuery (300ms)
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setSearchQuery(searchInput.trim());
+    }, 300);
+    return () => clearTimeout(handle);
+  }, [searchInput]);
 
   // UI state
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
@@ -160,6 +174,7 @@ export default function AdminReportsPage() {
     if (priorityFilter) params.priority = priorityFilter;
     if (categoryFilter) params.category = categoryFilter;
     if (lifecycleFilter) params.lifecycle_state = lifecycleFilter;
+    if (searchQuery) params.search = searchQuery;
 
     api
       .get<ReportsListResponse>('/admin/balapor', {
@@ -181,7 +196,7 @@ export default function AdminReportsPage() {
       });
 
     return () => controller.abort();
-  }, [api, priorityFilter, categoryFilter, lifecycleFilter, retryNonce]);
+  }, [api, priorityFilter, categoryFilter, lifecycleFilter, searchQuery, retryNonce]);
 
   /* ── Auto-refresh 60s (only on overview/live, not deepdive) ── */
   useEffect(() => {
@@ -297,6 +312,7 @@ export default function AdminReportsPage() {
     setPriorityFilter('');
     setCategoryFilter('');
     setLifecycleFilter('');
+    setSearchInput('');
   }, []);
 
   /* ── Stats Card Click Handler (Sub-Sprint 1C-C-8 — pintarisasi) ── */
@@ -348,11 +364,33 @@ export default function AdminReportsPage() {
 
   /* ── Photo Lightbox state (Sub-Sprint 1C-C-10) ── */
   const [lightboxTarget, setLightboxTarget] = useState<Report | null>(null);
+  /** Override photos+context untuk lightbox dari civic timeline (Sub-Sprint 1C-C-11) */
+  const [lightboxOverride, setLightboxOverride] = useState<{
+    photos: string[];
+    initialIndex: number;
+    title: string;
+  } | null>(null);
 
   const handlePhotoClick = useCallback((report: Report) => {
     if (!report.photos || report.photos.length === 0) return;
     setLightboxTarget(report);
+    setLightboxOverride(null);
   }, []);
+
+  /* ── Civic Timeline Modal state (Sub-Sprint 1C-C-11) ── */
+  const [civicTarget, setCivicTarget] = useState<Report | null>(null);
+
+  const handleCivicClick = useCallback((report: Report) => {
+    setCivicTarget(report);
+  }, []);
+
+  const handleCivicPhotoClick = useCallback(
+    (photos: string[], initialIndex: number, contextTitle: string) => {
+      setLightboxOverride({ photos, initialIndex, title: contextTitle });
+      setLightboxTarget({ id: 'civic-context', title: contextTitle, photos } as unknown as Report);
+    },
+    []
+  );
 
   /* ── Smart Alert state (Sub-Sprint 1C-C-7) ── */
   type ClusterSeverity = 'warning' | 'critical' | 'urgent';
@@ -1029,6 +1067,7 @@ export default function AdminReportsPage() {
                       report={r}
                       variant="full"
                       onPhotoClick={handlePhotoClick}
+                      onCivicClick={handleCivicClick}
                       actionSlot={
                         <div className="flex items-center gap-1">
                           {canModerate && (
@@ -1280,6 +1319,65 @@ export default function AdminReportsPage() {
           <div className="space-y-4 min-w-0">
             {/* Filter bar */}
             <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
+              {/* Search input — Sub-Sprint 1C-C-11 SMART (4-field search) */}
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
+                  Pencarian Pintar
+                </div>
+                <div className="relative">
+                  <Search
+                    size={14}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted pointer-events-none"
+                  />
+                  <input
+                    type="text"
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    placeholder="Cari nomor laporan, judul, isi, atau lokasi (e.g., 0063 / Aspal / Tidore)"
+                    className={cn(
+                      'w-full pl-9 pr-9 py-2 rounded-lg border border-border bg-surface',
+                      'text-sm text-text placeholder:text-text-subtle',
+                      'focus:outline-none focus:ring-2 focus:ring-balapor/30 focus:border-balapor',
+                      'transition-colors'
+                    )}
+                  />
+                  {searchInput && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchInput('')}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-text-muted hover:text-text hover:bg-surface-muted transition-colors"
+                      aria-label="Clear search"
+                      title="Clear"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+                {searchQuery && (
+                  <div className="mt-2 space-y-1">
+                    <p className="text-[10px] text-text-muted">
+                      Mencari{' '}
+                      <span className="font-mono font-bold text-text">"{searchQuery}"</span>
+                      {' di '}
+                      <span className="text-balapor font-semibold">judul · isi · ID · lokasi</span>
+                      {' · '}
+                      {loading ? (
+                        <span className="text-text-muted italic">searching…</span>
+                      ) : reports.length === 0 ? (
+                        <span className="text-status-warning font-semibold">Tidak ditemukan</span>
+                      ) : (
+                        <span className="font-bold text-status-healthy">{reports.length} hasil</span>
+                      )}
+                    </p>
+                    {!loading && reports.length === 0 && (
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        💡 Tips: ID parsial OK (e.g., "0063" = BL-2026-0063) ·
+                        cek filter Status di bawah · clear search untuk lihat semua
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
               {/* Category */}
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
@@ -1389,6 +1487,7 @@ export default function AdminReportsPage() {
                 onRequestDelete={(r) => setDeleteTarget(r)}
                 onShowAllCategory={(cat) => setCategoryFilter(cat)}
                 onPhotoClick={handlePhotoClick}
+                onCivicClick={handleCivicClick}
                 actionLoadingId={actionLoadingId}
                 previewPerGroup={categoryFilter ? 999 : 3}
                 hasFilter={Boolean(priorityFilter || categoryFilter || lifecycleFilter)}
@@ -2345,10 +2444,32 @@ export default function AdminReportsPage() {
       {/* ── Photo Lightbox (Sub-Sprint 1C-C-10) ── */}
       {lightboxTarget && (
         <PhotoLightbox
-          photos={lightboxTarget.photos}
-          reportTitle={lightboxTarget.title}
-          reportDisplayId={(lightboxTarget as Report & { display_id?: string | null }).display_id ?? null}
-          onClose={() => setLightboxTarget(null)}
+          photos={lightboxOverride?.photos ?? lightboxTarget.photos}
+          initialIndex={lightboxOverride?.initialIndex ?? 0}
+          reportTitle={lightboxOverride?.title ?? lightboxTarget.title}
+          reportDisplayId={
+            lightboxOverride
+              ? null
+              : (lightboxTarget as Report & { display_id?: string | null }).display_id ?? null
+          }
+          onClose={() => {
+            setLightboxTarget(null);
+            setLightboxOverride(null);
+          }}
+        />
+      )}
+
+      {/* ── Civic Timeline Admin Modal (Sub-Sprint 1C-C-11) ── */}
+      {civicTarget && (
+        <CivicTimelineAdminModal
+          report={{
+            id: civicTarget.id,
+            title: civicTarget.title,
+            display_id: (civicTarget as Report & { display_id?: string | null }).display_id ?? null,
+            follow_up_current_status: civicTarget.follow_up_current_status ?? null,
+          }}
+          onClose={() => setCivicTarget(null)}
+          onPhotoClick={handleCivicPhotoClick}
         />
       )}
     </div>
