@@ -85,6 +85,15 @@ export function ReportRow({
       {/* Title + meta */}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Display ID (BL-2026-XXXX) — Sub-Sprint 1C-C-10 */}
+          {report.display_id && (
+            <span
+              className="shrink-0 font-mono text-[10px] text-text-muted tracking-tight"
+              title="Nomor laporan publik"
+            >
+              {report.display_id}
+            </span>
+          )}
           <span
             className={cn(
               'font-bold text-text truncate',

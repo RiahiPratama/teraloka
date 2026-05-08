@@ -48,6 +48,8 @@ export type FollowUpStatus =
 
 export interface Report {
   id: string;
+  /** Public-facing report number (BL-2026-XXXX format). NULL untuk legacy data. */
+  display_id?: string | null;
   title: string;
   /** Backend enum: pending | reviewing | verified | rejected | published */
   status: string;
