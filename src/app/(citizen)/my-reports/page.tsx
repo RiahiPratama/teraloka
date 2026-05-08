@@ -10,7 +10,7 @@ import CivicFeedbackSection from '@/components/balapor/CivicFeedbackSection'
 const API_URL = process.env.NEXT_PUBLIC_API_URL!
 
 // ════════════════════════════════════════════════════════════════
-// TYPES — Match backend response shape (Sub-Sprint 1C-B.2 + 1C-B.3)
+// TYPES — Match backend response shape (Sub-Sprint 1C-C-1 Phase 4)
 // ════════════════════════════════════════════════════════════════
 
 interface LinkedArticle {
@@ -26,12 +26,25 @@ type FollowUpStatus =
   | 'sudah_selesai'
   | 'tidak_jelas'
 
+// 8 lifecycle states (computed di backend per Sub-Sprint 1C-C-1)
+type LifecycleState =
+  | 'pending'
+  | 'reviewing'
+  | 'verified'
+  | 'published'
+  | 'stalemate'
+  | 'stale'
+  | 'resolved'
+  | 'rejected'
+
 interface Report {
   id: string
   display_id: string | null
   title: string
   body: string
   status: 'pending' | 'reviewing' | 'verified' | 'rejected' | 'published'
+  // NEW: lifecycle_state computed di backend (Sub-Sprint 1C-C-1)
+  lifecycle_state: LifecycleState
   category: string
   anonymity_level: string
   pseudonym: string | null
@@ -81,6 +94,8 @@ type CategoryFilter =
 
 const URL_LAPOR = '/balapor/buat-laporan'
 
+// Tab filter berdasarkan status (DB raw field), lifecycle_state hanya untuk display copy.
+// Stalemate/stale/resolved adalah derivative dari verified/published — tetap masuk tab respective.
 const TAB_TO_STATUSES: Record<TabKey, Report['status'][]> = {
   all: ['pending', 'reviewing', 'verified', 'published', 'rejected'],
   menunggu: ['pending', 'reviewing'],
@@ -109,7 +124,13 @@ const CATEGORY_OPTIONS: { key: CategoryFilter; label: string; icon: string }[] =
   { key: 'lainnya', label: 'Lainnya', icon: '📌' },
 ]
 
-const STATUS_CONFIG: Record<Report['status'], {
+// ─── STATUS_CONFIG keyed by LifecycleState (8 states, honest copy Rule 25) ──
+// Update Sub-Sprint 1C-C-1 Phase 4 (8 Mei 2026):
+//   - Strategi power-flip: TeraLoka TIDAK forward ke instansi
+//   - Verified = end state sah (gak harus naik BAKABAR)
+//   - 3 lifecycle baru: stalemate, stale, resolved
+//   - Copy framing: "tercatat resmi", "dipantau publik", BUKAN "menunggu instansi"
+const STATUS_CONFIG: Record<LifecycleState, {
   bg: string
   border: string
   icon: string
@@ -135,14 +156,35 @@ const STATUS_CONFIG: Record<Report['status'], {
     border: 'border-green-200',
     icon: '✅',
     title: 'Terverifikasi',
-    description: 'Laporan terbukti valid dan tercatat resmi. Berpotensi diangkat jadi berita BAKABAR',
+    description: 'Laporan terbukti valid dan tercatat resmi sebagai data publik TeraLoka.',
   },
   published: {
     bg: 'bg-purple-50',
     border: 'border-purple-200',
     icon: '📰',
     title: 'Jadi Berita BAKABAR',
-    description: 'Laporan kamu menginspirasi artikel berita publik',
+    description: 'Laporanmu menginspirasi artikel berita publik. Sedang dipantau netizen Malut.',
+  },
+  stalemate: {
+    bg: 'bg-orange-50',
+    border: 'border-orange-200',
+    icon: '⚠️',
+    title: 'Belum Ada Progress',
+    description: 'Update dari pelapor menyatakan kondisi belum membaik. Tim mempertimbangkan langkah lanjutan.',
+  },
+  stale: {
+    bg: 'bg-gray-50',
+    border: 'border-gray-200',
+    icon: '⏸️',
+    title: 'Tunggu Konfirmasi',
+    description: 'Sudah lama tanpa update lapangan. Apakah kondisi sudah berubah? Bantu update.',
+  },
+  resolved: {
+    bg: 'bg-emerald-50',
+    border: 'border-emerald-200',
+    icon: '🎉',
+    title: 'Selesai',
+    description: 'Sudah teratasi! Terima kasih atas kontribusi kamu untuk Maluku Utara.',
   },
   rejected: {
     bg: 'bg-rose-50',
@@ -163,6 +205,12 @@ const CATEGORY_ICONS: Record<string, string> = {
   transportasi: '🚌',
   lainnya: '📌',
 }
+
+// Lifecycle states yang punya civic feedback section visible
+// (verified, published, plus derivatives stalemate/stale/resolved)
+const CIVIC_FEEDBACK_VISIBLE_STATES: LifecycleState[] = [
+  'verified', 'published', 'stalemate', 'stale', 'resolved'
+]
 
 // ════════════════════════════════════════════════════════════════
 // HELPER FUNCTIONS
@@ -199,6 +247,14 @@ function formatCategory(category: string): string {
     .split('_')
     .map(w => w.charAt(0).toUpperCase() + w.slice(1))
     .join(' ')
+}
+
+// Fallback resolver: kalau backend gak return lifecycle_state (older API),
+// derive dari status raw. Defensive untuk graceful degradation.
+function resolveLifecycleState(report: Report): LifecycleState {
+  if (report.lifecycle_state) return report.lifecycle_state
+  // Fallback: map status → lifecycle naive
+  return report.status as LifecycleState
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -284,10 +340,10 @@ function MyReportsContent() {
       prev.map(r =>
         r.id === reportId
           ? {
-              ...r,
-              follow_up_current_status: newStatus,
-              follow_up_updated_at: updatedAt,
-            }
+            ...r,
+            follow_up_current_status: newStatus,
+            follow_up_updated_at: updatedAt,
+          }
           : r
       )
     )
@@ -350,129 +406,72 @@ function MyReportsContent() {
         {/* Search bar */}
         <div className="max-w-3xl mx-auto px-4 pb-3">
           <div className="relative">
-            <svg
-              className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
+            <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
             <input
               type="text"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Cari judul, isi laporan, atau ID..."
-              className="w-full pl-9 pr-9 py-2 text-sm bg-gray-50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent placeholder:text-gray-400"
-              aria-label="Cari laporan"
+              className="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
             />
-            {searchQuery && (
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="max-w-3xl mx-auto px-4 pb-2 flex gap-2 overflow-x-auto scrollbar-hide">
+          {(Object.keys(TAB_LABELS) as TabKey[]).map(tab => {
+            const count = computeTabCount(counts, tab)
+            const isActive = activeTab === tab
+            return (
               <button
-                onClick={() => setSearchQuery('')}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
-                aria-label="Hapus pencarian"
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`shrink-0 px-3 py-1.5 rounded-full text-sm font-medium transition-colors flex items-center gap-1.5 ${isActive
+                    ? 'bg-red-500 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
               >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Tab counter */}
-        <div className="max-w-3xl mx-auto overflow-x-auto service-scroll">
-          <div className="flex gap-1 px-4 pb-2 min-w-max">
-            {(Object.keys(TAB_LABELS) as TabKey[]).map(tab => {
-              const count = computeTabCount(counts, tab)
-              const isActive = activeTab === tab
-              return (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-red-500 text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  <span>{TAB_LABELS[tab]}</span>
-                  <span
-                    className={`px-1.5 py-0.5 rounded-full text-xs font-semibold ${
-                      isActive ? 'bg-white/20 text-white' : 'bg-white text-gray-700'
-                    }`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Category pills row */}
-        <div className="max-w-3xl mx-auto overflow-x-auto service-scroll border-t border-gray-100">
-          <div className="flex gap-1.5 px-4 py-2 min-w-max">
-            {CATEGORY_OPTIONS.map(opt => {
-              const isActive = categoryFilter === opt.key
-              return (
-                <button
-                  key={opt.key}
-                  onClick={() => setCategoryFilter(opt.key)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium transition-all ${
-                    isActive
-                      ? 'bg-green-50 text-green-700 ring-1 ring-green-200'
-                      : 'text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  <span>{opt.icon}</span>
-                  <span>{opt.label}</span>
-                </button>
-              )
-            })}
-          </div>
-        </div>
-
-        {/* Reset filter banner */}
-        {isFilterActive && (
-          <div className="max-w-3xl mx-auto px-4 py-2 bg-amber-50 border-t border-amber-100 flex items-center justify-between gap-2">
-            <p className="text-xs text-amber-700 truncate">
-              Filter aktif:{' '}
-              {searchQuery && <span className="font-medium">"{searchQuery}"</span>}
-              {searchQuery && categoryFilter !== 'all' && ' · '}
-              {categoryFilter !== 'all' && (
-                <span className="font-medium">
-                  {CATEGORY_OPTIONS.find(o => o.key === categoryFilter)?.label}
+                <span>{TAB_LABELS[tab]}</span>
+                <span className={`text-xs ${isActive ? 'bg-white/20 text-white' : 'bg-gray-200 text-gray-600'} px-1.5 py-0.5 rounded-full font-semibold`}>
+                  {count}
                 </span>
-              )}
-            </p>
-            <button
-              onClick={resetFilters}
-              className="text-xs text-amber-800 font-medium hover:text-amber-900 flex items-center gap-1 shrink-0"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              Reset
-            </button>
-          </div>
-        )}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Category filter */}
+        <div className="max-w-3xl mx-auto px-4 pb-3 flex gap-2 overflow-x-auto scrollbar-hide">
+          {CATEGORY_OPTIONS.map(opt => {
+            const isActive = categoryFilter === opt.key
+            return (
+              <button
+                key={opt.key}
+                onClick={() => setCategoryFilter(opt.key)}
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors flex items-center gap-1 ${isActive
+                    ? 'bg-green-100 text-green-800 ring-1 ring-green-300'
+                    : 'text-gray-600 hover:bg-gray-100'
+                  }`}
+              >
+                <span>{opt.icon}</span>
+                <span>{opt.label}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       {/* Content */}
-      <div className="max-w-3xl mx-auto px-4 py-6 space-y-3">
+      <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
-              <div key={i} className="bg-white rounded-xl p-4 animate-pulse border border-gray-100">
-                <div className="h-3 bg-gray-200 rounded w-24 mb-3" />
-                <div className="h-4 bg-gray-200 rounded w-3/4 mb-2" />
-                <div className="h-3 bg-gray-200 rounded w-1/2 mb-3" />
+              <div key={i} className="bg-white rounded-xl p-4 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-1/3 mb-3" />
+                <div className="h-5 bg-gray-200 rounded w-3/4 mb-2" />
+                <div className="h-3 bg-gray-100 rounded w-1/2 mb-3" />
                 <div className="h-12 bg-gray-100 rounded" />
               </div>
             ))}
@@ -496,6 +495,7 @@ function MyReportsContent() {
               />
             ))}
 
+            {/* Pagination */}
             {totalPages > 1 && (
               <div className="flex justify-center items-center gap-2 pt-4">
                 <button
@@ -605,13 +605,14 @@ function ReportCard({
   onToggleNotification: (id: string, currentOptIn: boolean) => void
   onFollowUpUpdate: (id: string, newStatus: FollowUpStatus, updatedAt: string) => void
 }) {
-  const cfg = STATUS_CONFIG[report.status]
+  // Use lifecycle_state untuk pilih config (computed di backend, fallback ke status)
+  const lifecycle = resolveLifecycleState(report)
+  const cfg = STATUS_CONFIG[lifecycle]
   const categoryIcon = CATEGORY_ICONS[report.category] || '📌'
   const photoCount = report.photos?.length ?? 0
 
-  // Civic Feedback section visible HANYA untuk verified/published
-  const canShowCivicFeedback =
-    report.status === 'verified' || report.status === 'published'
+  // Civic Feedback section visible untuk verified/published + derivatives (stalemate/stale/resolved)
+  const canShowCivicFeedback = CIVIC_FEEDBACK_VISIBLE_STATES.includes(lifecycle)
 
   return (
     <div className="bg-white rounded-xl border border-gray-100 overflow-hidden hover:shadow-sm transition-shadow">
@@ -695,14 +696,12 @@ function ReportCard({
             onClick={() => onToggleNotification(report.id, report.notification_opt_in)}
             disabled={togglingId === report.id}
             aria-label={`Toggle notifikasi WA untuk laporan ${report.display_id}`}
-            className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${
-              report.notification_opt_in ? 'bg-green-500' : 'bg-gray-300'
-            } ${togglingId === report.id ? 'opacity-50' : ''}`}
+            className={`relative w-11 h-6 rounded-full transition-colors duration-200 shrink-0 ${report.notification_opt_in ? 'bg-green-500' : 'bg-gray-300'
+              } ${togglingId === report.id ? 'opacity-50' : ''}`}
           >
             <span
-              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${
-                report.notification_opt_in ? 'translate-x-5' : 'translate-x-0'
-              }`}
+              className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform duration-200 ${report.notification_opt_in ? 'translate-x-5' : 'translate-x-0'
+                }`}
             />
           </button>
         </div>
@@ -716,10 +715,11 @@ function StatusBox({
   cfg,
 }: {
   report: Report
-  cfg: typeof STATUS_CONFIG[Report['status']]
+  cfg: typeof STATUS_CONFIG[LifecycleState]
 }) {
+  // Untuk rejected, prefer rejection_reason kalau ada
   const description =
-    report.status === 'rejected' && report.rejection_reason
+    report.lifecycle_state === 'rejected' && report.rejection_reason
       ? report.rejection_reason
       : cfg.description
 
