@@ -23,7 +23,6 @@ import Link from 'next/link';
 import {
   AlertCircle,
   ArrowRight,
-  BellRing,
   CheckCircle2,
   RefreshCw,
   Siren,
@@ -60,7 +59,14 @@ interface ReportsListResponse {
 
 /* ─── Tab state ─── */
 
-type TabKey = 'overview' | 'live' | 'deepdive';
+type TabKey =
+  | 'overview'
+  | 'live'
+  | 'smart_alert'
+  | 'convert_bakabar'
+  | 'instansi'
+  | 'deepdive'
+  | 'audit_log';
 
 interface TabDef {
   key: TabKey;
@@ -183,7 +189,11 @@ export default function AdminReportsPage() {
   const tabs: TabDef[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'live', label: 'Live Incidents' },
+    { key: 'smart_alert', label: 'Smart Alert', disabled: true, badge: 'SOON' },
+    { key: 'convert_bakabar', label: 'Convert BAKABAR', disabled: true, badge: 'SOON' },
+    { key: 'instansi', label: 'Instansi', disabled: true, badge: 'SOON' },
     { key: 'deepdive', label: 'Deep Dive' },
+    { key: 'audit_log', label: 'Audit Log', disabled: true, badge: 'SOON' },
   ];
 
   /* ── Deep Dive fetch ── */
@@ -313,15 +323,6 @@ export default function AdminReportsPage() {
             disabled={loading}
           >
             Refresh
-          </Button>
-          <Button
-            variant="danger"
-            size="sm"
-            leftIcon={<BellRing size={12} />}
-            disabled
-            title="Akan tersedia di batch berikutnya"
-          >
-            Siaran Darurat
           </Button>
         </div>
       </div>
