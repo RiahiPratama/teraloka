@@ -39,8 +39,10 @@ import { cn } from '@/lib/utils';
 import { ApiError, useApi } from '@/lib/api/client';
 import {
   computeReportStats,
+  computeCivicDistribution,
   getBestLocation,
   sortReportsByPriority,
+  FOLLOW_UP_CONFIG,
   type Report,
   type ReportPriority,
 } from '@/types/reports';
@@ -50,6 +52,7 @@ import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
 import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
 import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
+import { PhotoLightbox } from '@/components/admin/reports/photo-lightbox';
 import { RejectReportModal } from '@/components/admin/reports/reject-report-modal';
 import { ReportGroupList } from '@/components/admin/reports/report-group-list';
 import { ReportRow } from '@/components/admin/reports/report-row';
@@ -208,6 +211,7 @@ export default function AdminReportsPage() {
 
   /* ── Derivations ── */
   const stats = computeReportStats(reports, total);
+  const civicDistribution = computeCivicDistribution(reports);
 
   // Sub-Sprint 1C-C-2: count laporan dengan lifecycle_state='stalemate'
   // Type assertion karena Report type belum extend dengan lifecycle_state field
@@ -223,9 +227,9 @@ export default function AdminReportsPage() {
     { key: 'live', label: 'Live Incidents' },
     { key: 'smart_alert', label: 'Smart Alert' },
     { key: 'convert_bakabar', label: 'Convert BAKABAR' },
-    { key: 'instansi', label: 'Instansi', disabled: true, badge: 'SOON' },
     { key: 'deepdive', label: 'Deep Dive' },
     { key: 'audit_log', label: 'Audit Log' },
+    { key: 'instansi', label: 'Instansi', disabled: true, badge: 'SOON' },
   ];
 
   /* ── Deep Dive fetch ── */
@@ -341,6 +345,14 @@ export default function AdminReportsPage() {
 
   /* ── Reject modal state (Sub-Sprint 1C-C-9) ── */
   const [rejectTarget, setRejectTarget] = useState<Report | null>(null);
+
+  /* ── Photo Lightbox state (Sub-Sprint 1C-C-10) ── */
+  const [lightboxTarget, setLightboxTarget] = useState<Report | null>(null);
+
+  const handlePhotoClick = useCallback((report: Report) => {
+    if (!report.photos || report.photos.length === 0) return;
+    setLightboxTarget(report);
+  }, []);
 
   /* ── Smart Alert state (Sub-Sprint 1C-C-7) ── */
   type ClusterSeverity = 'warning' | 'critical' | 'urgent';
@@ -816,6 +828,60 @@ export default function AdminReportsPage() {
         />
       )}
 
+      {/* ── Civic Feedback Distribution (Sub-Sprint 1C-C-10) ── */}
+      {!error && civicDistribution.eligible_total > 0 && (
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-sm font-bold text-text">Status Tindak Lanjut Pelapor</h3>
+              <p className="text-[11px] text-text-muted mt-0.5">
+                Ground-truth dari pelapor di lokasi · {civicDistribution.eligible_total} laporan eligible
+                · {civicDistribution.no_feedback} belum feedback
+              </p>
+            </div>
+            <span
+              className="text-[10px] font-bold uppercase tracking-wide text-text-muted bg-surface-muted px-2 py-1 rounded"
+              title="Civic feedback hanya untuk laporan verified atau published"
+            >
+              VERIFIED + PUBLISHED
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {(Object.keys(FOLLOW_UP_CONFIG) as Array<keyof typeof FOLLOW_UP_CONFIG>).map((key) => {
+              const cfg = FOLLOW_UP_CONFIG[key];
+              const count = civicDistribution[key];
+              const pct =
+                civicDistribution.eligible_total > 0
+                  ? Math.round((count / civicDistribution.eligible_total) * 100)
+                  : 0;
+              return (
+                <div
+                  key={key}
+                  className={cn(
+                    'rounded-lg border p-3',
+                    cfg.badgeBg,
+                    cfg.badgeBorder
+                  )}
+                >
+                  <div className="flex items-center gap-1.5 mb-1.5">
+                    <span aria-hidden="true">{cfg.emoji}</span>
+                    <span className={cn('text-[10px] font-bold uppercase tracking-wide', cfg.badgeText)}>
+                      {cfg.label}
+                    </span>
+                  </div>
+                  <div className={cn('text-2xl font-extrabold tabular-nums leading-none', cfg.badgeText)}>
+                    {count}
+                  </div>
+                  <div className="text-[10px] text-text-muted mt-1">
+                    {pct}% dari eligible
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── OVERVIEW TAB ── */}
       {activeTab === 'overview' && !error && (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
@@ -962,6 +1028,7 @@ export default function AdminReportsPage() {
                       key={r.id}
                       report={r}
                       variant="full"
+                      onPhotoClick={handlePhotoClick}
                       actionSlot={
                         <div className="flex items-center gap-1">
                           {canModerate && (
@@ -1321,6 +1388,7 @@ export default function AdminReportsPage() {
                 onReject={handleReject}
                 onRequestDelete={(r) => setDeleteTarget(r)}
                 onShowAllCategory={(cat) => setCategoryFilter(cat)}
+                onPhotoClick={handlePhotoClick}
                 actionLoadingId={actionLoadingId}
                 previewPerGroup={categoryFilter ? 999 : 3}
                 hasFilter={Boolean(priorityFilter || categoryFilter || lifecycleFilter)}
@@ -2273,6 +2341,16 @@ export default function AdminReportsPage() {
         onClose={() => setRejectTarget(null)}
         onSubmit={handleRejectSubmit}
       />
+
+      {/* ── Photo Lightbox (Sub-Sprint 1C-C-10) ── */}
+      {lightboxTarget && (
+        <PhotoLightbox
+          photos={lightboxTarget.photos}
+          reportTitle={lightboxTarget.title}
+          reportDisplayId={(lightboxTarget as Report & { display_id?: string | null }).display_id ?? null}
+          onClose={() => setLightboxTarget(null)}
+        />
+      )}
     </div>
   );
 }

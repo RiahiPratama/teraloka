@@ -1,7 +1,7 @@
 /**
  * TeraLoka — Report Type Definitions
  * Phase 2 · Batch 7b1 — Reports Page Migration (Shell + Overview)
- * Updated: 7 Mei 2026 — TD-008 location JOIN + layanan_publik key fix
+ * Updated: 8 Mei 2026 — Sub-Sprint 1C-C-10 civic feedback admin visibility
  * ------------------------------------------------------------
  * Shared types + config untuk admin reports page.
  *
@@ -9,10 +9,12 @@
  * - Report = entity dari BALAPOR (public reports)
  * - Priority: urgent / high / normal (3 levels)
  * - Category: 8 fixed categories (keamanan, infrastruktur, dll)
+ * - FollowUp: civic feedback status dari pelapor (4 states)
  *
  * Color mapping strategy:
  * - Priority → status tokens (urgent=critical, high=warning, normal=healthy)
  * - Category → service colors (balapor primary, variants untuk diferensiasi)
+ * - FollowUp → direct tailwind colors (consistency dengan citizen-facing UI)
  *
  * Helpers di-colocate di sini karena tightly coupled dengan Report data.
  */
@@ -32,6 +34,17 @@ export type ReportCategory =
   | 'pendidikan'
   | 'transportasi'
   | 'lainnya';
+
+/**
+ * Civic Feedback Status (Sub-Sprint 1C-B.3)
+ * Pelapor update tindak lanjut real-world.
+ * Filosofi: TeraLoka = independent civic platform; ground-truth dari pelapor.
+ */
+export type FollowUpStatus =
+  | 'belum_ditangani'   // belum ada perubahan di lokasi (default)
+  | 'sedang_ditangani'  // ada tindakan terlihat, belum selesai
+  | 'sudah_selesai'     // masalah teratasi
+  | 'tidak_jelas';      // kondisi sama, status ambigu
 
 export interface Report {
   id: string;
@@ -54,6 +67,10 @@ export interface Report {
   is_spam: boolean;
   forwarded_at: string | null;
   photos: string[] | null;
+  /** Civic feedback cache — current status (Sub-Sprint 1C-C-10 admin visibility) */
+  follow_up_current_status?: FollowUpStatus | null;
+  /** Civic feedback cache — last updated timestamp */
+  follow_up_updated_at?: string | null;
 }
 
 /* ─── Priority config ─── */
@@ -179,17 +196,72 @@ export const PRIORITY_FILTER_OPTIONS = [
   },
 ];
 
+/* ─── Civic Feedback Config (Sub-Sprint 1C-C-10) ─── */
+
+interface FollowUpConfigItem {
+  label: string;
+  emoji: string;
+  /** Compact label untuk badge inline */
+  compactLabel: string;
+  /** Tailwind utility classes untuk badge styling */
+  badgeBg: string;
+  badgeText: string;
+  badgeBorder: string;
+  /** Hex untuk visual reference */
+  hex: string;
+}
+
+export const FOLLOW_UP_CONFIG: Record<FollowUpStatus, FollowUpConfigItem> = {
+  belum_ditangani: {
+    label: 'Belum Ditangani',
+    compactLabel: 'Belum',
+    emoji: '⚠️',
+    badgeBg: 'bg-amber-500/10',
+    badgeText: 'text-amber-600 dark:text-amber-400',
+    badgeBorder: 'border-amber-500/30',
+    hex: '#F59E0B',
+  },
+  sedang_ditangani: {
+    label: 'Sedang Ditangani',
+    compactLabel: 'Sedang',
+    emoji: '🔧',
+    badgeBg: 'bg-blue-500/10',
+    badgeText: 'text-blue-600 dark:text-blue-400',
+    badgeBorder: 'border-blue-500/30',
+    hex: '#3B82F6',
+  },
+  sudah_selesai: {
+    label: 'Sudah Selesai',
+    compactLabel: 'Selesai',
+    emoji: '✅',
+    badgeBg: 'bg-emerald-500/10',
+    badgeText: 'text-emerald-600 dark:text-emerald-400',
+    badgeBorder: 'border-emerald-500/30',
+    hex: '#10B981',
+  },
+  tidak_jelas: {
+    label: 'Tidak Jelas',
+    compactLabel: 'Tdk Jelas',
+    emoji: '❓',
+    badgeBg: 'bg-gray-500/10',
+    badgeText: 'text-gray-600 dark:text-gray-400',
+    badgeBorder: 'border-gray-500/30',
+    hex: '#6B7280',
+  },
+};
+
+export const FOLLOW_UP_ORDER: FollowUpStatus[] = [
+  'belum_ditangani',
+  'sedang_ditangani',
+  'sudah_selesai',
+  'tidak_jelas',
+];
+
 /* ─── Helpers ─── */
 
 /**
  * Get best display location dari report.
  * Priority: location_name (dari JOIN public.locations) > location (legacy text) > null
- *
- * Fungsi ini = single source of truth untuk display lokasi di UI.
- * Pakai di mana saja yang render lokasi report.
- *
- * Example:
- *   getBestLocation(r) ?? 'Lokasi tidak tercatat'
  */
 export function getBestLocation(
   r: Pick<Report, 'location_name' | 'location'>
@@ -215,12 +287,11 @@ export function timeAgo(dateStr: string): string {
 
 /**
  * Cek apakah report "belum ditangani" — status pending > 2 jam.
- * Digunakan untuk hitung stat urgensi dan show warning.
  */
 export function isUnhandled(r: Pick<Report, 'status' | 'created_at'>): boolean {
   if (r.status !== 'pending') return false;
   const diff = Date.now() - new Date(r.created_at).getTime();
-  return diff > 2 * 3600 * 1000; // 2 jam
+  return diff > 2 * 3600 * 1000;
 }
 
 /**
@@ -252,11 +323,6 @@ export function groupByCategory(reports: Report[]): Record<string, Report[]> {
 
 /**
  * Count top locations (desc by count).
- * Return max top N.
- *
- * Post Phase A migration (TD-008):
- *   - Priority: location_name (JOIN) > location (legacy) > skip
- *   - Reports tanpa lokasi (kedua-duanya null) di-skip dari aggregasi
  */
 export function topLocations(
   reports: Report[],
@@ -296,6 +362,45 @@ export function computeReportStats(reports: Report[], total: number): ReportStat
 }
 
 /**
+ * Civic feedback distribution stats (Sub-Sprint 1C-C-10).
+ * Ground-truth dari pelapor — gak ada bias klaim instansi.
+ */
+export interface CivicDistribution {
+  belum_ditangani: number;
+  sedang_ditangani: number;
+  sudah_selesai: number;
+  tidak_jelas: number;
+  /** Reports tanpa civic feedback (warga belum update) */
+  no_feedback: number;
+  /** Reports yang eligible (verified atau published) — denominator untuk %  */
+  eligible_total: number;
+}
+
+export function computeCivicDistribution(reports: Report[]): CivicDistribution {
+  // Eligible reports = verified atau published (sesuai aturan engine)
+  const eligible = reports.filter(
+    (r) => r.status === 'verified' || r.status === 'published'
+  );
+
+  return {
+    belum_ditangani: eligible.filter(
+      (r) => r.follow_up_current_status === 'belum_ditangani'
+    ).length,
+    sedang_ditangani: eligible.filter(
+      (r) => r.follow_up_current_status === 'sedang_ditangani'
+    ).length,
+    sudah_selesai: eligible.filter(
+      (r) => r.follow_up_current_status === 'sudah_selesai'
+    ).length,
+    tidak_jelas: eligible.filter(
+      (r) => r.follow_up_current_status === 'tidak_jelas'
+    ).length,
+    no_feedback: eligible.filter((r) => !r.follow_up_current_status).length,
+    eligible_total: eligible.length,
+  };
+}
+
+/**
  * Safe get category config — fallback ke 'lainnya' kalau tidak ada mapping.
  */
 export function getCategoryConfig(
@@ -305,4 +410,14 @@ export function getCategoryConfig(
   return (
     CATEGORY_CONFIG[category as ReportCategory] ?? CATEGORY_CONFIG.lainnya
   );
+}
+
+/**
+ * Safe get follow-up config — null/undefined return null.
+ */
+export function getFollowUpConfig(
+  status: FollowUpStatus | null | undefined
+): FollowUpConfigItem | null {
+  if (!status) return null;
+  return FOLLOW_UP_CONFIG[status] ?? null;
 }

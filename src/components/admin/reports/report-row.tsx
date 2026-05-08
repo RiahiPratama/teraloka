@@ -3,7 +3,7 @@
 /**
  * TeraLoka — ReportRow
  * Phase 2 · Batch 7b1 — Reports Page Migration
- * Updated: 7 Mei 2026 — TD-008 location display via getBestLocation
+ * Updated: 8 Mei 2026 — Sub-Sprint 1C-C-10 civic badge + clickable photo
  * ------------------------------------------------------------
  * Single report row untuk list tampilan di Overview + Live tabs.
  *
@@ -11,8 +11,9 @@
  * - compact → untuk Overview preview (Top 5) — 1 line title + location + time
  * - full    → untuk Live tab — with location, time, unhandled warning, photos count
  *
- * Priority picker (3 tombol quick-change) akan di-tambah di Batch 7b2
- * via `actionSlot` prop (render prop pattern).
+ * Sub-Sprint 1C-C-10 additions:
+ * - Civic feedback badge (compact) saat follow_up_current_status !== null
+ * - Clickable photo icon → trigger onPhotoClick callback (open lightbox)
  *
  * Location display priority (TD-008 fix):
  *   location_name (dari JOIN public.locations) > location (legacy text) > omit
@@ -24,6 +25,7 @@ import { PriorityBadge } from './priority-badge';
 import {
   getCategoryConfig,
   getBestLocation,
+  getFollowUpConfig,
   isUnhandled,
   timeAgo,
   type Report,
@@ -38,6 +40,12 @@ export interface ReportRowProps {
   actionSlot?: ReactNode;
   /** Optional click handler — buka detail view */
   onClick?: (report: Report) => void;
+  /**
+   * Sub-Sprint 1C-C-10 — Click handler khusus icon foto.
+   * Caller pass callback untuk open photo lightbox.
+   * Kalau provided + photos > 0, photo icon jadi clickable button.
+   */
+  onPhotoClick?: (report: Report) => void;
   /** Optional additional className */
   className?: string;
 }
@@ -47,6 +55,7 @@ export function ReportRow({
   variant = 'full',
   actionSlot,
   onClick,
+  onPhotoClick,
   className,
 }: ReportRowProps) {
   const unhandled = isUnhandled(report);
@@ -54,6 +63,10 @@ export function ReportRow({
   const categoryConfig = getCategoryConfig(report.category);
   const photoCount = report.photos?.length ?? 0;
   const displayLocation = getBestLocation(report);
+  const civicConfig = getFollowUpConfig(report.follow_up_current_status);
+
+  // Photo icon: clickable kalau onPhotoClick provided + ada foto
+  const isPhotoClickable = Boolean(onPhotoClick) && photoCount > 0;
 
   const content = (
     <>
@@ -71,7 +84,7 @@ export function ReportRow({
 
       {/* Title + meta */}
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className={cn(
               'font-bold text-text truncate',
@@ -88,29 +101,20 @@ export function ReportRow({
               ⚠ Pending
             </span>
           )}
-          {/* Status badges (Sub-Sprint 1C-C-4 visual fix) */}
-          {report.status === 'rejected' && (
+          {/* Sub-Sprint 1C-C-10 — Civic feedback badge */}
+          {civicConfig && variant === 'full' && (
             <span
-              className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-status-critical/12 text-status-critical"
-              title="Laporan ditolak"
+              className={cn(
+                'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
+                'text-[9px] font-bold uppercase tracking-wide border',
+                civicConfig.badgeBg,
+                civicConfig.badgeText,
+                civicConfig.badgeBorder
+              )}
+              title={`Civic feedback: ${civicConfig.label}`}
             >
-              ❌ Rejected
-            </span>
-          )}
-          {report.status === 'verified' && (
-            <span
-              className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-status-healthy/12 text-status-healthy"
-              title="Tercatat resmi"
-            >
-              ✅ Verified
-            </span>
-          )}
-          {report.status === 'published' && (
-            <span
-              className="shrink-0 px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-balapor/12 text-balapor"
-              title="Jadi berita BAKABAR"
-            >
-              📰 BAKABAR
+              <span aria-hidden="true">{civicConfig.emoji}</span>
+              {civicConfig.compactLabel}
             </span>
           )}
         </div>
@@ -137,10 +141,29 @@ export function ReportRow({
             {photoCount > 0 && (
               <>
                 <span className="text-text-subtle shrink-0" aria-hidden="true">·</span>
-                <span className="flex items-center gap-0.5 shrink-0">
-                  <Camera size={10} />
-                  {photoCount}
-                </span>
+                {isPhotoClickable ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onPhotoClick?.(report);
+                    }}
+                    className={cn(
+                      'flex items-center gap-0.5 shrink-0 px-1.5 py-0.5 rounded',
+                      'text-balapor hover:bg-balapor/10 transition-colors',
+                      'font-semibold'
+                    )}
+                    title={`Lihat ${photoCount} foto bukti`}
+                  >
+                    <Camera size={10} />
+                    {photoCount}
+                  </button>
+                ) : (
+                  <span className="flex items-center gap-0.5 shrink-0">
+                    <Camera size={10} />
+                    {photoCount}
+                  </span>
+                )}
               </>
             )}
           </div>

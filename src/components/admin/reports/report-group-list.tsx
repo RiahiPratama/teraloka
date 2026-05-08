@@ -3,6 +3,7 @@
 /**
  * TeraLoka — ReportGroupList
  * Phase 2 · Batch 7b2 — Reports Map
+ * Updated: 8 Mei 2026 — Sub-Sprint 1C-C-10 onPhotoClick forwarding
  * ------------------------------------------------------------
  * List laporan grouped by kategori. Used di Live Incidents tab.
  *
@@ -20,7 +21,6 @@
  */
 
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { CheckCircle2, Trash2, XCircle } from 'lucide-react';
 import { ReportRow } from './report-row';
@@ -45,6 +45,11 @@ export interface ReportGroupListProps {
   onRequestDelete?: (report: Report) => void;
   /** Callback saat user click "+X lainnya" footer (Sub-Sprint 1C-C-4 visibility fix) */
   onShowAllCategory?: (category: string) => void;
+  /**
+   * Sub-Sprint 1C-C-10 — Photo lightbox trigger callback.
+   * Forwarded ke ReportRow internal — opens lightbox saat user click photo icon.
+   */
+  onPhotoClick?: (report: Report) => void;
   /** ID + action suffix (e.g. "${id}priority") yang lagi loading */
   actionLoadingId?: string | null;
   /** Max items preview per group. Default 3. */
@@ -63,6 +68,7 @@ export function ReportGroupList({
   onReject,
   onRequestDelete,
   onShowAllCategory,
+  onPhotoClick,
   actionLoadingId,
   previewPerGroup = 3,
   hasFilter = false,
@@ -161,6 +167,7 @@ export function ReportGroupList({
                   key={r.id}
                   report={r}
                   variant="full"
+                  onPhotoClick={onPhotoClick}
                   actionSlot={
                     <div className="flex items-center gap-1.5">
                       <PriorityPicker
