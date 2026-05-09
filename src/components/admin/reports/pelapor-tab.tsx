@@ -3,6 +3,9 @@
 /**
  * TeraLoka — Pelapor Tab (Reporter Aggregation)
  * Sub-Sprint 1C-C-13 Phase 3 (9 Mei 2026)
+ * Updated: 9 Mei 2026 — TD-061-A + TD-061-B fix
+ *   - TD-061-A: Wire onReportClick → ReportDetailModal popup di atas drawer
+ *   - TD-061-B: Accept initialReporterId prop untuk cross-tab nav dari Audit Log
  * ------------------------------------------------------------
  * Tab "Pelapor" untuk admin BALAPOR command center.
  *
@@ -12,6 +15,7 @@
  *   3. Filters (urgent reports, spam reports)
  *   4. List rows (clickable → open detail drawer)
  *   5. Detail drawer (slide from right, Phase 3 read-only)
+ *   6. Report detail modal (NEW — pop di atas drawer saat report row di-click)
  *
  * Phase 3 Scope:
  *   - Read-only display
@@ -46,6 +50,7 @@ import { cn } from '@/lib/utils';
 import { ApiError, useApi } from '@/lib/api/client';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PelaporDetailDrawer } from './pelapor-detail-drawer';
+import { ReportDetailModal } from './report-detail-modal';
 import {
   type ReporterAggregate,
   type ReporterSortKey,
@@ -64,9 +69,20 @@ interface PelaporTabProps {
   onToast: (message: string, ok: boolean) => void;
   /** SMART: navigate ke Live Incidents dengan reporter filter (Phase 5) */
   onNavigateToReports?: (filter: { reporterId: string; reporterName: string }) => void;
+  /** TD-061-B: Cross-tab nav dari Audit Log — auto-open drawer untuk reporter ini */
+  initialReporterId?: string | null;
+  /** TD-061-B: Callback setelah initialReporterId dikonsumsi (parent reset state) */
+  onInitialReporterConsumed?: () => void;
 }
 
-export function PelaporTab({ active, nonce, onToast, onNavigateToReports }: PelaporTabProps) {
+export function PelaporTab({
+  active,
+  nonce,
+  onToast,
+  onNavigateToReports,
+  initialReporterId,
+  onInitialReporterConsumed,
+}: PelaporTabProps) {
   const api = useApi();
 
   const [reporters, setReporters] = useState<ReporterAggregate[]>([]);
@@ -84,6 +100,9 @@ export function PelaporTab({ active, nonce, onToast, onNavigateToReports }: Pela
   // Drawer state
   const [drawerReporterId, setDrawerReporterId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // TD-061-A: Report detail modal state (pop di atas drawer)
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   /* ── Fetch effect ── */
   useEffect(() => {
@@ -136,6 +155,15 @@ export function PelaporTab({ active, nonce, onToast, onNavigateToReports }: Pela
     return () => clearTimeout(handler);
   }, [searchInput]);
 
+  /* ── TD-061-B: Auto-open drawer saat initialReporterId set (cross-tab nav) ── */
+  useEffect(() => {
+    if (!active || !initialReporterId) return;
+    setDrawerReporterId(initialReporterId);
+    setDrawerOpen(true);
+    // Notify parent — initialReporterId sudah dikonsumsi, biar gak re-trigger
+    onInitialReporterConsumed?.();
+  }, [active, initialReporterId, onInitialReporterConsumed]);
+
   const handleRefresh = useCallback(() => {
     setSearchInput('');
     setSearch('');
@@ -153,6 +181,15 @@ export function PelaporTab({ active, nonce, onToast, onNavigateToReports }: Pela
     setDrawerOpen(false);
     // Keep reporterId untuk smooth re-open animation
     setTimeout(() => setDrawerReporterId(null), 200);
+  }, []);
+
+  /* ── TD-061-A: Handler click report row di drawer ── */
+  const handleReportClick = useCallback((reportId: string) => {
+    setSelectedReportId(reportId);
+  }, []);
+
+  const handleReportModalClose = useCallback(() => {
+    setSelectedReportId(null);
   }, []);
 
   if (!active) return null;
@@ -321,7 +358,15 @@ export function PelaporTab({ active, nonce, onToast, onNavigateToReports }: Pela
         open={drawerOpen}
         onClose={handleDrawerClose}
         onToast={onToast}
+        onReportClick={handleReportClick}
         onNavigateToReports={onNavigateToReports}
+      />
+
+      {/* ── TD-061-A: Report Detail Modal (pop di atas drawer) ── */}
+      <ReportDetailModal
+        reportId={selectedReportId}
+        onClose={handleReportModalClose}
+        onToast={onToast}
       />
     </>
   );

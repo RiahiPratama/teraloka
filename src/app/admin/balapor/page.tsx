@@ -24,6 +24,7 @@ import {
   AlertCircle,
   ArrowRight,
   CheckCircle2,
+  ChevronRight,
   Clock,
   MapPin,
   Newspaper,
@@ -338,6 +339,31 @@ export default function AdminReportsPage() {
   const [wilayahNonce, setWilayahNonce] = useState(0);
   // Pelapor tab refresh nonce (Sub-Sprint 1C-C-13 Phase 3)
   const [pelaporNonce, setPelaporNonce] = useState(0);
+  // TD-061-B: Cross-tab nav dari Audit Log → Pelapor tab + auto-open drawer
+  const [pelaporInitialReporterId, setPelaporInitialReporterId] = useState<string | null>(null);
+
+  /* ── TD-061-B: Handler click audit row dengan privacy action ── */
+  const handleAuditPrivacyClick = useCallback(
+    (entry: { action: string; reporter_id: string | null; reporter_name: string | null }) => {
+      // Hanya trigger untuk privacy actions Phase 4 (forensic_reveal, contact_wa)
+      // Skip identity_reveal legacy karena schema lama mungkin tidak punya reporter_id
+      if (entry.action !== 'forensic_reveal' && entry.action !== 'contact_wa') return;
+
+      if (!entry.reporter_id) {
+        showToast('Reporter ID tidak tersedia di entry audit ini', false);
+        return;
+      }
+
+      // Switch tab + set initial reporter untuk auto-open drawer
+      setPelaporInitialReporterId(entry.reporter_id);
+      setActiveTab('pelapor');
+    },
+    [showToast],
+  );
+
+  const handleInitialReporterConsumed = useCallback(() => {
+    setPelaporInitialReporterId(null);
+  }, []);
 
   /* ── SMART navigate handler — used by Wilayah & Civic cards ── */
   const handleNavigateToReports = useCallback(
@@ -2636,6 +2662,8 @@ export default function AdminReportsPage() {
           nonce={pelaporNonce}
           onToast={showToast}
           onNavigateToReports={handleNavigateToReports}
+          initialReporterId={pelaporInitialReporterId}
+          onInitialReporterConsumed={handleInitialReporterConsumed}
         />
       )}
 
@@ -2931,14 +2959,54 @@ export default function AdminReportsPage() {
 
                 const isPrivacy = entry.is_privacy_action;
 
+                // TD-061-B: Privacy rows clickable jika action eligible + reporter_id ada
+                const isClickable =
+                  isPrivacy &&
+                  (entry.action === 'forensic_reveal' || entry.action === 'contact_wa') &&
+                  !!entry.reporter_id;
+
+                const handleRowKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+                  if (!isClickable) return;
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    handleAuditPrivacyClick({
+                      action: entry.action,
+                      reporter_id: entry.reporter_id ?? null,
+                      reporter_name: entry.reporter_name ?? null,
+                    });
+                  }
+                };
+
                 return (
                   <div
                     key={entry.id}
+                    onClick={
+                      isClickable
+                        ? () =>
+                            handleAuditPrivacyClick({
+                              action: entry.action,
+                              reporter_id: entry.reporter_id ?? null,
+                              reporter_name: entry.reporter_name ?? null,
+                            })
+                        : undefined
+                    }
+                    onKeyDown={isClickable ? handleRowKey : undefined}
+                    role={isClickable ? 'button' : undefined}
+                    tabIndex={isClickable ? 0 : undefined}
+                    aria-label={
+                      isClickable
+                        ? `Buka drawer pelapor ${entry.reporter_name || 'anonim'}`
+                        : undefined
+                    }
+                    title={isClickable ? 'Klik untuk buka drawer pelapor →' : undefined}
                     className={cn(
                       'flex items-start gap-3 p-4 transition-colors',
                       idx !== auditLogs.length - 1 && 'border-b border-border',
                       // Phase 4-Fix-B: privacy rows red-tinted background
-                      isPrivacy && 'bg-status-critical/[0.04]'
+                      isPrivacy && 'bg-status-critical/[0.04]',
+                      // TD-061-B: clickable visual hint
+                      isClickable &&
+                        'cursor-pointer hover:bg-status-critical/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-critical/30 focus-visible:ring-inset'
                     )}
                   >
                     {/* Timestamp + action */}
@@ -3055,6 +3123,16 @@ export default function AdminReportsPage() {
                     >
                       {new Date(entry.created_at).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
                     </div>
+
+                    {/* TD-061-B: Visual hint arrow untuk clickable privacy rows */}
+                    {isClickable && (
+                      <div
+                        className="shrink-0 flex items-center text-status-critical/70"
+                        aria-hidden="true"
+                      >
+                        <ChevronRight size={14} />
+                      </div>
+                    )}
                   </div>
                 );
               })}
