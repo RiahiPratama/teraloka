@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import ImageUpload from '@/components/ui/ImageUpload';
 import GeographicScopePicker from '@/components/shared/locations/GeographicScopePicker';
 import type { LocationScope } from '@/components/shared/locations/locations-types';
+import { PhotoPolicyNotice } from '@/components/balapor/photo-policy-notice';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -51,6 +52,7 @@ export default function ReportsPage() {
   const [scope, setScope]                 = useState<LocationScope | null>(null);
   const [locationText, setLocationText]   = useState('');
   const [photos, setPhotos]         = useState<string[]>([]);
+  const [photoPolicyAgreed, setPhotoPolicyAgreed] = useState(false);
   const [notifOptIn, setNotifOptIn] = useState(false);
   const [tosAccepted, setTosAccepted] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -142,6 +144,7 @@ export default function ReportsPage() {
     setIdentityName(''); setTosAccepted(false); setSubmitError(''); setNotifOptIn(false);
     setPhone(''); setOtp(''); setOtpSent(false); setOtpError('');
     setScope(null); setLocationText('');
+    setPhotoPolicyAgreed(false);
   };
 
   // ── SUCCESS ──────────────────────────────────────────────────
@@ -341,10 +344,28 @@ export default function ReportsPage() {
                 </p>
               </div>
 
-              {/* Foto */}
-              <ImageUpload bucket="reports" onUpload={urls => setPhotos(urls)}
-                label={photoRequired ? 'Foto Bukti (Wajib — min. 1 foto)' : 'Foto Bukti (Opsional)'}
-                maxFiles={3} />
+              {/* Foto — dengan Photo Policy gate (Day 2) */}
+              <div className="space-y-3">
+                <PhotoPolicyNotice
+                  agreed={photoPolicyAgreed}
+                  onAgreedChange={setPhotoPolicyAgreed}
+                />
+                {photoPolicyAgreed ? (
+                  <ImageUpload bucket="reports" onUpload={urls => setPhotos(urls)}
+                    label={photoRequired ? 'Foto Bukti (Wajib — min. 1 foto)' : 'Foto Bukti (Opsional)'}
+                    maxFiles={3} />
+                ) : (
+                  <div className="rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 p-6 text-center">
+                    <span className="material-symbols-outlined text-gray-300 text-3xl">lock</span>
+                    <p className="mt-2 text-sm font-semibold text-gray-500">
+                      Setujui aturan dulu untuk upload foto
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      Centang kotak di atas setelah baca aturan
+                    </p>
+                  </div>
+                )}
+              </div>
 
               {/* Notif opt-in */}
               <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
@@ -361,7 +382,7 @@ export default function ReportsPage() {
               </div>
 
               <button onClick={() => setStep('tos')}
-                disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0) || (needsIdentityInput && !identityName.trim())}
+                disabled={!title.trim() || !body.trim() || !category || (photoRequired && photos.length === 0) || (needsIdentityInput && !identityName.trim()) || (photos.length > 0 && !photoPolicyAgreed)}
                 className="w-full rounded-xl bg-gradient-to-r from-[#EF4444] to-[#DC2626] py-3.5 text-sm font-bold text-white shadow-md hover:shadow-lg hover:opacity-95 transition-all disabled:opacity-40 disabled:hover:opacity-40 disabled:hover:shadow-md">
                 Lanjut ke Ketentuan →
               </button>

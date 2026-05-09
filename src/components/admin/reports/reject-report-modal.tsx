@@ -22,6 +22,7 @@ const COMMON_REASONS = [
   'Sudah ada laporan sama sebelumnya (duplikat)',
   'Kategori salah — bukan ranah BALAPOR',
   'Konten tidak sesuai — pakai bahasa yang lebih sopan',
+  'Foto melanggar aturan (wajah/plat/anak/dokumen pribadi tanpa blur)',
 ];
 
 export interface RejectReportModalProps {

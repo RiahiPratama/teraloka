@@ -13,7 +13,7 @@
  * Architecture:
  *   - z-[60] (drawer panel z-50, lightbox z-[1000])
  *   - Read-only (Phase 3 — admin actions tetap di drawer atau Live tab)
- *   - Fetch via GET /admin/balapor/reports/:id (existing endpoint)
+ *   - Fetch via GET /admin/balapor/:id (mounted di balapor.ts parent router)
  *   - Foto click → spawn PhotoLightbox (z-[1000]) di atas modal
  *
  * Stacking:
@@ -125,7 +125,7 @@ export function ReportDetailModal({
     setDetail(null);
 
     api
-      .get<ReportDetail>(`/admin/balapor/reports/${reportId}`, {
+      .get<ReportDetail>(`/admin/balapor/${reportId}`, {
         signal: controller.signal,
       })
       .then((data) => setDetail(data))
