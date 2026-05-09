@@ -30,6 +30,7 @@ import {
   RefreshCw,
   ScrollText,
   Search,
+  Shield,
   Siren,
   Sparkles,
   Star,
@@ -131,7 +132,7 @@ const LIFECYCLE_OPTIONS = [
 interface SmartFilterPillProps {
   icon: string;
   label: string;
-  type: 'kabupaten' | 'kecamatan' | 'kab-level' | 'civic';
+  type: 'kabupaten' | 'kecamatan' | 'kab-level' | 'civic' | 'reporter';
   onClear: () => void;
 }
 
@@ -177,6 +178,11 @@ export default function AdminReportsPage() {
 
   // SMART navigation filters (Sub-Sprint 1C-C-12 SMART)
   const [civicFilter, setCivicFilter] = useState<string>(''); // FollowUpStatus value
+  // Phase 5 SMART nav: filter reports by specific pelapor
+  const [reporterFilter, setReporterFilter] = useState<{ id: string; name: string }>({
+    id: '',
+    name: '',
+  });
   const [geoFilter, setGeoFilter] = useState<{
     kabupatenId: string;
     kabupatenName: string;
@@ -234,6 +240,8 @@ export default function AdminReportsPage() {
     if (geoFilter.kabupatenId) params.kabupaten_id = geoFilter.kabupatenId;
     if (geoFilter.kecamatanId) params.kecamatan_id = geoFilter.kecamatanId;
     if (geoFilter.kabupatenLevelOnly) params.kabupaten_level_only = 'true';
+    // Phase 5 SMART nav: filter by specific pelapor
+    if (reporterFilter.id) params.reporter_id = reporterFilter.id;
 
     api
       .get<ReportsListResponse>('/admin/balapor', {
@@ -255,7 +263,7 @@ export default function AdminReportsPage() {
       });
 
     return () => controller.abort();
-  }, [api, priorityFilter, categoryFilter, lifecycleFilter, searchQuery, civicFilter, geoFilter, retryNonce]);
+  }, [api, priorityFilter, categoryFilter, lifecycleFilter, searchQuery, civicFilter, geoFilter, reporterFilter, retryNonce]);
 
   /* ── Auto-refresh 60s (only on overview/live, not deepdive) ── */
   useEffect(() => {
@@ -339,6 +347,9 @@ export default function AdminReportsPage() {
       kecamatanName?: string;
       kabupatenLevelOnly?: boolean;
       civicStatus?: string;
+      // Phase 5 SMART nav from Pelapor tab
+      reporterId?: string;
+      reporterName?: string;
     }) => {
       // Set geo filter
       if (filter.kabupatenId !== undefined || filter.kecamatanId !== undefined) {
@@ -353,6 +364,13 @@ export default function AdminReportsPage() {
       // Set civic filter (additive)
       if (filter.civicStatus !== undefined) {
         setCivicFilter(filter.civicStatus);
+      }
+      // Phase 5: set reporter filter (additive)
+      if (filter.reporterId !== undefined) {
+        setReporterFilter({
+          id: filter.reporterId,
+          name: filter.reporterName ?? '',
+        });
       }
       // Switch to Live Incidents tab
       setActiveTab('live');
@@ -375,10 +393,16 @@ export default function AdminReportsPage() {
     setCivicFilter('');
   }, []);
 
+  // Phase 5: clear reporter filter
+  const handleClearReporterFilter = useCallback(() => {
+    setReporterFilter({ id: '', name: '' });
+  }, []);
+
   const handleClearAllSmartFilters = useCallback(() => {
     handleClearGeoFilter();
     handleClearCivicFilter();
-  }, [handleClearGeoFilter, handleClearCivicFilter]);
+    handleClearReporterFilter();
+  }, [handleClearGeoFilter, handleClearCivicFilter, handleClearReporterFilter]);
 
   /* ── Deep Dive fetch ── */
   useEffect(() => {
@@ -722,6 +746,40 @@ export default function AdminReportsPage() {
   const [auditNonce, setAuditNonce] = useState(0);
   const [auditActionFilter, setAuditActionFilter] = useState<AuditActionType | ''>('');
   const [auditPage, setAuditPage] = useState(1);
+
+  /* ── Phase 4-Fix-D: Compliance Posture KPI ── */
+  interface CompliancePosture {
+    actions_7d: number;
+    privacy_actions_7d: number;
+    privacy_ratio_7d: number;
+    privacy_actions_30d: number;
+    privacy_anomaly_score: number;
+    actions_30d: number;
+    computed_at: string;
+  }
+  const [posture, setPosture] = useState<CompliancePosture | null>(null);
+
+  // Phase 4-Fix-D: Fetch posture KPI parallel dengan audit logs
+  useEffect(() => {
+    if (activeTab !== 'audit_log' || !api.token) return;
+    const controller = new AbortController();
+
+    api
+      .get<CompliancePosture>('/admin/balapor/audit-log/posture', {
+        signal: controller.signal,
+      })
+      .then((data) => {
+        setPosture(data);
+      })
+      .catch((err) => {
+        // Posture failure non-blocking — audit log still works
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn('Posture KPI fetch failed:', err);
+      });
+
+    return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, auditNonce, api.token]);
 
   useEffect(() => {
     if (activeTab !== 'audit_log' || !api.token) return;
@@ -1496,7 +1554,7 @@ export default function AdminReportsPage() {
           {/* LEFT — grouped list */}
           <div className="space-y-4 min-w-0">
             {/* SMART Active Filter Pills (Sub-Sprint 1C-C-12 SMART) */}
-            {(geoFilter.kabupatenId || civicFilter) && (
+            {(geoFilter.kabupatenId || civicFilter || reporterFilter.id) && (
               <div className="bg-balapor/8 border border-balapor/20 rounded-xl p-3 space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold uppercase tracking-wider text-balapor">
@@ -1541,6 +1599,15 @@ export default function AdminReportsPage() {
                       label={FOLLOW_UP_CONFIG[civicFilter as keyof typeof FOLLOW_UP_CONFIG]?.label ?? civicFilter}
                       type="civic"
                       onClear={handleClearCivicFilter}
+                    />
+                  )}
+                  {/* Phase 5 SMART nav: reporter filter pill */}
+                  {reporterFilter.id && (
+                    <SmartFilterPill
+                      icon="👤"
+                      label={`Pelapor: ${reporterFilter.name || 'Unknown'}`}
+                      type="reporter"
+                      onClear={handleClearReporterFilter}
                     />
                   )}
                 </div>
@@ -2481,12 +2548,13 @@ export default function AdminReportsPage() {
         />
       )}
 
-      {/* ── PELAPOR TAB (Sub-Sprint 1C-C-13 Phase 3) ── */}
+      {/* ── PELAPOR TAB (Sub-Sprint 1C-C-13 Phase 3 + Phase 5 SMART nav) ── */}
       {activeTab === 'pelapor' && (
         <PelaporTab
           active={activeTab === 'pelapor'}
           nonce={pelaporNonce}
           onToast={showToast}
+          onNavigateToReports={handleNavigateToReports}
         />
       )}
 
@@ -2519,6 +2587,128 @@ export default function AdminReportsPage() {
               Refresh
             </Button>
           </div>
+
+          {/* Phase 4-Fix-D: Compliance Posture KPI Banner */}
+          {posture && (() => {
+            const score = posture.privacy_anomaly_score;
+            const ratio = posture.privacy_ratio_7d;
+            // Tier mapping
+            const tier =
+              score >= 2.5 ? 'critical'
+              : score >= 1.5 ? 'warning'
+              : score >= 0.5 ? 'healthy'
+              : 'calm';
+            const tierConfig = {
+              critical: {
+                bg: 'bg-status-critical/8',
+                border: 'border-status-critical/30',
+                accent: 'text-status-critical',
+                label: '⚠️ ANOMALY DETECTED',
+                desc: `Privacy actions ${score.toFixed(1)}× lebih tinggi dari baseline. Investigate.`,
+              },
+              warning: {
+                bg: 'bg-status-warning/8',
+                border: 'border-status-warning/30',
+                accent: 'text-status-warning',
+                label: '⚡ ELEVATED',
+                desc: `Privacy actions slightly elevated (${score.toFixed(1)}× baseline). Monitor.`,
+              },
+              healthy: {
+                bg: 'bg-status-healthy/8',
+                border: 'border-status-healthy/30',
+                accent: 'text-status-healthy',
+                label: '✓ HEALTHY',
+                desc: `Privacy actions normal (${score.toFixed(1)}× baseline).`,
+              },
+              calm: {
+                bg: 'bg-surface-muted/30',
+                border: 'border-border',
+                accent: 'text-text-muted',
+                label: '○ CALM',
+                desc: 'Privacy actions di bawah baseline atau belum ada baseline.',
+              },
+            }[tier];
+
+            const lastUpdated = new Date(posture.computed_at);
+            const minutesAgo = Math.floor((Date.now() - lastUpdated.getTime()) / 60000);
+            const lastUpdatedLabel =
+              minutesAgo < 1 ? 'just now'
+              : minutesAgo < 60 ? `${minutesAgo}m ago`
+              : `${Math.floor(minutesAgo / 60)}h ago`;
+
+            return (
+              <div className={cn('border rounded-xl p-4 space-y-3', tierConfig.bg, tierConfig.border)}>
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Shield size={14} className={tierConfig.accent} />
+                    <h3 className="text-xs font-bold text-text uppercase tracking-wider">
+                      Compliance Posture
+                    </h3>
+                    <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', tierConfig.accent, tierConfig.bg)}>
+                      {tierConfig.label}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-text-muted">
+                    Updated {lastUpdatedLabel}
+                  </span>
+                </div>
+
+                {/* 4 KPI cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+                  <div className="bg-surface border border-border rounded-lg p-3">
+                    <div className="text-[10px] text-text-muted uppercase tracking-wide font-bold mb-1">
+                      Total 7d
+                    </div>
+                    <div className="text-xl font-extrabold text-text tabular-nums">
+                      {posture.actions_7d}
+                    </div>
+                    <div className="text-[9px] text-text-muted mt-0.5">
+                      vs {posture.actions_30d} (30d)
+                    </div>
+                  </div>
+                  <div className="bg-surface border border-border rounded-lg p-3">
+                    <div className="text-[10px] text-text-muted uppercase tracking-wide font-bold mb-1">
+                      Privacy 7d
+                    </div>
+                    <div className={cn('text-xl font-extrabold tabular-nums', tierConfig.accent)}>
+                      {posture.privacy_actions_7d}
+                    </div>
+                    <div className="text-[9px] text-text-muted mt-0.5">
+                      vs {posture.privacy_actions_30d} (30d)
+                    </div>
+                  </div>
+                  <div className="bg-surface border border-border rounded-lg p-3">
+                    <div className="text-[10px] text-text-muted uppercase tracking-wide font-bold mb-1">
+                      Privacy %
+                    </div>
+                    <div className={cn('text-xl font-extrabold tabular-nums', tierConfig.accent)}>
+                      {(ratio * 100).toFixed(0)}%
+                    </div>
+                    <div className="text-[9px] text-text-muted mt-0.5">
+                      of all actions
+                    </div>
+                  </div>
+                  <div className="bg-surface border border-border rounded-lg p-3">
+                    <div className="text-[10px] text-text-muted uppercase tracking-wide font-bold mb-1">
+                      Anomaly Score
+                    </div>
+                    <div className={cn('text-xl font-extrabold tabular-nums', tierConfig.accent)}>
+                      {score.toFixed(2)}×
+                    </div>
+                    <div className="text-[9px] text-text-muted mt-0.5">
+                      vs 30d avg
+                    </div>
+                  </div>
+                </div>
+
+                {/* Status message */}
+                <div className={cn('text-xs leading-relaxed', tierConfig.accent)}>
+                  {tierConfig.desc}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Action filter pills */}
           <div className="bg-surface border border-border rounded-xl p-4">

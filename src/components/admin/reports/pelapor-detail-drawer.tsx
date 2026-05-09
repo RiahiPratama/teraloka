@@ -64,6 +64,8 @@ interface PelaporDetailDrawerProps {
   onToast: (message: string, ok: boolean) => void;
   /** Callback saat user click report row di history list */
   onReportClick?: (reportId: string) => void;
+  /** Phase 5 SMART nav: navigate to Live Incidents filtered by this reporter */
+  onNavigateToReports?: (filter: { reporterId: string; reporterName: string }) => void;
 }
 
 export function PelaporDetailDrawer({
@@ -72,6 +74,7 @@ export function PelaporDetailDrawer({
   onClose,
   onToast,
   onReportClick,
+  onNavigateToReports,
 }: PelaporDetailDrawerProps) {
   const api = useApi();
   const [detail, setDetail] = useState<ReporterDetail | null>(null);
@@ -248,7 +251,7 @@ export function PelaporDetailDrawer({
               </section>
 
               {/* ── Stats Section ── */}
-              <StatsSection detail={detail} />
+              <StatsSection detail={detail} onNavigateToReports={onNavigateToReports} />
 
               {/* ── Reports History ── */}
               <ReportsHistorySection
@@ -347,7 +350,13 @@ export function PelaporDetailDrawer({
    Sub-components
    ════════════════════════════════════════════════════════════════ */
 
-function StatsSection({ detail }: { detail: ReporterDetail }) {
+function StatsSection({
+  detail,
+  onNavigateToReports,
+}: {
+  detail: ReporterDetail;
+  onNavigateToReports?: (filter: { reporterId: string; reporterName: string }) => void;
+}) {
   const agg = detail.aggregate;
   const resolutionRate = computeResolutionRate(agg);
 
@@ -359,6 +368,15 @@ function StatsSection({ detail }: { detail: ReporterDetail }) {
     { label: 'Published', value: agg.published_count, color: 'text-balapor' },
     { label: 'Spam', value: agg.spam_count, color: 'text-text-muted' },
   ];
+
+  // Phase 5 SMART nav handler
+  const handleViewAllReports = () => {
+    if (!onNavigateToReports) return;
+    onNavigateToReports({
+      reporterId: detail.reporter_id,
+      reporterName: detail.name_display ?? '',
+    });
+  };
 
   return (
     <section className="px-5 py-4 border-b border-border">
@@ -395,6 +413,23 @@ function StatsSection({ detail }: { detail: ReporterDetail }) {
           {detail.aggregate.distinct_devices_count} distinct device
         </span>
       </div>
+
+      {/* Phase 5 SMART nav: View all reports CTA */}
+      {onNavigateToReports && agg.total_reports > 0 && (
+        <button
+          type="button"
+          onClick={handleViewAllReports}
+          className={cn(
+            'mt-3 w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg',
+            'text-[12px] font-semibold',
+            'bg-balapor/10 border border-balapor/30 text-balapor',
+            'hover:bg-balapor/15 transition-colors',
+            'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30',
+          )}
+        >
+          Lihat Semua Laporan ({agg.total_reports}) →
+        </button>
+      )}
     </section>
   );
 }

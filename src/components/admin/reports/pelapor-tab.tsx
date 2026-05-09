@@ -66,7 +66,7 @@ interface PelaporTabProps {
   onNavigateToReports?: (filter: { reporterId: string; reporterName: string }) => void;
 }
 
-export function PelaporTab({ active, nonce, onToast }: PelaporTabProps) {
+export function PelaporTab({ active, nonce, onToast, onNavigateToReports }: PelaporTabProps) {
   const api = useApi();
 
   const [reporters, setReporters] = useState<ReporterAggregate[]>([]);
@@ -321,6 +321,7 @@ export function PelaporTab({ active, nonce, onToast }: PelaporTabProps) {
         open={drawerOpen}
         onClose={handleDrawerClose}
         onToast={onToast}
+        onNavigateToReports={onNavigateToReports}
       />
     </>
   );
