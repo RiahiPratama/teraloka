@@ -861,7 +861,7 @@ export default function AdminReportsPage() {
       {/* ── Toast ── */}
       {toast && (
         <div
-          className="fixed top-20 right-6 z-[60] pointer-events-none"
+          className="fixed top-20 right-6 z-[150] pointer-events-none"
           role="status"
           aria-live="polite"
         >

@@ -64,9 +64,11 @@ export function ContactReporterModal({
   const [contactData, setContactData] = useState<ContactReporterResult | null>(null);
   const [copied, setCopied] = useState(false);
 
-  /* ── Reset state saat modal opened ── */
+  /* ── Reset state saat modal opened (dep on id, NOT object reference) ── */
+  // Pattern (II-related): parent inline object reference changes every render.
+  // Track by stable id only — phase 'success' needs to persist after submit.
   useEffect(() => {
-    if (reporter) {
+    if (reporter?.id) {
       setPhase('form');
       setReason('');
       setSubmitting(false);
@@ -74,11 +76,11 @@ export function ContactReporterModal({
       setContactData(null);
       setCopied(false);
     }
-  }, [reporter]);
+  }, [reporter?.id]);
 
   /* ── ESC key close ── */
   useEffect(() => {
-    if (!reporter) return;
+    if (!reporter?.id) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !submitting) {
         handleClose();
@@ -86,7 +88,8 @@ export function ContactReporterModal({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [reporter, submitting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reporter?.id, submitting]);
 
   if (!reporter) return null;
 

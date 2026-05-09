@@ -72,9 +72,12 @@ export function RevealIdentityModal({
   const [revealed, setRevealed] = useState<ReporterFullIdentity | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
-  /* ── Reset state saat modal opened ── */
+  /* ── Reset state saat modal opened (dep on id, NOT object reference) ── */
+  // Pattern (II-related): parent passes inline object that changes ref every render.
+  // Using `reporter` directly would reset modal state on every parent re-render,
+  // breaking phase transitions. Track by stable id only.
   useEffect(() => {
-    if (reporter) {
+    if (reporter?.id) {
       setPhase('form');
       setReason('');
       setSubmitting(false);
@@ -82,11 +85,11 @@ export function RevealIdentityModal({
       setRevealed(null);
       setCopiedField(null);
     }
-  }, [reporter]);
+  }, [reporter?.id]);
 
   /* ── ESC key close ── */
   useEffect(() => {
-    if (!reporter) return;
+    if (!reporter?.id) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !submitting) {
         handleClose();
@@ -94,7 +97,8 @@ export function RevealIdentityModal({
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [reporter, submitting]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reporter?.id, submitting]);
 
   if (!reporter) return null;
 
