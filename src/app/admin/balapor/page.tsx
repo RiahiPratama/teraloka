@@ -676,11 +676,14 @@ export default function AdminReportsPage() {
   /* ── Audit Log state (Sub-Sprint 1C-C-9) ── */
   type AuditActionType =
     | 'verify' | 'reject' | 'set_priority' | 'set_spam' | 'mark_forwarded'
-    | 'soft_delete' | 'restore' | 'edit_metadata' | 'convert_bakabar' | 'identity_reveal';
+    | 'soft_delete' | 'restore' | 'edit_metadata' | 'convert_bakabar'
+    | 'identity_reveal'        // Legacy report-level reveal (pre-Phase 4)
+    | 'forensic_reveal'        // Phase 4: reporter-level forensic reveal
+    | 'contact_wa';            // Phase 4: reporter-level WA contact
 
   interface AuditLogEntry {
     id: string;
-    report_id: string;
+    report_id: string | null;       // Phase 4-Fix: nullable for identity actions
     report_display_id: string | null;
     report_title: string | null;
     report_status: string | null;
@@ -691,6 +694,11 @@ export default function AdminReportsPage() {
     ip_address: string | null;
     user_agent: string | null;
     created_at: string;
+    // ── Phase 4-Fix-B privacy fields ──
+    is_privacy_action: boolean;
+    reporter_id: string | null;
+    reporter_phone: string | null;
+    reporter_name: string | null;
   }
 
   interface AuditLogResponse {
@@ -699,6 +707,9 @@ export default function AdminReportsPage() {
       page: number;
       limit: number;
       total: number;
+      // Phase 4-Fix-B UNION breakdown
+      total_report_actions: number;
+      total_privacy_actions: number;
       has_more: boolean;
       fetched_at: string;
     };
@@ -2636,7 +2647,10 @@ export default function AdminReportsPage() {
                   set_spam: { label: '⚠️ Spam', color: 'text-status-warning bg-status-warning/10' },
                   convert_bakabar: { label: '📰 Convert BAKABAR', color: 'text-balapor bg-balapor/10' },
                   edit_metadata: { label: '✏️ Edit', color: 'text-text bg-surface-muted' },
-                  identity_reveal: { label: '🔓 Identity Reveal', color: 'text-status-critical bg-status-critical/10' },
+                  // Privacy actions (Phase 4-Fix-B) — visually distinguished
+                  identity_reveal: { label: '🔓 Identity (Legacy)', color: 'text-status-critical bg-status-critical/10' },
+                  forensic_reveal: { label: '🔍 Forensic Reveal', color: 'text-status-critical bg-status-critical/10' },
+                  contact_wa: { label: '💬 Contact WA', color: 'text-balapor bg-balapor/10' },
                   mark_forwarded: { label: '↗️ Forward', color: 'text-text-muted bg-surface-muted' },
                 };
                 const config = actionConfig[entry.action] || {
@@ -2644,12 +2658,16 @@ export default function AdminReportsPage() {
                   color: 'text-text-muted bg-surface-muted',
                 };
 
+                const isPrivacy = entry.is_privacy_action;
+
                 return (
                   <div
                     key={entry.id}
                     className={cn(
-                      'flex items-start gap-3 p-4',
-                      idx !== auditLogs.length - 1 && 'border-b border-border'
+                      'flex items-start gap-3 p-4 transition-colors',
+                      idx !== auditLogs.length - 1 && 'border-b border-border',
+                      // Phase 4-Fix-B: privacy rows red-tinted background
+                      isPrivacy && 'bg-status-critical/[0.04]'
                     )}
                   >
                     {/* Timestamp + action */}
@@ -2668,43 +2686,98 @@ export default function AdminReportsPage() {
                       >
                         {config.label}
                       </span>
-                    </div>
-
-                    {/* Report context + details */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-mono text-[10px] text-text-muted">
-                          {entry.report_display_id || '#—'}
+                      {/* Phase 4-Fix-B: PRIVACY badge */}
+                      {isPrivacy && (
+                        <span className="block mt-1 px-1.5 py-0.5 rounded text-[8px] font-extrabold tracking-wider bg-status-critical/15 text-status-critical w-fit">
+                          🔒 PRIVACY
                         </span>
-                        {entry.report_status && (
-                          <span className="text-[9px] uppercase font-bold tracking-wide text-text-muted">
-                            · {entry.report_status}
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm font-semibold text-text mb-1 truncate">
-                        {entry.report_title || '(report deleted)'}
-                      </div>
-                      {entry.note && (
-                        <div className="text-xs text-text-muted italic mb-1">
-                          "{entry.note}"
-                        </div>
                       )}
-                      <div className="flex items-center gap-2 text-[10px] text-text-muted">
-                        <span>Actor:</span>
-                        <span className="font-mono">
-                          {entry.actor_role} · {entry.actor_id.slice(-6)}
-                        </span>
-                        {entry.ip_address && (
-                          <>
-                            <span>·</span>
-                            <span className="font-mono">{entry.ip_address}</span>
-                          </>
-                        )}
-                      </div>
                     </div>
 
-                    {/* Full timestamp tooltip */}
+                    {/* Context + details — conditional privacy vs report */}
+                    <div className="flex-1 min-w-0">
+                      {isPrivacy ? (
+                        <>
+                          {/* Privacy header */}
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            <span className="text-[10px] uppercase font-bold tracking-wide text-status-critical">
+                              Privacy Access
+                            </span>
+                            {entry.report_display_id && (
+                              <span className="font-mono text-[10px] text-text-muted">
+                                · {entry.report_display_id}
+                              </span>
+                            )}
+                          </div>
+                          {/* Reporter context (denormalized snapshot) */}
+                          <div className="text-sm font-semibold text-text mb-1 flex items-center gap-2 flex-wrap">
+                            <span>{entry.reporter_name || 'Pelapor (anonim)'}</span>
+                            {entry.reporter_phone && (
+                              <span className="font-mono text-[11px] text-text-muted">
+                                {entry.reporter_phone}
+                              </span>
+                            )}
+                          </div>
+                          {/* Reason (compliance context) */}
+                          {entry.note && (
+                            <div className="text-xs text-text-muted italic mb-1">
+                              Alasan: "{entry.note}"
+                            </div>
+                          )}
+                          {/* Actor + forensic IP (bold for emphasis) */}
+                          <div className="flex items-center gap-2 text-[10px] text-text-muted flex-wrap">
+                            <span>Diakses oleh:</span>
+                            <span className="font-mono">
+                              {entry.actor_role} · {entry.actor_id.slice(-6)}
+                            </span>
+                            {entry.ip_address && (
+                              <>
+                                <span>·</span>
+                                <span className="font-mono font-bold text-status-critical">
+                                  IP: {entry.ip_address}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      ) : (
+                        <>
+                          {/* Report row treatment (existing) */}
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-mono text-[10px] text-text-muted">
+                              {entry.report_display_id || '#—'}
+                            </span>
+                            {entry.report_status && (
+                              <span className="text-[9px] uppercase font-bold tracking-wide text-text-muted">
+                                · {entry.report_status}
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-sm font-semibold text-text mb-1 truncate">
+                            {entry.report_title || '(report deleted)'}
+                          </div>
+                          {entry.note && (
+                            <div className="text-xs text-text-muted italic mb-1">
+                              "{entry.note}"
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-[10px] text-text-muted">
+                            <span>Actor:</span>
+                            <span className="font-mono">
+                              {entry.actor_role} · {entry.actor_id.slice(-6)}
+                            </span>
+                            {entry.ip_address && (
+                              <>
+                                <span>·</span>
+                                <span className="font-mono">{entry.ip_address}</span>
+                              </>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {/* Full timestamp */}
                     <div
                       className="shrink-0 text-[10px] text-text-muted font-mono"
                       title={new Date(entry.created_at).toLocaleString('id-ID')}
