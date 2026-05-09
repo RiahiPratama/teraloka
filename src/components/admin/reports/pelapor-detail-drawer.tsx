@@ -23,7 +23,7 @@
  *   - Tab navigation accessible
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import {
   X,
   Calendar,
@@ -54,6 +54,8 @@ import {
   formatRate,
 } from '@/types/reporters';
 import { timeAgo } from '@/types/reports';
+import { RevealIdentityModal } from './reveal-identity-modal';
+import { ContactReporterModal } from './contact-reporter-modal';
 
 interface PelaporDetailDrawerProps {
   reporterId: string | null;
@@ -76,37 +78,53 @@ export function PelaporDetailDrawer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Modal state (Phase 4)
+  const [revealModalOpen, setRevealModalOpen] = useState(false);
+  const [contactModalOpen, setContactModalOpen] = useState(false);
+
+  /* ── Fetch detail (extracted untuk re-use after modal action success) ── */
+  const fetchDetail = useCallback(
+    (signal?: AbortSignal) => {
+      if (!reporterId || !api.token) return;
+      setLoading(true);
+      setError(null);
+
+      // NOTE: useApi client unwraps response.data automatically.
+      api
+        .get<ReporterDetail>(
+          `/admin/balapor/by-reporter/${reporterId}`,
+          { signal },
+        )
+        .then((data) => {
+          setDetail(data);
+        })
+        .catch((err) => {
+          if (err instanceof ApiError) {
+            setError(err.message);
+            onToast(err.message, false);
+          } else if (err.name !== 'AbortError') {
+            setError('Gagal load detail pelapor');
+            onToast('Gagal load detail pelapor', false);
+          }
+        })
+        .finally(() => setLoading(false));
+    },
+    [reporterId, api, onToast],
+  );
+
   /* ── Fetch detail saat drawer open ── */
   useEffect(() => {
     if (!open || !reporterId || !api.token) return;
-
     const controller = new AbortController();
-    setLoading(true);
-    setError(null);
-
-    // NOTE: useApi client unwraps response.data automatically.
-    // Backend ok(c, ReporterDetail) → client returns ReporterDetail directly.
-    api
-      .get<ReporterDetail>(
-        `/admin/balapor/by-reporter/${reporterId}`,
-        { signal: controller.signal },
-      )
-      .then((data) => {
-        setDetail(data);
-      })
-      .catch((err) => {
-        if (err instanceof ApiError) {
-          setError(err.message);
-          onToast(err.message, false);
-        } else if (err.name !== 'AbortError') {
-          setError('Gagal load detail pelapor');
-          onToast('Gagal load detail pelapor', false);
-        }
-      })
-      .finally(() => setLoading(false));
-
+    fetchDetail(controller.signal);
     return () => controller.abort();
-  }, [open, reporterId, api, onToast]);
+  }, [open, reporterId, api, fetchDetail]);
+
+  /* ── Handler: modal success → refresh detail (audit_history update) ── */
+  const handleModalSuccess = useCallback(() => {
+    // Re-fetch detail tanpa close drawer — audit_history akan refresh
+    fetchDetail();
+  }, [fetchDetail]);
 
   /* ── Reset state saat drawer close ── */
   useEffect(() => {
@@ -254,28 +272,30 @@ export function PelaporDetailDrawer({
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
-                disabled
+                onClick={() => setContactModalOpen(true)}
                 className={cn(
                   'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg',
                   'text-[12px] font-semibold',
-                  'bg-surface border border-border text-text-muted',
-                  'cursor-not-allowed opacity-60',
+                  'bg-balapor/10 border border-balapor/30 text-balapor',
+                  'hover:bg-balapor/15 transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30',
                 )}
-                title="Phase 4 — coming soon"
+                title="Kontak via WhatsApp (audit-logged)"
               >
                 <MessageCircle size={14} />
                 Contact WA
               </button>
               <button
                 type="button"
-                disabled
+                onClick={() => setRevealModalOpen(true)}
                 className={cn(
                   'flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg',
                   'text-[12px] font-semibold',
-                  'bg-surface border border-border text-text-muted',
-                  'cursor-not-allowed opacity-60',
+                  'bg-status-critical/10 border border-status-critical/30 text-status-critical',
+                  'hover:bg-status-critical/15 transition-colors',
+                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-critical/30',
                 )}
-                title="Phase 4 — coming soon"
+                title="Reveal full identity (forensic, audit-logged)"
               >
                 <Eye size={14} />
                 Reveal Identity
@@ -284,6 +304,41 @@ export function PelaporDetailDrawer({
           </footer>
         )}
       </aside>
+
+      {/* ── Modals (Phase 4) ── */}
+      {detail && (
+        <>
+          <RevealIdentityModal
+            reporter={
+              revealModalOpen
+                ? {
+                    id: detail.reporter_id,
+                    name_display: detail.name_display,
+                    phone_masked: detail.phone_masked,
+                  }
+                : null
+            }
+            onClose={() => setRevealModalOpen(false)}
+            onSuccess={handleModalSuccess}
+            onToast={onToast}
+          />
+
+          <ContactReporterModal
+            reporter={
+              contactModalOpen
+                ? {
+                    id: detail.reporter_id,
+                    name_display: detail.name_display,
+                    phone_masked: detail.phone_masked,
+                  }
+                : null
+            }
+            onClose={() => setContactModalOpen(false)}
+            onSuccess={handleModalSuccess}
+            onToast={onToast}
+          />
+        </>
+      )}
     </>
   );
 }
