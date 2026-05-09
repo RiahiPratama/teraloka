@@ -1,21 +1,29 @@
-'use client';
-
 /**
  * TeraLoka — ReportGroupList
  * Phase 2 · Batch 7b2 — Reports Map
  * Updated: 8 Mei 2026 — Sub-Sprint 1C-C-10 onPhotoClick forwarding
+ * Updated: 9 Mei 2026 — Sub-Sprint 1C-C-13 Phase 1.5 Stream Mode sort
  * ------------------------------------------------------------
  * List laporan grouped by kategori. Used di Live Incidents tab.
  *
  * Structure:
  * - Group per category (collapsible? No — flat expanded, max 3 preview per group)
- * - Header: category icon + label + count badge
+ * - Header: category icon + label + count badge + group color (highest priority)
  * - Rows: priority dot + title + unhandled warning + location + time + priority badge
  *         + inline priority picker (3 buttons untuk quick change)
  * - "X lainnya" footer kalau > 3 items
  *
  * Groups sorted by count desc (kategori paling rame di atas).
- * Inside each group, sorted by priority (urgent > high > normal).
+ * Inside each group, sorted by created_at DESC (newest first).
+ *
+ * Sub-Sprint 1C-C-13 Phase 1.5 — Stream Mode sort:
+ *   Within each category group, rows sorted by created_at DESC (newest first)
+ *   instead of priority. Reasoning:
+ *   - "Baru Masuk" section already surfaces urgency (top 5 < 24h regardless priority)
+ *   - BARU badge inline highlights new reports
+ *   - Priority badge per-row tetap visible (urgent dot + priority pill)
+ *   - Group header color tetap reflect highest priority in group (compute separately)
+ *   - Mental model "newest first" matches admin daily scan paradigm
  *
  * Priority picker calls parent's `onChangePriority` — parent handle API.
  */
@@ -28,7 +36,6 @@ import { PriorityPicker } from './priority-picker';
 import {
   getCategoryConfig,
   groupByCategory,
-  sortReportsByPriority,
   type Report,
   type ReportPriority,
 } from '@/types/reports';
@@ -64,6 +71,27 @@ export interface ReportGroupListProps {
   /** Reset filter callback untuk empty state action */
   onResetFilter?: () => void;
   className?: string;
+}
+
+/**
+ * Sub-Sprint 1C-C-13 Phase 1.5 — compute highest priority dalam list.
+ * Used untuk group header color (tetap reflect urgency walaupun rows sorted by time).
+ */
+function computeTopPriority(items: Report[]): ReportPriority {
+  if (items.some((r) => r.priority === 'urgent')) return 'urgent';
+  if (items.some((r) => r.priority === 'high')) return 'high';
+  return 'normal';
+}
+
+/**
+ * Sub-Sprint 1C-C-13 Phase 1.5 — sort by created_at DESC (newest first).
+ * Stream Mode: matches admin daily scan paradigm.
+ */
+function sortByCreatedDesc(items: Report[]): Report[] {
+  return [...items].sort(
+    (a, b) =>
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+  );
 }
 
 export function ReportGroupList({
@@ -112,8 +140,10 @@ export function ReportGroupList({
     <div className={cn('flex flex-col gap-3', className)}>
       {sortedGroups.map(([category, items]) => {
         const config = getCategoryConfig(category);
-        const sortedItems = sortReportsByPriority(items);
-        const topPriority = sortedItems[0]?.priority ?? 'normal';
+        // Sub-Sprint 1C-C-13 Phase 1.5 — Stream Mode sort:
+        // Rows by created_at DESC, group header color by highest priority (separate compute)
+        const sortedItems = sortByCreatedDesc(items);
+        const topPriority = computeTopPriority(items);
         const preview = sortedItems.slice(0, previewPerGroup);
         const remaining = items.length - preview.length;
 
@@ -162,7 +192,7 @@ export function ReportGroupList({
               </span>
             </div>
 
-            {/* Preview rows */}
+            {/* Preview rows — newest first (Stream Mode) */}
             {preview.map((r) => {
               const isLoading = actionLoadingId === `${r.id}priority`;
               const isVerifying = actionLoadingId === `${r.id}verify`;
