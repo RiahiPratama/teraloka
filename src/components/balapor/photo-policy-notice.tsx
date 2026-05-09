@@ -3,14 +3,16 @@
 /**
  * TeraLoka — PhotoPolicyNotice
  * BALAPOR Pre-Launch Polish — Day 2 Photo Policy
+ * Updated: 10 Mei 2026 — copy formalization (Pattern QQ)
  * ------------------------------------------------------------
- * Inline notice + checkbox gate untuk photo upload di /balapor/buat-laporan.
+ * Inline notice + checkbox gate untuk photo upload di /reports/buat-laporan.
  *
  * Behavior:
- *   - Kalau !agreed: render full notice + checkbox required
- *   - Kalau agreed: render compact summary "Sudah disetujui ✓" + edit link
+ *   - Apabila !agreed: render full notice + checkbox required
+ *   - Apabila agreed: render compact summary + edit link
  *
  * Style: match lapor page palette (red BALAPOR #EF4444, gray neutral).
+ * Tone: formal-tidak-kaku, target audiens pelapor Maluku Utara.
  */
 
 import Link from 'next/link';
@@ -32,16 +34,16 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
         </span>
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-emerald-700">
-            Aturan foto bukti sudah disetujui
+            Aturan foto bukti telah disetujui
           </p>
           <p className="text-xs text-emerald-600 mt-0.5">
-            Silakan upload foto sesuai panduan.{' '}
+            Silakan unggah foto sesuai panduan.{' '}
             <button
               type="button"
               onClick={() => onAgreedChange(false)}
               className="underline font-semibold hover:text-emerald-700"
             >
-              Lihat aturan lagi
+              Lihat aturan kembali
             </button>
           </p>
         </div>
@@ -64,7 +66,7 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
         <div className="flex-1 min-w-0">
           <h3 className="text-sm font-extrabold text-gray-900">Aturan Foto Bukti</h3>
           <p className="text-[11px] text-gray-500">
-            Baca dulu sebelum upload — biar laporan kamu gak ditolak
+            Mohon dibaca terlebih dahulu sebelum unggah foto
           </p>
         </div>
       </div>
@@ -114,7 +116,7 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
         <ul className="space-y-1 text-xs text-gray-700 ml-1">
           <li className="flex gap-1.5">
             <span className="text-[#EF4444] shrink-0">•</span>
-            <span>Wajah orang tanpa persetujuan</span>
+            <span>Wajah orang tanpa persetujuan tertulis</span>
           </li>
           <li className="flex gap-1.5">
             <span className="text-[#EF4444] shrink-0">•</span>
@@ -126,7 +128,7 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
           </li>
           <li className="flex gap-1.5">
             <span className="text-[#EF4444] shrink-0">•</span>
-            <span>Dokumen pribadi (KTP, KK, dll)</span>
+            <span>Dokumen pribadi (KTP, KK, dan sejenisnya)</span>
           </li>
         </ul>
       </div>
@@ -154,7 +156,7 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
             className="mt-0.5 h-4 w-4 accent-[#EF4444] shrink-0"
           />
           <span className="text-sm font-semibold text-gray-800 leading-snug">
-            Saya mengerti aturan ini dan akan upload foto sesuai panduan
+            Saya memahami aturan ini dan akan mengunggah foto sesuai panduan
           </span>
         </label>
 

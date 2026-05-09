@@ -3,37 +3,50 @@
 /**
  * TeraLoka — BalaporMapLeaflet (Inner component, Leaflet-based)
  * Phase 2 · Batch 7b2 — Reports Map
+ * Updated: 10 Mei 2026 — Day 3-4 A3 Admin Live Map Cluster
+ *   - Replace CircleMarker → DivIcon Marker (untuk cluster compatibility)
+ *   - Add MarkerClusterLayer (vanilla L.markerClusterGroup via useMap hook)
+ *   - Custom cluster icon: color by dominant priority, size by count
  * ------------------------------------------------------------
- * Real geographic map untuk laporan BALAPOR pakai react-leaflet v5.
+ * Real geographic map untuk laporan BALAPOR pakai react-leaflet v5
+ * + leaflet.markercluster plugin.
+ *
  * Tidak untuk di-import langsung — selalu via <BalaporMap />
  * (wrapper di balapor-map.tsx) yang handle dynamic import SSR-safe.
  *
- * Features:
- * - CartoDB Positron (light) / Dark Matter (dark) — auto-switch via useTheme
- * - Circle markers dengan size + color berdasarkan priority
- * - Popup on click: title + kategori + lokasi + waktu + priority badge
- * - Fit bounds otomatis saat reports berubah (kalau ada coords)
- * - No coords overlay kalau tidak ada laporan dengan latitude/longitude
+ * Cluster behavior:
+ * - maxClusterRadius: 50 (default, balanced)
+ * - disableClusteringAtZoom: 11 (di zoom tinggi tampil individual)
+ * - spiderfyOnMaxZoom: true (spiderfy markers tumpuk di max zoom)
+ * - showCoverageOnHover: false (gak distract admin saat hover)
  *
- * Marker sizes (radius px):
- * - urgent: 12
- * - high:   9
- * - normal: 7
+ * Cluster icon visual:
+ * - Color: gradient red kalau ada urgent, orange kalau ada high, green kalau normal
+ * - Size: 36/44/52 px berdasarkan count (<10 / <50 / >=50)
+ *
+ * Marker individual visual:
+ * - DivIcon styled circle (mimic CircleMarker dari versi sebelumnya)
+ * - Size dari PRIORITY_CONFIG.mapMarkerRadius * 2
  *
  * Attribution: © OpenStreetMap contributors © CARTO
  */
 
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.markercluster/dist/MarkerCluster.css';
+import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
+import 'leaflet.markercluster';
+
 import { useEffect, useMemo } from 'react';
 import type { LatLngExpression } from 'leaflet';
 import L from 'leaflet';
-import { CircleMarker, MapContainer, Popup, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { useTheme } from '@/lib/theme';
 import {
   PRIORITY_CONFIG,
   timeAgo,
   getCategoryConfig,
   type Report,
+  type ReportPriority,
 } from '@/types/reports';
 
 /* ─── Tile provider URLs ─── */
@@ -51,30 +64,182 @@ const TILE_ATTRIBUTION =
 const MAP_CENTER: LatLngExpression = [0.5, 127.8];
 const DEFAULT_ZOOM = 7;
 
-/* ─── Auto-fit bounds on reports change ─── */
+/* ─── HTML escape helper untuk popup ─── */
 
-function FitBoundsOnReports({ reports }: { reports: Report[] }) {
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/* ─── Build individual marker DivIcon (replace CircleMarker) ─── */
+
+function buildMarkerIcon(priority: ReportPriority): L.DivIcon {
+  const config = PRIORITY_CONFIG[priority];
+  const size = config.mapMarkerRadius * 2;
+
+  return L.divIcon({
+    html: `<div style="
+      width:${size}px;
+      height:${size}px;
+      border-radius:50%;
+      background:${config.hex};
+      border:2px solid white;
+      box-shadow:0 1px 3px rgba(0,0,0,0.3);
+      opacity:0.9;
+    "></div>`,
+    className: 'balapor-priority-marker',
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+/* ─── Build popup HTML (manual, biar kerja dengan vanilla Leaflet marker) ─── */
+
+function buildPopupHTML(r: Report): string {
+  const config = PRIORITY_CONFIG[r.priority];
+  const categoryConfig = getCategoryConfig(r.category);
+  const locationStr = r.location ? ` · 📍 ${escapeHtml(r.location)}` : '';
+
+  return `
+    <div style="min-width:200px;font-family:Outfit,system-ui,sans-serif">
+      <div style="font-weight:700;font-size:13px;color:#0F172A;margin-bottom:4px;line-height:1.3">
+        ${escapeHtml(r.title)}
+      </div>
+      <div style="font-size:11px;color:#64748B;margin-bottom:6px">
+        <span aria-hidden="true">${categoryConfig.emoji}</span>
+        <span style="text-transform:capitalize">${escapeHtml(r.category || 'lainnya')}</span>${locationStr}
+      </div>
+      <div style="font-size:11px;color:#94A3B8;margin-bottom:8px">
+        ${timeAgo(r.created_at)}
+      </div>
+      <div style="
+        display:inline-flex;align-items:center;gap:4px;
+        font-size:10px;font-weight:700;padding:2px 8px;
+        border-radius:20px;
+        background:${config.hex}22;color:${config.hex};
+        border:1px solid ${config.hex}44;
+      ">
+        ${config.emoji} ${config.label}
+      </div>
+    </div>
+  `;
+}
+
+/* ─── Cluster icon factory (color by dominant priority, scale by count) ─── */
+
+interface ClusterMarker extends L.Marker {
+  options: L.MarkerOptions & { _balaporPriority?: ReportPriority };
+}
+
+function buildClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
+  const count = cluster.getChildCount();
+  const markers = cluster.getAllChildMarkers() as ClusterMarker[];
+
+  // Hitung dominant priority — kalau ada urgent → red, kalau high → orange, else green
+  let urgent = 0;
+  let high = 0;
+  for (const m of markers) {
+    const p = m.options._balaporPriority;
+    if (p === 'urgent') urgent++;
+    else if (p === 'high') high++;
+  }
+
+  let bg: string;
+  let border: string;
+  if (urgent > 0) {
+    bg = 'linear-gradient(135deg, #EF4444, #DC2626)';
+    border = '#EF4444';
+  } else if (high > 0) {
+    bg = 'linear-gradient(135deg, #F59E0B, #D97706)';
+    border = '#F59E0B';
+  } else {
+    bg = 'linear-gradient(135deg, #10B981, #059669)';
+    border = '#10B981';
+  }
+
+  // Size by count
+  const size = count < 10 ? 36 : count < 50 ? 44 : 52;
+  const fontSize = count < 100 ? 13 : 11;
+
+  return L.divIcon({
+    html: `<div style="
+      width:${size}px;height:${size}px;
+      background:${bg};
+      border:3px solid white;
+      border-radius:50%;
+      box-shadow:0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px ${border}33;
+      display:flex;align-items:center;justify-content:center;
+      color:white;font-weight:700;font-size:${fontSize}px;
+      font-family:Outfit,system-ui,sans-serif;
+    ">${count}</div>`,
+    className: 'balapor-cluster-icon',
+    iconSize: L.point(size, size),
+  });
+}
+
+/* ─── MarkerClusterLayer — imperative Leaflet via useMap hook ─── */
+
+interface MarkerClusterLayerProps {
+  reports: Array<Report & { latitude: number; longitude: number }>;
+  onMarkerClick?: (report: Report) => void;
+}
+
+function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps) {
   const map = useMap();
 
   useEffect(() => {
-    const withCoords = reports.filter(
-      (r): r is Report & { latitude: number; longitude: number } =>
-        r.latitude !== null && r.longitude !== null
-    );
+    // Type assertion needed — markerClusterGroup di-attach via side-effect import
+    const clusterGroup = (L as unknown as {
+      markerClusterGroup: (opts: L.MarkerClusterGroupOptions) => L.MarkerClusterGroup;
+    }).markerClusterGroup({
+      iconCreateFunction: buildClusterIcon,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      disableClusteringAtZoom: 11,
+      animate: true,
+      animateAddingMarkers: false,
+      chunkedLoading: true,
+    });
 
-    if (withCoords.length === 0) return;
-
+    // Auto-fit bounds setup
     const bounds = L.latLngBounds(
-      withCoords.map((r) => [r.latitude, r.longitude] as [number, number])
+      reports.map((r) => [r.latitude, r.longitude] as [number, number])
     );
 
-    // Kalau cuma 1 marker, jangan zoom in max — keep reasonable view
-    if (withCoords.length === 1) {
+    for (const r of reports) {
+      const marker = L.marker([r.latitude, r.longitude], {
+        icon: buildMarkerIcon(r.priority),
+        // Attach priority untuk clusterIcon dominant calc
+        _balaporPriority: r.priority,
+      } as L.MarkerOptions & { _balaporPriority: ReportPriority });
+
+      marker.bindPopup(buildPopupHTML(r));
+
+      if (onMarkerClick) {
+        marker.on('click', () => onMarkerClick(r));
+      }
+
+      clusterGroup.addLayer(marker);
+    }
+
+    map.addLayer(clusterGroup);
+
+    // Auto-fit
+    if (reports.length === 1) {
       map.setView(bounds.getCenter(), 10);
-    } else {
+    } else if (reports.length > 1) {
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
     }
-  }, [reports, map]);
+
+    return () => {
+      map.removeLayer(clusterGroup);
+    };
+  }, [map, reports, onMarkerClick]);
 
   return null;
 }
@@ -137,93 +302,12 @@ export function BalaporMapLeaflet({
           maxZoom={19}
         />
 
-        <FitBoundsOnReports reports={reports} />
-
-        {reportsWithCoords.map((r) => {
-          const config = PRIORITY_CONFIG[r.priority];
-          const categoryConfig = getCategoryConfig(r.category);
-
-          return (
-            <CircleMarker
-              key={r.id}
-              center={[r.latitude, r.longitude]}
-              radius={config.mapMarkerRadius}
-              pathOptions={{
-                fillColor: config.hex,
-                color: '#fff',
-                weight: 2,
-                opacity: 1,
-                fillOpacity: 0.85,
-              }}
-              eventHandlers={
-                onMarkerClick
-                  ? {
-                      click: () => onMarkerClick(r),
-                    }
-                  : undefined
-              }
-            >
-              <Popup>
-                <div
-                  style={{
-                    minWidth: 200,
-                    fontFamily: 'Outfit, system-ui, sans-serif',
-                  }}
-                >
-                  <div
-                    style={{
-                      fontWeight: 700,
-                      fontSize: 13,
-                      color: '#0F172A',
-                      marginBottom: 4,
-                      lineHeight: 1.3,
-                    }}
-                  >
-                    {r.title}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: '#64748B',
-                      marginBottom: 6,
-                    }}
-                  >
-                    <span aria-hidden="true">{categoryConfig.emoji}</span>{' '}
-                    <span style={{ textTransform: 'capitalize' }}>
-                      {r.category || 'lainnya'}
-                    </span>
-                    {r.location && ` · 📍 ${r.location}`}
-                  </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: '#94A3B8',
-                      marginBottom: 8,
-                    }}
-                  >
-                    {timeAgo(r.created_at)}
-                  </div>
-                  <div
-                    style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 4,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      padding: '2px 8px',
-                      borderRadius: 20,
-                      background: `${config.hex}22`,
-                      color: config.hex,
-                      border: `1px solid ${config.hex}44`,
-                    }}
-                  >
-                    {config.emoji} {config.label}
-                  </div>
-                </div>
-              </Popup>
-            </CircleMarker>
-          );
-        })}
+        {hasCoords && (
+          <MarkerClusterLayer
+            reports={reportsWithCoords}
+            onMarkerClick={onMarkerClick}
+          />
+        )}
       </MapContainer>
 
       {/* Legend overlay — bottom left */}
@@ -261,7 +345,7 @@ export function BalaporMapLeaflet({
               Belum ada laporan dengan koordinat GPS
             </p>
             <p className="text-[11px] text-text-muted mt-1.5 leading-relaxed">
-              Pin akan muncul saat user izinkan akses lokasi.
+              Pin akan muncul saat user mengizinkan akses lokasi.
             </p>
           </div>
         </div>

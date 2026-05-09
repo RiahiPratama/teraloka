@@ -1,8 +1,10 @@
 /**
  * TeraLoka — Halaman Aturan Foto Bukti BALAPOR
  * BALAPOR Pre-Launch Polish — Day 2 Photo Policy Detail Page
+ * Updated: 10 Mei 2026 — copy formalization (Pattern QQ)
  * ------------------------------------------------------------
  * Public route, SEO-indexable, mobile-first.
+ * Path: /aturan/balapor/foto-bukti
  *
  * Sections (per PRD-BALAPOR-v2.0 Section 7.3.2):
  *   1. Pengantar (kenapa aturan ini ada)
@@ -12,6 +14,8 @@
  *   5. Pengecualian khusus
  *   6. Hak pelapor
  *   7. Kontak admin
+ *
+ * Tone: formal-tidak-kaku, target audiens pelapor Maluku Utara.
  */
 
 import type { Metadata } from 'next';
@@ -20,17 +24,17 @@ import Link from 'next/link';
 export const metadata: Metadata = {
   title: 'Aturan Foto Bukti BALAPOR — TeraLoka',
   description:
-    'Panduan upload foto bukti laporan warga di BALAPOR TeraLoka. Lindungi privasi orang lain, hindari penolakan laporan, dan jadilah pelapor yang bertanggung jawab.',
+    'Panduan unggah foto bukti laporan warga di BALAPOR TeraLoka. Lindungi privasi orang lain, hindari penolakan laporan, dan jadilah pelapor yang bertanggung jawab.',
   keywords: [
     'aturan foto BALAPOR',
-    'panduan upload foto laporan',
+    'panduan unggah foto laporan',
     'kebijakan privasi TeraLoka',
     'lapor warga Maluku Utara',
   ],
   openGraph: {
     title: 'Aturan Foto Bukti BALAPOR — TeraLoka',
     description:
-      'Panduan upload foto bukti laporan warga di BALAPOR TeraLoka.',
+      'Panduan unggah foto bukti laporan warga di BALAPOR TeraLoka.',
     type: 'article',
   },
 };
@@ -39,17 +43,17 @@ const ALLOWED = [
   {
     icon: 'construction',
     title: 'Infrastruktur Fisik',
-    desc: 'Jalan rusak, jembatan retak, got mampet, lampu jalan mati, tiang listrik miring, fasilitas umum yang rusak.',
+    desc: 'Jalan rusak, jembatan retak, got tersumbat, lampu jalan mati, tiang listrik miring, dan fasilitas umum yang rusak.',
   },
   {
     icon: 'park',
     title: 'Lingkungan',
-    desc: 'Sampah liar, banjir, pencemaran air/udara, kerusakan alam, pohon tumbang, area kumuh.',
+    desc: 'Sampah liar, banjir, pencemaran air dan udara, kerusakan alam, pohon tumbang, serta area kumuh.',
   },
   {
     icon: 'apartment',
     title: 'Bangunan dan Area Umum',
-    desc: 'Gedung pemerintah, sekolah, pasar, terminal, pelabuhan, area publik tanpa orang yang teridentifikasi.',
+    desc: 'Gedung pemerintah, sekolah, pasar, terminal, pelabuhan, dan area publik tanpa orang yang teridentifikasi.',
   },
 ];
 
@@ -57,34 +61,34 @@ const PROHIBITED = [
   {
     icon: 'face',
     title: 'Wajah Orang Tanpa Persetujuan',
-    desc: 'Wajah yang bisa dikenali (close-up, jelas terlihat) tanpa izin tertulis dari orang tersebut. Termasuk wajah pelaku, korban, atau saksi.',
-    why: 'Privasi adalah hak. Foto wajah bisa berdampak hukum + sosial bagi orang yang difoto.',
+    desc: 'Wajah yang dapat dikenali (close-up, jelas terlihat) tanpa izin tertulis dari orang tersebut. Termasuk wajah pelaku, korban, atau saksi.',
+    why: 'Privasi adalah hak. Foto wajah dapat berdampak hukum dan sosial bagi orang yang difoto.',
   },
   {
     icon: 'directions_car',
     title: 'Plat Kendaraan',
-    desc: 'Nomor plat kendaraan (mobil, motor, truk) yang teridentifikasi jelas — kecuali untuk pelanggaran lalu lintas spesifik.',
-    why: 'Plat kendaraan bisa di-trace ke pemilik. Salah lapor = kriminalisasi orang yang gak bersalah.',
+    desc: 'Nomor plat kendaraan (mobil, motor, truk) yang teridentifikasi jelas, kecuali untuk pelanggaran lalu lintas spesifik.',
+    why: 'Plat kendaraan dapat dilacak ke pemilik. Kesalahan dalam pelaporan berpotensi mengkriminalisasi orang yang tidak bersalah.',
   },
   {
     icon: 'child_care',
     title: 'Anak di Bawah Umur',
-    desc: 'Anak-anak (di bawah 18 tahun) dalam kondisi apapun, walaupun wajahnya gak jelas. Wajah bayi, balita, anak sekolah dasar/menengah dilarang keras.',
-    why: 'UU Perlindungan Anak (UU 35/2014) larangan keras eksploitasi gambar anak. Ini ranah kriminal.',
+    desc: 'Anak-anak (di bawah 18 tahun) dalam kondisi apa pun, walaupun wajah tidak terlihat jelas. Wajah bayi, balita, anak sekolah dasar dan menengah dilarang keras.',
+    why: 'UU Perlindungan Anak (UU 35/2014) melarang keras eksploitasi gambar anak. Hal ini termasuk ranah pidana.',
   },
   {
     icon: 'description',
     title: 'Dokumen Pribadi',
-    desc: 'KTP, KK, NPWP, kartu BPJS, paspor, akta lahir, ijazah, atau dokumen identitas pribadi lainnya yang teridentifikasi.',
-    why: 'Bocoran dokumen pribadi = potensi pencurian identitas + penipuan.',
+    desc: 'KTP, KK, NPWP, kartu BPJS, paspor, akta kelahiran, ijazah, atau dokumen identitas pribadi lainnya yang teridentifikasi.',
+    why: 'Bocornya dokumen pribadi berpotensi menyebabkan pencurian identitas dan penipuan.',
   },
 ];
 
 const RIGHTS = [
-  'Mengajukan permintaan hapus laporan kapan saja via "Laporan Saya"',
-  'Edit foto laporan jika belum diverifikasi (dalam 24 jam pertama)',
-  'Mendapat alasan jelas jika laporan ditolak admin',
-  'Mengajukan banding jika merasa keputusan admin tidak tepat',
+  'Mengajukan permintaan hapus laporan kapan saja melalui menu "Laporan Saya"',
+  'Mengedit foto laporan apabila belum diverifikasi (dalam 24 jam pertama)',
+  'Mendapatkan alasan jelas apabila laporan ditolak admin',
+  'Mengajukan banding apabila merasa keputusan admin tidak tepat',
 ];
 
 export default function AturanFotoBuktiPage() {
@@ -112,7 +116,7 @@ export default function AturanFotoBuktiPage() {
           </h1>
 
           <p className="mt-3 text-sm text-[#95d3ba] leading-relaxed max-w-md mx-auto">
-            Panduan upload foto bukti yang melindungi privasi orang lain.
+            Panduan unggah foto bukti yang melindungi privasi orang lain.
           </p>
         </div>
       </div>
@@ -128,18 +132,18 @@ export default function AturanFotoBuktiPage() {
             >
               info
             </span>
-            Kenapa Ada Aturan Ini?
+            Mengapa Aturan Ini Diperlukan?
           </h2>
           <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
             <p>
-              BALAPOR TeraLoka adalah platform civic warga Maluku Utara — laporan
-              kamu bisa naik jadi berita BAKABAR untuk public exposure. Karena
-              foto laporan punya potensi tersebar luas, kami punya aturan ketat
-              soal privasi.
+              BALAPOR TeraLoka adalah platform civic warga Maluku Utara. Laporan
+              Anda dapat diangkat menjadi berita BAKABAR untuk publikasi yang
+              lebih luas. Karena foto laporan memiliki potensi tersebar luas,
+              kami memberlakukan aturan ketat mengenai privasi.
             </p>
             <p>
-              Aturan ini melindungi <strong>kamu sebagai pelapor</strong> dari
-              tuntutan hukum, dan melindungi{' '}
+              Aturan ini melindungi <strong>Anda sebagai pelapor</strong> dari
+              tuntutan hukum, sekaligus melindungi{' '}
               <strong>orang yang ada di foto</strong> dari pelanggaran privasi.
             </p>
           </div>
@@ -220,7 +224,7 @@ export default function AturanFotoBuktiPage() {
                 </div>
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 ml-12">
                   <p className="text-xs text-amber-700 leading-relaxed">
-                    <strong>Kenapa dilarang:</strong> {item.why}
+                    <strong>Alasan:</strong> {item.why}
                   </p>
                 </div>
               </div>
@@ -237,31 +241,33 @@ export default function AturanFotoBuktiPage() {
             >
               gavel
             </span>
-            Konsekuensi Jika Melanggar
+            Konsekuensi Apabila Melanggar
           </h2>
           <div className="space-y-2 text-sm text-gray-700 leading-relaxed">
-            <p>Jika foto kamu melanggar aturan di atas:</p>
+            <p>Apabila foto Anda melanggar aturan di atas:</p>
             <ul className="list-disc list-inside space-y-1.5 ml-2 text-xs">
               <li>
-                <strong>Laporan ditolak admin</strong> — gak naik ke verifikasi,
-                gak naik BAKABAR
+                <strong>Laporan ditolak admin</strong> — tidak dilanjutkan ke
+                verifikasi maupun publikasi BAKABAR
               </li>
               <li>
-                <strong>Notifikasi alasan ditolak</strong> — kamu dapet pesan
-                jelas via WA atau "Laporan Saya"
+                <strong>Notifikasi alasan penolakan</strong> — Anda akan
+                menerima pesan dengan alasan yang jelas melalui WhatsApp atau
+                menu &ldquo;Laporan Saya&rdquo;
               </li>
               <li>
-                <strong>Pelanggaran berulang</strong> — akun bisa di-suspend
+                <strong>Pelanggaran berulang</strong> — akun dapat ditangguhkan
                 sementara
               </li>
               <li>
-                <strong>Pelanggaran berat (anak/dokumen pribadi)</strong> —
-                laporan dihapus permanen + akun di-banned
+                <strong>Pelanggaran berat (anak atau dokumen pribadi)</strong> —
+                laporan dihapus permanen dan akun diblokir
               </li>
             </ul>
             <p className="mt-3 text-xs text-gray-500 italic">
-              Note: Admin TeraLoka selalu kasih alasan jelas. Kalau merasa
-              keputusan gak tepat, kamu bisa ajukan banding.
+              Catatan: Admin TeraLoka selalu memberikan alasan penolakan yang
+              jelas. Apabila merasa keputusan tidak tepat, Anda dapat
+              mengajukan banding.
             </p>
           </div>
         </section>
@@ -283,18 +289,19 @@ export default function AturanFotoBuktiPage() {
                 Plat kendaraan untuk pelanggaran lalu lintas
               </p>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Boleh — selama foto fokus ke pelanggaran (parkir liar, melawan
-                arah, melebihi batas tonase), bukan ke wajah pengendara.
+                Diperbolehkan, selama foto berfokus pada pelanggaran (parkir
+                liar, melawan arah, melebihi batas tonase), bukan pada wajah
+                pengendara.
               </p>
             </div>
             <div className="rounded-lg bg-gray-50 p-3">
               <p className="font-semibold text-gray-900 mb-1">
-                Foto pejabat publik dalam tugas
+                Foto pejabat publik dalam kapasitas tugas
               </p>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Boleh — pejabat dalam kapasitas tugas resmi (rapat publik, sidak,
-                acara pemerintahan) tidak punya ekspektasi privasi yang sama
-                dengan warga sipil.
+                Diperbolehkan. Pejabat publik dalam kapasitas tugas resmi
+                (rapat publik, sidak, acara pemerintahan) tidak memiliki
+                ekspektasi privasi yang sama dengan warga sipil.
               </p>
             </div>
             <div className="rounded-lg bg-gray-50 p-3">
@@ -302,8 +309,9 @@ export default function AturanFotoBuktiPage() {
                 Foto kerumunan tanpa identifikasi spesifik
               </p>
               <p className="text-xs text-gray-600 leading-relaxed">
-                Boleh — kerumunan jauh dimana wajah individu gak jelas.
-                Misal: foto demo, banjir di pasar (orang dari jauh).
+                Diperbolehkan. Foto kerumunan dari kejauhan di mana wajah
+                individu tidak terlihat jelas. Contoh: foto demonstrasi atau
+                banjir di pasar (subjek dari jarak jauh).
               </p>
             </div>
           </div>
@@ -318,7 +326,7 @@ export default function AturanFotoBuktiPage() {
             >
               shield
             </span>
-            Hak Kamu sebagai Pelapor
+            Hak Anda sebagai Pelapor
           </h2>
           <ul className="space-y-2">
             {RIGHTS.map((right, i) => (
@@ -344,11 +352,11 @@ export default function AturanFotoBuktiPage() {
             support_agent
           </span>
           <h2 className="text-base font-bold text-white mb-2">
-            Punya Pertanyaan?
+            Memiliki Pertanyaan?
           </h2>
           <p className="text-sm text-[#95d3ba] mb-4 leading-relaxed">
-            Tim BALAPOR siap bantu klarifikasi aturan ini. Hubungi kami untuk
-            kasus ragu-ragu sebelum upload.
+            Tim BALAPOR siap membantu klarifikasi aturan ini. Silakan hubungi
+            kami untuk konsultasi sebelum mengunggah foto.
           </p>
           <Link
             href="/kontak"
@@ -362,7 +370,7 @@ export default function AturanFotoBuktiPage() {
         {/* CTA back to lapor */}
         <div className="text-center pt-2">
           <Link
-            href="/balapor/buat-laporan"
+            href="/reports/buat-laporan"
             className="inline-flex items-center gap-1.5 text-sm font-semibold text-[#EF4444] hover:underline"
           >
             ← Lanjutkan Buat Laporan
