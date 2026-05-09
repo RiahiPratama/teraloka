@@ -7,26 +7,20 @@
  *   - Replace CircleMarker → DivIcon Marker (untuk cluster compatibility)
  *   - Add MarkerClusterLayer (vanilla L.markerClusterGroup via useMap hook)
  *   - Custom cluster icon: color by dominant priority, size by count
+ * Hotfix 10 Mei: Lazy-load markercluster plugin (Pattern RR — avoid
+ *   "L is not defined" saat module eval order tidak dijamin di Next.js).
  * ------------------------------------------------------------
  * Real geographic map untuk laporan BALAPOR pakai react-leaflet v5
- * + leaflet.markercluster plugin.
- *
- * Tidak untuk di-import langsung — selalu via <BalaporMap />
- * (wrapper di balapor-map.tsx) yang handle dynamic import SSR-safe.
+ * + leaflet.markercluster plugin (lazy loaded).
  *
  * Cluster behavior:
- * - maxClusterRadius: 50 (default, balanced)
- * - disableClusteringAtZoom: 11 (di zoom tinggi tampil individual)
- * - spiderfyOnMaxZoom: true (spiderfy markers tumpuk di max zoom)
- * - showCoverageOnHover: false (gak distract admin saat hover)
+ * - maxClusterRadius: 50
+ * - disableClusteringAtZoom: 11
+ * - spiderfyOnMaxZoom: true
  *
  * Cluster icon visual:
- * - Color: gradient red kalau ada urgent, orange kalau ada high, green kalau normal
+ * - Color: red kalau ada urgent, orange kalau ada high, green kalau normal
  * - Size: 36/44/52 px berdasarkan count (<10 / <50 / >=50)
- *
- * Marker individual visual:
- * - DivIcon styled circle (mimic CircleMarker dari versi sebelumnya)
- * - Size dari PRIORITY_CONFIG.mapMarkerRadius * 2
  *
  * Attribution: © OpenStreetMap contributors © CARTO
  */
@@ -34,9 +28,11 @@
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import 'leaflet.markercluster';
+// NOTE: leaflet.markercluster JS plugin di-lazy load di useEffect.
+// Top-level import bikin "L is not defined" karena plugin assume L
+// global tersedia saat module eval, padahal ESM order tidak dijamin.
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { LatLngExpression } from 'leaflet';
 import L from 'leaflet';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
@@ -131,13 +127,18 @@ function buildPopupHTML(r: Report): string {
 
 /* ─── Cluster icon factory (color by dominant priority, scale by count) ─── */
 
-interface ClusterMarker extends L.Marker {
-  options: L.MarkerOptions & { _balaporPriority?: ReportPriority };
+// Type minimal — buildClusterIcon di-pass ke L.markerClusterGroup
+// dimana cluster.getChildCount/getAllChildMarkers tersedia
+interface ClusterLike {
+  getChildCount: () => number;
+  getAllChildMarkers: () => Array<{
+    options: { _balaporPriority?: ReportPriority };
+  }>;
 }
 
-function buildClusterIcon(cluster: L.MarkerCluster): L.DivIcon {
+function buildClusterIcon(cluster: ClusterLike): L.DivIcon {
   const count = cluster.getChildCount();
-  const markers = cluster.getAllChildMarkers() as ClusterMarker[];
+  const markers = cluster.getAllChildMarkers();
 
   // Hitung dominant priority — kalau ada urgent → red, kalau high → orange, else green
   let urgent = 0;
@@ -190,12 +191,33 @@ interface MarkerClusterLayerProps {
 
 function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps) {
   const map = useMap();
+  const [pluginReady, setPluginReady] = useState(false);
 
+  /* ── Lazy-load plugin (avoid SSR + ESM order issue) ── */
   useEffect(() => {
-    // Type assertion needed — markerClusterGroup di-attach via side-effect import
-    const clusterGroup = (L as unknown as {
-      markerClusterGroup: (opts: L.MarkerClusterGroupOptions) => L.MarkerClusterGroup;
-    }).markerClusterGroup({
+    let cancelled = false;
+    import('leaflet.markercluster')
+      .then(() => {
+        if (!cancelled) setPluginReady(true);
+      })
+      .catch((err) => {
+        console.error('Failed to load leaflet.markercluster:', err);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /* ── Setup cluster group setelah plugin ready ── */
+  useEffect(() => {
+    if (!pluginReady) return;
+
+    // markerClusterGroup attached to L after plugin module evaluated
+    const clusterGroup = (
+      L as unknown as {
+        markerClusterGroup: (opts: Record<string, unknown>) => L.LayerGroup;
+      }
+    ).markerClusterGroup({
       iconCreateFunction: buildClusterIcon,
       maxClusterRadius: 50,
       spiderfyOnMaxZoom: true,
@@ -207,9 +229,12 @@ function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps)
     });
 
     // Auto-fit bounds setup
-    const bounds = L.latLngBounds(
-      reports.map((r) => [r.latitude, r.longitude] as [number, number])
-    );
+    const bounds =
+      reports.length > 0
+        ? L.latLngBounds(
+            reports.map((r) => [r.latitude, r.longitude] as [number, number])
+          )
+        : null;
 
     for (const r of reports) {
       const marker = L.marker([r.latitude, r.longitude], {
@@ -230,16 +255,16 @@ function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps)
     map.addLayer(clusterGroup);
 
     // Auto-fit
-    if (reports.length === 1) {
+    if (reports.length === 1 && bounds) {
       map.setView(bounds.getCenter(), 10);
-    } else if (reports.length > 1) {
+    } else if (reports.length > 1 && bounds) {
       map.fitBounds(bounds, { padding: [30, 30], maxZoom: 10 });
     }
 
     return () => {
       map.removeLayer(clusterGroup);
     };
-  }, [map, reports, onMarkerClick]);
+  }, [map, reports, onMarkerClick, pluginReady]);
 
   return null;
 }
