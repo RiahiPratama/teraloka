@@ -55,6 +55,7 @@ import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
 import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
 import { WilayahTab } from '@/components/admin/reports/wilayah-tab';
+import { PelaporTab } from '@/components/admin/reports/pelapor-tab';
 import { CivicTimelineAdminModal } from '@/components/admin/reports/civic-timeline-admin-modal';
 import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
 import { PhotoLightbox } from '@/components/admin/reports/photo-lightbox';
@@ -82,6 +83,7 @@ type TabKey =
   | 'smart_alert'
   | 'convert_bakabar'
   | 'wilayah'
+  | 'pelapor'
   | 'instansi'
   | 'deepdive'
   | 'audit_log';
@@ -317,6 +319,7 @@ export default function AdminReportsPage() {
     { key: 'smart_alert', label: 'Smart Alert' },
     { key: 'convert_bakabar', label: 'Convert BAKABAR' },
     { key: 'wilayah', label: 'Wilayah' },
+    { key: 'pelapor', label: 'Pelapor' },
     { key: 'deepdive', label: 'Deep Dive' },
     { key: 'audit_log', label: 'Audit Log' },
     { key: 'instansi', label: 'Instansi', disabled: true, badge: 'SOON' },
@@ -324,6 +327,8 @@ export default function AdminReportsPage() {
 
   // Wilayah tab refresh nonce (Sub-Sprint 1C-C-12)
   const [wilayahNonce, setWilayahNonce] = useState(0);
+  // Pelapor tab refresh nonce (Sub-Sprint 1C-C-13 Phase 3)
+  const [pelaporNonce, setPelaporNonce] = useState(0);
 
   /* ── SMART navigate handler — used by Wilayah & Civic cards ── */
   const handleNavigateToReports = useCallback(
@@ -2462,6 +2467,15 @@ export default function AdminReportsPage() {
           nonce={wilayahNonce}
           onToast={showToast}
           onNavigateToReports={handleNavigateToReports}
+        />
+      )}
+
+      {/* ── PELAPOR TAB (Sub-Sprint 1C-C-13 Phase 3) ── */}
+      {activeTab === 'pelapor' && (
+        <PelaporTab
+          active={activeTab === 'pelapor'}
+          nonce={pelaporNonce}
+          onToast={showToast}
         />
       )}
 
