@@ -2,17 +2,22 @@
 
 /**
  * TeraLoka — Wilayah Kecamatan Drill-Down Modal
- * Sub-Sprint 1C-C-12 (9 Mei 2026)
+ * Sub-Sprint 1C-C-12 SMART (9 Mei 2026)
  * ------------------------------------------------------------
  * Modal pop-up triggered dari row kabupaten/kota di Tab Wilayah.
  * Fetches GET /admin/balapor/by-region/:kabupatenId/kecamatan
  * Display: kecamatan list dengan stats + sortable table.
  *
+ * SMART navigation (extends 1C-C-12 baseline):
+ *   - Click row kecamatan → navigate ke Live Incidents filtered kecamatan
+ *   - Click "Lihat semua N laporan" footer → navigate ke Live Incidents kabupaten
+ *   - Click "Belum Spesifik" notice → navigate ke Live Incidents kabupaten-level-only
+ *
  * Pattern reference: CivicTimelineAdminModal (1C-C-11)
  */
 
 import { useEffect, useState, useCallback } from 'react';
-import { X, MapPin, RefreshCw, AlertTriangle } from 'lucide-react';
+import { X, MapPin, RefreshCw, AlertTriangle, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ApiError, useApi } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
@@ -30,6 +35,12 @@ interface WilayahKecamatanModalProps {
   kabupatenId: string | null;
   kabupatenName: string | null;
   onClose: () => void;
+  /** SMART: navigate ke Live Incidents filtered by kecamatan */
+  onKecamatanNavigate?: (kecamatanId: string, kecamatanName: string) => void;
+  /** SMART: navigate ke Live Incidents filtered by kabupaten-level-only (no kecamatan) */
+  onKabupatenLevelNavigate?: () => void;
+  /** SMART: navigate ke Live Incidents filtered by kabupaten subtree (semua kecamatan) */
+  onKabupatenViewAll?: () => void;
 }
 
 export function WilayahKecamatanModal({
@@ -37,6 +48,9 @@ export function WilayahKecamatanModal({
   kabupatenId,
   kabupatenName,
   onClose,
+  onKecamatanNavigate,
+  onKabupatenLevelNavigate,
+  onKabupatenViewAll,
 }: WilayahKecamatanModalProps) {
   const api = useApi();
 
@@ -181,7 +195,12 @@ export function WilayahKecamatanModal({
           )}
 
           {data && !loading && !error && (
-            <KecamatanContent data={data} />
+            <KecamatanContent
+              data={data}
+              onKecamatanNavigate={onKecamatanNavigate}
+              onKabupatenLevelNavigate={onKabupatenLevelNavigate}
+              onKabupatenViewAll={onKabupatenViewAll}
+            />
           )}
         </div>
       </div>
@@ -191,11 +210,24 @@ export function WilayahKecamatanModal({
 
 /* ── Inner content ── */
 
-function KecamatanContent({ data }: { data: KecamatanAggregation }) {
+interface KecamatanContentProps {
+  data: KecamatanAggregation;
+  onKecamatanNavigate?: (kecamatanId: string, kecamatanName: string) => void;
+  onKabupatenLevelNavigate?: () => void;
+  onKabupatenViewAll?: () => void;
+}
+
+function KecamatanContent({
+  data,
+  onKecamatanNavigate,
+  onKabupatenLevelNavigate,
+  onKabupatenViewAll,
+}: KecamatanContentProps) {
   const totalKecamatan = data.kecamatan.length;
   const withReports = data.meta.total_kecamatan_with_reports;
   const aggregated = data.meta.total_reports_aggregated;
   const unmapped = data.meta.unmapped_reports_count;
+  const totalReports = aggregated + unmapped;
 
   return (
     <div className="space-y-4">
@@ -216,7 +248,34 @@ function KecamatanContent({ data }: { data: KecamatanAggregation }) {
         />
       </div>
 
-      {/* Empty state — no kecamatan have reports */}
+      {/* SMART CTA: Lihat semua laporan kabupaten */}
+      {totalReports > 0 && onKabupatenViewAll && (
+        <button
+          type="button"
+          onClick={onKabupatenViewAll}
+          className={cn(
+            'w-full flex items-center justify-between gap-3',
+            'rounded-xl bg-balapor/8 border border-balapor/20 px-4 py-3',
+            'hover:bg-balapor/12 transition-colors group',
+            'text-left',
+          )}
+        >
+          <div>
+            <p className="text-sm font-bold text-balapor">
+              Lihat semua {totalReports} laporan di {data.kabupaten.name}
+            </p>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              Buka Live Incidents dengan filter wilayah aktif
+            </p>
+          </div>
+          <ArrowRight
+            size={18}
+            className="text-balapor shrink-0 group-hover:translate-x-1 transition-transform"
+          />
+        </button>
+      )}
+
+      {/* Empty state — no kecamatan have reports + no unmapped */}
       {withReports === 0 && unmapped === 0 && (
         <EmptyState
           icon={<MapPin size={32} className="text-text-muted" />}
@@ -225,17 +284,42 @@ function KecamatanContent({ data }: { data: KecamatanAggregation }) {
         />
       )}
 
-      {/* Unmapped notice */}
+      {/* SMART: Unmapped notice — clickable */}
       {unmapped > 0 && (
-        <div className="rounded-xl bg-status-caution/8 border border-status-caution/20 px-4 py-3">
-          <p className="text-xs text-text-secondary">
-            <span className="font-semibold text-status-caution">
-              {unmapped} laporan
-            </span>{' '}
-            di kabupaten/kota ini hanya teratribut ke level kabupaten — tidak
-            ada info kecamatan spesifik.
-          </p>
-        </div>
+        <button
+          type="button"
+          onClick={onKabupatenLevelNavigate}
+          disabled={!onKabupatenLevelNavigate}
+          className={cn(
+            'w-full flex items-center justify-between gap-3',
+            'rounded-xl bg-status-caution/8 border border-status-caution/20 px-4 py-3',
+            'text-left',
+            onKabupatenLevelNavigate
+              ? 'hover:bg-status-caution/12 transition-colors group cursor-pointer'
+              : 'cursor-default',
+          )}
+        >
+          <div className="flex-1">
+            <p className="text-xs text-text-secondary">
+              <span className="font-semibold text-status-caution">
+                {unmapped} laporan
+              </span>{' '}
+              di kabupaten/kota ini hanya teratribut ke level kabupaten — tidak
+              ada info kecamatan spesifik.
+            </p>
+            {onKabupatenLevelNavigate && (
+              <p className="text-[11px] text-status-caution font-semibold mt-1">
+                Klik untuk lihat laporan ini di Live Incidents →
+              </p>
+            )}
+          </div>
+          {onKabupatenLevelNavigate && (
+            <ArrowRight
+              size={16}
+              className="text-status-caution shrink-0 group-hover:translate-x-1 transition-transform"
+            />
+          )}
+        </button>
       )}
 
       {/* Table */}
@@ -250,11 +334,24 @@ function KecamatanContent({ data }: { data: KecamatanAggregation }) {
                   <th className="px-3 py-3 text-right">Urgent</th>
                   <th className="px-3 py-3 text-right">Verified</th>
                   <th className="px-3 py-3 text-right">Civic</th>
+                  <th className="px-3 py-3 w-10"></th>
                 </tr>
               </thead>
               <tbody>
                 {data.kecamatan.map((k) => (
-                  <KecamatanRow key={k.kecamatan_id} stats={k} />
+                  <KecamatanRow
+                    key={k.kecamatan_id}
+                    stats={k}
+                    onClick={
+                      onKecamatanNavigate && k.total_reports > 0
+                        ? () =>
+                            onKecamatanNavigate(
+                              k.kecamatan_id,
+                              k.kecamatan_name,
+                            )
+                        : undefined
+                    }
+                  />
                 ))}
               </tbody>
             </table>
@@ -306,18 +403,29 @@ function StatCard({
   );
 }
 
-/* ── Kecamatan row ── */
+/* ── Kecamatan row (SMART: clickable kalau ada onClick) ── */
 
-function KecamatanRow({ stats }: { stats: KecamatanStats }) {
+interface KecamatanRowProps {
+  stats: KecamatanStats;
+  onClick?: () => void;
+}
+
+function KecamatanRow({ stats, onClick }: KecamatanRowProps) {
   const verifiedTotal = getVerifiedTotal(stats);
   const isEmpty = stats.total_reports === 0;
+  const isClickable = !!onClick && !isEmpty;
 
   return (
     <tr
       className={cn(
-        'border-t border-border hover:bg-surface-muted/30 transition-colors',
-        isEmpty && 'opacity-50',
+        'border-t border-border transition-colors',
+        isEmpty
+          ? 'opacity-50 cursor-default'
+          : isClickable
+            ? 'cursor-pointer hover:bg-balapor/8 group'
+            : 'hover:bg-surface-muted/30',
       )}
+      onClick={isClickable ? onClick : undefined}
     >
       <td className="px-4 py-3">
         <div className="font-semibold text-text">{stats.kecamatan_name}</div>
@@ -365,6 +473,14 @@ function KecamatanRow({ stats }: { stats: KecamatanStats }) {
         >
           {formatRate(stats.civic_resolution_rate, verifiedTotal > 0)}
         </span>
+      </td>
+      <td className="px-3 py-3 text-right">
+        {isClickable && (
+          <ArrowRight
+            size={14}
+            className="text-balapor inline-block opacity-0 group-hover:opacity-100 transition-opacity"
+          />
+        )}
       </td>
     </tr>
   );

@@ -124,6 +124,38 @@ const LIFECYCLE_OPTIONS = [
   { value: 'rejected', label: '❌ Rejected' },
 ];
 
+/* ─── SMART Filter Pill Component (Sub-Sprint 1C-C-12 SMART) ─── */
+
+interface SmartFilterPillProps {
+  icon: string;
+  label: string;
+  type: 'kabupaten' | 'kecamatan' | 'kab-level' | 'civic';
+  onClear: () => void;
+}
+
+function SmartFilterPill({ icon, label, onClear }: SmartFilterPillProps) {
+  return (
+    <span
+      className={cn(
+        'inline-flex items-center gap-1.5 pl-2.5 pr-1 py-1 rounded-full',
+        'bg-balapor text-white text-[11px] font-semibold',
+      )}
+    >
+      <span aria-hidden="true">{icon}</span>
+      <span className="truncate max-w-[200px]">{label}</span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="h-5 w-5 rounded-full hover:bg-white/20 flex items-center justify-center transition-colors"
+        aria-label="Hapus filter"
+        title="Hapus filter"
+      >
+        <X size={11} />
+      </button>
+    </span>
+  );
+}
+
 /* ─── Page ─── */
 
 export default function AdminReportsPage() {
@@ -140,6 +172,22 @@ export default function AdminReportsPage() {
   const [priorityFilter, setPriorityFilter] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('');
   const [lifecycleFilter, setLifecycleFilter] = useState<string>('');
+
+  // SMART navigation filters (Sub-Sprint 1C-C-12 SMART)
+  const [civicFilter, setCivicFilter] = useState<string>(''); // FollowUpStatus value
+  const [geoFilter, setGeoFilter] = useState<{
+    kabupatenId: string;
+    kabupatenName: string;
+    kecamatanId: string;
+    kecamatanName: string;
+    kabupatenLevelOnly: boolean;
+  }>({
+    kabupatenId: '',
+    kabupatenName: '',
+    kecamatanId: '',
+    kecamatanName: '',
+    kabupatenLevelOnly: false,
+  });
   /** Sub-Sprint 1C-C-11 hotfix — search input untuk find by display_id atau title */
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchInput, setSearchInput] = useState<string>('');
@@ -179,6 +227,11 @@ export default function AdminReportsPage() {
     if (categoryFilter) params.category = categoryFilter;
     if (lifecycleFilter) params.lifecycle_state = lifecycleFilter;
     if (searchQuery) params.search = searchQuery;
+    // SMART navigation filters (Sub-Sprint 1C-C-12 SMART)
+    if (civicFilter) params.civic_status = civicFilter;
+    if (geoFilter.kabupatenId) params.kabupaten_id = geoFilter.kabupatenId;
+    if (geoFilter.kecamatanId) params.kecamatan_id = geoFilter.kecamatanId;
+    if (geoFilter.kabupatenLevelOnly) params.kabupaten_level_only = 'true';
 
     api
       .get<ReportsListResponse>('/admin/balapor', {
@@ -200,7 +253,7 @@ export default function AdminReportsPage() {
       });
 
     return () => controller.abort();
-  }, [api, priorityFilter, categoryFilter, lifecycleFilter, searchQuery, retryNonce]);
+  }, [api, priorityFilter, categoryFilter, lifecycleFilter, searchQuery, civicFilter, geoFilter, retryNonce]);
 
   /* ── Auto-refresh 60s (only on overview/live, not deepdive) ── */
   useEffect(() => {
@@ -254,6 +307,56 @@ export default function AdminReportsPage() {
 
   // Wilayah tab refresh nonce (Sub-Sprint 1C-C-12)
   const [wilayahNonce, setWilayahNonce] = useState(0);
+
+  /* ── SMART navigate handler — used by Wilayah & Civic cards ── */
+  const handleNavigateToReports = useCallback(
+    (filter: {
+      kabupatenId?: string;
+      kabupatenName?: string;
+      kecamatanId?: string;
+      kecamatanName?: string;
+      kabupatenLevelOnly?: boolean;
+      civicStatus?: string;
+    }) => {
+      // Set geo filter
+      if (filter.kabupatenId !== undefined || filter.kecamatanId !== undefined) {
+        setGeoFilter({
+          kabupatenId: filter.kabupatenId ?? '',
+          kabupatenName: filter.kabupatenName ?? '',
+          kecamatanId: filter.kecamatanId ?? '',
+          kecamatanName: filter.kecamatanName ?? '',
+          kabupatenLevelOnly: filter.kabupatenLevelOnly ?? false,
+        });
+      }
+      // Set civic filter (additive)
+      if (filter.civicStatus !== undefined) {
+        setCivicFilter(filter.civicStatus);
+      }
+      // Switch to Live Incidents tab
+      setActiveTab('live');
+    },
+    [],
+  );
+
+  /* ── SMART clear filter handlers ── */
+  const handleClearGeoFilter = useCallback(() => {
+    setGeoFilter({
+      kabupatenId: '',
+      kabupatenName: '',
+      kecamatanId: '',
+      kecamatanName: '',
+      kabupatenLevelOnly: false,
+    });
+  }, []);
+
+  const handleClearCivicFilter = useCallback(() => {
+    setCivicFilter('');
+  }, []);
+
+  const handleClearAllSmartFilters = useCallback(() => {
+    handleClearGeoFilter();
+    handleClearCivicFilter();
+  }, [handleClearGeoFilter, handleClearCivicFilter]);
 
   /* ── Deep Dive fetch ── */
   useEffect(() => {
@@ -901,13 +1004,17 @@ export default function AdminReportsPage() {
                   ? Math.round((count / civicDistribution.eligible_total) * 100)
                   : 0;
               return (
-                <div
+                <button
                   key={key}
+                  type="button"
+                  onClick={() => handleNavigateToReports({ civicStatus: key })}
                   className={cn(
-                    'rounded-lg border p-3',
+                    'rounded-lg border p-3 text-left',
+                    'hover:scale-[1.02] hover:shadow-md transition-all cursor-pointer',
                     cfg.badgeBg,
                     cfg.badgeBorder
                   )}
+                  title={`Lihat ${cfg.label.toLowerCase()} di Live Incidents`}
                 >
                   <div className="flex items-center gap-1.5 mb-1.5">
                     <span aria-hidden="true">{cfg.emoji}</span>
@@ -921,7 +1028,7 @@ export default function AdminReportsPage() {
                   <div className="text-[10px] text-text-muted mt-1">
                     {pct}% dari eligible
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -1325,6 +1432,58 @@ export default function AdminReportsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
           {/* LEFT — grouped list */}
           <div className="space-y-4 min-w-0">
+            {/* SMART Active Filter Pills (Sub-Sprint 1C-C-12 SMART) */}
+            {(geoFilter.kabupatenId || civicFilter) && (
+              <div className="bg-balapor/8 border border-balapor/20 rounded-xl p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-balapor">
+                    Filter Aktif (SMART)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleClearAllSmartFilters}
+                    className="text-[11px] font-semibold text-balapor hover:underline"
+                  >
+                    Hapus semua
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {geoFilter.kabupatenId && !geoFilter.kecamatanId && !geoFilter.kabupatenLevelOnly && (
+                    <SmartFilterPill
+                      icon="📍"
+                      label={geoFilter.kabupatenName}
+                      type="kabupaten"
+                      onClear={handleClearGeoFilter}
+                    />
+                  )}
+                  {geoFilter.kecamatanId && (
+                    <SmartFilterPill
+                      icon="🏘️"
+                      label={`${geoFilter.kecamatanName}, ${geoFilter.kabupatenName}`}
+                      type="kecamatan"
+                      onClear={handleClearGeoFilter}
+                    />
+                  )}
+                  {geoFilter.kabupatenLevelOnly && (
+                    <SmartFilterPill
+                      icon="🗺️"
+                      label={`${geoFilter.kabupatenName} (level kabupaten)`}
+                      type="kab-level"
+                      onClear={handleClearGeoFilter}
+                    />
+                  )}
+                  {civicFilter && (
+                    <SmartFilterPill
+                      icon="🤝"
+                      label={FOLLOW_UP_CONFIG[civicFilter as keyof typeof FOLLOW_UP_CONFIG]?.label ?? civicFilter}
+                      type="civic"
+                      onClear={handleClearCivicFilter}
+                    />
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Filter bar */}
             <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
               {/* Smart Search — Sub-Sprint 1C-C-11 (4-field + typeahead dropdown) */}
@@ -2248,12 +2407,13 @@ export default function AdminReportsPage() {
         </div>
       )}
 
-      {/* ── WILAYAH TAB (Sub-Sprint 1C-C-12) ── */}
+      {/* ── WILAYAH TAB (Sub-Sprint 1C-C-12 + SMART) ── */}
       {activeTab === 'wilayah' && (
         <WilayahTab
           active={activeTab === 'wilayah'}
           nonce={wilayahNonce}
           onToast={showToast}
+          onNavigateToReports={handleNavigateToReports}
         />
       )}
 

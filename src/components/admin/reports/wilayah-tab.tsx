@@ -2,19 +2,22 @@
 
 /**
  * TeraLoka — Wilayah Tab (Geographic Analytics)
- * Sub-Sprint 1C-C-12 (9 Mei 2026)
+ * Sub-Sprint 1C-C-12 SMART (9 Mei 2026)
  * ------------------------------------------------------------
  * Tab "Wilayah" untuk admin BALAPOR command center.
  *
  * Sections:
- *   1. Stats banner (4 cards: regions count, mapped, unmapped, regions with reports)
+ *   1. Stats banner (4 cards)
  *   2. Top 5 regions chart (Recharts horizontal bar)
  *   3. Sortable region table (10 kabupaten/kota Maluku Utara)
  *   4. Click row → drill-down modal (kecamatan view)
  *
- * D1=B: Drill-down via modal (kecamatan)
- * D2=A: All 10 region returned (include 0-laporan)
- * D3=C: 3 metrics terpisah (verified_rate, civic_resolution_rate, published_rate)
+ * SMART navigation (extends 1C-C-12 baseline):
+ *   - Parent passes onNavigateToReports callback
+ *   - WilayahTab forwards via modal navigate props
+ *   - Modal kecamatan row click → navigate Live Incidents kecamatan filter
+ *   - Modal "Belum Spesifik" footer → navigate Live Incidents kabupaten-level-only
+ *   - Modal CTA "Lihat semua N laporan" → navigate Live Incidents kabupaten subtree
  *
  * Pattern reference: DeepDiveView (deep-dive tab)
  */
@@ -40,7 +43,6 @@ import {
 } from 'recharts';
 import { cn } from '@/lib/utils';
 import { ApiError, useApi } from '@/lib/api/client';
-import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { WilayahKecamatanModal } from './wilayah-kecamatan-modal';
 import {
@@ -54,26 +56,34 @@ import {
 } from '@/types/reports-by-region';
 
 interface WilayahTabProps {
-  /** Mount/unmount controlled by parent activeTab === 'wilayah' */
   active: boolean;
-  /** Refresh nonce dari parent (e.g. global refresh button) */
   nonce: number;
-  /** Toast handler dari parent */
   onToast: (message: string, ok: boolean) => void;
+  /** SMART: navigate ke Live Incidents dengan geo filter */
+  onNavigateToReports?: (filter: {
+    kabupatenId?: string;
+    kabupatenName?: string;
+    kecamatanId?: string;
+    kecamatanName?: string;
+    kabupatenLevelOnly?: boolean;
+  }) => void;
 }
 
-export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
+export function WilayahTab({
+  active,
+  nonce,
+  onToast,
+  onNavigateToReports,
+}: WilayahTabProps) {
   const api = useApi();
 
   const [data, setData] = useState<RegionAggregation | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Sort state
   const [sortKey, setSortKey] = useState<RegionSortKey>('total_reports');
   const [sortDir, setSortDir] = useState<SortDirection>('desc');
 
-  // Drill-down modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [drillKabupaten, setDrillKabupaten] = useState<{
     id: string;
@@ -110,28 +120,58 @@ export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
     return () => controller.abort();
   }, [active, api, nonce, onToast]);
 
-  /* ── Sort handler ── */
   const handleSort = useCallback((key: RegionSortKey) => {
     setSortKey((prev) => {
       if (prev === key) {
-        // Toggle direction
         setSortDir((d) => (d === 'desc' ? 'asc' : 'desc'));
         return prev;
       }
-      // New sort key: default to desc (kecuali nama → asc)
       setSortDir(key === 'name' ? 'asc' : 'desc');
       return key;
     });
   }, []);
 
-  /* ── Drill-down handler ── */
   const handleRowClick = useCallback((stats: RegionStats) => {
-    if (stats.total_reports === 0) return; // skip empty regions
+    if (stats.total_reports === 0) return;
     setDrillKabupaten({ id: stats.region_id, name: stats.region_name });
     setModalOpen(true);
   }, []);
 
-  /* ── Sorted rows ── */
+  /* ── SMART navigate handlers (forwarded to modal) ── */
+
+  const handleKecamatanNavigate = useCallback(
+    (kecamatanId: string, kecamatanName: string) => {
+      if (!onNavigateToReports || !drillKabupaten) return;
+      setModalOpen(false);
+      onNavigateToReports({
+        kabupatenId: drillKabupaten.id,
+        kabupatenName: drillKabupaten.name,
+        kecamatanId,
+        kecamatanName,
+      });
+    },
+    [onNavigateToReports, drillKabupaten],
+  );
+
+  const handleKabupatenLevelNavigate = useCallback(() => {
+    if (!onNavigateToReports || !drillKabupaten) return;
+    setModalOpen(false);
+    onNavigateToReports({
+      kabupatenId: drillKabupaten.id,
+      kabupatenName: drillKabupaten.name,
+      kabupatenLevelOnly: true,
+    });
+  }, [onNavigateToReports, drillKabupaten]);
+
+  const handleKabupatenViewAll = useCallback(() => {
+    if (!onNavigateToReports || !drillKabupaten) return;
+    setModalOpen(false);
+    onNavigateToReports({
+      kabupatenId: drillKabupaten.id,
+      kabupatenName: drillKabupaten.name,
+    });
+  }, [onNavigateToReports, drillKabupaten]);
+
   const sortedRegions = useMemo(() => {
     if (!data) return [];
     const arr = [...data.regions];
@@ -162,7 +202,6 @@ export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
     return arr;
   }, [data, sortKey, sortDir]);
 
-  /* ── Top 5 chart data ── */
   const topRegions = useMemo(() => {
     if (!data) return [];
     return [...data.regions]
@@ -196,7 +235,6 @@ export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
         </div>
       </div>
 
-      {/* Loading */}
       {loading && !data && (
         <div className="flex items-center justify-center py-12 bg-surface border border-border rounded-xl">
           <RefreshCw size={20} className="text-text-muted animate-spin" />
@@ -206,7 +244,6 @@ export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
         </div>
       )}
 
-      {/* Error */}
       {error && (
         <div className="flex items-start gap-3 rounded-xl bg-status-critical/8 border border-status-critical/20 px-4 py-3">
           <AlertTriangle
@@ -222,7 +259,6 @@ export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
         </div>
       )}
 
-      {/* Content */}
       {data && !loading && !error && (
         <>
           <StatsBanner data={data} />
@@ -243,12 +279,21 @@ export function WilayahTab({ active, nonce, onToast }: WilayahTabProps) {
         </>
       )}
 
-      {/* Drill-down modal */}
+      {/* Drill-down modal SMART */}
       <WilayahKecamatanModal
         open={modalOpen}
         kabupatenId={drillKabupaten?.id ?? null}
         kabupatenName={drillKabupaten?.name ?? null}
         onClose={() => setModalOpen(false)}
+        onKecamatanNavigate={
+          onNavigateToReports ? handleKecamatanNavigate : undefined
+        }
+        onKabupatenLevelNavigate={
+          onNavigateToReports ? handleKabupatenLevelNavigate : undefined
+        }
+        onKabupatenViewAll={
+          onNavigateToReports ? handleKabupatenViewAll : undefined
+        }
       />
     </div>
   );
@@ -324,7 +369,7 @@ function BannerCard({
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Top 5 Regions Chart — Recharts horizontal bar
+   Top 5 Regions Chart
    ════════════════════════════════════════════════════════════════ */
 
 interface TopRow {
@@ -351,11 +396,7 @@ function TopRegionsChart({ rows }: { rows: TopRow[] }) {
             layout="vertical"
             margin={{ top: 8, right: 30, left: 8, bottom: 8 }}
           >
-            <XAxis
-              type="number"
-              hide
-              domain={[0, 'dataMax']}
-            />
+            <XAxis type="number" hide domain={[0, 'dataMax']} />
             <YAxis
               type="category"
               dataKey="name"
@@ -656,7 +697,7 @@ function RegionRow({
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Unmapped notice (e.g. provinsi-level reports)
+   Unmapped notice
    ════════════════════════════════════════════════════════════════ */
 
 function UnmappedNotice({ count }: { count: number }) {
