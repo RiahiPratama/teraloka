@@ -1,32 +1,31 @@
 'use client';
 
 /**
- * TeraLoka — PhotoLightbox
- * Sub-Sprint 1C-C-10 — Admin photo evidence viewer
+ * TeraLoka — PhotoLightbox (Modal Card Redesign)
+ * Sub-Sprint 1C-C-13 TD-062 Extended (9 Mei 2026)
  * ------------------------------------------------------------
- * Fullscreen photo gallery modal untuk admin review foto bukti laporan.
+ * Modal dialog untuk admin review foto bukti laporan.
+ *
+ * Redesign rationale:
+ *   - Old: fullscreen lightbox (gallery pattern) — image fills viewport
+ *   - New: contained modal card (dialog pattern) — feels like proper modal
  *
  * Features:
- * - Fullscreen overlay dengan backdrop dimmed
- * - Prev/Next arrow navigation
- * - Counter "1 / N"
- * - ESC to close
- * - Click backdrop to close
- * - Keyboard: ← → untuk navigate
- * - Loading state per image
- * - Image error fallback
- *
- * Usage:
- *   <PhotoLightbox
- *     photos={['url1', 'url2']}
- *     initialIndex={0}
- *     reportTitle="Laporan A"
- *     onClose={() => setLightbox(null)}
- *   />
+ * - Backdrop dimmed dengan blur-md
+ * - Modal card max-w-5xl max-h-[90vh] — contained dialog
+ * - Header dengan title + counter + close X
+ * - Image area inside card (max-h-[60vh] for breathing room)
+ * - Footer thumbnail strip kalau >1 foto
+ * - Prev/Next arrows inside image area
+ * - ESC to close, click backdrop to close
+ * - Keyboard ← → navigate
+ * - Body scroll locked
+ * - Surface bg (light theme aware)
  */
 
 import { useEffect, useState } from 'react';
 import { ChevronLeft, ChevronRight, X, Image as ImageIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 export interface PhotoLightboxProps {
   /** Array URL foto untuk display */
@@ -88,144 +87,171 @@ export function PhotoLightbox({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm"
+      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/70 backdrop-blur-md p-4"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label={`Foto laporan ${reportTitle || 'BALAPOR'}`}
     >
-      {/* Top bar — title + counter + close */}
+      {/* ── MODAL CARD ── */}
       <div
-        className="absolute top-0 inset-x-0 flex items-center justify-between p-4 bg-gradient-to-b from-black/60 to-transparent z-10"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center gap-3 min-w-0 flex-1">
-          <ImageIcon size={18} className="text-white/80 shrink-0" />
-          <div className="min-w-0">
-            {reportDisplayId && (
-              <div className="text-[10px] font-mono text-white/60 uppercase tracking-wider">
-                {reportDisplayId}
-              </div>
-            )}
-            {reportTitle && (
-              <div className="text-sm font-semibold text-white truncate">
-                {reportTitle}
-              </div>
-            )}
-          </div>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className="text-xs text-white/70 tabular-nums font-mono">
-            {currentIndex + 1} / {total}
-          </span>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-white/80 hover:text-white p-1.5 rounded-md hover:bg-white/10 transition-colors"
-            aria-label="Tutup"
-          >
-            <X size={20} />
-          </button>
-        </div>
-      </div>
-
-      {/* Image container */}
-      <div
-        className="relative max-w-7xl max-h-[85vh] mx-auto w-full px-4"
-        onClick={(e) => e.stopPropagation()}
-      >
-        {loading && !error && (
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="h-8 w-8 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-          </div>
+        className={cn(
+          'relative w-full max-w-5xl max-h-[90vh]',
+          'bg-surface border border-border rounded-2xl shadow-2xl',
+          'flex flex-col overflow-hidden',
         )}
-        {error && (
-          <div className="absolute inset-0 flex items-center justify-center text-white/70">
-            <div className="text-center">
-              <ImageIcon size={48} className="mx-auto mb-2 opacity-50" />
-              <p className="text-sm">Gagal memuat foto</p>
-              <p className="text-xs mt-1 font-mono opacity-60 truncate max-w-md">
-                {currentPhoto}
-              </p>
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* ── Header ── */}
+        <header className="shrink-0 px-5 py-3 border-b border-border bg-surface-muted/40 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <div className="h-8 w-8 rounded-lg bg-balapor/10 flex items-center justify-center shrink-0">
+              <ImageIcon size={16} className="text-balapor" />
+            </div>
+            <div className="min-w-0">
+              {reportDisplayId && (
+                <div className="text-[10px] font-mono text-text-muted uppercase tracking-wider">
+                  {reportDisplayId}
+                </div>
+              )}
+              {reportTitle && (
+                <div className="text-sm font-semibold text-text truncate">
+                  {reportTitle}
+                </div>
+              )}
             </div>
           </div>
-        )}
-        {currentPhoto && !error && (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
-            src={currentPhoto}
-            alt={`Foto bukti ${currentIndex + 1} dari ${total}`}
-            className="max-w-full max-h-[85vh] mx-auto object-contain rounded-lg shadow-2xl"
-            onLoad={() => setLoading(false)}
-            onError={() => {
-              setLoading(false);
-              setError(true);
-            }}
-          />
+          <div className="flex items-center gap-2 shrink-0">
+            {total > 1 && (
+              <span className="text-xs text-text-muted tabular-nums font-mono px-2 py-1 bg-surface-muted rounded-md">
+                {currentIndex + 1} / {total}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              className="h-7 w-7 rounded-md flex items-center justify-center text-text-muted hover:text-text hover:bg-surface-muted transition-colors"
+              aria-label="Tutup"
+              title="Tutup (ESC)"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </header>
+
+        {/* ── Image Area ── */}
+        <div className="relative flex-1 overflow-hidden bg-surface-muted/20 flex items-center justify-center p-4 min-h-[400px]">
+          {loading && !error && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="h-8 w-8 rounded-full border-2 border-text-muted/30 border-t-balapor animate-spin" />
+            </div>
+          )}
+          {error && (
+            <div className="absolute inset-0 flex items-center justify-center text-text-muted">
+              <div className="text-center">
+                <ImageIcon size={48} className="mx-auto mb-2 opacity-50" />
+                <p className="text-sm">Gagal memuat foto</p>
+                <p className="text-xs mt-1 font-mono opacity-60 truncate max-w-md">
+                  {currentPhoto}
+                </p>
+              </div>
+            </div>
+          )}
+          {currentPhoto && !error && (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={currentPhoto}
+              alt={`Foto bukti ${currentIndex + 1} dari ${total}`}
+              className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              onLoad={() => setLoading(false)}
+              onError={() => {
+                setLoading(false);
+                setError(true);
+              }}
+            />
+          )}
+
+          {/* Prev arrow (inside image area) */}
+          {currentIndex > 0 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex((i) => i - 1);
+              }}
+              className={cn(
+                'absolute left-3 top-1/2 -translate-y-1/2',
+                'h-9 w-9 rounded-full',
+                'bg-surface border border-border shadow-lg',
+                'flex items-center justify-center',
+                'text-text-muted hover:text-text hover:bg-surface-muted',
+                'transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30',
+              )}
+              aria-label="Foto sebelumnya"
+              title="← Sebelumnya"
+            >
+              <ChevronLeft size={18} />
+            </button>
+          )}
+
+          {/* Next arrow (inside image area) */}
+          {currentIndex < total - 1 && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setCurrentIndex((i) => i + 1);
+              }}
+              className={cn(
+                'absolute right-3 top-1/2 -translate-y-1/2',
+                'h-9 w-9 rounded-full',
+                'bg-surface border border-border shadow-lg',
+                'flex items-center justify-center',
+                'text-text-muted hover:text-text hover:bg-surface-muted',
+                'transition-colors',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30',
+              )}
+              aria-label="Foto selanjutnya"
+              title="Selanjutnya →"
+            >
+              <ChevronRight size={18} />
+            </button>
+          )}
+        </div>
+
+        {/* ── Thumbnail Strip Footer (only if >1 photo) ── */}
+        {total > 1 && (
+          <footer className="shrink-0 px-5 py-3 border-t border-border bg-surface-muted/40">
+            <div className="flex gap-2 justify-center overflow-x-auto">
+              {photos.map((url, i) => (
+                <button
+                  key={`${url}-${i}`}
+                  type="button"
+                  onClick={() => setCurrentIndex(i)}
+                  className={cn(
+                    'shrink-0 w-14 h-14 rounded-lg overflow-hidden border-2 transition-all',
+                    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-balapor/30',
+                    i === currentIndex
+                      ? 'border-balapor scale-105 shadow-md'
+                      : 'border-border opacity-60 hover:opacity-100 hover:border-text-muted',
+                  )}
+                  aria-label={`Foto ${i + 1}`}
+                  title={`Foto ${i + 1}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </button>
+              ))}
+            </div>
+          </footer>
         )}
       </div>
-
-      {/* Prev arrow */}
-      {currentIndex > 0 && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setCurrentIndex((i) => i - 1);
-          }}
-          className="absolute left-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-          aria-label="Foto sebelumnya"
-        >
-          <ChevronLeft size={24} />
-        </button>
-      )}
-
-      {/* Next arrow */}
-      {currentIndex < total - 1 && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            setCurrentIndex((i) => i + 1);
-          }}
-          className="absolute right-4 top-1/2 -translate-y-1/2 p-3 rounded-full bg-black/50 hover:bg-black/70 text-white transition-colors"
-          aria-label="Foto selanjutnya"
-        >
-          <ChevronRight size={24} />
-        </button>
-      )}
-
-      {/* Bottom thumbnail strip (hide on mobile, useful for >2 photos) */}
-      {total > 1 && (
-        <div
-          className="absolute bottom-0 inset-x-0 p-4 bg-gradient-to-t from-black/60 to-transparent hidden sm:block"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex gap-2 justify-center overflow-x-auto">
-            {photos.map((url, i) => (
-              <button
-                key={`${url}-${i}`}
-                type="button"
-                onClick={() => setCurrentIndex(i)}
-                className={`shrink-0 w-12 h-12 rounded-md overflow-hidden border-2 transition-all ${
-                  i === currentIndex
-                    ? 'border-white scale-110'
-                    : 'border-white/30 opacity-60 hover:opacity-100'
-                }`}
-                aria-label={`Foto ${i + 1}`}
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={url}
-                  alt=""
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

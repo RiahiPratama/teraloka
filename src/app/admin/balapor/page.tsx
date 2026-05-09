@@ -60,6 +60,7 @@ import { PelaporTab } from '@/components/admin/reports/pelapor-tab';
 import { CivicTimelineAdminModal } from '@/components/admin/reports/civic-timeline-admin-modal';
 import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
 import { PhotoLightbox } from '@/components/admin/reports/photo-lightbox';
+import { PriorityPicker } from '@/components/admin/reports/priority-picker';
 import { RejectReportModal } from '@/components/admin/reports/reject-report-modal';
 import { ReportGroupList } from '@/components/admin/reports/report-group-list';
 import { ReportRow } from '@/components/admin/reports/report-row';
@@ -1276,6 +1277,14 @@ export default function AdminReportsPage() {
                       onCivicClick={handleCivicClick}
                       actionSlot={
                         <div className="flex items-center gap-1">
+                          {/* Priority picker (TD-062 fix — was missing) */}
+                          <PriorityPicker
+                            currentPriority={r.priority}
+                            onChange={(newP) => handleChangePriority(r, newP)}
+                            loading={actionLoadingId === `${r.id}priority`}
+                            size="sm"
+                          />
+                          <div className="w-px h-4 bg-border mx-1" aria-hidden="true" />
                           {canModerate && (
                             <>
                               <button
@@ -1537,15 +1546,87 @@ export default function AdminReportsPage() {
                 </span>
               </div>
               <div className="bg-surface border border-border rounded-lg overflow-hidden">
-                {newestReports.map((report) => (
-                  <ReportRow
-                    key={report.id}
-                    report={report}
-                    variant="full"
-                    onPhotoClick={handlePhotoClick}
-                    onCivicClick={handleCivicClick}
-                  />
-                ))}
+                {newestReports.map((r) => {
+                  const canModerate = r.status === 'pending' || r.status === 'reviewing';
+                  return (
+                    <ReportRow
+                      key={r.id}
+                      report={r}
+                      variant="full"
+                      onPhotoClick={handlePhotoClick}
+                      onCivicClick={handleCivicClick}
+                      actionSlot={
+                        <div className="flex items-center gap-1">
+                          {/* Priority picker (TD-062 fix — was missing) */}
+                          <PriorityPicker
+                            currentPriority={r.priority}
+                            onChange={(newP) => handleChangePriority(r, newP)}
+                            loading={actionLoadingId === `${r.id}priority`}
+                            size="sm"
+                          />
+                          <div className="w-px h-4 bg-border mx-1" aria-hidden="true" />
+                          {canModerate && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleVerify(r);
+                                }}
+                                disabled={actionLoadingId === `${r.id}verify`}
+                                className={cn(
+                                  'h-6 w-6 rounded-md flex items-center justify-center',
+                                  'text-text-muted hover:text-status-healthy hover:bg-status-healthy/10',
+                                  'transition-colors disabled:opacity-50',
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-healthy/30'
+                                )}
+                                title="Verify laporan"
+                                aria-label={`Verify ${r.title}`}
+                              >
+                                <CheckCircle2 size={12} />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleReject(r);
+                                }}
+                                disabled={actionLoadingId === `${r.id}reject`}
+                                className={cn(
+                                  'h-6 w-6 rounded-md flex items-center justify-center',
+                                  'text-text-muted hover:text-status-warning hover:bg-status-warning/10',
+                                  'transition-colors disabled:opacity-50',
+                                  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-warning/30'
+                                )}
+                                title="Reject laporan"
+                                aria-label={`Reject ${r.title}`}
+                              >
+                                <XCircle size={12} />
+                              </button>
+                            </>
+                          )}
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteTarget(r);
+                            }}
+                            className={cn(
+                              'h-6 w-6 rounded-md flex items-center justify-center',
+                              'text-text-muted hover:text-status-critical hover:bg-status-critical/10',
+                              'transition-colors',
+                              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-status-critical/30'
+                            )}
+                            title="Hapus laporan"
+                            aria-label={`Hapus laporan ${r.title}`}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      }
+                    />
+                  );
+                })}
               </div>
             </div>
           )}
