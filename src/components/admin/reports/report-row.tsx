@@ -4,6 +4,7 @@
  * TeraLoka — ReportRow
  * Phase 2 · Batch 7b1 — Reports Page Migration
  * Updated: 8 Mei 2026 — Sub-Sprint 1C-C-10 civic badge + clickable photo
+ * Updated: 9 Mei 2026 — Sub-Sprint 1C-C-13 Phase 1.5 BARU badge (Discovery UX)
  * ------------------------------------------------------------
  * Single report row untuk list tampilan di Overview + Live tabs.
  *
@@ -15,11 +16,15 @@
  * - Civic feedback badge (compact) saat follow_up_current_status !== null
  * - Clickable photo icon → trigger onPhotoClick callback (open lightbox)
  *
+ * Sub-Sprint 1C-C-13 Phase 1.5 additions (Discovery UX):
+ * - "BARU" badge untuk laporan < 24h (admin discoverability fix)
+ * - Visual cue prominent di group views supaya admin spot new submissions
+ *
  * Location display priority (TD-008 fix):
  *   location_name (dari JOIN public.locations) > location (legacy text) > omit
  */
 
-import { Camera, MapPin } from 'lucide-react';
+import { Camera, MapPin, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PriorityBadge } from './priority-badge';
 import {
@@ -56,6 +61,21 @@ export interface ReportRowProps {
   className?: string;
 }
 
+/**
+ * Compute apakah laporan termasuk "baru" (< 24h dari sekarang).
+ * Used untuk Sub-Sprint 1C-C-13 Phase 1.5 BARU badge (Discovery UX).
+ */
+function isNewReport(createdAt: string): boolean {
+  const NEW_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 jam
+  try {
+    const created = new Date(createdAt).getTime();
+    if (isNaN(created)) return false;
+    return Date.now() - created < NEW_THRESHOLD_MS;
+  } catch {
+    return false;
+  }
+}
+
 export function ReportRow({
   report,
   variant = 'full',
@@ -66,6 +86,7 @@ export function ReportRow({
   className,
 }: ReportRowProps) {
   const unhandled = isUnhandled(report);
+  const isNew = isNewReport(report.created_at);
   const isClickable = Boolean(onClick);
   const categoryConfig = getCategoryConfig(report.category);
   const photoCount = report.photos?.length ?? 0;
@@ -101,6 +122,24 @@ export function ReportRow({
               {report.display_id}
             </span>
           )}
+
+          {/* BARU badge — Sub-Sprint 1C-C-13 Phase 1.5 (Discovery UX) */}
+          {isNew && (
+            <span
+              className={cn(
+                'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
+                'text-[9px] font-extrabold uppercase tracking-wider',
+                'bg-balapor text-white',
+                'animate-pulse'
+              )}
+              title={`Laporan baru — masuk ${timeAgo(report.created_at)}`}
+              aria-label="Laporan baru"
+            >
+              <Sparkles size={9} className="shrink-0" />
+              BARU
+            </span>
+          )}
+
           <span
             className={cn(
               'font-bold text-text truncate',
@@ -232,6 +271,7 @@ export function ReportRow({
     'border-b border-border last:border-b-0',
     'transition-colors',
     unhandled && 'bg-status-critical/[0.02]',
+    isNew && 'bg-balapor/[0.04]',  // subtle background highlight untuk row baru
     isClickable && 'cursor-pointer hover:bg-surface-muted/40',
     className
   );

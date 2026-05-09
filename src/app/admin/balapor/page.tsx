@@ -294,6 +294,23 @@ export default function AdminReportsPage() {
   const sortedReports = sortReportsByPriority(reports);
   const topIncidents = sortedReports.slice(0, 5);
 
+  // Sub-Sprint 1C-C-13 Phase 1.5 (Discovery UX) — laporan baru < 24h
+  const newestReports = (() => {
+    const NEW_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+    return [...reports]
+      .filter((r) => {
+        const created = new Date(r.created_at).getTime();
+        if (isNaN(created)) return false;
+        return now - created < NEW_THRESHOLD_MS;
+      })
+      .sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+      )
+      .slice(0, 5);
+  })();
+
   const tabs: TabDef[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'live', label: 'Live Incidents' },
@@ -1429,7 +1446,37 @@ export default function AdminReportsPage() {
 
       {/* ── LIVE TAB ── */}
       {activeTab === 'live' && !error && (
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
+        <div className="space-y-4">
+          {/* ── BARU MASUK Section (Sub-Sprint 1C-C-13 Phase 1.5) ── */}
+          {newestReports.length > 0 && (
+            <div className="bg-balapor/8 border border-balapor/20 rounded-xl p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={16} className="text-balapor animate-pulse" />
+                  <h3 className="text-sm font-bold text-balapor">Baru Masuk</h3>
+                  <span className="text-[10px] font-bold text-text-muted">
+                    {newestReports.length} laporan dalam 24 jam terakhir
+                  </span>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted bg-surface-muted px-2 py-1 rounded">
+                  Belum di-review prioritas
+                </span>
+              </div>
+              <div className="bg-surface border border-border rounded-lg overflow-hidden">
+                {newestReports.map((report) => (
+                  <ReportRow
+                    key={report.id}
+                    report={report}
+                    variant="full"
+                    onPhotoClick={handlePhotoClick}
+                    onCivicClick={handleCivicClick}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-5">
           {/* LEFT — grouped list */}
           <div className="space-y-4 min-w-0">
             {/* SMART Active Filter Pills (Sub-Sprint 1C-C-12 SMART) */}
@@ -1831,6 +1878,7 @@ export default function AdminReportsPage() {
             {/* Top Locations + Alert Clusters */}
             <ReportSidebar reports={reports} />
           </div>
+        </div>
         </div>
       )}
 
