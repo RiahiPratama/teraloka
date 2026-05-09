@@ -43,6 +43,7 @@ import {
   computeReportStats,
   computeCivicDistribution,
   getBestLocation,
+  getCategoryConfig,
   sortReportsByPriority,
   FOLLOW_UP_CONFIG,
   type Report,
@@ -53,6 +54,7 @@ import { EmptyState } from '@/components/ui/empty-state';
 import { BalaporMap } from '@/components/admin/reports/balapor-map';
 import { CategoryFilter } from '@/components/admin/reports/category-filter';
 import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
+import { WilayahTab } from '@/components/admin/reports/wilayah-tab';
 import { CivicTimelineAdminModal } from '@/components/admin/reports/civic-timeline-admin-modal';
 import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
 import { PhotoLightbox } from '@/components/admin/reports/photo-lightbox';
@@ -79,6 +81,7 @@ type TabKey =
   | 'live'
   | 'smart_alert'
   | 'convert_bakabar'
+  | 'wilayah'
   | 'instansi'
   | 'deepdive'
   | 'audit_log';
@@ -140,6 +143,7 @@ export default function AdminReportsPage() {
   /** Sub-Sprint 1C-C-11 hotfix — search input untuk find by display_id atau title */
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchInput, setSearchInput] = useState<string>('');
+  const [searchFocused, setSearchFocused] = useState<boolean>(false);
 
   // Debounce search input → searchQuery (300ms)
   useEffect(() => {
@@ -242,10 +246,14 @@ export default function AdminReportsPage() {
     { key: 'live', label: 'Live Incidents' },
     { key: 'smart_alert', label: 'Smart Alert' },
     { key: 'convert_bakabar', label: 'Convert BAKABAR' },
+    { key: 'wilayah', label: 'Wilayah' },
     { key: 'deepdive', label: 'Deep Dive' },
     { key: 'audit_log', label: 'Audit Log' },
     { key: 'instansi', label: 'Instansi', disabled: true, badge: 'SOON' },
   ];
+
+  // Wilayah tab refresh nonce (Sub-Sprint 1C-C-12)
+  const [wilayahNonce, setWilayahNonce] = useState(0);
 
   /* ── Deep Dive fetch ── */
   useEffect(() => {
@@ -1319,7 +1327,7 @@ export default function AdminReportsPage() {
           <div className="space-y-4 min-w-0">
             {/* Filter bar */}
             <div className="bg-surface border border-border rounded-xl p-4 space-y-3">
-              {/* Search input — Sub-Sprint 1C-C-11 SMART (4-field search) */}
+              {/* Smart Search — Sub-Sprint 1C-C-11 (4-field + typeahead dropdown) */}
               <div>
                 <div className="text-[11px] font-bold uppercase tracking-wider text-text-muted mb-2">
                   Pencarian Pintar
@@ -1332,7 +1340,18 @@ export default function AdminReportsPage() {
                   <input
                     type="text"
                     value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
+                    onChange={(e) => {
+                      setSearchInput(e.target.value);
+                      setSearchFocused(true);
+                    }}
+                    onFocus={() => setSearchFocused(true)}
+                    onBlur={() => setTimeout(() => setSearchFocused(false), 150)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Escape') {
+                        setSearchInput('');
+                        setSearchFocused(false);
+                      }
+                    }}
                     placeholder="Cari nomor laporan, judul, isi, atau lokasi (e.g., 0063 / Aspal / Tidore)"
                     className={cn(
                       'w-full pl-9 pr-9 py-2 rounded-lg border border-border bg-surface',
@@ -1344,16 +1363,119 @@ export default function AdminReportsPage() {
                   {searchInput && (
                     <button
                       type="button"
-                      onClick={() => setSearchInput('')}
+                      onClick={() => {
+                        setSearchInput('');
+                        setSearchFocused(false);
+                      }}
                       className="absolute right-3 top-1/2 -translate-y-1/2 p-0.5 rounded text-text-muted hover:text-text hover:bg-surface-muted transition-colors"
                       aria-label="Clear search"
-                      title="Clear"
+                      title="Clear (ESC)"
                     >
                       <X size={14} />
                     </button>
                   )}
+
+                  {/* Smart typeahead dropdown */}
+                  {searchFocused && searchInput.trim().length >= 2 && (
+                    <div className="absolute top-full left-0 right-0 mt-1.5 z-30 bg-surface border border-border rounded-xl shadow-2xl overflow-hidden max-h-80 overflow-y-auto">
+                      {(() => {
+                        const term = searchInput.trim().toLowerCase();
+                        // Client-side filter dari reports state (instant, no API delay)
+                        const matches = reports
+                          .filter((r) => {
+                            const fields = [
+                              r.display_id,
+                              r.title,
+                              r.location,
+                              r.location_name,
+                            ];
+                            return fields.some((f) => f?.toLowerCase().includes(term));
+                          })
+                          .slice(0, 8);
+
+                        if (matches.length === 0) {
+                          return (
+                            <div className="p-4 text-center">
+                              <p className="text-xs text-text-muted">
+                                Tidak ada match instant untuk{' '}
+                                <span className="font-mono font-bold text-text">"{searchInput}"</span>
+                              </p>
+                              <p className="text-[10px] text-text-muted mt-1">
+                                💡 Backend juga search di body — tunggu detik untuk hasil lengkap
+                              </p>
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <>
+                            <div className="px-3 py-2 bg-surface-muted/50 border-b border-border">
+                              <p className="text-[10px] font-bold uppercase tracking-wider text-text-muted">
+                                {matches.length} match instan
+                              </p>
+                            </div>
+                            {matches.map((m) => {
+                              const cfg = getCategoryConfig(m.category);
+                              return (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()} // prevent blur before click
+                                  onClick={() => {
+                                    // Set search to exact display_id untuk filter ke laporan ini
+                                    setSearchInput(m.display_id || m.title);
+                                    setSearchFocused(false);
+                                  }}
+                                  className={cn(
+                                    'w-full px-3 py-2.5 text-left',
+                                    'border-b border-border last:border-b-0',
+                                    'hover:bg-balapor/8 transition-colors',
+                                    'focus:outline-none focus:bg-balapor/8'
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2 mb-1">
+                                    {m.display_id && (
+                                      <span className="font-mono text-[10px] text-balapor font-bold tracking-tight">
+                                        {m.display_id}
+                                      </span>
+                                    )}
+                                    <span
+                                      className={cn(
+                                        'shrink-0 h-1.5 w-1.5 rounded-full',
+                                        m.priority === 'urgent' && 'bg-status-critical',
+                                        m.priority === 'high' && 'bg-status-warning',
+                                        m.priority === 'normal' && 'bg-status-healthy'
+                                      )}
+                                    />
+                                    <span className="text-[9px] uppercase font-bold tracking-wide text-text-muted">
+                                      {m.status}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-bold text-text truncate mb-0.5">
+                                    {m.title}
+                                  </p>
+                                  <p className="text-[10px] text-text-muted flex items-center gap-1.5">
+                                    <span>{cfg.emoji}</span>
+                                    <span className="capitalize">{m.category || 'lainnya'}</span>
+                                    {(m.location_name || m.location) && (
+                                      <>
+                                        <span className="text-text-subtle">·</span>
+                                        <span className="truncate">
+                                          📍 {m.location_name || m.location}
+                                        </span>
+                                      </>
+                                    )}
+                                  </p>
+                                </button>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
+                    </div>
+                  )}
                 </div>
-                {searchQuery && (
+                {searchQuery && !searchFocused && (
                   <div className="mt-2 space-y-1">
                     <p className="text-[10px] text-text-muted">
                       Mencari{' '}
@@ -2124,6 +2246,15 @@ export default function AdminReportsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── WILAYAH TAB (Sub-Sprint 1C-C-12) ── */}
+      {activeTab === 'wilayah' && (
+        <WilayahTab
+          active={activeTab === 'wilayah'}
+          nonce={wilayahNonce}
+          onToast={showToast}
+        />
       )}
 
       {/* ── AUDIT LOG TAB (Sub-Sprint 1C-C-9) ── */}
