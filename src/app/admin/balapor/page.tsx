@@ -365,6 +365,19 @@ export default function AdminReportsPage() {
     setPelaporInitialReporterId(null);
   }, []);
 
+  /* ── UX Polish 10 Mei 2026: Live Incidents reporter chip → tab Pelapor ── */
+  const handleReporterClickFromLive = useCallback(
+    (report: { reporter_id?: string | null; reporter_display?: string | null }) => {
+      if (!report.reporter_id) {
+        showToast('Pelapor anonim — tidak bisa buka profil', false);
+        return;
+      }
+      setPelaporInitialReporterId(report.reporter_id);
+      setActiveTab('pelapor');
+    },
+    [showToast],
+  );
+
   /* ── SMART navigate handler — used by Wilayah & Civic cards ── */
   const handleNavigateToReports = useCallback(
     (filter: {
@@ -2006,6 +2019,7 @@ export default function AdminReportsPage() {
                 onShowAllCategory={(cat) => setCategoryFilter(cat)}
                 onPhotoClick={handlePhotoClick}
                 onCivicClick={handleCivicClick}
+                onReporterClick={handleReporterClickFromLive}
                 actionLoadingId={actionLoadingId}
                 previewPerGroup={categoryFilter ? 999 : 3}
                 hasFilter={Boolean(priorityFilter || categoryFilter || lifecycleFilter)}

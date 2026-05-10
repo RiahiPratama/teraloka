@@ -4,27 +4,28 @@
  * TeraLoka — ReportRow
  * Phase 2 · Batch 7b1 — Reports Page Migration
  * Updated: 8 Mei 2026 — Sub-Sprint 1C-C-10 civic badge + clickable photo
- * Updated: 9 Mei 2026 — Sub-Sprint 1C-C-13 Phase 1.5 BARU badge (Discovery UX)
+ * Updated: 10 Mei 2026 — Reporter display in meta line (privacy-aware)
  * ------------------------------------------------------------
  * Single report row untuk list tampilan di Overview + Live tabs.
  *
  * 2 variants:
  * - compact → untuk Overview preview (Top 5) — 1 line title + location + time
- * - full    → untuk Live tab — with location, time, unhandled warning, photos count
+ * - full    → untuk Live tab — with location, time, unhandled warning, photos count, reporter
  *
  * Sub-Sprint 1C-C-10 additions:
  * - Civic feedback badge (compact) saat follow_up_current_status !== null
  * - Clickable photo icon → trigger onPhotoClick callback (open lightbox)
  *
- * Sub-Sprint 1C-C-13 Phase 1.5 additions (Discovery UX):
- * - "BARU" badge untuk laporan < 24h (admin discoverability fix)
- * - Visual cue prominent di group views supaya admin spot new submissions
+ * Day 8+ UX Polish (10 Mei 2026):
+ * - Reporter display di meta line (privacy-aware: anonim/pseudonym/nama_terang)
+ * - Clickable kalau onReporterClick provided + reporter_id exists
+ * - Pattern mirror handleAuditPrivacyClick TD-061-B (switch tab + auto-open drawer)
  *
  * Location display priority (TD-008 fix):
  *   location_name (dari JOIN public.locations) > location (legacy text) > omit
  */
 
-import { Camera, MapPin, Sparkles } from 'lucide-react';
+import { Camera, MapPin, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { PriorityBadge } from './priority-badge';
 import {
@@ -57,23 +58,15 @@ export interface ReportRowProps {
    * Kalau provided + ada civic status, badge jadi clickable button.
    */
   onCivicClick?: (report: Report) => void;
+  /**
+   * UX Polish 10 Mei 2026 — Click handler khusus reporter label.
+   * Caller pass callback untuk switch tab Pelapor + auto-open drawer
+   * (mirror Pattern TD-061-B). Kalau provided + reporter_id exists,
+   * reporter chip jadi clickable button.
+   */
+  onReporterClick?: (report: Report) => void;
   /** Optional additional className */
   className?: string;
-}
-
-/**
- * Compute apakah laporan termasuk "baru" (< 24h dari sekarang).
- * Used untuk Sub-Sprint 1C-C-13 Phase 1.5 BARU badge (Discovery UX).
- */
-function isNewReport(createdAt: string): boolean {
-  const NEW_THRESHOLD_MS = 24 * 60 * 60 * 1000; // 24 jam
-  try {
-    const created = new Date(createdAt).getTime();
-    if (isNaN(created)) return false;
-    return Date.now() - created < NEW_THRESHOLD_MS;
-  } catch {
-    return false;
-  }
 }
 
 export function ReportRow({
@@ -83,10 +76,10 @@ export function ReportRow({
   onClick,
   onPhotoClick,
   onCivicClick,
+  onReporterClick,
   className,
 }: ReportRowProps) {
   const unhandled = isUnhandled(report);
-  const isNew = isNewReport(report.created_at);
   const isClickable = Boolean(onClick);
   const categoryConfig = getCategoryConfig(report.category);
   const photoCount = report.photos?.length ?? 0;
@@ -95,6 +88,13 @@ export function ReportRow({
 
   // Photo icon: clickable kalau onPhotoClick provided + ada foto
   const isPhotoClickable = Boolean(onPhotoClick) && photoCount > 0;
+
+  // Reporter chip: clickable kalau onReporterClick provided + reporter_id ada
+  // Note: walau anonim, kalau reporter_id ada (registered user), chip clickable
+  // → buka drawer pelapor (admin lihat full activity history-nya).
+  const isReporterClickable =
+    Boolean(onReporterClick) && Boolean(report.reporter_id);
+  const reporterDisplay = report.reporter_display ?? null;
 
   const content = (
     <>
@@ -122,24 +122,6 @@ export function ReportRow({
               {report.display_id}
             </span>
           )}
-
-          {/* BARU badge — Sub-Sprint 1C-C-13 Phase 1.5 (Discovery UX) */}
-          {isNew && (
-            <span
-              className={cn(
-                'shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full',
-                'text-[9px] font-extrabold uppercase tracking-wider',
-                'bg-balapor text-white',
-                'animate-pulse'
-              )}
-              title={`Laporan baru — masuk ${timeAgo(report.created_at)}`}
-              aria-label="Laporan baru"
-            >
-              <Sparkles size={9} className="shrink-0" />
-              BARU
-            </span>
-          )}
-
           <span
             className={cn(
               'font-bold text-text truncate',
@@ -244,6 +226,38 @@ export function ReportRow({
                 )}
               </>
             )}
+            {/* Reporter chip — privacy-aware (10 Mei 2026 UX Polish) */}
+            {reporterDisplay && (
+              <>
+                <span className="text-text-subtle shrink-0" aria-hidden="true">·</span>
+                {isReporterClickable ? (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onReporterClick?.(report);
+                    }}
+                    className={cn(
+                      'flex items-center gap-0.5 shrink-0 px-1.5 py-0.5 rounded',
+                      'text-balapor hover:bg-balapor/10 transition-colors',
+                      'font-medium max-w-[140px]'
+                    )}
+                    title="Lihat profil pelapor"
+                  >
+                    <User size={10} className="shrink-0" />
+                    <span className="truncate">{reporterDisplay}</span>
+                  </button>
+                ) : (
+                  <span
+                    className="flex items-center gap-0.5 shrink-0 max-w-[140px]"
+                    title="Pelapor"
+                  >
+                    <User size={10} className="shrink-0" />
+                    <span className="truncate">{reporterDisplay}</span>
+                  </span>
+                )}
+              </>
+            )}
           </div>
         ) : (
           <div className="text-[10px] text-text-muted mt-0.5 truncate">
@@ -271,7 +285,6 @@ export function ReportRow({
     'border-b border-border last:border-b-0',
     'transition-colors',
     unhandled && 'bg-status-critical/[0.02]',
-    isNew && 'bg-balapor/[0.04]',  // subtle background highlight untuk row baru
     isClickable && 'cursor-pointer hover:bg-surface-muted/40',
     className
   );

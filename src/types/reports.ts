@@ -73,6 +73,17 @@ export interface Report {
   follow_up_current_status?: FollowUpStatus | null;
   /** Civic feedback cache — last updated timestamp */
   follow_up_updated_at?: string | null;
+  /** Reporter UUID (10 Mei 2026 — pelapor display in row) */
+  reporter_id?: string | null;
+  /** Anonymity tier untuk privacy gating */
+  anonymity_level?: 'anonim' | 'pseudonym' | 'nama_terang' | null;
+  /**
+   * Privacy-aware reporter display label (di-build di backend).
+   * - anonim       → "🕶️ Anonim"
+   * - pseudonym    → "👤 [pseudonym]"
+   * - nama_terang  → "👤 [real name]"
+   */
+  reporter_display?: string | null;
 }
 
 /* ─── Priority config ─── */
