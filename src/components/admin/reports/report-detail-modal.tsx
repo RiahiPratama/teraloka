@@ -834,7 +834,7 @@ function ExifValidationSection({
           className={cn(
             'inline-flex items-center gap-1.5 px-2 py-1 rounded-md',
             'text-[10px] font-bold uppercase tracking-wide',
-            'border border-border bg-surface hover:bg-surface-muted',
+            'border border-balapor/40 bg-balapor/10 text-balapor hover:bg-balapor/20 hover:border-balapor/60',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             'transition-colors',
           )}
@@ -1156,7 +1156,7 @@ function DuplicateValidationSection({
           className={cn(
             'inline-flex items-center gap-1.5 px-2 py-1 rounded-md',
             'text-[10px] font-bold uppercase tracking-wide',
-            'border border-border bg-surface hover:bg-surface-muted',
+            'border border-balapor/40 bg-balapor/10 text-balapor hover:bg-balapor/20 hover:border-balapor/60',
             'disabled:opacity-50 disabled:cursor-not-allowed',
             'transition-colors',
           )}
