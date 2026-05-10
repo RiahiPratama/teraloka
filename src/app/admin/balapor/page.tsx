@@ -58,6 +58,7 @@ import { CategoryFilter } from '@/components/admin/reports/category-filter';
 import { DeepDiveView } from '@/components/admin/reports/deep-dive-view';
 import { WilayahTab } from '@/components/admin/reports/wilayah-tab';
 import { PelaporTab } from '@/components/admin/reports/pelapor-tab';
+import { SosTab } from '@/components/admin/reports/sos-tab';
 import { CivicTimelineAdminModal } from '@/components/admin/reports/civic-timeline-admin-modal';
 import { DeleteReportModal } from '@/components/admin/reports/delete-report-modal';
 import { PhotoLightbox } from '@/components/admin/reports/photo-lightbox';
@@ -83,6 +84,7 @@ interface ReportsListResponse {
 type TabKey =
   | 'overview'
   | 'live'
+  | 'sos'
   | 'smart_alert'
   | 'convert_bakabar'
   | 'wilayah'
@@ -326,6 +328,7 @@ export default function AdminReportsPage() {
   const tabs: TabDef[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'live', label: 'Live Incidents' },
+    { key: 'sos', label: 'SOS', badge: 'NEW' },
     { key: 'smart_alert', label: 'Smart Alert' },
     { key: 'convert_bakabar', label: 'Convert BAKABAR' },
     { key: 'wilayah', label: 'Wilayah' },
@@ -1099,7 +1102,7 @@ export default function AdminReportsPage() {
       </div>
 
       {/* ── Stats row ── */}
-      {!error && (
+      {!error && activeTab !== 'sos' && (
         <ReportStats
           stats={stats}
           stalemateCount={stalemateCount}
@@ -1109,7 +1112,7 @@ export default function AdminReportsPage() {
       )}
 
       {/* ── Civic Feedback Distribution (Sub-Sprint 1C-C-10) ── */}
-      {!error && civicDistribution.eligible_total > 0 && (
+      {!error && activeTab !== 'sos' && civicDistribution.eligible_total > 0 && (
         <div className="bg-surface border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -2085,6 +2088,9 @@ export default function AdminReportsPage() {
         </div>
         </div>
       )}
+
+      {/* ── SOS TAB (Day 12 Step 7 Tier FULL, 10 Mei 2026) ── */}
+      {activeTab === 'sos' && !error && <SosTab />}
 
       {/* ── SMART ALERT TAB (Sub-Sprint 1C-C-7) ── */}
       {activeTab === 'smart_alert' && !error && (
