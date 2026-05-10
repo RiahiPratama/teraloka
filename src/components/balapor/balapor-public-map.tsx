@@ -115,6 +115,20 @@ const TILE_ATTRIBUTION =
 const MAP_CENTER: LatLngExpression = [0.5, 127.8];
 const DEFAULT_ZOOM = 7;
 
+/**
+ * MALUT_BOUNDS — Strict geographic boundaries Maluku Utara
+ * SW corner: -3.0°S, 124.0°E (Pulau Sula southwest)
+ * NE corner:  3.0°N, 130.5°E (Halmahera Utara northeast)
+ *
+ * User cannot pan/zoom outside these bounds. maxBoundsViscosity=1.0
+ * makes the boundary "sticky" — map immediately bounces back if user
+ * tries to pan beyond.
+ */
+const MALUT_BOUNDS: [[number, number], [number, number]] = [
+  [-3.0, 124.0], // Southwest
+  [3.0, 130.5],  // Northeast
+];
+
 /* ════════════════════════════════════════════════════════════════
    Helpers
    ════════════════════════════════════════════════════════════════ */
@@ -382,6 +396,10 @@ export function BalaporPublicMap({
       <MapContainer
         center={MAP_CENTER}
         zoom={initialZoom}
+        minZoom={6}
+        maxZoom={18}
+        maxBounds={MALUT_BOUNDS}
+        maxBoundsViscosity={1.0}
         scrollWheelZoom={true}
         style={{ height: '100%', width: '100%' }}
         zoomControl={true}

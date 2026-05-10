@@ -20,13 +20,18 @@
 //
 // History:
 //   May 3, 2026 — Initial implementation V4 mockup → React production
-//   May 10, 2026 — Bridge Sprint Day 11: Insert <BalaporLiveMapSection />
+//   May 10, 2026 — Day 12 Step 8: BalaporLiveMapSection removed (map moved to hero)
 //                  antara Hero & Empathy (Hybrid B+C live map + Phase 0 demo)
 // ════════════════════════════════════════════════════════════════
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { BalaporLiveMapSection } from '@/components/balapor/balapor-live-map-section';
+import { HeroSection } from '@/components/balapor/hero-section';
+import { CaraKerjaSection } from '@/components/balapor/cara-kerja-section';
+import { FiturUtamaSection } from '@/components/balapor/fitur-utama-section';
+import { TantanganManifestoSlide } from '@/components/balapor/tantangan-manifesto-slide';
+import { KomunitasAwalSection } from '@/components/balapor/komunitas-awal-section';
+import { EkosistemSection } from '@/components/balapor/ekosistem-section';
 
 // ─── Form path constant ─────────────────────────────────────────
 const FORM_PATH = '/balapor/buat-laporan';
@@ -113,440 +118,19 @@ export default function BalaporLandingPage() {
     <div style={{ background: 'white', color: '#1f2937' }}>
 
       {/* ════════════════════════════════════════════════════════
-          1. HERO — Diplomatic + Hopeful
+          1. HERO (LEGEND)
           ════════════════════════════════════════════════════════ */}
-      <section style={{ background: '#001a13', padding: '60px 32px 80px', position: 'relative', overflow: 'hidden' }}>
-        {/* Decorative dotted Maluku map */}
-        <svg
-          style={{
-            position: 'absolute', top: '50%', left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: 700, height: 600, opacity: 0.4, pointerEvents: 'none',
-          }}
-          viewBox="0 0 700 600"
-        >
-          <defs>
-            <pattern id="dotPattern" x="0" y="0" width="8" height="8" patternUnits="userSpaceOnUse">
-              <circle cx="2" cy="2" r="1" fill="#95d3ba" />
-            </pattern>
-          </defs>
-          <path d="M 150 200 Q 200 180 250 220 L 280 280 Q 320 300 380 280 L 450 320 Q 480 300 520 350 L 540 400 Q 500 450 460 430 L 400 460 Q 340 480 280 450 L 220 430 Q 180 400 160 350 Z" fill="url(#dotPattern)" />
-          <path d="M 380 150 Q 420 130 450 170 L 470 220 Q 440 250 410 230 L 390 200 Z" fill="url(#dotPattern)" />
-          <path d="M 520 230 Q 560 210 590 250 L 600 290 Q 580 320 550 300 L 530 270 Z" fill="url(#dotPattern)" />
-          <circle className="balapor-pulse" cx="280" cy="280" r="6" fill="var(--color-balapor)" />
-          <circle className="balapor-pulse" cx="450" cy="320" r="6" fill="var(--color-balapor)" style={{ animationDelay: '0.5s' }} />
-          <circle className="balapor-pulse" cx="380" cy="180" r="6" fill="var(--color-balapor)" style={{ animationDelay: '1s' }} />
-          <circle className="balapor-pulse" cx="540" cy="380" r="6" fill="var(--color-balapor)" style={{ animationDelay: '1.5s' }} />
-        </svg>
+      <HeroSection />
 
-        <div className="hero-grid" style={{
-          maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 1,
-          display: 'grid', gridTemplateColumns: '1fr 380px', gap: 60, alignItems: 'start',
-        }}>
-          {/* LEFT: Hero copy */}
-          <div>
-            {/* BALAPOR brand pill */}
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-              <div style={{
-                width: 40, height: 40, borderRadius: 10,
-                background: 'var(--color-balapor)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-              }}>
-                <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 20, fontVariationSettings: "'FILL' 1" }}>campaign</span>
-              </div>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: 'white', letterSpacing: 0.5 }}>BALAPOR</p>
-                <p style={{ fontSize: 11, color: '#9ca3af', marginTop: -2 }}>Suara Warga Maluku Utara</p>
-              </div>
-            </div>
-
-            <h1 style={{
-              fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 800, color: 'white',
-              lineHeight: 1.15, letterSpacing: '-1.2px', marginBottom: 20,
-            }}>
-              Bersama membangun<br />
-              <span style={{ color: 'var(--color-balapor)' }}>Maluku Utara</span><br />
-              yang lebih baik.
-            </h1>
-
-            <p style={{ fontSize: 17, color: '#d1d5db', lineHeight: 1.55, marginBottom: 32, maxWidth: 500 }}>
-              Suaramu penting. Di BALAPOR, laporan terverifikasi naik jadi <strong style={{ color: 'white' }}>artikel BAKABAR</strong> — dibaca warga, dilihat banyak pihak, jadi bagian dari pembangunan kolektif Maluku Utara.
-            </p>
-
-            {/* CTA Buttons */}
-            <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap' }}>
-              <Link href={FORM_PATH} style={{
-                background: 'var(--color-balapor)', color: 'white',
-                padding: '14px 28px', borderRadius: 12,
-                fontSize: 14, fontWeight: 700, textDecoration: 'none',
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)',
-                transition: 'transform 0.15s',
-              }}
-                onMouseEnter={e => (e.currentTarget.style.transform = 'translateY(-2px)')}
-                onMouseLeave={e => (e.currentTarget.style.transform = 'none')}
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 20 }}>edit_square</span>
-                Sampaikan Laporanmu
-              </Link>
-              <a href="#cara-kerja" style={{
-                background: 'transparent', color: 'white',
-                border: '1px solid rgba(255,255,255,0.25)',
-                padding: '14px 22px', borderRadius: 12,
-                fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-              }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 18 }}>play_circle</span>
-                Lihat Cara Kerja
-              </a>
-            </div>
-
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 0' }}>
-              <span className="material-symbols-outlined" style={{ color: '#95d3ba', fontSize: 18 }}>lock</span>
-              <span style={{ fontSize: 13, color: '#95d3ba' }}>Aman & anonim by default. Identitasmu terlindungi.</span>
-            </div>
-          </div>
-
-          {/* RIGHT: Cold-start panel + Founding perks */}
-          <div style={{
-            background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(149, 211, 186, 0.15)',
-            borderRadius: 20, padding: 28,
-          }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: 'rgba(16, 185, 129, 0.15)',
-              border: '1px solid rgba(16, 185, 129, 0.3)',
-              padding: '6px 12px', borderRadius: 12, marginBottom: 16,
-            }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10B981' }} />
-              <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>Awal perjalanan kami</span>
-            </div>
-
-            <h2 style={{ fontSize: 36, fontWeight: 800, color: 'white', lineHeight: 1, letterSpacing: '-1px', marginBottom: 8 }}>0 laporan masuk</h2>
-            <p style={{ fontSize: 13, color: '#9ca3af', lineHeight: 1.5, marginBottom: 24 }}>
-              Karena ini baru dimulai.<br />Mari bangun bersama dari awal.
-            </p>
-
-            <div style={{ height: 1, background: 'rgba(149, 211, 186, 0.15)', marginBottom: 20 }} />
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-              {[
-                { icon: 'groups',    bgRgba: 'rgba(16, 185, 129, 0.15)',  iconColor: '#10B981', title: '100 orang pertama',         desc: 'akan mendapat badge eksklusif Founding Reporter.' },
-                { icon: 'lightbulb', bgRgba: 'rgba(245, 158, 11, 0.15)', iconColor: '#F59E0B', title: 'Bentuk masa depan BALAPOR', desc: 'Vote fitur, beri masukan, tentukan arah platform ini.' },
-                { icon: 'shield',    bgRgba: 'rgba(168, 85, 247, 0.15)', iconColor: '#A855F7', title: 'Privasi dijaga sepenuhnya', desc: 'Default anonim. Hanya admin yang melihat nomor WA.' },
-              ].map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: 12, alignItems: 'start' }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: 10,
-                    background: item.bgRgba,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-                  }}>
-                    <span className="material-symbols-outlined" style={{ color: item.iconColor, fontSize: 20, fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
-                  </div>
-                  <div>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>{item.title}</p>
-                    <p style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </section>
 
       {/* ════════════════════════════════════════════════════════
-          1.5. LIVE MAP — Bridge Sprint Day 11 (10 Mei 2026)
-          Hybrid B+C: Phase 0 demo / Phase 1 small map / Phase 2 full
+          2. CARA KERJA BALAPOR (LEGEND)
           ════════════════════════════════════════════════════════ */}
-      <div id="live-map">
-        <BalaporLiveMapSection />
-      </div>
+      <CaraKerjaSection />
+
 
       {/* ════════════════════════════════════════════════════════
-          2. EMPATHY — Tantangan Bersama
-          ════════════════════════════════════════════════════════ */}
-      <section style={{ background: '#FFF5F5', padding: '80px 32px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <h2 style={{
-            fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 800, color: '#1f2937',
-            textAlign: 'center', letterSpacing: '-0.8px', marginBottom: 12,
-          }}>
-            Tantangan yang kita <span style={{ color: 'var(--color-balapor)' }}>hadapi bersama</span>
-          </h2>
-          <p style={{ fontSize: 14, color: '#6b7280', textAlign: 'center', marginBottom: 48 }}>
-            Realita yang sering dialami warga Maluku Utara
-          </p>
-
-          <div className="empathy-grid" style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20,
-          }}>
-            {[
-              { title: 'Lapor sulit terlacak',     desc: 'Laporan masuk tapi sulit dipantau perkembangannya. Tidak ada kejelasan status.', illusBg: 'linear-gradient(135deg, #1f2937 0%, #374151 100%)', illusIcon: 'smartphone',  showCard: true },
-              { title: 'Hilang dalam scroll medsos', desc: 'Lapor di Facebook atau Twitter? Tenggelam dalam jam, sulit dilacak kembali.', illusBg: 'linear-gradient(135deg, #4b5563 0%, #6b7280 100%)', illusIcon: 'swap_vert',  showCard: false },
-              { title: 'Khawatir identitas terbuka', desc: 'Ingin lapor tapi takut identitas diketahui dan menimbulkan masalah.',           illusBg: 'linear-gradient(135deg, #111827 0%, #1f2937 100%)', illusIcon: 'person',      showCard: false },
-            ].map((item, i) => (
-              <div key={i} style={{
-                background: 'white', borderRadius: 16, overflow: 'hidden',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
-              }}>
-                <div style={{ display: 'flex', gap: 16, padding: 24, alignItems: 'start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      width: 32, height: 32, borderRadius: '50%',
-                      background: 'var(--color-balapor)',
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-                    }}>
-                      <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 18 }}>close</span>
-                    </div>
-                    <h3 style={{ fontSize: 18, fontWeight: 700, color: '#1f2937', marginBottom: 8 }}>{item.title}</h3>
-                    <p style={{ fontSize: 13, color: '#6b7280', lineHeight: 1.6 }}>{item.desc}</p>
-                  </div>
-                  <div style={{
-                    width: 110, height: 130, borderRadius: 12,
-                    background: item.illusBg, flexShrink: 0,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative',
-                  }}>
-                    <span className="material-symbols-outlined" style={{ color: 'white', fontSize: item.showCard ? 36 : 50, opacity: item.showCard ? 0.4 : 0.5 }}>{item.illusIcon}</span>
-                    {item.showCard && (
-                      <div style={{ position: 'absolute', bottom: 14, left: 8, right: 8, background: 'white', padding: '4px 6px', borderRadius: 4 }}>
-                        <p style={{ fontSize: 7, fontWeight: 700, color: 'var(--color-balapor)', textAlign: 'center' }}>LAPORAN ANDA<br />DITERIMA</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          3. SYNERGY — BALAPOR × BAKABAR
-          ════════════════════════════════════════════════════════ */}
-      <section style={{
-        background: 'linear-gradient(135deg, #003526 0%, #00251a 100%)',
-        padding: '80px 32px', position: 'relative', overflow: 'hidden',
-      }}>
-        <div style={{
-          position: 'absolute', top: -100, right: -100,
-          width: 500, height: 500, borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(239, 68, 68, 0.1) 0%, transparent 70%)',
-          pointerEvents: 'none',
-        }} />
-
-        <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 1 }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'rgba(239, 68, 68, 0.15)',
-              border: '1px solid rgba(239, 68, 68, 0.3)',
-              padding: '6px 14px', borderRadius: 16, marginBottom: 16,
-            }}>
-              <span className="material-symbols-outlined" style={{ color: '#FCA5A5', fontSize: 14 }}>handshake</span>
-              <span style={{ fontSize: 11, color: '#FCA5A5', fontWeight: 700, letterSpacing: 1 }}>SEMANGAT KOLABORASI</span>
-            </div>
-            <h2 style={{ fontSize: 'clamp(26px, 3.5vw, 36px)', fontWeight: 800, color: 'white', letterSpacing: '-1px', marginBottom: 12 }}>
-              Suara warga yang <span style={{ color: 'var(--color-balapor)' }}>membangun.</span>
-            </h2>
-            <p style={{ fontSize: 15, color: '#95d3ba', maxWidth: 600, margin: '0 auto', lineHeight: 1.6 }}>
-              Kekuatan kami adalah <strong style={{ color: 'white' }}>jurnalisme warga</strong> — mengangkat suara akar rumput agar didengar lebih banyak pihak. Bersama membangun kesadaran kolektif untuk Maluku Utara.
-            </p>
-          </div>
-
-          {/* Visual Synergy Diagram */}
-          <div style={{
-            background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(149, 211, 186, 0.15)',
-            borderRadius: 24, padding: '48px 32px', marginBottom: 40,
-          }}>
-            <div className="synergy-flow" style={{
-              display: 'grid', gridTemplateColumns: '1fr auto 1fr auto 1fr', gap: 16,
-              alignItems: 'center', maxWidth: 900, margin: '0 auto',
-            }}>
-              {/* BALAPOR */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: 20,
-                  background: 'var(--color-balapor)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 12px',
-                  boxShadow: '0 12px 32px rgba(239, 68, 68, 0.4)',
-                }}>
-                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 40, fontVariationSettings: "'FILL' 1" }}>campaign</span>
-                </div>
-                <p style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>BALAPOR</p>
-                <p style={{ fontSize: 11, color: '#95d3ba', lineHeight: 1.5 }}>Warga sampaikan<br />laporan secara aman</p>
-              </div>
-
-              <svg width="60" height="40" viewBox="0 0 60 40">
-                <path className="balapor-flow-arrow" d="M 5 20 L 50 20" stroke="var(--color-balapor)" strokeWidth="3" fill="none" strokeLinecap="round" />
-                <polygon points="50,15 60,20 50,25" fill="var(--color-balapor)" />
-              </svg>
-
-              {/* TeraLoka */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: 20,
-                  background: 'linear-gradient(135deg, #003526, #064E3B)',
-                  border: '2px solid rgba(149, 211, 186, 0.3)',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px',
-                }}>
-                  <span className="material-symbols-outlined" style={{ color: '#95d3ba', fontSize: 40, fontVariationSettings: "'FILL' 1" }}>verified</span>
-                </div>
-                <p style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>TeraLoka</p>
-                <p style={{ fontSize: 11, color: '#95d3ba', lineHeight: 1.5 }}>Tim verifikasi<br />fakta & lokasi</p>
-              </div>
-
-              <svg width="60" height="40" viewBox="0 0 60 40">
-                <path className="balapor-flow-arrow" d="M 5 20 L 50 20" stroke="#10B981" strokeWidth="3" fill="none" strokeLinecap="round" />
-                <polygon points="50,15 60,20 50,25" fill="#10B981" />
-              </svg>
-
-              {/* BAKABAR */}
-              <div style={{ textAlign: 'center' }}>
-                <div style={{
-                  width: 80, height: 80, borderRadius: 20,
-                  background: '#003526', border: '2px solid #10B981',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 12px',
-                  boxShadow: '0 12px 32px rgba(16, 185, 129, 0.3)',
-                }}>
-                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 40 }}>newspaper</span>
-                </div>
-                <p style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 4 }}>BAKABAR</p>
-                <p style={{ fontSize: 11, color: '#95d3ba', lineHeight: 1.5 }}>Publish jadi<br />berita publik</p>
-              </div>
-            </div>
-
-            {/* Result chain */}
-            <div style={{ marginTop: 32, paddingTop: 32, borderTop: '1px solid rgba(149, 211, 186, 0.15)' }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16, flexWrap: 'wrap' }}>
-                {[
-                  { icon: 'visibility', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', label: 'Dibaca Warga' },
-                  { icon: 'groups',     color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.15)', label: 'Kesadaran Kolektif' },
-                  { icon: 'handshake',  color: 'var(--color-balapor)', bg: 'rgba(239, 68, 68, 0.15)', label: 'Aksi Bersama' },
-                ].map((chain, i, arr) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: chain.bg, padding: '10px 18px', borderRadius: 12 }}>
-                      <span className="material-symbols-outlined" style={{ color: chain.color, fontSize: 18 }}>{chain.icon}</span>
-                      <span style={{ fontSize: 13, color: 'white', fontWeight: 600 }}>{chain.label}</span>
-                    </div>
-                    {i < arr.length - 1 && <span style={{ color: '#95d3ba', fontSize: 18 }}>→</span>}
-                  </div>
-                ))}
-              </div>
-              <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13, color: '#95d3ba', fontStyle: 'italic' }}>
-                "Pembangunan terbaik adalah yang melibatkan semua pihak — warga, pemerintah, dan dunia usaha."
-              </p>
-            </div>
-          </div>
-
-          {/* 3 Value Props */}
-          <div className="value-props-grid" style={{
-            display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16,
-          }}>
-            {[
-              { num: '1.', title: 'Suaramu Didengar',    icon: 'campaign',   color: '#FCA5A5', bg: 'rgba(239, 68, 68, 0.2)',  desc: 'Laporan terverifikasi naik ke BAKABAR — dibaca warga, jadi bagian dari percakapan publik Maluku Utara.' },
-              { num: '2.', title: 'Mengangkat Cerita',   icon: 'visibility', color: '#10B981', bg: 'rgba(16, 185, 129, 0.2)', desc: 'Issue lokal yang penting jadi sorotan publik — agar lebih banyak pihak peduli dan bertindak.' },
-              { num: '3.', title: 'Bersama Menggerakkan', icon: 'handshake',  color: '#F59E0B', bg: 'rgba(245, 158, 11, 0.2)', desc: 'Pembangunan terbaik adalah hasil sinergi — warga, pemerintah, swasta, dan komunitas.' },
-            ].map((vp, i) => (
-              <div key={i} style={{
-                background: 'rgba(255,255,255,0.05)', backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(149, 211, 186, 0.15)',
-                borderRadius: 16, padding: 24,
-              }}>
-                <div style={{
-                  width: 44, height: 44, borderRadius: 12,
-                  background: vp.bg,
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-                }}>
-                  <span className="material-symbols-outlined" style={{ color: vp.color, fontSize: 24, fontVariationSettings: "'FILL' 1" }}>{vp.icon}</span>
-                </div>
-                <h3 style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 8 }}>{vp.num} {vp.title}</h3>
-                <p style={{ fontSize: 13, color: '#95d3ba', lineHeight: 1.6 }}>{vp.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          4. LIFECYCLE — 5-Step Process
-          ════════════════════════════════════════════════════════ */}
-      <section id="cara-kerja" style={{ background: 'white', padding: '80px 32px' }}>
-        <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-          <div style={{ textAlign: 'center', marginBottom: 56 }}>
-            <h2 style={{
-              fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 800, color: '#1f2937',
-              letterSpacing: '-0.8px', marginBottom: 8,
-            }}>
-              Bagaimana <span style={{ color: 'var(--color-balapor)' }}>prosesnya</span>
-            </h2>
-            <p style={{ fontSize: 14, color: '#6b7280' }}>Sistem pelaporan yang transparan, aman, dan tuntas.</p>
-          </div>
-
-          <div className="lifecycle-grid" style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr auto 1fr auto 1fr auto 1fr auto 1fr',
-            gap: 12, alignItems: 'start',
-          }}>
-            {LIFECYCLE_STEPS.map((step, i, arr) => (
-              <div key={step.num} style={{ display: 'contents' }}>
-                <div style={{
-                  background: step.highlight ? 'linear-gradient(135deg, #003526 0%, #00251a 100%)' : '#f9f9f8',
-                  border: step.highlight ? '2px solid #10B981' : '1px solid #e5e7eb',
-                  borderRadius: 16, padding: 24, textAlign: 'center', position: 'relative',
-                  boxShadow: step.highlight ? '0 12px 32px rgba(16, 185, 129, 0.15)' : 'none',
-                }}>
-                  <div style={{
-                    position: 'absolute', top: -10, left: '50%', transform: 'translateX(-50%)',
-                    width: 24, height: 24, borderRadius: '50%',
-                    background: step.num === 5 ? '#10B981' : '#1f2937',
-                    color: 'white', fontSize: 12, fontWeight: 700,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  }}>{step.num}</div>
-                  <div style={{
-                    width: 56, height: 56, borderRadius: 14,
-                    background: step.bg,
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px',
-                  }}>
-                    <span className="material-symbols-outlined" style={{ color: step.color, fontSize: 28, fontVariationSettings: step.filled ? "'FILL' 1" : undefined }}>{step.icon}</span>
-                  </div>
-                  <h3 style={{ fontSize: 14, fontWeight: 700, color: step.highlight ? 'white' : '#1f2937', marginBottom: 8 }}>{step.title}</h3>
-                  <p style={{ fontSize: 11, color: step.highlight ? '#95d3ba' : '#6b7280', lineHeight: 1.55 }}>{step.desc}</p>
-                  {step.highlight && (
-                    <div style={{
-                      position: 'absolute', top: 14, right: 12,
-                      background: 'var(--color-balapor)', color: 'white',
-                      fontSize: 9, fontWeight: 800, padding: '2px 8px', borderRadius: 8, letterSpacing: 0.5,
-                    }}>⚡ KUNCI</div>
-                  )}
-                </div>
-                {i < arr.length - 1 && (
-                  <span className="material-symbols-outlined lifecycle-chevron" style={{ color: '#d1d5db', fontSize: 24, alignSelf: 'center', marginTop: 40 }}>chevron_right</span>
-                )}
-              </div>
-            ))}
-          </div>
-
-          <div style={{ textAlign: 'center', marginTop: 40 }}>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: '#ECFDF5', padding: '10px 20px', borderRadius: 100,
-              border: '1px solid #A7F3D0',
-            }}>
-              <span className="material-symbols-outlined" style={{ color: '#10B981', fontSize: 18 }}>visibility</span>
-              <span style={{ fontSize: 13, color: '#047857', fontWeight: 500 }}>
-                Semua proses transparan. Kamu bisa pantau status laporanmu kapan saja.
-              </span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════
-          5. CATEGORIES
+          3. CATEGORIES — Kamu bisa Laporkan Berbagai Hal (LEGEND)
           ════════════════════════════════════════════════════════ */}
       <section style={{ background: '#f9f9f8', padding: '60px 32px' }}>
         <div className="categories-grid" style={{
@@ -601,6 +185,12 @@ export default function BalaporLandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ════════════════════════════════════════════════════════
+          4. FITUR UTAMA — Dibangun untuk warga (LEGEND)
+          ════════════════════════════════════════════════════════ */}
+      <FiturUtamaSection />
+
 
       {/* ════════════════════════════════════════════════════════
           6. EKOSISTEM TERALOKA — ALIVE 3-COL
@@ -781,67 +371,26 @@ export default function BalaporLandingPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════
-          7. FOUNDING REPORTER
+          6. TANTANGAN + MANIFESTO MERGED SLIDE (Day 12 LEGEND)
           ════════════════════════════════════════════════════════ */}
-      <section style={{ background: 'var(--color-balapor-muted)', padding: '60px 32px' }}>
-        <div className="founding-grid" style={{
-          maxWidth: 1200, margin: '0 auto',
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 48, alignItems: 'center',
-        }}>
-          <div>
-            <div style={{
-              display: 'inline-flex', alignItems: 'center', gap: 8,
-              background: 'white', padding: '8px 14px', borderRadius: 14,
-              marginBottom: 16, border: '1px solid #FCA5A5',
-            }}>
-              <span className="material-symbols-outlined" style={{ color: 'var(--color-balapor)', fontSize: 16, fontVariationSettings: "'FILL' 1" }}>stars</span>
-              <span style={{ fontSize: 11, fontWeight: 700, color: '#7F1D1D', letterSpacing: 1 }}>FOUNDING MEMBERS · 100 PERTAMA</span>
-            </div>
-            <h2 style={{
-              fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 800, color: '#7F1D1D',
-              lineHeight: 1.2, letterSpacing: '-0.8px', marginBottom: 16,
-            }}>
-              Jadi salah satu 100 pelapor pertama Maluku Utara.
-            </h2>
-            <p style={{ fontSize: 16, color: '#991B1B', lineHeight: 1.65, marginBottom: 24 }}>
-              Kamu yang ikut membentuk BALAPOR jadi seperti apa. Suara kalian akan menentukan fitur-fitur berikutnya.
-            </p>
-            <Link href={FORM_PATH} style={{
-              background: 'var(--color-balapor)', color: 'white',
-              padding: '16px 32px', borderRadius: 14,
-              fontSize: 15, fontWeight: 700, textDecoration: 'none',
-              display: 'inline-block',
-              boxShadow: '0 8px 24px rgba(239, 68, 68, 0.35)',
-            }}>
-              Daftar sebagai pelapor pertama
-            </Link>
-            <p style={{ marginTop: 12, fontSize: 12, color: '#991B1B' }}>
-              Gratis selamanya · cuma butuh nomor WhatsApp
-            </p>
-          </div>
+      <TantanganManifestoSlide />
 
-          <div>
-            {[
-              { icon: 'stars',       text: 'Badge "Founding Reporter" permanen di profil', filled: true },
-              { icon: 'schedule',    text: 'Akses awal ke fitur baru sebelum publik',      filled: false },
-              { icon: 'how_to_vote', text: 'Vote langsung untuk fitur prioritas berikutnya', filled: false },
-            ].map((perk, i) => (
-              <div key={i} style={{
-                background: 'white', borderRadius: 14, padding: '16px 20px',
-                marginBottom: i < 2 ? 10 : 0, border: '1px solid #FECACA',
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                  <span className="material-symbols-outlined" style={{ color: 'var(--color-balapor)', fontSize: 22, fontVariationSettings: perk.filled ? "'FILL' 1" : undefined }}>{perk.icon}</span>
-                  <p style={{ fontSize: 14, color: '#7F1D1D', fontWeight: 500 }}>{perk.text}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ════════════════════════════════════════════════════════
-          8. FAQ — Hybrid Tab + Accordion
+          7. KOMUNITAS AWAL — Jadilah Bagian Dari Perubahan (LEGEND)
+          ════════════════════════════════════════════════════════ */}
+      <KomunitasAwalSection />
+
+
+      {/* ════════════════════════════════════════════════════════
+          8. EKOSISTEM CAROUSEL — 6 Layanan 1 Aplikasi (LEGEND)
+          Discovery 6 services TeraLoka full coverage.
+          Complement existing 3-col deep content above.
+          ════════════════════════════════════════════════════════ */}
+      <EkosistemSection />
+
+      {/* ════════════════════════════════════════════════════════
+          9. FAQ — Hybrid Tab + Accordion
           ════════════════════════════════════════════════════════ */}
       <section style={{ background: 'white', padding: '80px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
@@ -929,58 +478,114 @@ export default function BalaporLandingPage() {
       </section>
 
       {/* ════════════════════════════════════════════════════════
-          9. FINAL CTA
+          10. SUARA KECIL — Final pitch banner (LEGEND fix)
+          Global <Footer /> dari layout.tsx akan tampil otomatis di bawah.
           ════════════════════════════════════════════════════════ */}
-      <section style={{
-        background: 'linear-gradient(135deg, #003526 0%, #00251a 100%)',
-        padding: 32,
-      }}>
-        <div className="final-cta-grid" style={{
-          maxWidth: 1200, margin: '0 auto',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 32, flexWrap: 'wrap',
-        }}>
-          <div>
-            <h2 style={{
-              fontSize: 'clamp(20px, 2.5vw, 24px)', fontWeight: 800, color: 'white',
-              lineHeight: 1.3, letterSpacing: '-0.5px', marginBottom: 4,
-            }}>
-              Bersama membangun Maluku Utara
-            </h2>
-            <h2 style={{
-              fontSize: 'clamp(20px, 2.5vw, 24px)', fontWeight: 800, color: 'white',
-              lineHeight: 1.3, letterSpacing: '-0.5px',
-            }}>
-              yang <span style={{ color: 'var(--color-balapor)' }}>lebih baik</span>, satu laporan setiap kalinya.
-            </h2>
-          </div>
-          <div style={{ display: 'flex', gap: 10, flexShrink: 0, flexWrap: 'wrap' }}>
-            <Link href={FORM_PATH} style={{
-              background: 'var(--color-balapor)', color: 'white',
-              padding: '14px 24px', borderRadius: 12,
-              fontSize: 14, fontWeight: 700, textDecoration: 'none',
-              display: 'inline-block',
-              boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)',
-            }}>
-              Sampaikan laporanmu
-            </Link>
-            <a
-              href="https://wa.me/6281289539452?text=Halo%20TeraLoka%2C%20saya%20mau%20tanya%20soal%20BALAPOR"
-              target="_blank"
-              rel="noopener noreferrer"
+      <section
+        style={{
+          background: 'linear-gradient(135deg, #001a13 0%, #003526 100%)',
+          padding: '40px 32px',
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 1200,
+            margin: '0 auto',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 24,
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+          }}
+        >
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              flex: '1 1 auto',
+              minWidth: 280,
+            }}
+          >
+            <div
               style={{
-                background: 'rgba(255,255,255,0.1)', color: 'white',
-                border: '1px solid rgba(255,255,255,0.3)',
-                padding: '14px 22px', borderRadius: 12,
-                fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                display: 'inline-flex', alignItems: 'center', gap: 8,
+                width: 52,
+                height: 52,
+                borderRadius: 14,
+                background: 'rgba(149, 211, 186, 0.12)',
+                border: '1px solid rgba(149, 211, 186, 0.25)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
               }}
             >
-              <span className="material-symbols-outlined" style={{ fontSize: 18 }}>chat</span>
-              Tanya via WhatsApp dulu
-            </a>
+              <span
+                className="material-symbols-outlined"
+                style={{
+                  color: '#95d3ba',
+                  fontSize: 28,
+                  fontVariationSettings: "'FILL' 1, 'wght' 600",
+                }}
+              >
+                campaign
+              </span>
+            </div>
+
+            <div>
+              <h2
+                style={{
+                  fontSize: 'clamp(18px, 2.5vw, 22px)',
+                  fontWeight: 800,
+                  color: 'white',
+                  lineHeight: 1.2,
+                  letterSpacing: '-0.5px',
+                  marginBottom: 4,
+                }}
+              >
+                Suara kecil bisa membawa{' '}
+                <span style={{ color: 'var(--color-balapor)' }}>
+                  perubahan besar
+                </span>
+                .
+              </h2>
+              <p
+                style={{
+                  fontSize: 13,
+                  color: 'rgba(255,255,255,0.65)',
+                }}
+              >
+                Mulai laporan pertamamu sekarang.
+              </p>
+            </div>
           </div>
+
+          <Link
+            href="/balapor/buat-laporan"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              background: 'var(--color-balapor)',
+              color: 'white',
+              padding: '14px 28px',
+              borderRadius: 12,
+              fontSize: 14,
+              fontWeight: 800,
+              textDecoration: 'none',
+              transition: 'all 0.2s ease',
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+              flexShrink: 0,
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+              add_circle
+            </span>
+            Buat Laporan Sekarang
+          </Link>
         </div>
       </section>
+
 
       {/* ════════════════════════════════════════════════════════
           Inline animations (BALAPOR-specific)
