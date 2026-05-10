@@ -20,10 +20,13 @@
 //
 // History:
 //   May 3, 2026 — Initial implementation V4 mockup → React production
+//   May 10, 2026 — Bridge Sprint Day 11: Insert <BalaporLiveMapSection />
+//                  antara Hero & Empathy (Hybrid B+C live map + Phase 0 demo)
 // ════════════════════════════════════════════════════════════════
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { BalaporLiveMapSection } from '@/components/balapor/balapor-live-map-section';
 
 // ─── Form path constant ─────────────────────────────────────────
 const FORM_PATH = '/balapor/buat-laporan';
@@ -251,6 +254,14 @@ export default function BalaporLandingPage() {
           </div>
         </div>
       </section>
+
+      {/* ════════════════════════════════════════════════════════
+          1.5. LIVE MAP — Bridge Sprint Day 11 (10 Mei 2026)
+          Hybrid B+C: Phase 0 demo / Phase 1 small map / Phase 2 full
+          ════════════════════════════════════════════════════════ */}
+      <div id="live-map">
+        <BalaporLiveMapSection />
+      </div>
 
       {/* ════════════════════════════════════════════════════════
           2. EMPATHY — Tantangan Bersama

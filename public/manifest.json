@@ -28,6 +28,13 @@
   ],
   "shortcuts": [
     {
+      "name": "SOS Darurat",
+      "short_name": "SOS",
+      "description": "Tombol darurat — kirim laporan SOS panic button",
+      "url": "/sos",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
       "name": "Speedboat",
       "short_name": "Speedboat",
       "description": "Cek jadwal speedboat hari ini",

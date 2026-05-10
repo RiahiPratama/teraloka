@@ -7,6 +7,7 @@ import { PostHogProvider } from '@/components/providers/PostHogProvider'
 import { ToastProvider } from '@/components/ui/Toast'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import ConditionalBottomNav from '@/components/layout/ConditionalBottomNav'
+import { SosFab } from '@/components/balapor/sos-fab' // ← Day 12 Step 6 (10 Mei 2026)
 
 export const metadata: Metadata = {
   title: 'TeraLoka — Gerbang Digital Maluku Utara',
@@ -57,7 +58,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             ModalProvider HARUS membungkus {children} DAN <ConditionalBottomNav />
             karena both side perlu akses state — modal (registerModal) dan
-            BottomNav (isAnyModalOpen). */}
+            BottomNav (isAnyModalOpen). 
+            
+            SosFab juga di mount di sini sebagai sibling — visible di SEMUA
+            pages (panic button always-on, Day 12 Step 6, 10 Mei 2026). */}
         <PostHogProvider>
           <ThemeProvider>
             <AuthProvider>
@@ -65,6 +69,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ModalProvider>
                   {children}
                   <ConditionalBottomNav />
+                  <SosFab />
                 </ModalProvider>
               </ToastProvider>
             </AuthProvider>
