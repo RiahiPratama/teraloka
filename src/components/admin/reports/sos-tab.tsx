@@ -14,13 +14,14 @@
  *   - Replace bg-white/text-gray-* hardcoded → CSS variables
  */
 
-import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, AlertCircle } from 'lucide-react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
+import { RefreshCw, AlertCircle, AlertTriangle } from 'lucide-react';
 import { useApi } from '@/lib/api/client';
 import { useToast } from '@/components/ui/Toast';
 import { useSosRealtime } from '@/hooks/useSosRealtime';
 import { SosStatsCards } from '@/components/admin/reports/sos-stats-cards';
 import { SosListTable } from '@/components/admin/reports/sos-list-table';
+import { SosCharts } from '@/components/admin/reports/sos-charts';
 import { ACTIVE_STATUSES } from '@/types/sos-admin';
 import type {
   AdminSosListResult,
@@ -225,6 +226,16 @@ export function SosTab({ refreshNonce = 0 }: SosTabProps) {
       {/* Stats Cards */}
       <SosStatsCards stats={stats} isLoading={isLoadingStats} />
 
+      {/* Smart Alert Banner — peringatan SOS aktif lama */}
+      {stats && stats.pending > 0 && (
+        <SmartAlertBanner pendingCount={stats.pending} />
+      )}
+
+      {/* Charts — Distribusi by type */}
+      {stats && stats.total_today > 0 && (
+        <SosCharts stats={stats} />
+      )}
+
       {/* List Table */}
       <SosListTable
         result={listResult}
@@ -237,6 +248,42 @@ export function SosTab({ refreshNonce = 0 }: SosTabProps) {
         onSearchChange={handleSearchChange}
         onPageChange={setPageOffset}
       />
+    </div>
+  );
+}
+
+// ─── Smart Alert Banner ────────────────────────────────────────
+
+function SmartAlertBanner({ pendingCount }: { pendingCount: number }) {
+  return (
+    <div
+      className="rounded-2xl p-4 flex items-start gap-3"
+      style={{
+        background: 'var(--color-status-warning)' + '15',
+        border: '2px solid var(--color-status-warning)',
+      }}
+    >
+      <div
+        className="h-10 w-10 rounded-xl flex items-center justify-center flex-shrink-0"
+        style={{ background: 'var(--color-status-warning)' }}
+      >
+        <AlertTriangle className="h-5 w-5 text-white" strokeWidth={2.5} />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3
+          className="text-sm font-extrabold"
+          style={{ color: 'var(--color-status-warning)' }}
+        >
+          ⚠️ {pendingCount} SOS Menunggu Acknowledge
+        </h3>
+        <p
+          className="text-xs mt-0.5"
+          style={{ color: 'var(--color-text-secondary)' }}
+        >
+          Segera acknowledge untuk informasikan ke pelapor bahwa SOS sudah ditangani.
+          Setiap detik penting dalam respons emergency.
+        </p>
+      </div>
     </div>
   );
 }
