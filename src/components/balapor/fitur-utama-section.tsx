@@ -1,12 +1,12 @@
 'use client';
 
 /**
- * TeraLoka — Fitur Utama Section (CSS-only mobile slide)
- * Bridge Sprint Day 12 LEGEND FINAL (10 Mei 2026)
+ * TeraLoka — Fitur Utama Section v3 (FULL COLORED cards)
+ * Bridge Sprint Day 13 morning (11 Mei 2026)
  * ------------------------------------------------------------
- * 5 fitur cards premium dengan service identity colors.
- * Mobile: native CSS scroll-snap (zero JS overhead).
- * Desktop: grid 5-col responsive.
+ * 5 fitur cards FULL berwarna sesuai service identity.
+ * Hover: bayangan colored tetap visible (premium feel).
+ * Mobile: CSS-only scroll-snap.
  */
 
 import { useEffect, useRef, useState } from 'react';
@@ -15,7 +15,9 @@ interface Feature {
   iconName: string;
   gradientFrom: string;
   gradientTo: string;
+  bgGradient: string;       // soft tint untuk background card
   shadowColor: string;
+  borderColor: string;
   title: string;
   description: string;
   subFeatures: string[];
@@ -26,7 +28,9 @@ const FEATURES: Feature[] = [
     iconName: 'shield_person',
     gradientFrom: '#10B981',
     gradientTo: '#047857',
-    shadowColor: 'rgba(16, 185, 129, 0.20)',
+    bgGradient: 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)',
+    shadowColor: 'rgba(16, 185, 129, 0.25)',
+    borderColor: 'rgba(16, 185, 129, 0.20)',
     title: 'Aman & Anonim',
     description:
       'Identitas pelapor terlindungi by design. Lapor dengan tenang, fokus ke masalah.',
@@ -40,7 +44,9 @@ const FEATURES: Feature[] = [
     iconName: 'location_on',
     gradientFrom: '#3B82F6',
     gradientTo: '#1E40AF',
-    shadowColor: 'rgba(59, 130, 246, 0.20)',
+    bgGradient: 'linear-gradient(135deg, #EFF6FF 0%, #DBEAFE 100%)',
+    shadowColor: 'rgba(59, 130, 246, 0.25)',
+    borderColor: 'rgba(59, 130, 246, 0.20)',
     title: 'Berbasis Lokasi',
     description:
       'GPS akurat untuk tandai lokasi presisi. Visualisasi langsung di peta MalUt.',
@@ -54,7 +60,9 @@ const FEATURES: Feature[] = [
     iconName: 'verified',
     gradientFrom: '#8B5CF6',
     gradientTo: '#5B21B6',
-    shadowColor: 'rgba(139, 92, 246, 0.20)',
+    bgGradient: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)',
+    shadowColor: 'rgba(139, 92, 246, 0.25)',
+    borderColor: 'rgba(139, 92, 246, 0.20)',
     title: 'Verifikasi Transparan',
     description:
       'Setiap laporan diverifikasi tim moderator. Status update real-time.',
@@ -68,7 +76,9 @@ const FEATURES: Feature[] = [
     iconName: 'newspaper',
     gradientFrom: '#F59E0B',
     gradientTo: '#B45309',
-    shadowColor: 'rgba(245, 158, 11, 0.20)',
+    bgGradient: 'linear-gradient(135deg, #FFFBEB 0%, #FEF3C7 100%)',
+    shadowColor: 'rgba(245, 158, 11, 0.25)',
+    borderColor: 'rgba(245, 158, 11, 0.20)',
     title: 'Terintegrasi BAKABAR',
     description:
       'Laporan penting otomatis naik jadi berita BAKABAR. Suara warga jadi headline lokal.',
@@ -82,7 +92,9 @@ const FEATURES: Feature[] = [
     iconName: 'emergency',
     gradientFrom: '#EF4444',
     gradientTo: '#B91C1C',
-    shadowColor: 'rgba(239, 68, 68, 0.20)',
+    bgGradient: 'linear-gradient(135deg, #FEF2F2 0%, #FEE2E2 100%)',
+    shadowColor: 'rgba(239, 68, 68, 0.25)',
+    borderColor: 'rgba(239, 68, 68, 0.20)',
     title: 'Mode SOS Darurat',
     description:
       'Tap sekali, langsung tersambung ke tim respons emergency 24/7.',
@@ -183,7 +195,6 @@ export function FiturUtamaSection() {
           </p>
         </div>
 
-        {/* Cards: CSS-only scroll-snap untuk mobile, grid untuk desktop */}
         <div className="fitur-cards">
           {FEATURES.map((feature, idx) => (
             <FeatureCard
@@ -246,8 +257,8 @@ function FeatureCard({
   return (
     <div
       style={{
-        background: 'white',
-        border: '1px solid #e5e7eb',
+        background: feature.bgGradient,
+        border: `1px solid ${feature.borderColor}`,
         borderRadius: 18,
         padding: 22,
         opacity: isVisible ? 1 : 0,
@@ -256,20 +267,34 @@ function FeatureCard({
         position: 'relative',
         overflow: 'hidden',
         cursor: 'default',
+        boxShadow: `0 4px 16px ${feature.shadowColor.replace('0.25', '0.12')}`,
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.boxShadow = `0 12px 32px ${feature.shadowColor}`;
-        e.currentTarget.style.borderColor = feature.gradientFrom + '40';
-        e.currentTarget.style.transform = 'translateY(-4px)';
+        e.currentTarget.style.boxShadow = `0 16px 40px ${feature.shadowColor}`;
+        e.currentTarget.style.borderColor = feature.gradientFrom + '60';
+        e.currentTarget.style.transform = 'translateY(-6px)';
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)';
-        e.currentTarget.style.borderColor = '#e5e7eb';
+        e.currentTarget.style.boxShadow = `0 4px 16px ${feature.shadowColor.replace('0.25', '0.12')}`;
+        e.currentTarget.style.borderColor = feature.borderColor;
         e.currentTarget.style.transform = isVisible
           ? 'translateY(0)'
           : 'translateY(20px)';
       }}
     >
+      {/* Top accent line gradient */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: `linear-gradient(90deg, ${feature.gradientFrom}, ${feature.gradientTo})`,
+          opacity: 0.6,
+        }}
+      />
+
       <div
         style={{
           width: 48,
@@ -280,7 +305,7 @@ function FeatureCard({
           alignItems: 'center',
           justifyContent: 'center',
           marginBottom: 16,
-          boxShadow: `0 6px 16px ${feature.shadowColor}`,
+          boxShadow: `0 8px 20px ${feature.shadowColor}`,
         }}
       >
         <span
@@ -311,7 +336,7 @@ function FeatureCard({
       <p
         style={{
           fontSize: 12,
-          color: '#6b7280',
+          color: '#4b5563',
           lineHeight: 1.6,
           marginBottom: 14,
         }}
@@ -337,7 +362,7 @@ function FeatureCard({
               alignItems: 'flex-start',
               gap: 6,
               fontSize: 11,
-              color: '#9ca3af',
+              color: '#6b7280',
             }}
           >
             <span

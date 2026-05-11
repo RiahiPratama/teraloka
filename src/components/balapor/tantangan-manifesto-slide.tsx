@@ -107,7 +107,7 @@ export function TantanganManifestoSlide() {
       style={{
         background:
           'linear-gradient(135deg, #001a13 0%, #003526 50%, #001a13 100%)',
-        padding: '90px 24px',
+        padding: '72px 24px',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -163,7 +163,7 @@ export function TantanganManifestoSlide() {
         <div
           style={{
             textAlign: 'center',
-            marginBottom: 40,
+            marginBottom: 24,
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
             transition: 'opacity 0.8s ease, transform 0.8s ease',
@@ -197,7 +197,7 @@ export function TantanganManifestoSlide() {
         </div>
 
         {/* Slide content */}
-        <div style={{ position: 'relative', minHeight: 480 }}>
+        <div style={{ position: 'relative', minHeight: 380 }}>
           <div
             style={{
               position: activeSlide === 0 ? 'relative' : 'absolute',
@@ -242,7 +242,7 @@ export function TantanganManifestoSlide() {
             justifyContent: 'center',
             alignItems: 'center',
             gap: 24,
-            marginTop: 32,
+            marginTop: 20,
           }}
         >
           <NavArrow
@@ -398,7 +398,7 @@ function NavArrow({
 function TantanganContent({ isVisible }: { isVisible: boolean }) {
   return (
     <div>
-      <div style={{ textAlign: 'center', marginBottom: 36 }}>
+      <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <h2
           style={{
             fontSize: 'clamp(26px, 3.5vw, 38px)',

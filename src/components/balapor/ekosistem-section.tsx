@@ -221,7 +221,7 @@ export function EkosistemSection() {
               marginBottom: 12,
             }}
           >
-            6 layanan, 1 aplikasi.
+            Berbagai Layanan dalam 1 Aplikasi.
           </h2>
           <p
             style={{
@@ -408,20 +408,21 @@ function ServiceCardItem({
         minWidth: 280,
         maxWidth: 380,
         scrollSnapAlign: 'start',
-        background: 'white',
+        background: `linear-gradient(135deg, ${service.gradientFrom}08 0%, ${service.gradientFrom}15 100%)`,
         borderRadius: 20,
         padding: 24,
         boxShadow: isActive
-          ? '0 8px 28px rgba(0,0,0,0.12)'
-          : '0 2px 8px rgba(0,0,0,0.04)',
+          ? `0 12px 32px ${service.gradientFrom}25`
+          : `0 4px 14px ${service.gradientFrom}12`,
         border: '1px solid',
-        borderColor: isActive ? service.gradientFrom + '40' : '#e5e7eb',
+        borderColor: isActive ? service.gradientFrom + '50' : service.gradientFrom + '25',
         transition: 'all 0.4s ease',
         opacity: isVisible ? 1 : 0,
         transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
         transitionDelay: `${delay}s`,
         cursor: isClickable ? 'pointer' : 'default',
         position: 'relative',
+        overflow: 'hidden',
         height: 280,
         display: 'flex',
         flexDirection: 'column',
@@ -430,8 +431,9 @@ function ServiceCardItem({
       }}
       onMouseEnter={(e) => {
         if (isClickable) {
-          e.currentTarget.style.transform = 'translateY(-4px)';
-          e.currentTarget.style.boxShadow = '0 12px 32px rgba(0,0,0,0.15)';
+          e.currentTarget.style.transform = 'translateY(-6px)';
+          e.currentTarget.style.boxShadow = `0 16px 40px ${service.gradientFrom}30`;
+          e.currentTarget.style.borderColor = service.gradientFrom + '60';
         }
       }}
       onMouseLeave={(e) => {
@@ -439,10 +441,25 @@ function ServiceCardItem({
           ? 'translateY(0)'
           : 'translateY(20px)';
         e.currentTarget.style.boxShadow = isActive
-          ? '0 8px 28px rgba(0,0,0,0.12)'
-          : '0 2px 8px rgba(0,0,0,0.04)';
+          ? `0 12px 32px ${service.gradientFrom}25`
+          : `0 4px 14px ${service.gradientFrom}12`;
+        e.currentTarget.style.borderColor = isActive
+          ? service.gradientFrom + '50'
+          : service.gradientFrom + '25';
       }}
     >
+      {/* Top accent line */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 3,
+          background: `linear-gradient(90deg, ${service.gradientFrom}, ${service.gradientTo})`,
+        }}
+      />
+
       {/* Status badge */}
       <StatusBadge status={service.status} gradientFrom={service.gradientFrom} />
 

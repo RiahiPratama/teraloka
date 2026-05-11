@@ -130,31 +130,49 @@ export default function BalaporLandingPage() {
 
 
       {/* ════════════════════════════════════════════════════════
-          3. CATEGORIES — Kamu bisa Laporkan Berbagai Hal (LEGEND)
+          3. CATEGORIES — Kamu bisa Laporkan Berbagai Hal (Day 13)
           ════════════════════════════════════════════════════════ */}
-      <section style={{ background: '#f9f9f8', padding: '60px 32px' }}>
+      <section style={{ background: 'linear-gradient(135deg, #001a13 0%, #003526 100%)', padding: '80px 32px', position: 'relative', overflow: 'hidden' }}>
+        {/* Decorative dot pattern */}
+        <div style={{
+          position: 'absolute', inset: 0,
+          backgroundImage: 'radial-gradient(circle at 1px 1px, rgba(149, 211, 186, 0.06) 1px, transparent 0)',
+          backgroundSize: '24px 24px', pointerEvents: 'none',
+        }} />
+
         <div className="categories-grid" style={{
-          maxWidth: 1200, margin: '0 auto',
+          maxWidth: 1200, margin: '0 auto', position: 'relative',
           display: 'grid', gridTemplateColumns: '280px 1fr', gap: 48, alignItems: 'start',
         }}>
           <div>
             <h2 style={{
-              fontSize: 'clamp(22px, 2.5vw, 28px)', fontWeight: 800, color: '#1f2937',
+              fontSize: 'clamp(22px, 2.5vw, 28px)', fontWeight: 800, color: 'white',
               letterSpacing: '-0.8px', lineHeight: 1.2, marginBottom: 12,
             }}>
               Kamu bisa laporkan<br />
               <span style={{ color: 'var(--color-balapor)' }}>berbagai hal</span>
             </h2>
-            <p style={{ fontSize: 14, color: '#6b7280', lineHeight: 1.6, marginBottom: 20 }}>
+            <p style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, marginBottom: 20 }}>
               Mulai dari yang kecil hingga yang berdampak besar.
             </p>
             <Link href={FORM_PATH} style={{
-              background: 'white', border: '1px solid #e5e7eb',
-              padding: '10px 18px', borderRadius: 10,
-              fontSize: 13, fontWeight: 600, color: '#1f2937',
+              background: 'var(--color-balapor)', border: 'none',
+              padding: '12px 20px', borderRadius: 10,
+              fontSize: 13, fontWeight: 700, color: 'white',
               display: 'inline-flex', alignItems: 'center', gap: 6,
               textDecoration: 'none',
-            }}>
+              boxShadow: '0 4px 12px rgba(239, 68, 68, 0.35)',
+              transition: 'all 0.2s ease',
+            }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 18px rgba(239, 68, 68, 0.45)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(239, 68, 68, 0.35)';
+              }}
+            >
               Mulai laporkan
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
             </Link>
@@ -165,20 +183,37 @@ export default function BalaporLandingPage() {
           }}>
             {CATEGORIES.map(cat => (
               <div key={cat.key} style={{
-                background: 'white', border: '1px solid #e5e7eb',
+                background: 'rgba(239, 68, 68, 0.08)',
+                border: '1px solid rgba(239, 68, 68, 0.25)',
                 borderRadius: 14, padding: 16,
                 display: 'flex', gap: 12, alignItems: 'start',
-              }}>
+                transition: 'all 0.3s ease',
+                cursor: 'default',
+              }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.45)';
+                  e.currentTarget.style.transform = 'translateY(-3px)';
+                  e.currentTarget.style.boxShadow = '0 8px 20px rgba(239, 68, 68, 0.20)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(239, 68, 68, 0.08)';
+                  e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.25)';
+                  e.currentTarget.style.transform = 'translateY(0)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
                 <div style={{
                   width: 36, height: 36, borderRadius: 10,
-                  background: cat.bg,
+                  background: 'rgba(239, 68, 68, 0.20)',
+                  border: '1px solid rgba(239, 68, 68, 0.35)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 }}>
-                  <span className="material-symbols-outlined" style={{ color: cat.color, fontSize: 20 }}>{cat.icon}</span>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--color-balapor)', fontSize: 20 }}>{cat.icon}</span>
                 </div>
                 <div>
-                  <p style={{ fontSize: 13, fontWeight: 700, color: '#1f2937', marginBottom: 2 }}>{cat.label}</p>
-                  <p style={{ fontSize: 11, color: '#6b7280', lineHeight: 1.4 }}>{cat.desc}</p>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: 'white', marginBottom: 2 }}>{cat.label}</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', lineHeight: 1.4 }}>{cat.desc}</p>
                 </div>
               </div>
             ))}
@@ -211,14 +246,34 @@ export default function BalaporLandingPage() {
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20,
           }}>
 
-            {/* COL 1: BAKABAR */}
-            <div style={{ background: '#f9f9f8', border: '1px solid #e5e7eb', borderRadius: 18, padding: 24, display: 'flex', flexDirection: 'column' }}>
+            {/* COL 1: BAKABAR — purple brand identity */}
+            <div className="ekosistem-card-anim" style={{
+              background: 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)',
+              border: '1px solid rgba(139, 92, 246, 0.25)',
+              borderRadius: 18, padding: 24,
+              display: 'flex', flexDirection: 'column',
+              position: 'relative', overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 14px rgba(139, 92, 246, 0.10)',
+            }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 16px 36px rgba(139, 92, 246, 0.20)';
+                e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.50)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(139, 92, 246, 0.10)';
+                e.currentTarget.style.borderColor = 'rgba(139, 92, 246, 0.25)';
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #8B5CF6, #5B21B6)' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#003526', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 20 }}>newspaper</span>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: 'linear-gradient(135deg, #8B5CF6, #5B21B6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(139, 92, 246, 0.30)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 22, fontVariationSettings: "'FILL' 1, 'wght' 700" }}>newspaper</span>
                 </div>
                 <div>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: '#003526' }}>BAKABAR</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#5B21B6' }}>BAKABAR</p>
                   <p style={{ fontSize: 10, color: '#6b7280' }}>Berita terkini Maluku Utara</p>
                 </div>
               </div>
@@ -261,14 +316,33 @@ export default function BalaporLandingPage() {
               </Link>
             </div>
 
-            {/* COL 2: PRIVASI */}
-            <div style={{ background: '#f9f9f8', border: '1px solid #e5e7eb', borderRadius: 18, padding: 24 }}>
+            {/* COL 2: PRIVASI — violet purple identity */}
+            <div className="ekosistem-card-anim" style={{
+              background: 'linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%)',
+              border: '1px solid rgba(168, 85, 247, 0.25)',
+              borderRadius: 18, padding: 24,
+              position: 'relative', overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 14px rgba(168, 85, 247, 0.10)',
+            }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 16px 36px rgba(168, 85, 247, 0.20)';
+                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.50)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(168, 85, 247, 0.10)';
+                e.currentTarget.style.borderColor = 'rgba(168, 85, 247, 0.25)';
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #A855F7, #7E22CE)' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: '#A855F7', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 20, fontVariationSettings: "'FILL' 1" }}>shield</span>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: 'linear-gradient(135deg, #A855F7, #7E22CE)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(168, 85, 247, 0.30)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>shield</span>
                 </div>
                 <div>
-                  <p style={{ fontSize: 14, fontWeight: 800, color: '#1f2937' }}>Privasi Terjaga</p>
+                  <p style={{ fontSize: 14, fontWeight: 800, color: '#7E22CE' }}>Privasi Terjaga</p>
                   <p style={{ fontSize: 10, color: '#6b7280' }}>Identitasmu aman by design</p>
                 </div>
               </div>
@@ -315,11 +389,31 @@ export default function BalaporLandingPage() {
               </div>
             </div>
 
-            {/* COL 3: BADONASI */}
-            <div style={{ background: '#f9f9f8', border: '1px solid #e5e7eb', borderRadius: 18, padding: 24, display: 'flex', flexDirection: 'column' }}>
+            {/* COL 3: BADONASI — pink brand identity */}
+            <div className="ekosistem-card-anim" style={{
+              background: 'linear-gradient(135deg, #FDF2F8 0%, #FCE7F3 100%)',
+              border: '1px solid rgba(236, 72, 153, 0.25)',
+              borderRadius: 18, padding: 24,
+              display: 'flex', flexDirection: 'column',
+              position: 'relative', overflow: 'hidden',
+              transition: 'all 0.3s ease',
+              boxShadow: '0 4px 14px rgba(236, 72, 153, 0.10)',
+            }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-4px)';
+                e.currentTarget.style.boxShadow = '0 16px 36px rgba(236, 72, 153, 0.20)';
+                e.currentTarget.style.borderColor = 'rgba(236, 72, 153, 0.50)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 14px rgba(236, 72, 153, 0.10)';
+                e.currentTarget.style.borderColor = 'rgba(236, 72, 153, 0.25)';
+              }}
+            >
+              <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #EC4899, #BE185D)' }} />
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: 'var(--color-badonasi)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 20, fontVariationSettings: "'FILL' 1" }}>favorite</span>
+                <div style={{ width: 40, height: 40, borderRadius: 11, background: 'linear-gradient(135deg, #EC4899, #BE185D)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 4px 12px rgba(236, 72, 153, 0.30)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>favorite</span>
                 </div>
                 <div>
                   <p style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-badonasi)' }}>BADONASI</p>
