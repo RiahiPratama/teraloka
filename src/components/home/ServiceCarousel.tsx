@@ -5,7 +5,7 @@ import Link from 'next/link'
 
 const ALL_SERVICES = [
   // ── 4 Aktif ────────────────────────────────────────────────
-  { name: 'BAKABAR',    sub: 'Berita Lokal',         href: '/news',        bg: 'rgba(53,37,205,0.08)',  stroke: '#3525cd', active: true },
+  { name: 'BAKABAR',    sub: 'Berita Lokal',         href: '/bakabar',        bg: 'rgba(53,37,205,0.08)',  stroke: '#3525cd', active: true },
   { name: 'BALAPOR',    sub: 'Laporan Publik',        href: '/reports',     bg: 'rgba(220,38,38,0.08)', stroke: '#dc2626', active: true },
   { name: 'BADONASI',  sub: 'Donasi Kemanusiaan',    href: '/fundraising', bg: 'rgba(16,185,129,0.1)', stroke: '#10b981', active: true },
   { name: 'BAKOS',      sub: 'Kos-Kosan',             href: '/kos',         bg: 'rgba(5,150,105,0.1)',  stroke: '#059669', active: true },

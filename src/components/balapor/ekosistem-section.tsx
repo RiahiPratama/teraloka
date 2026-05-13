@@ -19,6 +19,9 @@
  *   4. BADONASI - Active
  *   5. BAPASIAR - Coming soon
  *   6. BAKOS    - Coming soon
+ *
+ * Sprint 2A Batch 1 (14 Mei 2026):
+ *   - BAKABAR href: /news → /bakabar (route migration)
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -67,7 +70,7 @@ const SERVICES: ServiceCard[] = [
     name: 'BAKABAR',
     tagline: 'Berita Lokal Maluku Utara',
     description: 'Portal berita kontekstual MalUt. Dibuat oleh kontributor lokal, untuk warga lokal.',
-    href: '/news',
+    href: '/bakabar',
     status: 'active',
     icon: 'newspaper',
     colorVar: '--color-bakabar',

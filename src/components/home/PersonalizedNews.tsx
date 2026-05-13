@@ -72,7 +72,7 @@ export default async function PersonalizedNews() {
             Berita terkini dari Maluku Utara
           </p>
         </div>
-        <Link href="/news" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
+        <Link href="/bakabar" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none' }}>
           Lihat Semua →
         </Link>
       </div>
@@ -81,7 +81,7 @@ export default async function PersonalizedNews() {
       <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr] gap-4">
 
         {/* Featured */}
-        <Link href={`/news/${featured.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+        <Link href={`/bakabar/${featured.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
           <div style={{ borderRadius: 20, overflow: 'hidden', position: 'relative', height: 'clamp(240px, 40vw, 380px)' }}>
             {featured.cover_image_url ? (
               <img src={featured.cover_image_url} alt={featured.title}
@@ -113,7 +113,7 @@ export default async function PersonalizedNews() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
 
           {article2 && (
-            <Link href={`/news/${article2.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+            <Link href={`/bakabar/${article2.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#fff', borderRadius: 16, padding: '14px', border: '1px solid var(--border-light)' }}>
                 <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-low)' }}>
                   {article2.cover_image_url ? (
@@ -135,7 +135,7 @@ export default async function PersonalizedNews() {
           )}
 
           {article3 && (
-            <Link href={`/news/${article3.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
+            <Link href={`/bakabar/${article3.slug}`} style={{ textDecoration: 'none', display: 'block' }}>
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: '#fff', borderRadius: 16, padding: '14px', border: '1px solid var(--border-light)' }}>
                 <div style={{ width: 68, height: 68, borderRadius: 10, overflow: 'hidden', flexShrink: 0, background: 'var(--surface-low)' }}>
                   {article3.cover_image_url ? (

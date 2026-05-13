@@ -6,7 +6,7 @@ import { SERVICES } from '@/lib/data/services'
 const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BADONASI', 'BAKOS'])
 
 const ACTIVE_HREF: Record<string, string> = {
-  'BAKABAR':   '/news',
+  'BAKABAR':   '/bakabar',
   'BALAPOR':   '/reports',
   'BADONASI': '/fundraising',
   'BAKOS':     '/kos',

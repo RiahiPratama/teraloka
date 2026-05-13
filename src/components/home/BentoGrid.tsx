@@ -39,7 +39,7 @@ export default async function BentoGrid() {
             Berita terkini dari Maluku Utara
           </p>
         </div>
-        <Link href="/news" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
+        <Link href="/bakabar" style={{ fontSize: 13, fontWeight: 700, color: 'var(--primary)', textDecoration: 'none', whiteSpace: 'nowrap' }}>
           Lihat Semua →
         </Link>
       </div>
@@ -48,7 +48,7 @@ export default async function BentoGrid() {
       <div className="grid grid-cols-1 md:grid-cols-[7fr_5fr] gap-4 mb-4">
 
         {/* BAKABAR */}
-        <Link href="/news" style={{
+        <Link href="/bakabar" style={{
           position: 'relative', borderRadius: 18, overflow: 'hidden',
           background: '#fff', border: '1px solid var(--border-light)',
           minHeight: 200, padding: 24, textDecoration: 'none',

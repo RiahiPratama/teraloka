@@ -123,7 +123,7 @@ export default function CTASection() {
               Daftar Gratis →
             </Link>
             <Link
-              href="/news"
+              href="/bakabar"
               style={{
                 textDecoration: 'none',
                 background: secondaryHover ? 'rgba(255,255,255,0.2)' : 'rgba(255,255,255,0.12)',

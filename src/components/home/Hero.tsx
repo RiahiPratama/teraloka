@@ -10,14 +10,14 @@ const HERO_PHOTO_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
 const POPULAR_TAGS = [
   { label: 'Speedboat Ternate–Sidangoli', href: '/speed' },
   { label: 'Kos di Akehuda', href: '/kos?area=akehuda' },
-  { label: 'Berita Hari Ini', href: '/news' },
+  { label: 'Berita Hari Ini', href: '/bakabar' },
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
 
 const SERVICE_PILLS = [
   {
     icon: '📰', label: 'BAKABAR', sub: 'Berita Lokal',
-    href: '/news', color: '#4F46E5', bg: 'rgba(79,70,229,0.07)', border: 'rgba(79,70,229,0.15)',
+    href: '/bakabar', color: '#4F46E5', bg: 'rgba(79,70,229,0.07)', border: 'rgba(79,70,229,0.15)',
   },
   {
     icon: '⛵', label: 'SPEEDBOAT', sub: 'Jadwal & Tiket',
@@ -60,7 +60,7 @@ export default function Hero() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (search.trim()) router.push(`/news?q=${encodeURIComponent(search.trim())}`)
+    if (search.trim()) router.push(`/bakabar?q=${encodeURIComponent(search.trim())}`)
   }
 
   const weatherText = weather
