@@ -12,15 +12,17 @@ import type { NextConfig } from "next";
 // May 3, 2026 — BALAPOR pilot: URL public /balapor (folder TETAP /reports)
 // May 7, 2026 — Sprint 1B-B5: redirect /admin/reports + /profile/donations
 //               di-handle di src/proxy.ts (runtime) karena Vercel routes-
-//               manifest cache stale untuk rules baru. Akan di-migrate
-//               kembali ke sini saat cache issue resolved.
+//               manifest cache stale untuk rules baru.
+// May 14, 2026 — Sprint 2A Batch 1: route migration /news → /bakabar.
+//               Mengikuti pola refactor /reports → /balapor — folder
+//               sekarang RENAMED (bukan rewrite) jadi URL public 1:1
+//               dengan brand BAKABAR. Pola brand-aligned routing.
 //
-// Architectural philosophy locked:
-//   📁 DAPUR (folder/code): src/app/(public)/reports/page.tsx
-//   🪟 ETALASE (URL public): /balapor
-//   ↑ Decoupled via rewrites() — brand layer ≠ engineering layer
+// Architectural philosophy LOCKED:
+//   📁 Folder code = URL public 1:1 untuk service yang sudah mature
+//      brand-nya (BAKABAR, BALAPOR ke depan)
+//   🪟 Rewrite tetap berlaku untuk migration parsial (transisi)
 //
-// Public URL (/fundraising/[slug]) TIDAK kena impact (path beda).
 // ════════════════════════════════════════════════════════════════
 
 const nextConfig: NextConfig = {
@@ -30,7 +32,6 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       // ─── /owner/campaign/* → /owner/funding/campaigns/* ────────
-      // Match nested paths first (more specific), Next.js handles order
       {
         source: '/owner/campaign/:path*',
         destination: '/owner/funding/campaigns/:path*',
@@ -67,13 +68,6 @@ const nextConfig: NextConfig = {
       },
 
       // ─── /reports → /balapor (BALAPOR pilot, May 3, 2026) ──────
-      // Public URL alias — backward compat untuk:
-      //   - WhatsApp shares yang udah tersebar
-      //   - Browser bookmarks user
-      //   - Screenshots dengan URL /reports
-      //   - Internal links (Navbar, Footer, Hero, dll yang masih
-      //     pakai /reports — sengaja TIDAK diubah, biar single
-      //     source of truth = next.config.ts ini)
       {
         source: '/reports/:path*',
         destination: '/balapor/:path*',
@@ -84,34 +78,46 @@ const nextConfig: NextConfig = {
         destination: '/balapor',
         permanent: true,
       },
+
+      // ─── /news → /bakabar (BAKABAR refactor, May 14, 2026) ─────
+      // Sprint 2A Batch 1 — brand consistency:
+      //   - Admin sudah brand "BAKABAR Command Center" sejak lama
+      //   - Public URL `/news` jadi `/bakabar` untuk match
+      //   - Folder src/app/(public)/news/ RENAMED ke bakabar/
+      //   - 308 permanent — SEO juice preserved, bookmark/share warga
+      //     yang udah tersebar tetap jalan via redirect
+      //
+      // Backward compat:
+      //   - WhatsApp shares yang udah tersebar (pakai /news/[slug])
+      //   - Browser bookmarks user
+      //   - Screenshots yang udah beredar
+      //   - Sitemap Google Search yang udah indexed
+      {
+        source: '/news/:path*',
+        destination: '/bakabar/:path*',
+        permanent: true,
+      },
+      {
+        source: '/news',
+        destination: '/bakabar',
+        permanent: true,
+      },
     ];
   },
 
   // ════════════════════════════════════════════════════════════════
   // REWRITES (URL aliasing — URL public → folder generic)
   // ────────────────────────────────────────────────────────────────
-  // Mechanism:
-  //   1. User akses /balapor (URL bar tampil /balapor)
-  //   2. Next.js internal serve dari src/app/(public)/reports/page.tsx
-  //   3. URL bar TETAP /balapor (no redirect, no flash)
-  //
-  // Pattern execution order (Next.js):
-  //   redirects → rewrites → file system routes
-  //   ↓
-  //   /reports request → redirect to /balapor → rewrite to serve /reports
-  //   ↓
-  //   Result: URL bar = /balapor, content from /reports/page.tsx ✅
-  //
-  // Future expansion (post-BALAPOR pilot success):
-  //   /bakabar  → /news        (BAKABAR — berita)
-  //   /badonasi → /fundraising (BADONASI — donasi)
-  //   /bapasiar → /speed       (BAPASIAR — speedboat)
-  //   /bakos    → /kos         (BAKOS — kos-kosan)
+  // History:
+  //   - May 3, 2026: /balapor → /reports (rewrite, folder name TETAP)
+  //   - May 14, 2026: /balapor TETAP rewrite ke folder /reports
+  //     (BAKABAR migrate via RENAME, BALAPOR migrate via REWRITE —
+  //      strategi beda karena BAKABAR siap full migrate, BALAPOR
+  //      masih ada aspek admin route reuse)
   // ════════════════════════════════════════════════════════════════
   async rewrites() {
     return [
-      // ─── /balapor → /reports (BALAPOR pilot) ────────────────────
-      // Specific path first, then catch-all subpaths
+      // ─── /balapor → /reports (BALAPOR pilot, dipertahankan) ────
       {
         source: '/balapor',
         destination: '/reports',

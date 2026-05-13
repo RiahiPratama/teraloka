@@ -7,7 +7,7 @@ import Logo from '@/components/ui/Logo';
 import { useAuth } from '@/hooks/useAuth';
 
 const NAV_LINKS = [
-  { label: 'BAKABAR',   href: '/news' },
+  { label: 'BAKABAR',   href: '/bakabar' },
   { label: 'BALAPOR',   href: '/reports' },
   { label: 'BAPASIAR',  href: '/speed' },
   { label: 'BAKOS',     href: '/kos' },
@@ -39,7 +39,7 @@ export default function Navbar() {
 
   // Handler buat nav link: kalau user klik link yang pathname-nya sama dengan
   // current URL, paksa clean query string (Next.js Link default ga reset query).
-  // Fixes: /news?type=nasional&location=halsel klik BAKABAR → stuck di URL.
+  // Fixes: /bakabar?type=nasional&location=halsel klik BAKABAR → stuck di URL.
   function handleNavClick(e: React.MouseEvent, href: string, closeMenu?: () => void) {
     if (pathname === href) {
       e.preventDefault();
@@ -107,7 +107,7 @@ export default function Navbar() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
     if (searchQuery.trim()) {
-      router.push(`/news?q=${encodeURIComponent(searchQuery.trim())}`);
+      router.push(`/bakabar?q=${encodeURIComponent(searchQuery.trim())}`);
       setSearchOpen(false); setSearchQuery('');
     }
   }

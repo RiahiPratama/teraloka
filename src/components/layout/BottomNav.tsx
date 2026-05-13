@@ -5,6 +5,9 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/hooks/useAuth'
 
+// 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
+// Internal key 'news' tetap (mental model BAKABAR = berita, gak break activeKey logic)
+// href + startsWith pakai /bakabar (URL public baru)
 const NAV_ITEMS = [
   {
     key: 'home',
@@ -21,7 +24,7 @@ const NAV_ITEMS = [
   {
     key: 'news',
     label: 'BAKABAR',
-    href: '/news',
+    href: '/bakabar',
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" width={22} height={22} fill="none"
         stroke={active ? 'var(--primary)' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -77,7 +80,7 @@ export default function BottomNav() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     if (searchQuery.trim()) {
-      router.push(`/news?q=${encodeURIComponent(searchQuery.trim())}`)
+      router.push(`/bakabar?q=${encodeURIComponent(searchQuery.trim())}`)
       setSearchOpen(false)
       setSearchQuery('')
     }
@@ -85,7 +88,7 @@ export default function BottomNav() {
 
   function isActive(key: string) {
     if (key === 'home') return pathname === '/'
-    if (key === 'news') return pathname.startsWith('/news')
+    if (key === 'news') return pathname.startsWith('/bakabar')
     if (key === 'speed') return pathname.startsWith('/speed') || pathname.startsWith('/ship') || pathname.startsWith('/ferry')
     if (key === 'akun') return pathname === '/profile' || pathname.startsWith('/profile/') || pathname === '/my-reports'
     return false
@@ -149,7 +152,7 @@ export default function BottomNav() {
               {[
                 { icon: '⛵', label: 'Speedboat Ternate', href: '/speed' },
                 { icon: '🏠', label: 'Kos di Akehuda', href: '/kos?area=akehuda' },
-                { icon: '📰', label: 'Berita Terkini', href: '/news' },
+                { icon: '📰', label: 'Berita Terkini', href: '/bakabar' },
                 { icon: '💚', label: 'Donasi Aktif', href: '/fundraising' },
               ].map(s => (
                 <Link key={s.href} href={s.href}

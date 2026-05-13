@@ -61,8 +61,10 @@ function CategoryTabsInner() {
   const [locations,   setLocations]   = useState<Location[]>([]);
   const [topicOpen,   setTopicOpen]   = useState(false);
 
-  const isNewsPage    = pathname === '/news';
-  const showTabs      = isNewsPage; // tabs HANYA di /news, tidak di artikel slug
+  // 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
+  // Conditional render BAKABAR tabs HANYA di /bakabar (bukan article slug)
+  const isNewsPage    = pathname === '/bakabar';
+  const showTabs      = isNewsPage; // tabs HANYA di /bakabar, tidak di artikel slug
 
   const currentType     = searchParams.get('type')     || 'terbaru';
   const currentLocation = searchParams.get('location') || 'all';
@@ -149,7 +151,7 @@ function CategoryTabsInner() {
     if (type !== 'terbaru')  p.set('type', type);
     if (location !== 'all')  p.set('location', location);
     if (topic)               p.set('topic', topic);
-    router.push(`/news?${p.toString()}`);
+    router.push(`/bakabar?${p.toString()}`);
   }
 
   const setType     = (t: string) => navigate(t, currentLocation, currentTopic);

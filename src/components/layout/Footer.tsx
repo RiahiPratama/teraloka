@@ -3,9 +3,10 @@
 import Link from 'next/link'
 import Logo from '@/components/ui/Logo'
 
+// 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
 const FOOTER_LINKS = {
   layanan: [
-    { label: 'BAKABAR Berita', href: '/news' },
+    { label: 'BAKABAR Berita', href: '/bakabar' },
     { label: 'BALAPOR Publik', href: '/reports' },
     { label: 'BAPASIAR Transport', href: '/speed' },
     { label: 'BAKOS Kos-Kosan', href: '/kos' },
