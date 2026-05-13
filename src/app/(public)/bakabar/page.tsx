@@ -43,12 +43,12 @@ function timeAgo(dateStr: string) {
 }
 
 function shareWA(title: string, slug: string) {
-  const url = `${APP_URL}/news/${slug}`;
+  const url = `${APP_URL}/bakabar/${slug}`;
   window.open(`https://wa.me/?text=${encodeURIComponent(`📰 ${title}\n\n${url}`)}`, '_blank');
 }
 
 function shareFB(slug: string) {
-  const url = `${APP_URL}/news/${slug}`;
+  const url = `${APP_URL}/bakabar/${slug}`;
   window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
 }
 
@@ -416,7 +416,7 @@ function NewsPageContent() {
             <span className="text-xs font-black uppercase shrink-0 flex items-center gap-1.5">
               <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse inline-block" />BREAKING
             </span>
-            <Link href={`/news/${breaking[0]?.slug}`} className="text-xs font-semibold flex-1 truncate hover:underline">
+            <Link href={`/bakabar/${breaking[0]?.slug}`} className="text-xs font-semibold flex-1 truncate hover:underline">
               {breaking[0]?.title}
             </Link>
           </div>
@@ -476,7 +476,7 @@ function NewsPageContent() {
 
               {/* Featured */}
               {featured && (
-                <Link href={featured.source === 'rss' ? featured.external_url || `/news/${featured.slug}` : `/news/${featured.slug}`}
+                <Link href={featured.source === 'rss' ? featured.external_url || `/bakabar/${featured.slug}` : `/bakabar/${featured.slug}`}
                   target={featured.source === 'rss' ? '_blank' : undefined}
                   className="group block mb-6">
                   <div className="relative overflow-hidden rounded-2xl mb-3">
@@ -546,7 +546,7 @@ function NewsPageContent() {
                 {rest.map((article, idx) => {
                   const excerpt = parseExcerpt(article.excerpt, article.body);
                   const isRSS = article.source === 'rss';
-                  const href = isRSS ? (article.external_url || `/news/${article.slug}`) : `/news/${article.slug}`;
+                  const href = isRSS ? (article.external_url || `/bakabar/${article.slug}`) : `/bakabar/${article.slug}`;
 
                   return (
                     <div key={article.id}>
@@ -633,7 +633,7 @@ function NewsPageContent() {
                     Terpopuler
                   </p>
                   {articles.slice(0, 5).map((a, i) => (
-                    <Link key={a.id} href={`/news/${a.slug}`}
+                    <Link key={a.id} href={`/bakabar/${a.slug}`}
                       className="flex items-start gap-2.5 py-2.5 last:border-0 group"
                       style={{ borderBottom: '0.5px solid #D6E4F2' }}>
                       <span className="text-2xl font-black leading-none w-6 shrink-0" style={{ color: '#378ADD' }}>{i + 1}</span>

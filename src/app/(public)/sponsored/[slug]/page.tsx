@@ -205,7 +205,7 @@ export default async function SponsoredPage({ params }: Props) {
               <p className="text-xs text-gray-500 mb-3">
                 Halaman ini adalah iklan. BAKABAR menerima dan mempublikasikan konten ini sebagai kemitraan.
               </p>
-              <Link href="/news" className="text-sm text-[#003526] font-semibold hover:underline">
+              <Link href="/bakabar" className="text-sm text-[#003526] font-semibold hover:underline">
                 ← Baca berita di BAKABAR
               </Link>
             </div>
@@ -221,7 +221,7 @@ export default async function SponsoredPage({ params }: Props) {
                 <p className="text-[#95d3ba] text-xs mb-3 leading-relaxed">
                   Kabar terkini dari Maluku Utara, langsung dari sumbernya.
                 </p>
-                <Link href="/news" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">
+                <Link href="/bakabar" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">
                   Buka BAKABAR →
                 </Link>
               </div>

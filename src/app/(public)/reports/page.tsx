@@ -280,7 +280,7 @@ export default function BalaporLandingPage() {
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
                 {BAKABAR_ARTICLES.map((article, i) => (
-                  <Link key={i} href="/news" style={{
+                  <Link key={i} href="/bakabar" style={{
                     background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 10,
                     textDecoration: 'none', display: 'flex', gap: 10, alignItems: 'start',
                     transition: 'border-color 0.2s',
@@ -305,7 +305,7 @@ export default function BalaporLandingPage() {
                 ))}
               </div>
 
-              <Link href="/news" style={{
+              <Link href="/bakabar" style={{
                 marginTop: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
                 background: 'white', border: '1px solid #003526',
                 padding: 10, borderRadius: 10,
