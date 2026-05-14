@@ -1,12 +1,13 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Siren, Users, Newspaper, FileText, HandHeart, ArrowRight, Clock } from 'lucide-react';
+import { Siren, Users, ArrowRight, Check } from 'lucide-react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 import AdInArticle from '@/components/ads/AdInArticle';
 import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
 import AdNativeSlug from '@/components/ads/AdNativeSlug';
 import BodyWithAds from '@/components/ads/BodyWithAds';
+import ShareInline from '@/components/shared/ShareInline';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -71,20 +72,19 @@ function formatDate(dateStr: string) {
 function timeAgo(dateStr: string) {
   if (!dateStr) return '';
   const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
   const h = Math.floor(diff / 3600000);
   const d = Math.floor(diff / 86400000);
-  if (h < 1) return 'Baru saja';
+  if (m < 1) return 'Baru saja';
+  if (m < 60) return `${m} mnt lalu`;
   if (h < 24) return `${h} jam lalu`;
   return `${d} hari lalu`;
 }
 
-// ── Reading time estimator ────────────────────────────────────────
 function readingTime(body: string): number {
   if (!body) return 1;
-  // Strip HTML tags kalau ada
   const plainText = body.replace(/<[^>]*>/g, ' ')
   const wordCount = plainText.trim().split(/\s+/).filter(Boolean).length;
-  // Rata-rata 200 kata/menit untuk pembaca Indonesia
   return Math.max(1, Math.ceil(wordCount / 200));
 }
 
@@ -104,10 +104,6 @@ function parseBody(raw: string): string {
   return raw;
 }
 
-// ─────────────────────────────────────────────────────────────────
-// Markdown parser — port dari office/newsroom/bakabar/hub/new/page.tsx
-// XSS-safe: escape HTML dulu, baru apply markdown transforms
-// ─────────────────────────────────────────────────────────────────
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
@@ -120,7 +116,6 @@ function renderMarkdown(text: string): string {
   if (!text) return '';
   let html = escapeHtml(text);
 
-  // Block elements
   html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
   html = html.replace(/^## (.+)$/gm,  '<h2>$1</h2>');
   html = html.replace(/^# (.+)$/gm,   '<h1>$1</h1>');
@@ -128,11 +123,9 @@ function renderMarkdown(text: string): string {
   html = html.replace(/^- (.+)$/gm, '<li>$1</li>');
   html = html.replace(/(<li>[\s\S]+?<\/li>)(\n(?!<li>)|$)/g, '<ul>$1</ul>$2');
 
-  // Inline formatting
   html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
 
-  // Image syntax HARUS sebelum link karena ![]() contains []()
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
     const safeAlt = alt || '';
     if (safeAlt.trim()) {
@@ -143,7 +136,6 @@ function renderMarkdown(text: string): string {
 
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
 
-  // Wrap paragraphs
   const blocks = html.split(/\n\n+/).map(block => {
     const trimmed = block.trim();
     if (!trimmed) return '';
@@ -157,83 +149,12 @@ function renderMarkdown(text: string): string {
 function renderBody(raw: string): string {
   const body = parseBody(raw);
   if (!body) return '';
-  // Kalau body sudah HTML (artikel lama dari BALAPOR AI / RSS), render as-is
   if (body.includes('<p>') || body.includes('<br') || body.includes('<h')) return body;
-  // Kalau body markdown (artikel baru dari newsroom), parse via markdown
   return renderMarkdown(body);
 }
 
 function InArticleAd() {
-  // Deprecated — diganti dengan AdInArticle client component (di-import dari components/ads)
   return <AdInArticle />;
-}
-
-const CONTEXT_CTA: Record<string, {
-  badge: string; headline: string; sub: string;
-  cta: string; href: string; bg: string; accent: string; emoji: string;
-}> = {
-  transportasi: {
-    badge: '🚢 Rekomendasi untukmu', headline: 'Pesan speedboat Ternate – Tidore sekarang!',
-    sub: 'Jadwal lengkap, harga terbaik, pesan mudah di BAPASIAR.',
-    cta: 'Lihat Jadwal →', href: '/transport', bg: '#0C4A6E', accent: '#38BDF8', emoji: '🚢',
-  },
-  pelayaran: {
-    badge: '🚢 Rekomendasi untukmu', headline: 'Pesan speedboat Ternate – Tidore sekarang!',
-    sub: 'Jadwal lengkap, harga terbaik, pesan mudah di BAPASIAR.',
-    cta: 'Lihat Jadwal →', href: '/transport', bg: '#0C4A6E', accent: '#38BDF8', emoji: '🚢',
-  },
-  sosial: {
-    badge: '🤲 Bantuan lagi dibutuhkan', headline: 'Mari bantu, sekecil apapun berarti',
-    sub: 'Banyak warga Maluku Utara yang butuh uluran tangan torang.',
-    cta: 'Donasi Sekarang →', href: '/fundraising', bg: '#064E3B', accent: '#34D399', emoji: '❤️',
-  },
-  kemanusiaan: {
-    badge: '🤲 Bantuan lagi dibutuhkan', headline: 'Mari bantu, sekecil apapun berarti',
-    sub: 'Banyak warga Maluku Utara yang butuh uluran tangan torang.',
-    cta: 'Donasi Sekarang →', href: '/fundraising', bg: '#064E3B', accent: '#34D399', emoji: '❤️',
-  },
-  kesehatan: {
-    badge: '🤲 Bantuan lagi dibutuhkan', headline: 'Mari bantu, sekecil apapun berarti',
-    sub: 'Bantu warga Maluku Utara yang membutuhkan biaya kesehatan.',
-    cta: 'Donasi Sekarang →', href: '/fundraising', bg: '#064E3B', accent: '#34D399', emoji: '❤️',
-  },
-  ekonomi: {
-    badge: '💼 Promosikan usahamu', headline: 'Jangkau ribuan warga Maluku Utara!',
-    sub: 'Daftarkan bisnis kamu di BAKOS dan pasang iklan di BAKABAR.',
-    cta: 'Daftar Sekarang →', href: '/listings', bg: '#78350F', accent: '#FCD34D', emoji: '📢',
-  },
-  umkm: {
-    badge: '💼 Promosikan usahamu', headline: 'Jangkau ribuan warga Maluku Utara!',
-    sub: 'Daftarkan bisnis kamu di BAKOS dan pasang iklan di BAKABAR.',
-    cta: 'Daftar Sekarang →', href: '/listings', bg: '#78350F', accent: '#FCD34D', emoji: '📢',
-  },
-};
-
-const DEFAULT_CTA = {
-  badge: '📢 Ada kejadian di sekitarmu?', headline: 'Laporkan via BALAPOR sekarang!',
-  sub: 'Identitasmu terlindungi. Laporanmu bisa jadi artikel di BAKABAR.',
-  cta: 'Lapor Sekarang →', href: '/balapor/buat-laporan', bg: '#1F2937', accent: '#F87171', emoji: '🚨',
-};
-
-function ContextCTABanner({ category }: { category: string }) {
-  const cat = (category || '').toLowerCase();
-  const cta = Object.entries(CONTEXT_CTA).find(([key]) => cat.includes(key))?.[1] ?? DEFAULT_CTA;
-  return (
-    <div className="mt-10 rounded-2xl p-6 relative overflow-hidden" style={{ background: cta.bg }}>
-      <div className="absolute top-0 right-4 text-8xl opacity-10 leading-none select-none">{cta.emoji}</div>
-      <span className="inline-block text-xs font-bold px-3 py-1 rounded-full mb-3"
-        style={{ background: `${cta.accent}22`, color: cta.accent, border: `1px solid ${cta.accent}44` }}>
-        {cta.badge}
-      </span>
-      <h3 className="text-white font-black text-lg leading-snug mb-2">{cta.headline}</h3>
-      <p className="text-sm mb-5 leading-relaxed" style={{ color: `${cta.accent}cc` }}>{cta.sub}</p>
-      <Link href={cta.href}
-        className="inline-block text-sm font-black px-6 py-3 rounded-xl transition-opacity hover:opacity-90"
-        style={{ background: cta.accent, color: cta.bg }}>
-        {cta.cta}
-      </Link>
-    </div>
-  );
 }
 
 const CATEGORY_ICON: Record<string, string> = {
@@ -242,45 +163,180 @@ const CATEGORY_ICON: Record<string, string> = {
   transportasi: '🚗', ekonomi: '💰',
 };
 
-function MiniBALAPORFeed({ reports }: { reports: any[] }) {
-  if (!reports.length) return null;
+// ─────────────────────────────────────────────────────────────────
+// ServiceCardsCarousel v6 — 14 Mei 2026 malam (CEO directive):
+// FIX empty space dengan trust signals (value-add content, BUKAN filler).
+// Reduced min-h 400→360 untuk natural balance.
+//
+// Pelajaran: kalau content text pendek + min-h tinggi → space kosong canggung.
+// Solusi: tambah konten bermakna (trust signals, footer info, dll).
+// ─────────────────────────────────────────────────────────────────
+
+function TrustItem({ text, accent }: { text: string; accent: string }) {
   return (
-    <div className="mt-5 rounded-2xl p-4" style={{ background: '#FFF7F5', border: '0.5px solid #F5C4B3', borderLeft: '3px solid #D85A30' }}>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: '#993C1D' }}>
-          <Siren size={14} strokeWidth={2.2} />
-          Warga lagi melapor
-        </p>
-        <Link href="/balapor" className="text-xs font-semibold hover:underline flex items-center gap-1" style={{ color: '#993C1D' }}>
-          Lihat semua <ArrowRight size={11} />
+    <div className="flex items-center gap-2">
+      <Check size={13} strokeWidth={3} style={{ color: accent }} />
+      <span className="text-xs text-white/90 font-medium">{text}</span>
+    </div>
+  );
+}
+
+function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; stats: any }) {
+  const totalReports = stats?.reports?.total;
+  const totalArticles = stats?.articles?.total;
+
+  return (
+    <div className="mt-10 -mx-4">
+      <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-4 px-4 snap-x snap-mandatory">
+
+        {/* ── Card 1: Ada kejadian → BALAPOR red gradient ──────── */}
+        <Link href="/balapor/buat-laporan"
+          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
+          style={{ background: 'radial-gradient(circle at 75% 25%, #F87171 0%, #DC2626 35%, #991B1B 70%, #7F1D1D 100%)' }}>
+          <div className="absolute top-5 right-5 text-5xl opacity-90 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">🚨</div>
+
+          <div className="relative space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-white/70 mb-2">📢 Ada kejadian di sekitarmu?</p>
+              <h3 className="text-xl font-black text-white leading-tight mb-2">
+                Laporkan via BALAPOR sekarang!
+              </h3>
+              <p className="text-sm text-white/85 leading-relaxed">
+                Identitasmu terlindungi. Laporanmu bisa jadi artikel di BAKABAR.
+              </p>
+            </div>
+
+            {/* Trust signals — fill space dengan value-add content */}
+            <div className="space-y-1.5 pt-1">
+              <TrustItem text="Identitas pelapor 100% anonim" accent="#FCA5A5" />
+              <TrustItem text="Foto & video bisa dilampirkan" accent="#FCA5A5" />
+              <TrustItem text="Status laporan terlacak" accent="#FCA5A5" />
+            </div>
+          </div>
+
+          <div className="inline-flex self-start items-center gap-1.5 bg-white px-4 py-2.5 rounded-xl text-sm font-black shadow-md" style={{ color: '#DC2626' }}>
+            Lapor Sekarang
+            <ArrowRight size={14} strokeWidth={2.5} />
+          </div>
         </Link>
-      </div>
-      <div className="space-y-2.5">
-        {reports.slice(0, 3).map((r: any) => (
-          <div key={r.id} className="flex items-start gap-2">
-            <span className="text-sm shrink-0 mt-0.5">{CATEGORY_ICON[r.category] || '📋'}</span>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: '#4A1B0C' }}>{r.title}</p>
-              <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#993C1D' }}>
-                <Clock size={9} strokeWidth={2.2} />
-                {(() => {
-                  const diff = Date.now() - new Date(r.created_at).getTime();
-                  const h = Math.floor(diff / 3600000);
-                  const d = Math.floor(diff / 86400000);
-                  if (h < 1) return 'Baru saja';
-                  if (h < 24) return `${h} jam lalu`;
-                  return `${d} hari lalu`;
-                })()}
+
+        {/* ── Card 2: Warga lagi melapor → TeraLoka teal solid ──── */}
+        <Link href="/balapor"
+          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5"
+          style={{ background: '#003526' }}>
+          <div>
+            <div className="flex items-center gap-2 mb-4 flex-wrap">
+              <Siren size={16} strokeWidth={2.2} className="text-white shrink-0" />
+              <p className="text-sm font-bold text-white">Warga lagi melapor</p>
+              <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#34D399' }}>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
+                Live
+              </span>
+            </div>
+
+            {recentReports.length > 0 ? (
+              <div className="space-y-3">
+                {recentReports.slice(0, 3).map((r: any) => (
+                  <div key={r.id} className="flex items-start gap-2.5">
+                    <span className="text-base shrink-0 mt-0.5">{CATEGORY_ICON[r.category] || '📋'}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold leading-snug line-clamp-2 text-white">{r.title}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: '#95d3ba' }}>{timeAgo(r.created_at)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-white/70 italic">Belum ada laporan terbaru</p>
+            )}
+
+            {/* Footer info — fill space dengan context */}
+            <div className="mt-4 pt-3 border-t border-white/10">
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: '#95d3ba' }}>
+                Update real-time setiap laporan masuk
               </p>
             </div>
           </div>
-        ))}
+
+          <div className="inline-flex self-start items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white px-4 py-2.5 rounded-xl text-sm font-bold border border-white/20">
+            + Laporkan Kejadian
+          </div>
+        </Link>
+
+        {/* ── Card 3: Torang samua → BAKABAR purple gradient ──── */}
+        <Link href="/bakabar"
+          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
+          style={{ background: 'radial-gradient(circle at 75% 25%, #A78BFA 0%, #8B5CF6 35%, #6D28D9 70%, #4C1D95 100%)' }}>
+          <div className="absolute top-5 right-5 text-5xl opacity-90 transition-transform duration-300 group-hover:scale-110">👥</div>
+
+          <div className="relative">
+            <p className="text-xs font-semibold text-white/70 mb-2">Komunitas TeraLoka</p>
+            <h3 className="text-xl font-black text-white leading-tight mb-5">
+              Torang samua lagi bergerak
+            </h3>
+
+            <div className="space-y-3.5">
+              <div>
+                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Donasi hari ini</p>
+                <p className="text-xl font-black text-white">Segera</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Total laporan warga</p>
+                <p className="text-xl font-black text-white">
+                  {typeof totalReports === 'number' ? totalReports.toLocaleString('id-ID') : '—'}
+                </p>
+              </div>
+              <div>
+                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Artikel terbit</p>
+                <p className="text-xl font-black text-white">
+                  {typeof totalArticles === 'number' ? totalArticles.toLocaleString('id-ID') : '—'}
+                </p>
+              </div>
+            </div>
+
+            {/* Footer note */}
+            <div className="mt-4 pt-3 border-t border-white/15">
+              <p className="text-[10px] uppercase tracking-wider text-white/65">
+                Update otomatis setiap jam
+              </p>
+            </div>
+          </div>
+
+          <p className="text-xs text-white/80 italic mt-4">Bergerak bersama TeraLoka →</p>
+        </Link>
+
+        {/* ── Card 4: Mari bantu → BADONASI pink gradient ──────── */}
+        <Link href="/fundraising"
+          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
+          style={{ background: 'radial-gradient(circle at 75% 25%, #F9A8D4 0%, #EC4899 35%, #BE185D 70%, #831843 100%)' }}>
+          <div className="absolute top-5 right-5 text-5xl opacity-90 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-12">🤲</div>
+
+          <div className="relative space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-white/70 mb-2">🤲 Bantuan lagi dibutuhkan</p>
+              <h3 className="text-xl font-black text-white leading-tight mb-2">
+                Mari bantu, sekecil apapun berarti
+              </h3>
+              <p className="text-sm text-white/85 leading-relaxed">
+                Banyak yang butuh uluran tangan di sekitar torang.
+              </p>
+            </div>
+
+            {/* Trust signals — fill space dengan value-add content */}
+            <div className="space-y-1.5 pt-1">
+              <TrustItem text="Donasi via QRIS atau transfer" accent="#FBCFE8" />
+              <TrustItem text="Update progress real-time" accent="#FBCFE8" />
+              <TrustItem text="Transparansi 100% ke penerima" accent="#FBCFE8" />
+            </div>
+          </div>
+
+          <div className="inline-flex self-start items-center gap-1.5 bg-white px-4 py-2.5 rounded-xl text-sm font-black shadow-md" style={{ color: '#BE185D' }}>
+            Baku Bantu Sekarang
+            <ArrowRight size={14} strokeWidth={2.5} />
+          </div>
+        </Link>
+
       </div>
-      <Link href="/balapor/buat-laporan"
-        className="flex items-center justify-center gap-1.5 mt-3 text-center text-xs font-bold py-2.5 rounded-xl hover:opacity-90 transition-opacity"
-        style={{ background: '#003526', color: '#fff' }}>
-        + Laporkan Kejadian
-      </Link>
     </div>
   );
 }
@@ -293,13 +349,13 @@ function RelatedArticles({ articles }: { articles: any[] }) {
         <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
           📰 Masih ada kabar penting lainnya...
         </h3>
-        <Link href="/news" className="text-xs text-[#003526] font-semibold hover:underline">
+        <Link href="/bakabar" className="text-xs text-[#003526] font-semibold hover:underline">
           Lihat semua →
         </Link>
       </div>
       <div className="flex flex-col gap-3">
         {articles.map((a: any) => (
-          <Link key={a.id} href={`/news/${a.slug}`}
+          <Link key={a.id} href={`/bakabar/${a.slug}`}
             className="flex gap-3 items-start group hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors">
             <div className="w-20 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
               {a.cover_image_url
@@ -320,67 +376,7 @@ function RelatedArticles({ articles }: { articles: any[] }) {
   );
 }
 
-function SocialProof({ stats }: { stats: any }) {
-  // Stats backend pakai struktur nested: stats.articles.total, stats.reports.total
-  // Untuk field yang belum ada (donations_today, transport_checks_today) → icon + "Segera"
-  const totalArticles = stats?.articles?.total;
-  const totalReports = stats?.reports?.total;
-
-  return (
-    <div className="mt-5 rounded-2xl p-5" style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
-      <p className="text-sm font-bold mb-4 flex items-center gap-1.5" style={{ color: '#854F0B' }}>
-        <Users size={15} strokeWidth={2.2} />
-        Torang samua lagi bergerak
-      </p>
-      <div className="grid grid-cols-3 gap-3 text-center">
-        <div>
-          <div className="flex justify-center mb-1">
-            <HandHeart size={22} strokeWidth={2} style={{ color: '#BA7517' }} />
-          </div>
-          <p className="text-sm font-bold mt-1" style={{ color: '#412402' }}>Segera</p>
-          <p className="text-[10px] leading-tight mt-0.5" style={{ color: '#854F0B' }}>Orang bantu hari ini</p>
-        </div>
-        <div>
-          <div className="flex justify-center mb-1">
-            <FileText size={22} strokeWidth={2} style={{ color: '#BA7517' }} />
-          </div>
-          <p className="text-lg font-black mt-0.5" style={{ color: '#412402' }}>
-            {typeof totalReports === 'number' ? totalReports : '—'}
-          </p>
-          <p className="text-[10px] leading-tight mt-0.5" style={{ color: '#854F0B' }}>Total laporan warga</p>
-        </div>
-        <div>
-          <div className="flex justify-center mb-1">
-            <Newspaper size={22} strokeWidth={2} style={{ color: '#BA7517' }} />
-          </div>
-          <p className="text-lg font-black mt-0.5" style={{ color: '#412402' }}>
-            {typeof totalArticles === 'number' ? totalArticles : '—'}
-          </p>
-          <p className="text-[10px] leading-tight mt-0.5" style={{ color: '#854F0B' }}>Artikel terbit</p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BadonasiCTA() {
-  return (
-    <div className="mt-5 bg-[#003526] rounded-2xl p-5 relative overflow-hidden">
-      <div className="absolute top-0 right-0 text-6xl opacity-10 leading-none">🤲</div>
-      <p className="text-white font-bold text-base mb-1">Mari bantu, sekecil apapun berarti</p>
-      <p className="text-[#95d3ba] text-xs mb-4 leading-relaxed">
-        Banyak yang butuh uluran tangan di sekitar torang.
-      </p>
-      <Link href="/fundraising"
-        className="block text-center bg-white text-[#003526] text-sm font-black px-4 py-2.5 rounded-xl hover:opacity-90 transition-opacity">
-        Baku Bantu Sekarang →
-      </Link>
-    </div>
-  );
-}
-
 function NativeAd() {
-  // Deprecated — diganti dengan AdNativeSlug client component (di-import dari components/ads)
   return <AdNativeSlug />;
 }
 
@@ -395,11 +391,9 @@ export default async function ArticlePage({ params }: Props) {
 
   const relatedArticles = await getRelatedArticles(article.category, slug);
 
-  const shareUrl = `${APP_URL}/news/${slug}`;
-  const shareText = encodeURIComponent(`📰 ${article.title}\n\n${shareUrl}`);
+  const shareUrl = `${APP_URL}/bakabar/${slug}`;
   const bodyHtml = renderBody(article.body || '');
 
-  // Hitung reading time dari body mentah (sebelum di-render ke HTML)
   const parsedBody = parseBody(article.body || '');
   const menit = readingTime(parsedBody);
 
@@ -426,48 +420,34 @@ export default async function ArticlePage({ params }: Props) {
         }
         .article-body ul { padding-left: 1.8em; margin-bottom: 1.3em; }
         .article-body li { margin-bottom: 0.4em; }
-        .article-body figure.bk-fig {
-          margin: 1.8em 0;
-          text-align: center;
-        }
+        .article-body figure.bk-fig { margin: 1.8em 0; text-align: center; }
         .article-body figure.bk-fig img {
-          width: 100%;
-          height: auto;
-          max-height: 500px;
-          object-fit: contain;
-          border-radius: 10px;
-          background: #f3f4f6;
-          display: block;
-          margin: 0 auto;
+          width: 100%; height: auto; max-height: 500px;
+          object-fit: contain; border-radius: 10px;
+          background: #f3f4f6; display: block; margin: 0 auto;
         }
         .article-body figure.bk-fig figcaption {
           font-family: 'Inter', system-ui, sans-serif;
-          font-size: 13px;
-          color: #6b7280;
-          margin-top: 10px;
-          font-style: italic;
-          line-height: 1.5;
+          font-size: 13px; color: #6b7280; margin-top: 10px;
+          font-style: italic; line-height: 1.5;
         }
         .article-body img.bk-inline {
-          width: 100%;
-          height: auto;
-          max-height: 500px;
-          object-fit: contain;
-          border-radius: 10px;
-          margin: 1.8em 0;
-          display: block;
-          background: #f3f4f6;
+          width: 100%; height: auto; max-height: 500px;
+          object-fit: contain; border-radius: 10px;
+          margin: 1.8em 0; display: block; background: #f3f4f6;
         }
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+        /* Scrollbar hide untuk carousel horizontal */
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
 
       <div className="max-w-4xl mx-auto px-4">
         <div className="lg:grid lg:grid-cols-12 lg:gap-8">
 
-          {/* ── Main content ── */}
           <article className="lg:col-span-8 pt-6 pb-16">
 
-            {/* Category + badges */}
             <div className="flex flex-wrap items-center gap-2 mb-4">
               {article.is_breaking && (
                 <span className="flex items-center gap-1 text-xs font-black text-red-600 bg-red-50 px-3 py-1 rounded-full">
@@ -486,13 +466,11 @@ export default async function ArticlePage({ params }: Props) {
               )}
             </div>
 
-            {/* Title */}
             <h1 style={{ fontFamily: 'Lora, Georgia, serif' }}
               className="text-3xl font-bold text-gray-900 leading-snug tracking-tight mb-4">
               {article.title}
             </h1>
 
-            {/* Meta — author · tanggal · reading time */}
             <div className="flex items-center gap-2 text-xs text-gray-400 mb-5 pb-5 border-b border-gray-100 flex-wrap">
               <div className="w-6 h-6 rounded-full bg-[#003526] flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {(article.author?.name || 'R').charAt(0).toUpperCase()}
@@ -510,7 +488,6 @@ export default async function ArticlePage({ params }: Props) {
               </span>
             </div>
 
-            {/* Cover — full natural aspect, max-height smart, letterbox bg */}
             {article.cover_image_url && (
               <div className="mb-6 rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
                 style={{ maxHeight: 600 }}>
@@ -520,7 +497,6 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* Excerpt */}
             {article.excerpt && (
               <div className="mb-6 border-l-4 border-[#003526] pl-5 bg-[#003526]/3 py-3 pr-4 rounded-r-xl">
                 <p style={{ fontFamily: 'Lora, Georgia, serif' }} className="text-lg text-gray-700 leading-relaxed italic">
@@ -529,18 +505,12 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* Body — dengan in-article ad di tengah.
-                adPosition: admin override dari DB (null=auto, 0=disable, N=setelah block N)
-                adAfterIndex: default auto position kalau admin tidak override */}
             {bodyHtml ? (
               <BodyWithAds html={bodyHtml} adPosition={article.ad_position} adAfterIndex={3} />
             ) : (
               <p className="text-gray-400 italic text-sm">Konten artikel belum tersedia.</p>
             )}
 
-            <InArticleAd />
-
-            {/* Tags */}
             {article.tags?.length > 0 && (
               <div className="mt-6 flex flex-wrap gap-2">
                 {article.tags.map((tag: string) => (
@@ -551,7 +521,6 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* BALAPOR notice */}
             {article.source === 'balapor' && (
               <div className="mt-6 rounded-xl bg-[#0891B2]/6 border border-[#0891B2]/15 px-4 py-3">
                 <p className="text-sm text-[#0891B2] flex items-start gap-2">
@@ -561,87 +530,74 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* Share */}
-            <div className="mt-8 bg-gray-50 rounded-2xl p-5 text-center">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Bagikan artikel ini</p>
-              <div className="flex gap-2 justify-center flex-wrap">
-                <a href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-green-500 text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:bg-green-600 transition-colors">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                  WhatsApp
-                </a>
-                <a href={`https://twitter.com/intent/tweet?text=${shareText}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-black text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-80 transition-opacity">
-                  𝕏 Twitter
-                </a>
-                <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-[#1877F2] text-white text-sm font-bold px-5 py-2.5 rounded-xl hover:opacity-80 transition-opacity">
-                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                  Facebook
-                </a>
-              </div>
+            {/* SHARE INLINE — pas di ujung artikel */}
+            <div className="mt-8">
+              <ShareInline
+                entity_id={article.id}
+                entity_type="article"
+                service_domain="bakabar"
+                title={article.title}
+                url={shareUrl}
+              />
             </div>
 
+            <InArticleAd />
+
+            {/* CARDS CAROUSEL — 4 cards horizontal */}
+            <ServiceCardsCarousel recentReports={recentReports} stats={stats} />
+
             <RelatedArticles articles={relatedArticles} />
-            <ContextCTABanner category={article.category} />
-            <MiniBALAPORFeed reports={recentReports} />
-            <SocialProof stats={stats} />
-            <BadonasiCTA />
+
             <div className="mt-5">
               <WANewsletterWidget />
             </div>
+
             <NativeAd />
 
             <div className="mt-8 text-center">
-              <Link href="/news" className="text-sm text-[#003526] font-semibold hover:underline">
+              <Link href="/bakabar" className="text-sm text-[#003526] font-semibold hover:underline">
                 ← Baca berita lainnya di BAKABAR
               </Link>
             </div>
           </article>
 
-          {/* ── Sidebar ── */}
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-[108px] py-6 space-y-5">
               <AdSidebarSlug />
 
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
-                <p className="text-[#95d3ba] text-xs mb-3 leading-relaxed">Laporkan via BALAPOR. Identitasmu terlindungi.</p>
-                <Link href="/balapor/buat-laporan" className="block text-center bg-white text-[#003526] text-xs font-black px-4 py-2 rounded-xl">
+                <p className="text-xs mb-3 leading-relaxed" style={{ color: '#95d3ba' }}>
+                  Laporkan via BALAPOR. Identitasmu terlindungi.
+                </p>
+                <Link href="/balapor/buat-laporan"
+                  className="block text-center text-xs font-black px-4 py-2 rounded-xl hover:opacity-90 transition-opacity"
+                  style={{ background: '#DC2626', color: '#fff' }}>
                   Lapor Sekarang →
                 </Link>
               </div>
 
               {stats && (
-                <div className="rounded-2xl p-4" style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
-                  <p className="text-xs font-bold mb-3 flex items-center gap-1.5" style={{ color: '#854F0B' }}>
+                <div className="rounded-2xl p-4" style={{ background: '#FAF5FF', border: '0.5px solid #DDD6FE', borderLeft: '3px solid #8B5CF6' }}>
+                  <p className="text-xs font-bold mb-3 flex items-center gap-1.5" style={{ color: '#5B21B6' }}>
                     <Users size={13} strokeWidth={2.2} />
                     Torang samua lagi bergerak
                   </p>
                   <div className="space-y-2.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs flex items-center gap-1.5" style={{ color: '#854F0B' }}>
-                        <HandHeart size={12} strokeWidth={2} />
-                        Donasi hari ini
-                      </span>
-                      <span className="text-xs font-bold" style={{ color: '#412402' }}>Segera</span>
+                      <span className="text-xs" style={{ color: '#5B21B6' }}>Donasi hari ini</span>
+                      <span className="text-xs font-bold" style={{ color: '#1F2937' }}>Segera</span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs flex items-center gap-1.5" style={{ color: '#854F0B' }}>
-                        <FileText size={12} strokeWidth={2} />
-                        Total laporan
-                      </span>
-                      <span className="text-xs font-bold" style={{ color: '#412402' }}>
-                        {typeof stats.reports?.total === 'number' ? stats.reports.total : '—'}
+                      <span className="text-xs" style={{ color: '#5B21B6' }}>Total laporan</span>
+                      <span className="text-xs font-bold" style={{ color: '#1F2937' }}>
+                        {typeof stats.reports?.total === 'number' ? stats.reports.total.toLocaleString('id-ID') : '—'}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
-                      <span className="text-xs flex items-center gap-1.5" style={{ color: '#854F0B' }}>
-                        <Newspaper size={12} strokeWidth={2} />
-                        Total artikel
-                      </span>
-                      <span className="text-xs font-bold" style={{ color: '#412402' }}>
-                        {typeof stats.articles?.total === 'number' ? stats.articles.total : '—'}
+                      <span className="text-xs" style={{ color: '#5B21B6' }}>Total artikel</span>
+                      <span className="text-xs font-bold" style={{ color: '#1F2937' }}>
+                        {typeof stats.articles?.total === 'number' ? stats.articles.total.toLocaleString('id-ID') : '—'}
                       </span>
                     </div>
                   </div>

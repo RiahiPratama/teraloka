@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { TrendingUp, Siren, Clock } from 'lucide-react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
+import SharePopover from '@/components/shared/SharePopover';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -42,23 +43,13 @@ function timeAgo(dateStr: string) {
     : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
-function shareWA(title: string, slug: string) {
-  const url = `${APP_URL}/bakabar/${slug}`;
-  window.open(`https://wa.me/?text=${encodeURIComponent(`📰 ${title}\n\n${url}`)}`, '_blank');
-}
+// ─────────────────────────────────────────────────────────────────
+// Phase E (14 Mei 2026): Helpers shareWA/shareFB/trackShare + komponen
+// ShareButtons DIHAPUS, diganti SharePopover universal (5 platform +
+// auto-flip + dedup backend + brand auto-theme).
+// ─────────────────────────────────────────────────────────────────
 
-function shareFB(slug: string) {
-  const url = `${APP_URL}/bakabar/${slug}`;
-  window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, '_blank', 'width=600,height=400');
-}
-
-async function trackShare(articleId: string) {
-  try { await fetch(`${API}/content/articles/${articleId}/share`, { method: 'POST' }); } catch { }
-}
-
-// ── Ad Slots ──────────────────────────────────────────────────────
-
-// ── Ads Components (fetch dari /public/ads) ─────────────────────
+// ── Ads Components ────────────────────────────────────────────────
 
 interface Ad {
   id: string;
@@ -75,7 +66,6 @@ async function fetchActiveAd(position: string): Promise<Ad | null> {
     if (!data.success) return null;
     const ads = data.data ?? [];
     if (!ads.length) return null;
-    // Rotate: pilih random kalau ada >1 iklan aktif di posisi yang sama
     return ads[Math.floor(Math.random() * ads.length)];
   } catch {
     return null;
@@ -83,7 +73,6 @@ async function fetchActiveAd(position: string): Promise<Ad | null> {
 }
 
 function trackAdClick(adId: string) {
-  // Fire-and-forget — tidak block user experience
   fetch(`${API}/public/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
 }
 
@@ -95,7 +84,6 @@ function AdBanner() {
     fetchActiveAd('banner').then(a => { setAd(a); setLoaded(true); });
   }, []);
 
-  // Selama fetch atau kalau tidak ada iklan aktif, tampilkan placeholder
   if (!loaded || !ad) {
     return (
       <div className="w-full flex items-center justify-center rounded-xl my-3"
@@ -221,28 +209,6 @@ function AdSidebar({ height = 260, label = '300 × 250' }: { height?: number; la
   );
 }
 
-function ShareButtons({ id, title, slug, className = '' }: { id?: string; title: string; slug: string; className?: string }) {
-  return (
-    <div className={`flex items-center gap-2.5 ${className}`}>
-      <button onClick={e => { e.preventDefault(); shareWA(title, slug); if (id) trackShare(id); }}
-        className="flex items-center gap-1 text-xs font-bold text-green-600 hover:opacity-75 transition-opacity">
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-        </svg>
-        WA
-      </button>
-      <span className="text-gray-200 text-xs">|</span>
-      <button onClick={e => { e.preventDefault(); shareFB(slug); if (id) trackShare(id); }}
-        className="flex items-center gap-1 text-xs font-bold text-blue-600 hover:opacity-75 transition-opacity">
-        <svg className="w-3 h-3" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" />
-        </svg>
-        FB
-      </button>
-    </div>
-  );
-}
-
 // ── BMKG Widget ────────────────────────────────────────────────────
 
 function BMKGWidget({ data }: { data: any }) {
@@ -300,7 +266,15 @@ function BMKGWidget({ data }: { data: any }) {
   );
 }
 
-// ── Live BALAPOR Feed ──────────────────────────────────────────────
+// ── Live BALAPOR Feed (body widget) ───────────────────────────────
+// REFACTOR 14 Mei 2026 sore (CEO directive):
+// Card identity = BALAPOR (coral palette tint, kept as legacy info card style).
+// TEKS / LABELS pakai BAKABAR purple (host page identity).
+//   - Title heading + Siren icon: #5B21B6 (bakabar-strong)
+//   - "Lihat semua →" link: #5B21B6 (bakabar-strong)
+//   - Time stamps: #5B21B6 (bakabar-strong)
+//   - Report titles: dark gray (readability content priority)
+// Button "+ Laporkan Kejadian" tetap TeraLoka teal #003526 (Pattern EEE compliant).
 
 const CATEGORY_ICON: Record<string, string> = {
   infrastruktur: '🏗️', keamanan: '🚨', lingkungan: '🌿',
@@ -313,11 +287,11 @@ function LiveBALAPORFeed({ reports }: { reports: any[] }) {
   return (
     <div className="rounded-2xl p-4 my-4" style={{ background: '#FFF7F5', border: '0.5px solid #F5C4B3', borderLeft: '3px solid #D85A30' }}>
       <div className="flex items-center justify-between mb-3">
-        <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: '#993C1D' }}>
+        <p className="text-sm font-bold flex items-center gap-1.5" style={{ color: '#5B21B6' }}>
           <Siren size={14} strokeWidth={2.2} />
           Warga lagi melapor
         </p>
-        <Link href="/balapor" className="text-xs font-semibold hover:underline" style={{ color: '#993C1D' }}>
+        <Link href="/balapor" className="text-xs font-semibold hover:underline" style={{ color: '#5B21B6' }}>
           Lihat semua →
         </Link>
       </div>
@@ -328,8 +302,8 @@ function LiveBALAPORFeed({ reports }: { reports: any[] }) {
               {CATEGORY_ICON[r.category] || CATEGORY_ICON.default}
             </span>
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: '#4A1B0C' }}>{r.title}</p>
-              <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#993C1D' }}>
+              <p className="text-xs font-semibold leading-snug line-clamp-2" style={{ color: '#1F2937' }}>{r.title}</p>
+              <p className="text-[10px] mt-0.5 flex items-center gap-1" style={{ color: '#5B21B6' }}>
                 <Clock size={9} strokeWidth={2.2} />
                 {timeAgo(r.created_at)}
               </p>
@@ -358,14 +332,6 @@ function NewsPageContent() {
   const [page, setPage] = useState(1);
   const [recentReports, setRecentReports] = useState<any[]>([]);
 
-  // 14 Mei 2026 — Sprint 2A Batch 3: URL state Hybrid
-  // VerticalNav writes ?nav= (new format), this parser reads BOTH:
-  //   Priority 1: ?nav=     (new, single param)
-  //   Priority 2: ?type=    (legacy: nasional/viral/terbaru)
-  //   Priority 3: ?location= (legacy: 11 daerah slug)
-  // Then derive `type` + `location` untuk backward compat dengan
-  // downstream code yang udah refer ke 2 variable ini (render label,
-  // empty state conditional, dll).
   const _navParam      = searchParams.get('nav');
   const _legacyType    = searchParams.get('type');
   const _legacyLoc     = searchParams.get('location');
@@ -373,9 +339,6 @@ function NewsPageContent() {
     || (_legacyType && _legacyType !== 'terbaru' ? _legacyType : null)
     || (_legacyLoc && _legacyLoc !== 'all' ? _legacyLoc : null)
     || 'terbaru';
-  // Map nav back ke backend params shape (?type vs ?location).
-  // Type-kind slugs: 'nasional', 'viral', 'terbaru'.
-  // Everything else = location slug (11 daerah MalUt).
   const _isTypeKind = _currentNav === 'nasional'
     || _currentNav === 'viral'
     || _currentNav === 'terbaru';
@@ -384,7 +347,6 @@ function NewsPageContent() {
   const q = searchParams.get('q') || '';
   const topic = searchParams.get('topic') || '';
 
-  // Fetch recent reports on mount
   useEffect(() => {
     fetch(`${API}/public/reports/recent`).then(r => r.json()).then(d => { if (d.success) setRecentReports(d.data ?? []); }).catch(() => { });
   }, []);
@@ -430,7 +392,6 @@ function NewsPageContent() {
   return (
     <div className="min-h-screen bg-white">
 
-      {/* Breaking ticker */}
       {breaking.length > 0 && (
         <div className="max-w-4xl mx-auto px-4 pt-3">
           <div className="flex items-center gap-3 bg-[#003526] text-white rounded-xl px-4 py-2.5">
@@ -456,7 +417,6 @@ function NewsPageContent() {
           </div>
         )}
 
-        {/* Loading */}
         {loading && (
           <div className="space-y-4 py-4">
             <div className="animate-pulse h-56 bg-gray-100 rounded-2xl" />
@@ -472,7 +432,6 @@ function NewsPageContent() {
           </div>
         )}
 
-        {/* Empty */}
         {!loading && articles.length === 0 && (
           <div className="py-20 text-center">
             <p className="text-5xl mb-3">{type === 'viral' ? '🔥' : type === 'nasional' ? '🗞️' : '📰'}</p>
@@ -488,14 +447,11 @@ function NewsPageContent() {
           </div>
         )}
 
-        {/* Content */}
         {!loading && articles.length > 0 && (
           <div className="lg:grid lg:grid-cols-12 lg:gap-6">
 
-            {/* Main column */}
             <div className="lg:col-span-8">
 
-              {/* Featured */}
               {featured && (
                 <Link href={featured.source === 'rss' ? featured.external_url || `/bakabar/${featured.slug}` : `/bakabar/${featured.slug}`}
                   target={featured.source === 'rss' ? '_blank' : undefined}
@@ -551,7 +507,13 @@ function NewsPageContent() {
                       } · {timeAgo(featured.published_at)}
                     </span>
                     {featured.source !== 'rss' && (
-                      <ShareButtons id={featured.id} title={featured.title} slug={featured.slug} />
+                      <SharePopover
+                        entity_id={featured.id}
+                        entity_type="article"
+                        service_domain="bakabar"
+                        title={featured.title}
+                        url={`${APP_URL}/bakabar/${featured.slug}`}
+                      />
                     )}
                     {featured.source === 'rss' && (
                       <span className="text-xs text-gray-400 italic">Baca di sumber asli →</span>
@@ -562,7 +524,6 @@ function NewsPageContent() {
 
               <div className="h-px bg-gray-100 mb-4" />
 
-              {/* Article list — injeksi widget di posisi strategis */}
               <div className="space-y-0">
                 {rest.map((article, idx) => {
                   const excerpt = parseExcerpt(article.excerpt, article.body);
@@ -571,15 +532,12 @@ function NewsPageContent() {
 
                   return (
                     <div key={article.id}>
-                      {/* Native ad setiap 4 artikel */}
                       {idx > 0 && idx % 4 === 0 && <AdNative />}
 
-                      {/* Live BALAPOR feed setelah artikel ke-4 */}
                       {idx === 4 && recentReports.length > 0 && (
                         <LiveBALAPORFeed reports={recentReports} />
                       )}
 
-                      {/* WA Newsletter setelah artikel ke-8 */}
                       {idx === 8 && (
                         <div className="my-4">
                           <WANewsletterWidget />
@@ -616,7 +574,13 @@ function NewsPageContent() {
                             </span>
                             {!isRSS && (
                               <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                                <ShareButtons id={article.id} title={article.title} slug={article.slug} />
+                                <SharePopover
+                                  entity_id={article.id}
+                                  entity_type="article"
+                                  service_domain="bakabar"
+                                  title={article.title}
+                                  url={`${APP_URL}/bakabar/${article.slug}`}
+                                />
                               </div>
                             )}
                           </div>
@@ -627,7 +591,6 @@ function NewsPageContent() {
                 })}
               </div>
 
-              {/* WA Newsletter di bawah kalau artikel < 8 */}
               {rest.length < 8 && (
                 <div className="mt-4">
                   <WANewsletterWidget />
@@ -642,37 +605,56 @@ function NewsPageContent() {
               )}
             </div>
 
-            {/* Sidebar */}
             <div className="hidden lg:block lg:col-span-4">
               <div className="sticky top-[108px] space-y-5">
                 <AdSidebar height={260} label="300 × 250" />
 
-                {/* Terpopuler — Discovery · blue accent */}
-                <div className="rounded-2xl p-4" style={{ background: '#F3F7FB', border: '0.5px solid #B5D4F4', borderLeft: '3px solid #378ADD' }}>
-                  <p className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: '#185FA5' }}>
+                {/* ── Card "Terpopuler" ─────────────────────────────
+                    REFACTOR 14 Mei 2026 sore (CEO directive):
+                    Full BAKABAR purple palette (was blue palette).
+                    Source-of-truth: globals.css line 87-89.
+                      bg: #FAF5FF (bakabar-muted)
+                      border: light purple
+                      borderLeft: #8B5CF6 (bakabar primary)
+                      title text: #5B21B6 (bakabar-strong)
+                      number: #8B5CF6
+                      article title text: dark gray (readability)
+                    ─────────────────────────────────────────────── */}
+                <div className="rounded-2xl p-4" style={{ background: '#FAF5FF', border: '0.5px solid #DDD6FE', borderLeft: '3px solid #8B5CF6' }}>
+                  <p className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: '#5B21B6' }}>
                     <TrendingUp size={13} strokeWidth={2.4} />
                     Terpopuler
                   </p>
                   {articles.slice(0, 5).map((a, i) => (
                     <Link key={a.id} href={`/bakabar/${a.slug}`}
                       className="flex items-start gap-2.5 py-2.5 last:border-0 group"
-                      style={{ borderBottom: '0.5px solid #D6E4F2' }}>
-                      <span className="text-2xl font-black leading-none w-6 shrink-0" style={{ color: '#378ADD' }}>{i + 1}</span>
-                      <p className="text-xs font-semibold leading-snug line-clamp-3 group-hover:underline" style={{ color: '#042C53' }}>{a.title}</p>
+                      style={{ borderBottom: '0.5px solid #EDE9FE' }}>
+                      <span className="text-2xl font-black leading-none w-6 shrink-0" style={{ color: '#8B5CF6' }}>{i + 1}</span>
+                      <p className="text-xs font-semibold leading-snug line-clamp-3 group-hover:underline" style={{ color: '#1F2937' }}>{a.title}</p>
                     </Link>
                   ))}
                 </div>
 
-                {/* BALAPOR CTA */}
+                {/* ── BALAPOR CTA sidebar ─────────────────────────
+                    REFACTOR 14 Mei 2026 sore (CEO directive):
+                    BALAPOR brand canonical = #DC2626 RED BERANI.
+                    Pattern EEE: Card TeraLoka teal → Button BALAPOR red.
+                    Button bg #D85A30 coral (legacy) → #DC2626 (canonical).
+                    ───────────────────────────────────────────── */}
                 <div className="bg-[#003526] rounded-2xl p-5 text-center">
                   <p className="text-white font-bold text-sm mb-1">Ada berita di sekitarmu?</p>
                   <p className="text-xs mb-3" style={{ color: '#95d3ba' }}>Laporkan via BALAPOR.</p>
-                  <Link href="/balapor/buat-laporan" className="block text-center bg-white text-xs font-black px-4 py-2 rounded-xl" style={{ color: '#003526' }}>
+                  <Link href="/balapor/buat-laporan"
+                    className="block text-center text-xs font-black px-4 py-2 rounded-xl hover:opacity-90 transition-opacity"
+                    style={{ background: '#DC2626', color: '#fff' }}>
                     Lapor Sekarang →
                   </Link>
                 </div>
 
-                {/* Live BALAPOR sidebar — Alert · coral accent */}
+                {/* ── Card "Laporan Terbaru" (info card, no button) ──
+                    Full BALAPOR identity (coral palette tint).
+                    KEEP existing (CEO confirmed: "pakai BALAPOR").
+                    ─────────────────────────────────────────────── */}
                 {recentReports.length > 0 && (
                   <div className="rounded-2xl p-4" style={{ background: '#FFF7F5', border: '0.5px solid #F5C4B3', borderLeft: '3px solid #D85A30' }}>
                     <p className="text-xs font-black uppercase tracking-widest mb-3 flex items-center gap-1.5" style={{ color: '#993C1D' }}>
