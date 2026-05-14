@@ -10,7 +10,7 @@
  *
  * Responsive: 2-col desktop, stacked mobile.
  *
- * Trending → click row → new tab ke /news/[slug]
+ * Trending → click row → new tab ke /bakabar/[slug]
  * Perlu Perhatian → click alert → scroll ke Manajemen section (via onClick)
  */
 
@@ -89,7 +89,7 @@ export function TrendingSection({
                 variant="full"
                 actionSlot={
                   <Link
-                    href={`/news/${article.slug}`}
+                    href={`/bakabar/${article.slug}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-xs font-semibold px-2.5 py-1 rounded-md bg-brand-teal text-white hover:bg-brand-teal/90 transition-colors whitespace-nowrap"

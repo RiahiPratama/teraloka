@@ -89,21 +89,30 @@ function CategoryTabsInner() {
   }, [topicOpen]);
 
   // ── Fetch locations dari API ──────────────────────────────
+  // 14 Mei 2026 — Sprint 2A Batch 2: fix dropdown daerah bug
+  // BEFORE: fetch /locations → store SEMUA 1073 rows (provinsi + kab/kota +
+  //         kecamatan + kelurahan + desa) → render 1062 desa/kelurahan di
+  //         scrollable row → UX nightmare.
+  // AFTER:  filter by LOCATION_ORDER (slug whitelist) → render 11 daerah
+  //         resmi MalUt only. Sofifi (DB type='kelurahan') tetap masuk via
+  //         slug match — alasannya politik (Ibu Kota Provinsi Maluku Utara).
+  //
+  // Trade-off: tetap fetch 1073 rows (~50KB JSON), cuma 11 di-render.
+  //   - Next.js cache + browser cache handle wastage (1× fetch per session).
+  //   - Future optimization (Sprint berikut): backend support
+  //     ?slugs=a,b,c filter → fetch payload jadi 11 rows langsung.
   useEffect(() => {
     fetch(`${LOCATION_API}/locations`)
       .then(r => r.json())
       .then(d => {
-        if (d.success) {
-          // Sort sesuai LOCATION_ORDER, sisanya di belakang
-          const sorted = [...d.data].sort((a: Location, b: Location) => {
-            const ai = LOCATION_ORDER.indexOf(a.slug);
-            const bi = LOCATION_ORDER.indexOf(b.slug);
-            if (ai === -1 && bi === -1) return 0;
-            if (ai === -1) return 1;
-            if (bi === -1) return -1;
-            return ai - bi;
-          });
-          setLocations(sorted);
+        if (d.success && Array.isArray(d.data)) {
+          // Whitelist filter — keep cuma 11 daerah resmi MalUt
+          const filtered = (d.data as Location[])
+            .filter(loc => LOCATION_ORDER.includes(loc.slug))
+            .sort((a, b) =>
+              LOCATION_ORDER.indexOf(a.slug) - LOCATION_ORDER.indexOf(b.slug)
+            );
+          setLocations(filtered);
         }
       })
       .catch(() => {});

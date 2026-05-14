@@ -229,7 +229,7 @@ function AuditLogContent() {
                   </p>
                   {log.article_slug && (
                     <a
-                      href={`/news/${log.article_slug}`}
+                      href={`/bakabar/${log.article_slug}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       onClick={(e) => e.stopPropagation()}

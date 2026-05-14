@@ -34,7 +34,7 @@ interface ArticleRowProps {
   variant?: 'compact' | 'full';
   /** Render-prop untuk action button di kanan row */
   actionSlot?: React.ReactNode;
-  /** Override link URL (default: /news/[slug]) */
+  /** Override link URL (default: /bakabar/[slug]) */
   href?: string;
   className?: string;
 }
@@ -76,7 +76,7 @@ export function ArticleRow({
             </span>
           )}
           <Link
-            href={href ?? `/news/${article.slug}`}
+            href={href ?? `/bakabar/${article.slug}`}
             target="_blank"
             rel="noopener noreferrer"
             className="text-sm font-semibold text-text hover:text-brand-teal truncate leading-tight"

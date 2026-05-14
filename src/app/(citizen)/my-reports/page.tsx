@@ -745,13 +745,13 @@ function LinkedArticleBox({ article }: { article: LinkedArticle }) {
     <div className="mt-3 bg-purple-50 border border-purple-200 rounded-lg p-3">
       <p className="text-xs text-purple-700 font-medium mb-1.5">📰 Sudah jadi artikel:</p>
       <Link
-        href={`/news/${article.slug}`}
+        href={`/bakabar/${article.slug}`}
         className="text-sm text-purple-900 font-semibold hover:underline line-clamp-2"
       >
         {article.title}
       </Link>
       <Link
-        href={`/news/${article.slug}`}
+        href={`/bakabar/${article.slug}`}
         className="inline-block mt-1.5 text-xs text-purple-700 hover:text-purple-900 font-medium"
       >
         Baca artikel di BAKABAR →
