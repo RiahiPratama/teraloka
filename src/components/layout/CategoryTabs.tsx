@@ -1,16 +1,57 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+// ════════════════════════════════════════════════════════════════
+// VERTICAL NAV (was CategoryTabs)
+// ────────────────────────────────────────────────────────────────
+// History:
+//   - Initial build: 2-row layout (TYPE tabs + LOCATION pills)
+//   - 14 Mei 2026 (Sprint 2A Batch 1): route migration /news → /bakabar
+//   - 14 Mei 2026 (Sprint 2A Batch 2): filter dropdown daerah 1073 → 11
+//   - 14 Mei 2026 (Sprint 2A Batch 3 V4 FINAL): UX-optimized 13-item nav
+//     - 13 items single row (urutan LOCKED per user requirement)
+//     - Pill style (border-radius 999px) — softer, news portal modern
+//     - Typography baseline: SEMUA items font-weight 600 + #1F2937 dark
+//       (readable like navbar BAKABAR/BALAPOR), active boost ke 700 purple
+//     - Active state: bg purple 10% + inset shadow + bold + color
+//     - Container white bg + border-top separator dari navbar
+//     - Scroll fade indicator right edge (hint ada items lain)
+//     - Topik dropdown dengan icon 🏷️ (visual differentiation)
+//     - Container max-w-4xl (align content area BAKABAR)
+//     - Font text-sm (14px) untuk readability comfort
+//     - URL state Hybrid: write ?nav=, read ?nav OR legacy ?type/?location
+//     - Hardcoded colors (#5B21B6, #8B5CF6) BUKAN CSS vars karena
+//       --color-bakabar-strong di dark mode = #DDD6FE (near-white).
+//       VerticalNav design untuk LIGHT BG context, hardcode safer.
+//       (Pattern UU lessons learned: verify CSS var dark mode value)
+//     - Default landing = 'terbaru' (no filter, semua published tampil)
+//       BUG FIX: 'nasional' default bikin backend filter strict.
+//       Trade-off: landing no item highlighted (acceptable).
+//
+// File kept as CategoryTabs.tsx (no rename) — single consumer
+// (src/app/(public)/layout.tsx) tidak butuh touch.
+// ════════════════════════════════════════════════════════════════
+
+import { useState, useEffect, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 
-// ── Type tabs (Layer 1) ───────────────────────────────────────
-const TYPE_TABS = [
-  { key: 'terbaru',  label: 'Terbaru' },
-  { key: 'viral',    label: '🔥 Viral' },
-  { key: 'nasional', label: '🗞️ Nasional' },
+// ─── 13 nav items (single row, urutan LOCKED) ─────────────────
+const NAV_ITEMS = [
+  { key: 'nasional', label: 'Nasional',        kind: 'type' as const },
+  { key: 'ternate',  label: 'Ternate',         kind: 'location' as const },
+  { key: 'tidore',   label: 'Tidore',          kind: 'location' as const },
+  { key: 'sofifi',   label: 'Sofifi',          kind: 'location' as const },
+  { key: 'halbar',   label: 'Halbar',          kind: 'location' as const },
+  { key: 'halut',    label: 'Halut',           kind: 'location' as const },
+  { key: 'halteng',  label: 'Halteng',         kind: 'location' as const },
+  { key: 'halsel',   label: 'Halsel',          kind: 'location' as const },
+  { key: 'haltim',   label: 'Haltim',          kind: 'location' as const },
+  { key: 'morotai',  label: 'Kep. Morotai',    kind: 'location' as const },
+  { key: 'sula',     label: 'Kep. Sula',       kind: 'location' as const },
+  { key: 'taliabu',  label: 'P. Taliabu',      kind: 'location' as const },
+  { key: 'viral',    label: '🔥 Viral Medsos', kind: 'type' as const },
 ];
 
-// ── Topik dropdown (skip 'viral' — sudah jadi tab utama) ──────
+// ─── 12 Topik (preserved dari sebelumnya) ──────────────────────
 const TOPICS = [
   { key: 'berita',       label: 'Berita',       icon: '📰' },
   { key: 'politik',      label: 'Politik',      icon: '🏛️' },
@@ -26,49 +67,71 @@ const TOPICS = [
   { key: 'opini',        label: 'Opini',        icon: '💬' },
 ];
 
-// ── Location chips (Layer 2) ──────────────────────────────────
-const LOCATION_API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
-
 const NAVBAR_OFFSET = 100; // ticker(36) + navbar-top(44~52) + navbar-height(52) - spacer(36) ≈ 100px
-const NEAR_END      = 70; // % scroll untuk reveal
+const NEAR_END      = 70;  // % scroll untuk reveal sticky
 
-// Urutan tampil location chips — urutan resmi 11 kabupaten/kota Maluku Utara
-// Slug sesuai DB public.locations — jangan diubah tanpa update DB schema
-const LOCATION_ORDER = [
-  'ternate',       // 1. Ternate (ibukota de facto)
-  'sofifi',        // 2. Sofifi (ibukota resmi)
-  'tidore',        // 3. Tidore Kepulauan
-  'halteng',       // 4. Halmahera Tengah
-  'halut',         // 5. Halmahera Utara
-  'halsel',        // 6. Halmahera Selatan
-  'halbar',        // 7. Halmahera Barat
-  'haltim',        // 8. Halmahera Timur
-  'morotai',       // 9. Kepulauan Morotai
-  'sula',          // 10. Kepulauan Sula
-  'taliabu',       // 11. Pulau Taliabu
-];
-
-type Location = { id: string; name: string; slug: string; type: string };
+// ─── URL state hybrid parser ─────────────────────────────────
+// PRIORITY 1: ?nav=     (new, written by VerticalNav)
+// PRIORITY 2: ?type=    (legacy: nasional/viral/terbaru)
+// PRIORITY 3: ?location= (legacy: 11 daerah slug)
+// Default: 'nasional' (clear default untuk landing user)
+function parseCurrentNav(params: URLSearchParams): string {
+  const nav = params.get('nav');
+  if (nav) return nav;
+  const type = params.get('type');
+  if (type && type !== 'terbaru') return type;
+  const location = params.get('location');
+  if (location && location !== 'all') return location;
+  // BUG FIX (V4.3): Default 'nasional' bikin backend filter strict
+  // (category=nasional OR source=rss) → hanya 1-2 article tampil.
+  // Revert ke 'terbaru' = no filter = semua published article tampil.
+  // Trade-off: landing no item highlighted (acceptable untuk UX).
+  return 'terbaru';
+}
 
 function CategoryTabsInner() {
   const pathname     = usePathname();
   const searchParams = useSearchParams();
   const router       = useRouter();
 
-  const [visible,     setVisible]     = useState(true);
-  const [lastScrollY, setLastScrollY] = useState(0);
-  const [atTop,       setAtTop]       = useState(true);
-  const [locations,   setLocations]   = useState<Location[]>([]);
-  const [topicOpen,   setTopicOpen]   = useState(false);
+  const [visible,        setVisible]        = useState(true);
+  const [lastScrollY,    setLastScrollY]    = useState(0);
+  const [atTop,          setAtTop]          = useState(true);
+  const [topicOpen,      setTopicOpen]      = useState(false);
+  const [showRightFade,  setShowRightFade]  = useState(true);
+
+  // Scroll container ref untuk fade indicator
+  const scrollRef = useRef<HTMLDivElement>(null);
 
   // 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
-  // Conditional render BAKABAR tabs HANYA di /bakabar (bukan article slug)
-  const isNewsPage    = pathname === '/bakabar';
-  const showTabs      = isNewsPage; // tabs HANYA di /bakabar, tidak di artikel slug
+  const isNewsPage = pathname === '/bakabar';
+  const showTabs   = isNewsPage;
 
-  const currentType     = searchParams.get('type')     || 'terbaru';
-  const currentLocation = searchParams.get('location') || 'all';
-  const currentTopic    = searchParams.get('topic')    || '';
+  const currentNav   = parseCurrentNav(searchParams);
+  const currentTopic = searchParams.get('topic') || '';
+
+  // ── Detect horizontal scroll position untuk fade indicator ──
+  useEffect(() => {
+    if (!showTabs) return;
+    const el = scrollRef.current;
+    if (!el) return;
+
+    function checkFade() {
+      if (!el) return;
+      // Show fade kalau masih bisa scroll ke kanan (ada items hidden)
+      const canScrollRight = el.scrollWidth - el.scrollLeft - el.clientWidth > 4;
+      setShowRightFade(canScrollRight);
+    }
+
+    checkFade(); // initial
+    el.addEventListener('scroll', checkFade, { passive: true });
+    window.addEventListener('resize', checkFade);
+
+    return () => {
+      el.removeEventListener('scroll', checkFade);
+      window.removeEventListener('resize', checkFade);
+    };
+  }, [showTabs]);
 
   // Close topic dropdown on outside click atau Escape
   useEffect(() => {
@@ -88,37 +151,7 @@ function CategoryTabsInner() {
     };
   }, [topicOpen]);
 
-  // ── Fetch locations dari API ──────────────────────────────
-  // 14 Mei 2026 — Sprint 2A Batch 2: fix dropdown daerah bug
-  // BEFORE: fetch /locations → store SEMUA 1073 rows (provinsi + kab/kota +
-  //         kecamatan + kelurahan + desa) → render 1062 desa/kelurahan di
-  //         scrollable row → UX nightmare.
-  // AFTER:  filter by LOCATION_ORDER (slug whitelist) → render 11 daerah
-  //         resmi MalUt only. Sofifi (DB type='kelurahan') tetap masuk via
-  //         slug match — alasannya politik (Ibu Kota Provinsi Maluku Utara).
-  //
-  // Trade-off: tetap fetch 1073 rows (~50KB JSON), cuma 11 di-render.
-  //   - Next.js cache + browser cache handle wastage (1× fetch per session).
-  //   - Future optimization (Sprint berikut): backend support
-  //     ?slugs=a,b,c filter → fetch payload jadi 11 rows langsung.
-  useEffect(() => {
-    fetch(`${LOCATION_API}/locations`)
-      .then(r => r.json())
-      .then(d => {
-        if (d.success && Array.isArray(d.data)) {
-          // Whitelist filter — keep cuma 11 daerah resmi MalUt
-          const filtered = (d.data as Location[])
-            .filter(loc => LOCATION_ORDER.includes(loc.slug))
-            .sort((a, b) =>
-              LOCATION_ORDER.indexOf(a.slug) - LOCATION_ORDER.indexOf(b.slug)
-            );
-          setLocations(filtered);
-        }
-      })
-      .catch(() => {});
-  }, []);
-
-  // ── Scroll-aware (context-aware) ─────────────────────────
+  // ── Scroll-aware (context-aware) sticky behavior ─────────
   useEffect(() => {
     if (!showTabs) return;
 
@@ -155,17 +188,20 @@ function CategoryTabsInner() {
   if (!showTabs) return null;
 
   // ── Navigation helper ─────────────────────────────────────
-  function navigate(type: string, location: string, topic: string = currentTopic) {
+  function navigate(nav: string, topic: string = currentTopic) {
     const p = new URLSearchParams();
-    if (type !== 'terbaru')  p.set('type', type);
-    if (location !== 'all')  p.set('location', location);
-    if (topic)               p.set('topic', topic);
-    router.push(`/bakabar?${p.toString()}`);
+    // Default 'terbaru' = no nav param di URL (cleaner /bakabar)
+    if (nav !== 'terbaru') p.set('nav', nav);
+    if (topic)              p.set('topic', topic);
+    const qs = p.toString();
+    router.push(qs ? `/bakabar?${qs}` : '/bakabar');
   }
 
-  const setType     = (t: string) => navigate(t, currentLocation, currentTopic);
-  const setLocation = (l: string) => navigate(currentType, l, currentTopic);
-  const setTopic    = (tp: string) => { navigate(currentType, currentLocation, tp); setTopicOpen(false); };
+  const setNav   = (n: string) => navigate(n, currentTopic);
+  const setTopic = (tp: string) => {
+    navigate(currentNav, tp);
+    setTopicOpen(false);
+  };
 
   return (
     <div
@@ -173,41 +209,132 @@ function CategoryTabsInner() {
         position: 'sticky',
         top: NAVBAR_OFFSET,
         zIndex: 30,
-        background: '#fff',
-        borderBottom: '1px solid #F3F4F6',
+        background: '#ffffff',
+        borderTop: '1px solid #F3F4F6',
+        borderBottom: '1px solid #E5E7EB',
         transform: visible ? 'translateY(0)' : `translateY(calc(-100% - ${NAVBAR_OFFSET}px))`,
         transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
         boxShadow: atTop ? 'none' : '0 2px 16px rgba(0,0,0,0.06)',
       }}
     >
-      {/* ── Layer 1: Type tabs + Topic dropdown ── */}
-      <div className="max-w-4xl mx-auto border-b border-gray-100">
-        <div className="flex items-center justify-between">
-          <div className="flex overflow-x-auto flex-1" style={{ scrollbarWidth: 'none' }}>
-            {TYPE_TABS.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setType(tab.key)}
-                className={`px-5 py-2.5 text-xs font-bold whitespace-nowrap border-b-2 transition-all flex-shrink-0 ${
-                  isNewsPage && currentType === tab.key
-                    ? 'border-[#003526] text-[#003526]'
-                    : 'border-transparent text-gray-500 hover:text-gray-800'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+      <div className="max-w-4xl mx-auto px-4 py-3">
+        <div className="relative flex items-center">
+
+          {/* ── 13 nav items horizontal scroll ── */}
+          <div
+            ref={scrollRef}
+            className="flex items-center flex-1 overflow-x-auto"
+            style={{
+              scrollbarWidth: 'none',
+              msOverflowStyle: 'none',
+              WebkitOverflowScrolling: 'touch',
+              gap: 2,
+            }}
+          >
+            {NAV_ITEMS.map(item => {
+              const active = currentNav === item.key;
+              return (
+                <button
+                  key={item.key}
+                  onClick={() => setNav(item.key)}
+                  className="flex-shrink-0 whitespace-nowrap transition-all"
+                  style={{
+                    padding: '9px 16px',
+                    fontSize: 14,
+                    // ✏️ Typography baseline: SEMUA items semibold (600) 
+                    // untuk readability comfort. Active boost ke bold (700).
+                    // Mengikuti pattern navbar TeraLoka (BAKABAR/BALAPOR dll
+                    // semua bold walau "non-active" — clearly readable).
+                    fontWeight: active ? 700 : 600,
+                    // Color: SEMUA items dark gray (#1F2937 gray-800) untuk
+                    // contrast tinggi di bg white. Active = purple strong.
+                    color: active ? '#5B21B6' : '#1F2937',
+                    // Active bg: rgba inline karena --color-bakabar-muted (#FAF5FF)
+                    // terlalu pucat untuk visible. 10% opacity = clearly differ.
+                    background: active ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
+                    borderRadius: 999,
+                    // Inset shadow untuk depth (active state lebih solid)
+                    boxShadow: active
+                      ? 'inset 0 0 0 1px rgba(139, 92, 246, 0.25)'
+                      : 'none',
+                    border: 'none',
+                    cursor: 'pointer',
+                    // Letter spacing untuk readability comfort
+                    letterSpacing: 0.1,
+                  }}
+                  onMouseEnter={e => {
+                    if (!active) {
+                      e.currentTarget.style.background = '#F3F4F6';
+                      e.currentTarget.style.color = '#000000';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!active) {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.color = '#1F2937';
+                    }
+                  }}
+                >
+                  {item.label}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Topic dropdown — pinned right */}
-          <div className="relative flex-shrink-0 pr-4" data-topic-dropdown>
+          {/* ── Scroll fade indicator (right edge) ── */}
+          {/* Cue user "ada items lain, geser ke kanan" */}
+          {showRightFade && (
+            <div
+              style={{
+                position: 'absolute',
+                right: 92, // breathing space sebelum Topik divider
+                top: 0,
+                bottom: 0,
+                width: 28,
+                background: 'linear-gradient(to right, transparent, #ffffff 70%)',
+                pointerEvents: 'none',
+                zIndex: 1,
+              }}
+            />
+          )}
+
+          {/* ── Topik dropdown pinned right ── */}
+          <div
+            className="relative flex-shrink-0 ml-2 pl-3"
+            style={{ borderLeft: '1px solid #E5E7EB' }}
+            data-topic-dropdown
+          >
             <button
               onClick={() => setTopicOpen(o => !o)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition-colors ${
-                currentTopic
-                  ? 'bg-[#1B6B4A] text-white'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
+              className="whitespace-nowrap transition-all flex items-center gap-1.5"
+              style={{
+                padding: '8px 12px',
+                fontSize: 14,
+                // Typography baseline same as nav items (600, boost ke 700 active)
+                fontWeight: currentTopic ? 700 : 600,
+                color: currentTopic ? '#ffffff' : '#1F2937',
+                background: currentTopic
+                  ? '#8B5CF6'
+                  : '#ffffff',
+                border: currentTopic
+                  ? 'none'
+                  : '0.5px solid #D1D5DB',
+                borderRadius: 8,
+                cursor: 'pointer',
+                letterSpacing: 0.1,
+              }}
+              onMouseEnter={e => {
+                if (!currentTopic) {
+                  e.currentTarget.style.background = '#F9FAFB';
+                  e.currentTarget.style.borderColor = '#9CA3AF';
+                }
+              }}
+              onMouseLeave={e => {
+                if (!currentTopic) {
+                  e.currentTarget.style.background = '#ffffff';
+                  e.currentTarget.style.borderColor = '#D1D5DB';
+                }
+              }}
             >
               {currentTopic ? (
                 <>
@@ -215,35 +342,80 @@ function CategoryTabsInner() {
                   <span>{TOPICS.find(t => t.key === currentTopic)?.label}</span>
                 </>
               ) : (
-                <span>Topik</span>
+                <>
+                  <span style={{ fontSize: 15 }}>🏷️</span>
+                  <span>Topik</span>
+                </>
               )}
-              <span className={`text-[10px] transition-transform ${topicOpen ? 'rotate-180' : ''}`}>▼</span>
+              <span
+                className="transition-transform"
+                style={{
+                  fontSize: 10,
+                  transform: topicOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                  opacity: 0.7,
+                }}
+              >
+                ▼
+              </span>
             </button>
 
             {topicOpen && (
               <div
-                className="absolute right-4 top-full mt-1.5 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden"
-                style={{ minWidth: 180, maxHeight: '70vh', overflowY: 'auto' }}
+                className="absolute right-0 top-full mt-2 border rounded-xl shadow-lg z-50 overflow-hidden"
+                style={{
+                  minWidth: 200,
+                  maxHeight: '70vh',
+                  overflowY: 'auto',
+                  background: '#ffffff',
+                  borderColor: '#E5E7EB',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.10), 0 8px 10px -6px rgba(0,0,0,0.05)',
+                }}
               >
                 <button
                   onClick={() => setTopic('')}
-                  className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 transition-colors ${
-                    !currentTopic ? 'bg-[#1B6B4A]/10 text-[#1B6B4A]' : 'text-gray-700 hover:bg-gray-50'
-                  }`}
+                  className="w-full text-left flex items-center gap-2 transition-colors"
+                  style={{
+                    padding: '10px 14px',
+                    fontSize: 13,
+                    fontWeight: !currentTopic ? 700 : 600,
+                    background: !currentTopic ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
+                    color: !currentTopic ? '#5B21B6' : '#1F2937',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => {
+                    if (currentTopic) e.currentTarget.style.background = '#F9FAFB';
+                  }}
+                  onMouseLeave={e => {
+                    if (currentTopic) e.currentTarget.style.background = 'transparent';
+                  }}
                 >
                   <span className="w-4 text-center">{!currentTopic ? '✓' : ''}</span>
                   <span>Semua topik</span>
                 </button>
-                <div className="h-px bg-gray-100" />
+                <div className="h-px" style={{ background: '#F3F4F6' }} />
                 {TOPICS.map(t => {
                   const active = currentTopic === t.key;
                   return (
                     <button
                       key={t.key}
                       onClick={() => setTopic(t.key)}
-                      className={`w-full text-left px-3 py-2 text-xs font-semibold flex items-center gap-2 transition-colors ${
-                        active ? 'bg-[#1B6B4A]/10 text-[#1B6B4A]' : 'text-gray-700 hover:bg-gray-50'
-                      }`}
+                      className="w-full text-left flex items-center gap-2 transition-colors"
+                      style={{
+                        padding: '10px 14px',
+                        fontSize: 13,
+                        fontWeight: active ? 700 : 600,
+                        background: active ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
+                        color: active ? '#5B21B6' : '#1F2937',
+                        border: 'none',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={e => {
+                        if (!active) e.currentTarget.style.background = '#F9FAFB';
+                      }}
+                      onMouseLeave={e => {
+                        if (!active) e.currentTarget.style.background = 'transparent';
+                      }}
                     >
                       <span className="w-4 text-center">{active ? '✓' : t.icon}</span>
                       <span>{t.label}</span>
@@ -254,76 +426,20 @@ function CategoryTabsInner() {
             )}
           </div>
         </div>
-      </div>
 
-      {/* ── Layer 2: Location chips ── */}
-      {/* Tidak tampil di artikel detail dan tidak tampil kalau type=nasional */}
-      {isNewsPage && currentType !== 'nasional' && (
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center gap-2 px-4 py-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-            {/* "Semua" chip */}
-            <button
-              onClick={() => setLocation('all')}
-              className={`flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full transition-all ${
-                currentLocation === 'all'
-                  ? 'bg-[#003526] text-white'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-              }`}
-            >
-              Semua
-            </button>
-
-            {/* Location chips dari API */}
-            {locations.map(loc => (
-              <button
-                key={loc.slug}
-                onClick={() => setLocation(loc.slug)}
-                className={`flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full transition-all ${
-                  currentLocation === loc.slug
-                    ? 'bg-[#003526] text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {loc.name}
-              </button>
-            ))}
-
-            {/* Fallback kalau API belum ready — slug WAJIB match DB public.locations */}
-            {locations.length === 0 && [
-              { slug: 'ternate',  name: 'Ternate' },
-              { slug: 'sofifi',   name: 'Sofifi' },
-              { slug: 'tidore',   name: 'Tidore' },
-              { slug: 'halteng',  name: 'Halmahera Tengah' },
-              { slug: 'halut',    name: 'Halmahera Utara' },
-              { slug: 'halsel',   name: 'Halmahera Selatan' },
-              { slug: 'halbar',   name: 'Halmahera Barat' },
-              { slug: 'haltim',   name: 'Halmahera Timur' },
-              { slug: 'morotai',  name: 'Kepulauan Morotai' },
-              { slug: 'sula',     name: 'Kepulauan Sula' },
-              { slug: 'taliabu',  name: 'Pulau Taliabu' },
-            ].map(loc => (
-              <button key={loc.slug} onClick={() => setLocation(loc.slug)}
-                className={`flex-shrink-0 text-xs font-bold px-3 py-1 rounded-full transition-all ${
-                  currentLocation === loc.slug
-                    ? 'bg-[#003526] text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}>
-                {loc.name}
-              </button>
-            ))}
+        {/* ── Nasional mode helper text (preserved) ── */}
+        {currentNav === 'nasional' && (
+          <div className="px-1 pt-2">
+            <p className="text-xs text-gray-400 flex items-center gap-1.5">
+              <span
+                className="w-1.5 h-1.5 rounded-full inline-block"
+                style={{ background: '#8B5CF6' }}
+              />
+              Berita nasional yang dikurasi tim TeraLoka — relevan dengan Maluku Utara
+            </p>
           </div>
-        </div>
-      )}
-
-      {/* Nasional mode: tampilkan label sumber */}
-      {isNewsPage && currentType === 'nasional' && (
-        <div className="max-w-4xl mx-auto px-4 py-1.5">
-          <p className="text-xs text-gray-400 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#003526] inline-block" />
-            Berita nasional yang dikurasi tim TeraLoka — relevan dengan Maluku Utara
-          </p>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

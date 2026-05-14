@@ -293,13 +293,13 @@ function RelatedArticles({ articles }: { articles: any[] }) {
         <h3 className="text-base font-bold text-gray-900 flex items-center gap-2">
           📰 Masih ada kabar penting lainnya...
         </h3>
-        <Link href="/bakabar" className="text-xs text-[#003526] font-semibold hover:underline">
+        <Link href="/news" className="text-xs text-[#003526] font-semibold hover:underline">
           Lihat semua →
         </Link>
       </div>
       <div className="flex flex-col gap-3">
         {articles.map((a: any) => (
-          <Link key={a.id} href={`/bakabar/${a.slug}`}
+          <Link key={a.id} href={`/news/${a.slug}`}
             className="flex gap-3 items-start group hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors">
             <div className="w-20 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
               {a.cover_image_url
@@ -395,7 +395,7 @@ export default async function ArticlePage({ params }: Props) {
 
   const relatedArticles = await getRelatedArticles(article.category, slug);
 
-  const shareUrl = `${APP_URL}/bakabar/${slug}`;
+  const shareUrl = `${APP_URL}/news/${slug}`;
   const shareText = encodeURIComponent(`📰 ${article.title}\n\n${shareUrl}`);
   const bodyHtml = renderBody(article.body || '');
 
@@ -497,7 +497,7 @@ export default async function ArticlePage({ params }: Props) {
               <div className="w-6 h-6 rounded-full bg-[#003526] flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {(article.author?.name || 'R').charAt(0).toUpperCase()}
               </div>
-              <span className="font-semibold text-gray-700">{article.author?.name || 'Redaksi TeraLoka'}</span>
+              <span className="font-semibold text-gray-700">{article.author?.name || 'Redaksi BAKABAR'}</span>
               <span>·</span>
               <span>{formatDate(article.published_at || article.created_at)}</span>
               <span>·</span>
@@ -593,7 +593,7 @@ export default async function ArticlePage({ params }: Props) {
             <NativeAd />
 
             <div className="mt-8 text-center">
-              <Link href="/bakabar" className="text-sm text-[#003526] font-semibold hover:underline">
+              <Link href="/news" className="text-sm text-[#003526] font-semibold hover:underline">
                 ← Baca berita lainnya di BAKABAR
               </Link>
             </div>

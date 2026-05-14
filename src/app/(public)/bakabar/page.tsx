@@ -358,8 +358,29 @@ function NewsPageContent() {
   const [page, setPage] = useState(1);
   const [recentReports, setRecentReports] = useState<any[]>([]);
 
-  const type = searchParams.get('type') || 'terbaru';
-  const location = searchParams.get('location') || 'all';
+  // 14 Mei 2026 — Sprint 2A Batch 3: URL state Hybrid
+  // VerticalNav writes ?nav= (new format), this parser reads BOTH:
+  //   Priority 1: ?nav=     (new, single param)
+  //   Priority 2: ?type=    (legacy: nasional/viral/terbaru)
+  //   Priority 3: ?location= (legacy: 11 daerah slug)
+  // Then derive `type` + `location` untuk backward compat dengan
+  // downstream code yang udah refer ke 2 variable ini (render label,
+  // empty state conditional, dll).
+  const _navParam      = searchParams.get('nav');
+  const _legacyType    = searchParams.get('type');
+  const _legacyLoc     = searchParams.get('location');
+  const _currentNav    = _navParam
+    || (_legacyType && _legacyType !== 'terbaru' ? _legacyType : null)
+    || (_legacyLoc && _legacyLoc !== 'all' ? _legacyLoc : null)
+    || 'terbaru';
+  // Map nav back ke backend params shape (?type vs ?location).
+  // Type-kind slugs: 'nasional', 'viral', 'terbaru'.
+  // Everything else = location slug (11 daerah MalUt).
+  const _isTypeKind = _currentNav === 'nasional'
+    || _currentNav === 'viral'
+    || _currentNav === 'terbaru';
+  const type     = _isTypeKind ? _currentNav : 'terbaru';
+  const location = _isTypeKind ? 'all' : _currentNav;
   const q = searchParams.get('q') || '';
   const topic = searchParams.get('topic') || '';
 
@@ -526,7 +547,7 @@ function NewsPageContent() {
                     <span className="text-xs text-gray-400">
                       {featured.source === 'rss'
                         ? featured.source_name || 'Media Nasional'
-                        : featured.author?.name || 'Redaksi'
+                        : featured.author?.name || 'Redaksi BAKABAR'
                       } · {timeAgo(featured.published_at)}
                     </span>
                     {featured.source !== 'rss' && (
