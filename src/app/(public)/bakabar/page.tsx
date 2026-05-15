@@ -1,39 +1,28 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE — Phase 1 v13.6 (Sprint 2A Batch B v5a-fix)
+// BAKABAR HOMEPAGE — Phase 1 v13.9 (Sprint 2A Batch D Final)
 // ────────────────────────────────────────────────────────────────
-// Fix dari v13.5:
-//   - pt-8 → pt-16 (32 → 64): align banner hero TopLeaderboardAd
-//     dengan SkyAd sidebar sticky position.
+// Update dari v13.8 (15 Mei 2026):
+//   - Remove InlineBannerAd loop antar region (terlalu banyak iklan)
+//   - Remove "← Kembali ke beranda" link (kita di beranda, redundant)
+//   - Add BADONASI strategic promo card between Ternate (idx=1) dan
+//     Tidore (idx=2) — single ad placement, focused message
+//   - Political banner v2.1 (LEAN) integrate
+//   - Service carousel v1.1 (LEAN) integrate
 //
-//   Root cause sticky shift bug di v5a:
-//     CategoryTabs end body Y = 72 (pt-72 layout) + 92 (CategoryTabs height)
-//                             = 164
-//     Pt-8 (32) → flex children body Y = 196
-//     SkyAd sticky top:228 → at scroll 0, viewport 196 < 228, sticky aktif,
-//       SkyAd shifted DOWN to viewport Y=228
-//     Banner natural at viewport Y=196 (no sticky)
-//     ❌ Mismatch: banner 32px HIGHER than SkyAd at scroll 0
-//
-//   Fix:
-//     pt-16 (64) → banner natural body Y = 164 + 64 = 228
-//     SkyAd top:228 → 228 < 228? NO, sticky NOT activated at scroll 0,
-//       SkyAd di natural Y = 228
-//     ✅ Both at viewport Y=228 at scroll 0 = ALIGNED
-//
-//   Breathing from CategoryTabs sticky bottom (viewport Y=192):
-//     pt-16 alignment Y (228) - 192 = 36px (modern news portal feel)
-//
-//   Reference: Pattern AA — Sticky Shift Alignment.
-//   Saat 2 sticky children dengan top:N berbeda (atau sticky vs non-sticky),
-//   sticky-shift bisa create misalignment di scroll 0. Solution: make natural
-//   position match sticky top via padding adjustment.
+// Ad strategy LOCKED:
+//   - Top: TopLeaderboardAd (1)
+//   - Hero: SidebarMREC (1)
+//   - Regions: BADONASI promo (1, strategic placement)
+//   - Service carousel: post-regions (closer)
+//   - Sidebar: SkyAds L+R (2 sticky)
+//   = 6 ad surfaces (down from ~13+ pre-cleanup)
 //
 // History prev:
-//   - v13.5 Batch B v5a: pt-8 + SkyAd top 228 (had misalignment bug)
-//   - v13.4 Batch B v4: helper text dihapus
-//   - v13.3 Batch B v3: merge PrayerBreakingBar inside CategoryTabs
+//   - v13.8 Batch D2: Add LaIndieMovieServiceCarousel
+//   - v13.7 Batch D: LaIndieMoviePoliticalBanner v1.0
+//   - v13.6 Batch B v5a-fix: pt-16 sticky alignment (Pattern AA)
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
@@ -44,22 +33,20 @@ import WANewsletterWidget from '@/components/WANewsletterWidget';
 import TopLeaderboardAd from '@/components/bakabar/TopLeaderboardAd';
 import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
 import RegionSection from '@/components/bakabar/RegionSection';
-import InlineBannerAd from '@/components/bakabar/InlineBannerAd';
+import LaIndieMoviePoliticalBanner from '@/components/bakabar/LaIndieMoviePoliticalBanner';
+import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServiceCarousel';
 import {
   TOP_LEADERBOARD,
   SIDEBAR_MREC,
   TERPOPULER_LIST,
   HERO_CAROUSEL_SLIDES,
   REGIONS,
-  INLINE_BANNERS,
 } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 // ─── Inline SkyscraperAd ─────────────────────────────────────
-// 15 Mei Batch B v5a-fix (v13.6): top stays 228, banner natural Y=228 via pt-16.
-// Sticky top:228 = banner natural Y = aligned at viewport Y=228 at scroll 0.
 function SkyscraperAd({ side }: { side: 'left' | 'right' }) {
   const config = side === 'left'
     ? {
@@ -104,6 +91,67 @@ function SkyscraperAd({ side }: { side: 'left' | 'right' }) {
         </div>
       </div>
     </aside>
+  );
+}
+
+// ─── BADONASI Strategic Inline Promo ────────────────────────
+// Single-card promo BADONASI service. Placement: between Ternate (idx=1)
+// and Tidore (idx=2). Lean aesthetic match overall homepage.
+function BadonasiInlinePromo() {
+  return (
+    <Link
+      href="/fundraising"
+      className="relative block my-8 rounded-lg overflow-hidden text-white cursor-pointer transition-all duration-300 hover:scale-[1.01]"
+      style={{
+        background: 'linear-gradient(135deg, #EC4899 0%, #9d174d 100%)',
+        boxShadow: '0 6px 20px rgba(157, 23, 77, 0.25)',
+      }}
+    >
+      {/* Radial decoration */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(245,158,11,0.12) 0%, transparent 50%)',
+        }}
+      />
+
+      {/* Big emoji decoration */}
+      <div
+        className="absolute pointer-events-none"
+        style={{
+          right: -10,
+          bottom: -20,
+          fontSize: 110,
+          opacity: 0.16,
+          lineHeight: 1,
+        }}
+      >
+        🤲
+      </div>
+
+      <div className="relative z-[2] p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase opacity-85 mb-1.5">
+            BADONASI · Layanan TeraLoka
+          </p>
+          <h3
+            className="text-[18px] md:text-[22px] font-extrabold leading-tight mb-1"
+            style={{ fontFamily: "'Lora', Georgia, serif" }}
+          >
+            Galang Donasi untuk Sesama Warga MalUt
+          </h3>
+          <p className="text-[12px] opacity-90">
+            Bantu kebutuhan mendesak warga di kampungmu — donasi mudah, transparan, langsung sampai.
+          </p>
+        </div>
+        <span
+          className="inline-block bg-white text-pink-700 px-4 py-2 rounded-md text-[11px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap self-start md:self-auto"
+        >
+          Berdonasi →
+        </span>
+      </div>
+    </Link>
   );
 }
 
@@ -185,17 +233,12 @@ function BakabarPageContent() {
 
       {/* PrayerBreakingBar di-render INSIDE CategoryTabs (sticky bareng). */}
 
-      {/* OUTER WRAPPER: max-w-[1280px] */}
       <div className="max-w-[1280px] mx-auto px-4">
-        {/* pt-16 (64px) = banner natural Y = CategoryTabs end (164) + 64 = 228.
-            Match SkyAd sticky top:228 → banner & SkyAd ALIGNED at viewport Y=228
-            at scroll 0. Pattern AA — Sticky Shift Alignment. */}
+        {/* pt-16 alignment with SkyAd sticky top:228. Pattern AA. */}
         <div className="flex gap-5 items-stretch justify-center pt-16">
 
-          {/* LEFT SIDEBAR (xl+ only) */}
           <SkyscraperAd side="left" />
 
-          {/* MAIN CONTENT — flex-1 grabs available space, max-w-4xl caps */}
           <main className="flex-1 min-w-0 max-w-4xl">
 
             <TopLeaderboardAd ad={TOP_LEADERBOARD} visual_symbol="M" />
@@ -233,26 +276,26 @@ function BakabarPageContent() {
               {REGIONS.map((region, idx) => (
                 <div key={region.slug}>
                   <RegionSection region={region} />
-                  {idx < REGIONS.length - 1 && (
-                    <InlineBannerAd ad={INLINE_BANNERS[idx % INLINE_BANNERS.length]} />
-                  )}
+
+                  {/* Batch D: Political Banner setelah Nasional (idx=0) */}
+                  {idx === 0 && <LaIndieMoviePoliticalBanner />}
+
+                  {/* BADONASI Strategic Promo: setelah Ternate (idx=1), sebelum Tidore (idx=2) */}
+                  {idx === 1 && <BadonasiInlinePromo />}
                 </div>
               ))}
+
+              {/* Batch D2: Service Carousel (Layanan TeraLoka) — closer di akhir feed */}
+              <LaIndieMovieServiceCarousel />
 
               <div className="my-10">
                 <WANewsletterWidget />
               </div>
 
-              <div className="my-8 text-center pb-12">
-                <Link href="/bakabar?nav=terbaru"
-                  className="text-sm text-[#003526] font-semibold hover:underline">
-                  ← Kembali ke beranda BAKABAR
-                </Link>
-              </div>
+              {/* "Kembali ke beranda" link DIHAPUS (v13.9) — kita sudah di beranda */}
             </div>
           </main>
 
-          {/* RIGHT SIDEBAR (xl+ only) */}
           <SkyscraperAd side="right" />
 
         </div>
