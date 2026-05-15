@@ -1,10 +1,22 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v10.2 (Sprint 2A Batch C v3.2 FIX)
+// BAKABAR — Region Section v10.3 (Mission 6 Phase 5)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// v10.2 CRITICAL FIX (15 Mei 2026 evening):
+// v10.3 ADDITION (15 Mei 2026, Mission 6 Phase 5):
+//
+// NEW: TrendingArticleAd injection di Col 2 trending list idx=2.
+//   - Props baru: `trendingAd?: TrendingNativeAd | null`
+//   - Empty/null/undefined → no slot break (LEAN preserved)
+//   - Pattern AAA: native ad editorial blend di trending column
+//
+// Layout v10.2 ResizeObserver tetap di-preserve — TrendingArticleAd
+// punya height profile setara trending row existing (~70px). Col 2/3
+// auto re-sync via ResizeObserver pada content height change.
+//
+// ────────────────────────────────────────────────────────────────
+// v10.2 PRIOR FIX (15 Mei 2026 evening) — preserved unchanged:
 //
 // BUG v10.1: ResizeObserver fix didn't work because grid default
 // `align-items: stretch` stretched Col 1 to row height (= Col 2/3
@@ -34,11 +46,12 @@
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, Fragment } from 'react';
 import { ArrowRight, ArrowUpDown, BadgeCheck } from 'lucide-react';
 import type { RegionConfig } from './region-data';
 import { LAYANAN_LIST } from './region-data';
 import WeatherWidget from '../shared/environment/WeatherWidget';
+import TrendingArticleAd, { type TrendingNativeAd } from './TrendingArticleAd';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -125,9 +138,13 @@ function timeAgo(dateStr: string) {
   return d < 7 ? `${d} hari lalu` : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
-type Props = { region: RegionConfig };
+// Mission 6 Phase 5: trendingAd prop ditambah (optional, backward compat)
+type Props = {
+  region:       RegionConfig;
+  trendingAd?:  TrendingNativeAd | null;
+};
 
-export default function RegionSection({ region }: Props) {
+export default function RegionSection({ region, trendingAd = null }: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
     layanan_variant, layanan_body, stack_banner,
@@ -264,32 +281,46 @@ export default function RegionSection({ region }: Props) {
               className="flex-1 overflow-y-auto"
               style={{ minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: '#D1D5DB transparent' }}
             >
+              {/*
+                Mission 6 Phase 5: inject TrendingArticleAd di idx=2
+                (visually: setelah 2 article pertama, sebelum article ke-3).
+                trendingAd === null/undefined → fragment cuma render Link
+                (LEAN aesthetic preserved).
+              */}
               {trending_list.map((item, idx) => (
-                <Link
-                  key={item.id}
-                  href={`/bakabar/${item.slug}`}
-                  className="flex gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
-                  style={{ borderBottom: idx < trending_list.length - 1 ? '1px solid #F3F4F6' : 'none' }}
-                >
-                  <div className="flex-1 min-w-0">
-                    <h4 className="text-[11.5px] font-semibold leading-[1.3] text-gray-900 mb-1 line-clamp-2"
-                      style={{ fontFamily: "'Lora', Georgia, serif" }}>
-                      {item.title}
-                    </h4>
-                    <div className="flex items-center gap-1 text-[9px] text-gray-400">
-                      <div className="w-3 h-3 rounded-full flex items-center justify-center text-white shrink-0"
-                        style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif", fontWeight: 700, fontSize: 7 }}>
-                        B
+                <Fragment key={item.id}>
+                  {idx === 2 && trendingAd && (
+                    <TrendingArticleAd
+                      ad={trendingAd}
+                      regionSlug={slug}
+                      short_label={short_label}
+                    />
+                  )}
+                  <Link
+                    href={`/bakabar/${item.slug}`}
+                    className="flex gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                    style={{ borderBottom: idx < trending_list.length - 1 ? '1px solid #F3F4F6' : 'none' }}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <h4 className="text-[11.5px] font-semibold leading-[1.3] text-gray-900 mb-1 line-clamp-2"
+                        style={{ fontFamily: "'Lora', Georgia, serif" }}>
+                        {item.title}
+                      </h4>
+                      <div className="flex items-center gap-1 text-[9px] text-gray-400">
+                        <div className="w-3 h-3 rounded-full flex items-center justify-center text-white shrink-0"
+                          style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif", fontWeight: 700, fontSize: 7 }}>
+                          B
+                        </div>
+                        <span className="truncate">BAKABAR {short_label}</span>
                       </div>
-                      <span className="truncate">BAKABAR {short_label}</span>
+                      <div className="text-[9px] text-gray-400 mt-0.5">
+                        {timeAgo(item.published_at)}
+                      </div>
                     </div>
-                    <div className="text-[9px] text-gray-400 mt-0.5">
-                      {timeAgo(item.published_at)}
-                    </div>
-                  </div>
-                  <div className="w-[52px] h-[52px] rounded-md shrink-0"
-                    style={{ background: THUMB_BG[item.thumb_class || 'thumb-1'] || THUMB_BG['thumb-1'] }} />
-                </Link>
+                    <div className="w-[52px] h-[52px] rounded-md shrink-0"
+                      style={{ background: THUMB_BG[item.thumb_class || 'thumb-1'] || THUMB_BG['thumb-1'] }} />
+                  </Link>
+                </Fragment>
               ))}
             </div>
           </div>

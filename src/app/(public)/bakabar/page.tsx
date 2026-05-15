@@ -1,9 +1,24 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE — Phase 1 v13.9 (Sprint 2A Batch D Final)
+// BAKABAR HOMEPAGE — Phase 1 v13.10 (Mission 6 Phase 5)
+// PATH: src/app/(public)/bakabar/page.tsx
 // ────────────────────────────────────────────────────────────────
-// Update dari v13.8 (15 Mei 2026):
+// v13.10 ADDITION (15 Mei 2026, Mission 6 Phase 5):
+//
+// NEW: Parent fetcher untuk Trending Native Ads per region.
+//   - State `trendingAdsByRegion` Record<slug, TrendingNativeAd | null>
+//   - Promise.all parallel fetch via GET /by-position/trending_native
+//     ?region=<slug>&limit=1 per region (REGIONS.length × 1 req)
+//   - Pass `trendingAd` prop ke RegionSection v10.3
+//   - Empty state graceful: gagal fetch atau no ad = no slot break
+//
+// Tier 3 (Frontend = Wajah) compliance:
+//   - Frontend cuma fetch + render — region filter logic 100% di
+//     backend engine.ts (Phase 2). Frontend gak filter/group sendiri.
+//
+// ────────────────────────────────────────────────────────────────
+// v13.9 PRIOR (Sprint 2A Batch D Final) — preserved unchanged:
 //   - Remove InlineBannerAd loop antar region (terlalu banyak iklan)
 //   - Remove "← Kembali ke beranda" link (kita di beranda, redundant)
 //   - Add BADONASI strategic promo card between Ternate (idx=1) dan
@@ -11,15 +26,18 @@
 //   - Political banner v2.1 (LEAN) integrate
 //   - Service carousel v1.1 (LEAN) integrate
 //
-// Ad strategy LOCKED:
+// Ad strategy v13.10:
 //   - Top: TopLeaderboardAd (1)
 //   - Hero: SidebarMREC (1)
 //   - Regions: BADONASI promo (1, strategic placement)
+//   - Regions: TrendingArticleAd inject per-region (Mission 6,
+//             organic by data availability — 0 sampai N ads)
 //   - Service carousel: post-regions (closer)
 //   - Sidebar: SkyAds L+R (2 sticky)
-//   = 6 ad surfaces (down from ~13+ pre-cleanup)
+//   = 6 base ad surfaces + 0-N trending native organic
 //
 // History prev:
+//   - v13.9 Batch D Final: LEAN reduction 13+ → 6 ad surfaces
 //   - v13.8 Batch D2: Add LaIndieMovieServiceCarousel
 //   - v13.7 Batch D: LaIndieMoviePoliticalBanner v1.0
 //   - v13.6 Batch B v5a-fix: pt-16 sticky alignment (Pattern AA)
@@ -43,6 +61,7 @@ import {
   REGIONS,
 } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
+import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -190,6 +209,15 @@ function BakabarPageContent() {
   const [realArticles, setRealArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // ════════════════════════════════════════════════════════════════
+  // Mission 6 Phase 5: Trending Native Ads state per region
+  // ────────────────────────────────────────────────────────────────
+  // Empty {} initial → semua region get null fallback → no slot break
+  // Fetched once on mount (independent dari article filter changes).
+  // ════════════════════════════════════════════════════════════════
+  const [trendingAdsByRegion, setTrendingAdsByRegion] =
+    useState<Record<string, TrendingNativeAd | null>>({});
+
   const fetchArticles = useCallback(async () => {
     setLoading(true);
     try {
@@ -212,9 +240,44 @@ function BakabarPageContent() {
     }
   }, [type, location, q]);
 
+  // ════════════════════════════════════════════════════════════════
+  // Mission 6 Phase 5: Parallel fetcher trending ads per region.
+  // Backend handles region filter logic (target_regions @> [slug]
+  // OR target_regions IS NULL). Frontend cuma render hasilnya.
+  // ════════════════════════════════════════════════════════════════
+  const fetchTrendingAds = useCallback(async () => {
+    try {
+      const results = await Promise.all(
+        REGIONS.map(async (r) => {
+          try {
+            const res = await fetch(
+              `${API}/public/ads/by-position/trending_native?region=${encodeURIComponent(r.slug)}&limit=1`
+            );
+            const data = await res.json();
+            const ad = data?.success && Array.isArray(data.data) && data.data[0]
+              ? (data.data[0] as TrendingNativeAd)
+              : null;
+            return [r.slug, ad] as const;
+          } catch {
+            return [r.slug, null] as const;
+          }
+        })
+      );
+      const map: Record<string, TrendingNativeAd | null> = {};
+      results.forEach(([slug, ad]) => { map[slug] = ad; });
+      setTrendingAdsByRegion(map);
+    } catch {
+      setTrendingAdsByRegion({});
+    }
+  }, []);
+
   useEffect(() => {
     fetchArticles();
   }, [fetchArticles]);
+
+  useEffect(() => {
+    fetchTrendingAds();
+  }, [fetchTrendingAds]);
 
   const slides: HeroSlide[] = HERO_CAROUSEL_SLIDES.map((slide, idx) => {
     if (realArticles[idx]) {
@@ -275,7 +338,10 @@ function BakabarPageContent() {
 
               {REGIONS.map((region, idx) => (
                 <div key={region.slug}>
-                  <RegionSection region={region} />
+                  <RegionSection
+                    region={region}
+                    trendingAd={trendingAdsByRegion[region.slug] ?? null}
+                  />
 
                   {/* Batch D: Political Banner setelah Nasional (idx=0) */}
                   {idx === 0 && <LaIndieMoviePoliticalBanner />}
