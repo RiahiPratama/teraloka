@@ -1,12 +1,39 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE — Phase 1 v11 (Sub-Sprint 5F)
+// BAKABAR HOMEPAGE — Phase 1 v13.6 (Sprint 2A Batch B v5a-fix)
 // ────────────────────────────────────────────────────────────────
-// Fix dari v10:
-//   - main className "w-full max-w-4xl min-w-0" → "flex-1 min-w-0 max-w-4xl"
-//     w-full di flex context kurang stable. flex-1 (flex: 1 1 0%)
-//     lebih predictable untuk distribute available space.
+// Fix dari v13.5:
+//   - pt-8 → pt-16 (32 → 64): align banner hero TopLeaderboardAd
+//     dengan SkyAd sidebar sticky position.
+//
+//   Root cause sticky shift bug di v5a:
+//     CategoryTabs end body Y = 72 (pt-72 layout) + 92 (CategoryTabs height)
+//                             = 164
+//     Pt-8 (32) → flex children body Y = 196
+//     SkyAd sticky top:228 → at scroll 0, viewport 196 < 228, sticky aktif,
+//       SkyAd shifted DOWN to viewport Y=228
+//     Banner natural at viewport Y=196 (no sticky)
+//     ❌ Mismatch: banner 32px HIGHER than SkyAd at scroll 0
+//
+//   Fix:
+//     pt-16 (64) → banner natural body Y = 164 + 64 = 228
+//     SkyAd top:228 → 228 < 228? NO, sticky NOT activated at scroll 0,
+//       SkyAd di natural Y = 228
+//     ✅ Both at viewport Y=228 at scroll 0 = ALIGNED
+//
+//   Breathing from CategoryTabs sticky bottom (viewport Y=192):
+//     pt-16 alignment Y (228) - 192 = 36px (modern news portal feel)
+//
+//   Reference: Pattern AA — Sticky Shift Alignment.
+//   Saat 2 sticky children dengan top:N berbeda (atau sticky vs non-sticky),
+//   sticky-shift bisa create misalignment di scroll 0. Solution: make natural
+//   position match sticky top via padding adjustment.
+//
+// History prev:
+//   - v13.5 Batch B v5a: pt-8 + SkyAd top 228 (had misalignment bug)
+//   - v13.4 Batch B v4: helper text dihapus
+//   - v13.3 Batch B v3: merge PrayerBreakingBar inside CategoryTabs
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
@@ -31,6 +58,8 @@ import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 // ─── Inline SkyscraperAd ─────────────────────────────────────
+// 15 Mei Batch B v5a-fix (v13.6): top stays 228, banner natural Y=228 via pt-16.
+// Sticky top:228 = banner natural Y = aligned at viewport Y=228 at scroll 0.
 function SkyscraperAd({ side }: { side: 'left' | 'right' }) {
   const config = side === 'left'
     ? {
@@ -52,12 +81,8 @@ function SkyscraperAd({ side }: { side: 'left' | 'right' }) {
     <aside className="hidden xl:block w-[160px] shrink-0">
       <div
         className="sticky rounded-lg overflow-hidden text-white relative"
-        style={{ top: 24, height: 600, background: config.gradient }}
+        style={{ top: 228, height: 600, background: config.gradient }}
       >
-        <span className="absolute z-10 px-2 py-0.5 rounded text-[8px] font-extrabold uppercase tracking-[1px]"
-          style={{ top: 8, right: 8, background: '#F59E0B', color: '#fff' }}>
-          Iklan
-        </span>
         <div className="absolute inset-0 pointer-events-none" style={{
           background: 'radial-gradient(ellipse at 50% 100%, rgba(255,255,255,0.12) 0%, transparent 60%)',
         }} />
@@ -150,8 +175,6 @@ function BakabarPageContent() {
     return slide;
   });
 
-  const breaking = realArticles.filter((a) => a.is_breaking);
-
   return (
     <div className="min-h-screen bg-white">
       <style>{`
@@ -160,9 +183,14 @@ function BakabarPageContent() {
         .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
       `}</style>
 
+      {/* PrayerBreakingBar di-render INSIDE CategoryTabs (sticky bareng). */}
+
       {/* OUTER WRAPPER: max-w-[1280px] */}
       <div className="max-w-[1280px] mx-auto px-4">
-        <div className="flex gap-5 items-start justify-center">
+        {/* pt-16 (64px) = banner natural Y = CategoryTabs end (164) + 64 = 228.
+            Match SkyAd sticky top:228 → banner & SkyAd ALIGNED at viewport Y=228
+            at scroll 0. Pattern AA — Sticky Shift Alignment. */}
+        <div className="flex gap-5 items-stretch justify-center pt-16">
 
           {/* LEFT SIDEBAR (xl+ only) */}
           <SkyscraperAd side="left" />
@@ -170,28 +198,8 @@ function BakabarPageContent() {
           {/* MAIN CONTENT — flex-1 grabs available space, max-w-4xl caps */}
           <main className="flex-1 min-w-0 max-w-4xl">
 
-            {/* BREAKING TICKER */}
-            {breaking.length > 0 && (
-              <div className="pt-3">
-                <div className="flex items-center gap-3 bg-[#003526] text-white rounded-xl px-4 py-2.5">
-                  <span className="text-xs font-black uppercase shrink-0 flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse inline-block" />
-                    BREAKING
-                  </span>
-                  <Link href={`/bakabar/${breaking[0]?.slug}`}
-                    className="text-xs font-semibold flex-1 truncate hover:underline">
-                    {breaking[0]?.title}
-                  </Link>
-                </div>
-              </div>
-            )}
+            <TopLeaderboardAd ad={TOP_LEADERBOARD} visual_symbol="M" />
 
-            {/* Top Leaderboard */}
-            <div className="pt-6">
-              <TopLeaderboardAd ad={TOP_LEADERBOARD} visual_symbol="M" />
-            </div>
-
-            {/* Main Content */}
             <div className="mt-8">
 
               {!loading && (

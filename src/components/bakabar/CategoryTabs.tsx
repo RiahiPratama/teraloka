@@ -1,38 +1,39 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// VERTICAL NAV (was CategoryTabs)
+// CATEGORY TABS — BAKABAR vertical nav
+// PATH: src/components/bakabar/CategoryTabs.tsx (Batch B v5a: moved here)
 // ────────────────────────────────────────────────────────────────
 // History:
 //   - Initial build: 2-row layout (TYPE tabs + LOCATION pills)
-//   - 14 Mei 2026 (Sprint 2A Batch 1): route migration /news → /bakabar
-//   - 14 Mei 2026 (Sprint 2A Batch 2): filter dropdown daerah 1073 → 11
-//   - 14 Mei 2026 (Sprint 2A Batch 3 V4 FINAL): UX-optimized 13-item nav
-//     - 13 items single row (urutan LOCKED per user requirement)
-//     - Pill style (border-radius 999px) — softer, news portal modern
-//     - Typography baseline: SEMUA items font-weight 600 + #1F2937 dark
-//       (readable like navbar BAKABAR/BALAPOR), active boost ke 700 purple
-//     - Active state: bg purple 10% + inset shadow + bold + color
-//     - Container white bg + border-top separator dari navbar
-//     - Scroll fade indicator right edge (hint ada items lain)
-//     - Topik dropdown dengan icon 🏷️ (visual differentiation)
-//     - Container max-w-4xl (align content area BAKABAR)
-//     - Font text-sm (14px) untuk readability comfort
-//     - URL state Hybrid: write ?nav=, read ?nav OR legacy ?type/?location
-//     - Hardcoded colors (#5B21B6, #8B5CF6) BUKAN CSS vars karena
-//       --color-bakabar-strong di dark mode = #DDD6FE (near-white).
-//       VerticalNav design untuk LIGHT BG context, hardcode safer.
-//       (Pattern UU lessons learned: verify CSS var dark mode value)
-//     - Default landing = 'terbaru' (no filter, semua published tampil)
-//       BUG FIX: 'nasional' default bikin backend filter strict.
-//       Trade-off: landing no item highlighted (acceptable).
+//   - 14 Mei 2026 (Sprint 2A Batch 1-3): route migration + UX-optimized 13-item nav
+//   - 15 Mei 2026 (Sprint 2A Batch A): REMOVED auto-hide-on-scroll
+//   - 15 Mei 2026 (Batch B initial→fix): NAVBAR_OFFSET back to 100
+//   - 15 Mei 2026 (Batch B v3): Merge PrayerBreakingBar inside container
+//   - 15 Mei 2026 (Batch B v4): Hapus helper text row 3
+//   
+//   - 15 Mei 2026 (Batch B v5a — Folder Refactor):
+//     File MOVED dari src/components/layout/ → src/components/bakabar/.
+//     Reasoning per CEO instruction:
+//     - CategoryTabs cuma render di /bakabar (conditional `if !showTabs return null`)
+//     - Folder bakabar/ punya komponen domain-spec lain (TopLeaderboardAd, 
+//       HeroWithSidebar, RegionSection, PrayerBreakingBar, etc)
+//     - Consistent dengan Pattern (XX) Semantic Folder Match Domain Scope
+//     - Co-located dengan PrayerBreakingBar yang udah di bakabar/
+//     - Single consumer (src/app/(public)/layout.tsx) update import path
+//     
+//     NOTE: User akan DELETE file lama di src/components/layout/CategoryTabs.tsx
+//     setelah copy file baru ini ke path target. Atau pakai `git mv` untuk
+//     preserve git history.
 //
-// File kept as CategoryTabs.tsx (no rename) — single consumer
-// (src/app/(public)/layout.tsx) tidak butuh touch.
+// Folder convention LOCKED:
+//   - src/components/layout/ = persistent global UI (Navbar, Footer, Fab, BottomNav)
+//   - src/components/bakabar/ = BAKABAR-spec UI (semua component cuma di /bakabar)
 // ════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import PrayerBreakingBar from '@/components/bakabar/PrayerBreakingBar';
 
 // ─── 13 nav items (single row, urutan LOCKED) ─────────────────
 const NAV_ITEMS = [
@@ -51,7 +52,7 @@ const NAV_ITEMS = [
   { key: 'viral',    label: '🔥 Viral Medsos', kind: 'type' as const },
 ];
 
-// ─── 12 Topik (preserved dari sebelumnya) ──────────────────────
+// ─── 12 Topik ─────────────────────────────────────────────────
 const TOPICS = [
   { key: 'berita',       label: 'Berita',       icon: '📰' },
   { key: 'politik',      label: 'Politik',      icon: '🏛️' },
@@ -67,14 +68,10 @@ const TOPICS = [
   { key: 'opini',        label: 'Opini',        icon: '💬' },
 ];
 
-const NAVBAR_OFFSET = 100; // ticker(36) + navbar-top(44~52) + navbar-height(52) - spacer(36) ≈ 100px
-const NEAR_END      = 70;  // % scroll untuk reveal sticky
+// NAVBAR_OFFSET stay at 100 (Navbar.tsx top-[44px] sm:top-[52px] hardcoded).
+const NAVBAR_OFFSET = 100;
 
 // ─── URL state hybrid parser ─────────────────────────────────
-// PRIORITY 1: ?nav=     (new, written by VerticalNav)
-// PRIORITY 2: ?type=    (legacy: nasional/viral/terbaru)
-// PRIORITY 3: ?location= (legacy: 11 daerah slug)
-// Default: 'nasional' (clear default untuk landing user)
 function parseCurrentNav(params: URLSearchParams): string {
   const nav = params.get('nav');
   if (nav) return nav;
@@ -82,10 +79,6 @@ function parseCurrentNav(params: URLSearchParams): string {
   if (type && type !== 'terbaru') return type;
   const location = params.get('location');
   if (location && location !== 'all') return location;
-  // BUG FIX (V4.3): Default 'nasional' bikin backend filter strict
-  // (category=nasional OR source=rss) → hanya 1-2 article tampil.
-  // Revert ke 'terbaru' = no filter = semua published article tampil.
-  // Trade-off: landing no item highlighted (acceptable untuk UX).
   return 'terbaru';
 }
 
@@ -94,16 +87,12 @@ function CategoryTabsInner() {
   const searchParams = useSearchParams();
   const router       = useRouter();
 
-  const [visible,        setVisible]        = useState(true);
-  const [lastScrollY,    setLastScrollY]    = useState(0);
-  const [atTop,          setAtTop]          = useState(true);
-  const [topicOpen,      setTopicOpen]      = useState(false);
-  const [showRightFade,  setShowRightFade]  = useState(true);
+  const [atTop,         setAtTop]         = useState(true);
+  const [topicOpen,     setTopicOpen]     = useState(false);
+  const [showRightFade, setShowRightFade] = useState(true);
 
-  // Scroll container ref untuk fade indicator
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
   const isNewsPage = pathname === '/bakabar';
   const showTabs   = isNewsPage;
 
@@ -118,12 +107,11 @@ function CategoryTabsInner() {
 
     function checkFade() {
       if (!el) return;
-      // Show fade kalau masih bisa scroll ke kanan (ada items hidden)
       const canScrollRight = el.scrollWidth - el.scrollLeft - el.clientWidth > 4;
       setShowRightFade(canScrollRight);
     }
 
-    checkFade(); // initial
+    checkFade();
     el.addEventListener('scroll', checkFade, { passive: true });
     window.addEventListener('resize', checkFade);
 
@@ -151,46 +139,21 @@ function CategoryTabsInner() {
     };
   }, [topicOpen]);
 
-  // ── Scroll-aware (context-aware) sticky behavior ─────────
+  // ── Track atTop untuk drop-shadow effect saja ──
   useEffect(() => {
     if (!showTabs) return;
-
     function onScroll() {
-      const currentY   = window.scrollY;
-      const docHeight  = document.documentElement.scrollHeight;
-      const winHeight  = window.innerHeight;
-      const progress   = docHeight > winHeight
-        ? (currentY / (docHeight - winHeight)) * 100 : 100;
-
-      const nearEnd     = progress >= NEAR_END;
-      const scrollingUp = currentY < lastScrollY - 4;
-      const scrollingDn = currentY > lastScrollY + 4;
-
-      setAtTop(currentY < 60);
-
-      if (nearEnd) {
-        setVisible(true);
-      } else if (scrollingUp) {
-        setVisible(true);
-      } else if (scrollingDn && currentY > 120) {
-        setVisible(false);
-      } else if (currentY < 60) {
-        setVisible(true);
-      }
-
-      setLastScrollY(currentY);
+      setAtTop(window.scrollY < 60);
     }
-
+    onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });
     return () => window.removeEventListener('scroll', onScroll);
-  }, [lastScrollY, showTabs]);
+  }, [showTabs]);
 
   if (!showTabs) return null;
 
-  // ── Navigation helper ─────────────────────────────────────
   function navigate(nav: string, topic: string = currentTopic) {
     const p = new URLSearchParams();
-    // Default 'terbaru' = no nav param di URL (cleaner /bakabar)
     if (nav !== 'terbaru') p.set('nav', nav);
     if (topic)              p.set('topic', topic);
     const qs = p.toString();
@@ -212,15 +175,15 @@ function CategoryTabsInner() {
         background: '#ffffff',
         borderTop: '1px solid #F3F4F6',
         borderBottom: '1px solid #E5E7EB',
-        transform: visible ? 'translateY(0)' : `translateY(calc(-100% - ${NAVBAR_OFFSET}px))`,
-        transition: 'transform 0.3s cubic-bezier(0.4,0,0.2,1)',
         boxShadow: atTop ? 'none' : '0 2px 16px rgba(0,0,0,0.06)',
+        transition: 'box-shadow 0.2s ease',
       }}
     >
       <div className="max-w-4xl mx-auto px-4 py-3">
+
+        {/* ── Row 1: 13 nav items + Topik dropdown ─────────────────────── */}
         <div className="relative flex items-center">
 
-          {/* ── 13 nav items horizontal scroll ── */}
           <div
             ref={scrollRef}
             className="flex items-center flex-1 overflow-x-auto"
@@ -241,25 +204,15 @@ function CategoryTabsInner() {
                   style={{
                     padding: '9px 16px',
                     fontSize: 14,
-                    // ✏️ Typography baseline: SEMUA items semibold (600) 
-                    // untuk readability comfort. Active boost ke bold (700).
-                    // Mengikuti pattern navbar TeraLoka (BAKABAR/BALAPOR dll
-                    // semua bold walau "non-active" — clearly readable).
                     fontWeight: active ? 700 : 600,
-                    // Color: SEMUA items dark gray (#1F2937 gray-800) untuk
-                    // contrast tinggi di bg white. Active = purple strong.
                     color: active ? '#5B21B6' : '#1F2937',
-                    // Active bg: rgba inline karena --color-bakabar-muted (#FAF5FF)
-                    // terlalu pucat untuk visible. 10% opacity = clearly differ.
                     background: active ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
                     borderRadius: 999,
-                    // Inset shadow untuk depth (active state lebih solid)
                     boxShadow: active
                       ? 'inset 0 0 0 1px rgba(139, 92, 246, 0.25)'
                       : 'none',
                     border: 'none',
                     cursor: 'pointer',
-                    // Letter spacing untuk readability comfort
                     letterSpacing: 0.1,
                   }}
                   onMouseEnter={e => {
@@ -281,13 +234,11 @@ function CategoryTabsInner() {
             })}
           </div>
 
-          {/* ── Scroll fade indicator (right edge) ── */}
-          {/* Cue user "ada items lain, geser ke kanan" */}
           {showRightFade && (
             <div
               style={{
                 position: 'absolute',
-                right: 92, // breathing space sebelum Topik divider
+                right: 92,
                 top: 0,
                 bottom: 0,
                 width: 28,
@@ -298,7 +249,6 @@ function CategoryTabsInner() {
             />
           )}
 
-          {/* ── Topik dropdown pinned right ── */}
           <div
             className="relative flex-shrink-0 ml-2 pl-3"
             style={{ borderLeft: '1px solid #E5E7EB' }}
@@ -310,15 +260,10 @@ function CategoryTabsInner() {
               style={{
                 padding: '8px 12px',
                 fontSize: 14,
-                // Typography baseline same as nav items (600, boost ke 700 active)
                 fontWeight: currentTopic ? 700 : 600,
                 color: currentTopic ? '#ffffff' : '#1F2937',
-                background: currentTopic
-                  ? '#8B5CF6'
-                  : '#ffffff',
-                border: currentTopic
-                  ? 'none'
-                  : '0.5px solid #D1D5DB',
+                background: currentTopic ? '#8B5CF6' : '#ffffff',
+                border: currentTopic ? 'none' : '0.5px solid #D1D5DB',
                 borderRadius: 8,
                 cursor: 'pointer',
                 letterSpacing: 0.1,
@@ -427,18 +372,9 @@ function CategoryTabsInner() {
           </div>
         </div>
 
-        {/* ── Nasional mode helper text (preserved) ── */}
-        {currentNav === 'nasional' && (
-          <div className="px-1 pt-2">
-            <p className="text-xs text-gray-400 flex items-center gap-1.5">
-              <span
-                className="w-1.5 h-1.5 rounded-full inline-block"
-                style={{ background: '#8B5CF6' }}
-              />
-              Berita nasional yang dikurasi tim TeraLoka — relevan dengan Maluku Utara
-            </p>
-          </div>
-        )}
+        {/* ── Row 2: 🔴 Breaking (kiri) | 🕌 Shalat MalUt (kanan) ── */}
+        <PrayerBreakingBar />
+
       </div>
     </div>
   );

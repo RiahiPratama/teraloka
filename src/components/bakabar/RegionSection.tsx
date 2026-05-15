@@ -1,28 +1,44 @@
+'use client';
+
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v9 (Sub-Sprint 5G FINAL)
+// BAKABAR — Region Section v10.2 (Sprint 2A Batch C v3.2 FIX)
+// PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// PATTERN BARU: Wrapper aspectRatio + content absolute inset-0
+// v10.2 CRITICAL FIX (15 Mei 2026 evening):
 //
-// Kenapa: CSS Grid auto-rows = max-content of all cells. Pattern
-// "h-full + minHeight:0 + overflow-hidden" ternyata gak reliable
-// untuk constrain Col 2 + Col 3 ke Col 1's aspect height.
+// BUG v10.1: ResizeObserver fix didn't work because grid default
+// `align-items: stretch` stretched Col 1 to row height (= Col 2/3
+// max content). ResizeObserver measured STRETCHED height (~1370px),
+// not NATURAL height (~800px). Self-perpetuating bug.
 //
-// SOLUSI: Setiap kolom wrapper punya aspectRatio: 4/5 (dimensi
-// IDENTIK 100%). Content di taruh "absolute inset-0" di dalamnya.
-// Karena absolute-positioned, content gak bisa push wrapper.
-// Result: ketiga wrapper SAMA TINGGI, scroll/flex handled di inner.
+// FIX v10.2: ADD `items-start` to grid → cells DON'T stretch,
+// each cell = its content height. Now ResizeObserver measures Col 1
+// NATURAL content height correctly. Apply explicit height ke Col 2/3
+// via inline style → Col 2 trending scrolls, Col 3 cards shrink.
 //
-// Trending behavior:
-//   - Render SEMUA items (gak slice)
-//   - Inner div height-constrained (= wrapper - header)
-//   - overflow-y-auto scroll naturally for items 5+
-//   - Visible items ~4 (atau berapa pun yang fit)
+// Pattern II refined: Honor past warnings + VERIFY own fix actually
+// addresses root cause. v10.1 was theater — looked right, didn't work.
+//
+// Layout behavior NOW:
+//   1. Initial render (col1H = null): Col 2/3 height auto = natural
+//      (brief flash, ~1 tick visible)
+//   2. ResizeObserver fires post-mount:
+//      → Col 1 natural height measured (no stretch thanks to items-start)
+//      → setCol1Height(actual value, e.g., 800px)
+//   3. Re-render: Col 2/3 explicit height = 800px
+//   4. Col 2 inner h-full = 800px → trending list flex-1 scrolls when overflow
+//   5. Col 3 inner h-full = 800px → 2 cards flex-1 distribute (400px each)
+//   6. On window resize: ResizeObserver re-fires → re-sync
+//   7. On WeatherWidget async load: Col 1 height changes → ResizeObserver
+//      fires → Col 2/3 re-sync
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
+import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, ArrowUpDown, BadgeCheck } from 'lucide-react';
 import type { RegionConfig } from './region-data';
 import { LAYANAN_LIST } from './region-data';
+import WeatherWidget from '../shared/environment/WeatherWidget';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -113,15 +129,41 @@ type Props = { region: RegionConfig };
 
 export default function RegionSection({ region }: Props) {
   const {
-    label, slug, gradient_class, featured, trending_list,
+    label, slug, short_label, gradient_class, featured, trending_list,
     layanan_variant, layanan_body, stack_banner,
   } = region;
 
-  const layanan = LAYANAN_LIST.find(l => l.variant === layanan_variant) || LAYANAN_LIST[0];
+  const layanan         = LAYANAN_LIST.find(l => l.variant === layanan_variant) || LAYANAN_LIST[0];
   const layananGradient = LAYANAN_GRADIENT[layanan_variant] || LAYANAN_GRADIENT.bakos;
-  const layananBrand = LAYANAN_BRAND[layanan_variant] || LAYANAN_BRAND.bakos;
-  const bannerGradient = BANNER_GRADIENT[stack_banner.brand_class] || 'linear-gradient(135deg, #1F2937 0%, #111827 100%)';
-  const bannerBrand = BANNER_BRAND[stack_banner.brand_class] || '#1F2937';
+  const layananBrand    = LAYANAN_BRAND[layanan_variant] || LAYANAN_BRAND.bakos;
+  const bannerGradient  = BANNER_GRADIENT[stack_banner.brand_class] || 'linear-gradient(135deg, #1F2937 0%, #111827 100%)';
+  const bannerBrand     = BANNER_BRAND[stack_banner.brand_class] || '#1F2937';
+
+  const showWeather = slug !== 'nasional';
+
+  // ════ Layout sync v10.2: ResizeObserver Col 1 → Col 2/3 ═════
+  const col1Ref = useRef<HTMLDivElement>(null);
+  const [col1Height, setCol1Height] = useState<number | null>(null);
+
+  useEffect(() => {
+    const el = col1Ref.current;
+    if (!el) return;
+
+    // Initial measure (synchronous on mount, gets NATURAL height
+    // because grid is items-start = no stretch)
+    setCol1Height(el.getBoundingClientRect().height);
+
+    // Subscribe to size changes (WeatherWidget async load, window resize)
+    const ro = new ResizeObserver(entries => {
+      const h = entries[0].contentRect.height;
+      setCol1Height(h);
+    });
+    ro.observe(el);
+
+    return () => ro.disconnect();
+  }, [showWeather]);
+
+  const stretchStyle = col1Height ? { height: `${col1Height}px` } : undefined;
 
   return (
     <section className="my-12">
@@ -142,59 +184,72 @@ export default function RegionSection({ region }: Props) {
         </Link>
       </div>
 
-      {/* ─── 3-column Grid: 1fr 1fr 1fr ─── */}
+      {/*
+        ═══ 3-column Grid: items-start (CRITICAL v10.2 FIX) ═══
+        items-start = cells DON'T stretch automatically. Each cell takes
+        own content height. We override Col 2/3 with explicit height via
+        ResizeObserver-measured Col 1 natural height.
+      */}
       <div
-        className="grid gap-5"
+        className="grid gap-5 items-start"
         style={{
           gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)',
         }}
       >
 
-        {/* ═══ Col 1: Featured 4:5 (wrapper anchor, content absolute) ═══ */}
-        <div className="relative" style={{ aspectRatio: '4 / 5', minWidth: 0 }}>
-          <Link
-            href={`/bakabar/${featured.slug}`}
-            className="absolute inset-0 cursor-pointer block rounded-lg overflow-hidden text-white"
-            style={{
-              background: REGION_BG[gradient_class] || REGION_BG['t-nasional'],
-            }}
-          >
-            <div className="absolute inset-0 pointer-events-none"
-              style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
+        {/* ═══ Col 1: HEIGHT REFERENCE (natural content) ═══ */}
+        <div ref={col1Ref} className="flex flex-col gap-3 min-w-0">
 
-            <div className="absolute inset-0 z-[2] flex flex-col justify-end p-5">
-              <h3 className="text-[20px] font-bold leading-[1.25] tracking-[-0.3px] mb-3 line-clamp-4"
-                style={{ fontFamily: "'Lora', Georgia, serif" }}>
-                {featured.title}
-              </h3>
-              <div className="flex items-center gap-1.5 text-[11px] opacity-95">
-                <div className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                  style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif" }}>
-                  B
+          {/* Featured 4:5 */}
+          <div className="relative" style={{ aspectRatio: '4 / 5' }}>
+            <Link
+              href={`/bakabar/${featured.slug}`}
+              className="absolute inset-0 cursor-pointer block rounded-lg overflow-hidden text-white"
+              style={{
+                background: REGION_BG[gradient_class] || REGION_BG['t-nasional'],
+              }}
+            >
+              <div className="absolute inset-0 pointer-events-none"
+                style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
+
+              <div className="absolute inset-0 z-[2] flex flex-col justify-end p-5">
+                <h3 className="text-[20px] font-bold leading-[1.25] tracking-[-0.3px] mb-3 line-clamp-4"
+                  style={{ fontFamily: "'Lora', Georgia, serif" }}>
+                  {featured.title}
+                </h3>
+                <div className="flex items-center gap-1.5 text-[11px] opacity-95">
+                  <div className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
+                    style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif" }}>
+                    B
+                  </div>
+                  <span className="truncate">BAKABAR {short_label}</span>
+                  <BadgeCheck size={11} strokeWidth={2.4} className="opacity-70 shrink-0" />
                 </div>
-                <span className="truncate">BAKABAR {region.short_label}</span>
-                <BadgeCheck size={11} strokeWidth={2.4} className="opacity-70 shrink-0" />
+                <div className="text-[11px] mt-1.5 opacity-70">
+                  {formatShortDate(featured.published_at)}
+                </div>
               </div>
-              <div className="text-[11px] mt-1.5 opacity-70">
-                {formatShortDate(featured.published_at)}
-              </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
+
+          {/* WeatherWidget — conditional render */}
+          {showWeather && (
+            <WeatherWidget regionSlug={slug} regionName={short_label} />
+          )}
         </div>
 
-        {/* ═══ Col 2: Trending 4:5 (wrapper anchor, content scrollable) ═══ */}
-        <div className="relative" style={{ aspectRatio: '4 / 5', minWidth: 0 }}>
+        {/* ═══ Col 2: Trending (explicit height = Col 1 natural) ═══ */}
+        <div className="relative min-w-0" style={stretchStyle}>
           <div
-            className="absolute inset-0 rounded-lg bg-white overflow-hidden flex flex-col"
+            className="rounded-lg bg-white overflow-hidden flex flex-col h-full"
             style={{ border: '1px solid #E5E7EB' }}
           >
-            {/* Header (shrink-0) */}
             <div className="px-3.5 py-2.5 flex items-center justify-between shrink-0"
               style={{ borderBottom: '1px solid #E5E7EB' }}>
               <div className="flex items-center gap-2 min-w-0">
                 <div className="w-[3px] h-[14px] rounded-sm shrink-0" style={{ background: '#EF4444' }} />
                 <div className="text-[12px] font-extrabold text-gray-900 truncate">
-                  Trending di {region.short_label}
+                  Trending di {short_label}
                 </div>
               </div>
               {trending_list.length > 4 && (
@@ -205,7 +260,6 @@ export default function RegionSection({ region }: Props) {
               )}
             </div>
 
-            {/* List flex-1, scrollable */}
             <div
               className="flex-1 overflow-y-auto"
               style={{ minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: '#D1D5DB transparent' }}
@@ -227,7 +281,7 @@ export default function RegionSection({ region }: Props) {
                         style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif", fontWeight: 700, fontSize: 7 }}>
                         B
                       </div>
-                      <span className="truncate">BAKABAR {region.short_label}</span>
+                      <span className="truncate">BAKABAR {short_label}</span>
                     </div>
                     <div className="text-[9px] text-gray-400 mt-0.5">
                       {timeAgo(item.published_at)}
@@ -241,11 +295,10 @@ export default function RegionSection({ region }: Props) {
           </div>
         </div>
 
-        {/* ═══ Col 3: Stack 4:5 (wrapper anchor, 2 cards flex-1) ═══ */}
-        <div className="relative" style={{ aspectRatio: '4 / 5', minWidth: 0 }}>
-          <div className="absolute inset-0 flex flex-col gap-2.5">
+        {/* ═══ Col 3: Stack (explicit height = Col 1 natural) ═══ */}
+        <div className="relative min-w-0" style={stretchStyle}>
+          <div className="flex flex-col gap-2.5 h-full">
 
-            {/* Card 1: Layanan TeraLoka — flex-1 */}
             <Link
               href={layanan.href}
               className="flex-1 rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer group"
@@ -279,7 +332,6 @@ export default function RegionSection({ region }: Props) {
               </div>
             </Link>
 
-            {/* Card 2: Banner Iklan — flex-1 */}
             <Link
               href="#ad"
               className="flex-1 rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer group"
