@@ -1,48 +1,19 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v10.3 (Mission 6 Phase 5)
+// BAKABAR — Region Section v10.4 (Mission 7 Sub-Phase 7-B-3)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// v10.3 ADDITION (15 Mei 2026, Mission 6 Phase 5):
+// v10.4 UPDATE (15 Mei 2026, Mission 7 Sub-Phase 7-B-3):
+//   - REPLACE inline hardcoded stack_banner Col 3 dengan
+//     <DCAStackBanner regionSlug={slug} /> yang fetch dari public.ads
+//   - DCA-ready: kalau ad punya creative_frames, auto rotate
+//   - target_regions logic carry-over Mission 6 hotfix
+//   - Empty state: gak ada ad untuk region → DCAStackBanner return null
 //
-// NEW: TrendingArticleAd injection di Col 2 trending list idx=2.
-//   - Props baru: `trendingAd?: TrendingNativeAd | null`
-//   - Empty/null/undefined → no slot break (LEAN preserved)
-//   - Pattern AAA: native ad editorial blend di trending column
-//
-// Layout v10.2 ResizeObserver tetap di-preserve — TrendingArticleAd
-// punya height profile setara trending row existing (~70px). Col 2/3
-// auto re-sync via ResizeObserver pada content height change.
-//
-// ────────────────────────────────────────────────────────────────
-// v10.2 PRIOR FIX (15 Mei 2026 evening) — preserved unchanged:
-//
-// BUG v10.1: ResizeObserver fix didn't work because grid default
-// `align-items: stretch` stretched Col 1 to row height (= Col 2/3
-// max content). ResizeObserver measured STRETCHED height (~1370px),
-// not NATURAL height (~800px). Self-perpetuating bug.
-//
-// FIX v10.2: ADD `items-start` to grid → cells DON'T stretch,
-// each cell = its content height. Now ResizeObserver measures Col 1
-// NATURAL content height correctly. Apply explicit height ke Col 2/3
-// via inline style → Col 2 trending scrolls, Col 3 cards shrink.
-//
-// Pattern II refined: Honor past warnings + VERIFY own fix actually
-// addresses root cause. v10.1 was theater — looked right, didn't work.
-//
-// Layout behavior NOW:
-//   1. Initial render (col1H = null): Col 2/3 height auto = natural
-//      (brief flash, ~1 tick visible)
-//   2. ResizeObserver fires post-mount:
-//      → Col 1 natural height measured (no stretch thanks to items-start)
-//      → setCol1Height(actual value, e.g., 800px)
-//   3. Re-render: Col 2/3 explicit height = 800px
-//   4. Col 2 inner h-full = 800px → trending list flex-1 scrolls when overflow
-//   5. Col 3 inner h-full = 800px → 2 cards flex-1 distribute (400px each)
-//   6. On window resize: ResizeObserver re-fires → re-sync
-//   7. On WeatherWidget async load: Col 1 height changes → ResizeObserver
-//      fires → Col 2/3 re-sync
+// v10.3 PRIOR (Mission 6 Phase 5) — preserved unchanged:
+//   - trendingAd prop, inject TrendingArticleAd di trending_list idx=2
+//   - ResizeObserver v10.2 layout sync
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
@@ -52,6 +23,7 @@ import type { RegionConfig } from './region-data';
 import { LAYANAN_LIST } from './region-data';
 import WeatherWidget from '../shared/environment/WeatherWidget';
 import TrendingArticleAd, { type TrendingNativeAd } from './TrendingArticleAd';
+import DCAStackBanner from './DCAStackBanner';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -94,34 +66,6 @@ const LAYANAN_BRAND: Record<string, string> = {
   balapor:  '#701A75',
 };
 
-const BANNER_GRADIENT: Record<string, string> = {
-  'b-telkom':    'linear-gradient(135deg, #DC2626 0%, #991B1B 100%)',
-  'b-bank':      'linear-gradient(135deg, #0F172A 0%, #1E293B 100%)',
-  'b-pln':       'linear-gradient(135deg, #F59E0B 0%, #B45309 100%)',
-  'b-tourism':   'linear-gradient(135deg, #0891B2 0%, #155E75 100%)',
-  'b-antam':     'linear-gradient(135deg, #166534 0%, #14532D 100%)',
-  'b-indosat':   'linear-gradient(135deg, #EAB308 0%, #A16207 100%)',
-  'b-univ':      'linear-gradient(135deg, #1E40AF 0%, #1E3A8A 100%)',
-  'b-eramet':    'linear-gradient(135deg, #6D28D9 0%, #4C1D95 100%)',
-  'b-bni':       'linear-gradient(135deg, #EA580C 0%, #9A3412 100%)',
-  'b-pertamina': 'linear-gradient(135deg, #1D4ED8 0%, #1E3A8A 100%)',
-  'b-property':  'linear-gradient(135deg, #047857 0%, #064E3B 100%)',
-};
-
-const BANNER_BRAND: Record<string, string> = {
-  'b-telkom':    '#991B1B',
-  'b-bank':      '#1E293B',
-  'b-pln':       '#B45309',
-  'b-tourism':   '#155E75',
-  'b-antam':     '#14532D',
-  'b-indosat':   '#A16207',
-  'b-univ':      '#1E3A8A',
-  'b-eramet':    '#4C1D95',
-  'b-bni':       '#9A3412',
-  'b-pertamina': '#1E3A8A',
-  'b-property':  '#064E3B',
-};
-
 function formatShortDate(dateStr: string) {
   if (!dateStr) return '—';
   return new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
@@ -138,7 +82,6 @@ function timeAgo(dateStr: string) {
   return d < 7 ? `${d} hari lalu` : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
 }
 
-// Mission 6 Phase 5: trendingAd prop ditambah (optional, backward compat)
 type Props = {
   region:       RegionConfig;
   trendingAd?:  TrendingNativeAd | null;
@@ -147,36 +90,30 @@ type Props = {
 export default function RegionSection({ region, trendingAd = null }: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
-    layanan_variant, layanan_body, stack_banner,
+    layanan_variant, layanan_body,
+    // Note v10.4: stack_banner dari RegionConfig NO LONGER USED
+    // (replaced with <DCAStackBanner /> fetch DB). Keep destructure
+    // for backward compat saat region-data.ts cleanup nanti.
   } = region;
 
   const layanan         = LAYANAN_LIST.find(l => l.variant === layanan_variant) || LAYANAN_LIST[0];
   const layananGradient = LAYANAN_GRADIENT[layanan_variant] || LAYANAN_GRADIENT.bakos;
   const layananBrand    = LAYANAN_BRAND[layanan_variant] || LAYANAN_BRAND.bakos;
-  const bannerGradient  = BANNER_GRADIENT[stack_banner.brand_class] || 'linear-gradient(135deg, #1F2937 0%, #111827 100%)';
-  const bannerBrand     = BANNER_BRAND[stack_banner.brand_class] || '#1F2937';
 
   const showWeather = slug !== 'nasional';
 
-  // ════ Layout sync v10.2: ResizeObserver Col 1 → Col 2/3 ═════
+  // ResizeObserver Col 1 → Col 2/3 layout sync (v10.2 preserved)
   const col1Ref = useRef<HTMLDivElement>(null);
   const [col1Height, setCol1Height] = useState<number | null>(null);
 
   useEffect(() => {
     const el = col1Ref.current;
     if (!el) return;
-
-    // Initial measure (synchronous on mount, gets NATURAL height
-    // because grid is items-start = no stretch)
     setCol1Height(el.getBoundingClientRect().height);
-
-    // Subscribe to size changes (WeatherWidget async load, window resize)
     const ro = new ResizeObserver(entries => {
-      const h = entries[0].contentRect.height;
-      setCol1Height(h);
+      setCol1Height(entries[0].contentRect.height);
     });
     ro.observe(el);
-
     return () => ro.disconnect();
   }, [showWeather]);
 
@@ -184,8 +121,6 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
 
   return (
     <section className="my-12">
-
-      {/* Region Header */}
       <div className="flex justify-between items-center mb-5">
         <div className="flex items-center gap-3">
           <div className="w-1 h-[30px] rounded-sm" style={{ background: '#EF4444' }} />
@@ -201,34 +136,22 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
         </Link>
       </div>
 
-      {/*
-        ═══ 3-column Grid: items-start (CRITICAL v10.2 FIX) ═══
-        items-start = cells DON'T stretch automatically. Each cell takes
-        own content height. We override Col 2/3 with explicit height via
-        ResizeObserver-measured Col 1 natural height.
-      */}
       <div
         className="grid gap-5 items-start"
         style={{
           gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)',
         }}
       >
-
-        {/* ═══ Col 1: HEIGHT REFERENCE (natural content) ═══ */}
+        {/* Col 1: Height reference */}
         <div ref={col1Ref} className="flex flex-col gap-3 min-w-0">
-
-          {/* Featured 4:5 */}
           <div className="relative" style={{ aspectRatio: '4 / 5' }}>
             <Link
               href={`/bakabar/${featured.slug}`}
               className="absolute inset-0 cursor-pointer block rounded-lg overflow-hidden text-white"
-              style={{
-                background: REGION_BG[gradient_class] || REGION_BG['t-nasional'],
-              }}
+              style={{ background: REGION_BG[gradient_class] || REGION_BG['t-nasional'] }}
             >
               <div className="absolute inset-0 pointer-events-none"
                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
-
               <div className="absolute inset-0 z-[2] flex flex-col justify-end p-5">
                 <h3 className="text-[20px] font-bold leading-[1.25] tracking-[-0.3px] mb-3 line-clamp-4"
                   style={{ fontFamily: "'Lora', Georgia, serif" }}>
@@ -249,13 +172,12 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
             </Link>
           </div>
 
-          {/* WeatherWidget — conditional render */}
           {showWeather && (
             <WeatherWidget regionSlug={slug} regionName={short_label} />
           )}
         </div>
 
-        {/* ═══ Col 2: Trending (explicit height = Col 1 natural) ═══ */}
+        {/* Col 2: Trending */}
         <div className="relative min-w-0" style={stretchStyle}>
           <div
             className="rounded-lg bg-white overflow-hidden flex flex-col h-full"
@@ -281,12 +203,6 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
               className="flex-1 overflow-y-auto"
               style={{ minHeight: 0, scrollbarWidth: 'thin', scrollbarColor: '#D1D5DB transparent' }}
             >
-              {/*
-                Mission 6 Phase 5: inject TrendingArticleAd di idx=2
-                (visually: setelah 2 article pertama, sebelum article ke-3).
-                trendingAd === null/undefined → fragment cuma render Link
-                (LEAN aesthetic preserved).
-              */}
               {trending_list.map((item, idx) => (
                 <Fragment key={item.id}>
                   {idx === 2 && trendingAd && (
@@ -326,10 +242,11 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
           </div>
         </div>
 
-        {/* ═══ Col 3: Stack (explicit height = Col 1 natural) ═══ */}
+        {/* Col 3: Stack (Layanan + DCAStackBanner replace hardcoded) */}
         <div className="relative min-w-0" style={stretchStyle}>
           <div className="flex flex-col gap-2.5 h-full">
 
+            {/* Layanan card (unchanged, internal TeraLoka link) */}
             <Link
               href={layanan.href}
               className="flex-1 rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer group"
@@ -338,12 +255,10 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
               <div className="absolute inset-0 pointer-events-none" style={{
                 background: 'radial-gradient(ellipse at 85% 100%, rgba(255,255,255,0.2) 0%, transparent 60%)',
               }} />
-
               <div className="absolute z-[1] pointer-events-none"
                 style={{ top: 6, right: 8, fontSize: 32, opacity: 0.2 }}>
                 {layanan.icon}
               </div>
-
               <div className="relative z-[2] flex-1 flex flex-col min-h-0">
                 <p className="text-[8px] font-extrabold tracking-[1.2px] uppercase mb-1 opacity-85">
                   Layanan TeraLoka
@@ -363,42 +278,11 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
               </div>
             </Link>
 
-            <Link
-              href="#ad"
-              className="flex-1 rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer group"
-              style={{ background: bannerGradient, minHeight: 0 }}
-            >
-              <span className="absolute z-10 px-1.5 py-0.5 rounded text-[7px] font-extrabold tracking-[0.8px] uppercase"
-                style={{ top: 6, right: 6, background: '#F59E0B', color: '#fff' }}>
-                Iklan
-              </span>
-
-              <div className="absolute inset-0 pointer-events-none" style={{
-                background: 'radial-gradient(ellipse at 15% 100%, rgba(255,255,255,0.15) 0%, transparent 60%)',
-              }} />
-
-              <div className="relative z-[2] flex-1 flex flex-col min-h-0">
-                <p className="text-[8px] font-extrabold tracking-[1.2px] uppercase mb-1 opacity-85">
-                  {stack_banner.overline}
-                </p>
-                <h4 className="text-[13px] font-bold leading-[1.15] mb-1 line-clamp-2"
-                  style={{ fontFamily: "'Lora', Georgia, serif" }}>
-                  {stack_banner.title}
-                </h4>
-                <p className="text-[9px] leading-[1.35] opacity-85 line-clamp-2 mb-auto">
-                  {stack_banner.body}
-                </p>
-                <span className="self-start mt-1.5 px-2.5 py-1 rounded text-[9px] font-extrabold flex items-center gap-1"
-                  style={{ background: '#fff', color: bannerBrand }}>
-                  {stack_banner.cta_label}
-                  <ArrowRight size={9} strokeWidth={2.8} />
-                </span>
-              </div>
-            </Link>
+            {/* Mission 7-B-3: replace hardcoded stack_banner → DCAStackBanner */}
+            <DCAStackBanner regionSlug={slug} />
 
           </div>
         </div>
-
       </div>
     </section>
   );

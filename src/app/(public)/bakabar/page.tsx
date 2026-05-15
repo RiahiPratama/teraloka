@@ -1,19 +1,21 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE — Phase 1 v13.11 (Mission 7 Sub-Phase 7-B-1)
+// BAKABAR HOMEPAGE — Phase 1 v13.12 (Mission 7 Sub-Phase 7-B-2/3/4)
 // PATH: src/app/(public)/bakabar/page.tsx
 // ────────────────────────────────────────────────────────────────
-// v13.11 UPDATE (15 Mei 2026, Mission 7 Sub-Phase 7-B-1):
-//   - REMOVE inline hardcoded SkyscraperAd component (BPJS kiri,
-//     Pertamina kanan)
-//   - REPLACE dengan <DCASkyscraper side="left|right" /> yang fetch
-//     dari public.ads via /by-position/skyscraper_left|right
-//   - DCA-ready: kalau ad punya creative_frames, auto rotate
+// v13.12 UPDATE (15 Mei 2026):
+//   - REMOVE import TopLeaderboardAd (hardcoded)
+//   - REMOVE import TOP_LEADERBOARD const from region-data
+//   - ADD <DCATopLeaderboard /> (fetch /by-position/top_leaderboard)
+//   - Stack Banner Col 3: replacement happens INSIDE RegionSection
+//     v10.4 (via DCAStackBanner) — page.tsx tidak perlu pass prop
+//   - InlineBannerAd: dorment file, gak di-import (Mission 8 enable)
 //
-// History prev:
-//   - v13.10: Mission 6 Phase 5 (parent fetcher trending ads)
-//   - v13.9 Batch D Final: LEAN reduction 13+ → 6 ad surfaces
+// History:
+//   - v13.11: 7-B-1 DCASkyscraper
+//   - v13.10: Mission 6 Phase 5 parent fetcher trending
+//   - v13.9: Sprint 2A Batch D Final LEAN
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback, Suspense } from 'react';
@@ -21,14 +23,13 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 
-import TopLeaderboardAd from '@/components/bakabar/TopLeaderboardAd';
 import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
 import RegionSection from '@/components/bakabar/RegionSection';
 import LaIndieMoviePoliticalBanner from '@/components/bakabar/LaIndieMoviePoliticalBanner';
 import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServiceCarousel';
 import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
+import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 import {
-  TOP_LEADERBOARD,
   SIDEBAR_MREC,
   TERPOPULER_LIST,
   HERO_CAROUSEL_SLIDES,
@@ -50,43 +51,27 @@ function BadonasiInlinePromo() {
         boxShadow: '0 6px 20px rgba(157, 23, 77, 0.25)',
       }}
     >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(245,158,11,0.12) 0%, transparent 50%)',
-        }}
-      />
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          right: -10,
-          bottom: -20,
-          fontSize: 110,
-          opacity: 0.16,
-          lineHeight: 1,
-        }}
-      >
-        🤲
-      </div>
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background:
+          'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(245,158,11,0.12) 0%, transparent 50%)',
+      }} />
+      <div className="absolute pointer-events-none" style={{
+        right: -10, bottom: -20, fontSize: 110, opacity: 0.16, lineHeight: 1,
+      }}>🤲</div>
       <div className="relative z-[2] p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div className="flex-1 min-w-0">
           <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase opacity-85 mb-1.5">
             BADONASI · Layanan TeraLoka
           </p>
-          <h3
-            className="text-[18px] md:text-[22px] font-extrabold leading-tight mb-1"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}
-          >
+          <h3 className="text-[18px] md:text-[22px] font-extrabold leading-tight mb-1"
+            style={{ fontFamily: "'Lora', Georgia, serif" }}>
             Galang Donasi untuk Sesama Warga MalUt
           </h3>
           <p className="text-[12px] opacity-90">
             Bantu kebutuhan mendesak warga di kampungmu — donasi mudah, transparan, langsung sampai.
           </p>
         </div>
-        <span
-          className="inline-block bg-white text-pink-700 px-4 py-2 rounded-md text-[11px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap self-start md:self-auto"
-        >
+        <span className="inline-block bg-white text-pink-700 px-4 py-2 rounded-md text-[11px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap self-start md:self-auto">
           Berdonasi →
         </span>
       </div>
@@ -96,14 +81,10 @@ function BadonasiInlinePromo() {
 
 function toCarouselArticle(a: any): DummyArticle {
   return {
-    id: a.id,
-    title: a.title,
-    slug: a.slug,
-    excerpt: a.excerpt,
+    id: a.id, title: a.title, slug: a.slug, excerpt: a.excerpt,
     category: a.category || 'umum',
     published_at: a.published_at || a.created_at,
-    source: a.source,
-    source_name: a.source_name,
+    source: a.source, source_name: a.source_name,
     cover_image_url: a.cover_image_url,
     is_viral: a.is_viral || false,
   };
@@ -163,8 +144,7 @@ function BakabarPageContent() {
             );
             const data = await res.json();
             const ad = data?.success && Array.isArray(data.data) && data.data[0]
-              ? (data.data[0] as TrendingNativeAd)
-              : null;
+              ? (data.data[0] as TrendingNativeAd) : null;
             return [r.slug, ad] as const;
           } catch {
             return [r.slug, null] as const;
@@ -201,12 +181,12 @@ function BakabarPageContent() {
       <div className="max-w-[1280px] mx-auto px-4">
         <div className="flex gap-5 items-stretch justify-center pt-16">
 
-          {/* Mission 7-B-1: replace hardcoded SkyscraperAd → DCASkyscraper (fetch DB) */}
           <DCASkyscraper side="left" />
 
           <main className="flex-1 min-w-0 max-w-4xl">
 
-            <TopLeaderboardAd ad={TOP_LEADERBOARD} visual_symbol="M" />
+            {/* Mission 7-B-2: replace TopLeaderboardAd hardcoded → DCATopLeaderboard fetch */}
+            <DCATopLeaderboard />
 
             <div className="mt-8">
 
@@ -246,7 +226,6 @@ function BakabarPageContent() {
                   />
 
                   {idx === 0 && <LaIndieMoviePoliticalBanner />}
-
                   {idx === 1 && <BadonasiInlinePromo />}
                 </div>
               ))}
@@ -260,7 +239,6 @@ function BakabarPageContent() {
             </div>
           </main>
 
-          {/* Mission 7-B-1: replace hardcoded SkyscraperAd → DCASkyscraper (fetch DB) */}
           <DCASkyscraper side="right" />
 
         </div>
