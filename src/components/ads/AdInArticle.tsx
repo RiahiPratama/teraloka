@@ -1,26 +1,28 @@
 'use client';
 
 /**
- * TeraLoka — AdInArticle (v2)
- * Mission 8 Sub-Phase 8-D Batch C2
- * ------------------------------------------------------------
+ * TeraLoka — AdInArticle (v3)
+ * Mission 8 Sub-Phase 8-D Batch C3
+ * ────────────────────────────────────────────────────────────────
  * In-article ad banner — inject di tengah artikel BAKABAR via BodyWithAds.
  *
- * v2 Changes (16 Mei 2026):
- *   D2.A — DCA rotation via shared useAdRotation hook
- *   D2.B — Dots indicator (bottom-center) untuk DCA frames
- *   D2.C — Disclaimer politisi overlay di image banner (Pattern AAR)
+ * v3 Changes (16 Mei 2026 Batch C3):
+ *   D3 — Region targeting: pass ?region=X dari useRegion() context
+ *   - Fetch URL append region param kalau region != null
+ *   - Re-fetch saat region berubah (user ganti via picker)
  *
- * Endpoint: GET /public/ads?position=in_article
+ * Endpoint: GET /public/ads?position=in_article&region=X
  *
  * History:
  *   - v1 (15 Mei 2026): advertorial branching + image banner static
- *   - v2 (16 Mei 2026): DCA rotation + shared hook + politisi disclaimer overlay
+ *   - v2 (16 Mei 2026 Batch C2): DCA rotation + shared hook + politisi disclaimer
+ *   - v3 (16 Mei 2026 Batch C3): region targeting param
  */
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
+import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -41,9 +43,10 @@ interface Ad {
   creative_frames?: AdFrame[] | null;
 }
 
-async function fetchActiveAd(position: string): Promise<Ad | null> {
+async function fetchActiveAd(position: string, region: string | null): Promise<Ad | null> {
   try {
-    const res = await fetch(`${API}/public/ads?position=${position}`);
+    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}`;
+    const res = await fetch(url);
     const data = await res.json();
     if (!data.success) return null;
     const ads = data.data ?? [];
@@ -72,14 +75,18 @@ function truncate(text: string, max: number): string {
 }
 
 export default function AdInArticle() {
+  const { region } = useRegion();
+
   const [ad,      setAd]      = useState<Ad | null>(null);
   const [loaded,  setLoaded]  = useState(false);
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
 
+  // Re-fetch saat region berubah
   useEffect(() => {
-    fetchActiveAd('in_article').then(a => { setAd(a); setLoaded(true); });
-  }, []);
+    setLoaded(false);
+    fetchActiveAd('in_article', region).then(a => { setAd(a); setLoaded(true); });
+  }, [region]);
 
   useEffect(() => {
     if (!refEl) return;
@@ -158,7 +165,7 @@ export default function AdInArticle() {
     );
   }
 
-  // ═══ TEXT ADVERTORIAL — preview card (zero DCA, text format) ═══
+  // ═══ TEXT ADVERTORIAL — preview card ═══
   if (ad.ad_format === 'text' && ad.slug) {
     const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
     const preview = truncate(ad.body || '', 180);
@@ -185,7 +192,6 @@ export default function AdInArticle() {
             borderColor: '#FDE68A',
           }}>
           <div className="p-5">
-            {/* Header — label + advertiser */}
             <div className="flex items-center gap-2 mb-3 flex-wrap">
               <span className="bk-advertorial-badge text-[10px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-full uppercase tracking-wide border border-amber-300">
                 {typeLabel}
@@ -197,23 +203,19 @@ export default function AdInArticle() {
               <span className="text-xs font-semibold text-amber-900">{ad.advertiser_name}</span>
             </div>
 
-            {/* Title */}
             <h3 className="text-base font-bold text-gray-900 leading-snug mb-2">
               {ad.title}
             </h3>
 
-            {/* Preview body */}
             <p className="text-sm text-gray-700 leading-relaxed mb-3">
               {preview}
             </p>
 
-            {/* CTA */}
             <div className="flex items-center justify-between pt-3 border-t border-amber-200">
               <span className="text-xs font-bold text-amber-900">Baca selengkapnya →</span>
               <span className="text-[10px] text-amber-700 italic">Konten Mitra</span>
             </div>
 
-            {/* Disclaimer (politisi KPU compliance) */}
             {ad.disclaimer_text && (
               <p className="mt-3 pt-3 border-t border-amber-200 text-[10px] text-amber-800 italic leading-relaxed">
                 {ad.disclaimer_text}
@@ -226,11 +228,9 @@ export default function AdInArticle() {
   }
 
   // ═══ IMAGE BANNER (with optional DCA rotation) ═══
-  // D2.A: Kalau ada creative_frames >= 2 → render activeFrame (rotate)
-  // Kalau gak ada → render static image_url + title
   const displayImage   = activeFrame?.image_url   || ad.image_url;
   const displayTitle   = activeFrame?.headline    || ad.title;
-  const displayBody    = isDCA ? null /* DCA: hide static body, headline is enough */ : ad.body;
+  const displayBody    = isDCA ? null : ad.body;
 
   return (
     <>
@@ -250,7 +250,7 @@ export default function AdInArticle() {
         {displayImage ? (
           <>
             <img
-              key={displayImage} /* force re-mount on frame change for smooth crossfade */
+              key={displayImage}
               src={displayImage}
               alt={displayTitle}
               className="w-full h-auto object-cover transition-opacity duration-500"
@@ -276,12 +276,11 @@ export default function AdInArticle() {
           </div>
         )}
 
-        {/* IKLAN badge (top right, pulsing) */}
         <span className="bk-ad-label-pulse absolute top-2 right-2 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider z-10">
           Iklan
         </span>
 
-        {/* D2.B: DCA frame indicator (bottom-center, dots) */}
+        {/* DCA dots indicator bottom-center */}
         {isDCA && total > 0 && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
             {Array.from({ length: total }).map((_, i) => (
@@ -297,7 +296,7 @@ export default function AdInArticle() {
           </div>
         )}
 
-        {/* D2.C: Disclaimer politisi overlay (Pattern AAR — image banner) */}
+        {/* Disclaimer politisi overlay */}
         {ad.disclaimer_text && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-8 z-[5]">
             <p className="text-[10px] text-white/95 italic leading-tight line-clamp-2">

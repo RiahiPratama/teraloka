@@ -1,28 +1,25 @@
 'use client';
 
 /**
- * TeraLoka — AdSidebarSlug (v3)
- * Mission 8 Sub-Phase 8-D Batch C2 refactor
- * ------------------------------------------------------------
+ * TeraLoka — AdSidebarSlug (v4)
+ * Mission 8 Sub-Phase 8-D Batch C3
+ * ────────────────────────────────────────────────────────────────
  * Sidebar ad component untuk slug page BAKABAR.
- * Container-agnostic: parent decides desktop sidebar vs mobile section.
  *
- * v3 Changes (16 Mei 2026):
- *   - Refactor pakai shared useAdRotation hook (Batch C2)
- *   - Remove inline useFrameRotation (extracted to @/hooks/useAdRotation)
- *   - ZERO regression dari v2: same compliance + DCA + advertorial branching
- *
- * Endpoint: GET /public/ads?position=sidebar
+ * v4 Changes (16 Mei 2026 Batch C3):
+ *   D3 — Region targeting: pass ?region=X dari useRegion() context
  *
  * History:
  *   - v1 (15 Mei 2026): basic image banner + click track
- *   - v2 (16 Mei 2026 Batch C1): compliance + DCA inline hook + advertorial
- *   - v3 (16 Mei 2026 Batch C2): refactor pakai shared hook
+ *   - v2 (16 Mei 2026 Batch C1): compliance + DCA inline + advertorial
+ *   - v3 (16 Mei 2026 Batch C2): refactor pakai shared useAdRotation hook
+ *   - v4 (16 Mei 2026 Batch C3): region targeting param
  */
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
+import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -33,19 +30,18 @@ interface Ad {
   image_url?: string | null;
   link_url: string;
   ad_format?: 'image' | 'text';
-  // Advertorial fields (Mission 5+)
   slug?: string;
   advertiser_name?: string;
   advertiser_logo_url?: string | null;
   advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
-  // DCA fields (Mission 7)
   creative_frames?: AdFrame[] | null;
 }
 
-async function fetchActiveAd(position: string): Promise<Ad | null> {
+async function fetchActiveAd(position: string, region: string | null): Promise<Ad | null> {
   try {
-    const res = await fetch(`${API}/public/ads?position=${position}`);
+    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}`;
+    const res = await fetch(url);
     const data = await res.json();
     if (!data.success) return null;
     const ads = data.data ?? [];
@@ -74,14 +70,18 @@ function truncate(text: string, max: number): string {
 }
 
 export default function AdSidebarSlug() {
+  const { region } = useRegion();
+
   const [ad,      setAd]      = useState<Ad | null>(null);
   const [loaded,  setLoaded]  = useState(false);
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
 
+  // Re-fetch saat region berubah
   useEffect(() => {
-    fetchActiveAd('sidebar').then(a => { setAd(a); setLoaded(true); });
-  }, []);
+    setLoaded(false);
+    fetchActiveAd('sidebar', region).then(a => { setAd(a); setLoaded(true); });
+  }, [region]);
 
   useEffect(() => {
     if (!refEl) return;
@@ -102,7 +102,6 @@ export default function AdSidebarSlug() {
     setRefEl(el);
   }, []);
 
-  // DCA frame rotation via shared hook (Batch C2 refactor)
   const { active: activeFrame, index: activeIdx, total, isDCA } =
     useAdRotation(ad?.creative_frames);
 
@@ -113,7 +112,6 @@ export default function AdSidebarSlug() {
     willChange: 'opacity, transform',
   };
 
-  // ═══ Skeleton loading ═══
   if (!loaded) {
     return (
       <>
@@ -133,7 +131,6 @@ export default function AdSidebarSlug() {
     );
   }
 
-  // ═══ Fallback placeholder ═══
   if (!ad) {
     return (
       <div ref={setRef} className="bg-gray-50 border border-dashed border-gray-200 rounded-xl h-52 flex items-center justify-center"
@@ -150,8 +147,7 @@ export default function AdSidebarSlug() {
     );
   }
 
-  // ═══ TEXT ADVERTORIAL — link ke /sponsored/[slug] ═══
-  // Sidebar dukung advertorial untuk politisi/pemerintah/komersial
+  // ═══ TEXT ADVERTORIAL ═══
   if (ad.ad_format === 'text' && ad.slug) {
     const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
     const preview = truncate(ad.body || '', 90);
@@ -178,14 +174,12 @@ export default function AdSidebarSlug() {
             borderColor: '#FDE68A',
           }}>
           <div className="p-4">
-            {/* Header — badge + advertiser */}
             <div className="flex items-center gap-1.5 mb-2 flex-wrap">
               <span className="bk-sb-advertorial-badge text-[9px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full uppercase tracking-wider border border-amber-300">
                 {typeLabel}
               </span>
             </div>
 
-            {/* Advertiser name */}
             <div className="flex items-center gap-1.5 mb-2">
               {ad.advertiser_logo_url && (
                 <img src={ad.advertiser_logo_url} alt={ad.advertiser_name}
@@ -196,22 +190,18 @@ export default function AdSidebarSlug() {
               </span>
             </div>
 
-            {/* Title */}
             <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-3">
               {ad.title}
             </h3>
 
-            {/* Preview body */}
             <p className="text-[11px] text-gray-700 leading-relaxed line-clamp-3 mb-2">
               {preview}
             </p>
 
-            {/* CTA */}
             <p className="text-[10px] font-bold text-amber-900">
               Baca selengkapnya →
             </p>
 
-            {/* Disclaimer politisi (KPU compliance) */}
             {ad.disclaimer_text && (
               <p className="mt-2 pt-2 border-t border-amber-200 text-[9px] text-amber-800 italic leading-tight">
                 {ad.disclaimer_text}
@@ -223,7 +213,7 @@ export default function AdSidebarSlug() {
     );
   }
 
-  // ═══ IMAGE BANNER (with optional DCA rotation) ═══
+  // ═══ IMAGE BANNER ═══
   const displayImage    = activeFrame?.image_url || ad.image_url;
   const displayHeadline = activeFrame?.headline  || ad.title;
 
@@ -244,7 +234,7 @@ export default function AdSidebarSlug() {
         style={animStyle}>
         {displayImage ? (
           <img
-            key={displayImage} /* force re-mount on frame change for smooth crossfade */
+            key={displayImage}
             src={displayImage}
             alt={displayHeadline}
             className="w-full h-full object-cover transition-opacity duration-500"
@@ -260,12 +250,10 @@ export default function AdSidebarSlug() {
           </div>
         )}
 
-        {/* IKLAN badge (top right, pulsing) */}
         <span className="bk-sb-label-pulse absolute top-2 right-2 text-[9px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-wider z-10">
           Iklan
         </span>
 
-        {/* DCA frame indicator (bottom-right, dots small) */}
         {isDCA && total > 0 && (
           <div className="absolute bottom-2 right-2 flex gap-1 z-10">
             {Array.from({ length: total }).map((_, i) => (
@@ -279,7 +267,6 @@ export default function AdSidebarSlug() {
           </div>
         )}
 
-        {/* Disclaimer politisi overlay (KPU compliance untuk image banner) */}
         {ad.disclaimer_text && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-2 pt-6 z-[5]">
             <p className="text-[9px] text-white/95 italic leading-tight line-clamp-2">

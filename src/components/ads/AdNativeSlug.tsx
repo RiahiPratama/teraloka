@@ -1,28 +1,25 @@
 'use client';
 
 /**
- * TeraLoka — AdNativeSlug (v2)
- * Mission 8 Sub-Phase 8-D Batch C2
- * ------------------------------------------------------------
+ * TeraLoka — AdNativeSlug (v3)
+ * Mission 8 Sub-Phase 8-D Batch C3
+ * ────────────────────────────────────────────────────────────────
  * Native-style ad di slug page — blend dengan related articles section.
  *
- * v2 Changes (16 Mei 2026):
- *   D2.A — DCA rotation via shared useAdRotation hook
- *   D2.D — Disclaimer politisi support (advertorial mode + image mode)
- *   D2.E — SILENT rotation per Pattern AAA (Native Editorial Blend)
- *         No dots indicator visible — preserve editorial blend illusion
- *
- * Endpoint: GET /public/ads?position=native
+ * v3 Changes (16 Mei 2026 Batch C3):
+ *   D3 — Region targeting: pass ?region=X dari useRegion() context
  *
  * History:
  *   - v1 (15 Mei 2026): advertorial branching + image native + Mitra badge
- *   - v2 (16 Mei 2026): DCA rotation (silent) + disclaimer + shared hook
+ *   - v2 (16 Mei 2026 Batch C2): DCA rotation silent + disclaimer + shared hook
+ *   - v3 (16 Mei 2026 Batch C3): region targeting param
  */
 
 import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { Megaphone, Newspaper, ArrowRight } from 'lucide-react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
+import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -33,19 +30,18 @@ interface Ad {
   image_url?: string | null;
   link_url: string;
   ad_format?: 'image' | 'text';
-  // Advertorial fields
   slug?: string;
   advertiser_name?: string;
   advertiser_logo_url?: string | null;
   advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
-  // DCA fields (Mission 7)
   creative_frames?: AdFrame[] | null;
 }
 
-async function fetchActiveAd(position: string): Promise<Ad | null> {
+async function fetchActiveAd(position: string, region: string | null): Promise<Ad | null> {
   try {
-    const res = await fetch(`${API}/public/ads?position=${position}`);
+    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}`;
+    const res = await fetch(url);
     const data = await res.json();
     if (!data.success) return null;
     const ads = data.data ?? [];
@@ -74,14 +70,18 @@ function truncate(text: string, max: number): string {
 }
 
 export default function AdNativeSlug() {
+  const { region } = useRegion();
+
   const [ad, setAd] = useState<Ad | null>(null);
   const [loaded, setLoaded] = useState(false);
 
+  // Re-fetch saat region berubah
   useEffect(() => {
-    fetchActiveAd('native').then(a => { setAd(a); setLoaded(true); });
-  }, []);
+    setLoaded(false);
+    fetchActiveAd('native', region).then(a => { setAd(a); setLoaded(true); });
+  }, [region]);
 
-  // DCA rotation (Batch C2) — SILENT, no dots per Pattern AAA
+  // DCA rotation SILENT (Pattern AAA — Native Editorial Blend)
   const { active: activeFrame, isDCA } = useAdRotation(ad?.creative_frames);
 
   // Placeholder saat loading atau tidak ada iklan aktif
@@ -112,9 +112,7 @@ export default function AdNativeSlug() {
     );
   }
 
-  // ═══ TEXT ADVERTORIAL di native feed ═══
-  // Note: Text advertorial gak punya creative_frames (DCA = image-based feature),
-  // jadi DCA rotation otomatis no-op di branch ini.
+  // ═══ TEXT ADVERTORIAL ═══
   if (ad.ad_format === 'text' && ad.slug) {
     const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
     const preview = truncate(ad.body || '', 140);
@@ -128,7 +126,6 @@ export default function AdNativeSlug() {
           borderColor: '#FDE68A',
         }}>
         <div className="flex items-start gap-3">
-          {/* Logo atau icon fallback */}
           {ad.advertiser_logo_url ? (
             <img src={ad.advertiser_logo_url} alt={ad.advertiser_name}
               className="w-14 h-14 rounded-xl object-cover shrink-0 bg-white" />
@@ -154,7 +151,6 @@ export default function AdNativeSlug() {
               Baca selengkapnya →
             </p>
 
-            {/* D2.D: Disclaimer politisi advertorial (KPU compliance) */}
             {ad.disclaimer_text && (
               <p className="mt-2 pt-2 border-t border-amber-200 text-[9px] text-amber-800 italic leading-tight">
                 {ad.disclaimer_text}
@@ -166,9 +162,7 @@ export default function AdNativeSlug() {
     );
   }
 
-  // ═══ IMAGE NATIVE — small card 14×14 thumbnail style ═══
-  // D2.A: DCA rotation SILENT (no dots) per Pattern AAA — Native Editorial Blend
-  // Cuma image + headline yang rotate, supaya tetap editorial-blend feel
+  // ═══ IMAGE NATIVE — DCA silent rotation ═══
   const displayImage = activeFrame?.image_url || ad.image_url;
   const displayTitle = activeFrame?.headline  || ad.title;
   const displayBody  = isDCA ? null : ad.body;
@@ -181,7 +175,7 @@ export default function AdNativeSlug() {
       <div className="flex items-start gap-3">
         {displayImage ? (
           <img
-            key={displayImage} /* force re-mount on frame change for smooth crossfade */
+            key={displayImage}
             src={displayImage}
             alt={displayTitle}
             className="w-14 h-14 rounded-xl object-cover shrink-0 transition-opacity duration-500"
@@ -209,7 +203,6 @@ export default function AdNativeSlug() {
             Lihat detail <ArrowRight size={11} strokeWidth={2.4} />
           </p>
 
-          {/* D2.D: Disclaimer politisi image native (KPU compliance) */}
           {ad.disclaimer_text && (
             <p className="mt-2 pt-2 border-t text-[9px] italic leading-tight"
               style={{ borderColor: '#FAC775', color: '#854F0B' }}>
