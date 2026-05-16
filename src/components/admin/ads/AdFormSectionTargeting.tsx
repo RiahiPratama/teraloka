@@ -2,21 +2,21 @@
 
 /**
  * TeraLoka — AdFormSectionTargeting
- * Mission 8 Sub-Phase 8-B (α / Batch 1)
+ * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
  * ------------------------------------------------------------
  * Section 3 form: Targeting (positions + regions).
  *
+ * Batch 2 update:
+ *   - Tambah visual hint per group: page scope semantic
+ *     "Tayang di: Homepage / Slug Detail / Keduanya"
+ *   - Reality verified via grep production code:
+ *     - top_leaderboard, trending_native, homepage_hero_banner = HOMEPAGE
+ *     - in_article, native, skyscraper_*, inline_banner = SLUG detail
+ *     - banner, sidebar, homepage = generic (kedua page)
+ *
  * Fields:
  *   - positions[] (checkbox grouped, min 1)
- *     - Banner Area: top_leaderboard, inline_banner, banner, homepage_hero_banner
- *     - Sidebar: skyscraper_left, skyscraper_right, sidebar
- *     - In-Article: in_article, native, trending_native
- *     - Hero: political_banner, region_stack, homepage
  *   - target_regions[] | null (null = semua region)
- *     - "Semua Maluku Utara" toggle = null
- *     - 12 kabupaten/kota Maluku Utara checkbox
- *
- * Politisi advertiser → political_banner exclusive option.
  */
 
 import { useState } from 'react';
@@ -27,19 +27,33 @@ import {
   Target,
   MapPin,
   Info,
+  FileText,
+  Home,
+  Globe2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdForm } from './AdFormProvider';
 
-// 13 positions grouped by visual area di BAKABAR
+// Page scope label per group (visual hint, semantic only — backend trust positions)
+type PageScope = 'homepage' | 'slug' | 'both';
+
+const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; icon: typeof Home; color: string }> = {
+  homepage: { label: 'Homepage BAKABAR',           icon: Home,    color: 'text-bakabar' },
+  slug:     { label: 'Slug Artikel BAKABAR',       icon: FileText, color: 'text-baronda' },
+  both:     { label: 'Homepage + Slug',            icon: Globe2,  color: 'text-analytics' },
+};
+
+// 13 positions grouped by visual area + page scope hint
 const POSITION_GROUPS: Array<{
-  group: string;
+  group:       string;
   description: string;
-  positions: Array<{ key: string; label: string; size: string; politisiOnly?: boolean }>;
+  pageScope:   PageScope;
+  positions:   Array<{ key: string; label: string; size: string; politisiOnly?: boolean }>;
 }> = [
   {
     group:       'Banner Area',
     description: 'Slot horizontal — high visibility',
+    pageScope:   'both',
     positions: [
       { key: 'top_leaderboard',      label: 'Top Billboard',       size: '1680×220' },
       { key: 'inline_banner',        label: 'Inline 8:1',          size: '1600×200' },
@@ -50,6 +64,7 @@ const POSITION_GROUPS: Array<{
   {
     group:       'Sidebar',
     description: 'Slot vertikal kanan/kiri konten',
+    pageScope:   'slug',
     positions: [
       { key: 'skyscraper_left',  label: 'Sidebar Slot Kiri',  size: '160×600' },
       { key: 'skyscraper_right', label: 'Sidebar Slot Kanan', size: '160×600' },
@@ -59,6 +74,7 @@ const POSITION_GROUPS: Array<{
   {
     group:       'In-Article & Native',
     description: 'Inline di artikel — native blend',
+    pageScope:   'slug',
     positions: [
       { key: 'in_article',      label: 'In Article',         size: 'Inline' },
       { key: 'native',          label: 'Native In-Article',  size: 'Inline' },
@@ -68,6 +84,7 @@ const POSITION_GROUPS: Array<{
   {
     group:       'Hero & Special',
     description: 'Slot premium / region-targeted',
+    pageScope:   'homepage',
     positions: [
       { key: 'political_banner', label: 'Politisi Banner',    size: 'Hero', politisiOnly: true },
       { key: 'region_stack',     label: 'Stack Banner Region', size: 'Block' },
@@ -176,63 +193,78 @@ export default function AdFormSectionTargeting() {
             )}
 
             <div className="flex flex-col gap-3">
-              {POSITION_GROUPS.map((group) => (
-                <div
-                  key={group.group}
-                  className="rounded-lg border border-border bg-surface-muted/30 p-3"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className="text-[11px] font-bold text-text">
-                        {group.group}
-                      </p>
-                      <p className="text-[10px] text-text-muted">
-                        {group.description}
-                      </p>
+              {POSITION_GROUPS.map((group) => {
+                const ScopeIcon = PAGE_SCOPE_DISPLAY[group.pageScope].icon;
+                return (
+                  <div
+                    key={group.group}
+                    className="rounded-lg border border-border bg-surface-muted/30 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-bold text-text">
+                          {group.group}
+                        </p>
+                        <p className="text-[10px] text-text-muted">
+                          {group.description}
+                        </p>
+                      </div>
+                      {/* Page scope badge */}
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0',
+                          group.pageScope === 'homepage' && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
+                          group.pageScope === 'slug'     && 'bg-baronda/8 border-baronda/30 text-baronda',
+                          group.pageScope === 'both'     && 'bg-analytics/8 border-analytics/30 text-analytics',
+                        )}
+                      >
+                        <ScopeIcon size={9} />
+                        {PAGE_SCOPE_DISPLAY[group.pageScope].label}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                      {group.positions.map((pos) => {
+                        const isActive = state.positions.includes(pos.key);
+                        const isDisabled = pos.politisiOnly && !isPolitisi;
+                        return (
+                          <label
+                            key={pos.key}
+                            className={cn(
+                              'flex items-center gap-2 px-2.5 py-1.5 rounded border text-[11px] transition-colors',
+                              isDisabled
+                                ? 'opacity-40 cursor-not-allowed bg-surface border-border'
+                                : isActive
+                                  ? 'bg-baronda/8 border-baronda/40 cursor-pointer'
+                                  : 'bg-surface border-border hover:bg-surface-muted cursor-pointer'
+                            )}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isActive}
+                              disabled={isDisabled}
+                              onChange={() => togglePosition(pos.key)}
+                              className="accent-baronda shrink-0"
+                            />
+                            <div className="min-w-0 flex-1">
+                              <div className="font-semibold text-text truncate">
+                                {pos.label}
+                                {pos.politisiOnly && (
+                                  <span className="ml-1 text-[9px] text-status-warning">
+                                    🏛️
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[9px] text-text-muted">
+                                {pos.size}
+                              </div>
+                            </div>
+                          </label>
+                        );
+                      })}
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                    {group.positions.map((pos) => {
-                      const isActive = state.positions.includes(pos.key);
-                      const isDisabled = pos.politisiOnly && !isPolitisi;
-                      return (
-                        <label
-                          key={pos.key}
-                          className={cn(
-                            'flex items-center gap-2 px-2.5 py-1.5 rounded border text-[11px] transition-colors',
-                            isDisabled
-                              ? 'opacity-40 cursor-not-allowed bg-surface border-border'
-                              : isActive
-                                ? 'bg-baronda/8 border-baronda/40 cursor-pointer'
-                                : 'bg-surface border-border hover:bg-surface-muted cursor-pointer'
-                          )}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isActive}
-                            disabled={isDisabled}
-                            onChange={() => togglePosition(pos.key)}
-                            className="accent-baronda shrink-0"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="font-semibold text-text truncate">
-                              {pos.label}
-                              {pos.politisiOnly && (
-                                <span className="ml-1 text-[9px] text-status-warning">
-                                  🏛️
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[9px] text-text-muted">
-                              {pos.size}
-                            </div>
-                          </div>
-                        </label>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 

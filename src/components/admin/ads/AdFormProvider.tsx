@@ -2,18 +2,20 @@
 
 /**
  * TeraLoka — AdFormProvider
- * Mission 8 Sub-Phase 8-B (α / Batch 1)
+ * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
  * ------------------------------------------------------------
  * Context provider untuk Ad Form state management.
  *
  * Responsibilities:
  *   - Hold form state (12+ fields, nested creative_frames array)
- *   - Field-level validation
+ *   - Field-level validation (Batch 2: + creative_frames validation)
  *   - Submit handler: POST /admin-create atau PUT /admin-update/:id
  *   - Loading/error state
  *   - Edit mode bootstrap (fetch existing ad → populate form)
  *
- * Used by: AdFormPage + 5 form section components.
+ * History:
+ *   - Batch 1 (16 Mei 2026): initial state, advertiser/creative/targeting
+ *   - Batch 2 (16 Mei 2026): + AdFrame type export, + creative_frames validation
  */
 
 import {
@@ -34,12 +36,19 @@ const API =
 export type AdFormat = 'image' | 'text';
 export type AdvertiserType = 'umum' | 'politisi' | 'pemerintah' | 'komersial';
 
+// Mirror shared/types.ts AdFrame interface (Mission 7 lock)
 export interface AdFrame {
   order:       number;
   headline:    string;
   image_url:   string;
   duration_ms: number;
 }
+
+// Mission 7 DCA constraints (mirror backend Batch 2 validation)
+export const DCA_MIN_FRAMES = 2;
+export const DCA_MAX_FRAMES = 5;
+export const DCA_MIN_DURATION_MS = 2000;
+export const DCA_MAX_DURATION_MS = 15000;
 
 export interface AdFormState {
   // Advertiser
@@ -62,10 +71,10 @@ export interface AdFormState {
   target_regions:  string[] | null; // null = semua region
 
   // DCA (Batch 2)
-  creative_frames: AdFrame[] | null;
+  creative_frames: AdFrame[] | null; // null = static ad
 
   // Schedule (Batch 2 default values)
-  starts_at:       string; // ISO datetime-local format
+  starts_at:       string; // ISO datetime string
   ends_at:         string;
 }
 
@@ -152,6 +161,43 @@ export function validateAdForm(state: AdFormState): FieldError[] {
   }
   if (state.starts_at && state.ends_at && new Date(state.ends_at) <= new Date(state.starts_at)) {
     errors.push({ field: 'ends_at', message: 'Tanggal akhir harus setelah tanggal mulai' });
+  }
+
+  // Batch 2: DCA creative_frames validation
+  if (state.creative_frames !== null) {
+    const frames = state.creative_frames;
+
+    if (frames.length < DCA_MIN_FRAMES) {
+      errors.push({
+        field:   'creative_frames',
+        message: `DCA butuh minimal ${DCA_MIN_FRAMES} frames`,
+      });
+    } else if (frames.length > DCA_MAX_FRAMES) {
+      errors.push({
+        field:   'creative_frames',
+        message: `DCA maksimal ${DCA_MAX_FRAMES} frames`,
+      });
+    } else {
+      // Per-frame validation
+      const invalidFrames: number[] = [];
+      frames.forEach((f, idx) => {
+        if (
+          !f.headline.trim() ||
+          f.headline.trim().length < 5 ||
+          !f.image_url.trim() ||
+          f.duration_ms < DCA_MIN_DURATION_MS ||
+          f.duration_ms > DCA_MAX_DURATION_MS
+        ) {
+          invalidFrames.push(idx + 1);
+        }
+      });
+      if (invalidFrames.length > 0) {
+        errors.push({
+          field:   'creative_frames',
+          message: `Frame ${invalidFrames.join(', ')} belum valid (headline min 5 char + image + durasi ${DCA_MIN_DURATION_MS / 1000}-${DCA_MAX_DURATION_MS / 1000}s)`,
+        });
+      }
+    }
   }
 
   return errors;

@@ -2,7 +2,7 @@
 
 /**
  * TeraLoka — AdFormPage
- * Mission 8 Sub-Phase 8-B (α / Batch 1)
+ * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
  * ------------------------------------------------------------
  * Page container untuk create/edit iklan.
  * Routes:
@@ -10,14 +10,19 @@
  *   - /admin/ads/[id]/edit    → edit mode (fetch existing)
  *
  * Layout:
- *   - Header: title + back button + sticky submit hint
- *   - Body: 3 sections collapsible (Advertiser / Creative / Targeting)
- *   - Placeholder slot bottom: Schedule + DCA (Batch 2)
- *   - Footer: sticky submit bar (Save + Cancel + validation summary)
+ *   - Header: title + back button
+ *   - Body: 5 sections collapsible
+ *     1. Advertiser Info
+ *     2. Konten Kreatif
+ *     3. Targeting Posisi & Wilayah
+ *     4. Jadwal Tayang (Batch 2 NEW)
+ *     5. DCA Frame Builder (Batch 2 NEW, optional)
+ *   - Footer: sticky submit bar
  *
- * Used as the default export, gets mounted di:
- *   - src/app/admin/ads/new/page.tsx
- *   - src/app/admin/ads/[id]/edit/page.tsx
+ * History:
+ *   - Batch 1 (16 Mei 2026): 3 section + placeholder Batch 2
+ *   - Batch 2 (16 Mei 2026): + Schedule section + DCA section,
+ *     replace placeholder dengan actual sections
  */
 
 import { useState } from 'react';
@@ -37,6 +42,8 @@ import {
 import AdFormSectionAdvertiser from './AdFormSectionAdvertiser';
 import AdFormSectionCreative from './AdFormSectionCreative';
 import AdFormSectionTargeting from './AdFormSectionTargeting';
+import AdFormSectionSchedule from './AdFormSectionSchedule';
+import AdFormSectionDCA from './AdFormSectionDCA';
 
 export interface AdFormPageProps {
   /** Kalau provided, masuk edit mode + auto-fetch existing ad */
@@ -88,7 +95,7 @@ function AdFormPageInner() {
     }
   };
 
-  // ─── Loading state saat fetch existing ad untuk edit ─────────
+  // Loading state saat fetch existing ad untuk edit
   if (loadingExisting) {
     return (
       <div className="flex flex-col items-center justify-center py-16">
@@ -145,20 +152,12 @@ function AdFormPageInner() {
         </div>
       </div>
 
-      {/* 3 Sections (Batch 1) */}
+      {/* 5 Sections (Batch 1 + Batch 2) */}
       <AdFormSectionAdvertiser />
       <AdFormSectionCreative />
       <AdFormSectionTargeting />
-
-      {/* Placeholder Batch 2 sections (Schedule + DCA) */}
-      <div className="bg-surface-muted/40 border border-dashed border-border rounded-xl p-6 text-center">
-        <p className="text-[12px] font-semibold text-text-muted">
-          🚧 Schedule + DCA Frame Builder (Sub-Phase 8-B Batch 2)
-        </p>
-        <p className="text-[11px] text-text-subtle mt-1">
-          Saat ini default schedule: hari ini → 30 hari ke depan. DCA frames belum bisa di-edit via form.
-        </p>
-      </div>
+      <AdFormSectionSchedule />
+      <AdFormSectionDCA />
 
       {/* Validation summary (kalau ada error) */}
       {hasErrors && (
@@ -167,13 +166,13 @@ function AdFormPageInner() {
             ⚠ Form belum valid ({errors.length} error)
           </p>
           <ul className="text-[10px] text-status-critical space-y-0.5">
-            {errors.slice(0, 5).map((e, i) => (
+            {errors.slice(0, 6).map((e, i) => (
               <li key={i}>
                 • <strong>{e.field}:</strong> {e.message}
               </li>
             ))}
-            {errors.length > 5 && (
-              <li className="italic">...dan {errors.length - 5} error lain</li>
+            {errors.length > 6 && (
+              <li className="italic">...dan {errors.length - 6} error lain</li>
             )}
           </ul>
         </div>
