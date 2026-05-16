@@ -356,6 +356,48 @@ function RelatedArticles({ articles }: { articles: any[] }) {
   );
 }
 
+// ────────────────────────────────────────────────────────────────
+// Phase 2 v3 Helper — Render N after-article ads
+// ────────────────────────────────────────────────────────────────
+// after_article_count interpretation:
+//   1 → 1 AdInArticle (image banner)
+//   2 → 1 AdInArticle + 1 AdNativeSlug (native style variation)
+//   (max 2 by COUNT_RANGES.after_article)
+//
+// Strategy: variety by component type, not duplicate same component.
+// AdInArticle = visual image banner punch
+// AdNativeSlug = blend dengan related articles section
+
+function AfterArticleAds({ count, formatFilter }: { count: number; formatFilter: any }) {
+  if (count <= 0) return null;
+
+  return (
+    <>
+      <AdInArticle formatFilter={formatFilter} />
+      {count >= 2 && <AdNativeSlug formatFilter={formatFilter} />}
+    </>
+  );
+}
+
+// ────────────────────────────────────────────────────────────────
+// Phase 2 v3 Helper — Render N sidebar widgets
+// ────────────────────────────────────────────────────────────────
+
+function SidebarAds({ count, formatFilter, position }: { count: number; formatFilter: any; position: 'top' | 'bottom' }) {
+  if (count <= 0) return null;
+
+  // count=1 → cuma render position='top'
+  // count=2 → render keduanya (top + bottom)
+  if (count === 1 && position === 'bottom') return null;
+
+  // Unique key per position untuk avoid React reconciliation share
+  return <AdSidebarSlug key={`sidebar-${position}`} formatFilter={formatFilter} />;
+}
+
+// ────────────────────────────────────────────────────────────────
+// MAIN PAGE
+// ────────────────────────────────────────────────────────────────
+
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const [article, stats, recentReports] = await Promise.all([
@@ -374,13 +416,21 @@ export default async function ArticlePage({ params }: Props) {
   const menit = readingTime(parsedBody);
 
   // ────────────────────────────────────────────────────────────────
-  // Phase 2 Turn 2: Resolve ad_settings dengan fallback DEFAULT
+  // Phase 2 v3 (Turn 3a): Resolve ad_settings → preset+count
   // ────────────────────────────────────────────────────────────────
-  // article.ad_settings = JSONB dari content.articles atau null untuk artikel
-  // existing (pre-Phase 2). resolveAdSettings() handle:
-  //   - null/undefined → DEFAULT (all 3 slot enabled, format=all)
-  //   - Valid JSON → coerce + sanitize
+  // resolveAdSettings() handle:
+  //   - NULL/undefined → DEFAULT (preset='lots', backward compat 2+2+1)
+  //   - Valid JSON v3 → coerce + clamp count ranges
   //   - Malformed → DEFAULT
+  //
+  // article.ad_settings shape (v3):
+  //   {
+  //     preset: 'medium',
+  //     body_inject_count: 1,
+  //     sidebar_count: 1,
+  //     after_article_count: 1,
+  //     format_filter: 'all'
+  //   }
   const adSettings = resolveAdSettings(article.ad_settings);
 
   return (
@@ -490,13 +540,12 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* Phase 2 Turn 2: BodyWithAds respect ad_settings.body_inject_enabled */}
+            {/* Phase 2 v3: BodyWithAds respect ad_settings.body_inject_count */}
             {bodyHtml ? (
               <BodyWithAds
                 html={bodyHtml}
                 adPosition={article.ad_position}
-                adAfterIndex={3}
-                enabled={adSettings.body_inject_enabled}
+                count={adSettings.body_inject_count}
                 formatFilter={adSettings.format_filter}
               />
             ) : (
@@ -532,10 +581,12 @@ export default async function ArticlePage({ params }: Props) {
               />
             </div>
 
-            {/* Phase 2 Turn 2: After-article zone respect ad_settings.after_article_enabled */}
-            {adSettings.after_article_enabled && (
-              <AdInArticle formatFilter={adSettings.format_filter} />
-            )}
+            {/* Phase 2 v3: After-article zone — N count via AfterArticleAds helper */}
+            {/* count=1 → AdInArticle only, count=2 → AdInArticle + AdNativeSlug variety */}
+            <AfterArticleAds
+              count={adSettings.after_article_count}
+              formatFilter={adSettings.format_filter}
+            />
 
             <ServiceCardsCarousel recentReports={recentReports} stats={stats} />
 
@@ -545,10 +596,6 @@ export default async function ArticlePage({ params }: Props) {
               <WANewsletterWidget />
             </div>
 
-            {adSettings.after_article_enabled && (
-              <AdNativeSlug formatFilter={adSettings.format_filter} />
-            )}
-
             <div className="mt-8 text-center">
               <Link href="/bakabar" className="text-sm text-[#003526] font-semibold hover:underline">
                 ← Baca berita lainnya di BAKABAR
@@ -556,12 +603,15 @@ export default async function ArticlePage({ params }: Props) {
             </div>
           </article>
 
-          {/* Phase 2 Turn 2: Sidebar respect ad_settings.sidebar_enabled */}
+          {/* Phase 2 v3: Sidebar N widgets — top + optional bottom */}
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-[108px] py-6 space-y-5">
-              {adSettings.sidebar_enabled && (
-                <AdSidebarSlug formatFilter={adSettings.format_filter} />
-              )}
+              {/* Sidebar slot 1 (top) — render if count >= 1 */}
+              <SidebarAds
+                count={adSettings.sidebar_count}
+                formatFilter={adSettings.format_filter}
+                position="top"
+              />
 
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
@@ -602,9 +652,12 @@ export default async function ArticlePage({ params }: Props) {
                 </div>
               )}
 
-              {adSettings.sidebar_enabled && (
-                <AdSidebarSlug formatFilter={adSettings.format_filter} />
-              )}
+              {/* Sidebar slot 2 (bottom) — render if count >= 2 */}
+              <SidebarAds
+                count={adSettings.sidebar_count}
+                formatFilter={adSettings.format_filter}
+                position="bottom"
+              />
             </div>
           </aside>
         </div>
