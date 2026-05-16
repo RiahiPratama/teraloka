@@ -1,28 +1,29 @@
 'use client';
 
 /**
- * TeraLoka — AdsCommandCenter (v3)
- * Mission 8 Sub-Phase 8-C-2
+ * TeraLoka — AdsCommandCenter (v4)
+ * Mission 8 Sub-Phase 8-C-2 + 8-B β.2 (Group 3)
  * ------------------------------------------------------------
- * Integration v2 + SmartFilter + DeleteModal + RejectModal.
+ * Integration v3 + Tombol "+ Tambah Iklan" header.
  *
- * v3 Changes:
- *   - AdsSmartFilter — filter pills + search dengan stats counts dynamic
- *   - DeleteAdModal — replace window.prompt soft delete
- *   - RejectAdModal — replace window.prompt reject
- *   - Filter logic client-side (no extra fetch) — derived state
- *   - Status counts + advertiser type counts → ke SmartFilter sebagai badge
+ * v4 Changes:
+ *   - Tambah Link button "+ Tambah Iklan" di header (route /admin/ads/new)
+ *   - Plus icon dari lucide-react
+ *   - Next.js Link untuk native navigation (no full reload)
+ *   - All other logic IDENTIK dengan v3 (zero regression)
  *
- * Auth + toast + handlers tetap sama dengan v2.
+ * Auth + toast + filter + handlers + modals tetap sama dengan v3.
  *
  * History:
  *   - 16 Mei 2026 09:30: v1
  *   - 16 Mei 2026 10:00: v2 (useAuth, Tailwind utility, design tokens)
  *   - 16 Mei 2026 10:30: v3 (SmartFilter + Modals integration)
+ *   - 16 Mei 2026 14:00: v4 (+Tambah Iklan button — Sub-Phase 8-B β.2)
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshCw, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
+import { RefreshCw, Trash2, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import AdsStatsCards from './AdsStatsCards';
@@ -361,6 +362,21 @@ export default function AdsCommandCenter() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Tambah Iklan — primary CTA, Sub-Phase 8-B β.2 */}
+          <Link
+            href="/admin/ads/new"
+            className={cn(
+              'inline-flex items-center gap-2 px-4 py-1.5 rounded-md',
+              'bg-ads text-white',
+              'text-[11px] font-bold uppercase tracking-wide',
+              'hover:bg-ads-strong transition-colors shadow-sm'
+            )}
+            title="Onboard advertiser baru via form"
+          >
+            <Plus size={12} />
+            Tambah Iklan
+          </Link>
+
           <button
             type="button"
             onClick={() => setShowDeleted((v) => !v)}

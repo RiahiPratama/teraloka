@@ -1,8 +1,6 @@
-'use client';
-
 /**
- * TeraLoka — AdsTableRow
- * Mission 8 Sub-Phase 8-C-1 (v2)
+ * TeraLoka — AdsTableRow (v3)
+ * Mission 8 Sub-Phase 8-C-1 (v2) + 8-B β.2 (Group 3)
  * ------------------------------------------------------------
  * Single ad row untuk Daftar Iklan list di AdsTable.
  * Pattern mirror dari ReportRow (BALAPOR).
@@ -18,17 +16,24 @@
  *   - Action buttons (conditional by status)
  *
  * Action button matrix:
- *   - pending_payment/pending_review → Aktifkan + Reject + Hapus
- *   - active                         → Pause + Hapus
- *   - paused                         → Resume + Hapus
- *   - expired/rejected               → Hapus
+ *   - pending_payment/pending_review → Aktifkan + Reject + Edit + Hapus
+ *   - active                         → Pause + Edit + Hapus
+ *   - paused                         → Resume + Edit + Hapus
+ *   - expired/rejected               → Edit + Hapus
  *   - deleted                        → Restore (only)
+ *
+ * v3 Changes (Sub-Phase 8-B β.2):
+ *   - Edit button (<Link>) ke /admin/ads/[id]/edit untuk semua row non-deleted
+ *   - Middle-click + Ctrl/Cmd+click works (open new tab)
+ *   - Pencil icon dari lucide-react
  *
  * History:
  *   - 16 Mei 2026: NEW v2 (extracted dari AdsTable v1, mirror BALAPOR)
+ *   - 16 Mei 2026 14:00: v3 (+Edit button — Sub-Phase 8-B β.2)
  */
 
-import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2 } from 'lucide-react';
+import Link from 'next/link';
+import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
 
@@ -334,6 +339,21 @@ function renderActions(
       </button>
     );
   }
+
+  // Edit button — semua status non-deleted (Sub-Phase 8-B β.2)
+  // Pakai Link supaya middle-click + Ctrl/Cmd+click works (open new tab)
+  buttons.push(
+    <Link
+      key="edit"
+      href={`/admin/ads/${ad.id}/edit`}
+      onClick={(e) => e.stopPropagation()}
+      className={cn(btnClass, 'bg-baronda/12 text-baronda hover:bg-baronda/20')}
+      title="Edit detail iklan"
+    >
+      <Pencil size={11} />
+      Edit
+    </Link>
+  );
 
   // Soft delete — semua status kecuali deleted
   buttons.push(
