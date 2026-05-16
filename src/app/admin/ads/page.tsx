@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
-import AdsPanel from '@/components/admin/ads/AdsPanel';
+import AdsPanel from '@/components/admin/ads/AdsCommandCenter';
 import PackagesPanel from '@/components/admin/ads/PackagesPanel';
 
 type Tab = 'ads' | 'packages';
@@ -22,7 +22,7 @@ export default function AdsAdminPage() {
       {/* Tab switcher */}
       <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${t.cardBorder}` }}>
         {[
-          { key: 'ads'      as Tab, label: '📢 Iklan' },
+          { key: 'ads' as Tab, label: '📢 Iklan' },
           { key: 'packages' as Tab, label: '📦 Paket Iklan' },
         ].map(({ key, label }) => (
           <button
@@ -47,7 +47,7 @@ export default function AdsAdminPage() {
       </div>
 
       {/* Panel content */}
-      {tab === 'ads'      && <AdsPanel />}
+      {tab === 'ads' && <AdsPanel />}
       {tab === 'packages' && <PackagesPanel />}
     </div>
   );
