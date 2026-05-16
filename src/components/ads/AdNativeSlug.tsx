@@ -1,18 +1,19 @@
 'use client';
 
 /**
- * TeraLoka — AdNativeSlug (v3)
- * Mission 8 Sub-Phase 8-D Batch C3
+ * TeraLoka — AdNativeSlug (v4)
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2
  * ────────────────────────────────────────────────────────────────
  * Native-style ad di slug page — blend dengan related articles section.
  *
- * v3 Changes (16 Mei 2026 Batch C3):
- *   D3 — Region targeting: pass ?region=X dari useRegion() context
+ * v4 Changes (16 Mei 2026 Phase 2 Turn 2):
+ *   - Accept `formatFilter?` prop dari slug page (editor OFFICE control)
  *
  * History:
  *   - v1 (15 Mei 2026): advertorial branching + image native + Mitra badge
  *   - v2 (16 Mei 2026 Batch C2): DCA rotation silent + disclaimer + shared hook
  *   - v3 (16 Mei 2026 Batch C3): region targeting param
+ *   - v4 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
  */
 
 import Link from 'next/link';
@@ -20,6 +21,8 @@ import { useEffect, useState } from 'react';
 import { Megaphone, Newspaper, ArrowRight } from 'lucide-react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
+import type { AdFormatFilter } from '@/lib/ad-settings';
+import { buildFormatFilterParam } from '@/lib/ad-settings';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -38,9 +41,17 @@ interface Ad {
   creative_frames?: AdFrame[] | null;
 }
 
-async function fetchActiveAd(position: string, region: string | null): Promise<Ad | null> {
+interface Props {
+  formatFilter?: AdFormatFilter;
+}
+
+async function fetchActiveAd(
+  position: string,
+  region: string | null,
+  formatFilter?: AdFormatFilter,
+): Promise<Ad | null> {
   try {
-    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}`;
+    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.success) return null;
@@ -69,17 +80,17 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
-export default function AdNativeSlug() {
+export default function AdNativeSlug({ formatFilter }: Props = {}) {
   const { region } = useRegion();
 
   const [ad, setAd] = useState<Ad | null>(null);
   const [loaded, setLoaded] = useState(false);
 
-  // Re-fetch saat region berubah
+  // Re-fetch saat region atau formatFilter berubah
   useEffect(() => {
     setLoaded(false);
-    fetchActiveAd('native', region).then(a => { setAd(a); setLoaded(true); });
-  }, [region]);
+    fetchActiveAd('native', region, formatFilter).then(a => { setAd(a); setLoaded(true); });
+  }, [region, formatFilter]);
 
   // DCA rotation SILENT (Pattern AAA — Native Editorial Blend)
   const { active: activeFrame, isDCA } = useAdRotation(ad?.creative_frames);

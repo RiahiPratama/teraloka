@@ -1,25 +1,29 @@
 'use client';
 
 /**
- * TeraLoka — AdSidebarSlug (v4)
- * Mission 8 Sub-Phase 8-D Batch C3
+ * TeraLoka — AdSidebarSlug (v5)
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2
  * ────────────────────────────────────────────────────────────────
- * Sidebar ad component untuk slug page BAKABAR.
+ * Sidebar ad untuk slug page BAKABAR.
  *
- * v4 Changes (16 Mei 2026 Batch C3):
- *   D3 — Region targeting: pass ?region=X dari useRegion() context
+ * v5 Changes (16 Mei 2026 Phase 2 Turn 2):
+ *   - Accept `formatFilter?` prop dari slug page (editor OFFICE control)
  *
  * History:
- *   - v1 (15 Mei 2026): basic image banner + click track
- *   - v2 (16 Mei 2026 Batch C1): compliance + DCA inline + advertorial
+ *   - v1 (15 Mei 2026): basic sidebar fetch + impression tracking
+ *   - v2 (16 Mei 2026 Batch C1): advertorial + disclaimer + DCA inline
  *   - v3 (16 Mei 2026 Batch C2): refactor pakai shared useAdRotation hook
- *   - v4 (16 Mei 2026 Batch C3): region targeting param
+ *   - v4 (16 Mei 2026 Batch C3): region targeting
+ *   - v5 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
  */
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
+import { Newspaper } from 'lucide-react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
+import type { AdFormatFilter } from '@/lib/ad-settings';
+import { buildFormatFilterParam } from '@/lib/ad-settings';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -38,9 +42,17 @@ interface Ad {
   creative_frames?: AdFrame[] | null;
 }
 
-async function fetchActiveAd(position: string, region: string | null): Promise<Ad | null> {
+interface Props {
+  formatFilter?: AdFormatFilter;
+}
+
+async function fetchActiveAd(
+  position: string,
+  region: string | null,
+  formatFilter?: AdFormatFilter,
+): Promise<Ad | null> {
   try {
-    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}`;
+    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.success) return null;
@@ -69,7 +81,7 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
-export default function AdSidebarSlug() {
+export default function AdSidebarSlug({ formatFilter }: Props = {}) {
   const { region } = useRegion();
 
   const [ad,      setAd]      = useState<Ad | null>(null);
@@ -77,11 +89,11 @@ export default function AdSidebarSlug() {
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
 
-  // Re-fetch saat region berubah
+  // Re-fetch saat region atau formatFilter berubah
   useEffect(() => {
     setLoaded(false);
-    fetchActiveAd('sidebar', region).then(a => { setAd(a); setLoaded(true); });
-  }, [region]);
+    fetchActiveAd('sidebar', region, formatFilter).then(a => { setAd(a); setLoaded(true); });
+  }, [region, formatFilter]);
 
   useEffect(() => {
     if (!refEl) return;
@@ -102,6 +114,7 @@ export default function AdSidebarSlug() {
     setRefEl(el);
   }, []);
 
+  // DCA rotation
   const { active: activeFrame, index: activeIdx, total, isDCA } =
     useAdRotation(ad?.creative_frames);
 
@@ -112,6 +125,7 @@ export default function AdSidebarSlug() {
     willChange: 'opacity, transform',
   };
 
+  // ═══ Skeleton loading ═══
   if (!loaded) {
     return (
       <>
@@ -131,91 +145,72 @@ export default function AdSidebarSlug() {
     );
   }
 
+  // ═══ Fallback placeholder ═══
   if (!ad) {
     return (
       <div ref={setRef} className="bg-gray-50 border border-dashed border-gray-200 rounded-xl h-52 flex items-center justify-center"
         style={animStyle}>
-        <div className="text-center px-4">
+        <div className="text-center">
           <p className="text-xs text-gray-400 font-bold uppercase">IKLAN MITRA</p>
           <p className="text-xs text-gray-300 mt-1">300 × 200</p>
-          <a href="mailto:ads@teraloka.com"
-            className="inline-block mt-2 text-[10px] text-gray-400 hover:text-gray-600 underline">
-            Pasang iklan di sini
-          </a>
         </div>
       </div>
     );
   }
 
-  // ═══ TEXT ADVERTORIAL ═══
+  // ═══ TEXT ADVERTORIAL — sidebar card ═══
   if (ad.ad_format === 'text' && ad.slug) {
     const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
     const preview = truncate(ad.body || '', 90);
 
     return (
-      <>
-        <style>{`
-          @keyframes bk-sb-pulse-amber {
-            0%, 100% { box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.55); }
-            50%      { box-shadow: 0 0 0 4px rgba(251, 191, 36, 0); }
-          }
-          .bk-sb-advertorial-badge {
-            animation: bk-sb-pulse-amber 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-          }
-        `}</style>
-        <Link
-          ref={setRef as any}
-          href={`/sponsored/${ad.slug}`}
-          onClick={() => trackAdClick(ad.id)}
-          className="block rounded-xl overflow-hidden border hover:shadow-md transition-all"
-          style={{
-            ...animStyle,
-            background: 'linear-gradient(to bottom right, #FFFBEB, #FEF3C7)',
-            borderColor: '#FDE68A',
-          }}>
-          <div className="p-4">
-            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-              <span className="bk-sb-advertorial-badge text-[9px] font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded-full uppercase tracking-wider border border-amber-300">
-                {typeLabel}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1.5 mb-2">
-              {ad.advertiser_logo_url && (
-                <img src={ad.advertiser_logo_url} alt={ad.advertiser_name}
-                  className="w-4 h-4 rounded-full object-cover shrink-0" />
-              )}
-              <span className="text-[10px] font-semibold text-amber-900 truncate">
-                {ad.advertiser_name}
-              </span>
-            </div>
-
-            <h3 className="text-sm font-bold text-gray-900 leading-snug mb-2 line-clamp-3">
-              {ad.title}
-            </h3>
-
-            <p className="text-[11px] text-gray-700 leading-relaxed line-clamp-3 mb-2">
-              {preview}
-            </p>
-
-            <p className="text-[10px] font-bold text-amber-900">
-              Baca selengkapnya →
-            </p>
-
-            {ad.disclaimer_text && (
-              <p className="mt-2 pt-2 border-t border-amber-200 text-[9px] text-amber-800 italic leading-tight">
-                {ad.disclaimer_text}
-              </p>
-            )}
+      <Link
+        ref={setRef as any}
+        href={`/sponsored/${ad.slug}`}
+        onClick={() => trackAdClick(ad.id)}
+        className="block rounded-xl overflow-hidden border hover:shadow-md transition-all"
+        style={{
+          ...animStyle,
+          background: 'linear-gradient(to bottom right, #FFFBEB, #FEF3C7)',
+          borderColor: '#FDE68A',
+        }}>
+        <div className="p-4">
+          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+            <span className="text-[9px] font-bold text-amber-900 bg-amber-100 px-1.5 py-0.5 rounded uppercase tracking-wide border border-amber-300">
+              {typeLabel}
+            </span>
           </div>
-        </Link>
-      </>
+
+          {ad.advertiser_logo_url && (
+            <img src={ad.advertiser_logo_url} alt={ad.advertiser_name}
+              className="w-10 h-10 rounded-full object-cover mb-2 bg-white" />
+          )}
+
+          <p className="text-xs font-semibold text-amber-900 mb-1 truncate">{ad.advertiser_name}</p>
+
+          <h4 className="text-sm font-bold text-gray-900 leading-snug mb-1.5 line-clamp-2">
+            {ad.title}
+          </h4>
+
+          <p className="text-[11px] text-gray-700 leading-relaxed line-clamp-3 mb-2">
+            {preview}
+          </p>
+
+          <p className="text-[11px] font-bold text-amber-900">Baca selengkapnya →</p>
+
+          {ad.disclaimer_text && (
+            <p className="mt-2 pt-2 border-t border-amber-200 text-[9px] text-amber-800 italic leading-tight line-clamp-3">
+              {ad.disclaimer_text}
+            </p>
+          )}
+        </div>
+      </Link>
     );
   }
 
-  // ═══ IMAGE BANNER ═══
-  const displayImage    = activeFrame?.image_url || ad.image_url;
-  const displayHeadline = activeFrame?.headline  || ad.title;
+  // ═══ IMAGE BANNER — DCA + disclaimer ═══
+  const displayImage = activeFrame?.image_url || ad.image_url;
+  const displayTitle = activeFrame?.headline  || ad.title;
 
   return (
     <>
@@ -230,23 +225,21 @@ export default function AdSidebarSlug() {
       `}</style>
       <a ref={setRef} href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
         onClick={() => trackAdClick(ad.id)}
-        className="block rounded-xl overflow-hidden relative h-52 hover:opacity-95 transition-all"
+        className="block rounded-xl overflow-hidden relative h-52 hover:opacity-95 transition-opacity"
         style={animStyle}>
         {displayImage ? (
           <img
             key={displayImage}
             src={displayImage}
-            alt={displayHeadline}
+            alt={displayTitle}
             className="w-full h-full object-cover transition-opacity duration-500"
             loading="lazy"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center p-4"
             style={{ background: 'linear-gradient(to bottom, #1B6B4A, #0891B2)' }}>
-            <p className="text-white font-bold text-sm text-center line-clamp-3">{displayHeadline}</p>
-            {ad.body && !activeFrame && (
-              <p className="text-white/80 text-xs mt-1 text-center line-clamp-2">{ad.body}</p>
-            )}
+            <p className="text-white font-bold text-sm text-center">{displayTitle}</p>
+            {ad.body && <p className="text-white/80 text-xs mt-1 text-center line-clamp-2">{ad.body}</p>}
           </div>
         )}
 
@@ -255,12 +248,14 @@ export default function AdSidebarSlug() {
         </span>
 
         {isDCA && total > 0 && (
-          <div className="absolute bottom-2 right-2 flex gap-1 z-10">
+          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
             {Array.from({ length: total }).map((_, i) => (
               <span
                 key={i}
-                className={`block w-1.5 h-1.5 rounded-full transition-all duration-300 ${
-                  i === activeIdx ? 'bg-white' : 'bg-white/40'
+                className={`block h-1 rounded-full transition-all duration-300 ${
+                  i === activeIdx
+                    ? 'w-3 bg-white shadow'
+                    : 'w-1 bg-white/50'
                 }`}
               />
             ))}

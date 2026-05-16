@@ -8,6 +8,7 @@ import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
 import AdNativeSlug from '@/components/ads/AdNativeSlug';
 import BodyWithAds from '@/components/ads/BodyWithAds';
 import ShareInline from '@/components/shared/ShareInline';
+import { resolveAdSettings } from '@/lib/ad-settings';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -153,24 +154,11 @@ function renderBody(raw: string): string {
   return renderMarkdown(body);
 }
 
-function InArticleAd() {
-  return <AdInArticle />;
-}
-
 const CATEGORY_ICON: Record<string, string> = {
   infrastruktur: '🏗️', keamanan: '🚨', lingkungan: '🌿',
   sosial: '👥', kesehatan: '🏥', pendidikan: '📚',
   transportasi: '🚗', ekonomi: '💰',
 };
-
-// ─────────────────────────────────────────────────────────────────
-// ServiceCardsCarousel v6 — 14 Mei 2026 malam (CEO directive):
-// FIX empty space dengan trust signals (value-add content, BUKAN filler).
-// Reduced min-h 400→360 untuk natural balance.
-//
-// Pelajaran: kalau content text pendek + min-h tinggi → space kosong canggung.
-// Solusi: tambah konten bermakna (trust signals, footer info, dll).
-// ─────────────────────────────────────────────────────────────────
 
 function TrustItem({ text, accent }: { text: string; accent: string }) {
   return (
@@ -189,7 +177,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
     <div className="mt-10 -mx-4">
       <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-4 px-4 snap-x snap-mandatory">
 
-        {/* ── Card 1: Ada kejadian → BALAPOR red gradient ──────── */}
         <Link href="/balapor/buat-laporan"
           className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
           style={{ background: 'radial-gradient(circle at 75% 25%, #F87171 0%, #DC2626 35%, #991B1B 70%, #7F1D1D 100%)' }}>
@@ -206,7 +193,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
               </p>
             </div>
 
-            {/* Trust signals — fill space dengan value-add content */}
             <div className="space-y-1.5 pt-1">
               <TrustItem text="Identitas pelapor 100% anonim" accent="#FCA5A5" />
               <TrustItem text="Foto & video bisa dilampirkan" accent="#FCA5A5" />
@@ -220,7 +206,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
           </div>
         </Link>
 
-        {/* ── Card 2: Warga lagi melapor → TeraLoka teal solid ──── */}
         <Link href="/balapor"
           className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5"
           style={{ background: '#003526' }}>
@@ -250,7 +235,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
               <p className="text-sm text-white/70 italic">Belum ada laporan terbaru</p>
             )}
 
-            {/* Footer info — fill space dengan context */}
             <div className="mt-4 pt-3 border-t border-white/10">
               <p className="text-[10px] uppercase tracking-wider" style={{ color: '#95d3ba' }}>
                 Update real-time setiap laporan masuk
@@ -263,7 +247,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
           </div>
         </Link>
 
-        {/* ── Card 3: Torang samua → BAKABAR purple gradient ──── */}
         <Link href="/bakabar"
           className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
           style={{ background: 'radial-gradient(circle at 75% 25%, #A78BFA 0%, #8B5CF6 35%, #6D28D9 70%, #4C1D95 100%)' }}>
@@ -294,7 +277,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
               </div>
             </div>
 
-            {/* Footer note */}
             <div className="mt-4 pt-3 border-t border-white/15">
               <p className="text-[10px] uppercase tracking-wider text-white/65">
                 Update otomatis setiap jam
@@ -305,7 +287,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
           <p className="text-xs text-white/80 italic mt-4">Bergerak bersama TeraLoka →</p>
         </Link>
 
-        {/* ── Card 4: Mari bantu → BADONASI pink gradient ──────── */}
         <Link href="/fundraising"
           className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
           style={{ background: 'radial-gradient(circle at 75% 25%, #F9A8D4 0%, #EC4899 35%, #BE185D 70%, #831843 100%)' }}>
@@ -322,7 +303,6 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
               </p>
             </div>
 
-            {/* Trust signals — fill space dengan value-add content */}
             <div className="space-y-1.5 pt-1">
               <TrustItem text="Donasi via QRIS atau transfer" accent="#FBCFE8" />
               <TrustItem text="Update progress real-time" accent="#FBCFE8" />
@@ -376,10 +356,6 @@ function RelatedArticles({ articles }: { articles: any[] }) {
   );
 }
 
-function NativeAd() {
-  return <AdNativeSlug />;
-}
-
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
   const [article, stats, recentReports] = await Promise.all([
@@ -396,6 +372,16 @@ export default async function ArticlePage({ params }: Props) {
 
   const parsedBody = parseBody(article.body || '');
   const menit = readingTime(parsedBody);
+
+  // ────────────────────────────────────────────────────────────────
+  // Phase 2 Turn 2: Resolve ad_settings dengan fallback DEFAULT
+  // ────────────────────────────────────────────────────────────────
+  // article.ad_settings = JSONB dari content.articles atau null untuk artikel
+  // existing (pre-Phase 2). resolveAdSettings() handle:
+  //   - null/undefined → DEFAULT (all 3 slot enabled, format=all)
+  //   - Valid JSON → coerce + sanitize
+  //   - Malformed → DEFAULT
+  const adSettings = resolveAdSettings(article.ad_settings);
 
   return (
     <div className="min-h-screen bg-white">
@@ -438,7 +424,6 @@ export default async function ArticlePage({ params }: Props) {
         }
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 
-        /* Scrollbar hide untuk carousel horizontal */
         .scrollbar-hide::-webkit-scrollbar { display: none; }
         .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
       `}</style>
@@ -505,8 +490,15 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
+            {/* Phase 2 Turn 2: BodyWithAds respect ad_settings.body_inject_enabled */}
             {bodyHtml ? (
-              <BodyWithAds html={bodyHtml} adPosition={article.ad_position} adAfterIndex={3} />
+              <BodyWithAds
+                html={bodyHtml}
+                adPosition={article.ad_position}
+                adAfterIndex={3}
+                enabled={adSettings.body_inject_enabled}
+                formatFilter={adSettings.format_filter}
+              />
             ) : (
               <p className="text-gray-400 italic text-sm">Konten artikel belum tersedia.</p>
             )}
@@ -530,7 +522,6 @@ export default async function ArticlePage({ params }: Props) {
               </div>
             )}
 
-            {/* SHARE INLINE — pas di ujung artikel */}
             <div className="mt-8">
               <ShareInline
                 entity_id={article.id}
@@ -541,9 +532,11 @@ export default async function ArticlePage({ params }: Props) {
               />
             </div>
 
-            <InArticleAd />
+            {/* Phase 2 Turn 2: After-article zone respect ad_settings.after_article_enabled */}
+            {adSettings.after_article_enabled && (
+              <AdInArticle formatFilter={adSettings.format_filter} />
+            )}
 
-            {/* CARDS CAROUSEL — 4 cards horizontal */}
             <ServiceCardsCarousel recentReports={recentReports} stats={stats} />
 
             <RelatedArticles articles={relatedArticles} />
@@ -552,7 +545,9 @@ export default async function ArticlePage({ params }: Props) {
               <WANewsletterWidget />
             </div>
 
-            <NativeAd />
+            {adSettings.after_article_enabled && (
+              <AdNativeSlug formatFilter={adSettings.format_filter} />
+            )}
 
             <div className="mt-8 text-center">
               <Link href="/bakabar" className="text-sm text-[#003526] font-semibold hover:underline">
@@ -561,9 +556,12 @@ export default async function ArticlePage({ params }: Props) {
             </div>
           </article>
 
+          {/* Phase 2 Turn 2: Sidebar respect ad_settings.sidebar_enabled */}
           <aside className="hidden lg:block lg:col-span-4">
             <div className="sticky top-[108px] py-6 space-y-5">
-              <AdSidebarSlug />
+              {adSettings.sidebar_enabled && (
+                <AdSidebarSlug formatFilter={adSettings.format_filter} />
+              )}
 
               <div className="bg-[#003526] rounded-2xl p-5">
                 <p className="text-white font-bold mb-1">Ada berita di sekitarmu?</p>
@@ -604,7 +602,9 @@ export default async function ArticlePage({ params }: Props) {
                 </div>
               )}
 
-              <AdSidebarSlug />
+              {adSettings.sidebar_enabled && (
+                <AdSidebarSlug formatFilter={adSettings.format_filter} />
+              )}
             </div>
           </aside>
         </div>

@@ -1,28 +1,31 @@
 'use client';
 
 /**
- * TeraLoka — AdInArticle (v3)
- * Mission 8 Sub-Phase 8-D Batch C3
+ * TeraLoka — AdInArticle (v4)
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2
  * ────────────────────────────────────────────────────────────────
  * In-article ad banner — inject di tengah artikel BAKABAR via BodyWithAds.
  *
- * v3 Changes (16 Mei 2026 Batch C3):
- *   D3 — Region targeting: pass ?region=X dari useRegion() context
- *   - Fetch URL append region param kalau region != null
- *   - Re-fetch saat region berubah (user ganti via picker)
+ * v4 Changes (16 Mei 2026 Phase 2 Turn 2):
+ *   - Accept `formatFilter?` prop dari BodyWithAds (editor OFFICE control)
+ *   - Append ?format=X ke fetch URL kalau filter != 'all'
+ *   - Re-fetch saat formatFilter berubah
  *
- * Endpoint: GET /public/ads?position=in_article&region=X
+ * Endpoint: GET /public/ads?position=in_article&region=X&format=Y
  *
  * History:
  *   - v1 (15 Mei 2026): advertorial branching + image banner static
  *   - v2 (16 Mei 2026 Batch C2): DCA rotation + shared hook + politisi disclaimer
  *   - v3 (16 Mei 2026 Batch C3): region targeting param
+ *   - v4 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
  */
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
+import type { AdFormatFilter } from '@/lib/ad-settings';
+import { buildFormatFilterParam } from '@/lib/ad-settings';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -43,9 +46,17 @@ interface Ad {
   creative_frames?: AdFrame[] | null;
 }
 
-async function fetchActiveAd(position: string, region: string | null): Promise<Ad | null> {
+interface Props {
+  formatFilter?: AdFormatFilter;
+}
+
+async function fetchActiveAd(
+  position: string,
+  region: string | null,
+  formatFilter?: AdFormatFilter,
+): Promise<Ad | null> {
   try {
-    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}`;
+    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
     const res = await fetch(url);
     const data = await res.json();
     if (!data.success) return null;
@@ -74,7 +85,7 @@ function truncate(text: string, max: number): string {
   return text.slice(0, max).replace(/\s+\S*$/, '') + '…';
 }
 
-export default function AdInArticle() {
+export default function AdInArticle({ formatFilter }: Props = {}) {
   const { region } = useRegion();
 
   const [ad,      setAd]      = useState<Ad | null>(null);
@@ -82,11 +93,11 @@ export default function AdInArticle() {
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
 
-  // Re-fetch saat region berubah
+  // Re-fetch saat region atau formatFilter berubah
   useEffect(() => {
     setLoaded(false);
-    fetchActiveAd('in_article', region).then(a => { setAd(a); setLoaded(true); });
-  }, [region]);
+    fetchActiveAd('in_article', region, formatFilter).then(a => { setAd(a); setLoaded(true); });
+  }, [region, formatFilter]);
 
   useEffect(() => {
     if (!refEl) return;
@@ -280,7 +291,6 @@ export default function AdInArticle() {
           Iklan
         </span>
 
-        {/* DCA dots indicator bottom-center */}
         {isDCA && total > 0 && (
           <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
             {Array.from({ length: total }).map((_, i) => (
@@ -296,7 +306,6 @@ export default function AdInArticle() {
           </div>
         )}
 
-        {/* Disclaimer politisi overlay */}
         {ad.disclaimer_text && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-8 z-[5]">
             <p className="text-[10px] text-white/95 italic leading-tight line-clamp-2">
