@@ -1,7 +1,26 @@
 'use client';
 
+/**
+ * TeraLoka — AdInArticle (v2)
+ * Mission 8 Sub-Phase 8-D Batch C2
+ * ------------------------------------------------------------
+ * In-article ad banner — inject di tengah artikel BAKABAR via BodyWithAds.
+ *
+ * v2 Changes (16 Mei 2026):
+ *   D2.A — DCA rotation via shared useAdRotation hook
+ *   D2.B — Dots indicator (bottom-center) untuk DCA frames
+ *   D2.C — Disclaimer politisi overlay di image banner (Pattern AAR)
+ *
+ * Endpoint: GET /public/ads?position=in_article
+ *
+ * History:
+ *   - v1 (15 Mei 2026): advertorial branching + image banner static
+ *   - v2 (16 Mei 2026): DCA rotation + shared hook + politisi disclaimer overlay
+ */
+
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
+import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -18,6 +37,8 @@ interface Ad {
   advertiser_logo_url?: string | null;
   advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
+  // DCA fields (Mission 7)
+  creative_frames?: AdFrame[] | null;
 }
 
 async function fetchActiveAd(position: string): Promise<Ad | null> {
@@ -37,7 +58,6 @@ function trackAdClick(adId: string) {
   fetch(`${API}/public/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
 }
 
-// Label advertiser_type → display friendly
 const ADVERTISER_TYPE_LABEL: Record<string, string> = {
   pemerintah: 'Pemerintah',
   politisi:   'Kampanye Politik',
@@ -45,7 +65,6 @@ const ADVERTISER_TYPE_LABEL: Record<string, string> = {
   umum:       'Konten Mitra',
 };
 
-// Truncate body untuk preview card (tampil di feed)
 function truncate(text: string, max: number): string {
   if (!text) return '';
   if (text.length <= max) return text;
@@ -80,6 +99,10 @@ export default function AdInArticle() {
   const setRef = useCallback((el: HTMLElement | null) => {
     setRefEl(el);
   }, []);
+
+  // DCA rotation (Batch C2)
+  const { active: activeFrame, index: activeIdx, total, isDCA } =
+    useAdRotation(ad?.creative_frames);
 
   const animStyle: React.CSSProperties = {
     opacity:    visible ? 1 : 0,
@@ -135,7 +158,7 @@ export default function AdInArticle() {
     );
   }
 
-  // ═══ TEXT ADVERTORIAL — preview card ═══
+  // ═══ TEXT ADVERTORIAL — preview card (zero DCA, text format) ═══
   if (ad.ad_format === 'text' && ad.slug) {
     const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
     const preview = truncate(ad.body || '', 180);
@@ -190,7 +213,7 @@ export default function AdInArticle() {
               <span className="text-[10px] text-amber-700 italic">Konten Mitra</span>
             </div>
 
-            {/* Disclaimer (politisi) */}
+            {/* Disclaimer (politisi KPU compliance) */}
             {ad.disclaimer_text && (
               <p className="mt-3 pt-3 border-t border-amber-200 text-[10px] text-amber-800 italic leading-relaxed">
                 {ad.disclaimer_text}
@@ -202,7 +225,13 @@ export default function AdInArticle() {
     );
   }
 
-  // ═══ IMAGE BANNER — existing behavior ═══
+  // ═══ IMAGE BANNER (with optional DCA rotation) ═══
+  // D2.A: Kalau ada creative_frames >= 2 → render activeFrame (rotate)
+  // Kalau gak ada → render static image_url + title
+  const displayImage   = activeFrame?.image_url   || ad.image_url;
+  const displayTitle   = activeFrame?.headline    || ad.title;
+  const displayBody    = isDCA ? null /* DCA: hide static body, headline is enough */ : ad.body;
+
   return (
     <>
       <style>{`
@@ -218,14 +247,19 @@ export default function AdInArticle() {
         onClick={() => trackAdClick(ad.id)}
         className="block my-6 rounded-xl overflow-hidden relative hover:opacity-95 transition-opacity border border-gray-200"
         style={animStyle}>
-        {ad.image_url ? (
+        {displayImage ? (
           <>
-            <img src={ad.image_url} alt={ad.title}
-              className="w-full h-auto object-cover" loading="lazy" />
-            {(ad.title || ad.body) && (
+            <img
+              key={displayImage} /* force re-mount on frame change for smooth crossfade */
+              src={displayImage}
+              alt={displayTitle}
+              className="w-full h-auto object-cover transition-opacity duration-500"
+              loading="lazy"
+            />
+            {(displayTitle || displayBody) && (
               <div className="p-4">
-                {ad.title && <p className="text-sm font-bold text-gray-900">{ad.title}</p>}
-                {ad.body  && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{ad.body}</p>}
+                {displayTitle && <p className="text-sm font-bold text-gray-900">{displayTitle}</p>}
+                {displayBody  && <p className="text-xs text-gray-600 mt-1 line-clamp-2">{displayBody}</p>}
               </div>
             )}
           </>
@@ -233,17 +267,44 @@ export default function AdInArticle() {
           <div className="p-6 flex items-center gap-4"
             style={{ background: 'linear-gradient(135deg, #1B6B4A, #0891B2)' }}>
             <div className="flex-1">
-              <p className="text-white font-bold text-base">{ad.title}</p>
-              {ad.body && <p className="text-white/90 text-sm mt-1">{ad.body}</p>}
+              <p className="text-white font-bold text-base">{displayTitle}</p>
+              {displayBody && <p className="text-white/90 text-sm mt-1">{displayBody}</p>}
             </div>
             <span className="shrink-0 text-xs font-bold text-[#1B6B4A] bg-white px-4 py-2 rounded-full">
               Lihat →
             </span>
           </div>
         )}
-        <span className="bk-ad-label-pulse absolute top-2 right-2 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider">
+
+        {/* IKLAN badge (top right, pulsing) */}
+        <span className="bk-ad-label-pulse absolute top-2 right-2 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider z-10">
           Iklan
         </span>
+
+        {/* D2.B: DCA frame indicator (bottom-center, dots) */}
+        {isDCA && total > 0 && (
+          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
+            {Array.from({ length: total }).map((_, i) => (
+              <span
+                key={i}
+                className={`block h-1.5 rounded-full transition-all duration-300 ${
+                  i === activeIdx
+                    ? 'w-4 bg-white shadow-md'
+                    : 'w-1.5 bg-white/50'
+                }`}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* D2.C: Disclaimer politisi overlay (Pattern AAR — image banner) */}
+        {ad.disclaimer_text && (
+          <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-8 z-[5]">
+            <p className="text-[10px] text-white/95 italic leading-tight line-clamp-2">
+              {ad.disclaimer_text}
+            </p>
+          </div>
+        )}
       </a>
     </>
   );
