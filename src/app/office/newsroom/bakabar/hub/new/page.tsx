@@ -1,30 +1,38 @@
 'use client';
 
 import { useState, useRef, useEffect, useContext } from 'react';
+import {
+  Newspaper, Flame, Landmark, DollarSign, Handshake, Ship, Trophy, Stethoscope,
+  GraduationCap, Theater, Cpu, Cloud, MessageCircle, Building2, Mountain,
+  type LucideIcon,
+} from 'lucide-react';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import AdSettingsControl from '@/components/admin/ads/AdSettingsControl';
 import { createClient } from '@/lib/supabase/client';
+import { NEW_ARTICLE_DEFAULT_AD_SETTINGS, type AdSettings } from '@/lib/ad-settings';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 const LOCAL_DRAFT_KEY = 'bakabar_draft_v1';
 const AUTO_SAVE_DELAY = 2000;
 
-const CATEGORIES = [
-  { key: 'berita',       label: 'Berita',       icon: '📰', color: '#1B6B4A' },
-  { key: 'viral',        label: 'Viral',        icon: '🔥', color: '#F97316' },
-  { key: 'politik',      label: 'Politik',      icon: '🏛️', color: '#7C3AED' },
-  { key: 'ekonomi',      label: 'Ekonomi',      icon: '💰', color: '#059669' },
-  { key: 'sosial',       label: 'Sosial',       icon: '🤝', color: '#0891B2' },
-  { key: 'transportasi', label: 'Transportasi', icon: '🚤', color: '#0284C7' },
-  { key: 'olahraga',     label: 'Olahraga',     icon: '⚽', color: '#DC2626' },
-  { key: 'kesehatan',    label: 'Kesehatan',    icon: '🩺', color: '#E11D48' },
-  { key: 'pendidikan',   label: 'Pendidikan',   icon: '🎓', color: '#CA8A04' },
-  { key: 'budaya',       label: 'Budaya',       icon: '🎭', color: '#DB2777' },
-  { key: 'teknologi',    label: 'Teknologi',    icon: '💡', color: '#2563EB' },
-  { key: 'cuaca',        label: 'Cuaca',        icon: '☁️', color: '#0EA5E9' },
-  { key: 'opini',        label: 'Opini',        icon: '💬', color: '#6B7280' },
+// ICON-001: Lucide React replace emoji untuk premium modern look
+const CATEGORIES: { key: string; label: string; Icon: LucideIcon; color: string }[] = [
+  { key: 'berita',       label: 'Berita',       Icon: Newspaper,      color: '#1B6B4A' },
+  { key: 'viral',        label: 'Viral',        Icon: Flame,          color: '#F97316' },
+  { key: 'politik',      label: 'Politik',      Icon: Landmark,       color: '#7C3AED' },
+  { key: 'ekonomi',      label: 'Ekonomi',      Icon: DollarSign,     color: '#059669' },
+  { key: 'sosial',       label: 'Sosial',       Icon: Handshake,      color: '#0891B2' },
+  { key: 'transportasi', label: 'Transportasi', Icon: Ship,           color: '#0284C7' },
+  { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy,         color: '#DC2626' },
+  { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope,    color: '#E11D48' },
+  { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap,  color: '#CA8A04' },
+  { key: 'budaya',       label: 'Budaya',       Icon: Theater,        color: '#DB2777' },
+  { key: 'teknologi',    label: 'Teknologi',    Icon: Cpu,            color: '#2563EB' },
+  { key: 'cuaca',        label: 'Cuaca',        Icon: Cloud,          color: '#0EA5E9' },
+  { key: 'opini',        label: 'Opini',        Icon: MessageCircle,  color: '#6B7280' },
 ];
 
 const PLATFORMS = [
@@ -38,19 +46,19 @@ const PLATFORMS = [
 ];
 
 // Hardcoded UUID dari public.locations di Supabase.
-// Kalau ada daerah baru ditambah di DB, update list ini.
-const LOCATIONS = [
-  { id: 'fa178abc-8b40-4f41-adaf-a08b38bfef2b', name: 'Ternate',            slug: 'ternate', type: 'kota',       icon: '🏙️' },
-  { id: 'ddbdef89-87cd-4f47-a75e-01750a9d50b1', name: 'Tidore Kepulauan',   slug: 'tidore',  type: 'kota',       icon: '🏙️' },
-  { id: '6bed370a-b2c5-43e4-87cd-aba43758871b', name: 'Sofifi',             slug: 'sofifi',  type: 'kota',       icon: '🏙️' },
-  { id: '7f324271-3d2b-4326-b740-adc0bad12383', name: 'Halmahera Utara',    slug: 'halut',   type: 'kabupaten',  icon: '🏝️' },
-  { id: 'd53b8ebe-30b7-4f4c-82e4-0cad8166aa67', name: 'Halmahera Barat',    slug: 'halbar',  type: 'kabupaten',  icon: '🏝️' },
-  { id: '2e095627-da6b-4f87-a094-f19495d20191', name: 'Halmahera Selatan',  slug: 'halsel',  type: 'kabupaten',  icon: '🏝️' },
-  { id: '32dcd330-28d8-453b-808f-144d0f8758f3', name: 'Halmahera Tengah',   slug: 'halteng', type: 'kabupaten',  icon: '🏝️' },
-  { id: '21fd28c8-4552-4b55-8898-acb027512ae4', name: 'Halmahera Timur',    slug: 'haltim',  type: 'kabupaten',  icon: '🏝️' },
-  { id: '65c75f23-a998-424b-a479-e6278b62230b', name: 'Kepulauan Sula',     slug: 'sula',    type: 'kabupaten',  icon: '🏝️' },
-  { id: '45096dd8-0ca1-4f56-9a91-9670ddcf9065', name: 'Pulau Taliabu',      slug: 'taliabu', type: 'kabupaten',  icon: '🏝️' },
-  { id: 'c5d91903-429c-4e15-899a-181514e1057f', name: 'Kepulauan Morotai',  slug: 'morotai', type: 'kabupaten',  icon: '🏝️' },
+// ICON-001: Lucide React replace emoji untuk premium look (Building2=kota, Mountain=kabupaten)
+const LOCATIONS: { id: string; name: string; slug: string; type: 'kota' | 'kabupaten'; Icon: LucideIcon }[] = [
+  { id: 'fa178abc-8b40-4f41-adaf-a08b38bfef2b', name: 'Ternate',            slug: 'ternate', type: 'kota',       Icon: Building2 },
+  { id: 'ddbdef89-87cd-4f47-a75e-01750a9d50b1', name: 'Tidore Kepulauan',   slug: 'tidore',  type: 'kota',       Icon: Building2 },
+  { id: '6bed370a-b2c5-43e4-87cd-aba43758871b', name: 'Sofifi',             slug: 'sofifi',  type: 'kota',       Icon: Building2 },
+  { id: '7f324271-3d2b-4326-b740-adc0bad12383', name: 'Halmahera Utara',    slug: 'halut',   type: 'kabupaten',  Icon: Mountain },
+  { id: 'd53b8ebe-30b7-4f4c-82e4-0cad8166aa67', name: 'Halmahera Barat',    slug: 'halbar',  type: 'kabupaten',  Icon: Mountain },
+  { id: '2e095627-da6b-4f87-a094-f19495d20191', name: 'Halmahera Selatan',  slug: 'halsel',  type: 'kabupaten',  Icon: Mountain },
+  { id: '32dcd330-28d8-453b-808f-144d0f8758f3', name: 'Halmahera Tengah',   slug: 'halteng', type: 'kabupaten',  Icon: Mountain },
+  { id: '21fd28c8-4552-4b55-8898-acb027512ae4', name: 'Halmahera Timur',    slug: 'haltim',  type: 'kabupaten',  Icon: Mountain },
+  { id: '65c75f23-a998-424b-a479-e6278b62230b', name: 'Kepulauan Sula',     slug: 'sula',    type: 'kabupaten',  Icon: Mountain },
+  { id: '45096dd8-0ca1-4f56-9a91-9670ddcf9065', name: 'Pulau Taliabu',      slug: 'taliabu', type: 'kabupaten',  Icon: Mountain },
+  { id: 'c5d91903-429c-4e15-899a-181514e1057f', name: 'Kepulauan Morotai',  slug: 'morotai', type: 'kabupaten',  Icon: Mountain },
 ];
 
 // ──────────────────────────────────────────────────────────────
@@ -73,7 +81,6 @@ function renderMarkdown(text: string): string {
   html = html.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
   html = html.replace(/(?<!\*)\*([^*\n]+?)\*(?!\*)/g, '<em>$1</em>');
 
-  // Image syntax HARUS sebelum link karena ![]() contains []()
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
     const safeAlt = alt || '';
     if (safeAlt.trim()) {
@@ -116,7 +123,6 @@ export default function NewArticlePage() {
     userCard: '#21262D',
   };
 
-  // Derived theme tokens untuk editor-specific styling
   const editorTokens = {
     pageBg:       dark ? '#0D1117' : '#F9FAFB',
     cardBg:       dark ? '#161B22' : '#FFFFFF',
@@ -154,6 +160,8 @@ export default function NewArticlePage() {
   const [isTrending, setIsTrending]         = useState(false);
   const [locationId, setLocationId]         = useState('');
   const [adPosition, setAdPosition]         = useState<number | null>(null);
+  // Phase 2 v3 (Turn 3b): per-article ad settings (preset+count+format)
+  const [adSettings, setAdSettings]         = useState<AdSettings>(NEW_ARTICLE_DEFAULT_AD_SETTINGS);
 
   const [publishNow, setPublishNow]         = useState(false);
   const [loading, setLoading]               = useState(false);
@@ -212,9 +220,6 @@ export default function NewArticlePage() {
     return () => clearInterval(tm);
   }, [lastSaved]);
 
-  // Auto-reset source fields saat kategori BUKAN viral
-  // Termasuk kalau kategori di-un-pick (empty) atau pindah kategori lain
-  // (tapi tidak blocking submit — respect speed-to-publish)
   useEffect(() => {
     if (category !== 'viral') {
       if (sourceUrl)      setSourceUrl('');
@@ -309,7 +314,6 @@ export default function NewArticlePage() {
     setTimeout(() => ta.focus(), 0);
   };
 
-  // Upload foto inline ke Supabase Storage → insert markdown image di cursor
   const insertImageInline = () => {
     setInlineError('');
     const fi = document.createElement('input');
@@ -371,7 +375,7 @@ export default function NewArticlePage() {
     if (meta && e.key === 'i') { e.preventDefault(); wrapSelection('*');  }
   };
 
-  // Submit
+  // Submit — Phase 2 v3 Turn 3b: include ad_settings in payload
   const handleSubmit = async (doPublish = publishNow) => {
     if (!title.trim() || !body.trim()) {
       setError('Judul dan isi artikel wajib diisi.');
@@ -396,6 +400,7 @@ export default function NewArticlePage() {
           is_viral: isTrending,
           location_id: locationId || null,
           ad_position: adPosition,
+          ad_settings: adSettings,
         }),
       });
       const data = await res.json();
@@ -493,6 +498,8 @@ export default function NewArticlePage() {
                   setIsBreaking(false); setIsTrending(false);
                   setLocationId('');
                   setPublishNow(false); setLastSaved(null);
+                  setAdSettings(NEW_ARTICLE_DEFAULT_AD_SETTINGS);
+                  setAdPosition(null);
                 }}
                 style={{
                   flex: 1, borderRadius: 10, padding: '10px', border: `1px solid ${editorTokens.inputBorder}`,
@@ -552,7 +559,7 @@ export default function NewArticlePage() {
     zIndex: 9999, background: editorTokens.pageBg, overflow: 'auto',
   } : {
     background: editorTokens.pageBg,
-    margin: '-20px', // compensate layout padding
+    margin: '-20px',
     minHeight: 'calc(100vh - 56px)',
   };
 
@@ -687,7 +694,7 @@ export default function NewArticlePage() {
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-            {/* Kategori — Opsi A: klik ulang untuk un-pilih (kategori opsional) */}
+            {/* Kategori */}
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
                 Kategori {category && <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>{CATEGORIES.find(c => c.key === category)?.label}</span></span>}
@@ -695,6 +702,7 @@ export default function NewArticlePage() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {CATEGORIES.map(cat => {
                   const active = category === cat.key;
+                  const CatIcon = cat.Icon;
                   return (
                     <button
                       key={cat.key}
@@ -706,9 +714,10 @@ export default function NewArticlePage() {
                         background: active ? cat.color : editorTokens.chipBg,
                         color: active ? '#fff' : editorTokens.chipText,
                         transition: 'all 0.15s',
-                        display: 'flex', alignItems: 'center', gap: 5,
+                        display: 'flex', alignItems: 'center', gap: 6,
                       }}>
-                      <span>{cat.icon}</span> {cat.label}
+                      <CatIcon size={14} strokeWidth={2.2} />
+                      {cat.label}
                     </button>
                   );
                 })}
@@ -718,7 +727,7 @@ export default function NewArticlePage() {
               </p>
             </div>
 
-            {/* Daerah — independen dari kategori, bisa dipilih keduanya */}
+            {/* Daerah */}
             <div>
               <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
                 📍 Daerah {locationId && (
@@ -732,6 +741,7 @@ export default function NewArticlePage() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                 {LOCATIONS.map(loc => {
                   const active = locationId === loc.id;
+                  const LocIcon = loc.Icon;
                   return (
                     <button
                       key={loc.id}
@@ -743,9 +753,10 @@ export default function NewArticlePage() {
                         background: active ? '#0891B2' : editorTokens.chipBg,
                         color: active ? '#fff' : editorTokens.chipText,
                         transition: 'all 0.15s',
-                        display: 'flex', alignItems: 'center', gap: 5,
+                        display: 'flex', alignItems: 'center', gap: 6,
                       }}>
-                      <span>{loc.icon}</span> {loc.name}
+                      <LocIcon size={14} strokeWidth={2.2} />
+                      {loc.name}
                     </button>
                   );
                 })}
@@ -755,7 +766,7 @@ export default function NewArticlePage() {
               </p>
             </div>
 
-            {/* Breaking & Trending — flags editorial, independent dari kategori */}
+            {/* Breaking & Trending */}
             <div style={{
               display: 'flex', flexDirection: 'column', gap: 10,
               padding: 12, borderRadius: 10,
@@ -780,42 +791,18 @@ export default function NewArticlePage() {
               </label>
             </div>
 
-            {/* Iklan dalam artikel — admin override posisi iklan di tengah artikel */}
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 10,
-              padding: 12, borderRadius: 10,
-              background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`,
-            }}>
-              <label style={{ fontSize: 13, color: t.textMuted, fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
-                🎯 <span>Iklan dalam artikel</span>
-              </label>
-              <select
-                value={adPosition === null ? 'auto' : String(adPosition)}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setAdPosition(v === 'auto' ? null : Number(v));
-                }}
-                style={{
-                  padding: '8px 10px', borderRadius: 8,
-                  border: `1px solid ${editorTokens.inputBorder}`,
-                  background: editorTokens.inputBg, color: t.textPrimary,
-                  fontSize: 12, outline: 'none', cursor: 'pointer',
-                  width: '100%', boxSizing: 'border-box',
-                }}>
-                <option value="auto">Auto — setelah paragraf ke-3 (default)</option>
-                <option value="2">Setelah paragraf ke-2</option>
-                <option value="3">Setelah paragraf ke-3</option>
-                <option value="5">Setelah paragraf ke-5</option>
-                <option value="7">Setelah paragraf ke-7</option>
-                <option value="0">Nonaktifkan iklan tengah</option>
-              </select>
-              <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic', lineHeight: 1.5, margin: 0 }}>
-                💡 Untuk artikel panjang (10+ paragraf), posisi 5-7 biasanya lebih efektif
-                karena pembaca sudah engaged. Iklan di ujung artikel tetap muncul terlepas dari pilihan ini.
-              </p>
-            </div>
+            {/* Iklan dalam artikel — Phase 2 v3 γ Hybrid (preset+count+format) */}
+            <AdSettingsControl
+              value={adSettings}
+              onChange={setAdSettings}
+              adPosition={adPosition}
+              onAdPositionChange={setAdPosition}
+              t={t}
+              editorTokens={editorTokens}
+              dark={dark}
+            />
 
-            {/* Viral source — soft hint, TIDAK memblokir submit (speed-to-publish) */}
+            {/* Viral source */}
             {isViral && (
               <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.viralBorder}`, background: editorTokens.viralBg }}>
                 <p style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, marginBottom: 4 }}>
@@ -880,7 +867,7 @@ export default function NewArticlePage() {
               </p>
             </div>
 
-            {/* Cover — ImageUpload pakai tailwind, background card mengikuti */}
+            {/* Cover */}
             <div style={{
               padding: 14, borderRadius: 10,
               background: editorTokens.cardBg,
@@ -893,7 +880,6 @@ export default function NewArticlePage() {
                 existingUrls={coverImageUrl ? [coverImageUrl] : []}
               />
 
-              {/* Caption foto — muncul kalau cover sudah di-upload */}
               {coverImageUrl && (
                 <div style={{ marginTop: 12 }}>
                   <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: t.textDim, marginBottom: 6 }}>
@@ -947,7 +933,6 @@ export default function NewArticlePage() {
                 </button>
               ))}
 
-              {/* Tombol foto inline — terpisah karena butuh loading state */}
               <button
                 onClick={insertImageInline}
                 disabled={uploadingInline}
@@ -1035,16 +1020,20 @@ export default function NewArticlePage() {
               )}
 
               <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginBottom: 10, flexWrap: 'wrap' }}>
-                {categoryMeta && (
-                  <span style={{
-                    padding: '3px 10px', borderRadius: 20,
-                    background: categoryMeta.color, color: '#fff',
-                    fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                  }}>
-                    {categoryMeta.icon} {categoryMeta.label}
-                  </span>
-                )}
+                {categoryMeta && (() => {
+                  const CatIcon = categoryMeta.Icon;
+                  return (
+                    <span style={{
+                      padding: '3px 10px', borderRadius: 20,
+                      background: categoryMeta.color, color: '#fff',
+                      fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}>
+                      <CatIcon size={11} strokeWidth={2.4} />
+                      {categoryMeta.label}
+                    </span>
+                  );
+                })()}
                 {isBreaking && (
                   <span style={{
                     padding: '3px 10px', borderRadius: 20, background: '#EF4444',
@@ -1059,13 +1048,18 @@ export default function NewArticlePage() {
                 )}
                 {locationId && (() => {
                   const loc = LOCATIONS.find(l => l.id === locationId);
-                  return loc ? (
+                  if (!loc) return null;
+                  const LocIcon = loc.Icon;
+                  return (
                     <span style={{
                       padding: '3px 10px', borderRadius: 20, background: '#0891B2',
                       color: '#fff', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em',
-                      display: 'inline-flex', alignItems: 'center', gap: 4,
-                    }}>📍 {loc.name}</span>
-                  ) : null;
+                      display: 'inline-flex', alignItems: 'center', gap: 5,
+                    }}>
+                      <LocIcon size={11} strokeWidth={2.4} />
+                      {loc.name}
+                    </span>
+                  );
                 })()}
                 <span style={{ fontSize: 11, color: t.textDim }}>
                   oleh {user.name || 'Admin'} · {wordCount} kata · ~{readTime} mnt
