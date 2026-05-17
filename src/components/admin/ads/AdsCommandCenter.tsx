@@ -1,30 +1,28 @@
 'use client';
 
 /**
- * TeraLoka — AdsCommandCenter (v9 — Sub-Phase 8-E-6 Mini A+B+C)
+ * TeraLoka — AdsCommandCenter (v10 — Sub-Phase 8-E-6 Mini D)
  * Sub-Phase 8-E-6 final (17 Mei 2026)
  * ------------------------------------------------------------
- * CHANGES Sub-Phase 8-E-6 Mini A+B+C:
- *   - Mini A: ADD display_id?: string | null to AdRow type
- *   - Mini B: Replace handleBulkAction native confirm/prompt with BulkActionModal state
- *   - Mini C: Wire AdPreviewModal state + onPreview handler
+ * CHANGES Mini D (Sampah view toggle):
+ *   - filteredAds useMemo: kalau showDeleted=true → filter HANYA deleted_at !== null
+ *                          kalau showDeleted=false → filter deleted_at === null (default)
+ *   - Tombol Sampah label dynamic dengan count
+ *   - Mode indicator banner saat di Sampah view
  *
- * Modal stack now (3 modals):
- *   1. BulkActionModal — pause/resume/soft_delete confirm (NEW, replace native)
- *   2. AdPreviewModal — Eye icon trigger (NEW)
- *   3. DeleteAdModal + RejectAdModal — single action (existing, untouched)
+ * Pattern industry standard (Gmail Trash, Outlook Deleted Items):
+ *   Mutually exclusive view, bukan "include all".
  *
  * History:
- *   - 17 Mei 2026: v7 Region/Date/Sort + bulk UI prep
- *   - 17 Mei 2026: v8 wire bulk action handler (native confirm)
- *   - 17 Mei 2026: v9 (Mini A+B+C) display_id + BulkActionModal + AdPreviewModal
+ *   - v9 Sub-Phase 8-E-6 Mini A+B+C
+ *   - v10 Sub-Phase 8-E-6 Mini D Sampah view toggle
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  RefreshCw, Trash2, AlertCircle, CheckCircle2, Plus, X, AlarmClock,
+  RefreshCw, Trash2, AlertCircle, CheckCircle2, Plus, X, AlarmClock, ArrowLeft,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -52,7 +50,6 @@ const ACTION_QUEUE_POLL_MS = 60_000;
 
 export type AdRow = {
   id:                  string;
-  /** Sub-Phase 8-E-2: human-readable ID (ADS-2026-NNNN) */
   display_id?:         string | null;
   title:               string | null;
   body:                string | null;
@@ -114,7 +111,6 @@ type ModalState =
   | { kind: 'delete'; ad: AdRow }
   | { kind: 'reject'; ad: AdRow };
 
-// Sub-Phase 8-E-6 Mini B: bulk modal state
 type BulkModalState =
   | { open: false }
   | { open: true; action: BulkActionType; eligibleAds: AdRow[] };
@@ -147,12 +143,8 @@ export default function AdsCommandCenter() {
   const [selectedAdIds, setSelectedAdIds] = useState<Set<string>>(new Set());
 
   const [modal, setModal]                 = useState<ModalState>({ kind: 'none' });
-
-  // Sub-Phase 8-E-6 Mini B: bulk action modal state
-  const [bulkModal, setBulkModal] = useState<BulkModalState>({ open: false });
-
-  // Sub-Phase 8-E-6 Mini C: preview modal state
-  const [previewAdId, setPreviewAdId] = useState<string | null>(null);
+  const [bulkModal, setBulkModal]         = useState<BulkModalState>({ open: false });
+  const [previewAdId, setPreviewAdId]     = useState<string | null>(null);
 
   useEffect(() => {
     if (filterStatus !== 'active' && endingSoonOnly) {
@@ -163,6 +155,16 @@ export default function AdsCommandCenter() {
   useEffect(() => {
     setSelectedAdIds(new Set());
   }, [filterStatus, filterType, filterRegion, dateRange, searchQuery, showDeleted]);
+
+  // ─── Mini D: Auto-reset filters saat masuk Sampah mode ────────
+  // Bahasa: di Sampah view, reset status/region/date filters supaya
+  // semua deleted ads keliatan. User bisa filter manual lagi kalau mau.
+  useEffect(() => {
+    if (showDeleted) {
+      setFilterStatus('all');
+      setEndingSoonOnly(false);
+    }
+  }, [showDeleted]);
 
   const showToast = useCallback((msg: string, type: 'ok' | 'err' = 'ok') => {
     const id = Date.now() + Math.random();
@@ -179,6 +181,7 @@ export default function AdsCommandCenter() {
     try {
       const params = new URLSearchParams();
       params.set('limit', '100');
+      // Always fetch with include_deleted=true — frontend filter handles split
       if (showDeleted) params.set('include_deleted', 'true');
 
       const res = await fetch(`${API}/admin/ads/list?${params.toString()}`, {
@@ -243,6 +246,9 @@ export default function AdsCommandCenter() {
     };
   }, [authLoading, fetchActionQueue]);
 
+  // ═══════════════════════════════════════════════════════════════
+  // Mini D: filteredAds dengan mutually exclusive Sampah view
+  // ═══════════════════════════════════════════════════════════════
   const filteredAds = useMemo(() => {
     const now = Date.now();
     const next24h = now + 24 * 60 * 60 * 1000;
@@ -254,7 +260,19 @@ export default function AdsCommandCenter() {
     const regionMatchValues = regionCfg?.matchValues ?? [];
 
     const filtered = ads.filter((ad) => {
-      if (filterStatus !== 'all' && ad.status !== filterStatus) return false;
+      // ── Mini D: Mutually exclusive Sampah view ──
+      // Bahasa: kalau showDeleted=true → HANYA tampil yang punya deleted_at
+      //         kalau showDeleted=false → exclude yang punya deleted_at
+      const isDeleted = ad.deleted_at !== null;
+      if (showDeleted) {
+        if (!isDeleted) return false;  // Sampah mode: skip non-deleted
+      } else {
+        if (isDeleted) return false;   // Normal mode: skip deleted
+      }
+
+      // Status filter — gak applied di Sampah mode (semua deleted lewat)
+      if (!showDeleted && filterStatus !== 'all' && ad.status !== filterStatus) return false;
+
       if (filterType !== 'all' && ad.advertiser_type !== filterType) return false;
 
       if (filterRegion !== 'all' && regionMatchValues.length > 0) {
@@ -272,7 +290,8 @@ export default function AdsCommandCenter() {
         if (!haystack.includes(q)) return false;
       }
 
-      if (endingSoonOnly) {
+      // Ending soon — gak applied di Sampah mode
+      if (!showDeleted && endingSoonOnly) {
         const endsMs = new Date(ad.ends_at).getTime();
         if (!(endsMs > now && endsMs < next24h)) return false;
       }
@@ -296,11 +315,18 @@ export default function AdsCommandCenter() {
     });
 
     return sorted;
-  }, [ads, filterStatus, filterType, filterRegion, searchQuery, endingSoonOnly, dateRange, sortBy]);
+  }, [ads, filterStatus, filterType, filterRegion, searchQuery, endingSoonOnly, dateRange, sortBy, showDeleted]);
 
+  // ─── Mini D: deleted count untuk badge tombol ─────────────────
+  const deletedCount = useMemo(() => {
+    return ads.filter((a) => a.deleted_at !== null).length;
+  }, [ads]);
+
+  // ─── Status counts — exclude deleted ads untuk counts pills ──
   const statusCounts = useMemo(() => {
-    const counts: Partial<Record<AdStatusFilter, number>> = { all: ads.length };
-    ads.forEach((ad) => {
+    const activeAds = ads.filter((a) => a.deleted_at === null);
+    const counts: Partial<Record<AdStatusFilter, number>> = { all: activeAds.length };
+    activeAds.forEach((ad) => {
       const key = ad.status as AdStatusFilter;
       counts[key] = (counts[key] ?? 0) + 1;
     });
@@ -308,15 +334,19 @@ export default function AdsCommandCenter() {
   }, [ads]);
 
   const typeCounts = useMemo(() => {
-    const counts: Partial<Record<AdvertiserTypeFilter, number>> = { all: ads.length };
-    ads.forEach((ad) => {
+    const activeAds = ads.filter((a) => a.deleted_at === null);
+    const counts: Partial<Record<AdvertiserTypeFilter, number>> = { all: activeAds.length };
+    activeAds.forEach((ad) => {
       const key = ad.advertiser_type as AdvertiserTypeFilter;
       counts[key] = (counts[key] ?? 0) + 1;
     });
     return counts;
   }, [ads]);
 
+  // ═══════════════════════════════════════════════════════════════
   // Click handlers
+  // ═══════════════════════════════════════════════════════════════
+
   const scrollToTable = useCallback(() => {
     document.getElementById('ads-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
@@ -326,6 +356,9 @@ export default function AdsCommandCenter() {
   }, []);
 
   const handleStatsCardClick = useCallback((id: string) => {
+    // Mini D: kalau di Sampah mode, exit dulu sebelum apply filter normal
+    if (showDeleted) setShowDeleted(false);
+
     switch (id) {
       case 'slot':    scrollToSlotInventory(); break;
       case 'active':  setFilterStatus('active'); setEndingSoonOnly(false); scrollToTable(); break;
@@ -333,9 +366,12 @@ export default function AdsCommandCenter() {
       case 'ending':  setFilterStatus('active'); setEndingSoonOnly(true); scrollToTable(); break;
       case 'revenue': router.push('/admin/financial'); break;
     }
-  }, [router, scrollToTable, scrollToSlotInventory]);
+  }, [router, scrollToTable, scrollToSlotInventory, showDeleted]);
 
   const handleActionQueueClick = useCallback((kind: ActionQueueKind) => {
+    // Mini D: exit Sampah mode untuk action queue navigation
+    if (showDeleted) setShowDeleted(false);
+
     switch (kind) {
       case 'pending_review':  setFilterStatus('pending_review' as AdStatusFilter); setEndingSoonOnly(false); scrollToTable(); break;
       case 'expire_soon':     setFilterStatus('active'); setEndingSoonOnly(true); scrollToTable(); break;
@@ -346,13 +382,14 @@ export default function AdsCommandCenter() {
         break;
       case 'slot_empty': scrollToSlotInventory(); break;
     }
-  }, [scrollToTable, scrollToSlotInventory, showToast]);
+  }, [scrollToTable, scrollToSlotInventory, showToast, showDeleted]);
 
   const handlePipelineStageClick = useCallback((status: string) => {
+    if (showDeleted) setShowDeleted(false);
     setFilterStatus(status as AdStatusFilter);
     setEndingSoonOnly(false);
     scrollToTable();
-  }, [scrollToTable]);
+  }, [scrollToTable, showDeleted]);
 
   const handlePositionClick = useCallback((positionKey: string) => {
     showToast(`Filter posisi "${positionKey}" — coming Phase 2`, 'ok');
@@ -363,7 +400,7 @@ export default function AdsCommandCenter() {
   }, [fetchAds, fetchActionQueue]);
 
   // ═══════════════════════════════════════════════════════════════
-  // Sub-Phase 8-E-6 Mini B: Bulk Action — open modal (replace native)
+  // Bulk action handlers
   // ═══════════════════════════════════════════════════════════════
 
   const handleBulkActionRequest = useCallback((action: BulkActionType, adIds: string[]) => {
@@ -429,15 +466,11 @@ export default function AdsCommandCenter() {
     await refreshAll();
   }, [token, showToast, refreshAll]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // Sub-Phase 8-E-6 Mini C: Preview handler
-  // ═══════════════════════════════════════════════════════════════
-
   const handlePreview = useCallback((ad: AdRow) => {
     setPreviewAdId(ad.id);
   }, []);
 
-  // ─── Single action handlers (unchanged) ───────────────────────
+  // ─── Single action handlers ──────────────────────────────────
 
   const handleStatusTransition = async (adId: string, to: string) => {
     try {
@@ -575,26 +608,36 @@ export default function AdsCommandCenter() {
         </div>
       )}
 
+      {/* ── Header ── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h2 className="text-lg font-extrabold text-text tracking-tight">ADS Command Center</h2>
-          <p className="text-[12px] text-text-muted mt-0.5">Kelola semua iklan TeraLoka dalam satu layar</p>
+          <h2 className="text-lg font-extrabold text-text tracking-tight">
+            {showDeleted ? 'Sampah Iklan' : 'ADS Command Center'}
+          </h2>
+          <p className="text-[12px] text-text-muted mt-0.5">
+            {showDeleted
+              ? `${deletedCount} iklan di Sampah. Bisa di-restore selama 30 hari sebelum permanent delete.`
+              : 'Kelola semua iklan TeraLoka dalam satu layar'}
+          </p>
         </div>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/admin/ads/new"
-            className={cn(
-              'inline-flex items-center gap-2 px-4 py-1.5 rounded-md',
-              'bg-ads text-white text-[11px] font-bold uppercase tracking-wide',
-              'hover:bg-ads-strong transition-colors shadow-sm'
-            )}
-            title="Onboard advertiser baru via form"
-          >
-            <Plus size={12} />
-            Tambah Iklan
-          </Link>
+          {!showDeleted && (
+            <Link
+              href="/admin/ads/new"
+              className={cn(
+                'inline-flex items-center gap-2 px-4 py-1.5 rounded-md',
+                'bg-ads text-white text-[11px] font-bold uppercase tracking-wide',
+                'hover:bg-ads-strong transition-colors shadow-sm'
+              )}
+              title="Onboard advertiser baru via form"
+            >
+              <Plus size={12} />
+              Tambah Iklan
+            </Link>
+          )}
 
+          {/* Mini D: Sampah toggle dengan dynamic label + count */}
           <button
             type="button"
             onClick={() => setShowDeleted((v) => !v)}
@@ -602,13 +645,29 @@ export default function AdsCommandCenter() {
               'inline-flex items-center gap-2 px-3 py-1.5 rounded-md',
               'text-[11px] font-bold uppercase tracking-wide transition-colors',
               showDeleted
-                ? 'bg-balapor/12 text-balapor border border-balapor/30'
-                : 'bg-surface border border-border text-text-muted hover:text-text'
+                ? 'bg-ads text-white hover:bg-ads-strong'
+                : deletedCount > 0
+                  ? 'bg-balapor/12 text-balapor border border-balapor/30 hover:bg-balapor/20'
+                  : 'bg-surface border border-border text-text-muted hover:text-text'
             )}
-            title={showDeleted ? 'Sembunyikan Sampah' : 'Tampilkan Sampah'}
+            title={showDeleted ? 'Kembali ke iklan aktif' : 'Buka folder Sampah'}
           >
-            <Trash2 size={12} />
-            Sampah
+            {showDeleted ? (
+              <>
+                <ArrowLeft size={12} />
+                Kembali
+              </>
+            ) : (
+              <>
+                <Trash2 size={12} />
+                Sampah
+                {deletedCount > 0 && (
+                  <span className="ml-0.5 px-1.5 py-0.5 rounded-full bg-balapor/20 text-balapor tabular-nums">
+                    {deletedCount}
+                  </span>
+                )}
+              </>
+            )}
           </button>
 
           <button
@@ -628,22 +687,52 @@ export default function AdsCommandCenter() {
         </div>
       </div>
 
-      <AdsStatsCards
-        ads={ads}
-        total={total}
-        loading={loading && ads.length === 0}
-        onCardClick={handleStatsCardClick}
-      />
+      {/* ── Mini D: Sampah mode banner ── */}
+      {showDeleted && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-lg bg-balapor/8 border border-balapor/30">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-balapor/15 text-balapor shrink-0">
+            <Trash2 size={14} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-[12px] font-bold text-balapor">
+              Anda sedang melihat folder Sampah
+            </p>
+            <p className="text-[11px] text-text-muted mt-0.5">
+              Iklan di Sampah otomatis di-permanent delete setelah 30 hari. Klik "Restore" untuk pulihkan ke status sebelumnya.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setShowDeleted(false)}
+            className="shrink-0 px-3 py-1.5 rounded-md bg-balapor text-white text-[10px] font-bold uppercase tracking-wide hover:bg-balapor/90 transition-colors"
+          >
+            Kembali
+          </button>
+        </div>
+      )}
 
-      <AdsBottomPanels
-        ads={ads}
-        actionQueueData={actionQueue}
-        actionQueueLoading={actionQueueLoading}
-        onPositionClick={handlePositionClick}
-        onStageClick={handlePipelineStageClick}
-        onActionQueueClick={handleActionQueueClick}
-      />
+      {/* ── Stats Cards + Bottom Panels — hide di Sampah mode ── */}
+      {!showDeleted && (
+        <>
+          <AdsStatsCards
+            ads={ads.filter((a) => a.deleted_at === null)}
+            total={total}
+            loading={loading && ads.length === 0}
+            onCardClick={handleStatsCardClick}
+          />
 
+          <AdsBottomPanels
+            ads={ads.filter((a) => a.deleted_at === null)}
+            actionQueueData={actionQueue}
+            actionQueueLoading={actionQueueLoading}
+            onPositionClick={handlePositionClick}
+            onStageClick={handlePipelineStageClick}
+            onActionQueueClick={handleActionQueueClick}
+          />
+        </>
+      )}
+
+      {/* ── Filter — selalu visible (juga di Sampah mode untuk search) ── */}
       <AdsSmartFilter
         status={filterStatus}
         advertiserType={filterType}
@@ -661,7 +750,7 @@ export default function AdsCommandCenter() {
         typeCounts={typeCounts}
       />
 
-      {endingSoonOnly && (
+      {endingSoonOnly && !showDeleted && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-status-warning/8 border border-status-warning/30">
           <AlarmClock className="text-status-warning shrink-0" size={14} />
           <span className="text-[12px] font-semibold text-status-warning flex-1">
@@ -693,7 +782,6 @@ export default function AdsCommandCenter() {
         />
       </div>
 
-      {/* Sub-Phase 8-E-6 Mini B: BulkActionModal */}
       <BulkActionModal
         action={bulkModal.open ? bulkModal.action : null}
         ads={bulkModal.open ? bulkModal.eligibleAds : []}
@@ -701,13 +789,11 @@ export default function AdsCommandCenter() {
         onClose={() => setBulkModal({ open: false })}
       />
 
-      {/* Sub-Phase 8-E-6 Mini C: AdPreviewModal */}
       <AdPreviewModal
         adId={previewAdId}
         onClose={() => setPreviewAdId(null)}
       />
 
-      {/* Existing single action modals */}
       <DeleteAdModal
         ad={modal.kind === 'delete' ? modal.ad : null}
         onConfirm={handleSoftDeleteConfirm}
