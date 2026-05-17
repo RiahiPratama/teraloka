@@ -2,37 +2,35 @@
 
 /**
  * TeraLoka — Admin Financial Dashboard
- * Sub-Phase 8-E Sesi 3 (18 Mei 2026)
+ * Sub-Phase 8-E Sesi 5 Polish (18 Mei 2026)
  * ────────────────────────────────────────────────────────────────
- * Architecture: 3-Tab structure (Overview + PT + Yayasan) — ALL LIVE
- *   - Overview: Combined view + comparison chart
- *   - PT TeraLoka: Honest Phase 1 (semua Rp 0 + "Coming Phase 2" badges)
- *   - Yayasan TeraLoka: Badonasi fee real data + transaction filter fee_remitted
- *
- * Data Layer:
- *   - GET /money/revenue/by-entity?period=30d  → dual-entity aggregate
- *   - GET /money/revenue/timeseries?period=7d  → chart data combined
- *   - GET /money/admin/events?limit=10         → recent activity feed (Overview)
- *   - GET /money/admin/events?event_type=donation.fee_remitted → Tab Yayasan filter
- *   - POST /admin/ads/revenue (LEGACY KEEP)    → manual entry (form sidebar)
+ * CHANGES Sesi 5 Polish:
+ *   - SourceCard component extended dengan onClick + hover state
+ *   - Tab PT card "Ads (Iklan)" → wired navigate ke /admin/ads
+ *   - Tab PT cards Bakos + BAPASIAR → tetap static (page belum ada)
+ *   - Tab Yayasan cards → semua static (admin page belum ada, defer Phase 2)
+ *   - Cursor pointer + hover effect HANYA untuk clickable cards
  *
  * Pattern Compliance:
- *   - Pattern AAY: Dual-entity derive di backend, frontend consume aggregate
- *   - Pattern AAZ: Honest empty state, NO fake data
- *   - Pattern T:   Zero mock data (no Math.random, no hardcoded percentages)
- *   - Pattern AAP: DEFER refactor inline styles → Tailwind v4 (Sub-Phase 8-F)
+ *   - Pattern AAZ: Static card kalau gak ada destination (honest)
+ *   - Pattern T  : Interactive feedback hanya saat real navigation exist
  *
- * Sesi 3 Decisions Locked:
- *   - Tab PT: Honest Phase 1 — semua Rp 0 + "Coming Phase 2" badge
- *   - Tab Yayasan: Filter event_type=donation.fee_remitted only (revenue-impact)
+ * Architecture: 3-Tab structure ALL LIVE
+ *   - Overview: Combined view + comparison chart
+ *   - PT TeraLoka: Honest Phase 1 + 1 card interactive (Ads → /admin/ads)
+ *   - Yayasan TeraLoka: Honest Phase 1 + all static (admin page defer)
  *
- * Backend Dependencies:
- *   - Money Domain Phase 1 LIVE (commit c94a287)
- *   - Sub-Phase 8-E Sesi 1 endpoints (by-entity + timeseries + admin/events)
+ * Data Layer:
+ *   - GET /money/revenue/by-entity?period=30d
+ *   - GET /money/revenue/timeseries?period=7d
+ *   - GET /money/admin/events?limit=10
+ *   - GET /money/admin/events?event_type=donation.fee_remitted
+ *   - POST /admin/ads/revenue (LEGACY KEEP)
  * ────────────────────────────────────────────────────────────────
  */
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import {
@@ -58,7 +56,7 @@ interface RevenueByEntityData {
 }
 
 interface TimeseriesPoint {
-  date:         string; // YYYY-MM-DD
+  date:         string;
   total:        number;
   pt_digital:   number;
   yayasan:      number;
@@ -98,6 +96,7 @@ const SOURCE_CONFIG: Record<string, { label: string; icon: string; color: string
 export default function AdminFinancialPage() {
   const { token } = useAuth();
   const { t }     = useAdminTheme();
+  const router    = useRouter();
 
   // Tab state
   const [tab, setTab] = useState<Tab>('overview');
@@ -178,12 +177,6 @@ export default function AdminFinancialPage() {
     total:   p.total,
     pt:      p.pt_digital,
     yayasan: p.yayasan,
-  }));
-
-  const chartDataPT = timeseries.map(p => ({
-    date:  new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
-    ads:   p.ads,
-    total: p.pt_digital,
   }));
 
   const chartDataYayasan = timeseries.map(p => ({
@@ -281,9 +274,9 @@ export default function AdminFinancialPage() {
           {tab === 'pt' && (
             <PTTab
               t={t}
+              router={router}
               total={ptTotal}
               sources={byEntity?.pt_digital?.sources}
-              chartData={chartDataPT}
             />
           )}
 
@@ -314,7 +307,7 @@ export default function AdminFinancialPage() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB 1 — OVERVIEW (LIVE Sesi 2)
+// TAB 1 — OVERVIEW
 // ═══════════════════════════════════════════════════════════════
 
 function OverviewTab({
@@ -387,7 +380,7 @@ function OverviewTab({
         </div>
       </div>
 
-      {/* Comparison Chart (PT vs Yayasan) */}
+      {/* Comparison Chart */}
       <div style={{
         background: t.card, border: `1px solid ${t.cardBorder}`,
         borderRadius: 14, padding: '18px 22px', marginBottom: 20,
@@ -511,11 +504,11 @@ function OverviewTab({
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB 2 — PT TERALOKA (LIVE Sesi 3)
-// Honest Phase 1: semua Rp 0 + "Coming Phase 2" badges
+// TAB 2 — PT TERALOKA
+// Honest Phase 1: semua Rp 0 + 1 card interactive (Ads → /admin/ads)
 // ═══════════════════════════════════════════════════════════════
 
-function PTTab({ t, total, sources, chartData }: any) {
+function PTTab({ t, router, total, sources }: any) {
   const ads        = sources?.ads        ?? 0;
   const bakos      = sources?.bakos      ?? 0;
   const commission = sources?.commission ?? 0;
@@ -555,6 +548,7 @@ function PTTab({ t, total, sources, chartData }: any) {
         display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 12, marginBottom: 20,
       }}>
+        {/* Ads — CLICKABLE → /admin/ads */}
         <SourceCard
           t={t}
           icon="📢"
@@ -563,7 +557,10 @@ function PTTab({ t, total, sources, chartData }: any) {
           color="#1B6B4A"
           badge="Coming Phase 2"
           note="Auto-track saat ad.paid emit live"
+          onClick={() => router.push('/admin/ads')}
+          actionHint="Lihat dashboard Ads →"
         />
+        {/* Bakos — static */}
         <SourceCard
           t={t}
           icon="🏠"
@@ -573,6 +570,7 @@ function PTTab({ t, total, sources, chartData }: any) {
           badge="Coming Phase 2"
           note="Auto-track saat Bakos emit live"
         />
+        {/* BAPASIAR — static */}
         <SourceCard
           t={t}
           icon="🚢"
@@ -640,8 +638,8 @@ function PTTab({ t, total, sources, chartData }: any) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB 3 — YAYASAN TERALOKA (LIVE Sesi 3)
-// Filter event_type=donation.fee_remitted only (revenue-impact)
+// TAB 3 — YAYASAN TERALOKA
+// Honest Phase 1: semua static (admin BADONASI page defer)
 // ═══════════════════════════════════════════════════════════════
 
 function YayasanTab({ t, total, sources, chartData, events }: any) {
@@ -701,7 +699,7 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
         </p>
       </div>
 
-      {/* 3 Sub-Source Cards */}
+      {/* 3 Sub-Source Cards (all static Phase 1) */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
         gap: 12, marginBottom: 20,
@@ -735,7 +733,7 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
         />
       </div>
 
-      {/* Mini Tren Chart (Yayasan only) */}
+      {/* Mini Tren Chart Yayasan */}
       <div style={{
         background: t.card, border: `1px solid ${t.cardBorder}`,
         borderRadius: 14, padding: '18px 22px', marginBottom: 20,
@@ -790,7 +788,7 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
         )}
       </div>
 
-      {/* Recent Fee Remittance Transactions (Filter: donation.fee_remitted only) */}
+      {/* Recent Fee Remittance Transactions */}
       <div style={{
         background: t.card, border: `1px solid ${t.cardBorder}`,
         borderRadius: 14, overflow: 'hidden',
@@ -819,7 +817,7 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
             <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada fee setor</p>
             <p style={{ margin: 0, fontSize: 11, color: t.textDim, maxWidth: 420, marginInline: 'auto', lineHeight: 1.5 }}>
               Transaksi muncul setelah admin verify fee_remittance dari partner Penggalang
-              (donasi yang lewat ke Penggalang TIDAK tampil di sini — itu pass-through, bukan revenue Yayasan)
+              (donasi pass-through TIDAK tampil — bukan revenue Yayasan)
             </p>
           </div>
         ) : events.map((ev: FinancialEvent, i: number) => {
@@ -840,16 +838,49 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
 // REUSABLE COMPONENTS
 // ═══════════════════════════════════════════════════════════════
 
-function SourceCard({ t, icon, label, value, color, badge, note, active }: any) {
-  const disabled = Boolean(badge); // kalau ada badge "Coming Phase 2", anggap disabled
+/**
+ * SourceCard — Display data per source dengan optional click behavior.
+ *
+ * Props:
+ *   - onClick: Optional. Saat ada → card clickable + cursor pointer + hover state
+ *   - actionHint: Optional. Display hint text di bottom (only saat clickable)
+ *   - badge: Kalau ada "Coming Phase 2", card otomatis disabled (opacity 0.65)
+ *   - active: Kalau true, border highlight + "Active" pill (only saat NO badge)
+ *
+ * Sesi 5 Polish:
+ *   - Cursor pointer + hover effect HANYA aktif kalau onClick provided AND no badge
+ *   - Click bisa navigate ke URL lain (cross-page) atau trigger handler lain
+ */
+function SourceCard({
+  t, icon, label, value, color, badge, note, active, onClick, actionHint,
+}: any) {
+  const disabled    = Boolean(badge);
+  const isClickable = Boolean(onClick) && !disabled;
+
+  const [isHovered, setIsHovered] = useState(false);
+
   return (
-    <div style={{
-      background: t.card,
-      border: `1px solid ${active ? `${color}55` : t.cardBorder}`,
-      borderRadius: 12, padding: '14px 16px',
-      opacity: disabled ? 0.65 : 1,
-      transition: 'all 0.2s',
-    }}>
+    <div
+      onClick={isClickable ? onClick : undefined}
+      onMouseEnter={() => isClickable && setIsHovered(true)}
+      onMouseLeave={() => isClickable && setIsHovered(false)}
+      title={isClickable && actionHint ? actionHint : undefined}
+      style={{
+        background:   t.card,
+        border:       `1px solid ${
+          isClickable && isHovered ? `${color}88` :
+          active                   ? `${color}55` :
+                                     t.cardBorder
+        }`,
+        borderRadius: 12,
+        padding:      '14px 16px',
+        opacity:      disabled ? 0.65 : 1,
+        cursor:       isClickable ? 'pointer' : 'default',
+        transform:    isClickable && isHovered ? 'translateY(-1px)' : 'translateY(0)',
+        boxShadow:    isClickable && isHovered ? `0 4px 12px ${color}22` : 'none',
+        transition:   'all 0.2s ease',
+      }}
+    >
       <div style={{
         display: 'flex', alignItems: 'flex-start',
         justifyContent: 'space-between', marginBottom: 8,
@@ -886,6 +917,18 @@ function SourceCard({ t, icon, label, value, color, badge, note, active }: any) 
           fontStyle: disabled ? 'italic' : 'normal', lineHeight: 1.4,
         }}>
           {note}
+        </p>
+      )}
+      {/* Action hint (only show kalau clickable + hover) */}
+      {isClickable && actionHint && (
+        <p style={{
+          margin: '8px 0 0',
+          fontSize: 10,
+          fontWeight: 600,
+          color: isHovered ? color : t.textDim,
+          transition: 'color 0.2s',
+        }}>
+          {actionHint}
         </p>
       )}
     </div>
