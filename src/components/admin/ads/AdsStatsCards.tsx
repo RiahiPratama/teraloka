@@ -2,28 +2,27 @@
 
 /**
  * TeraLoka — AdsStatsCards
- * Mission 8 Sub-Phase 8-C-1 (v2)
+ * Sub-Phase 8-E Sesi 4 (18 Mei 2026)
  * ------------------------------------------------------------
- * Stats row untuk Ads Command Center — 5 metric cards.
- * Pattern mirror dari ReportStats (BALAPOR) untuk consistency.
+ * CHANGE Sesi 4:
+ *   - REMOVED Card #5 "Total Reach Lifetime" (vanity metric, Pattern T)
+ *   - ADDED   Card #5 "Revenue Bulan Ini" (Phase 2 placeholder)
  *
- * Metrics:
- * - Slot Terisi    → unique positions yg punya minimal 1 active ad (X/13)
- * - Ads Aktif      → count status=active (not deleted)
- * - Pending Review → count status=pending_review
- * - Akan Berakhir  → count ends_at < 24h (active only)
- * - Total Reach    → sum impression_count lifetime
+ * Card behavior:
+ *   - 'slot'     → click scroll ke panel Slot Inventory
+ *   - 'active'   → click filter status='active' + scroll table
+ *   - 'pending'  → click filter status='pending_review' + scroll table
+ *   - 'ending'   → click filter status='active' + endingSoonOnly + scroll table
+ *   - 'revenue'  → click navigate ke /admin/financial
  *
- * Design mirror BALAPOR ReportStats:
- *   - bg-surface + border-border + rounded-xl
- *   - Icon bubble 40×40 dengan bg-{service}/12 text-{service}
- *   - Value: 2xl font-extrabold tabular-nums
- *   - Sub: 11px text-text-muted
- *   - Service identity color: --color-ads (yellow #EAB308)
- *   - Per-metric icon color preserved untuk fast scan
+ * Pattern Compliance:
+ *   - Pattern T  : NO vanity lifetime impressions
+ *   - Pattern AAZ: Honest empty state (Revenue Rp 0 + "Coming Phase 2" badge)
+ *   - Pattern AAY: Cross-page navigation ke /admin/financial untuk drill-down
  *
  * History:
- *   - 16 Mei 2026: NEW v2 (mirror BALAPOR pattern)
+ *   - 16 Mei 2026: v2 mirror BALAPOR ReportStats pattern
+ *   - 18 Mei 2026: Sesi 4 — KILL vanity Total Reach + ADD Revenue placeholder
  */
 
 import type { ReactNode } from 'react';
@@ -32,7 +31,7 @@ import {
   Megaphone,
   Hourglass,
   AlarmClock,
-  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
@@ -42,7 +41,7 @@ const TOTAL_POSITIONS = 13; // dari VALID_POSITIONS Mission 7-B
 export interface AdsStatsCardsProps {
   ads: AdRow[];
   total: number;
-  /** Optional — click handler per card. id: slot/active/pending/ending/reach */
+  /** Optional — click handler per card. id: slot/active/pending/ending/revenue */
   onCardClick?: (id: string) => void;
   loading?: boolean;
   className?: string;
@@ -52,13 +51,10 @@ interface StatDef {
   id: string;
   icon: ReactNode;
   label: string;
-  value: string; // string supaya bisa "12/13", "3.7K"
+  value: string;
   sub: string;
-  /** Tailwind classes untuk icon bubble */
   iconBg: string;
-  /** Tailwind class untuk value color */
   valueColor: string;
-  /** Optional alert indicator di sub */
   alert?: boolean;
 }
 
@@ -90,12 +86,6 @@ export default function AdsStatsCards({
     const endsMs = new Date(a.ends_at).getTime();
     return endsMs > now && endsMs < next24h;
   }).length;
-
-  // Total reach lifetime
-  const totalReach = ads.reduce(
-    (sum, a) => sum + (a.impression_count ?? 0),
-    0
-  );
 
   const items: StatDef[] = [
     {
@@ -142,14 +132,15 @@ export default function AdsStatsCards({
       valueColor: endingSoon > 0 ? 'text-status-warning' : 'text-text',
       alert: endingSoon > 0,
     },
+    // ─── Sesi 4: KILLED 'reach' (vanity), REPLACED dengan 'revenue' ──
     {
-      id: 'reach',
-      icon: <TrendingUp size={18} />,
-      label: 'Total Reach',
-      value: formatReach(totalReach),
-      sub: 'Lifetime impressions',
-      iconBg: 'bg-analytics/12 text-analytics',
-      valueColor: 'text-analytics',
+      id: 'revenue',
+      icon: <Wallet size={18} />,
+      label: 'Revenue Bulan Ini',
+      value: 'Rp 0',
+      sub: '⚠ Coming Money Phase 2',
+      iconBg: 'bg-status-healthy/12 text-status-healthy',
+      valueColor: 'text-text-muted',
     },
   ];
 
@@ -177,7 +168,13 @@ export default function AdsStatsCards({
                 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ads/30',
               ]
             )}
-            title={isClickable ? `Filter ke ${s.label}` : undefined}
+            title={
+              isClickable
+                ? s.id === 'revenue'
+                  ? 'Buka Financial Dashboard'
+                  : `Filter ke ${s.label}`
+                : undefined
+            }
           >
             <div
               className={cn(
@@ -221,12 +218,4 @@ export default function AdsStatsCards({
       })}
     </div>
   );
-}
-
-// ─── Helpers ─────────────────────────────────────────────────────
-
-function formatReach(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }

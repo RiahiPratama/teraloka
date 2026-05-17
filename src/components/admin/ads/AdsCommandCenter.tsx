@@ -1,33 +1,56 @@
 'use client';
 
 /**
- * TeraLoka — AdsCommandCenter (v4)
- * Mission 8 Sub-Phase 8-C-2 + 8-B β.2 (Group 3)
+ * TeraLoka — AdsCommandCenter (v5)
+ * Sub-Phase 8-E Sesi 4 (18 Mei 2026)
  * ------------------------------------------------------------
- * Integration v3 + Tombol "+ Tambah Iklan" header.
+ * CHANGES Sesi 4:
+ *   - Wire onCardClick di AdsStatsCards (5 card → filter/scroll/navigate)
+ *   - Wire onActionQueueClick di AdsBottomPanels (3 kategori)
+ *   - Wire onStageClick di AdsBottomPanels (5 pipeline stage → filter)
+ *   - ADD endingSoonOnly state (client-side filter <24h)
+ *   - ADD scroll target IDs: ads-table-section, slot-inventory-panel
+ *   - ADD useRouter untuk navigate ke /admin/financial
  *
- * v4 Changes:
- *   - Tambah Link button "+ Tambah Iklan" di header (route /admin/ads/new)
- *   - Plus icon dari lucide-react
- *   - Next.js Link untuk native navigation (no full reload)
- *   - All other logic IDENTIK dengan v3 (zero regression)
+ * Card click mapping:
+ *   - 'slot'     → scroll ke Panel Slot Inventory
+ *   - 'active'   → setFilterStatus('active') + scroll table
+ *   - 'pending'  → setFilterStatus('pending_review') + scroll table
+ *   - 'ending'   → setFilterStatus('active') + endingSoonOnly + scroll table
+ *   - 'revenue'  → router.push('/admin/financial')
  *
- * Auth + toast + filter + handlers + modals tetap sama dengan v3.
+ * Action Queue click mapping:
+ *   - 'pending'      → same dengan card 'pending'
+ *   - 'ending'       → same dengan card 'ending'
+ *   - 'slot_kosong'  → scroll ke Slot Inventory (no filter)
+ *
+ * Pipeline Stage click → setFilterStatus(stage.key) + scroll table
+ *
+ * Pattern Compliance:
+ *   - Pattern AAY: Dual-entity awareness (revenue → financial dashboard)
+ *   - Pattern AAZ: Filter clarity (endingSoonOnly auto-reset saat status berubah)
  *
  * History:
- *   - 16 Mei 2026 09:30: v1
- *   - 16 Mei 2026 10:00: v2 (useAuth, Tailwind utility, design tokens)
- *   - 16 Mei 2026 10:30: v3 (SmartFilter + Modals integration)
- *   - 16 Mei 2026 14:00: v4 (+Tambah Iklan button — Sub-Phase 8-B β.2)
+ *   - 16 Mei 2026: v1-v4 (Mission 8 progression)
+ *   - 18 Mei 2026: Sesi 4 v5 — Wire click handlers + endingSoonOnly filter
  */
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { RefreshCw, Trash2, AlertCircle, CheckCircle2, Plus } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import {
+  RefreshCw,
+  Trash2,
+  AlertCircle,
+  CheckCircle2,
+  Plus,
+  X,
+  AlarmClock,
+} from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import AdsStatsCards from './AdsStatsCards';
-import AdsBottomPanels from './AdsBottomPanels';
+import AdsBottomPanels, { type ActionQueueKind } from './AdsBottomPanels';
 import AdsTable from './AdsTable';
 import AdsSmartFilter, {
   type AdStatusFilter,
@@ -93,6 +116,7 @@ type ModalState =
 
 export default function AdsCommandCenter() {
   const { token, isLoading: authLoading } = useAuth();
+  const router = useRouter();
 
   // Data state
   const [ads, setAds]                 = useState<AdRow[]>([]);
@@ -103,12 +127,23 @@ export default function AdsCommandCenter() {
   const [toasts, setToasts]           = useState<Toast[]>([]);
 
   // Filter state
-  const [filterStatus, setFilterStatus]       = useState<AdStatusFilter>('all');
-  const [filterType, setFilterType]           = useState<AdvertiserTypeFilter>('all');
-  const [searchQuery, setSearchQuery]         = useState('');
+  const [filterStatus, setFilterStatus] = useState<AdStatusFilter>('all');
+  const [filterType, setFilterType]     = useState<AdvertiserTypeFilter>('all');
+  const [searchQuery, setSearchQuery]   = useState('');
+
+  // Sesi 4 NEW: Client-side filter "ending soon" (<24h)
+  // Auto-reset saat filterStatus berubah ke selain 'active'
+  const [endingSoonOnly, setEndingSoonOnly] = useState(false);
 
   // Modal state
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
+
+  // ─── Auto-reset endingSoonOnly saat filterStatus berubah ───────
+  useEffect(() => {
+    if (filterStatus !== 'active' && endingSoonOnly) {
+      setEndingSoonOnly(false);
+    }
+  }, [filterStatus, endingSoonOnly]);
 
   // ─── Toast helper ─────────────────────────────────────────────
   const showToast = useCallback((msg: string, type: 'ok' | 'err' = 'ok') => {
@@ -154,6 +189,9 @@ export default function AdsCommandCenter() {
 
   // ─── Filter logic (client-side, derived state) ────────────────
   const filteredAds = useMemo(() => {
+    const now = Date.now();
+    const next24h = now + 24 * 60 * 60 * 1000;
+
     return ads.filter((ad) => {
       // Status filter
       if (filterStatus !== 'all' && ad.status !== filterStatus) return false;
@@ -169,9 +207,15 @@ export default function AdsCommandCenter() {
         if (!haystack.includes(q)) return false;
       }
 
+      // Sesi 4 NEW: Ending soon filter (<24h, active only)
+      if (endingSoonOnly) {
+        const endsMs = new Date(ad.ends_at).getTime();
+        if (!(endsMs > now && endsMs < next24h)) return false;
+      }
+
       return true;
     });
-  }, [ads, filterStatus, filterType, searchQuery]);
+  }, [ads, filterStatus, filterType, searchQuery, endingSoonOnly]);
 
   // ─── Status counts for filter pills badge ──────────────────────
   const statusCounts = useMemo(() => {
@@ -195,7 +239,79 @@ export default function AdsCommandCenter() {
     return counts;
   }, [ads]);
 
-  // ─── Action handlers ──────────────────────────────────────────
+  // ═══════════════════════════════════════════════════════════════
+  // SESI 4 — Click handlers (Card + Action Queue + Pipeline stage)
+  // ═══════════════════════════════════════════════════════════════
+
+  const scrollToTable = useCallback(() => {
+    const el = document.getElementById('ads-table-section');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  const scrollToSlotInventory = useCallback(() => {
+    const el = document.getElementById('slot-inventory-panel');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, []);
+
+  // Stats Cards click (5 cards: slot/active/pending/ending/revenue)
+  const handleStatsCardClick = useCallback((id: string) => {
+    switch (id) {
+      case 'slot':
+        scrollToSlotInventory();
+        break;
+      case 'active':
+        setFilterStatus('active');
+        setEndingSoonOnly(false);
+        scrollToTable();
+        break;
+      case 'pending':
+        setFilterStatus('pending_review' as AdStatusFilter);
+        setEndingSoonOnly(false);
+        scrollToTable();
+        break;
+      case 'ending':
+        setFilterStatus('active');
+        setEndingSoonOnly(true);
+        scrollToTable();
+        break;
+      case 'revenue':
+        router.push('/admin/financial');
+        break;
+    }
+  }, [router, scrollToTable, scrollToSlotInventory]);
+
+  // Action Queue click (3 kategori: pending/ending/slot_kosong)
+  const handleActionQueueClick = useCallback((kind: ActionQueueKind) => {
+    switch (kind) {
+      case 'pending':
+        setFilterStatus('pending_review' as AdStatusFilter);
+        setEndingSoonOnly(false);
+        scrollToTable();
+        break;
+      case 'ending':
+        setFilterStatus('active');
+        setEndingSoonOnly(true);
+        scrollToTable();
+        break;
+      case 'slot_kosong':
+        scrollToSlotInventory();
+        break;
+    }
+  }, [scrollToTable, scrollToSlotInventory]);
+
+  // Pipeline Stage click (5 stages: pending_review/pending_payment/active/paused/expired)
+  const handlePipelineStageClick = useCallback((status: string) => {
+    setFilterStatus(status as AdStatusFilter);
+    setEndingSoonOnly(false);
+    scrollToTable();
+  }, [scrollToTable]);
+
+  // Slot Inventory click (filter by position — Phase 2 enhancement)
+  const handlePositionClick = useCallback((positionKey: string) => {
+    showToast(`Filter posisi "${positionKey}" — coming Phase 2`, 'ok');
+  }, [showToast]);
+
+  // ─── Existing action handlers (untouched) ─────────────────────
 
   const handleStatusTransition = async (adId: string, to: string) => {
     try {
@@ -362,7 +478,6 @@ export default function AdsCommandCenter() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Tambah Iklan — primary CTA, Sub-Phase 8-B β.2 */}
           <Link
             href="/admin/ads/new"
             className={cn(
@@ -411,15 +526,21 @@ export default function AdsCommandCenter() {
         </div>
       </div>
 
-      {/* ─── Row 1: Stats Cards (selalu pakai ALL ads, not filtered) ─── */}
+      {/* ─── Row 1: Stats Cards (Sesi 4: wire onCardClick) ─── */}
       <AdsStatsCards
         ads={ads}
         total={total}
         loading={loading && ads.length === 0}
+        onCardClick={handleStatsCardClick}
       />
 
-      {/* ─── Row 2: Bottom Panels (selalu pakai ALL ads) ─── */}
-      <AdsBottomPanels ads={ads} />
+      {/* ─── Row 2: Bottom Panels (Sesi 4: wire all 3 click handlers) ─── */}
+      <AdsBottomPanels
+        ads={ads}
+        onPositionClick={handlePositionClick}
+        onStageClick={handlePipelineStageClick}
+        onActionQueueClick={handleActionQueueClick}
+      />
 
       {/* ─── Row 3: SMART Filter ─── */}
       <AdsSmartFilter
@@ -433,15 +554,35 @@ export default function AdsCommandCenter() {
         typeCounts={typeCounts}
       />
 
-      {/* ─── Row 4: Daftar Iklan Table (filtered) ─── */}
-      <AdsTable
-        ads={filteredAds}
-        showDeleted={showDeleted}
-        onTransition={handleStatusTransition}
-        onSoftDelete={handleSoftDelete}
-        onRestore={handleRestore}
-        onReject={handleReject}
-      />
+      {/* ─── Sesi 4: Active Filter Chip "Akan Berakhir <24h" ─── */}
+      {endingSoonOnly && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-status-warning/8 border border-status-warning/30">
+          <AlarmClock className="text-status-warning shrink-0" size={14} />
+          <span className="text-[12px] font-semibold text-status-warning flex-1">
+            Filter tambahan: <strong>Akan Berakhir &lt; 24 jam</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => setEndingSoonOnly(false)}
+            className="shrink-0 p-1 rounded hover:bg-status-warning/15 transition-colors"
+            title="Hapus filter ending soon"
+          >
+            <X size={12} className="text-status-warning" />
+          </button>
+        </div>
+      )}
+
+      {/* ─── Row 4: Daftar Iklan Table (Sesi 4: tambah scroll target id) ─── */}
+      <div id="ads-table-section">
+        <AdsTable
+          ads={filteredAds}
+          showDeleted={showDeleted}
+          onTransition={handleStatusTransition}
+          onSoftDelete={handleSoftDelete}
+          onRestore={handleRestore}
+          onReject={handleReject}
+        />
+      </div>
 
       {/* ─── Modals ─── */}
       <DeleteAdModal

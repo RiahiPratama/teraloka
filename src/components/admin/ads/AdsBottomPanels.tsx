@@ -2,24 +2,48 @@
 
 /**
  * TeraLoka — AdsBottomPanels
- * Mission 8 Sub-Phase 8-C-1 (v2)
+ * Sub-Phase 8-E Sesi 4 (18 Mei 2026)
  * ------------------------------------------------------------
- * 3 panel grid bottom dashboard, mirror pattern BALAPOR section layout.
+ * CHANGE Sesi 4:
+ *   - REMOVED Panel #3 "Performance by Position" (vanity lifetime, Pattern T)
+ *   - ADDED   Panel #3 "Action Queue" — clickable urgent items
  *
- * Panels:
- *   1. Slot Inventory — 13 positions × count filled/empty (top 6 displayed)
- *   2. Ads Pipeline — grouping by status (pending_review, pending_payment, active, paused, expired)
- *   3. Performance by Position — top 5 horizontal bar (lifetime impressions)
+ * 3 Panels:
+ *   1. Slot Inventory — 13 positions × count filled/empty (top 6)
+ *      ID: 'slot-inventory-panel' untuk scroll target
+ *   2. Ads Pipeline — grouping by status, clickable filter
+ *   3. Action Queue — 3 kategori urgent items (NEW)
  *
- * Data DERIVED dari props.ads (zero extra fetch).
+ * Action Queue Categories:
+ *   - 📋 Pending Review     (status='pending_review' count)
+ *   - ⏰ Akan Berakhir <24h (active + ends_at < now+24h)
+ *   - 📉 Slot Kosong        (13 - filled positions count)
+ *
+ * Click behavior (via onActionQueueClick prop):
+ *   - 'pending'      → filter status='pending_review' + scroll table
+ *   - 'ending'       → filter status='active' + endingSoonOnly + scroll table
+ *   - 'slot_kosong'  → scroll ke Panel #1 Slot Inventory (no filter change)
+ *
+ * Pattern Compliance:
+ *   - Pattern T  : NO vanity lifetime impressions
+ *   - Pattern AAZ: Honest empty state "✓ Semua aman" kalau zero
+ *   - Pattern AAY: Action-oriented drill-down via filter
  *
  * History:
- *   - 16 Mei 2026: NEW v2 (Tailwind utility + design tokens)
+ *   - 16 Mei 2026: v2 (Tailwind utility + design tokens)
+ *   - 18 Mei 2026: Sesi 4 — KILL vanity Performance + ADD Action Queue
  */
 
-import { Check, Circle, AlertCircle, Wallet, Play, Pause, ArchiveX, BarChart3 } from 'lucide-react';
+import {
+  Check, Circle, AlertCircle, Wallet, Play, Pause, ArchiveX,
+  CheckCircle2, AlarmClock, ListChecks,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
+
+const TOTAL_POSITIONS = 13;
+
+export type ActionQueueKind = 'pending' | 'ending' | 'slot_kosong';
 
 export interface AdsBottomPanelsProps {
   ads: AdRow[];
@@ -27,6 +51,8 @@ export interface AdsBottomPanelsProps {
   onPositionClick?: (positionKey: string) => void;
   /** Optional — click handler stage di Pipeline */
   onStageClick?: (status: string) => void;
+  /** Optional — click handler Action Queue items (Sesi 4 NEW) */
+  onActionQueueClick?: (kind: ActionQueueKind) => void;
   className?: string;
 }
 
@@ -51,6 +77,7 @@ export default function AdsBottomPanels({
   ads,
   onPositionClick,
   onStageClick,
+  onActionQueueClick,
   className,
 }: AdsBottomPanelsProps) {
   const activeAds = ads.filter((a) => a.status === 'active' && !a.deleted_at);
@@ -114,22 +141,58 @@ export default function AdsBottomPanels({
     },
   ];
 
-  // ─── Panel 3 data: Performance by Position (top 5) ────────────
-  const positionImpressions = POSITIONS_META.map((pos) => {
-    const adsInPosition = activeAds.filter((a) =>
-      a.positions.includes(pos.key)
-    );
-    const totalImp = adsInPosition.reduce(
-      (sum, a) => sum + (a.impression_count ?? 0),
-      0
-    );
-    return { label: pos.label, key: pos.key, value: totalImp };
-  })
-    .filter((p) => p.value > 0)
-    .sort((a, b) => b.value - a.value)
-    .slice(0, 5);
+  // ─── Panel 3 data: Action Queue (NEW Sesi 4) ──────────────────
+  const now = Date.now();
+  const next24h = now + 24 * 60 * 60 * 1000;
 
-  const maxImpression = Math.max(1, ...positionImpressions.map((p) => p.value));
+  const pendingReviewCount = ads.filter(
+    (a) => a.status === 'pending_review' && !a.deleted_at
+  ).length;
+
+  const endingSoonCount = activeAds.filter((a) => {
+    const endsMs = new Date(a.ends_at).getTime();
+    return endsMs > now && endsMs < next24h;
+  }).length;
+
+  const filledPositions = new Set<string>();
+  activeAds.forEach((a) => a.positions.forEach((p) => filledPositions.add(p)));
+  const slotKosongCount = Math.max(TOTAL_POSITIONS - filledPositions.size, 0);
+
+  const actionQueueItems = [
+    {
+      key:       'pending' as ActionQueueKind,
+      label:     'Pending Review',
+      sub:       'Iklan menunggu approval',
+      icon:      <AlertCircle size={16} />,
+      bg:        'bg-status-critical/8 hover:bg-status-critical/15',
+      color:     'text-status-critical',
+      count:     pendingReviewCount,
+      urgent:    pendingReviewCount > 0,
+    },
+    {
+      key:       'ending' as ActionQueueKind,
+      label:     'Akan Berakhir',
+      sub:       'Active ads < 24 jam',
+      icon:      <AlarmClock size={16} />,
+      bg:        'bg-status-warning/8 hover:bg-status-warning/15',
+      color:     'text-status-warning',
+      count:     endingSoonCount,
+      urgent:    endingSoonCount > 0,
+    },
+    {
+      key:       'slot_kosong' as ActionQueueKind,
+      label:     'Slot Kosong',
+      sub:       `${slotKosongCount} dari ${TOTAL_POSITIONS} posisi belum terisi`,
+      icon:      <Circle size={16} />,
+      bg:        'bg-status-info/8 hover:bg-status-info/15',
+      color:     'text-status-info',
+      count:     slotKosongCount,
+      urgent:    false, // info-level, bukan urgent
+    },
+  ];
+
+  const allAreClean =
+    pendingReviewCount === 0 && endingSoonCount === 0 && slotKosongCount === 0;
 
   // ─── Render ────────────────────────────────────────────────────
   return (
@@ -140,63 +203,65 @@ export default function AdsBottomPanels({
       )}
     >
       {/* ── Panel 1: Slot Inventory ── */}
-      <PanelCard
-        title="SLOT INVENTORY"
-        subtitle="Top 6 positions"
-        icon={<Crosshair className="text-ads" />}
-      >
-        <div className="flex flex-col">
-          {slotInventory.map((slot, idx) => {
-            const isLast = idx === slotInventory.length - 1;
-            const isFilled = slot.filled > 0;
-            const isClickable = Boolean(onPositionClick);
-            const Wrapper = isClickable ? 'button' : 'div';
-            return (
-              <Wrapper
-                key={slot.key}
-                type={isClickable ? 'button' : undefined}
-                onClick={isClickable ? () => onPositionClick!(slot.key) : undefined}
-                className={cn(
-                  'flex items-center justify-between gap-2 py-2.5',
-                  !isLast && 'border-b border-border',
-                  isClickable && 'hover:bg-surface-muted/40 transition-colors -mx-1 px-1 rounded'
-                )}
-              >
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <div
-                    className={cn(
-                      'flex items-center justify-center w-7 h-7 rounded-md shrink-0',
-                      isFilled
-                        ? 'bg-status-healthy/12 text-status-healthy'
-                        : 'bg-surface-muted text-text-subtle'
-                    )}
-                  >
-                    {isFilled ? <Check size={14} /> : <Circle size={14} />}
-                  </div>
-                  <div className="min-w-0">
-                    <div className="text-[12px] font-semibold text-text truncate">
-                      {slot.label}
-                    </div>
-                    <div className="text-[10px] text-text-muted">
-                      {slot.size}
-                    </div>
-                  </div>
-                </div>
-                <span
+      <div id="slot-inventory-panel">
+        <PanelCard
+          title="SLOT INVENTORY"
+          subtitle="Top 6 positions"
+          icon={<CrosshairIcon className="text-ads" />}
+        >
+          <div className="flex flex-col">
+            {slotInventory.map((slot, idx) => {
+              const isLast = idx === slotInventory.length - 1;
+              const isFilled = slot.filled > 0;
+              const isClickable = Boolean(onPositionClick);
+              const Wrapper = isClickable ? 'button' : 'div';
+              return (
+                <Wrapper
+                  key={slot.key}
+                  type={isClickable ? 'button' : undefined}
+                  onClick={isClickable ? () => onPositionClick!(slot.key) : undefined}
                   className={cn(
-                    'shrink-0 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide',
-                    isFilled
-                      ? 'bg-status-healthy/12 text-status-healthy'
-                      : 'bg-status-critical/12 text-status-critical'
+                    'flex items-center justify-between gap-2 py-2.5',
+                    !isLast && 'border-b border-border',
+                    isClickable && 'hover:bg-surface-muted/40 transition-colors -mx-1 px-1 rounded'
                   )}
                 >
-                  {isFilled ? `${slot.filled} aktif` : 'Empty'}
-                </span>
-              </Wrapper>
-            );
-          })}
-        </div>
-      </PanelCard>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div
+                      className={cn(
+                        'flex items-center justify-center w-7 h-7 rounded-md shrink-0',
+                        isFilled
+                          ? 'bg-status-healthy/12 text-status-healthy'
+                          : 'bg-surface-muted text-text-subtle'
+                      )}
+                    >
+                      {isFilled ? <Check size={14} /> : <Circle size={14} />}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-[12px] font-semibold text-text truncate">
+                        {slot.label}
+                      </div>
+                      <div className="text-[10px] text-text-muted">
+                        {slot.size}
+                      </div>
+                    </div>
+                  </div>
+                  <span
+                    className={cn(
+                      'shrink-0 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide',
+                      isFilled
+                        ? 'bg-status-healthy/12 text-status-healthy'
+                        : 'bg-status-critical/12 text-status-critical'
+                    )}
+                  >
+                    {isFilled ? `${slot.filled} aktif` : 'Empty'}
+                  </span>
+                </Wrapper>
+              );
+            })}
+          </div>
+        </PanelCard>
+      </div>
 
       {/* ── Panel 2: Ads Pipeline ── */}
       <PanelCard
@@ -240,40 +305,61 @@ export default function AdsBottomPanels({
         </div>
       </PanelCard>
 
-      {/* ── Panel 3: Performance by Position ── */}
+      {/* ── Panel 3: Action Queue (NEW Sesi 4) ── */}
       <PanelCard
-        title="PERFORMANCE BY POSITION"
-        subtitle="Top 5 — lifetime impressions"
-        icon={<BarChart3 className="text-ads" />}
+        title="ACTION QUEUE"
+        subtitle="Tindakan urgent — klik untuk filter"
+        icon={<ListChecks className="text-ads" />}
       >
-        {positionImpressions.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-text-muted text-[12px]">
-              Belum ada data impression
-            </p>
-            <p className="text-text-subtle text-[10px] mt-1">
-              Data muncul setelah iklan ditayangkan
+        {allAreClean ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 py-8">
+            <div className="flex items-center justify-center w-12 h-12 rounded-full bg-status-healthy/12">
+              <CheckCircle2 className="text-status-healthy" size={24} />
+            </div>
+            <p className="text-[13px] font-bold text-status-healthy">✓ Semua aman</p>
+            <p className="text-[10px] text-text-muted text-center max-w-[200px]">
+              Tidak ada item yang butuh action segera. Pertahankan!
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-3">
-            {positionImpressions.map((p) => {
-              const widthPercent = (p.value / maxImpression) * 100;
+          <div className="flex flex-col gap-2">
+            {actionQueueItems.map((item) => {
+              const isClickable = Boolean(onActionQueueClick);
+              const Wrapper = isClickable ? 'button' : 'div';
               return (
-                <div key={p.key}>
-                  <div className="flex items-center justify-between mb-1 text-[11px]">
-                    <span className="font-semibold text-text truncate">{p.label}</span>
-                    <span className="tabular-nums text-text-muted shrink-0 ml-2">
-                      {formatNum(p.value)}
-                    </span>
+                <Wrapper
+                  key={item.key}
+                  type={isClickable ? 'button' : undefined}
+                  onClick={isClickable ? () => onActionQueueClick!(item.key) : undefined}
+                  className={cn(
+                    'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg',
+                    'transition-colors',
+                    item.bg,
+                    isClickable && 'cursor-pointer'
+                  )}
+                  title={
+                    isClickable
+                      ? item.key === 'slot_kosong'
+                        ? 'Scroll ke panel Slot Inventory'
+                        : `Filter tabel ke ${item.label}`
+                      : undefined
+                  }
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className={cn('shrink-0', item.color)}>{item.icon}</div>
+                    <div className="min-w-0 text-left">
+                      <div className={cn('text-[12px] font-bold leading-tight', item.color)}>
+                        {item.label}
+                      </div>
+                      <div className={cn('text-[10px] opacity-80', item.color)}>
+                        {item.sub}
+                      </div>
+                    </div>
                   </div>
-                  <div className="w-full h-2 bg-surface-muted rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-ads rounded-full transition-all duration-500"
-                      style={{ width: `${widthPercent}%` }}
-                    />
+                  <div className={cn('text-xl font-extrabold tabular-nums shrink-0', item.color)}>
+                    {item.count}
                   </div>
-                </div>
+                </Wrapper>
               );
             })}
           </div>
@@ -314,9 +400,9 @@ function PanelCard({
   );
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────
+// ─── Crosshair icon (renamed dari `Crosshair` lokal untuk avoid lucide collision) ──
 
-function Crosshair({ className }: { className?: string }) {
+function CrosshairIcon({ className }: { className?: string }) {
   return (
     <svg
       width="18"
@@ -336,10 +422,4 @@ function Crosshair({ className }: { className?: string }) {
       <line x1="12" y1="22" x2="12" y2="18" />
     </svg>
   );
-}
-
-function formatNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return String(n);
 }
