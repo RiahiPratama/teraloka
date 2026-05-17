@@ -2,28 +2,33 @@
 
 /**
  * TeraLoka — Admin Financial Dashboard
- * Sub-Phase 8-E Sesi 2 (18 Mei 2026)
+ * Sub-Phase 8-E Sesi 3 (18 Mei 2026)
  * ────────────────────────────────────────────────────────────────
- * Architecture: 3-Tab structure (Overview + PT + Yayasan)
- *   - Overview: Combined view + comparison chart (LIVE Sesi 2)
- *   - PT TeraLoka: Sub-sources Ads/Bakos/BAPASIAR (Placeholder, LIVE Sesi 3)
- *   - Yayasan TeraLoka: Sub-sources Donasi Fee/Grant/CSR (Placeholder, LIVE Sesi 3)
+ * Architecture: 3-Tab structure (Overview + PT + Yayasan) — ALL LIVE
+ *   - Overview: Combined view + comparison chart
+ *   - PT TeraLoka: Honest Phase 1 (semua Rp 0 + "Coming Phase 2" badges)
+ *   - Yayasan TeraLoka: Badonasi fee real data + transaction filter fee_remitted
  *
  * Data Layer:
  *   - GET /money/revenue/by-entity?period=30d  → dual-entity aggregate
- *   - GET /money/revenue/timeseries?period=7d  → chart data (Math.random KILLED)
- *   - GET /money/admin/events?limit=10         → recent activity feed
- *   - POST /admin/ads/revenue (LEGACY KEEP)    → manual entry for Mitra/Komisi
+ *   - GET /money/revenue/timeseries?period=7d  → chart data combined
+ *   - GET /money/admin/events?limit=10         → recent activity feed (Overview)
+ *   - GET /money/admin/events?event_type=donation.fee_remitted → Tab Yayasan filter
+ *   - POST /admin/ads/revenue (LEGACY KEEP)    → manual entry (form sidebar)
  *
  * Pattern Compliance:
  *   - Pattern AAY: Dual-entity derive di backend, frontend consume aggregate
  *   - Pattern AAZ: Honest empty state, NO fake data
- *   - Pattern T:   Kill mock data (Math.random + hardcoded FUNNEL_DATA)
+ *   - Pattern T:   Zero mock data (no Math.random, no hardcoded percentages)
  *   - Pattern AAP: DEFER refactor inline styles → Tailwind v4 (Sub-Phase 8-F)
+ *
+ * Sesi 3 Decisions Locked:
+ *   - Tab PT: Honest Phase 1 — semua Rp 0 + "Coming Phase 2" badge
+ *   - Tab Yayasan: Filter event_type=donation.fee_remitted only (revenue-impact)
  *
  * Backend Dependencies:
  *   - Money Domain Phase 1 LIVE (commit c94a287)
- *   - 2 NEW endpoints from Sub-Phase 8-E Sesi 1 (by-entity + timeseries)
+ *   - Sub-Phase 8-E Sesi 1 endpoints (by-entity + timeseries + admin/events)
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -68,16 +73,16 @@ interface FinancialEvent {
   source_entity_id: string;
   amount:           number;
   fee_amount:       number;
-  metadata:         Record<string, unknown>;
+  metadata:         Record<string, any>;
   recorded_at:      string;
 }
 
 // ─── Event type display helper ─────────────────────────────────
 
 const EVENT_TYPE_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
-  'donation.verified':     { icon: '✅', label: 'Donasi Terverifikasi', color: '#059669' },
-  'donation.rejected':     { icon: '❌', label: 'Donasi Ditolak',       color: '#7F1D1D' },
-  'donation.fee_remitted': { icon: '💰', label: 'Fee Disetor (Yayasan)', color: '#E8963A' },
+  'donation.verified':     { icon: '✅', label: 'Donasi Terverifikasi',  color: '#059669' },
+  'donation.rejected':     { icon: '❌', label: 'Donasi Ditolak',         color: '#7F1D1D' },
+  'donation.fee_remitted': { icon: '💰', label: 'Fee Disetor (Yayasan)',  color: '#E8963A' },
 };
 
 const SOURCE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
@@ -98,12 +103,13 @@ export default function AdminFinancialPage() {
   const [tab, setTab] = useState<Tab>('overview');
 
   // Data layer (Money Domain)
-  const [byEntity,   setByEntity]   = useState<RevenueByEntityData | null>(null);
-  const [timeseries, setTimeseries] = useState<TimeseriesPoint[]>([]);
-  const [events,     setEvents]     = useState<FinancialEvent[]>([]);
-  const [loading,    setLoading]    = useState(true);
+  const [byEntity,       setByEntity]       = useState<RevenueByEntityData | null>(null);
+  const [timeseries,     setTimeseries]     = useState<TimeseriesPoint[]>([]);
+  const [events,         setEvents]         = useState<FinancialEvent[]>([]);
+  const [yayasanEvents,  setYayasanEvents]  = useState<FinancialEvent[]>([]);
+  const [loading,        setLoading]        = useState(true);
 
-  // Manual entry form (KEEP legacy)
+  // Manual entry form (LEGACY KEEP)
   const [showForm, setShowForm] = useState(false);
   const [form,     setForm]     = useState({ type: 'ads', amount: '', description: '' });
   const [toast,    setToast]    = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
@@ -122,14 +128,16 @@ export default function AdminFinancialPage() {
     setLoading(true);
 
     Promise.all([
-      fetch(`${API}/money/revenue/by-entity?period=30d`, { headers: h }).then(r => r.json()),
-      fetch(`${API}/money/revenue/timeseries?period=7d`,  { headers: h }).then(r => r.json()),
-      fetch(`${API}/money/admin/events?limit=10`,         { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/by-entity?period=30d`,                                { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/timeseries?period=7d`,                                 { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/admin/events?limit=10`,                                        { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/admin/events?limit=10&event_type=donation.fee_remitted`,      { headers: h }).then(r => r.json()),
     ])
-      .then(([be, ts, ev]) => {
-        if (be?.success) setByEntity(be.data);
-        if (ts?.success) setTimeseries(ts.data?.data ?? []);
-        if (ev?.success) setEvents(ev.data ?? []);
+      .then(([be, ts, ev, yEv]) => {
+        if (be?.success)  setByEntity(be.data);
+        if (ts?.success)  setTimeseries(ts.data?.data ?? []);
+        if (ev?.success)  setEvents(ev.data ?? []);
+        if (yEv?.success) setYayasanEvents(yEv.data ?? []);
       })
       .catch(err => console.error('[financial fetch fail]', err))
       .finally(() => setLoading(false));
@@ -150,7 +158,7 @@ export default function AdminFinancialPage() {
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message);
-      showToast('✅ Revenue tercatat (akan muncul di tab PT TeraLoka)');
+      showToast('✅ Revenue tercatat (legacy table, migrasi Money Phase 2)');
       setShowForm(false);
       setForm({ type: 'ads', amount: '', description: '' });
     } catch (err: any) {
@@ -165,11 +173,23 @@ export default function AdminFinancialPage() {
   const yayasanTotal  = byEntity?.yayasan?.total       ?? 0;
   const eventCount    = byEntity?.meta?.event_count    ?? 0;
 
-  const chartData = timeseries.map(p => ({
+  const chartDataCombined = timeseries.map(p => ({
     date:    new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
     total:   p.total,
     pt:      p.pt_digital,
     yayasan: p.yayasan,
+  }));
+
+  const chartDataPT = timeseries.map(p => ({
+    date:  new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    ads:   p.ads,
+    total: p.pt_digital,
+  }));
+
+  const chartDataYayasan = timeseries.map(p => ({
+    date:         new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    badonasi_fee: p.badonasi_fee,
+    total:        p.yayasan,
   }));
 
   // ─── Render ────────────────────────────────────────────────────
@@ -218,10 +238,10 @@ export default function AdminFinancialPage() {
         borderBottom: `1px solid ${t.cardBorder}`,
       }}>
         {[
-          { key: 'overview' as Tab, label: '📊 Overview',           live: true  },
-          { key: 'pt'       as Tab, label: '🏢 PT TeraLoka',         live: false },
-          { key: 'yayasan'  as Tab, label: '🤝 Yayasan TeraLoka',    live: false },
-        ].map(({ key, label, live }) => (
+          { key: 'overview' as Tab, label: '📊 Overview'         },
+          { key: 'pt'       as Tab, label: '🏢 PT TeraLoka'       },
+          { key: 'yayasan'  as Tab, label: '🤝 Yayasan TeraLoka'  },
+        ].map(({ key, label }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -235,15 +255,6 @@ export default function AdminFinancialPage() {
             }}
           >
             {label}
-            {!live && (
-              <span style={{
-                fontSize: 9, fontWeight: 700, padding: '2px 6px',
-                borderRadius: 4, background: 'rgba(251,191,36,0.15)',
-                color: '#FCD34D', textTransform: 'uppercase',
-              }}>
-                Sesi 3
-              </span>
-            )}
           </button>
         ))}
       </div>
@@ -262,41 +273,27 @@ export default function AdminFinancialPage() {
               ptTotal={ptTotal}
               yayasanTotal={yayasanTotal}
               eventCount={eventCount}
-              chartData={chartData}
+              chartData={chartDataCombined}
               events={events}
             />
           )}
 
           {tab === 'pt' && (
-            <PlaceholderTab
+            <PTTab
               t={t}
-              icon="🏢"
-              title="PT TeraLoka Digital Maluku"
-              subtitle="Commercial revenue: Ads, Bakos (Klasified), Komisi BAPASIAR"
-              quickTotal={ptTotal}
-              sources={[
-                { icon: '📢', label: 'Ads (Iklan)',       value: byEntity?.pt_digital?.sources?.ads        ?? 0, color: '#1B6B4A' },
-                { icon: '🏠', label: 'Bakos (Klasified)', value: byEntity?.pt_digital?.sources?.bakos      ?? 0, color: '#0891B2' },
-                { icon: '🚢', label: 'Komisi BAPASIAR',   value: byEntity?.pt_digital?.sources?.commission ?? 0, color: '#7C3AED' },
-              ]}
-              note="Sumber pendapatan komersial untuk PT TeraLoka Digital Maluku. Phase 1 semua Rp 0 — Ads emit Money Domain Phase 2."
+              total={ptTotal}
+              sources={byEntity?.pt_digital?.sources}
+              chartData={chartDataPT}
             />
           )}
 
           {tab === 'yayasan' && (
-            <PlaceholderTab
+            <YayasanTab
               t={t}
-              icon="🤝"
-              title="Yayasan TeraLoka Berdaya"
-              subtitle="Social impact revenue: Badonasi fee, Grant, CSR Program"
-              quickTotal={yayasanTotal}
-              isYayasan={true}
-              sources={[
-                { icon: '❤️', label: 'Badonasi Fee (Setor)', value: byEntity?.yayasan?.sources?.badonasi_fee ?? 0, color: '#E8963A' },
-                { icon: '🎓', label: 'Grant',                 value: byEntity?.yayasan?.sources?.grant        ?? 0, color: '#7C3AED', disabled: true },
-                { icon: '🤲', label: 'CSR Program',           value: byEntity?.yayasan?.sources?.csr          ?? 0, color: '#0891B2', disabled: true },
-              ]}
-              note="Fee operasional Badonasi → Yayasan TeraLoka Berdaya. BUKAN revenue PT TeraLoka Digital Maluku (pemisahan legal entity)."
+              total={yayasanTotal}
+              sources={byEntity?.yayasan?.sources}
+              chartData={chartDataYayasan}
+              events={yayasanEvents}
             />
           )}
         </>
@@ -446,7 +443,7 @@ function OverviewTab({
         )}
       </div>
 
-      {/* Gateway Threshold Alert (KEEP existing logic) */}
+      {/* Gateway Threshold Alert */}
       <div style={{
         marginBottom: 20, padding: '12px 16px', borderRadius: 10,
         background: combinedTotal >= 10000000 ? 'rgba(27,107,74,0.15)' : 'rgba(251,191,36,0.08)',
@@ -475,7 +472,7 @@ function OverviewTab({
         )}
       </div>
 
-      {/* Live Activity Feed (Money Domain Events) */}
+      {/* Live Activity Feed */}
       <div style={{
         background: t.card, border: `1px solid ${t.cardBorder}`,
         borderRadius: 14, overflow: 'hidden',
@@ -505,58 +502,7 @@ function OverviewTab({
           };
           const isLast = i === events.length - 1;
           return (
-            <div
-              key={ev.id}
-              style={{
-                display: 'flex', alignItems: 'center', gap: 12,
-                padding: '12px 18px',
-                borderBottom: !isLast ? `1px solid ${t.cardBorder}` : 'none',
-              }}
-            >
-              <div style={{
-                width: 36, height: 36, borderRadius: 10,
-                background: `${cfg.color}22`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, flexShrink: 0,
-              }}>
-                {cfg.icon}
-              </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <p style={{
-                  margin: 0, fontSize: 13, fontWeight: 600, color: t.textPrimary,
-                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {cfg.label}
-                </p>
-                <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
-                  <span style={{ color: cfg.color, fontWeight: 600 }}>
-                    {ev.source_domain.toUpperCase()}
-                  </span>
-                  {' · '}
-                  {formatDate(ev.recorded_at)} {formatTime(ev.recorded_at)}
-                </p>
-              </div>
-              <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                {ev.event_type === 'donation.fee_remitted' ? (
-                  <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#E8963A' }}>
-                    {formatRp(ev.fee_amount)}
-                  </p>
-                ) : ev.event_type === 'donation.verified' ? (
-                  <>
-                    <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: t.textPrimary }}>
-                      {formatRp(ev.amount)}
-                    </p>
-                    <p style={{ margin: 0, fontSize: 10, color: t.textMuted }}>
-                      Fee: {formatRp(ev.fee_amount)}
-                    </p>
-                  </>
-                ) : (
-                  <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: t.textDim }}>
-                    —
-                  </p>
-                )}
-              </div>
-            </div>
+            <EventRow key={ev.id} ev={ev} cfg={cfg} isLast={isLast} t={t} />
           );
         })}
       </div>
@@ -565,116 +511,436 @@ function OverviewTab({
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB 2 & 3 — PLACEHOLDER (Sesi 3)
+// TAB 2 — PT TERALOKA (LIVE Sesi 3)
+// Honest Phase 1: semua Rp 0 + "Coming Phase 2" badges
 // ═══════════════════════════════════════════════════════════════
 
-function PlaceholderTab({
-  t, icon, title, subtitle, quickTotal, sources, note, isYayasan = false,
-}: any) {
+function PTTab({ t, total, sources, chartData }: any) {
+  const ads        = sources?.ads        ?? 0;
+  const bakos      = sources?.bakos      ?? 0;
+  const commission = sources?.commission ?? 0;
+
   return (
     <>
-      {/* Yayasan Disclaimer Banner */}
-      {isYayasan && (
-        <div style={{
-          padding: '14px 18px',
-          background: 'linear-gradient(90deg, rgba(232,150,58,0.08), rgba(232,150,58,0.02))',
-          border: `1px solid rgba(232,150,58,0.25)`,
-          borderRadius: 12, marginBottom: 16,
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <span style={{ fontSize: 18 }}>⚖️</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#E8963A' }}>
-              Pemisahan Legal Entity
-            </span>
-          </div>
-          <p style={{ margin: 0, fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
-            Fee operasional Badonasi disetor ke <strong>Yayasan TeraLoka Berdaya</strong>,
-            BUKAN PT TeraLoka Digital Maluku. Yayasan dan PT punya NPWP, rekening, dan laporan terpisah.
-          </p>
-        </div>
-      )}
-
-      {/* Tab Header */}
+      {/* Header Total Card */}
       <div style={{
-        background: t.card, border: `1px solid ${t.cardBorder}`,
-        borderRadius: 14, padding: '20px 22px', marginBottom: 16,
+        background: 'linear-gradient(135deg, #1B6B4A, #0F4A34)',
+        border: '1px solid #1B6B4A', borderRadius: 14, padding: '20px 22px',
+        marginBottom: 16,
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-          <span style={{ fontSize: 24 }}>{icon}</span>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>{title}</h2>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 22 }}>🏢</span>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, color: '#fff', fontWeight: 700 }}>
+              PT TeraLoka Digital Maluku
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
+              Commercial revenue · Ads, Bakos, Komisi BAPASIAR
+            </p>
+          </div>
         </div>
-        <p style={{ margin: '0 0 14px 0', fontSize: 12, color: t.textMuted }}>
-          {subtitle}
-        </p>
-        <div style={{
-          padding: '10px 14px', background: t.deepBg, borderRadius: 8,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        <p style={{
+          margin: '12px 0 4px', fontSize: 11, fontWeight: 600,
+          color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase',
         }}>
-          <span style={{ fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
-            Total Revenue (30 hari)
-          </span>
-          <span style={{ fontSize: 18, fontWeight: 800, color: isYayasan ? '#E8963A' : '#1B6B4A' }}>
-            {formatRp(quickTotal)}
-          </span>
-        </div>
+          Total Revenue (30 Hari)
+        </p>
+        <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: '#fff' }}>
+          {formatRp(total)}
+        </p>
       </div>
 
-      {/* Sub-source Cards */}
+      {/* 3 Sub-Source Cards */}
       <div style={{
         display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 12, marginBottom: 16,
+        gap: 12, marginBottom: 20,
       }}>
-        {sources.map((s: any, i: number) => (
-          <div
-            key={i}
-            style={{
-              background: t.card,
-              border: `1px solid ${t.cardBorder}`,
-              borderRadius: 12, padding: '14px 16px',
-              opacity: s.disabled ? 0.55 : 1,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <span style={{ fontSize: 16 }}>{s.icon}</span>
-              {s.disabled && (
-                <span style={{
-                  fontSize: 9, fontWeight: 700, padding: '2px 6px',
-                  borderRadius: 4, background: 'rgba(251,191,36,0.15)',
-                  color: '#FCD34D', textTransform: 'uppercase',
-                }}>
-                  Coming Phase 2
-                </span>
-              )}
-            </div>
-            <p style={{ margin: '0 0 4px', fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
-              {s.label}
-            </p>
-            <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: s.color }}>
-              {formatRp(s.value)}
-            </p>
-            {s.disabled && (
-              <p style={{ margin: '4px 0 0', fontSize: 10, color: t.textDim, fontStyle: 'italic' }}>
-                Manual entry — Mission #6
-              </p>
-            )}
-          </div>
-        ))}
+        <SourceCard
+          t={t}
+          icon="📢"
+          label="Ads (Iklan)"
+          value={ads}
+          color="#1B6B4A"
+          badge="Coming Phase 2"
+          note="Auto-track saat ad.paid emit live"
+        />
+        <SourceCard
+          t={t}
+          icon="🏠"
+          label="Bakos (Klasified)"
+          value={bakos}
+          color="#0891B2"
+          badge="Coming Phase 2"
+          note="Auto-track saat Bakos emit live"
+        />
+        <SourceCard
+          t={t}
+          icon="🚢"
+          label="Komisi BAPASIAR"
+          value={commission}
+          color="#7C3AED"
+          badge="Coming Phase 2"
+          note="Auto-track saat BAPASIAR emit live"
+        />
       </div>
 
-      {/* Sesi 3 Note */}
+      {/* Mini Tren Chart (PT only) */}
       <div style={{
-        padding: '20px 22px', textAlign: 'center',
-        background: t.card, border: `1px dashed ${t.cardBorder}`,
-        borderRadius: 14,
+        background: t.card, border: `1px solid ${t.cardBorder}`,
+        borderRadius: 14, padding: '18px 22px', marginBottom: 20,
       }}>
-        <p style={{ margin: '0 0 6px', fontSize: 13, color: t.textPrimary, fontWeight: 600 }}>
-          📋 Halaman lengkap akan dibangun di Sesi 3
-        </p>
-        <p style={{ margin: 0, fontSize: 11, color: t.textMuted, maxWidth: 480, marginInline: 'auto', lineHeight: 1.5 }}>
-          {note}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📈 Tren Pendapatan PT</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+              7 hari terakhir · Commercial revenue only
+            </p>
+          </div>
+        </div>
+
+        <div style={{
+          height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexDirection: 'column', gap: 6,
+        }}>
+          <p style={{ color: t.textDim, fontSize: 13 }}>Belum ada transaksi komersial</p>
+          <p style={{ color: t.textMuted, fontSize: 11, textAlign: 'center', maxWidth: 360 }}>
+            Chart akan otomatis terisi saat Ads, Bakos, atau Komisi BAPASIAR
+            mulai emit ke Money Domain (Phase 2)
+          </p>
+        </div>
+      </div>
+
+      {/* Recent Transactions PT (Empty State) */}
+      <div style={{
+        background: t.card, border: `1px solid ${t.cardBorder}`,
+        borderRadius: 14, overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '14px 18px', borderBottom: `1px solid ${t.cardBorder}`,
+        }}>
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📋 Transaksi Komersial Terbaru</p>
+          <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+            Filter: Ads, Bakos, Komisi BAPASIAR
+          </p>
+        </div>
+        <div style={{
+          padding: '40px 20px', textAlign: 'center',
+          color: t.textMuted, fontSize: 13,
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+          <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada transaksi komersial</p>
+          <p style={{ margin: 0, fontSize: 11, color: t.textDim, maxWidth: 400, marginInline: 'auto', lineHeight: 1.5 }}>
+            Transaksi PT TeraLoka akan muncul di sini setelah Ads / Bakos / BAPASIAR
+            terintegrasi ke Money Domain (Mission #5, target Phase 2)
+          </p>
+        </div>
       </div>
     </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB 3 — YAYASAN TERALOKA (LIVE Sesi 3)
+// Filter event_type=donation.fee_remitted only (revenue-impact)
+// ═══════════════════════════════════════════════════════════════
+
+function YayasanTab({ t, total, sources, chartData, events }: any) {
+  const badonasiFee = sources?.badonasi_fee ?? 0;
+  const grant       = sources?.grant        ?? 0;
+  const csr         = sources?.csr          ?? 0;
+
+  const chartIsEmpty = chartData.every((p: any) => p.total === 0);
+
+  return (
+    <>
+      {/* Disclaimer Banner */}
+      <div style={{
+        padding: '14px 18px',
+        background: 'linear-gradient(90deg, rgba(232,150,58,0.08), rgba(232,150,58,0.02))',
+        border: `1px solid rgba(232,150,58,0.25)`,
+        borderRadius: 12, marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+          <span style={{ fontSize: 18 }}>⚖️</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#E8963A' }}>
+            Pemisahan Legal Entity
+          </span>
+        </div>
+        <p style={{ margin: 0, fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
+          Fee operasional Badonasi disetor ke <strong style={{ color: t.textPrimary }}>Yayasan TeraLoka Berdaya</strong>,
+          BUKAN PT TeraLoka Digital Maluku. Yayasan dan PT punya NPWP, rekening, dan laporan pajak terpisah.
+          Donasi yang lewat ke Penggalang TIDAK dihitung sebagai revenue Yayasan.
+        </p>
+      </div>
+
+      {/* Header Total Card */}
+      <div style={{
+        background: 'linear-gradient(135deg, #E8963A, #C26C1A)',
+        border: '1px solid #E8963A', borderRadius: 14, padding: '20px 22px',
+        marginBottom: 16,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+          <span style={{ fontSize: 22 }}>🤝</span>
+          <div>
+            <p style={{ margin: 0, fontSize: 13, color: '#fff', fontWeight: 700 }}>
+              Yayasan TeraLoka Berdaya
+            </p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.75)' }}>
+              Social impact revenue · Badonasi fee, Grant, CSR Program
+            </p>
+          </div>
+        </div>
+        <p style={{
+          margin: '12px 0 4px', fontSize: 11, fontWeight: 600,
+          color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase',
+        }}>
+          Total Revenue (30 Hari)
+        </p>
+        <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: '#fff' }}>
+          {formatRp(total)}
+        </p>
+      </div>
+
+      {/* 3 Sub-Source Cards */}
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
+        gap: 12, marginBottom: 20,
+      }}>
+        <SourceCard
+          t={t}
+          icon="❤️"
+          label="Badonasi Fee (Setor)"
+          value={badonasiFee}
+          color="#E8963A"
+          note="Auto-track saat partner setor fee ke Yayasan"
+          active
+        />
+        <SourceCard
+          t={t}
+          icon="🎓"
+          label="Grant"
+          value={grant}
+          color="#7C3AED"
+          badge="Coming Phase 2"
+          note="Manual entry (Hivos, Open Society, dll) — Mission #6"
+        />
+        <SourceCard
+          t={t}
+          icon="🤲"
+          label="CSR Program"
+          value={csr}
+          color="#0891B2"
+          badge="Coming Phase 2"
+          note="Manual entry (perusahaan sponsor) — Mission #6"
+        />
+      </div>
+
+      {/* Mini Tren Chart (Yayasan only) */}
+      <div style={{
+        background: t.card, border: `1px solid ${t.cardBorder}`,
+        borderRadius: 14, padding: '18px 22px', marginBottom: 20,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📈 Tren Pendapatan Yayasan</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+              7 hari terakhir · Fee setor (Yayasan revenue)
+            </p>
+          </div>
+          <span style={{
+            fontSize: 10, padding: '4px 10px', borderRadius: 6,
+            background: 'rgba(232,150,58,0.12)', color: '#E8963A',
+            fontWeight: 700, textTransform: 'uppercase',
+          }}>
+            Real Data
+          </span>
+        </div>
+
+        {chartIsEmpty ? (
+          <div style={{
+            height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            flexDirection: 'column', gap: 6,
+          }}>
+            <p style={{ color: t.textDim, fontSize: 13 }}>Belum ada fee setor 7 hari terakhir</p>
+            <p style={{ color: t.textMuted, fontSize: 11, textAlign: 'center', maxWidth: 360 }}>
+              Chart otomatis terisi saat admin verify fee_remittance dari partner Penggalang
+            </p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} axisLine={false} tickLine={false} />
+              <YAxis
+                tick={{ fontSize: 10, fill: t.textMuted }}
+                axisLine={false} tickLine={false} width={50}
+                tickFormatter={v => v >= 1000000 ? `${(v/1000000).toFixed(1)}jt` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
+              />
+              <Tooltip
+                contentStyle={{
+                  background: t.card, border: `1px solid ${t.cardBorder}`,
+                  borderRadius: 8, fontSize: 11, color: t.textPrimary,
+                }}
+                formatter={(v: any) => formatRp(v)}
+              />
+              <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+              <Line type="monotone" dataKey="badonasi_fee" stroke="#E8963A"    strokeWidth={2.5} dot={false} name="Badonasi Fee" />
+              <Line type="monotone" dataKey="total"        stroke={t.codeText} strokeWidth={2}   dot={false} name="Total Yayasan" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+      {/* Recent Fee Remittance Transactions (Filter: donation.fee_remitted only) */}
+      <div style={{
+        background: t.card, border: `1px solid ${t.cardBorder}`,
+        borderRadius: 14, overflow: 'hidden',
+      }}>
+        <div style={{
+          padding: '14px 18px', borderBottom: `1px solid ${t.cardBorder}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <div>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>💰 Transaksi Fee Disetor</p>
+            <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+              Filter: <code style={{ color: '#E8963A' }}>donation.fee_remitted</code> · Real Yayasan revenue
+            </p>
+          </div>
+          <span style={{ fontSize: 12, color: t.textMuted }}>
+            {events.length} event{events.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {events.length === 0 ? (
+          <div style={{
+            padding: '40px 20px', textAlign: 'center',
+            color: t.textMuted, fontSize: 13,
+          }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+            <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada fee setor</p>
+            <p style={{ margin: 0, fontSize: 11, color: t.textDim, maxWidth: 420, marginInline: 'auto', lineHeight: 1.5 }}>
+              Transaksi muncul setelah admin verify fee_remittance dari partner Penggalang
+              (donasi yang lewat ke Penggalang TIDAK tampil di sini — itu pass-through, bukan revenue Yayasan)
+            </p>
+          </div>
+        ) : events.map((ev: FinancialEvent, i: number) => {
+          const cfg = EVENT_TYPE_CONFIG[ev.event_type] || {
+            icon: '💰', label: ev.event_type, color: '#9CA3AF',
+          };
+          const isLast = i === events.length - 1;
+          return (
+            <EventRow key={ev.id} ev={ev} cfg={cfg} isLast={isLast} t={t} />
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REUSABLE COMPONENTS
+// ═══════════════════════════════════════════════════════════════
+
+function SourceCard({ t, icon, label, value, color, badge, note, active }: any) {
+  const disabled = Boolean(badge); // kalau ada badge "Coming Phase 2", anggap disabled
+  return (
+    <div style={{
+      background: t.card,
+      border: `1px solid ${active ? `${color}55` : t.cardBorder}`,
+      borderRadius: 12, padding: '14px 16px',
+      opacity: disabled ? 0.65 : 1,
+      transition: 'all 0.2s',
+    }}>
+      <div style={{
+        display: 'flex', alignItems: 'flex-start',
+        justifyContent: 'space-between', marginBottom: 8,
+      }}>
+        <span style={{ fontSize: 20 }}>{icon}</span>
+        {badge && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '3px 7px',
+            borderRadius: 4, background: 'rgba(251,191,36,0.15)',
+            color: '#FCD34D', textTransform: 'uppercase',
+          }}>
+            {badge}
+          </span>
+        )}
+        {active && !badge && (
+          <span style={{
+            fontSize: 9, fontWeight: 700, padding: '3px 7px',
+            borderRadius: 4, background: `${color}22`,
+            color: color, textTransform: 'uppercase',
+          }}>
+            Active
+          </span>
+        )}
+      </div>
+      <p style={{ margin: '0 0 4px', fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
+        {label}
+      </p>
+      <p style={{ margin: 0, fontSize: 18, fontWeight: 800, color }}>
+        {formatRp(value)}
+      </p>
+      {note && (
+        <p style={{
+          margin: '6px 0 0', fontSize: 10, color: t.textDim,
+          fontStyle: disabled ? 'italic' : 'normal', lineHeight: 1.4,
+        }}>
+          {note}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function EventRow({ ev, cfg, isLast, t }: any) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12,
+      padding: '12px 18px',
+      borderBottom: !isLast ? `1px solid ${t.cardBorder}` : 'none',
+    }}>
+      <div style={{
+        width: 36, height: 36, borderRadius: 10,
+        background: `${cfg.color}22`,
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        fontSize: 16, flexShrink: 0,
+      }}>
+        {cfg.icon}
+      </div>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <p style={{
+          margin: 0, fontSize: 13, fontWeight: 600, color: t.textPrimary,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {cfg.label}
+        </p>
+        <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+          <span style={{ color: cfg.color, fontWeight: 600 }}>
+            {ev.source_domain.toUpperCase()}
+          </span>
+          {' · '}
+          {formatDate(ev.recorded_at)} {formatTime(ev.recorded_at)}
+        </p>
+      </div>
+      <div style={{ textAlign: 'right', flexShrink: 0 }}>
+        {ev.event_type === 'donation.fee_remitted' ? (
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#E8963A' }}>
+            {formatRp(ev.fee_amount)}
+          </p>
+        ) : ev.event_type === 'donation.verified' ? (
+          <>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 700, color: t.textPrimary }}>
+              {formatRp(ev.amount)}
+            </p>
+            <p style={{ margin: 0, fontSize: 10, color: t.textMuted }}>
+              Fee: {formatRp(ev.fee_amount)}
+            </p>
+          </>
+        ) : (
+          <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: t.textDim }}>—</p>
+        )}
+      </div>
+    </div>
   );
 }
 
