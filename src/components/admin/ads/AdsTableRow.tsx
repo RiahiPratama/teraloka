@@ -1,49 +1,44 @@
 /**
- * TeraLoka — AdsTableRow (v3)
- * Mission 8 Sub-Phase 8-C-1 (v2) + 8-B β.2 (Group 3)
+ * TeraLoka — AdsTableRow (v4 — Sub-Phase 8-E-5)
+ * Mission 8 Sub-Phase 8-C-1 (v2) + 8-B β.2 (Group 3) + 8-E-5 (bulk select)
  * ------------------------------------------------------------
  * Single ad row untuk Daftar Iklan list di AdsTable.
- * Pattern mirror dari ReportRow (BALAPOR).
+ *
+ * v4 Changes (Sub-Phase 8-E-5):
+ *   - ADD checkbox cell column 1 (bulk selection)
+ *   - ADD props: isSelected, onSelectToggle
+ *   - Row highlight when selected (subtle bg)
  *
  * Display:
- *   - Thumbnail 40×40 (image atau icon placeholder)
- *   - Title + DCA badge + ad_format
- *   - Advertiser + type (umum/politisi/pemerintah/komersial)
- *   - Status badge (7 statuses, color-coded)
- *   - Position chips (truncate kalau > 2)
+ *   - [NEW] Checkbox (col 1)
+ *   - Thumbnail 40×40 + Title + DCA badge + ad_format
+ *   - Advertiser + type
+ *   - Status badge (7 statuses)
+ *   - Position chips
  *   - Target regions chips
- *   - Impressions count + CTR%
+ *   - Impressions + CTR
  *   - Action buttons (conditional by status)
  *
- * Action button matrix:
- *   - pending_payment/pending_review → Aktifkan + Reject + Edit + Hapus
- *   - active                         → Pause + Edit + Hapus
- *   - paused                         → Resume + Edit + Hapus
- *   - expired/rejected               → Edit + Hapus
- *   - deleted                        → Restore (only)
- *
- * v3 Changes (Sub-Phase 8-B β.2):
- *   - Edit button (<Link>) ke /admin/ads/[id]/edit untuk semua row non-deleted
- *   - Middle-click + Ctrl/Cmd+click works (open new tab)
- *   - Pencil icon dari lucide-react
- *
  * History:
- *   - 16 Mei 2026: NEW v2 (extracted dari AdsTable v1, mirror BALAPOR)
- *   - 16 Mei 2026 14:00: v3 (+Edit button — Sub-Phase 8-B β.2)
+ *   - 16 Mei 2026: v2 (extracted dari AdsTable v1)
+ *   - 16 Mei 2026 14:00: v3 (+Edit button)
+ *   - 17 Mei 2026: v4 (Sub-Phase 8-E-5) — bulk checkbox cell
  */
 
 import Link from 'next/link';
-import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil } from 'lucide-react';
+import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
 
 export interface AdsTableRowProps {
   ad: AdRow;
+  /** Sub-Phase 8-E-5: bulk selection state */
+  isSelected: boolean;
+  onSelectToggle: (adId: string) => void;
   onTransition: (adId: string, to: string) => void | Promise<void>;
   onSoftDelete: (adId: string, title: string) => void | Promise<void>;
   onRestore:    (adId: string) => void | Promise<void>;
   onReject:     (adId: string, title: string) => void | Promise<void>;
-  /** Optional click handler row → buka detail */
   onClick?: (ad: AdRow) => void;
   className?: string;
 }
@@ -85,6 +80,8 @@ const STATUS_CONFIG: Record<
 
 export default function AdsTableRow({
   ad,
+  isSelected,
+  onSelectToggle,
   onTransition,
   onSoftDelete,
   onRestore,
@@ -108,11 +105,31 @@ export default function AdsTableRow({
         'border-b border-border last:border-b-0',
         'transition-colors',
         onClick && 'cursor-pointer hover:bg-surface-muted/40',
+        isSelected && 'bg-ads/8',
         isDeleted && 'opacity-60',
         className
       )}
       onClick={onClick ? () => onClick(ad) : undefined}
     >
+      {/* ─── Col 0: Checkbox ─── */}
+      <td
+        className="px-3 py-3 align-top w-10"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => onSelectToggle(ad.id)}
+          className="flex items-center justify-center w-5 h-5 rounded hover:bg-surface-muted transition-colors"
+          title={isSelected ? 'Hapus dari pilihan' : 'Pilih iklan ini'}
+        >
+          {isSelected ? (
+            <CheckSquare size={14} className="text-ads" />
+          ) : (
+            <Square size={14} className="text-text-muted" />
+          )}
+        </button>
+      </td>
+
       {/* ─── Col 1: Iklan (thumbnail + title) ─── */}
       <td className="px-3 py-3 align-top">
         <div className="flex items-center gap-3">
@@ -271,7 +288,6 @@ function renderActions(
   const btnClass =
     'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors whitespace-nowrap';
 
-  // ─── Deleted ad — Restore only ───
   if (isDeleted) {
     return (
       <button
@@ -288,7 +304,6 @@ function renderActions(
 
   const buttons: React.ReactNode[] = [];
 
-  // Status-specific actions
   if (ad.status === 'active') {
     buttons.push(
       <button
@@ -340,8 +355,6 @@ function renderActions(
     );
   }
 
-  // Edit button — semua status non-deleted (Sub-Phase 8-B β.2)
-  // Pakai Link supaya middle-click + Ctrl/Cmd+click works (open new tab)
   buttons.push(
     <Link
       key="edit"
@@ -355,7 +368,6 @@ function renderActions(
     </Link>
   );
 
-  // Soft delete — semua status kecuali deleted
   buttons.push(
     <button
       key="delete"

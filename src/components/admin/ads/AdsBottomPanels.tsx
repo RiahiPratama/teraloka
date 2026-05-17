@@ -2,56 +2,116 @@
 
 /**
  * TeraLoka — AdsBottomPanels
- * Sub-Phase 8-E Sesi 4 (18 Mei 2026)
+ * Sub-Phase 8-E-4 (17 Mei 2026)
  * ------------------------------------------------------------
- * CHANGE Sesi 4:
- *   - REMOVED Panel #3 "Performance by Position" (vanity lifetime, Pattern T)
- *   - ADDED   Panel #3 "Action Queue" — clickable urgent items
+ * CHANGE Sub-Phase 8-E-4:
+ *   - Action Queue panel sekarang render dari API data (/admin/ads/action-queue)
+ *   - Expand 3 kategori → 5 kategori (tambah Pending Payment + Renewal Risk)
+ *   - ActionQueueKind type: 5 values explicit
+ *   - Empty state berdasarkan total_actions dari API (Pattern AAZ)
  *
  * 3 Panels:
  *   1. Slot Inventory — 13 positions × count filled/empty (top 6)
- *      ID: 'slot-inventory-panel' untuk scroll target
  *   2. Ads Pipeline — grouping by status, clickable filter
- *   3. Action Queue — 3 kategori urgent items (NEW)
+ *   3. Action Queue — 5 kategori dari API endpoint /action-queue
  *
- * Action Queue Categories:
- *   - 📋 Pending Review     (status='pending_review' count)
- *   - ⏰ Akan Berakhir <24h (active + ends_at < now+24h)
- *   - 📉 Slot Kosong        (13 - filled positions count)
- *
- * Click behavior (via onActionQueueClick prop):
- *   - 'pending'      → filter status='pending_review' + scroll table
- *   - 'ending'       → filter status='active' + endingSoonOnly + scroll table
- *   - 'slot_kosong'  → scroll ke Panel #1 Slot Inventory (no filter change)
+ * Action Queue Categories (5 kategori dari API):
+ *   - 📋 Pending Review     — count + items dari API
+ *   - ⏰ Akan Berakhir <7d  — count + items dari API
+ *   - 💰 Pending Payment    — count + items dari API (NEW E-3)
+ *   - 🔄 Renewal Risk <30d  — count + items dari API (NEW E-3)
+ *   - 📉 Slot Kosong        — count + items dari API
  *
  * Pattern Compliance:
  *   - Pattern T  : NO vanity lifetime impressions
- *   - Pattern AAZ: Honest empty state "✓ Semua aman" kalau zero
+ *   - Pattern AAZ: Honest empty state "✓ Semua aman" kalau total_actions=0
  *   - Pattern AAY: Action-oriented drill-down via filter
+ *   - Backend = Otak (5 query parallel di action-queue-engine.ts)
+ *   - Frontend = Wajah (display + capture click only)
  *
  * History:
  *   - 16 Mei 2026: v2 (Tailwind utility + design tokens)
- *   - 18 Mei 2026: Sesi 4 — KILL vanity Performance + ADD Action Queue
+ *   - 18 Mei 2026 sesi sebelumnya: Action Queue 3 kategori (client-derived)
+ *   - 17 Mei 2026 Sub-Phase 8-E-4: render dari API 5 kategori
  */
 
 import {
   Check, Circle, AlertCircle, Wallet, Play, Pause, ArchiveX,
-  CheckCircle2, AlarmClock, ListChecks,
+  CheckCircle2, AlarmClock, ListChecks, RefreshCw, ArrowUpRight,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
 
 const TOTAL_POSITIONS = 13;
 
-export type ActionQueueKind = 'pending' | 'ending' | 'slot_kosong';
+// ─── Action Queue Types (sync dengan backend action-queue-engine.ts) ──
+
+export type ActionQueueKind =
+  | 'pending_review'
+  | 'expire_soon'
+  | 'pending_payment'
+  | 'renewal_risk'
+  | 'slot_empty';
+
+export interface ActionQueueItem {
+  ad_id:           string;
+  display_id:      string | null;
+  title:           string | null;
+  advertiser_name: string;
+}
+
+export interface PendingReviewItem extends ActionQueueItem {
+  created_at:      string;
+  hours_pending:   number;
+  advertiser_type: string;
+}
+
+export interface ExpireSoonItem extends ActionQueueItem {
+  ends_at:        string;
+  days_remaining: number;
+}
+
+export interface PendingPaymentItem extends ActionQueueItem {
+  advertiser_phone:      string | null;
+  expected_payment_date: string | null;
+  payment_due_at:        string | null;
+  days_overdue:          number | null;
+}
+
+export interface RenewalRiskItem extends ActionQueueItem {
+  ends_at:        string;
+  days_remaining: number;
+  renewal_status: string | null;
+}
+
+export interface SlotEmptyInfo {
+  position:    string;
+  has_pending: boolean;
+}
+
+export interface ActionQueueData {
+  pending_review:  { count: number; items: PendingReviewItem[] };
+  expire_soon:     { count: number; items: ExpireSoonItem[] };
+  pending_payment: { count: number; items: PendingPaymentItem[] };
+  renewal_risk:    { count: number; items: RenewalRiskItem[] };
+  slot_empty:      { count: number; items: SlotEmptyInfo[] };
+  total_actions:   number;
+  generated_at:    string;
+}
+
+// ─── Component Props ─────────────────────────────────────────
 
 export interface AdsBottomPanelsProps {
   ads: AdRow[];
+  /** API data dari /admin/ads/action-queue (Sub-Phase 8-E-4) */
+  actionQueueData: ActionQueueData | null;
+  /** Loading state untuk action queue */
+  actionQueueLoading?: boolean;
   /** Optional — click handler position di Slot Inventory */
   onPositionClick?: (positionKey: string) => void;
   /** Optional — click handler stage di Pipeline */
   onStageClick?: (status: string) => void;
-  /** Optional — click handler Action Queue items (Sesi 4 NEW) */
+  /** Optional — click handler Action Queue items */
   onActionQueueClick?: (kind: ActionQueueKind) => void;
   className?: string;
 }
@@ -75,6 +135,8 @@ const POSITIONS_META: Array<{ key: string; label: string; size: string }> = [
 
 export default function AdsBottomPanels({
   ads,
+  actionQueueData,
+  actionQueueLoading = false,
   onPositionClick,
   onStageClick,
   onActionQueueClick,
@@ -141,58 +203,63 @@ export default function AdsBottomPanels({
     },
   ];
 
-  // ─── Panel 3 data: Action Queue (NEW Sesi 4) ──────────────────
-  const now = Date.now();
-  const next24h = now + 24 * 60 * 60 * 1000;
-
-  const pendingReviewCount = ads.filter(
-    (a) => a.status === 'pending_review' && !a.deleted_at
-  ).length;
-
-  const endingSoonCount = activeAds.filter((a) => {
-    const endsMs = new Date(a.ends_at).getTime();
-    return endsMs > now && endsMs < next24h;
-  }).length;
-
-  const filledPositions = new Set<string>();
-  activeAds.forEach((a) => a.positions.forEach((p) => filledPositions.add(p)));
-  const slotKosongCount = Math.max(TOTAL_POSITIONS - filledPositions.size, 0);
+  // ─── Panel 3 data: Action Queue dari API (Sub-Phase 8-E-4) ────
+  // Pattern AAZ honest empty state: kalau actionQueueData null atau total=0
+  const totalActions = actionQueueData?.total_actions ?? 0;
+  const allAreClean = !actionQueueLoading && totalActions === 0;
 
   const actionQueueItems = [
     {
-      key:       'pending' as ActionQueueKind,
+      key:       'pending_review' as ActionQueueKind,
       label:     'Pending Review',
       sub:       'Iklan menunggu approval',
       icon:      <AlertCircle size={16} />,
       bg:        'bg-status-critical/8 hover:bg-status-critical/15',
       color:     'text-status-critical',
-      count:     pendingReviewCount,
-      urgent:    pendingReviewCount > 0,
+      count:     actionQueueData?.pending_review.count ?? 0,
+      urgent:    (actionQueueData?.pending_review.count ?? 0) > 0,
     },
     {
-      key:       'ending' as ActionQueueKind,
+      key:       'expire_soon' as ActionQueueKind,
       label:     'Akan Berakhir',
-      sub:       'Active ads < 24 jam',
+      sub:       'Active ads <7 hari',
       icon:      <AlarmClock size={16} />,
       bg:        'bg-status-warning/8 hover:bg-status-warning/15',
       color:     'text-status-warning',
-      count:     endingSoonCount,
-      urgent:    endingSoonCount > 0,
+      count:     actionQueueData?.expire_soon.count ?? 0,
+      urgent:    (actionQueueData?.expire_soon.count ?? 0) > 0,
     },
     {
-      key:       'slot_kosong' as ActionQueueKind,
+      key:       'pending_payment' as ActionQueueKind,
+      label:     'Pending Payment',
+      sub:       'Advertiser belum bayar',
+      icon:      <Wallet size={16} />,
+      bg:        'bg-status-warning/8 hover:bg-status-warning/15',
+      color:     'text-status-warning',
+      count:     actionQueueData?.pending_payment.count ?? 0,
+      urgent:    (actionQueueData?.pending_payment.count ?? 0) > 0,
+    },
+    {
+      key:       'renewal_risk' as ActionQueueKind,
+      label:     'Renewal Risk',
+      sub:       'Active expire <30 hari',
+      icon:      <RefreshCw size={16} />,
+      bg:        'bg-status-warning/8 hover:bg-status-warning/15',
+      color:     'text-status-warning',
+      count:     actionQueueData?.renewal_risk.count ?? 0,
+      urgent:    (actionQueueData?.renewal_risk.count ?? 0) >= 5,
+    },
+    {
+      key:       'slot_empty' as ActionQueueKind,
       label:     'Slot Kosong',
-      sub:       `${slotKosongCount} dari ${TOTAL_POSITIONS} posisi belum terisi`,
+      sub:       `${actionQueueData?.slot_empty.count ?? 0} dari ${TOTAL_POSITIONS} posisi`,
       icon:      <Circle size={16} />,
       bg:        'bg-status-info/8 hover:bg-status-info/15',
       color:     'text-status-info',
-      count:     slotKosongCount,
-      urgent:    false, // info-level, bukan urgent
+      count:     actionQueueData?.slot_empty.count ?? 0,
+      urgent:    false,
     },
   ];
-
-  const allAreClean =
-    pendingReviewCount === 0 && endingSoonCount === 0 && slotKosongCount === 0;
 
   // ─── Render ────────────────────────────────────────────────────
   return (
@@ -305,13 +372,30 @@ export default function AdsBottomPanels({
         </div>
       </PanelCard>
 
-      {/* ── Panel 3: Action Queue (NEW Sesi 4) ── */}
+      {/* ── Panel 3: Action Queue (5 kategori dari API — Sub-Phase 8-E-4) ── */}
       <PanelCard
         title="ACTION QUEUE"
-        subtitle="Tindakan urgent — klik untuk filter"
+        subtitle={
+          actionQueueLoading
+            ? 'Memuat data dari backend...'
+            : actionQueueData
+            ? `${totalActions} tindakan menunggu`
+            : 'Tidak ada data'
+        }
         icon={<ListChecks className="text-ads" />}
       >
-        {allAreClean ? (
+        {actionQueueLoading && !actionQueueData ? (
+          // Loading skeleton
+          <div className="flex flex-col gap-2">
+            {[0, 1, 2].map((i) => (
+              <div
+                key={i}
+                className="h-12 rounded-lg bg-surface-muted animate-pulse"
+              />
+            ))}
+          </div>
+        ) : allAreClean ? (
+          // Empty state — Pattern AAZ honest "Semua aman"
           <div className="flex flex-col items-center justify-center h-full gap-2 py-8">
             <div className="flex items-center justify-center w-12 h-12 rounded-full bg-status-healthy/12">
               <CheckCircle2 className="text-status-healthy" size={24} />
@@ -322,26 +406,36 @@ export default function AdsBottomPanels({
             </p>
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
+          // 5 kategori action list
+          <div className="flex flex-col gap-1.5 overflow-y-auto max-h-[280px]">
             {actionQueueItems.map((item) => {
               const isClickable = Boolean(onActionQueueClick);
               const Wrapper = isClickable ? 'button' : 'div';
+              const isZero = item.count === 0;
+
               return (
                 <Wrapper
                   key={item.key}
                   type={isClickable ? 'button' : undefined}
-                  onClick={isClickable ? () => onActionQueueClick!(item.key) : undefined}
+                  onClick={
+                    isClickable && !isZero
+                      ? () => onActionQueueClick!(item.key)
+                      : undefined
+                  }
+                  disabled={isZero}
                   className={cn(
-                    'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg',
-                    'transition-colors',
-                    item.bg,
-                    isClickable && 'cursor-pointer'
+                    'flex items-center justify-between gap-2 px-3 py-2 rounded-lg',
+                    'transition-colors text-left w-full',
+                    isZero ? 'opacity-40 cursor-not-allowed' : item.bg,
+                    isClickable && !isZero && 'cursor-pointer'
                   )}
                   title={
-                    isClickable
-                      ? item.key === 'slot_kosong'
+                    isClickable && !isZero
+                      ? item.key === 'slot_empty'
                         ? 'Scroll ke panel Slot Inventory'
                         : `Filter tabel ke ${item.label}`
+                      : isZero
+                      ? 'Tidak ada item'
                       : undefined
                   }
                 >
@@ -356,12 +450,29 @@ export default function AdsBottomPanels({
                       </div>
                     </div>
                   </div>
-                  <div className={cn('text-xl font-extrabold tabular-nums shrink-0', item.color)}>
-                    {item.count}
+                  <div className="flex items-center gap-1 shrink-0">
+                    <div className={cn('text-lg font-extrabold tabular-nums', item.color)}>
+                      {item.count}
+                    </div>
+                    {isClickable && !isZero && (
+                      <ArrowUpRight size={12} className={cn('opacity-50', item.color)} />
+                    )}
                   </div>
                 </Wrapper>
               );
             })}
+
+            {/* Timestamp freshness indicator */}
+            {actionQueueData?.generated_at && (
+              <p className="text-[9px] text-text-subtle text-center mt-1 italic">
+                Update terakhir:{' '}
+                {new Date(actionQueueData.generated_at).toLocaleTimeString('id-ID', {
+                  hour:   '2-digit',
+                  minute: '2-digit',
+                  second: '2-digit',
+                })}
+              </p>
+            )}
           </div>
         )}
       </PanelCard>

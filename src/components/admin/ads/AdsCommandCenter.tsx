@@ -1,41 +1,33 @@
 'use client';
 
 /**
- * TeraLoka — AdsCommandCenter (v5)
- * Sub-Phase 8-E Sesi 4 (18 Mei 2026)
+ * TeraLoka — AdsCommandCenter (v7 — Sub-Phase 8-E-5)
+ * Sub-Phase 8-E-4 → 8-E-5 (17 Mei 2026)
  * ------------------------------------------------------------
- * CHANGES Sesi 4:
- *   - Wire onCardClick di AdsStatsCards (5 card → filter/scroll/navigate)
- *   - Wire onActionQueueClick di AdsBottomPanels (3 kategori)
- *   - Wire onStageClick di AdsBottomPanels (5 pipeline stage → filter)
- *   - ADD endingSoonOnly state (client-side filter <24h)
- *   - ADD scroll target IDs: ads-table-section, slot-inventory-panel
- *   - ADD useRouter untuk navigate ke /admin/financial
+ * CHANGES Sub-Phase 8-E-5:
+ *   - ADD state: region, dateRange, sortBy
+ *   - ADD state: selectedAdIds (Set<string>) untuk bulk selection
+ *   - UPDATE filteredAds useMemo: + region filter + date range + sort
+ *   - Wire 3 new filters ke AdsSmartFilter
+ *   - Wire selectedAdIds ke AdsTable
  *
- * Card click mapping:
- *   - 'slot'     → scroll ke Panel Slot Inventory
- *   - 'active'   → setFilterStatus('active') + scroll table
- *   - 'pending'  → setFilterStatus('pending_review') + scroll table
- *   - 'ending'   → setFilterStatus('active') + endingSoonOnly + scroll table
- *   - 'revenue'  → router.push('/admin/financial')
- *
- * Action Queue click mapping:
- *   - 'pending'      → same dengan card 'pending'
- *   - 'ending'       → same dengan card 'ending'
- *   - 'slot_kosong'  → scroll ke Slot Inventory (no filter)
- *
- * Pipeline Stage click → setFilterStatus(stage.key) + scroll table
- *
- * Pattern Compliance:
- *   - Pattern AAY: Dual-entity awareness (revenue → financial dashboard)
- *   - Pattern AAZ: Filter clarity (endingSoonOnly auto-reset saat status berubah)
+ * Filter pipeline (client-side, max 100 ads loaded):
+ *   1. status filter
+ *   2. advertiser_type filter
+ *   3. region filter (Sub-Phase 8-E-5)
+ *   4. search filter
+ *   5. ending soon filter
+ *   6. date range filter (Sub-Phase 8-E-5)
+ *   7. sort (Sub-Phase 8-E-5)
  *
  * History:
  *   - 16 Mei 2026: v1-v4 (Mission 8 progression)
  *   - 18 Mei 2026: Sesi 4 v5 — Wire click handlers + endingSoonOnly filter
+ *   - 17 Mei 2026: Sub-Phase 8-E-4 v6 — Action Queue API + polling
+ *   - 17 Mei 2026: Sub-Phase 8-E-5 v7 — Region/Date/Sort filters + bulk selection UI
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -50,17 +42,28 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import AdsStatsCards from './AdsStatsCards';
-import AdsBottomPanels, { type ActionQueueKind } from './AdsBottomPanels';
+import AdsBottomPanels, {
+  type ActionQueueKind,
+  type ActionQueueData,
+} from './AdsBottomPanels';
 import AdsTable from './AdsTable';
 import AdsSmartFilter, {
   type AdStatusFilter,
   type AdvertiserTypeFilter,
+  type AdRegionFilter,
+  type AdDateRangeFilter,
+  type AdSortBy,
+  REGION_OPTIONS,
+  DATE_RANGE_OPTIONS,
 } from './AdsSmartFilter';
 import DeleteAdModal from './DeleteAdModal';
 import RejectAdModal from './RejectAdModal';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+// Sub-Phase 8-E-4: polling interval per PRD Section 6.3
+const ACTION_QUEUE_POLL_MS = 60_000;
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -101,6 +104,12 @@ type ListResponse = {
   error?: { code: string; message: string };
 };
 
+type ActionQueueResponse = {
+  success: boolean;
+  data?: ActionQueueData;
+  error?: { code: string; message: string };
+};
+
 type Toast = {
   id:   number;
   msg:  string;
@@ -126,26 +135,37 @@ export default function AdsCommandCenter() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [toasts, setToasts]           = useState<Toast[]>([]);
 
-  // Filter state
-  const [filterStatus, setFilterStatus] = useState<AdStatusFilter>('all');
-  const [filterType, setFilterType]     = useState<AdvertiserTypeFilter>('all');
-  const [searchQuery, setSearchQuery]   = useState('');
+  // Action Queue state (Sub-Phase 8-E-4)
+  const [actionQueue, setActionQueue]               = useState<ActionQueueData | null>(null);
+  const [actionQueueLoading, setActionQueueLoading] = useState(true);
+  const actionQueuePollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Sesi 4 NEW: Client-side filter "ending soon" (<24h)
-  // Auto-reset saat filterStatus berubah ke selain 'active'
+  // Filter state
+  const [filterStatus, setFilterStatus]     = useState<AdStatusFilter>('all');
+  const [filterType, setFilterType]         = useState<AdvertiserTypeFilter>('all');
+  const [searchQuery, setSearchQuery]       = useState('');
   const [endingSoonOnly, setEndingSoonOnly] = useState(false);
 
-  // Modal state
+  // Sub-Phase 8-E-5: Filter + Sort + Selection
+  const [filterRegion, setFilterRegion]   = useState<AdRegionFilter>('all');
+  const [dateRange, setDateRange]         = useState<AdDateRangeFilter>('all');
+  const [sortBy, setSortBy]               = useState<AdSortBy>('created_desc');
+  const [selectedAdIds, setSelectedAdIds] = useState<Set<string>>(new Set());
+
   const [modal, setModal] = useState<ModalState>({ kind: 'none' });
 
-  // ─── Auto-reset endingSoonOnly saat filterStatus berubah ───────
+  // Auto-reset endingSoonOnly saat filterStatus berubah
   useEffect(() => {
     if (filterStatus !== 'active' && endingSoonOnly) {
       setEndingSoonOnly(false);
     }
   }, [filterStatus, endingSoonOnly]);
 
-  // ─── Toast helper ─────────────────────────────────────────────
+  // Sub-Phase 8-E-5: Clear selection saat filter berubah
+  useEffect(() => {
+    setSelectedAdIds(new Set());
+  }, [filterStatus, filterType, filterRegion, dateRange, searchQuery, showDeleted]);
+
   const showToast = useCallback((msg: string, type: 'ok' | 'err' = 'ok') => {
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, msg, type }]);
@@ -154,7 +174,6 @@ export default function AdsCommandCenter() {
     }, 3500);
   }, []);
 
-  // ─── Fetch ads list ────────────────────────────────────────────
   const fetchAds = useCallback(async () => {
     if (!token) return;
     setLoading(true);
@@ -187,19 +206,75 @@ export default function AdsCommandCenter() {
     if (!authLoading) fetchAds();
   }, [authLoading, fetchAds]);
 
-  // ─── Filter logic (client-side, derived state) ────────────────
+  const fetchActionQueue = useCallback(async (silent: boolean = false) => {
+    if (!token) return;
+    if (!silent) setActionQueueLoading(true);
+    try {
+      const res = await fetch(`${API}/admin/ads/action-queue`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json: ActionQueueResponse = await res.json();
+
+      if (!json.success || !json.data) {
+        console.error('[ActionQueue] fetch failed:', json.error?.message);
+        return;
+      }
+
+      setActionQueue(json.data);
+    } catch (err: any) {
+      console.error('[ActionQueue] network error:', err);
+    } finally {
+      if (!silent) setActionQueueLoading(false);
+    }
+  }, [token]);
+
+  useEffect(() => {
+    if (authLoading) return;
+
+    fetchActionQueue(false);
+
+    actionQueuePollingRef.current = setInterval(() => {
+      fetchActionQueue(true);
+    }, ACTION_QUEUE_POLL_MS);
+
+    return () => {
+      if (actionQueuePollingRef.current) {
+        clearInterval(actionQueuePollingRef.current);
+        actionQueuePollingRef.current = null;
+      }
+    };
+  }, [authLoading, fetchActionQueue]);
+
+  // ─── Sub-Phase 8-E-5: Filter + Sort pipeline ───────────────────
   const filteredAds = useMemo(() => {
     const now = Date.now();
     const next24h = now + 24 * 60 * 60 * 1000;
 
-    return ads.filter((ad) => {
-      // Status filter
+    const dateRangeCfg = DATE_RANGE_OPTIONS.find((d) => d.key === dateRange);
+    const dateCutoff = dateRangeCfg?.days
+      ? now - dateRangeCfg.days * 24 * 60 * 60 * 1000
+      : null;
+
+    const regionCfg = REGION_OPTIONS.find((r) => r.key === filterRegion);
+    const regionMatchValues = regionCfg?.matchValues ?? [];
+
+    const filtered = ads.filter((ad) => {
+      // 1. Status
       if (filterStatus !== 'all' && ad.status !== filterStatus) return false;
 
-      // Advertiser type filter
+      // 2. Advertiser type
       if (filterType !== 'all' && ad.advertiser_type !== filterType) return false;
 
-      // Search filter (title, body, advertiser_name)
+      // 3. Region (E-5): null=universal include, else match contains
+      if (filterRegion !== 'all' && regionMatchValues.length > 0) {
+        const isUniversal = ad.target_regions === null;
+        const isMatched = ad.target_regions?.some((r) =>
+          regionMatchValues.some((m) => r.toLowerCase().includes(m.toLowerCase()))
+        );
+        if (!isUniversal && !isMatched) return false;
+      }
+
+      // 4. Search
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.trim().toLowerCase();
         const haystack =
@@ -207,17 +282,40 @@ export default function AdsCommandCenter() {
         if (!haystack.includes(q)) return false;
       }
 
-      // Sesi 4 NEW: Ending soon filter (<24h, active only)
+      // 5. Ending soon (<24h)
       if (endingSoonOnly) {
         const endsMs = new Date(ad.ends_at).getTime();
         if (!(endsMs > now && endsMs < next24h)) return false;
       }
 
+      // 6. Date range (E-5): filter by created_at
+      if (dateCutoff !== null) {
+        const createdMs = new Date(ad.created_at).getTime();
+        if (createdMs < dateCutoff) return false;
+      }
+
       return true;
     });
-  }, [ads, filterStatus, filterType, searchQuery, endingSoonOnly]);
 
-  // ─── Status counts for filter pills badge ──────────────────────
+    // 7. Sort (E-5)
+    const sorted = [...filtered].sort((a, b) => {
+      switch (sortBy) {
+        case 'created_desc':
+          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'ends_asc':
+          return new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime();
+        case 'impression_desc':
+          return b.impression_count - a.impression_count;
+        case 'name_asc':
+          return a.advertiser_name.localeCompare(b.advertiser_name, 'id');
+        default:
+          return 0;
+      }
+    });
+
+    return sorted;
+  }, [ads, filterStatus, filterType, filterRegion, searchQuery, endingSoonOnly, dateRange, sortBy]);
+
   const statusCounts = useMemo(() => {
     const counts: Partial<Record<AdStatusFilter, number>> = { all: ads.length };
     ads.forEach((ad) => {
@@ -227,7 +325,6 @@ export default function AdsCommandCenter() {
     return counts;
   }, [ads]);
 
-  // ─── Advertiser type counts ───────────────────────────────────
   const typeCounts = useMemo(() => {
     const counts: Partial<Record<AdvertiserTypeFilter, number>> = {
       all: ads.length,
@@ -239,10 +336,7 @@ export default function AdsCommandCenter() {
     return counts;
   }, [ads]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // SESI 4 — Click handlers (Card + Action Queue + Pipeline stage)
-  // ═══════════════════════════════════════════════════════════════
-
+  // Click handlers
   const scrollToTable = useCallback(() => {
     const el = document.getElementById('ads-table-section');
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -253,7 +347,6 @@ export default function AdsCommandCenter() {
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
-  // Stats Cards click (5 cards: slot/active/pending/ending/revenue)
   const handleStatsCardClick = useCallback((id: string) => {
     switch (id) {
       case 'slot':
@@ -280,38 +373,48 @@ export default function AdsCommandCenter() {
     }
   }, [router, scrollToTable, scrollToSlotInventory]);
 
-  // Action Queue click (3 kategori: pending/ending/slot_kosong)
   const handleActionQueueClick = useCallback((kind: ActionQueueKind) => {
     switch (kind) {
-      case 'pending':
+      case 'pending_review':
         setFilterStatus('pending_review' as AdStatusFilter);
         setEndingSoonOnly(false);
         scrollToTable();
         break;
-      case 'ending':
+      case 'expire_soon':
         setFilterStatus('active');
         setEndingSoonOnly(true);
         scrollToTable();
         break;
-      case 'slot_kosong':
+      case 'pending_payment':
+        setFilterStatus('pending_payment' as AdStatusFilter);
+        setEndingSoonOnly(false);
+        scrollToTable();
+        break;
+      case 'renewal_risk':
+        setFilterStatus('active');
+        setEndingSoonOnly(false);
+        scrollToTable();
+        showToast('Renewal Risk — review active ads yang expire <30 hari', 'ok');
+        break;
+      case 'slot_empty':
         scrollToSlotInventory();
         break;
     }
-  }, [scrollToTable, scrollToSlotInventory]);
+  }, [scrollToTable, scrollToSlotInventory, showToast]);
 
-  // Pipeline Stage click (5 stages: pending_review/pending_payment/active/paused/expired)
   const handlePipelineStageClick = useCallback((status: string) => {
     setFilterStatus(status as AdStatusFilter);
     setEndingSoonOnly(false);
     scrollToTable();
   }, [scrollToTable]);
 
-  // Slot Inventory click (filter by position — Phase 2 enhancement)
   const handlePositionClick = useCallback((positionKey: string) => {
     showToast(`Filter posisi "${positionKey}" — coming Phase 2`, 'ok');
   }, [showToast]);
 
-  // ─── Existing action handlers (untouched) ─────────────────────
+  const refreshAll = useCallback(async () => {
+    await Promise.all([fetchAds(), fetchActionQueue(false)]);
+  }, [fetchAds, fetchActionQueue]);
 
   const handleStatusTransition = async (adId: string, to: string) => {
     try {
@@ -329,7 +432,7 @@ export default function AdsCommandCenter() {
         return;
       }
       showToast(`✓ Status diubah ke ${to}`, 'ok');
-      await fetchAds();
+      await refreshAll();
     } catch (err: any) {
       showToast(err?.message ?? 'Network error', 'err');
     }
@@ -356,7 +459,7 @@ export default function AdsCommandCenter() {
     }
     showToast(`🗑 Iklan dipindah ke Sampah`, 'ok');
     setModal({ kind: 'none' });
-    await fetchAds();
+    await refreshAll();
   };
 
   const handleRestore = async (adId: string) => {
@@ -376,7 +479,7 @@ export default function AdsCommandCenter() {
         `↩ Iklan dipulihkan ke status: ${json.restored_to ?? 'paused'}`,
         'ok'
       );
-      await fetchAds();
+      await refreshAll();
     } catch (err: any) {
       showToast(err?.message ?? 'Network error', 'err');
     }
@@ -403,10 +506,8 @@ export default function AdsCommandCenter() {
     }
     showToast(`✕ Iklan ditolak`, 'ok');
     setModal({ kind: 'none' });
-    await fetchAds();
+    await refreshAll();
   };
-
-  // ─── Render guards ────────────────────────────────────────────
 
   if (authLoading) {
     return (
@@ -428,7 +529,7 @@ export default function AdsCommandCenter() {
         </div>
         <button
           type="button"
-          onClick={fetchAds}
+          onClick={refreshAll}
           className="shrink-0 px-3 py-1.5 rounded-md bg-status-critical text-white text-[11px] font-bold hover:bg-status-critical/90 transition-colors"
         >
           Coba lagi
@@ -437,11 +538,8 @@ export default function AdsCommandCenter() {
     );
   }
 
-  // ─── Main render ──────────────────────────────────────────────
-
   return (
     <div className="flex flex-col gap-4">
-      {/* ─── Toast stack ─── */}
       {toasts.length > 0 && (
         <div className="fixed top-4 right-4 z-50 flex flex-col gap-2 max-w-md">
           {toasts.map((t) => (
@@ -466,7 +564,6 @@ export default function AdsCommandCenter() {
         </div>
       )}
 
-      {/* ─── Header ─── */}
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <h2 className="text-lg font-extrabold text-text tracking-tight">
@@ -510,7 +607,7 @@ export default function AdsCommandCenter() {
 
           <button
             type="button"
-            onClick={fetchAds}
+            onClick={refreshAll}
             disabled={loading}
             className={cn(
               'inline-flex items-center gap-2 px-3 py-1.5 rounded-md',
@@ -526,7 +623,6 @@ export default function AdsCommandCenter() {
         </div>
       </div>
 
-      {/* ─── Row 1: Stats Cards (Sesi 4: wire onCardClick) ─── */}
       <AdsStatsCards
         ads={ads}
         total={total}
@@ -534,27 +630,32 @@ export default function AdsCommandCenter() {
         onCardClick={handleStatsCardClick}
       />
 
-      {/* ─── Row 2: Bottom Panels (Sesi 4: wire all 3 click handlers) ─── */}
       <AdsBottomPanels
         ads={ads}
+        actionQueueData={actionQueue}
+        actionQueueLoading={actionQueueLoading}
         onPositionClick={handlePositionClick}
         onStageClick={handlePipelineStageClick}
         onActionQueueClick={handleActionQueueClick}
       />
 
-      {/* ─── Row 3: SMART Filter ─── */}
       <AdsSmartFilter
         status={filterStatus}
         advertiserType={filterType}
         search={searchQuery}
+        region={filterRegion}
+        dateRange={dateRange}
+        sortBy={sortBy}
         onStatusChange={setFilterStatus}
         onAdvertiserTypeChange={setFilterType}
         onSearchChange={setSearchQuery}
+        onRegionChange={setFilterRegion}
+        onDateRangeChange={setDateRange}
+        onSortByChange={setSortBy}
         statusCounts={statusCounts}
         typeCounts={typeCounts}
       />
 
-      {/* ─── Sesi 4: Active Filter Chip "Akan Berakhir <24h" ─── */}
       {endingSoonOnly && (
         <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-status-warning/8 border border-status-warning/30">
           <AlarmClock className="text-status-warning shrink-0" size={14} />
@@ -572,11 +673,12 @@ export default function AdsCommandCenter() {
         </div>
       )}
 
-      {/* ─── Row 4: Daftar Iklan Table (Sesi 4: tambah scroll target id) ─── */}
       <div id="ads-table-section">
         <AdsTable
           ads={filteredAds}
           showDeleted={showDeleted}
+          selectedAdIds={selectedAdIds}
+          onSelectionChange={setSelectedAdIds}
           onTransition={handleStatusTransition}
           onSoftDelete={handleSoftDelete}
           onRestore={handleRestore}
@@ -584,7 +686,6 @@ export default function AdsCommandCenter() {
         />
       </div>
 
-      {/* ─── Modals ─── */}
       <DeleteAdModal
         ad={modal.kind === 'delete' ? modal.ad : null}
         onConfirm={handleSoftDeleteConfirm}
