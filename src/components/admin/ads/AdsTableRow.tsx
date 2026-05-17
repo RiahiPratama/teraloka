@@ -1,32 +1,21 @@
 /**
- * TeraLoka — AdsTableRow (v4 — Sub-Phase 8-E-5)
- * Mission 8 Sub-Phase 8-C-1 (v2) + 8-B β.2 (Group 3) + 8-E-5 (bulk select)
+ * TeraLoka — AdsTableRow (v5 — Sub-Phase 8-E-6 Mini A + Mini C)
+ * Mission 8 Sub-Phase 8-C-1 → 8-E-5 → 8-E-6
  * ------------------------------------------------------------
- * Single ad row untuk Daftar Iklan list di AdsTable.
- *
- * v4 Changes (Sub-Phase 8-E-5):
- *   - ADD checkbox cell column 1 (bulk selection)
- *   - ADD props: isSelected, onSelectToggle
- *   - Row highlight when selected (subtle bg)
- *
- * Display:
- *   - [NEW] Checkbox (col 1)
- *   - Thumbnail 40×40 + Title + DCA badge + ad_format
- *   - Advertiser + type
- *   - Status badge (7 statuses)
- *   - Position chips
- *   - Target regions chips
- *   - Impressions + CTR
- *   - Action buttons (conditional by status)
+ * v5 Changes (Sub-Phase 8-E-6 Mini A + Mini C):
+ *   - Mini A: Render display_id (ADS-2026-NNNN) di bawah ad title
+ *   - Mini C: ADD Eye icon button di Aksi column → trigger preview modal
+ *   - New prop: onPreview(ad)
  *
  * History:
- *   - 16 Mei 2026: v2 (extracted dari AdsTable v1)
- *   - 16 Mei 2026 14:00: v3 (+Edit button)
- *   - 17 Mei 2026: v4 (Sub-Phase 8-E-5) — bulk checkbox cell
+ *   - 16 Mei 2026: v2 NEW
+ *   - 16 Mei 2026: v3 +Edit button
+ *   - 17 Mei 2026: v4 bulk checkbox cell
+ *   - 17 Mei 2026: v5 display_id + Eye preview button
  */
 
 import Link from 'next/link';
-import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square } from 'lucide-react';
+import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square, Eye } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
 
@@ -35,6 +24,8 @@ export interface AdsTableRowProps {
   /** Sub-Phase 8-E-5: bulk selection state */
   isSelected: boolean;
   onSelectToggle: (adId: string) => void;
+  /** Sub-Phase 8-E-6 Mini C: open preview modal */
+  onPreview: (ad: AdRow) => void;
   onTransition: (adId: string, to: string) => void | Promise<void>;
   onSoftDelete: (adId: string, title: string) => void | Promise<void>;
   onRestore:    (adId: string) => void | Promise<void>;
@@ -43,45 +34,24 @@ export interface AdsTableRowProps {
   className?: string;
 }
 
-// Status badge config — color match design tokens
 const STATUS_CONFIG: Record<
   string,
   { label: string; classes: string }
 > = {
-  pending_payment: {
-    label: 'Pending Pay',
-    classes: 'bg-status-warning/12 text-status-warning',
-  },
-  pending_review: {
-    label: 'Review',
-    classes: 'bg-status-critical/12 text-status-critical',
-  },
-  active: {
-    label: 'Active',
-    classes: 'bg-status-healthy/12 text-status-healthy',
-  },
-  paused: {
-    label: 'Paused',
-    classes: 'bg-status-info/12 text-status-info',
-  },
-  rejected: {
-    label: 'Rejected',
-    classes: 'bg-balapor/12 text-balapor',
-  },
-  expired: {
-    label: 'Expired',
-    classes: 'bg-surface-muted text-text-muted',
-  },
-  deleted: {
-    label: 'Deleted',
-    classes: 'bg-balapor/12 text-balapor',
-  },
+  pending_payment: { label: 'Pending Pay',  classes: 'bg-status-warning/12 text-status-warning' },
+  pending_review:  { label: 'Review',       classes: 'bg-status-critical/12 text-status-critical' },
+  active:          { label: 'Active',       classes: 'bg-status-healthy/12 text-status-healthy' },
+  paused:          { label: 'Paused',       classes: 'bg-status-info/12 text-status-info' },
+  rejected:        { label: 'Rejected',     classes: 'bg-balapor/12 text-balapor' },
+  expired:         { label: 'Expired',      classes: 'bg-surface-muted text-text-muted' },
+  deleted:         { label: 'Deleted',      classes: 'bg-balapor/12 text-balapor' },
 };
 
 export default function AdsTableRow({
   ad,
   isSelected,
   onSelectToggle,
+  onPreview,
   onTransition,
   onSoftDelete,
   onRestore,
@@ -130,7 +100,7 @@ export default function AdsTableRow({
         </button>
       </td>
 
-      {/* ─── Col 1: Iklan (thumbnail + title) ─── */}
+      {/* ─── Col 1: Iklan (thumbnail + title + display_id) ─── */}
       <td className="px-3 py-3 align-top">
         <div className="flex items-center gap-3">
           {ad.image_url ? (
@@ -149,7 +119,20 @@ export default function AdsTableRow({
             <div className="text-[12px] font-bold text-text truncate max-w-[200px]">
               {adTitle}
             </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
+
+            {/* Sub-Phase 8-E-6 Mini A: display_id + ad_format + DCA badge */}
+            <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
+              {ad.display_id && (
+                <span
+                  className="font-mono text-[9px] font-bold text-text-muted tracking-wide"
+                  title="Display ID (untuk customer support reference)"
+                >
+                  {ad.display_id}
+                </span>
+              )}
+              {ad.display_id && (
+                <span className="text-text-subtle text-[9px]">·</span>
+              )}
               {isDCA && (
                 <span
                   className="px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-ads-muted text-ads-strong dark:text-ads"
@@ -259,6 +242,20 @@ export default function AdsTableRow({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex gap-1 justify-end flex-wrap">
+          {/* Sub-Phase 8-E-6 Mini C: Eye preview button (always visible, first) */}
+          <button
+            type="button"
+            onClick={() => onPreview(ad)}
+            className={cn(
+              'inline-flex items-center gap-1 px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors whitespace-nowrap',
+              'bg-ads/12 text-ads hover:bg-ads/20'
+            )}
+            title="Lihat preview iklan"
+          >
+            <Eye size={11} />
+            Lihat
+          </button>
+
           {renderActions(ad, isDeleted, {
             onTransition,
             onSoftDelete,

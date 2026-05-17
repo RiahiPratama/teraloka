@@ -1,74 +1,59 @@
 'use client';
 
 /**
- * TeraLoka — AdsCommandCenter (v7 — Sub-Phase 8-E-5)
- * Sub-Phase 8-E-4 → 8-E-5 (17 Mei 2026)
+ * TeraLoka — AdsCommandCenter (v9 — Sub-Phase 8-E-6 Mini A+B+C)
+ * Sub-Phase 8-E-6 final (17 Mei 2026)
  * ------------------------------------------------------------
- * CHANGES Sub-Phase 8-E-5:
- *   - ADD state: region, dateRange, sortBy
- *   - ADD state: selectedAdIds (Set<string>) untuk bulk selection
- *   - UPDATE filteredAds useMemo: + region filter + date range + sort
- *   - Wire 3 new filters ke AdsSmartFilter
- *   - Wire selectedAdIds ke AdsTable
+ * CHANGES Sub-Phase 8-E-6 Mini A+B+C:
+ *   - Mini A: ADD display_id?: string | null to AdRow type
+ *   - Mini B: Replace handleBulkAction native confirm/prompt with BulkActionModal state
+ *   - Mini C: Wire AdPreviewModal state + onPreview handler
  *
- * Filter pipeline (client-side, max 100 ads loaded):
- *   1. status filter
- *   2. advertiser_type filter
- *   3. region filter (Sub-Phase 8-E-5)
- *   4. search filter
- *   5. ending soon filter
- *   6. date range filter (Sub-Phase 8-E-5)
- *   7. sort (Sub-Phase 8-E-5)
+ * Modal stack now (3 modals):
+ *   1. BulkActionModal — pause/resume/soft_delete confirm (NEW, replace native)
+ *   2. AdPreviewModal — Eye icon trigger (NEW)
+ *   3. DeleteAdModal + RejectAdModal — single action (existing, untouched)
  *
  * History:
- *   - 16 Mei 2026: v1-v4 (Mission 8 progression)
- *   - 18 Mei 2026: Sesi 4 v5 — Wire click handlers + endingSoonOnly filter
- *   - 17 Mei 2026: Sub-Phase 8-E-4 v6 — Action Queue API + polling
- *   - 17 Mei 2026: Sub-Phase 8-E-5 v7 — Region/Date/Sort filters + bulk selection UI
+ *   - 17 Mei 2026: v7 Region/Date/Sort + bulk UI prep
+ *   - 17 Mei 2026: v8 wire bulk action handler (native confirm)
+ *   - 17 Mei 2026: v9 (Mini A+B+C) display_id + BulkActionModal + AdPreviewModal
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  RefreshCw,
-  Trash2,
-  AlertCircle,
-  CheckCircle2,
-  Plus,
-  X,
-  AlarmClock,
+  RefreshCw, Trash2, AlertCircle, CheckCircle2, Plus, X, AlarmClock,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import AdsStatsCards from './AdsStatsCards';
 import AdsBottomPanels, {
-  type ActionQueueKind,
-  type ActionQueueData,
+  type ActionQueueKind, type ActionQueueData,
 } from './AdsBottomPanels';
-import AdsTable from './AdsTable';
+import AdsTable, { type BulkActionType } from './AdsTable';
 import AdsSmartFilter, {
-  type AdStatusFilter,
-  type AdvertiserTypeFilter,
-  type AdRegionFilter,
-  type AdDateRangeFilter,
-  type AdSortBy,
-  REGION_OPTIONS,
-  DATE_RANGE_OPTIONS,
+  type AdStatusFilter, type AdvertiserTypeFilter,
+  type AdRegionFilter, type AdDateRangeFilter, type AdSortBy,
+  REGION_OPTIONS, DATE_RANGE_OPTIONS,
 } from './AdsSmartFilter';
 import DeleteAdModal from './DeleteAdModal';
 import RejectAdModal from './RejectAdModal';
+import BulkActionModal from './BulkActionModal';
+import AdPreviewModal from './AdPreviewModal';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-// Sub-Phase 8-E-4: polling interval per PRD Section 6.3
 const ACTION_QUEUE_POLL_MS = 60_000;
 
 // ─── Types ───────────────────────────────────────────────────────
 
 export type AdRow = {
   id:                  string;
+  /** Sub-Phase 8-E-2: human-readable ID (ADS-2026-NNNN) */
+  display_id?:         string | null;
   title:               string | null;
   body:                string | null;
   image_url:           string | null;
@@ -110,16 +95,29 @@ type ActionQueueResponse = {
   error?: { code: string; message: string };
 };
 
-type Toast = {
-  id:   number;
-  msg:  string;
-  type: 'ok' | 'err';
+type BulkActionResponse = {
+  success: boolean;
+  data?: {
+    action:        BulkActionType;
+    total:         number;
+    success_count: number;
+    failed_count:  number;
+    errors:        Array<{ ad_id: string; error: string }>;
+  };
+  error?: { code: string; message: string };
 };
+
+type Toast = { id: number; msg: string; type: 'ok' | 'err' };
 
 type ModalState =
   | { kind: 'none' }
   | { kind: 'delete'; ad: AdRow }
   | { kind: 'reject'; ad: AdRow };
+
+// Sub-Phase 8-E-6 Mini B: bulk modal state
+type BulkModalState =
+  | { open: false }
+  | { open: true; action: BulkActionType; eligibleAds: AdRow[] };
 
 // ─── Component ───────────────────────────────────────────────────
 
@@ -127,7 +125,6 @@ export default function AdsCommandCenter() {
   const { token, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Data state
   const [ads, setAds]                 = useState<AdRow[]>([]);
   const [total, setTotal]             = useState(0);
   const [loading, setLoading]         = useState(true);
@@ -135,33 +132,34 @@ export default function AdsCommandCenter() {
   const [showDeleted, setShowDeleted] = useState(false);
   const [toasts, setToasts]           = useState<Toast[]>([]);
 
-  // Action Queue state (Sub-Phase 8-E-4)
   const [actionQueue, setActionQueue]               = useState<ActionQueueData | null>(null);
   const [actionQueueLoading, setActionQueueLoading] = useState(true);
   const actionQueuePollingRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Filter state
   const [filterStatus, setFilterStatus]     = useState<AdStatusFilter>('all');
   const [filterType, setFilterType]         = useState<AdvertiserTypeFilter>('all');
   const [searchQuery, setSearchQuery]       = useState('');
   const [endingSoonOnly, setEndingSoonOnly] = useState(false);
 
-  // Sub-Phase 8-E-5: Filter + Sort + Selection
   const [filterRegion, setFilterRegion]   = useState<AdRegionFilter>('all');
   const [dateRange, setDateRange]         = useState<AdDateRangeFilter>('all');
   const [sortBy, setSortBy]               = useState<AdSortBy>('created_desc');
   const [selectedAdIds, setSelectedAdIds] = useState<Set<string>>(new Set());
 
-  const [modal, setModal] = useState<ModalState>({ kind: 'none' });
+  const [modal, setModal]                 = useState<ModalState>({ kind: 'none' });
 
-  // Auto-reset endingSoonOnly saat filterStatus berubah
+  // Sub-Phase 8-E-6 Mini B: bulk action modal state
+  const [bulkModal, setBulkModal] = useState<BulkModalState>({ open: false });
+
+  // Sub-Phase 8-E-6 Mini C: preview modal state
+  const [previewAdId, setPreviewAdId] = useState<string | null>(null);
+
   useEffect(() => {
     if (filterStatus !== 'active' && endingSoonOnly) {
       setEndingSoonOnly(false);
     }
   }, [filterStatus, endingSoonOnly]);
 
-  // Sub-Phase 8-E-5: Clear selection saat filter berubah
   useEffect(() => {
     setSelectedAdIds(new Set());
   }, [filterStatus, filterType, filterRegion, dateRange, searchQuery, showDeleted]);
@@ -171,7 +169,7 @@ export default function AdsCommandCenter() {
     setToasts((prev) => [...prev, { id, msg, type }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, 3500);
+    }, 4500);
   }, []);
 
   const fetchAds = useCallback(async () => {
@@ -245,27 +243,20 @@ export default function AdsCommandCenter() {
     };
   }, [authLoading, fetchActionQueue]);
 
-  // ─── Sub-Phase 8-E-5: Filter + Sort pipeline ───────────────────
   const filteredAds = useMemo(() => {
     const now = Date.now();
     const next24h = now + 24 * 60 * 60 * 1000;
 
     const dateRangeCfg = DATE_RANGE_OPTIONS.find((d) => d.key === dateRange);
-    const dateCutoff = dateRangeCfg?.days
-      ? now - dateRangeCfg.days * 24 * 60 * 60 * 1000
-      : null;
+    const dateCutoff = dateRangeCfg?.days ? now - dateRangeCfg.days * 24 * 60 * 60 * 1000 : null;
 
     const regionCfg = REGION_OPTIONS.find((r) => r.key === filterRegion);
     const regionMatchValues = regionCfg?.matchValues ?? [];
 
     const filtered = ads.filter((ad) => {
-      // 1. Status
       if (filterStatus !== 'all' && ad.status !== filterStatus) return false;
-
-      // 2. Advertiser type
       if (filterType !== 'all' && ad.advertiser_type !== filterType) return false;
 
-      // 3. Region (E-5): null=universal include, else match contains
       if (filterRegion !== 'all' && regionMatchValues.length > 0) {
         const isUniversal = ad.target_regions === null;
         const isMatched = ad.target_regions?.some((r) =>
@@ -274,21 +265,18 @@ export default function AdsCommandCenter() {
         if (!isUniversal && !isMatched) return false;
       }
 
-      // 4. Search
       if (searchQuery.trim().length > 0) {
         const q = searchQuery.trim().toLowerCase();
         const haystack =
-          `${ad.title ?? ''} ${ad.body ?? ''} ${ad.advertiser_name}`.toLowerCase();
+          `${ad.title ?? ''} ${ad.body ?? ''} ${ad.advertiser_name} ${ad.display_id ?? ''}`.toLowerCase();
         if (!haystack.includes(q)) return false;
       }
 
-      // 5. Ending soon (<24h)
       if (endingSoonOnly) {
         const endsMs = new Date(ad.ends_at).getTime();
         if (!(endsMs > now && endsMs < next24h)) return false;
       }
 
-      // 6. Date range (E-5): filter by created_at
       if (dateCutoff !== null) {
         const createdMs = new Date(ad.created_at).getTime();
         if (createdMs < dateCutoff) return false;
@@ -297,19 +285,13 @@ export default function AdsCommandCenter() {
       return true;
     });
 
-    // 7. Sort (E-5)
     const sorted = [...filtered].sort((a, b) => {
       switch (sortBy) {
-        case 'created_desc':
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        case 'ends_asc':
-          return new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime();
-        case 'impression_desc':
-          return b.impression_count - a.impression_count;
-        case 'name_asc':
-          return a.advertiser_name.localeCompare(b.advertiser_name, 'id');
-        default:
-          return 0;
+        case 'created_desc':     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        case 'ends_asc':         return new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime();
+        case 'impression_desc':  return b.impression_count - a.impression_count;
+        case 'name_asc':         return a.advertiser_name.localeCompare(b.advertiser_name, 'id');
+        default: return 0;
       }
     });
 
@@ -326,9 +308,7 @@ export default function AdsCommandCenter() {
   }, [ads]);
 
   const typeCounts = useMemo(() => {
-    const counts: Partial<Record<AdvertiserTypeFilter, number>> = {
-      all: ads.length,
-    };
+    const counts: Partial<Record<AdvertiserTypeFilter, number>> = { all: ads.length };
     ads.forEach((ad) => {
       const key = ad.advertiser_type as AdvertiserTypeFilter;
       counts[key] = (counts[key] ?? 0) + 1;
@@ -338,67 +318,33 @@ export default function AdsCommandCenter() {
 
   // Click handlers
   const scrollToTable = useCallback(() => {
-    const el = document.getElementById('ads-table-section');
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('ads-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
   const scrollToSlotInventory = useCallback(() => {
-    const el = document.getElementById('slot-inventory-panel');
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    document.getElementById('slot-inventory-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
 
   const handleStatsCardClick = useCallback((id: string) => {
     switch (id) {
-      case 'slot':
-        scrollToSlotInventory();
-        break;
-      case 'active':
-        setFilterStatus('active');
-        setEndingSoonOnly(false);
-        scrollToTable();
-        break;
-      case 'pending':
-        setFilterStatus('pending_review' as AdStatusFilter);
-        setEndingSoonOnly(false);
-        scrollToTable();
-        break;
-      case 'ending':
-        setFilterStatus('active');
-        setEndingSoonOnly(true);
-        scrollToTable();
-        break;
-      case 'revenue':
-        router.push('/admin/financial');
-        break;
+      case 'slot':    scrollToSlotInventory(); break;
+      case 'active':  setFilterStatus('active'); setEndingSoonOnly(false); scrollToTable(); break;
+      case 'pending': setFilterStatus('pending_review' as AdStatusFilter); setEndingSoonOnly(false); scrollToTable(); break;
+      case 'ending':  setFilterStatus('active'); setEndingSoonOnly(true); scrollToTable(); break;
+      case 'revenue': router.push('/admin/financial'); break;
     }
   }, [router, scrollToTable, scrollToSlotInventory]);
 
   const handleActionQueueClick = useCallback((kind: ActionQueueKind) => {
     switch (kind) {
-      case 'pending_review':
-        setFilterStatus('pending_review' as AdStatusFilter);
-        setEndingSoonOnly(false);
-        scrollToTable();
-        break;
-      case 'expire_soon':
-        setFilterStatus('active');
-        setEndingSoonOnly(true);
-        scrollToTable();
-        break;
-      case 'pending_payment':
-        setFilterStatus('pending_payment' as AdStatusFilter);
-        setEndingSoonOnly(false);
-        scrollToTable();
-        break;
+      case 'pending_review':  setFilterStatus('pending_review' as AdStatusFilter); setEndingSoonOnly(false); scrollToTable(); break;
+      case 'expire_soon':     setFilterStatus('active'); setEndingSoonOnly(true); scrollToTable(); break;
+      case 'pending_payment': setFilterStatus('pending_payment' as AdStatusFilter); setEndingSoonOnly(false); scrollToTable(); break;
       case 'renewal_risk':
-        setFilterStatus('active');
-        setEndingSoonOnly(false);
-        scrollToTable();
+        setFilterStatus('active'); setEndingSoonOnly(false); scrollToTable();
         showToast('Renewal Risk — review active ads yang expire <30 hari', 'ok');
         break;
-      case 'slot_empty':
-        scrollToSlotInventory();
-        break;
+      case 'slot_empty': scrollToSlotInventory(); break;
     }
   }, [scrollToTable, scrollToSlotInventory, showToast]);
 
@@ -415,6 +361,83 @@ export default function AdsCommandCenter() {
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchAds(), fetchActionQueue(false)]);
   }, [fetchAds, fetchActionQueue]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // Sub-Phase 8-E-6 Mini B: Bulk Action — open modal (replace native)
+  // ═══════════════════════════════════════════════════════════════
+
+  const handleBulkActionRequest = useCallback((action: BulkActionType, adIds: string[]) => {
+    if (adIds.length === 0) {
+      showToast('Tidak ada iklan eligible untuk action ini', 'err');
+      return;
+    }
+
+    const eligibleAds = ads.filter((a) => adIds.includes(a.id));
+    setBulkModal({ open: true, action, eligibleAds });
+  }, [ads, showToast]);
+
+  const handleBulkActionConfirm = useCallback(async (
+    action: BulkActionType,
+    adIds: string[],
+    reason?: string
+  ) => {
+    if (!token) throw new Error('Token tidak tersedia');
+
+    const res = await fetch(`${API}/admin/ads/bulk-action`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        Authorization:   `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        action,
+        ad_ids: adIds,
+        ...(reason ? { reason } : {}),
+      }),
+    });
+
+    const json: BulkActionResponse = await res.json();
+
+    if (!json.success || !json.data) {
+      throw new Error(json.error?.message ?? `Gagal ${action}`);
+    }
+
+    const { success_count, failed_count, total, errors } = json.data;
+
+    const actionLabel = {
+      pause:        'pause',
+      resume:       'resume',
+      soft_delete:  'hapus',
+    }[action];
+
+    if (failed_count === 0) {
+      showToast(`✓ Berhasil ${actionLabel} ${success_count} iklan`, 'ok');
+    } else if (success_count === 0) {
+      showToast(
+        `✕ Semua ${total} iklan gagal ${actionLabel}. Error: ${errors[0]?.error ?? 'unknown'}`,
+        'err'
+      );
+    } else {
+      showToast(
+        `⚠ ${actionLabel}: ${success_count} sukses, ${failed_count} gagal. Error pertama: ${errors[0]?.error ?? 'unknown'}`,
+        'err'
+      );
+    }
+
+    setBulkModal({ open: false });
+    setSelectedAdIds(new Set());
+    await refreshAll();
+  }, [token, showToast, refreshAll]);
+
+  // ═══════════════════════════════════════════════════════════════
+  // Sub-Phase 8-E-6 Mini C: Preview handler
+  // ═══════════════════════════════════════════════════════════════
+
+  const handlePreview = useCallback((ad: AdRow) => {
+    setPreviewAdId(ad.id);
+  }, []);
+
+  // ─── Single action handlers (unchanged) ───────────────────────
 
   const handleStatusTransition = async (adId: string, to: string) => {
     try {
@@ -475,10 +498,7 @@ export default function AdsCommandCenter() {
         showToast(json.error?.message ?? 'Gagal restore', 'err');
         return;
       }
-      showToast(
-        `↩ Iklan dipulihkan ke status: ${json.restored_to ?? 'paused'}`,
-        'ok'
-      );
+      showToast(`↩ Iklan dipulihkan ke status: ${json.restored_to ?? 'paused'}`, 'ok');
       await refreshAll();
     } catch (err: any) {
       showToast(err?.message ?? 'Network error', 'err');
@@ -522,9 +542,7 @@ export default function AdsCommandCenter() {
       <div className="bg-status-critical/8 border border-status-critical/30 rounded-xl p-4 flex items-center gap-3">
         <AlertCircle className="text-status-critical shrink-0" size={20} />
         <div className="flex-1 min-w-0">
-          <p className="text-[13px] font-semibold text-status-critical">
-            Gagal memuat data iklan
-          </p>
+          <p className="text-[13px] font-semibold text-status-critical">Gagal memuat data iklan</p>
           <p className="text-[11px] text-text-muted mt-0.5">{error}</p>
         </div>
         <button
@@ -546,18 +564,11 @@ export default function AdsCommandCenter() {
             <div
               key={t.id}
               className={cn(
-                'flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg',
-                'animate-in slide-in-from-right',
-                t.type === 'ok'
-                  ? 'bg-status-healthy text-white'
-                  : 'bg-status-critical text-white'
+                'flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg animate-in slide-in-from-right',
+                t.type === 'ok' ? 'bg-status-healthy text-white' : 'bg-status-critical text-white'
               )}
             >
-              {t.type === 'ok' ? (
-                <CheckCircle2 size={18} className="shrink-0" />
-              ) : (
-                <AlertCircle size={18} className="shrink-0" />
-              )}
+              {t.type === 'ok' ? <CheckCircle2 size={18} className="shrink-0" /> : <AlertCircle size={18} className="shrink-0" />}
               <span className="text-[12px] font-semibold">{t.msg}</span>
             </div>
           ))}
@@ -566,12 +577,8 @@ export default function AdsCommandCenter() {
 
       <div className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
-          <h2 className="text-lg font-extrabold text-text tracking-tight">
-            ADS Command Center
-          </h2>
-          <p className="text-[12px] text-text-muted mt-0.5">
-            Kelola semua iklan TeraLoka dalam satu layar
-          </p>
+          <h2 className="text-lg font-extrabold text-text tracking-tight">ADS Command Center</h2>
+          <p className="text-[12px] text-text-muted mt-0.5">Kelola semua iklan TeraLoka dalam satu layar</p>
         </div>
 
         <div className="flex items-center gap-2">
@@ -579,8 +586,7 @@ export default function AdsCommandCenter() {
             href="/admin/ads/new"
             className={cn(
               'inline-flex items-center gap-2 px-4 py-1.5 rounded-md',
-              'bg-ads text-white',
-              'text-[11px] font-bold uppercase tracking-wide',
+              'bg-ads text-white text-[11px] font-bold uppercase tracking-wide',
               'hover:bg-ads-strong transition-colors shadow-sm'
             )}
             title="Onboard advertiser baru via form"
@@ -611,8 +617,7 @@ export default function AdsCommandCenter() {
             disabled={loading}
             className={cn(
               'inline-flex items-center gap-2 px-3 py-1.5 rounded-md',
-              'bg-surface border border-border text-text',
-              'text-[11px] font-bold uppercase tracking-wide',
+              'bg-surface border border-border text-text text-[11px] font-bold uppercase tracking-wide',
               'hover:bg-surface-muted transition-colors',
               loading && 'opacity-50 cursor-not-allowed'
             )}
@@ -679,6 +684,8 @@ export default function AdsCommandCenter() {
           showDeleted={showDeleted}
           selectedAdIds={selectedAdIds}
           onSelectionChange={setSelectedAdIds}
+          onBulkAction={handleBulkActionRequest}
+          onPreview={handlePreview}
           onTransition={handleStatusTransition}
           onSoftDelete={handleSoftDelete}
           onRestore={handleRestore}
@@ -686,6 +693,21 @@ export default function AdsCommandCenter() {
         />
       </div>
 
+      {/* Sub-Phase 8-E-6 Mini B: BulkActionModal */}
+      <BulkActionModal
+        action={bulkModal.open ? bulkModal.action : null}
+        ads={bulkModal.open ? bulkModal.eligibleAds : []}
+        onConfirm={handleBulkActionConfirm}
+        onClose={() => setBulkModal({ open: false })}
+      />
+
+      {/* Sub-Phase 8-E-6 Mini C: AdPreviewModal */}
+      <AdPreviewModal
+        adId={previewAdId}
+        onClose={() => setPreviewAdId(null)}
+      />
+
+      {/* Existing single action modals */}
       <DeleteAdModal
         ad={modal.kind === 'delete' ? modal.ad : null}
         onConfirm={handleSoftDeleteConfirm}

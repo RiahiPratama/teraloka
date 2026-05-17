@@ -1,33 +1,33 @@
 'use client';
 
 /**
- * TeraLoka — AdsTable (v3 — Sub-Phase 8-E-5)
- * Mission 8 Sub-Phase 8-C-1 → 8-E-5
+ * TeraLoka — AdsTable (v5 — Sub-Phase 8-E-6 Mini C)
+ * Mission 8 Sub-Phase 8-C-1 → 8-E-5 → 8-E-6
  * ------------------------------------------------------------
- * Container table untuk Daftar Iklan list.
- * Renders header + map AdsTableRow per ad.
- *
- * Sub-Phase 8-E-5 Changes:
- *   - ADD select-all checkbox di header
- *   - ADD bulk action footer bar (disabled placeholder — 8-E-6 will wire)
- *   - ADD props: selectedAdIds, onSelectionChange
+ * v5 Changes (Sub-Phase 8-E-6 Mini C):
+ *   - ADD onPreview prop forwarded ke AdsTableRow
  *
  * History:
- *   - 16 Mei 2026: v2 NEW
- *   - 17 Mei 2026: v3 (Sub-Phase 8-E-5) — bulk selection UI prep
+ *   - 17 Mei 2026: v3 (Sub-Phase 8-E-5) bulk selection UI prep
+ *   - 17 Mei 2026: v4 (Sub-Phase 8-E-6) bulk action buttons enabled
+ *   - 17 Mei 2026: v5 (Mini C) +onPreview prop forward
  */
 
-import { List, Trash2, CheckSquare, Square, Minus } from 'lucide-react';
+import { List, Trash2, CheckSquare, Square, Minus, Pause, Play, Trash } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import AdsTableRow from './AdsTableRow';
 import type { AdRow } from './AdsCommandCenter';
 
+export type BulkActionType = 'pause' | 'resume' | 'soft_delete';
+
 export interface AdsTableProps {
   ads:         AdRow[];
   showDeleted: boolean;
-  /** Sub-Phase 8-E-5 NEW: bulk selection */
   selectedAdIds: Set<string>;
   onSelectionChange: (newSelection: Set<string>) => void;
+  onBulkAction: (action: BulkActionType, adIds: string[]) => void | Promise<void>;
+  /** Sub-Phase 8-E-6 Mini C: preview modal trigger */
+  onPreview: (ad: AdRow) => void;
   onTransition: (adId: string, to: string) => void | Promise<void>;
   onSoftDelete: (adId: string, title: string) => void | Promise<void>;
   onRestore:    (adId: string) => void | Promise<void>;
@@ -43,17 +43,23 @@ export default function AdsTable({
   showDeleted,
   selectedAdIds,
   onSelectionChange,
+  onBulkAction,
+  onPreview,
   onTransition,
   onSoftDelete,
   onRestore,
   onReject,
   className,
 }: AdsTableProps) {
-  // ─── Bulk selection logic ──────────────────────────────────────
   const allIds = ads.map((a) => a.id);
   const allSelected = allIds.length > 0 && allIds.every((id) => selectedAdIds.has(id));
   const someSelected = !allSelected && allIds.some((id) => selectedAdIds.has(id));
   const selectedCount = selectedAdIds.size;
+
+  const selectedAds = ads.filter((a) => selectedAdIds.has(a.id));
+  const pausableCount   = selectedAds.filter((a) => a.status === 'active' && !a.deleted_at).length;
+  const resumableCount  = selectedAds.filter((a) => a.status === 'paused' && !a.deleted_at).length;
+  const deletableCount  = selectedAds.filter((a) => !a.deleted_at).length;
 
   const handleSelectAll = () => {
     if (allSelected) {
@@ -77,7 +83,30 @@ export default function AdsTable({
     onSelectionChange(new Set());
   };
 
-  // ─── Empty state ────────────────────────────────────────────────
+  const handleBulkPause = () => {
+    if (pausableCount === 0) return;
+    const eligibleIds = selectedAds
+      .filter((a) => a.status === 'active' && !a.deleted_at)
+      .map((a) => a.id);
+    onBulkAction('pause', eligibleIds);
+  };
+
+  const handleBulkResume = () => {
+    if (resumableCount === 0) return;
+    const eligibleIds = selectedAds
+      .filter((a) => a.status === 'paused' && !a.deleted_at)
+      .map((a) => a.id);
+    onBulkAction('resume', eligibleIds);
+  };
+
+  const handleBulkDelete = () => {
+    if (deletableCount === 0) return;
+    const eligibleIds = selectedAds
+      .filter((a) => !a.deleted_at)
+      .map((a) => a.id);
+    onBulkAction('soft_delete', eligibleIds);
+  };
+
   if (ads.length === 0) {
     return (
       <div
@@ -104,7 +133,6 @@ export default function AdsTable({
     );
   }
 
-  // ─── Main render ────────────────────────────────────────────────
   return (
     <div
       className={cn(
@@ -112,7 +140,6 @@ export default function AdsTable({
         className
       )}
     >
-      {/* ── Section header ── */}
       <div className="flex items-center justify-between gap-2 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
           <div className="flex items-center justify-center w-7 h-7 rounded-md bg-ads/12 text-ads shrink-0">
@@ -123,13 +150,12 @@ export default function AdsTable({
               Daftar Iklan ({ads.length})
             </h3>
             <p className="text-[10px] text-text-muted">
-              Klik action button per row untuk aksi cepat
+              Klik icon mata untuk preview iklan
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Sub-Phase 8-E-5: Bulk action bar (visible when selection > 0) ── */}
       {selectedCount > 0 && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 bg-ads/8 border-b border-ads/20">
           <div className="flex items-center gap-2">
@@ -145,57 +171,80 @@ export default function AdsTable({
             </button>
           </div>
 
-          {/* Bulk action buttons (DISABLED — wire di Sub-Sprint 8-E-6) */}
           <div className="flex items-center gap-1.5">
             <button
               type="button"
-              disabled
+              onClick={handleBulkPause}
+              disabled={pausableCount === 0}
               className={cn(
-                'px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide',
-                'bg-status-info/12 text-status-info opacity-50 cursor-not-allowed',
-                'border border-status-info/30'
+                'inline-flex items-center gap-1 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors',
+                'border border-status-info/30',
+                pausableCount > 0
+                  ? 'bg-status-info/12 text-status-info hover:bg-status-info/20 cursor-pointer'
+                  : 'bg-status-info/12 text-status-info opacity-30 cursor-not-allowed'
               )}
-              title="Bulk Pause — Coming Sub-Sprint 8-E-6"
+              title={pausableCount > 0 ? `Pause ${pausableCount} ads aktif` : 'Tidak ada ads aktif yang dipilih'}
             >
-              ⏸ Pause All
+              <Pause size={11} />
+              Pause All
+              {pausableCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-status-info/20 tabular-nums">
+                  {pausableCount}
+                </span>
+              )}
             </button>
+
             <button
               type="button"
-              disabled
+              onClick={handleBulkResume}
+              disabled={resumableCount === 0}
               className={cn(
-                'px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide',
-                'bg-status-healthy/12 text-status-healthy opacity-50 cursor-not-allowed',
-                'border border-status-healthy/30'
+                'inline-flex items-center gap-1 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors',
+                'border border-status-healthy/30',
+                resumableCount > 0
+                  ? 'bg-status-healthy/12 text-status-healthy hover:bg-status-healthy/20 cursor-pointer'
+                  : 'bg-status-healthy/12 text-status-healthy opacity-30 cursor-not-allowed'
               )}
-              title="Bulk Resume — Coming Sub-Sprint 8-E-6"
+              title={resumableCount > 0 ? `Resume ${resumableCount} ads paused` : 'Tidak ada ads paused yang dipilih'}
             >
-              ▶ Resume All
+              <Play size={11} />
+              Resume All
+              {resumableCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-status-healthy/20 tabular-nums">
+                  {resumableCount}
+                </span>
+              )}
             </button>
+
             <button
               type="button"
-              disabled
+              onClick={handleBulkDelete}
+              disabled={deletableCount === 0}
               className={cn(
-                'px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide',
-                'bg-balapor/12 text-balapor opacity-50 cursor-not-allowed',
-                'border border-balapor/30'
+                'inline-flex items-center gap-1 px-3 py-1 rounded text-[10px] font-bold uppercase tracking-wide transition-colors',
+                'border border-balapor/30',
+                deletableCount > 0
+                  ? 'bg-balapor/12 text-balapor hover:bg-balapor/20 cursor-pointer'
+                  : 'bg-balapor/12 text-balapor opacity-30 cursor-not-allowed'
               )}
-              title="Bulk Soft-Delete — Coming Sub-Sprint 8-E-6"
+              title={deletableCount > 0 ? `Hapus ${deletableCount} ads ke Sampah (wajib reason)` : 'Tidak ada ads valid yang dipilih'}
             >
-              🗑 Hapus All
+              <Trash size={11} />
+              Hapus All
+              {deletableCount > 0 && (
+                <span className="ml-1 px-1.5 py-0.5 rounded-full bg-balapor/20 tabular-nums">
+                  {deletableCount}
+                </span>
+              )}
             </button>
-            <span className="text-[9px] text-text-muted italic ml-1">
-              (8-E-6)
-            </span>
           </div>
         </div>
       )}
 
-      {/* ── Table ── */}
       <div className="overflow-x-auto">
-        <table className="w-full border-collapse min-w-[920px]">
+        <table className="w-full border-collapse min-w-[980px]">
           <thead className="bg-surface-muted/40">
             <tr>
-              {/* Checkbox column header */}
               <th className={cn(TH_BASE, 'w-10')}>
                 <button
                   type="button"
@@ -231,6 +280,7 @@ export default function AdsTable({
                 ad={ad}
                 isSelected={selectedAdIds.has(ad.id)}
                 onSelectToggle={handleRowSelect}
+                onPreview={onPreview}
                 onTransition={onTransition}
                 onSoftDelete={onSoftDelete}
                 onRestore={onRestore}
