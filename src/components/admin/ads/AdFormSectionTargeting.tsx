@@ -3,6 +3,7 @@
 /**
  * TeraLoka — AdFormSectionTargeting
  * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
+ * SESI 5C-B (18 Mei 2026): Auto-populate positions from pricing_tier_data
  * ------------------------------------------------------------
  * Section 3 form: Targeting (positions + regions).
  *
@@ -14,12 +15,18 @@
  *     - in_article, native, skyscraper_*, inline_banner = SLUG detail
  *     - banner, sidebar, homepage = generic (kedua page)
  *
+ * SESI 5C-B update (Q2 SOFT auto-populate):
+ *   - useEffect watching state.pricing_tier_data
+ *   - Saat tier dipilih → auto-set positions = tier.positions_allowed
+ *   - Admin TETAP bisa edit (uncheck/check posisi setelahnya)
+ *   - Visual badge "Disarankan tier" per checkbox yang ada di tier.positions_allowed
+ *
  * Fields:
  *   - positions[] (checkbox grouped, min 1)
  *   - target_regions[] | null (null = semua region)
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ChevronDown,
   ChevronUp,
@@ -30,6 +37,7 @@ import {
   FileText,
   Home,
   Globe2,
+  Sparkles,  // SESI 5C-B — "Disarankan tier" badge
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdForm } from './AdFormProvider';
@@ -116,6 +124,22 @@ export default function AdFormSectionTargeting() {
   const positionsError = errorFor('positions');
   const isPolitisi = state.advertiser_type === 'politisi';
 
+  // SESI 5C-B (Q2 SOFT): Auto-populate positions saat tier dipilih
+  // Re-fire setiap tier ID changes (tier baru = positions baru).
+  // Admin tetap bisa uncheck setelahnya (SOFT, not STRICT).
+  useEffect(() => {
+    const allowed = state.pricing_tier_data?.positions_allowed;
+    if (allowed && allowed.length > 0) {
+      setField('positions', allowed);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.pricing_tier_data?.id]);
+
+  // Quick lookup set untuk badge "Disarankan tier"
+  const tierSuggestedSet = new Set<string>(
+    state.pricing_tier_data?.positions_allowed ?? [],
+  );
+
   const togglePosition = (key: string) => {
     const current = state.positions;
     if (current.includes(key)) {
@@ -192,6 +216,21 @@ export default function AdFormSectionTargeting() {
               </p>
             )}
 
+            {/* SESI 5C-B: Tier hint banner kalau tier dipilih */}
+            {state.pricing_tier_data && (
+              <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-md bg-ads/8 border border-ads/30">
+                <Sparkles size={12} className="text-ads shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-ads">
+                    Posisi disarankan tier: {state.pricing_tier_data.tier_name}
+                  </p>
+                  <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                    Posisi dengan badge ⭐ direkomendasi tier. Admin bisa uncheck/check sesuai kebutuhan.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               {POSITION_GROUPS.map((group) => {
                 const ScopeIcon = PAGE_SCOPE_DISPLAY[group.pageScope].icon;
@@ -226,6 +265,7 @@ export default function AdFormSectionTargeting() {
                       {group.positions.map((pos) => {
                         const isActive = state.positions.includes(pos.key);
                         const isDisabled = pos.politisiOnly && !isPolitisi;
+                        const isSuggestedTier = tierSuggestedSet.has(pos.key); // SESI 5C-B
                         return (
                           <label
                             key={pos.key}
@@ -235,7 +275,9 @@ export default function AdFormSectionTargeting() {
                                 ? 'opacity-40 cursor-not-allowed bg-surface border-border'
                                 : isActive
                                   ? 'bg-baronda/8 border-baronda/40 cursor-pointer'
-                                  : 'bg-surface border-border hover:bg-surface-muted cursor-pointer'
+                                  : isSuggestedTier
+                                    ? 'bg-ads/4 border-ads/30 hover:bg-ads/8 cursor-pointer'
+                                    : 'bg-surface border-border hover:bg-surface-muted cursor-pointer'
                             )}
                           >
                             <input
@@ -246,11 +288,19 @@ export default function AdFormSectionTargeting() {
                               className="accent-baronda shrink-0"
                             />
                             <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-text truncate">
+                              <div className="font-semibold text-text truncate flex items-center gap-1">
                                 {pos.label}
                                 {pos.politisiOnly && (
                                   <span className="ml-1 text-[9px] text-status-warning">
                                     🏛️
+                                  </span>
+                                )}
+                                {isSuggestedTier && !isDisabled && (
+                                  <span
+                                    className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
+                                    title="Direkomendasi tier ini"
+                                  >
+                                    ⭐
                                   </span>
                                 )}
                               </div>

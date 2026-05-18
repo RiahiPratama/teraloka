@@ -3,6 +3,7 @@
 /**
  * TeraLoka — AdFormProvider
  * Mission 8 Sub-Phase 8-B + SESI 5B STEP 4 (18 Mei 2026)
+ * SESI 5C-B (18 Mei 2026) — Phase B Frontend Form Enhancement
  * ------------------------------------------------------------
  * Context provider untuk Ad Form state management.
  *
@@ -20,14 +21,20 @@
  *                             + use_free_text_mode (Hybrid Q2 C — Mode Cepat toggle)
  *                             + validation branching by mode
  *                             + edit bootstrap detect mode from ad.advertiser_account_id
+ *   - SESI 5C-B (18 Mei 2026): + price_paid (HYBRID Q1 — estimate saat create)
+ *                               + pricing_tier_data TRANSIENT (untuk auto-populate
+ *                                 positions/duration di Targeting+Schedule sections)
  *
- * Hybrid Q2 C — Mode Cepat:
- *   - use_free_text_mode = false → picker mode (default, encourage)
- *   - use_free_text_mode = true  → free-text legacy mode (emergency fallback)
+ * SESI 5C Decisions LOCKED:
+ *   - Q1 HYBRID: price_paid input saat create (estimate), confirm SESI 5C modal
+ *   - Q2 SOFT positions auto-populate (editable)
+ *   - Q3 STRICT duration lock (auto-set ends_at = starts_at + tier.duration_days)
  *
- * Q3 C — Tier display + payment manual:
- *   - pricing_tier_id stored on submit
- *   - price_paid NOT auto-populated (payment manual SESI 5C)
+ * pricing_tier_data architecture:
+ *   - Transient state — NOT submitted to backend
+ *   - Set saat PricingTierPicker.onSelect
+ *   - Consumed by AdFormSectionTargeting (positions hint) + AdFormSectionSchedule (duration lock)
+ *   - Cleared saat picker.onSelect(null)
  */
 
 import {
@@ -39,6 +46,7 @@ import {
   type ReactNode,
 } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import type { PricingTier } from '@/components/admin/ads/pricing-tiers/PricingTierPicker';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -46,7 +54,8 @@ const API =
 // ─── Types ────────────────────────────────────────────────────────
 
 export type AdFormat = 'image' | 'text';
-export type AdvertiserType = 'umum' | 'politisi' | 'pemerintah' | 'komersial';
+// SESI 5C-B (18 Mei 2026): +premium (PT/CV brand nasional besar)
+export type AdvertiserType = 'umum' | 'politisi' | 'pemerintah' | 'komersial' | 'premium';
 
 // Mirror shared/types.ts AdFrame interface (Mission 7 lock)
 export interface AdFrame {
@@ -67,6 +76,20 @@ export interface AdFormState {
   advertiser_account_id: string | null;  // FK to advertiser_accounts(id)
   pricing_tier_id:       string | null;  // FK to ads_pricing_tiers(id)
   use_free_text_mode:    boolean;        // UI toggle (NOT submitted to backend)
+
+  // ─── SESI 5C-B NEW ───────────────────────────
+  /**
+   * Transient state — NOT submitted to backend.
+   * Holds full tier entity for UX hints (positions auto-populate, duration lock).
+   * Set via PricingTierPicker.onSelect, cleared via onSelect(null).
+   */
+  pricing_tier_data:     PricingTier | null;
+  /**
+   * Harga final disetujui (estimate saat create, confirm SESI 5C modal).
+   * Optional di create: null = belum input, akan confirm di payment modal.
+   * Backend default 0 kalau null. Money emit defer ke /record-payment.
+   */
+  price_paid:            number | null;
 
   // ─── Advertiser (legacy free-text, kept for backward compat) ──
   advertiser_name:     string;
@@ -100,6 +123,10 @@ const EMPTY_STATE: AdFormState = {
   advertiser_account_id: null,
   pricing_tier_id:       null,
   use_free_text_mode:    false, // default = picker mode (encourage best practice)
+
+  // SESI 5C-B
+  pricing_tier_data:     null, // transient — auto-set by PricingTierPicker
+  price_paid:            null, // optional — null = belum input, confirm SESI 5C modal
 
   // Advertiser legacy
   advertiser_name:     '',
@@ -318,6 +345,10 @@ export function AdFormProvider({
           pricing_tier_id:       ad.pricing_tier_id ?? null,
           use_free_text_mode:    !hasAdvertiserAccount, // legacy ads → free-text mode
 
+          // SESI 5C-B fields
+          pricing_tier_data:     null, // set by Advertiser section useEffect (fetch by id)
+          price_paid:            ad.price_paid ?? null, // null = belum ada record-payment
+
           // Legacy fields (kept untuk backward compat + denormalized cache)
           advertiser_name:     ad.advertiser_name ?? '',
           advertiser_type:     ad.advertiser_type ?? 'komersial',
@@ -376,12 +407,17 @@ export function AdFormProvider({
 
       // Build payload — sanitize empty strings ke null
       // SESI 5B: include advertiser_account_id + pricing_tier_id
+      // SESI 5C-B: include price_paid (optional estimate)
       // Backend resolves: kalau advertiser_account_id given, derive denormalized
       // fields dari entity (single source of truth).
+      // NOTE: pricing_tier_data is TRANSIENT (UX hints), NOT submitted.
       const payload = {
         // SESI 5B NEW
         advertiser_account_id: state.advertiser_account_id,
         pricing_tier_id:       state.pricing_tier_id,
+
+        // SESI 5C-B NEW
+        price_paid:            state.price_paid, // null OK — backend default 0
 
         // Advertiser (legacy fields kept — backend uses sebagai cache/fallback)
         advertiser_name:     state.advertiser_name.trim(),
