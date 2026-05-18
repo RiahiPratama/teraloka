@@ -17,16 +17,17 @@
  *     (handled in AdFormProvider edit bootstrap)
  *   - Section fetches entity by ID for display (cached locally)
  *
- * Mapping logic (account_type → tier_category):
- *   - umkm           → 'umkm'
- *   - local_corporate → 'umkm' (fallback, gak ada local_corp tier)
- *   - premium        → 'premium'
- *   - politik        → 'politik'
- *   - pemerintah     → 'premium' (fallback, gak ada pemerintah tier)
+ * Mapping logic (account_type → tier_category) — PHASE 3 SYMMETRIC:
+ *   - umkm            → 'umkm'
+ *   - local_corporate → 'local_corporate' (PHASE 3 NEW — no more umkm fallback)
+ *   - premium         → 'premium'
+ *   - politik         → 'politik'
+ *   - pemerintah      → 'pemerintah' (PHASE 3 NEW — no more premium fallback)
  *
  * History:
  *   - α/Batch 1 (16 Mei 2026): initial
  *   - SESI 5B STEP 3 (18 Mei 2026): wire AdvertiserPicker + PricingTierPicker
+ *   - PHASE 3 (18 Mei 2026): symmetric mapping 5×5, hapus fallback stale
  */
 
 import { useState, useEffect } from 'react';
@@ -53,24 +54,27 @@ import type { Advertiser } from './advertisers/AdvertiserPanel';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 // ─── Helper: Map account_type (advertiser entity) → tier_category ───
+// PHASE 3: Symmetric 5×5 mapping (no more fallback to umkm/premium)
 function getTierCategoryForAccount(accountType: string): TierCategory | undefined {
   const map: Record<string, TierCategory | undefined> = {
     umkm:            'umkm',
-    local_corporate: 'umkm',
+    local_corporate: 'local_corporate',  // ← PHASE 3 FIX (was 'umkm')
     premium:         'premium',
     politik:         'politik',
-    pemerintah:      'premium',
+    pemerintah:      'pemerintah',       // ← PHASE 3 FIX (was 'premium')
   };
   return map[accountType];
 }
 
 // ─── Helper: Map free-text AdvertiserType → tier_category ───
+// PHASE 3: pemerintah symmetric fix. komersial+umum tetap → umkm
+// (legacy free-text type gak punya local_corporate concept).
 function getTierCategoryForFreeText(advertiserType: AdvertiserType): TierCategory | undefined {
   const map: Record<AdvertiserType, TierCategory | undefined> = {
     umum:       'umkm',
-    komersial:  'umkm',
+    komersial:  'umkm',         // legacy back-compat: 'komersial' generic → UMKM tier
     politisi:   'politik',
-    pemerintah: 'premium',
+    pemerintah: 'pemerintah',    // ← PHASE 3 FIX (was 'premium')
   };
   return map[advertiserType];
 }
@@ -406,6 +410,7 @@ export default function AdFormSectionAdvertiser() {
           )}
 
           {/* ════ Pricing Tier Section (ALWAYS visible, both modes) ════ */}
+          {/* PHASE 3: Picker default-strict by category, dengan tombol "Lihat Semua" override */}
           <div className="mt-5 pt-5 border-t border-border">
             <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
               Pricing Tier <span className="text-text-subtle">(opsional MVP)</span>

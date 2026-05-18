@@ -3,6 +3,7 @@
 /**
  * TeraLoka — PricingTiersPanel
  * SESI 3 BATCH 2 (18 Mei 2026) — Modal Wiring Update
+ * PHASE 3 (18 Mei 2026) — 5 kategori symmetric (umkm/local_corporate/premium/politik/pemerintah)
  * ------------------------------------------------------------
  * Main panel — list pricing tier dengan tab Active vs Legacy (D3).
  *
@@ -47,7 +48,8 @@ export interface PricingTier {
   display_id:               string;
   tier_code:                string;
   tier_name:                string;
-  tier_category:            'umkm' | 'premium' | 'politik';
+  // PHASE 3: extended 3 → 5 kategori symmetric
+  tier_category:            'umkm' | 'local_corporate' | 'premium' | 'politik' | 'pemerintah';
   price_starter_min:        number;
   price_starter_max:        number;
   price_growth_min:         number | null;
@@ -73,16 +75,27 @@ export interface PricingTier {
 
 type ActiveTab = 'active' | 'legacy';
 
+// PHASE 3: 5 kategori symmetric labels
 const CATEGORY_LABEL: Record<string, string> = {
-  umkm:    'UMKM',
-  premium: 'Premium',
-  politik: 'Politik',
+  umkm:            'UMKM',
+  local_corporate: 'Local Corp',
+  premium:         'Premium',
+  politik:         'Politik',
+  pemerintah:      'Pemerintah',
 };
 
+// PHASE 3: 5 kategori semantic colors
+//   umkm            = status-healthy (hijau)
+//   local_corporate = ads (biru-corporate)
+//   premium         = bakabar (oranye)
+//   politik         = balapor (merah)
+//   pemerintah      = status-warning (kuning)
 const CATEGORY_COLOR: Record<string, string> = {
-  umkm:    'bg-status-healthy/12 text-status-healthy',
-  premium: 'bg-bakabar/12 text-bakabar',
-  politik: 'bg-balapor/12 text-balapor',
+  umkm:            'bg-status-healthy/12 text-status-healthy',
+  local_corporate: 'bg-ads/12 text-ads',
+  premium:         'bg-bakabar/12 text-bakabar',
+  politik:         'bg-balapor/12 text-balapor',
+  pemerintah:      'bg-status-warning/12 text-status-warning',
 };
 
 export default function PricingTiersPanel() {

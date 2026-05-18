@@ -35,10 +35,18 @@ export interface PricingTierPreviewModalProps {
   onClose: () => void;
 }
 
+// PHASE 3 (18 Mei 2026): 5 kategori symmetric colors
+//   umkm            = status-healthy (hijau)
+//   local_corporate = ads (biru-corporate)
+//   premium         = bakabar (oranye)
+//   politik         = balapor (merah)
+//   pemerintah      = status-warning (kuning)
 const CATEGORY_COLOR: Record<string, string> = {
-  umkm:    'bg-status-healthy/12 text-status-healthy',
-  premium: 'bg-bakabar/12 text-bakabar',
-  politik: 'bg-balapor/12 text-balapor',
+  umkm:            'bg-status-healthy/12 text-status-healthy',
+  local_corporate: 'bg-ads/12 text-ads',
+  premium:         'bg-bakabar/12 text-bakabar',
+  politik:         'bg-balapor/12 text-balapor',
+  pemerintah:      'bg-status-warning/12 text-status-warning',
 };
 
 const MODE_COLOR: Record<string, string> = {

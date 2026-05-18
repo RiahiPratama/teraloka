@@ -3,6 +3,7 @@
 /**
  * TeraLoka — PricingTierEditModal
  * SESI 3 BATCH 1A (18 Mei 2026)
+ * PHASE 3 (18 Mei 2026) — extend tier_category type & dropdown ke 5 values
  * ------------------------------------------------------------
  * Modal edit/create pricing tier — tabbed form (D4 Hybrid).
  *
@@ -54,7 +55,8 @@ type TabKey = 'general' | 'pricing' | 'advanced';
 interface FormState {
   tier_code:                string;
   tier_name:                string;
-  tier_category:            'umkm' | 'premium' | 'politik';
+  // PHASE 3: extended 3 → 5 kategori symmetric (mirror PricingTier interface)
+  tier_category:            'umkm' | 'local_corporate' | 'premium' | 'politik' | 'pemerintah';
   price_starter_min:        number;
   price_starter_max:        number;
   price_growth_min:         number | null;
@@ -366,7 +368,7 @@ function GeneralTab({
       </Field>
 
       <div className="grid grid-cols-2 gap-3">
-        {/* category */}
+        {/* category — PHASE 3: 5 kategori symmetric */}
         <Field label="Category *">
           <select
             value={form.tier_category}
@@ -374,8 +376,10 @@ function GeneralTab({
             className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-[12px] text-text focus:outline-none focus:border-ads/50"
           >
             <option value="umkm">UMKM</option>
+            <option value="local_corporate">Local Corporate</option>
             <option value="premium">Premium</option>
             <option value="politik">Politik</option>
+            <option value="pemerintah">Pemerintah</option>
           </select>
         </Field>
 
