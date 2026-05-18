@@ -2,13 +2,13 @@
 
 /**
  * TeraLoka — AdFormProvider
- * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
+ * Mission 8 Sub-Phase 8-B + SESI 5B STEP 4 (18 Mei 2026)
  * ------------------------------------------------------------
  * Context provider untuk Ad Form state management.
  *
  * Responsibilities:
- *   - Hold form state (12+ fields, nested creative_frames array)
- *   - Field-level validation (Batch 2: + creative_frames validation)
+ *   - Hold form state (16+ fields, nested creative_frames array)
+ *   - Field-level validation
  *   - Submit handler: POST /admin-create atau PUT /admin-update/:id
  *   - Loading/error state
  *   - Edit mode bootstrap (fetch existing ad → populate form)
@@ -16,6 +16,18 @@
  * History:
  *   - Batch 1 (16 Mei 2026): initial state, advertiser/creative/targeting
  *   - Batch 2 (16 Mei 2026): + AdFrame type export, + creative_frames validation
+ *   - SESI 5B (18 Mei 2026): + advertiser_account_id, pricing_tier_id,
+ *                             + use_free_text_mode (Hybrid Q2 C — Mode Cepat toggle)
+ *                             + validation branching by mode
+ *                             + edit bootstrap detect mode from ad.advertiser_account_id
+ *
+ * Hybrid Q2 C — Mode Cepat:
+ *   - use_free_text_mode = false → picker mode (default, encourage)
+ *   - use_free_text_mode = true  → free-text legacy mode (emergency fallback)
+ *
+ * Q3 C — Tier display + payment manual:
+ *   - pricing_tier_id stored on submit
+ *   - price_paid NOT auto-populated (payment manual SESI 5C)
  */
 
 import {
@@ -51,13 +63,18 @@ export const DCA_MIN_DURATION_MS = 2000;
 export const DCA_MAX_DURATION_MS = 15000;
 
 export interface AdFormState {
-  // Advertiser
+  // ─── SESI 5B NEW ─────────────────────────────
+  advertiser_account_id: string | null;  // FK to advertiser_accounts(id)
+  pricing_tier_id:       string | null;  // FK to ads_pricing_tiers(id)
+  use_free_text_mode:    boolean;        // UI toggle (NOT submitted to backend)
+
+  // ─── Advertiser (legacy free-text, kept for backward compat) ──
   advertiser_name:     string;
   advertiser_type:     AdvertiserType;
   advertiser_phone:    string;
   advertiser_logo_url: string;
 
-  // Creative
+  // ─── Creative ──────────────────────────────────
   ad_format:       AdFormat;
   title:           string;
   body:            string;
@@ -66,23 +83,31 @@ export interface AdFormState {
   disclaimer_text: string;
   slug:            string;
 
-  // Targeting
+  // ─── Targeting ─────────────────────────────────
   positions:       string[];
-  target_regions:  string[] | null; // null = semua region
+  target_regions:  string[] | null;
 
-  // DCA (Batch 2)
-  creative_frames: AdFrame[] | null; // null = static ad
+  // ─── DCA ────────────────────────────────────────
+  creative_frames: AdFrame[] | null;
 
-  // Schedule (Batch 2 default values)
-  starts_at:       string; // ISO datetime string
+  // ─── Schedule ──────────────────────────────────
+  starts_at:       string;
   ends_at:         string;
 }
 
 const EMPTY_STATE: AdFormState = {
+  // SESI 5B
+  advertiser_account_id: null,
+  pricing_tier_id:       null,
+  use_free_text_mode:    false, // default = picker mode (encourage best practice)
+
+  // Advertiser legacy
   advertiser_name:     '',
   advertiser_type:     'komersial',
   advertiser_phone:    '',
   advertiser_logo_url: '',
+
+  // Creative
   ad_format:           'image',
   title:               '',
   body:                '',
@@ -90,9 +115,15 @@ const EMPTY_STATE: AdFormState = {
   link_url:            '',
   disclaimer_text:     '',
   slug:                '',
+
+  // Targeting
   positions:           [],
   target_regions:      null,
+
+  // DCA
   creative_frames:     null,
+
+  // Schedule
   starts_at:           new Date().toISOString(),
   ends_at:             new Date(Date.now() + 30 * 86400000).toISOString(),
 };
@@ -107,12 +138,26 @@ export type FieldError = {
 export function validateAdForm(state: AdFormState): FieldError[] {
   const errors: FieldError[] = [];
 
-  if (!state.advertiser_name.trim()) {
-    errors.push({ field: 'advertiser_name', message: 'Nama advertiser wajib diisi' });
+  // ─── Advertiser validation: branching by mode ─────────────
+  if (state.use_free_text_mode) {
+    // Free-text mode (Mode Cepat): existing rules
+    if (!state.advertiser_name.trim()) {
+      errors.push({ field: 'advertiser_name', message: 'Nama advertiser wajib diisi' });
+    }
+    if (state.advertiser_name.trim().length > 80) {
+      errors.push({ field: 'advertiser_name', message: 'Nama maks 80 karakter' });
+    }
+  } else {
+    // Picker mode (default): advertiser_account_id required
+    if (!state.advertiser_account_id) {
+      errors.push({
+        field:   'advertiser_account_id',
+        message: 'Pilih advertiser dari daftar atau aktifkan "Mode Cepat"',
+      });
+    }
   }
-  if (state.advertiser_name.trim().length > 80) {
-    errors.push({ field: 'advertiser_name', message: 'Nama maks 80 karakter' });
-  }
+
+  // pricing_tier_id: OPTIONAL in MVP (admin bisa skip — future enforce di SESI selanjutnya)
 
   if (!state.title.trim()) {
     errors.push({ field: 'title', message: 'Judul iklan wajib diisi' });
@@ -261,7 +306,19 @@ export function AdFormProvider({
           return;
         }
         const ad = json.data.ad;
+
+        // SESI 5B: Detect mode dari ad.advertiser_account_id presence
+        // - Present → picker mode (use_free_text_mode = false)
+        // - Absent  → free-text mode (legacy, use_free_text_mode = true)
+        const hasAdvertiserAccount = Boolean(ad.advertiser_account_id);
+
         setState({
+          // SESI 5B fields
+          advertiser_account_id: ad.advertiser_account_id ?? null,
+          pricing_tier_id:       ad.pricing_tier_id ?? null,
+          use_free_text_mode:    !hasAdvertiserAccount, // legacy ads → free-text mode
+
+          // Legacy fields (kept untuk backward compat + denormalized cache)
           advertiser_name:     ad.advertiser_name ?? '',
           advertiser_type:     ad.advertiser_type ?? 'komersial',
           advertiser_phone:    ad.advertiser_phone ?? '',
@@ -318,11 +375,21 @@ export function AdFormProvider({
       const method = isEditMode ? 'PUT' : 'POST';
 
       // Build payload — sanitize empty strings ke null
+      // SESI 5B: include advertiser_account_id + pricing_tier_id
+      // Backend resolves: kalau advertiser_account_id given, derive denormalized
+      // fields dari entity (single source of truth).
       const payload = {
+        // SESI 5B NEW
+        advertiser_account_id: state.advertiser_account_id,
+        pricing_tier_id:       state.pricing_tier_id,
+
+        // Advertiser (legacy fields kept — backend uses sebagai cache/fallback)
         advertiser_name:     state.advertiser_name.trim(),
         advertiser_type:     state.advertiser_type,
         advertiser_phone:    state.advertiser_phone.trim() || null,
         advertiser_logo_url: state.advertiser_logo_url.trim() || null,
+
+        // Creative
         ad_format:           state.ad_format,
         title:               state.title.trim(),
         body:                state.body.trim() || null,
@@ -330,9 +397,15 @@ export function AdFormProvider({
         link_url:            state.link_url.trim(),
         disclaimer_text:     state.disclaimer_text.trim() || null,
         slug:                state.slug.trim() || null,
+
+        // Targeting
         positions:           state.positions,
         target_regions:      state.target_regions,
+
+        // DCA
         creative_frames:     state.creative_frames,
+
+        // Schedule
         starts_at:           state.starts_at,
         ends_at:             state.ends_at,
       };
