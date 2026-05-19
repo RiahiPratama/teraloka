@@ -52,21 +52,30 @@ const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; icon: typeof Home; 
 };
 
 // 13 positions grouped by visual area + page scope hint
+// SESI 5D (18 Mei 2026): + description tooltip ("muncul di mana di public")
+//                       + aspectGuide (recommended image aspect ratio)
 const POSITION_GROUPS: Array<{
   group:       string;
   description: string;
   pageScope:   PageScope;
-  positions:   Array<{ key: string; label: string; size: string; politisiOnly?: boolean }>;
+  positions:   Array<{ 
+    key:           string; 
+    label:         string; 
+    size:          string; 
+    description?:  string;        // NEW: tooltip muncul di mana
+    aspectGuide?:  string;        // NEW: rekomendasi aspect ratio image
+    politisiOnly?: boolean;
+  }>;
 }> = [
   {
     group:       'Banner Area',
     description: 'Slot horizontal — high visibility',
     pageScope:   'both',
     positions: [
-      { key: 'top_leaderboard',      label: 'Top Billboard',       size: '1680×220' },
-      { key: 'inline_banner',        label: 'Inline 8:1',          size: '1600×200' },
-      { key: 'banner',               label: 'Banner Generic',      size: 'Vary'     },
-      { key: 'homepage_hero_banner', label: 'Hero Fallback',       size: 'Hero'     },
+      { key: 'top_leaderboard',      label: 'Top Billboard',       size: '1680×220', description: 'Paling atas halaman, di bawah header navigasi', aspectGuide: 'Horizontal panjang (7.6:1)' },
+      { key: 'inline_banner',        label: 'Inline 8:1',          size: '1600×200', description: 'Banner di tengah artikel/feed', aspectGuide: 'Horizontal (8:1)' },
+      { key: 'banner',               label: 'Banner Generic',      size: 'Vary',     description: 'Banner fleksibel — auto-fit container', aspectGuide: 'Responsive' },
+      { key: 'homepage_hero_banner', label: 'Hero Fallback',       size: 'Hero',     description: 'Banner backup kalau slot hero utama kosong', aspectGuide: 'Horizontal (16:9 atau 21:9)' },
     ],
   },
   {
@@ -74,9 +83,9 @@ const POSITION_GROUPS: Array<{
     description: 'Slot vertikal kanan/kiri konten',
     pageScope:   'slug',
     positions: [
-      { key: 'skyscraper_left',  label: 'Sidebar Slot Kiri',  size: '160×600' },
-      { key: 'skyscraper_right', label: 'Sidebar Slot Kanan', size: '160×600' },
-      { key: 'sidebar',          label: 'Sidebar Generic',    size: 'Vary'    },
+      { key: 'skyscraper_left',  label: 'Sidebar Slot Kiri',  size: '160×600', description: 'Sidebar kiri artikel BAKABAR, sticky scroll', aspectGuide: 'Vertikal tipis (1:3.75)' },
+      { key: 'skyscraper_right', label: 'Sidebar Slot Kanan', size: '160×600', description: 'Sidebar kanan artikel BAKABAR, sticky scroll', aspectGuide: 'Vertikal tipis (1:3.75)' },
+      { key: 'sidebar',          label: 'Sidebar Generic',    size: 'Vary',    description: 'Sidebar fleksibel cross-page', aspectGuide: 'Vertikal responsive' },
     ],
   },
   {
@@ -84,9 +93,9 @@ const POSITION_GROUPS: Array<{
     description: 'Inline di artikel — native blend',
     pageScope:   'slug',
     positions: [
-      { key: 'in_article',      label: 'In Article',         size: 'Inline' },
-      { key: 'native',          label: 'Native In-Article',  size: 'Inline' },
-      { key: 'trending_native', label: 'Trending Native',    size: 'Inline' },
+      { key: 'in_article',      label: 'In Article',         size: 'Inline', description: 'Di tengah body artikel, format banner image', aspectGuide: 'Horizontal (16:9 atau 4:3)' },
+      { key: 'native',          label: 'Native In-Article',  size: 'Inline', description: 'Advertorial yang menyatu dengan flow artikel', aspectGuide: 'Native (auto match konteks)' },
+      { key: 'trending_native', label: 'Trending Native',    size: 'Inline', description: 'Sticky di section "Trending Now" homepage + slug', aspectGuide: 'Card thumbnail (1:1 atau 4:3)' },
     ],
   },
   {
@@ -94,9 +103,9 @@ const POSITION_GROUPS: Array<{
     description: 'Slot premium / region-targeted',
     pageScope:   'homepage',
     positions: [
-      { key: 'political_banner', label: 'Politisi Banner',    size: 'Hero', politisiOnly: true },
-      { key: 'region_stack',     label: 'Stack Banner Region', size: 'Block' },
-      { key: 'homepage',         label: 'Homepage Generic',   size: 'Vary'  },
+      { key: 'political_banner', label: 'Politisi Banner',    size: 'Hero',  description: 'Banner KPU compliance khusus advertiser politisi', aspectGuide: 'Horizontal (16:9)', politisiOnly: true },
+      { key: 'region_stack',     label: 'Stack Banner Region', size: 'Block', description: 'Banner di section per-kabupaten di homepage', aspectGuide: 'Card (4:3)' },
+      { key: 'homepage',         label: 'Homepage Generic',   size: 'Vary',  description: 'Banner fleksibel cross-section homepage', aspectGuide: 'Responsive' },
     ],
   },
 ];
@@ -304,8 +313,17 @@ export default function AdFormSectionTargeting() {
                                   </span>
                                 )}
                               </div>
-                              <div className="text-[9px] text-text-muted">
+                              {/* SESI 5D: description tooltip "muncul di mana di public" */}
+                              {pos.description && (
+                                <div className="text-[9px] text-text-muted mt-0.5 leading-tight">
+                                  {pos.description}
+                                </div>
+                              )}
+                              <div className="text-[9px] text-text-subtle mt-0.5">
                                 {pos.size}
+                                {pos.aspectGuide && (
+                                  <span className="ml-1 text-text-muted">· {pos.aspectGuide}</span>
+                                )}
                               </div>
                             </div>
                           </label>

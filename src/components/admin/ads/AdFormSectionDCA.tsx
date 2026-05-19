@@ -192,6 +192,23 @@ export default function AdFormSectionDCA() {
               </div>
             ) : (
               <>
+                {/* SESI 5D — Multi-position DCA warning (inline awareness only) */}
+                {state.positions.length > 1 && (
+                  <div className="flex items-start gap-2 p-2.5 rounded-lg bg-status-warning/8 border border-status-warning/30 mb-3">
+                    <AlertTriangle size={12} className="text-status-warning shrink-0 mt-0.5" />
+                    <div className="text-[10px] text-text leading-relaxed">
+                      <p className="font-bold text-status-warning mb-0.5">
+                        Heads up: DCA aktif di {state.positions.length} posisi
+                      </p>
+                      <p>
+                        Frame image yang sama akan rotate di semua posisi (Top Billboard, Sidebar, dll).
+                        Pastikan image frame compatible dengan aspect ratio terbeda — atau pertimbangkan
+                        pakai 1 posisi saja untuk DCA optimal.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Info banner */}
                 <div className="flex items-start gap-2 p-2.5 rounded-lg bg-status-info/8 border border-status-info/30 mb-3">
                   <Info size={12} className="text-status-info shrink-0 mt-0.5" />

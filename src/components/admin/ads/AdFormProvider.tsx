@@ -102,6 +102,14 @@ export interface AdFormState {
   title:           string;
   body:            string;
   image_url:       string;
+  /**
+   * SESI 5D (18 Mei 2026): Per-position image map (HYBRID).
+   * Key = position key (top_leaderboard, sidebar_left, etc).
+   * Value = uploaded image URL untuk posisi itu.
+   * Kalau key tidak ada → frontend lookup fallback ke image_url default.
+   * Backend buildImagesMap() handle final persistence.
+   */
+  images:          Record<string, string>;
   link_url:        string;
   disclaimer_text: string;
   slug:            string;
@@ -139,6 +147,7 @@ const EMPTY_STATE: AdFormState = {
   title:               '',
   body:                '',
   image_url:           '',
+  images:              {},  // SESI 5D: empty map (HYBRID fallback ke image_url)
   link_url:            '',
   disclaimer_text:     '',
   slug:                '',
@@ -358,6 +367,7 @@ export function AdFormProvider({
           title:               ad.title ?? '',
           body:                ad.body ?? '',
           image_url:           ad.image_url ?? '',
+          images:              ad.images ?? {},  // SESI 5D
           link_url:            ad.link_url ?? '',
           disclaimer_text:     ad.disclaimer_text ?? '',
           slug:                ad.slug ?? '',
@@ -430,6 +440,7 @@ export function AdFormProvider({
         title:               state.title.trim(),
         body:                state.body.trim() || null,
         image_url:           state.image_url.trim() || null,
+        images:              Object.keys(state.images).length > 0 ? state.images : null,  // SESI 5D
         link_url:            state.link_url.trim(),
         disclaimer_text:     state.disclaimer_text.trim() || null,
         slug:                state.slug.trim() || null,

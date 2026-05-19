@@ -24,10 +24,30 @@ import {
   FileText,
   AlertTriangle,
   Link as LinkIcon,
+  Layers,        // SESI 5D: multi-image section
+  Sparkles,     // SESI 5D: optimize hint
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useAdForm } from './AdFormProvider';
+
+// SESI 5D: Position label mapping (mirror POSITION_GROUPS dari Targeting section)
+// Dipakai untuk render label per-position image upload.
+const POSITION_LABELS: Record<string, { label: string; aspectGuide: string }> = {
+  top_leaderboard:      { label: 'Top Billboard',       aspectGuide: 'Horizontal 7.6:1 (1680×220)' },
+  inline_banner:        { label: 'Inline 8:1',          aspectGuide: 'Horizontal 8:1 (1600×200)' },
+  banner:               { label: 'Banner Generic',      aspectGuide: 'Responsive horizontal' },
+  homepage_hero_banner: { label: 'Hero Fallback',       aspectGuide: 'Horizontal 16:9 atau 21:9' },
+  skyscraper_left:      { label: 'Sidebar Slot Kiri',   aspectGuide: 'Vertikal 1:3.75 (160×600)' },
+  skyscraper_right:     { label: 'Sidebar Slot Kanan',  aspectGuide: 'Vertikal 1:3.75 (160×600)' },
+  sidebar:              { label: 'Sidebar Generic',     aspectGuide: 'Vertikal responsive' },
+  in_article:           { label: 'In Article',          aspectGuide: 'Horizontal 16:9 atau 4:3' },
+  native:               { label: 'Native In-Article',   aspectGuide: 'Native auto-match' },
+  trending_native:      { label: 'Trending Native',     aspectGuide: 'Card 1:1 atau 4:3' },
+  political_banner:     { label: 'Politisi Banner',     aspectGuide: 'Horizontal 16:9 (KPU)' },
+  region_stack:         { label: 'Stack Banner Region', aspectGuide: 'Card 4:3' },
+  homepage:             { label: 'Homepage Generic',    aspectGuide: 'Responsive cross-section' },
+};
 
 // Simple slugify (mirror slugifyTitle backend pattern)
 function slugify(text: string): string {
@@ -270,6 +290,7 @@ export default function AdFormSectionCreative() {
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
                 Gambar Iklan <span className="text-status-critical">*</span>
+                <span className="ml-1 text-text-subtle normal-case">(default)</span>
               </label>
               <ImageUpload
                 bucket="ads"
@@ -277,15 +298,20 @@ export default function AdFormSectionCreative() {
                 maxSizeMB={0.5}
                 existingUrls={state.image_url ? [state.image_url] : []}
                 onUpload={(urls) => setField('image_url', urls[0] ?? '')}
-                label="Upload gambar iklan (max 500KB)"
+                label="Upload gambar iklan default (max 500KB)"
               />
               {imageError && (
                 <p className="text-[10px] text-status-critical mt-1">{imageError}</p>
               )}
               <p className="text-[10px] text-text-subtle mt-1">
-                Rekomendasi: 1200×630px untuk hero, 1600×200px untuk inline banner
+                Image default dipakai untuk semua posisi yang tidak punya image khusus.
               </p>
             </div>
+          )}
+
+          {/* SESI 5D — Multi-image per-position upload (HYBRID optional) */}
+          {state.ad_format === 'image' && state.positions.length > 0 && state.image_url && (
+            <MultiImageSection />
           )}
 
           {/* Link URL */}
@@ -361,5 +387,142 @@ export default function AdFormSectionCreative() {
         </div>
       )}
     </section>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// SESI 5D — MultiImageSection
+// ────────────────────────────────────────────────────────────────
+// Per-position image upload (HYBRID Strategy B):
+//   - Default image_url broadcast ke semua positions kalau images kosong
+//   - Admin bisa OVERRIDE per posisi dengan upload khusus
+//   - Backend buildImagesMap() handle final fallback chain
+// Render conditional: muncul kalau state.image_url ada + positions selected
+// ════════════════════════════════════════════════════════════════
+function MultiImageSection() {
+  const { state, setField } = useAdForm();
+  const [expanded, setExpanded] = useState(false);
+
+  const customizedCount = Object.keys(state.images).filter(
+    (k) => state.images[k] && state.images[k] !== state.image_url,
+  ).length;
+
+  const updateImageForPosition = (positionKey: string, url: string) => {
+    const nextImages = { ...state.images };
+    if (url) {
+      nextImages[positionKey] = url;
+    } else {
+      // Empty = revert to default (delete key)
+      delete nextImages[positionKey];
+    }
+    setField('images', nextImages);
+  };
+
+  return (
+    <div className="rounded-lg border border-ads/30 bg-ads/5 p-3 mt-2">
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex items-center justify-between w-full"
+      >
+        <div className="flex items-center gap-2">
+          <Layers size={14} className="text-ads" />
+          <div className="text-left">
+            <p className="text-[11px] font-bold text-text">
+              Optimize Image Per Posisi
+              <span className="ml-1.5 text-[9px] font-normal text-text-muted">(opsional)</span>
+            </p>
+            <p className="text-[9px] text-text-muted leading-tight mt-0.5">
+              {customizedCount > 0
+                ? `${customizedCount} posisi pakai image khusus, sisanya pakai default`
+                : `${state.positions.length} posisi pakai image default — tambah image khusus untuk hasil optimal`}
+            </p>
+          </div>
+        </div>
+        {expanded ? (
+          <ChevronUp size={14} className="text-text-muted shrink-0" />
+        ) : (
+          <ChevronDown size={14} className="text-text-muted shrink-0" />
+        )}
+      </button>
+
+      {expanded && (
+        <div className="mt-3 pt-3 border-t border-ads/20 space-y-3">
+          {/* Hint banner */}
+          <div className="flex items-start gap-1.5 px-2 py-1.5 rounded bg-ads/8 border border-ads/20">
+            <Sparkles size={11} className="text-ads shrink-0 mt-0.5" />
+            <p className="text-[9px] text-text leading-relaxed">
+              Image default ({state.positions.length} posisi) dipakai otomatis kalau kamu skip per-posisi.
+              Upload image khusus untuk posisi dengan ukuran/aspect berbeda (misal sidebar vertical vs banner horizontal).
+            </p>
+          </div>
+
+          {/* Per-position upload list */}
+          <div className="space-y-2">
+            {state.positions.map((positionKey) => {
+              const meta = POSITION_LABELS[positionKey] || { label: positionKey, aspectGuide: 'Responsive' };
+              const customUrl = state.images[positionKey];
+              const isUsingDefault = !customUrl || customUrl === state.image_url;
+
+              return (
+                <div
+                  key={positionKey}
+                  className={cn(
+                    'rounded border p-2.5 transition-colors',
+                    isUsingDefault
+                      ? 'bg-surface border-border'
+                      : 'bg-ads/5 border-ads/30',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-text">
+                        {meta.label}
+                      </p>
+                      <p className="text-[9px] text-text-subtle">
+                        {meta.aspectGuide}
+                      </p>
+                    </div>
+                    <span
+                      className={cn(
+                        'text-[8px] font-semibold px-1.5 py-0.5 rounded-full shrink-0',
+                        isUsingDefault
+                          ? 'bg-surface-muted text-text-muted border border-border'
+                          : 'bg-ads/15 text-ads border border-ads/40',
+                      )}
+                    >
+                      {isUsingDefault ? 'PAKAI DEFAULT' : 'IMAGE KHUSUS'}
+                    </span>
+                  </div>
+                  <ImageUpload
+                    bucket="ads"
+                    maxFiles={1}
+                    maxSizeMB={0.5}
+                    existingUrls={
+                      !isUsingDefault && customUrl ? [customUrl] : []
+                    }
+                    onUpload={(urls) => updateImageForPosition(positionKey, urls[0] ?? '')}
+                    label={
+                      isUsingDefault
+                        ? `Upload image khusus untuk ${meta.label}`
+                        : `Ganti image ${meta.label}`
+                    }
+                  />
+                  {!isUsingDefault && (
+                    <button
+                      type="button"
+                      onClick={() => updateImageForPosition(positionKey, '')}
+                      className="text-[9px] text-text-muted hover:text-status-critical mt-1.5"
+                    >
+                      ↺ Reset ke image default
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
