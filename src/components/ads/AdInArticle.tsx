@@ -118,9 +118,9 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
     setRefEl(el);
   }, []);
 
-  // DCA rotation (Batch C2)
+  // DCA rotation (Batch C2 + SESI 5E Phase 2 hybrid)
   const { active: activeFrame, index: activeIdx, total, isDCA } =
-    useAdRotation(ad?.creative_frames);
+    useAdRotation(ad?.creative_frames, 'in_article');
 
   const animStyle: React.CSSProperties = {
     opacity:    visible ? 1 : 0,

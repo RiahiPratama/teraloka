@@ -114,9 +114,9 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
     setRefEl(el);
   }, []);
 
-  // DCA rotation
+  // DCA rotation (SESI 5E Phase 2: pass positionKey untuk Hybrid C support)
   const { active: activeFrame, index: activeIdx, total, isDCA } =
-    useAdRotation(ad?.creative_frames);
+    useAdRotation(ad?.creative_frames, 'sidebar');
 
   const animStyle: React.CSSProperties = {
     opacity:    visible ? 1 : 0,

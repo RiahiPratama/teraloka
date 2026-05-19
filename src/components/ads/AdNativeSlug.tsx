@@ -92,8 +92,8 @@ export default function AdNativeSlug({ formatFilter }: Props = {}) {
     fetchActiveAd('native', region, formatFilter).then(a => { setAd(a); setLoaded(true); });
   }, [region, formatFilter]);
 
-  // DCA rotation SILENT (Pattern AAA — Native Editorial Blend)
-  const { active: activeFrame, isDCA } = useAdRotation(ad?.creative_frames);
+  // DCA rotation SILENT (Pattern AAA Native Editorial Blend + SESI 5E Phase 2 hybrid)
+  const { active: activeFrame, isDCA } = useAdRotation(ad?.creative_frames, 'native');
 
   // Placeholder saat loading atau tidak ada iklan aktif
   if (!loaded || !ad) {
