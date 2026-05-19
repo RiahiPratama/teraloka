@@ -1,16 +1,20 @@
 'use client';
 
 /**
- * TeraLoka — AdsTable (v5 — Sub-Phase 8-E-6 Mini C)
- * Mission 8 Sub-Phase 8-C-1 → 8-E-5 → 8-E-6
+ * TeraLoka — AdsTable (v6 — SESI 5F Payment Recording)
+ * Mission 8 Sub-Phase 8-C-1 → 8-E-5 → 8-E-6 → SESI 5F BATCH 4
  * ------------------------------------------------------------
- * v5 Changes (Sub-Phase 8-E-6 Mini C):
+ * v6 Changes (SESI 5F, 19 Mei 2026):
+ *   - ADD onRecordPayment prop forwarded ke AdsTableRow
+ *
+ * v5 (Sub-Phase 8-E-6 Mini C):
  *   - ADD onPreview prop forwarded ke AdsTableRow
  *
  * History:
  *   - 17 Mei 2026: v3 (Sub-Phase 8-E-5) bulk selection UI prep
  *   - 17 Mei 2026: v4 (Sub-Phase 8-E-6) bulk action buttons enabled
  *   - 17 Mei 2026: v5 (Mini C) +onPreview prop forward
+ *   - 19 Mei 2026: v6 (SESI 5F) +onRecordPayment prop forward
  */
 
 import { List, Trash2, CheckSquare, Square, Minus, Pause, Play, Trash } from 'lucide-react';
@@ -28,6 +32,8 @@ export interface AdsTableProps {
   onBulkAction: (action: BulkActionType, adIds: string[]) => void | Promise<void>;
   /** Sub-Phase 8-E-6 Mini C: preview modal trigger */
   onPreview: (ad: AdRow) => void;
+  /** SESI 5F: payment record modal trigger */
+  onRecordPayment: (ad: AdRow) => void;
   onTransition: (adId: string, to: string) => void | Promise<void>;
   onSoftDelete: (adId: string, title: string) => void | Promise<void>;
   onRestore:    (adId: string) => void | Promise<void>;
@@ -45,6 +51,7 @@ export default function AdsTable({
   onSelectionChange,
   onBulkAction,
   onPreview,
+  onRecordPayment,
   onTransition,
   onSoftDelete,
   onRestore,
@@ -281,6 +288,7 @@ export default function AdsTable({
                 isSelected={selectedAdIds.has(ad.id)}
                 onSelectToggle={handleRowSelect}
                 onPreview={onPreview}
+                onRecordPayment={onRecordPayment}
                 onTransition={onTransition}
                 onSoftDelete={onSoftDelete}
                 onRestore={onRestore}

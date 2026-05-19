@@ -41,6 +41,7 @@ import DeleteAdModal from './DeleteAdModal';
 import RejectAdModal from './RejectAdModal';
 import BulkActionModal from './BulkActionModal';
 import AdPreviewModal from './AdPreviewModal';
+import PaymentRecordModal from './PaymentRecordModal'; // SESI 5F (19 Mei 2026)
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -110,7 +111,8 @@ type Toast = { id: number; msg: string; type: 'ok' | 'err' };
 type ModalState =
   | { kind: 'none' }
   | { kind: 'delete'; ad: AdRow }
-  | { kind: 'reject'; ad: AdRow };
+  | { kind: 'reject'; ad: AdRow }
+  | { kind: 'payment'; ad: AdRow };  // SESI 5F (19 Mei 2026)
 
 type BulkModalState =
   | { open: false }
@@ -509,6 +511,22 @@ export default function AdsCommandCenter({
     setPreviewAdId(ad.id);
   }, []);
 
+  // SESI 5F (19 Mei 2026) — Open PaymentRecordModal
+  const handleRecordPayment = useCallback((ad: AdRow) => {
+    setModal({ kind: 'payment', ad });
+  }, []);
+
+  // SESI 5F — Success callback dari PaymentRecordModal
+  const handlePaymentSuccess = useCallback((msg: string) => {
+    showToast(msg, 'ok');
+    void refreshAll();
+  }, [showToast, refreshAll]);
+
+  // SESI 5F — Error callback
+  const handlePaymentError = useCallback((msg: string) => {
+    showToast(msg, 'err');
+  }, [showToast]);
+
   // ─── Single action handlers ──────────────────────────────────
 
   const handleStatusTransition = async (adId: string, to: string) => {
@@ -832,6 +850,7 @@ export default function AdsCommandCenter({
           onSelectionChange={setSelectedAdIds}
           onBulkAction={handleBulkActionRequest}
           onPreview={handlePreview}
+          onRecordPayment={handleRecordPayment}
           onTransition={handleStatusTransition}
           onSoftDelete={handleSoftDelete}
           onRestore={handleRestore}
@@ -859,6 +878,15 @@ export default function AdsCommandCenter({
       <RejectAdModal
         ad={modal.kind === 'reject' ? modal.ad : null}
         onConfirm={handleRejectConfirm}
+        onClose={() => setModal({ kind: 'none' })}
+      />
+
+      {/* SESI 5F (19 Mei 2026) — Payment Record Modal */}
+      <PaymentRecordModal
+        ad={modal.kind === 'payment' ? modal.ad : null}
+        token={token}
+        onSuccess={handlePaymentSuccess}
+        onError={handlePaymentError}
         onClose={() => setModal({ kind: 'none' })}
       />
     </div>

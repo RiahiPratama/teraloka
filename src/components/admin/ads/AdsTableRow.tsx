@@ -1,8 +1,13 @@
 /**
- * TeraLoka — AdsTableRow (v5 — Sub-Phase 8-E-6 Mini A + Mini C)
- * Mission 8 Sub-Phase 8-C-1 → 8-E-5 → 8-E-6
+ * TeraLoka — AdsTableRow (v6 — SESI 5F Payment Recording)
+ * Mission 8 Sub-Phase 8-C-1 → 8-E-5 → 8-E-6 → SESI 5F BATCH 4
  * ------------------------------------------------------------
- * v5 Changes (Sub-Phase 8-E-6 Mini A + Mini C):
+ * v6 Changes (SESI 5F, 19 Mei 2026):
+ *   - ADD button "Catat Bayar" untuk status pending_payment/pending_review/active/paused
+ *   - Conditional: hide jika status=paid (sudah dibayar)
+ *   - New prop: onRecordPayment(ad)
+ *
+ * v5 (Sub-Phase 8-E-6 Mini A + Mini C):
  *   - Mini A: Render display_id (ADS-2026-NNNN) di bawah ad title
  *   - Mini C: ADD Eye icon button di Aksi column → trigger preview modal
  *   - New prop: onPreview(ad)
@@ -12,10 +17,11 @@
  *   - 16 Mei 2026: v3 +Edit button
  *   - 17 Mei 2026: v4 bulk checkbox cell
  *   - 17 Mei 2026: v5 display_id + Eye preview button
+ *   - 19 Mei 2026: v6 +Catat Bayar button (SESI 5F)
  */
 
 import Link from 'next/link';
-import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square, Eye } from 'lucide-react';
+import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square, Eye, Wallet } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
 
@@ -26,6 +32,8 @@ export interface AdsTableRowProps {
   onSelectToggle: (adId: string) => void;
   /** Sub-Phase 8-E-6 Mini C: open preview modal */
   onPreview: (ad: AdRow) => void;
+  /** SESI 5F: open payment record modal */
+  onRecordPayment: (ad: AdRow) => void;
   onTransition: (adId: string, to: string) => void | Promise<void>;
   onSoftDelete: (adId: string, title: string) => void | Promise<void>;
   onRestore:    (adId: string) => void | Promise<void>;
@@ -52,6 +60,7 @@ export default function AdsTableRow({
   isSelected,
   onSelectToggle,
   onPreview,
+  onRecordPayment,
   onTransition,
   onSoftDelete,
   onRestore,
@@ -261,6 +270,7 @@ export default function AdsTableRow({
             onSoftDelete,
             onRestore,
             onReject,
+            onRecordPayment,
             adTitle,
           })}
         </div>
@@ -279,6 +289,7 @@ function renderActions(
     onSoftDelete: (id: string, title: string) => void | Promise<void>;
     onRestore:    (id: string) => void | Promise<void>;
     onReject:     (id: string, title: string) => void | Promise<void>;
+    onRecordPayment: (ad: AdRow) => void;
     adTitle:      string;
   }
 ) {
@@ -300,6 +311,28 @@ function renderActions(
   }
 
   const buttons: React.ReactNode[] = [];
+
+  // SESI 5F: Catat Bayar button — show untuk status yang belum final/paid
+  // Hide kalau status='paid' (sudah dibayar) atau rejected/expired/deleted
+  if (
+    ad.status === 'pending_payment' ||
+    ad.status === 'pending_review' ||
+    ad.status === 'active' ||
+    ad.status === 'paused'
+  ) {
+    buttons.push(
+      <button
+        key="record-payment"
+        type="button"
+        onClick={() => handlers.onRecordPayment(ad)}
+        className={cn(btnClass, 'bg-status-healthy/12 text-status-healthy hover:bg-status-healthy/20')}
+        title="Catat pembayaran iklan"
+      >
+        <Wallet size={11} />
+        Bayar
+      </button>
+    );
+  }
 
   if (ad.status === 'active') {
     buttons.push(
