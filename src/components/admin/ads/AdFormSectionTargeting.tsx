@@ -41,6 +41,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdForm } from './AdFormProvider';
+// SESI 5D-2 Phase 4: capacity awareness hint per posisi
+import {
+  getPositionMetadata,
+  computeCapacityStatus,
+  formatCapacityDisplay,
+} from './position-render-metadata';
+import { useCapacityData } from './PositionCapacityBadge';
 
 // Page scope label per group (visual hint, semantic only — backend trust positions)
 type PageScope = 'homepage' | 'slug' | 'both';
@@ -148,6 +155,9 @@ export default function AdFormSectionTargeting() {
   const tierSuggestedSet = new Set<string>(
     state.pricing_tier_data?.positions_allowed ?? [],
   );
+
+  // SESI 5D-2 Phase 4: Fetch capacity data untuk hint per posisi
+  const { getActiveCount, loading: capacityLoading } = useCapacityData();
 
   const togglePosition = (key: string) => {
     const current = state.positions;
@@ -325,6 +335,23 @@ export default function AdFormSectionTargeting() {
                                   <span className="ml-1 text-text-muted">· {pos.aspectGuide}</span>
                                 )}
                               </div>
+                              {/* SESI 5D-2 Phase 4: Capacity hint per posisi */}
+                              {!capacityLoading && (() => {
+                                const meta = getPositionMetadata(pos.key);
+                                const active = getActiveCount(pos.key);
+                                const status = computeCapacityStatus(active, meta.recommendedMaxActive);
+                                const display = formatCapacityDisplay(meta, active);
+                                const colorClass =
+                                  status === 'over_capacity' ? 'text-status-critical' :
+                                  status === 'near_full'     ? 'text-amber-500' :
+                                  status === 'available'     ? 'text-status-warning' :
+                                  'text-text-subtle';
+                                return (
+                                  <div className={`text-[8px] mt-1 font-semibold uppercase tracking-wide ${colorClass}`}>
+                                    📊 {display}
+                                  </div>
+                                );
+                              })()}
                             </div>
                           </label>
                         );
