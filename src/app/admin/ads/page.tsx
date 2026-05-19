@@ -3,16 +3,17 @@
 /**
  * TeraLoka — Admin Ads Page (Tab Container)
  * SESI 5A BATCH 3 (18 Mei 2026) — Tab Advertiser Integration
+ * SESI 5F BATCH 5 (19 Mei 2026) — Tab Financial ADS Integration
  * ────────────────────────────────────────────────────────────────────
  * Route: /admin/ads
  *
- * 3 Tabs:
+ * 5 Tabs:
  *   1. Iklan         — AdsCommandCenter (Mission 8 Sub-Phase 8-E)
  *   2. Pricing Tiers — PricingTiersPanel + StrategicBar (SESI 3)
- *   3. Advertiser    — AdvertiserPanel (SESI 5A) — NEW
- *
- * Future tab (SESI 5D scope):
- *   4. Financial ADS — Revenue analytics ADS-domain
+ *   3. Advertiser    — AdvertiserPanel (SESI 5A)
+ *   4. Layout Iklan  — AdsLayoutDocumentation (SESI 5D-2)
+ *   5. Financial ADS — AdsFinancialPanel (SESI 5F BATCH 5) — NEW
+ *      Revenue analytics ADS-domain (source: Money Domain)
  *
  * Migration history:
  *   - SESI 3 (18 Mei 2026): Z2 Tailwind v4 migration + Opsi C Cleanup
@@ -26,22 +27,29 @@
  *     · advertiser_accounts entity wired
  *     · 11 admin endpoints + 5 frontend components
  *     · Politik compliance built-in (Pasal 270 UU Pemilu)
+ *   - SESI 5D-2 (19 Mei 2026): Tab Layout Iklan documentation hub
+ *   - SESI 5F BATCH 5 (19 Mei 2026): Tab Financial ADS — NEW
+ *     · Revenue analytics khusus ADS-domain
+ *     · Source: Money Domain (financial_events)
+ *     · 4 section: Stats + By Bank chart + Audit Pending alert + Recent Activity
  *
  * Pattern AAP locked 15 Mei 2026 — konsisten dengan AdPreviewModal
  * + BulkActionModal + PricingTier* components.
  */
 
 import { useState } from 'react';
-import { Megaphone, DollarSign, Users, Layout } from 'lucide-react';
+import { Megaphone, DollarSign, Users, Layout, TrendingUp } from 'lucide-react';
 import AdsPanel from '@/components/admin/ads/AdsCommandCenter';
 import PricingStrategicBar from '@/components/admin/ads/pricing-tiers/PricingStrategicBar';
 import PricingTiersPanel from '@/components/admin/ads/pricing-tiers/PricingTiersPanel';
 import AdvertiserPanel from '@/components/admin/ads/advertisers/AdvertiserPanel';
 // SESI 5D-2 (19 Mei 2026): Tab Layout Iklan documentation hub
 import AdsLayoutDocumentation from '@/components/admin/ads/AdsLayoutDocumentation';
+// SESI 5F BATCH 5 (19 Mei 2026): Tab Financial ADS — revenue analytics
+import AdsFinancialPanel from '@/components/admin/ads/financial/AdsFinancialPanel';
 import { cn } from '@/lib/utils';
 
-type Tab = 'ads' | 'pricing' | 'advertisers' | 'layout';
+type Tab = 'ads' | 'pricing' | 'advertisers' | 'layout' | 'financial';
 
 interface TabConfig {
   key:   Tab;
@@ -54,6 +62,7 @@ const TABS: TabConfig[] = [
   { key: 'pricing',     label: 'Pricing Tiers', icon: DollarSign },
   { key: 'advertisers', label: 'Advertiser',    icon: Users      },
   { key: 'layout',      label: 'Layout Iklan',  icon: Layout     }, // SESI 5D-2
+  { key: 'financial',   label: 'Financial ADS', icon: TrendingUp }, // SESI 5F BATCH 5
 ];
 
 export default function AdsAdminPage() {
@@ -121,6 +130,9 @@ export default function AdsAdminPage() {
       {tab === 'layout' && (
         <AdsLayoutDocumentation onJumpToAds={handleJumpToAds} />
       )}
+
+      {/* SESI 5F BATCH 5 (19 Mei 2026): Financial ADS analytics */}
+      {tab === 'financial' && <AdsFinancialPanel />}
     </div>
   );
 }
