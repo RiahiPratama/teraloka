@@ -158,8 +158,18 @@ export default function AdsFinancialPanel() {
   // ─── Computed (Client-side Aggregation) ──────────────────────
 
   const stats = useMemo(() => {
-    // Total revenue ADS dari Money Domain
-    const adsRevenue = byEntity?.pt_digital?.sources?.ads ?? 0;
+    // Total revenue ADS dari events langsung (lebih akurat dari byEntity aggregation)
+    // byEntity.pt_digital.sources.ads kadang null/0 tergantung server logic,
+    // sum events.amount lebih reliable + match chart total.
+    const adsRevenueFromEvents = events.reduce(
+      (sum, e) => sum + (Number(e.amount) || 0),
+      0
+    );
+
+    // Fallback ke byEntity kalau events kosong (period filter beda dengan events limit)
+    const adsRevenue = adsRevenueFromEvents > 0
+      ? adsRevenueFromEvents
+      : (byEntity?.pt_digital?.sources?.ads ?? 0);
 
     // Paid ads count = unique source_entity_id di events
     const uniqueAdIds = new Set(events.map(e => e.source_entity_id));
