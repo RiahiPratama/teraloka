@@ -17,6 +17,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+// SESI 5E Phase 3c: Kumparan-style disclosure label
+import { getAdLabel } from '@/lib/ads/getAdLabel';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -174,11 +176,20 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
         background: 'radial-gradient(ellipse at 15% 100%, rgba(0,0,0,0.4) 0%, transparent 60%)',
       }} />
 
-      {/* IKLAN badge top-right */}
-      <span className="absolute z-10 px-1.5 py-0.5 rounded text-[7px] font-extrabold tracking-[0.8px] uppercase"
-        style={{ top: 6, right: 6, background: '#F59E0B', color: '#fff' }}>
-        Iklan
-      </span>
+      {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
+      {(() => {
+        const label = getAdLabel({
+          advertiser_type: ad.advertiser_type,
+          ad_format: 'image',
+        });
+        if (!label) return null;
+        return (
+          <span className="absolute z-10 px-1.5 py-0.5 rounded text-[7px] font-extrabold tracking-[0.8px] uppercase"
+            style={{ top: 6, right: 6, background: '#F59E0B', color: '#fff' }}>
+            {label}
+          </span>
+        );
+      })()}
 
       {/* Content */}
       <div className="relative z-[2] flex-1 flex flex-col min-h-0 p-1">
@@ -204,23 +215,7 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
         </span>
       </div>
 
-      {/* DCA pagination dots */}
-      {isDCA && frames.length > 1 && (
-        <div className="absolute bottom-1.5 left-0 right-0 flex justify-center gap-1 z-[2]">
-          {frames.map((_, idx) => (
-            <span
-              key={idx}
-              className="transition-all duration-300"
-              style={{
-                width: idx === currentIdx ? 12 : 3,
-                height: 3,
-                borderRadius: 2,
-                background: idx === currentIdx ? '#F59E0B' : 'rgba(255,255,255,0.5)',
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {/* SESI 5E Phase 3c: DCA pagination dots REMOVED — natural feel. */}
 
       <style jsx>{`
         @keyframes stack-fade {

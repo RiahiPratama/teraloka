@@ -125,6 +125,7 @@ export interface AdRotationResult<T extends AdFrame = AdFrame> {
 export function useAdRotation<T extends AdFrame = AdFrame>(
   value: CreativeFramesValue<T>,
   positionKey?: string,
+  paused?: boolean,  // SESI 5E Phase 3c: optional pause control (preview pause-on-hover)
 ): AdRotationResult<T> {
   const [index, setIndex] = useState(0);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -142,6 +143,7 @@ export function useAdRotation<T extends AdFrame = AdFrame>(
 
   useEffect(() => {
     if (!isDCA) return;
+    if (paused) return;  // SESI 5E Phase 3c: skip scheduling saat paused
 
     const current = safeFrames[index];
     if (!current || !current.duration_ms || current.duration_ms < 100) return;
@@ -153,7 +155,7 @@ export function useAdRotation<T extends AdFrame = AdFrame>(
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
-  }, [index, isDCA, safeFrames, total]);
+  }, [index, isDCA, safeFrames, total, paused]);
 
   // Return values
   if (total === 0) {

@@ -16,6 +16,8 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { HeroSlide, StackBannerAd, DummyArticle } from './region-data';
+// SESI 5E Phase 3c: Kumparan-style disclosure label
+import { getAdLabel } from '@/lib/ads/getAdLabel';
 
 type Props = {
   slides: HeroSlide[];
@@ -239,10 +241,22 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
         {/* Mrec Ad */}
         <div className="relative w-full rounded-xl p-5 text-white cursor-pointer overflow-hidden flex flex-col justify-between"
           style={{ background: 'linear-gradient(135deg, #065F46 0%, #064E3B 100%)', aspectRatio: '6 / 5' }}>
-          <span className="absolute top-2 right-2 z-10 px-2 py-1 rounded-sm text-[9px] font-extrabold tracking-widest uppercase"
-            style={{ background: '#F59E0B', color: '#fff' }}>
-            IKLAN
-          </span>
+          {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure
+              sidebar_mrec adalah commercial promo (Bank Maluku Utara dll) →
+              hide label kecuali advertiser_type = politisi/pemerintah */}
+          {(() => {
+            const label = getAdLabel({
+              advertiser_type: (sidebar_mrec as { advertiser_type?: string }).advertiser_type,
+              ad_format: 'image',
+            });
+            if (!label) return null;
+            return (
+              <span className="absolute top-2 right-2 z-10 px-2 py-1 rounded-sm text-[9px] font-extrabold tracking-widest uppercase"
+                style={{ background: '#F59E0B', color: '#fff' }}>
+                {label}
+              </span>
+            );
+          })()}
           <div>
             <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-2" style={{ color: '#F59E0B' }}>
               {sidebar_mrec.overline}

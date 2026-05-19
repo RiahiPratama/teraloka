@@ -171,12 +171,18 @@ export default function LaIndieMoviePoliticalBanner() {
             {labels.title}
           </h3>
         </div>
-        <span
-          className="text-[9px] font-extrabold tracking-[0.6px] px-2 py-0.5 rounded uppercase"
-          style={{ background: '#F59E0B', color: '#fff' }}
-        >
-          Iklan
-        </span>
+        {/* SESI 5E Phase 3c v2: Conditional badge by slotMode.
+            - 'politisi'  → "Iklan Kampanye" (KPU PKPU mandatory)
+            - 'fallback'  → tanpa badge (section title "PILIHAN SPONSOR" udah disclosure)
+            - 'empty'     → tanpa badge */}
+        {slotMode === 'politisi' && (
+          <span
+            className="text-[9px] font-extrabold tracking-[0.6px] px-2 py-0.5 rounded uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}
+          >
+            Iklan Kampanye
+          </span>
+        )}
       </div>
 
       {/* Focused candidate/sponsor title */}

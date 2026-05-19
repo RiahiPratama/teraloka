@@ -20,6 +20,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
+// SESI 5E Phase 3c: Kumparan-style disclosure label
+import { getAdLabel } from '@/lib/ads/getAdLabel';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -148,10 +150,20 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
         background: 'radial-gradient(circle at 80% 50%, rgba(255,255,255,0.1) 0%, transparent 50%)',
       }} />
 
-      <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
-        style={{ background: '#F59E0B', color: '#fff' }}>
-        IKLAN
-      </span>
+      {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
+      {(() => {
+        const label = getAdLabel({
+          advertiser_type: ad.advertiser_type,
+          ad_format: 'image',
+        });
+        if (!label) return null;
+        return (
+          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}>
+            {label}
+          </span>
+        );
+      })()}
 
       <div className="relative z-[2] flex-1 max-w-[60%]">
         <p className="text-[10px] font-extrabold tracking-[1.5px] uppercase opacity-75 mb-2 truncate">
@@ -174,22 +186,7 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
         <ArrowRight size={12} strokeWidth={2.8} />
       </span>
 
-      {isDCA && frames.length > 1 && (
-        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1 z-[2]">
-          {frames.map((_, idx) => (
-            <span
-              key={idx}
-              className="transition-all duration-300"
-              style={{
-                width: idx === currentIdx ? 18 : 4,
-                height: 3,
-                borderRadius: 2,
-                background: idx === currentIdx ? '#F59E0B' : 'rgba(255,255,255,0.5)',
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {/* SESI 5E Phase 3c: DCA pagination dots REMOVED — natural feel. */}
 
       <style jsx>{`
         @keyframes inline-fade {

@@ -26,6 +26,8 @@ import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
+// SESI 5E Phase 3c: Kumparan-style disclosure label
+import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -119,7 +121,9 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
   }, []);
 
   // DCA rotation (Batch C2 + SESI 5E Phase 2 hybrid)
-  const { active: activeFrame, index: activeIdx, total, isDCA } =
+  // SESI 5E Phase 3c: dots indicator hidden — drop activeIdx & total
+  //   tapi isDCA masih dipake untuk displayBody conditional
+  const { active: activeFrame, isDCA } =
     useAdRotation(ad?.creative_frames, 'in_article');
 
   const animStyle: React.CSSProperties = {
@@ -287,24 +291,30 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
           </div>
         )}
 
-        <span className="bk-ad-label-pulse absolute top-2 right-2 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider z-10">
-          Iklan
-        </span>
+        {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
+        {(() => {
+          const label = getAdLabel({
+            advertiser_type: ad.advertiser_type,
+            ad_format: ad.ad_format,
+          });
+          if (!label) return null;
+          const isMandatory = isLabelMandatory({
+            advertiser_type: ad.advertiser_type,
+          });
+          return (
+            <span
+              className={`absolute top-2 right-2 text-[10px] font-bold text-white bg-black/60 px-2 py-0.5 rounded uppercase tracking-wider z-10 ${
+                isMandatory ? 'bk-ad-label-pulse' : ''
+              }`}
+            >
+              {label}
+            </span>
+          );
+        })()}
 
-        {isDCA && total > 0 && (
-          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1.5 z-10">
-            {Array.from({ length: total }).map((_, i) => (
-              <span
-                key={i}
-                className={`block h-1.5 rounded-full transition-all duration-300 ${
-                  i === activeIdx
-                    ? 'w-4 bg-white shadow-md'
-                    : 'w-1.5 bg-white/50'
-                }`}
-              />
-            ))}
-          </div>
-        )}
+        {/* SESI 5E Phase 3c: DCA dots indicator REMOVED dari banner public
+            (natural feel — pattern Kumparan). Rotation tetap aktif via
+            useAdRotation hook, visual indicator dihide. */}
 
         {ad.disclaimer_text && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-8 z-[5]">

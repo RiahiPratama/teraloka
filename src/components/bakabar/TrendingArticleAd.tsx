@@ -21,6 +21,8 @@
 
 import { useState } from 'react';
 import DCABanner, { type AdFrame } from './DCABanner';
+// SESI 5E Phase 3c: Kumparan-style subtle disclosure
+import { getAdLabel } from '@/lib/ads/getAdLabel';
 
 // Match backend response shape — extended Mission 7 dengan creative_frames
 export type TrendingNativeAd = {
@@ -49,8 +51,7 @@ type Props = {
 const FALLBACK_GRADIENT = 'linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%)';
 const BG_DEFAULT        = 'rgba(254, 252, 232, 0.15)';
 const BG_HOVER          = 'rgba(254, 252, 232, 0.4)';
-const IKLAN_AMBER       = '#F59E0B';
-const ADV_TEXT_AMBER    = '#92400E';
+// SESI 5E Phase 3c: IKLAN_AMBER + ADV_TEXT_AMBER removed — Kumparan-style subtle disclosure
 
 export default function TrendingArticleAd({ ad, regionSlug, short_label }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
@@ -118,31 +119,40 @@ export default function TrendingArticleAd({ ad, regionSlug, short_label }: Props
         )}
       </div>
 
-      {/* Bottom section: IKLAN badge + advertiser attribution (both modes) */}
-      <div className="flex items-center justify-between gap-2 w-full">
-        <div className="flex flex-col min-w-0 flex-1">
-          <div
-            className="flex items-center gap-1 text-[9px] truncate"
-            style={{ color: ADV_TEXT_AMBER, fontWeight: 600 }}
-          >
-            <span className="truncate">{ad.advertiser_name}</span>
-          </div>
-          <div className="text-[9px] text-gray-400">
-            Pilihan sponsor
-          </div>
-        </div>
+      {/* SESI 5E Phase 3c: Kumparan-style inline subtle disclosure
+          Single small badge "Iklan" (or compliance variant) before advertiser_name.
+          No big amber badge, no "Pilihan sponsor" subtitle = cleaner native blend. */}
+      <div className="flex items-center gap-1.5 w-full text-[10px] min-w-0">
+        {(() => {
+          // Conditional label: politisi → "Iklan Kampanye", pemerintah → "IKLAN",
+          // text format → "Advertorial", else → "Iklan" (native blend fallback)
+          const label =
+            getAdLabel({
+              advertiser_type: ad.advertiser_type,
+              ad_format: ad.ad_format,
+            }) ?? 'Iklan';
+          return (
+            <span
+              className="shrink-0 inline-flex items-center font-bold uppercase tracking-wider"
+              style={{
+                background:   'rgba(0,0,0,0.06)',
+                color:        '#6B7280',
+                fontSize:     '8px',
+                padding:      '1.5px 4px',
+                borderRadius: 2,
+                letterSpacing: '0.3px',
+              }}
+              aria-hidden="true"
+            >
+              {label}
+            </span>
+          );
+        })()}
         <span
-          className="shrink-0 text-white font-extrabold uppercase"
-          style={{
-            background:    IKLAN_AMBER,
-            fontSize:      '9px',
-            padding:       '1.5px 5px',
-            borderRadius:  '2px',
-            letterSpacing: '0.4px',
-          }}
-          aria-hidden="true"
+          className="truncate"
+          style={{ color: '#6B7280', fontWeight: 500 }}
         >
-          Iklan
+          {ad.advertiser_name}
         </span>
       </div>
 

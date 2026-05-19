@@ -43,6 +43,8 @@ import {
   getPositionMetadata,
   type PositionRenderMetadata,
 } from './position-render-metadata';
+// SESI 5E Phase 3c: Live preview mini-player
+import PositionLivePreview from './PositionLivePreview';
 
 // ─── Constants ────────────────────────────────────────────────────
 const DCA_MIN_FRAMES = 2;
@@ -428,6 +430,22 @@ export default function PositionCreativeModal({
               )}
             </div>
           )}
+
+          {/* ═══ SESI 5E Phase 3c: LIVE PREVIEW MINI-PLAYER ═══ */}
+          <div className="mt-4">
+            <PositionLivePreview
+              positionKey={positionKey}
+              mode={mode}
+              imageUrl={existingImage ?? state.image_url}
+              frames={mode === 'dca' ? dcaFrames : undefined}
+              headline={state.title}
+              advertiserName={state.advertiser_name}
+              advertiserType={state.advertiser_type}
+              adFormat={state.ad_format}
+              body={state.body}
+              slug={state.slug}
+            />
+          </div>
         </div>
 
         {/* ── FOOTER ── */}

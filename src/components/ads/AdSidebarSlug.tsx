@@ -22,6 +22,8 @@ import { useEffect, useState, useCallback } from 'react';
 import { Newspaper } from 'lucide-react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
+// SESI 5E Phase 3c: Kumparan-style disclosure label
+import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
 
@@ -115,7 +117,8 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
   }, []);
 
   // DCA rotation (SESI 5E Phase 2: pass positionKey untuk Hybrid C support)
-  const { active: activeFrame, index: activeIdx, total, isDCA } =
+  // SESI 5E Phase 3c: dots indicator hidden — only `active` frame needed
+  const { active: activeFrame } =
     useAdRotation(ad?.creative_frames, 'sidebar');
 
   const animStyle: React.CSSProperties = {
@@ -243,24 +246,30 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
           </div>
         )}
 
-        <span className="bk-sb-label-pulse absolute top-2 right-2 text-[9px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-wider z-10">
-          Iklan
-        </span>
+        {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
+        {(() => {
+          const label = getAdLabel({
+            advertiser_type: ad.advertiser_type,
+            ad_format: ad.ad_format,
+          });
+          if (!label) return null;
+          const isMandatory = isLabelMandatory({
+            advertiser_type: ad.advertiser_type,
+          });
+          return (
+            <span
+              className={`absolute top-2 right-2 text-[9px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded uppercase tracking-wider z-10 ${
+                isMandatory ? 'bk-sb-label-pulse' : ''
+              }`}
+            >
+              {label}
+            </span>
+          );
+        })()}
 
-        {isDCA && total > 0 && (
-          <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1 z-10">
-            {Array.from({ length: total }).map((_, i) => (
-              <span
-                key={i}
-                className={`block h-1 rounded-full transition-all duration-300 ${
-                  i === activeIdx
-                    ? 'w-3 bg-white shadow'
-                    : 'w-1 bg-white/50'
-                }`}
-              />
-            ))}
-          </div>
-        )}
+        {/* SESI 5E Phase 3c: DCA dots indicator REMOVED dari banner public
+            (natural feel — sesuai pattern Kumparan). Rotation tetap aktif
+            via useAdRotation hook, visual indicator dihide. */}
 
         {ad.disclaimer_text && (
           <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/85 to-transparent p-2 pt-6 z-[5]">

@@ -17,6 +17,8 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react';
+// SESI 5E Phase 3c: Kumparan-style disclosure label
+import { getAdLabel } from '@/lib/ads/getAdLabel';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -150,11 +152,23 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
           'radial-gradient(circle at 80% 50%, rgba(255,255,255,0.12) 0%, transparent 50%), radial-gradient(circle at 15% 80%, rgba(245,158,11,0.18) 0%, transparent 50%)',
       }} />
 
-      {/* IKLAN badge */}
-      <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
-        style={{ background: '#F59E0B', color: '#fff' }}>
-        IKLAN
-      </span>
+      {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure
+          - politisi → "Iklan Kampanye"
+          - pemerintah → "IKLAN"
+          - else (umum/komersial/premium) → no label (natural) */}
+      {(() => {
+        const label = getAdLabel({
+          advertiser_type: ad.advertiser_type,
+          ad_format: 'image',
+        });
+        if (!label) return null;
+        return (
+          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}>
+            {label}
+          </span>
+        );
+      })()}
 
       {/* Content */}
       <div className="relative z-[2] max-w-[60%]">
@@ -190,23 +204,8 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
         </span>
       </div>
 
-      {/* DCA pagination dots */}
-      {isDCA && frames.length > 1 && (
-        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-[2]">
-          {frames.map((_, idx) => (
-            <span
-              key={idx}
-              className="transition-all duration-300"
-              style={{
-                width: idx === currentIdx ? 20 : 5,
-                height: 4,
-                borderRadius: 2,
-                background: idx === currentIdx ? '#F59E0B' : 'rgba(255,255,255,0.4)',
-              }}
-            />
-          ))}
-        </div>
-      )}
+      {/* SESI 5E Phase 3c: DCA pagination dots REMOVED — natural feel
+          (pattern Kumparan). Rotation tetap aktif via setInterval di useEffect. */}
 
       <style jsx>{`
         @keyframes tl-fade {
