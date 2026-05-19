@@ -3,20 +3,28 @@
 /**
  * TeraLoka — PaymentRecordModal
  * SESI 5F (19 Mei 2026) — BATCH 4 Delivery 1
+ * SESI 5F Delivery 1 PATCH (19 Mei 2026): Conditional UX per method
  * ------------------------------------------------------------
  * Modal untuk catat pembayaran iklan yang udah disetujui.
  *
  * Features:
- *   - Field: price_paid (number Rupiah)
+ *   - Field: price_paid (number Rupiah dengan thousand separator)
  *   - Field: paid_at (native date picker, default today)
  *   - Field: payment_method (4 pill button: transfer/cash/ewallet/lainnya)
  *   - Field: bank_account_id (dropdown, WAJIB kalau method='transfer')
- *   - Field: payment_proof_url (text URL or skip via audit_pending)
- *   - Field: audit_pending (checkbox "Bukti masih di WA")
+ *   - Field: payment_proof_url (CONDITIONAL label + validation per method)
+ *   - Field: audit_pending (checkbox HANYA muncul kalau method='transfer')
  *   - Field: notes (textarea opsional)
  *   - Escape key + click backdrop untuk cancel
  *   - Loading state saat submit
  *   - Inline validation error
+ *
+ * UX Logic (PATCH 19 Mei 2026):
+ *   - transfer  → "Bukti Transfer" + WAJIB + audit_pending checkbox visible
+ *   - cash      → "Bukti Kwitansi" + OPSIONAL + checkbox hidden
+ *                 (auto audit_pending=true di payload untuk backend compat)
+ *   - ewallet   → "Bukti E-wallet" + OPSIONAL + checkbox hidden
+ *   - lainnya   → "Bukti / Catatan" + OPSIONAL + checkbox hidden
  *
  * Pattern mirror RejectAdModal/DeleteAdModal (Tailwind v4 utility).
  *
@@ -169,6 +177,14 @@ export default function PaymentRecordModal({
     }
   }, [ad]);
 
+  // SESI 5F Patch: Reset auditPending checkbox saat switch ke non-transfer
+  // Checkbox hidden di UI untuk non-transfer, jadi state harus konsisten.
+  useEffect(() => {
+    if (method !== 'transfer' && auditPending) {
+      setAuditPending(false);
+    }
+  }, [method, auditPending]);
+
   // Focus price input on open
   useEffect(() => {
     if (ad && inputRef.current) {
@@ -200,8 +216,10 @@ export default function PaymentRecordModal({
       return;
     }
 
+    // SESI 5F Delivery 1 Patch: Proof validation HANYA strict untuk transfer
+    // Cash/ewallet/lainnya = opsional (gak ada digital trail by nature)
     const hasProof = proofUrl.trim().length > 0;
-    if (!hasProof && !auditPending) {
+    if (method === 'transfer' && !hasProof && !auditPending) {
       setError('Upload bukti transfer, atau centang "Bukti masih di WA" untuk skip sementara');
       return;
     }
@@ -226,9 +244,23 @@ export default function PaymentRecordModal({
     if (hasProof) {
       payload.payment_proof_url = proofUrl.trim();
     }
-    if (auditPending) {
-      payload.audit_pending = true;
+
+    // SESI 5F Delivery 1 Patch: Auto-set audit_pending untuk backend compat
+    // Backend strict: butuh proof OR audit_pending=true.
+    // Non-transfer (cash/ewallet/lainnya) sering tanpa digital proof —
+    // auto-flag audit_pending=true supaya tidak ditolak backend.
+    //
+    // Behavior per method:
+    //   transfer  → user-controlled (checkbox visible)
+    //   non-transfer + ada proof  → audit_pending omitted (clean record)
+    //   non-transfer tanpa proof → audit_pending=true (backend compat)
+    if (method === 'transfer') {
+      if (auditPending) payload.audit_pending = true;
+    } else {
+      // cash/ewallet/lainnya: auto audit_pending kalau tanpa proof
+      if (!hasProof) payload.audit_pending = true;
     }
+
     if (method === 'transfer' && bankAccountId) {
       payload.bank_account_id = bankAccountId;
     }
@@ -439,47 +471,77 @@ export default function PaymentRecordModal({
             </div>
           )}
 
-          {/* Payment Proof URL */}
+          {/* Payment Proof URL — Conditional UX per method (SESI 5F Delivery 1 patch) */}
+          {/*
+            UX Logic:
+              - transfer: Label "Bukti Transfer (URL)" + WAJIB (unless audit_pending)
+              - cash:     Label "Bukti Kwitansi (URL)" + OPSIONAL, NO audit_pending checkbox
+              - ewallet:  Label "Bukti E-wallet (URL)" + OPSIONAL with audit_pending option
+              - lainnya:  Label "Bukti / Catatan (URL)" + OPSIONAL
+          */}
           <div>
             <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
               <Link2 size={11} className="inline -mt-0.5 mr-1" />
-              Bukti Transfer (URL)
-              {!auditPending && <span className="text-status-critical ml-0.5">*</span>}
+              {method === 'transfer' && 'Bukti Transfer (URL)'}
+              {method === 'cash'     && 'Bukti Kwitansi (URL)'}
+              {method === 'ewallet'  && 'Bukti E-wallet (URL)'}
+              {method === 'lainnya'  && 'Bukti / Catatan (URL)'}
+              {method === 'transfer' && !auditPending && (
+                <span className="text-status-critical ml-0.5">*</span>
+              )}
+              {method !== 'transfer' && (
+                <span className="text-text-muted text-[9px] ml-1 font-normal normal-case">
+                  (opsional)
+                </span>
+              )}
             </label>
             <input
               type="url"
               value={proofUrl}
               onChange={(e) => setProofUrl(e.target.value)}
-              placeholder="https://... atau paste URL screenshot WA"
-              disabled={loading || auditPending}
+              placeholder={
+                method === 'transfer'
+                  ? 'https://... atau paste URL screenshot WA'
+                  : method === 'cash'
+                  ? 'URL foto kwitansi (kalau ada)'
+                  : method === 'ewallet'
+                  ? 'URL screenshot history GoPay/OVO/Dana'
+                  : 'URL bukti pembayaran (kalau ada)'
+              }
+              disabled={loading || (method === 'transfer' && auditPending)}
               className={cn(
                 'w-full px-3 py-2.5 text-[12px] text-text bg-surface-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-status-healthy/30 focus:border-status-healthy/60',
-                (loading || auditPending) && 'opacity-50 cursor-not-allowed'
+                (loading || (method === 'transfer' && auditPending)) && 'opacity-50 cursor-not-allowed'
               )}
             />
             <p className="text-[10px] text-text-muted mt-1.5">
-              Tip: upload screenshot WA dulu ke Drive/imgur, paste URL-nya di sini.
+              {method === 'transfer' && 'Tip: upload screenshot WA dulu ke Drive/imgur, paste URL-nya di sini.'}
+              {method === 'cash'     && 'Cash payment biasanya tanpa bukti digital. Isi kalau ada foto kwitansi.'}
+              {method === 'ewallet'  && 'Screenshot history transaksi e-wallet, upload ke Drive lalu paste link.'}
+              {method === 'lainnya'  && 'Link bukti / dokumen pendukung pembayaran.'}
             </p>
 
-            {/* Audit pending checkbox */}
-            <label className="flex items-start gap-2 mt-3 cursor-pointer group">
-              <input
-                type="checkbox"
-                checked={auditPending}
-                onChange={(e) => setAuditPending(e.target.checked)}
-                disabled={loading}
-                className="mt-0.5 w-4 h-4 rounded border-border accent-status-warning"
-              />
-              <div className="flex-1">
-                <span className="text-[12px] font-semibold text-text group-hover:text-status-warning transition-colors">
-                  <MessageSquareWarning size={11} className="inline -mt-0.5 mr-1" />
-                  Bukti masih di WA, upload nanti
-                </span>
-                <p className="text-[10px] text-text-muted mt-0.5">
-                  Akan ditandai <strong>audit pending</strong> — wajib upload dalam 7 hari.
-                </p>
-              </div>
-            </label>
+            {/* Audit pending checkbox — HANYA muncul kalau method='transfer' */}
+            {method === 'transfer' && (
+              <label className="flex items-start gap-2 mt-3 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={auditPending}
+                  onChange={(e) => setAuditPending(e.target.checked)}
+                  disabled={loading}
+                  className="mt-0.5 w-4 h-4 rounded border-border accent-status-warning"
+                />
+                <div className="flex-1">
+                  <span className="text-[12px] font-semibold text-text group-hover:text-status-warning transition-colors">
+                    <MessageSquareWarning size={11} className="inline -mt-0.5 mr-1" />
+                    Bukti masih di WA, upload nanti
+                  </span>
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    Akan ditandai <strong>audit pending</strong> — wajib upload dalam 7 hari.
+                  </p>
+                </div>
+              </label>
+            )}
           </div>
 
           {/* Notes (opsional) */}

@@ -33,6 +33,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
+import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -43,7 +44,7 @@ const formatRp   = (n: number) => `Rp ${(n || 0).toLocaleString('id-ID')}`;
 const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 const formatTime = (d: string) => new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-type Tab = 'overview' | 'pt' | 'yayasan';
+type Tab = 'overview' | 'pt' | 'yayasan' | 'bank-accounts';  // SESI 5F (19 Mei 2026)
 
 // ─── Type definitions (mirror backend types.ts) ────────────────
 
@@ -231,9 +232,10 @@ export default function AdminFinancialPage() {
         borderBottom: `1px solid ${t.cardBorder}`,
       }}>
         {[
-          { key: 'overview' as Tab, label: '📊 Overview'         },
-          { key: 'pt'       as Tab, label: '🏢 PT TeraLoka'       },
-          { key: 'yayasan'  as Tab, label: '🤝 Yayasan TeraLoka'  },
+          { key: 'overview'      as Tab, label: '📊 Overview'         },
+          { key: 'pt'            as Tab, label: '🏢 PT TeraLoka'       },
+          { key: 'yayasan'       as Tab, label: '🤝 Yayasan TeraLoka'  },
+          { key: 'bank-accounts' as Tab, label: '🏦 Bank Accounts'     },  // SESI 5F (19 Mei 2026)
         ].map(({ key, label }) => (
           <button
             key={key}
@@ -289,6 +291,9 @@ export default function AdminFinancialPage() {
               events={yayasanEvents}
             />
           )}
+
+          {/* SESI 5F (19 Mei 2026) — Bank Accounts management */}
+          {tab === 'bank-accounts' && <BankAccountsTabPanel />}
         </>
       )}
 
