@@ -41,13 +41,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdForm } from './AdFormProvider';
-// SESI 5D-2 Phase 4: capacity awareness hint per posisi
-import {
-  getPositionMetadata,
-  computeCapacityStatus,
-  formatCapacityDisplay,
-} from './position-render-metadata';
-import { useCapacityData } from './PositionCapacityBadge';
+// SESI 5E Phase 3a (19 Mei 2026): Position-First Creative Modal
+import PositionCreativeModal from './PositionCreativeModal';
 
 // Page scope label per group (visual hint, semantic only — backend trust positions)
 type PageScope = 'homepage' | 'slug' | 'both';
@@ -59,30 +54,22 @@ const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; icon: typeof Home; 
 };
 
 // 13 positions grouped by visual area + page scope hint
-// SESI 5D (18 Mei 2026): + description tooltip ("muncul di mana di public")
-//                       + aspectGuide (recommended image aspect ratio)
 const POSITION_GROUPS: Array<{
   group:       string;
   description: string;
   pageScope:   PageScope;
-  positions:   Array<{ 
-    key:           string; 
-    label:         string; 
-    size:          string; 
-    description?:  string;        // NEW: tooltip muncul di mana
-    aspectGuide?:  string;        // NEW: rekomendasi aspect ratio image
-    politisiOnly?: boolean;
-  }>;
+  positions:   Array<{ key: string; label: string; size: string; politisiOnly?: boolean }>;
 }> = [
   {
     group:       'Banner Area',
     description: 'Slot horizontal — high visibility',
     pageScope:   'both',
     positions: [
-      { key: 'top_leaderboard',      label: 'Top Billboard',       size: '1680×220', description: 'Paling atas halaman, di bawah header navigasi', aspectGuide: 'Horizontal panjang (7.6:1)' },
-      { key: 'inline_banner',        label: 'Inline 8:1',          size: '1600×200', description: 'Banner di tengah artikel/feed', aspectGuide: 'Horizontal (8:1)' },
-      { key: 'banner',               label: 'Banner Generic',      size: 'Vary',     description: 'Banner fleksibel — auto-fit container', aspectGuide: 'Responsive' },
-      { key: 'homepage_hero_banner', label: 'Hero Fallback',       size: 'Hero',     description: 'Banner backup kalau slot hero utama kosong', aspectGuide: 'Horizontal (16:9 atau 21:9)' },
+      // SESI 5E Phase 3b: sizes sync ke position-render-metadata.ts (single source of truth)
+      { key: 'top_leaderboard',      label: 'Top Billboard',       size: '888×220' },
+      { key: 'inline_banner',        label: 'Inline 8:1',          size: '1600×200' },
+      { key: 'banner',               label: 'Banner Generic',      size: '104×104' },
+      { key: 'homepage_hero_banner', label: 'Hero Fallback',       size: '160×240' },
     ],
   },
   {
@@ -90,9 +77,9 @@ const POSITION_GROUPS: Array<{
     description: 'Slot vertikal kanan/kiri konten',
     pageScope:   'slug',
     positions: [
-      { key: 'skyscraper_left',  label: 'Sidebar Slot Kiri',  size: '160×600', description: 'Sidebar kiri artikel BAKABAR, sticky scroll', aspectGuide: 'Vertikal tipis (1:3.75)' },
-      { key: 'skyscraper_right', label: 'Sidebar Slot Kanan', size: '160×600', description: 'Sidebar kanan artikel BAKABAR, sticky scroll', aspectGuide: 'Vertikal tipis (1:3.75)' },
-      { key: 'sidebar',          label: 'Sidebar Generic',    size: 'Vary',    description: 'Sidebar fleksibel cross-page', aspectGuide: 'Vertikal responsive' },
+      { key: 'skyscraper_left',  label: 'Sidebar Slot Kiri',  size: '160×600' },
+      { key: 'skyscraper_right', label: 'Sidebar Slot Kanan', size: '160×600' },
+      { key: 'sidebar',          label: 'Sidebar Generic',    size: '300×200' },
     ],
   },
   {
@@ -100,9 +87,9 @@ const POSITION_GROUPS: Array<{
     description: 'Inline di artikel — native blend',
     pageScope:   'slug',
     positions: [
-      { key: 'in_article',      label: 'In Article',         size: 'Inline', description: 'Di tengah body artikel, format banner image', aspectGuide: 'Horizontal (16:9 atau 4:3)' },
-      { key: 'native',          label: 'Native In-Article',  size: 'Inline', description: 'Advertorial yang menyatu dengan flow artikel', aspectGuide: 'Native (auto match konteks)' },
-      { key: 'trending_native', label: 'Trending Native',    size: 'Inline', description: 'Sticky di section "Trending Now" homepage + slug', aspectGuide: 'Card thumbnail (1:1 atau 4:3)' },
+      { key: 'in_article',      label: 'In Article',         size: '700×192' },
+      { key: 'native',          label: 'Native In-Article',  size: '112×112' },
+      { key: 'trending_native', label: 'Trending Native',    size: '104×104' },
     ],
   },
   {
@@ -110,9 +97,9 @@ const POSITION_GROUPS: Array<{
     description: 'Slot premium / region-targeted',
     pageScope:   'homepage',
     positions: [
-      { key: 'political_banner', label: 'Politisi Banner',    size: 'Hero',  description: 'Banner KPU compliance khusus advertiser politisi', aspectGuide: 'Horizontal (16:9)', politisiOnly: true },
-      { key: 'region_stack',     label: 'Stack Banner Region', size: 'Block', description: 'Banner di section per-kabupaten di homepage', aspectGuide: 'Card (4:3)' },
-      { key: 'homepage',         label: 'Homepage Generic',   size: 'Vary',  description: 'Banner fleksibel cross-section homepage', aspectGuide: 'Responsive' },
+      { key: 'political_banner', label: 'Politisi Banner',    size: '208×312', politisiOnly: true },
+      { key: 'region_stack',     label: 'Stack Banner Region', size: '104×104' },
+      { key: 'homepage',         label: 'Homepage Generic',   size: '888×220'  },
     ],
   },
 ];
@@ -136,6 +123,8 @@ const REGIONS = [
 export default function AdFormSectionTargeting() {
   const { state, setField, errorFor } = useAdForm();
   const [expanded, setExpanded] = useState(true);
+  // SESI 5E Phase 3a: Modal state untuk per-position creative editor
+  const [editingPositionKey, setEditingPositionKey] = useState<string | null>(null);
 
   const positionsError = errorFor('positions');
   const isPolitisi = state.advertiser_type === 'politisi';
@@ -155,9 +144,6 @@ export default function AdFormSectionTargeting() {
   const tierSuggestedSet = new Set<string>(
     state.pricing_tier_data?.positions_allowed ?? [],
   );
-
-  // SESI 5D-2 Phase 4: Fetch capacity data untuk hint per posisi
-  const { getActiveCount, loading: capacityLoading } = useCapacityData();
 
   const togglePosition = (key: string) => {
     const current = state.positions;
@@ -285,75 +271,92 @@ export default function AdFormSectionTargeting() {
                         const isActive = state.positions.includes(pos.key);
                         const isDisabled = pos.politisiOnly && !isPolitisi;
                         const isSuggestedTier = tierSuggestedSet.has(pos.key); // SESI 5C-B
+
+                        // SESI 5E Phase 3a: Detect creative status untuk badge
+                        const hasDCA = (state.position_frames[pos.key]?.length ?? 0) > 0;
+                        const hasCustomImage = !!state.images[pos.key];
+                        const creativeStatus: 'default' | 'image' | 'dca' = hasDCA
+                          ? 'dca'
+                          : hasCustomImage
+                            ? 'image'
+                            : 'default';
+                        const dcaCount = state.position_frames[pos.key]?.length ?? 0;
+
                         return (
-                          <label
+                          <div
                             key={pos.key}
                             className={cn(
-                              'flex items-center gap-2 px-2.5 py-1.5 rounded border text-[11px] transition-colors',
+                              'rounded border transition-colors overflow-hidden',
                               isDisabled
-                                ? 'opacity-40 cursor-not-allowed bg-surface border-border'
+                                ? 'opacity-40 bg-surface border-border'
                                 : isActive
-                                  ? 'bg-baronda/8 border-baronda/40 cursor-pointer'
+                                  ? 'bg-baronda/8 border-baronda/40'
                                   : isSuggestedTier
-                                    ? 'bg-ads/4 border-ads/30 hover:bg-ads/8 cursor-pointer'
-                                    : 'bg-surface border-border hover:bg-surface-muted cursor-pointer'
+                                    ? 'bg-ads/4 border-ads/30 hover:bg-ads/8'
+                                    : 'bg-surface border-border hover:bg-surface-muted'
                             )}
                           >
-                            <input
-                              type="checkbox"
-                              checked={isActive}
-                              disabled={isDisabled}
-                              onChange={() => togglePosition(pos.key)}
-                              className="accent-baronda shrink-0"
-                            />
-                            <div className="min-w-0 flex-1">
-                              <div className="font-semibold text-text truncate flex items-center gap-1">
-                                {pos.label}
-                                {pos.politisiOnly && (
-                                  <span className="ml-1 text-[9px] text-status-warning">
-                                    🏛️
-                                  </span>
-                                )}
-                                {isSuggestedTier && !isDisabled && (
-                                  <span
-                                    className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
-                                    title="Direkomendasi tier ini"
-                                  >
-                                    ⭐
-                                  </span>
-                                )}
-                              </div>
-                              {/* SESI 5D: description tooltip "muncul di mana di public" */}
-                              {pos.description && (
-                                <div className="text-[9px] text-text-muted mt-0.5 leading-tight">
-                                  {pos.description}
-                                </div>
+                            <label
+                              className={cn(
+                                'flex items-center gap-2 px-2.5 py-1.5 text-[11px]',
+                                isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
                               )}
-                              <div className="text-[9px] text-text-subtle mt-0.5">
-                                {pos.size}
-                                {pos.aspectGuide && (
-                                  <span className="ml-1 text-text-muted">· {pos.aspectGuide}</span>
-                                )}
+                            >
+                              <input
+                                type="checkbox"
+                                checked={isActive}
+                                disabled={isDisabled}
+                                onChange={() => togglePosition(pos.key)}
+                                className="accent-baronda shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="font-semibold text-text truncate flex items-center gap-1">
+                                  {pos.label}
+                                  {pos.politisiOnly && (
+                                    <span className="ml-1 text-[9px] text-status-warning">
+                                      🏛️
+                                    </span>
+                                  )}
+                                  {isSuggestedTier && !isDisabled && (
+                                    <span
+                                      className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
+                                      title="Direkomendasi tier ini"
+                                    >
+                                      ⭐
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-[9px] text-text-muted">
+                                  {pos.size}
+                                </div>
                               </div>
-                              {/* SESI 5D-2 Phase 4: Capacity hint per posisi */}
-                              {!capacityLoading && (() => {
-                                const meta = getPositionMetadata(pos.key);
-                                const active = getActiveCount(pos.key);
-                                const status = computeCapacityStatus(active, meta.recommendedMaxActive);
-                                const display = formatCapacityDisplay(meta, active);
-                                const colorClass =
-                                  status === 'over_capacity' ? 'text-status-critical' :
-                                  status === 'near_full'     ? 'text-amber-500' :
-                                  status === 'available'     ? 'text-status-warning' :
-                                  'text-text-subtle';
-                                return (
-                                  <div className={`text-[8px] mt-1 font-semibold uppercase tracking-wide ${colorClass}`}>
-                                    📊 {display}
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </label>
+                            </label>
+
+                            {/* SESI 5E Phase 3a: Status badge + Edit Creative button (only kalau aktif) */}
+                            {isActive && !isDisabled && (
+                              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 border-t border-border/50 bg-surface/40">
+                                <span className={cn(
+                                  'inline-flex items-center gap-1 text-[9px] font-bold',
+                                  creativeStatus === 'dca'     ? 'text-ads' :
+                                  creativeStatus === 'image'   ? 'text-status-healthy' :
+                                  'text-text-muted'
+                                )}>
+                                  {creativeStatus === 'dca'
+                                    ? `🔄 DCA · ${dcaCount} variants`
+                                    : creativeStatus === 'image'
+                                      ? `🖼️ Custom image`
+                                      : `⚪ Pakai default`}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingPositionKey(pos.key)}
+                                  className="text-[9px] font-bold text-ads hover:underline shrink-0"
+                                >
+                                  {creativeStatus === 'default' ? '+ Upload Banner' : '✏️ Edit Banner'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
@@ -466,6 +469,15 @@ export default function AdFormSectionTargeting() {
             )}
           </div>
         </div>
+      )}
+
+      {/* SESI 5E Phase 3a: Position Creative Modal popup */}
+      {editingPositionKey && (
+        <PositionCreativeModal
+          positionKey={editingPositionKey}
+          isOpen={!!editingPositionKey}
+          onClose={() => setEditingPositionKey(null)}
+        />
       )}
     </section>
   );

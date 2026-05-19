@@ -43,7 +43,7 @@ import AdFormSectionAdvertiser from './AdFormSectionAdvertiser';
 import AdFormSectionCreative from './AdFormSectionCreative';
 import AdFormSectionTargeting from './AdFormSectionTargeting';
 import AdFormSectionSchedule from './AdFormSectionSchedule';
-import AdFormSectionDCA from './AdFormSectionDCA';
+// SESI 5E Phase 3b: AdFormSectionDCA ELIMINATED — DCA per-position handled di PositionCreativeModal
 
 export interface AdFormPageProps {
   /** Kalau provided, masuk edit mode + auto-fetch existing ad */
@@ -152,12 +152,11 @@ function AdFormPageInner() {
         </div>
       </div>
 
-      {/* 5 Sections (Batch 1 + Batch 2) */}
+      {/* 4 Sections (SESI 5E Phase 3b: DCA section eliminated, integrated per-posisi modal di Targeting) */}
       <AdFormSectionAdvertiser />
       <AdFormSectionCreative />
       <AdFormSectionTargeting />
       <AdFormSectionSchedule />
-      <AdFormSectionDCA />
 
       {/* Validation summary (kalau ada error) */}
       {hasErrors && (

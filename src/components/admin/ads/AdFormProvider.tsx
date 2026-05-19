@@ -119,7 +119,20 @@ export interface AdFormState {
   target_regions:  string[] | null;
 
   // ─── DCA ────────────────────────────────────────
+  /**
+   * LEGACY (pre-SESI 5E): Flat array, shared across all positions.
+   * Backend tetap accept via Hybrid C. Untuk admin baru, prefer position_frames.
+   */
   creative_frames: AdFrame[] | null;
+
+  /**
+   * SESI 5E Phase 3a (19 Mei 2026): Per-position DCA frames.
+   * Key = position key (top_leaderboard, sidebar, etc).
+   * Value = AdFrame[] (2-5 frames) untuk posisi tersebut.
+   * Submit logic: kalau non-empty, override creative_frames flat dengan Record shape.
+   * Empty {} = pakai creative_frames flat (legacy path).
+   */
+  position_frames: Record<string, AdFrame[]>;
 
   // ─── Schedule ──────────────────────────────────
   starts_at:       string;
@@ -158,6 +171,8 @@ const EMPTY_STATE: AdFormState = {
 
   // DCA
   creative_frames:     null,
+  // SESI 5E Phase 3a: per-position frames (empty = use legacy creative_frames flat)
+  position_frames:     {},
 
   // Schedule
   starts_at:           new Date().toISOString(),
@@ -208,8 +223,25 @@ export function validateAdForm(state: AdFormState): FieldError[] {
     errors.push({ field: 'link_url', message: 'Link harus mulai http:// atau https://' });
   }
 
-  if (state.ad_format === 'image' && !state.image_url.trim()) {
-    errors.push({ field: 'image_url', message: 'Image untuk iklan image format wajib' });
+  if (state.ad_format === 'image') {
+    // SESI 5E Phase 3b: Default image_url no longer strictly required.
+    // New rule: setiap position dicentang WAJIB punya creative —
+    // either state.images[position] OR state.position_frames[position],
+    // ATAU fallback state.image_url (legacy default).
+    const hasDefaultImage = state.image_url.trim().length > 0;
+    const positionsWithoutCreative = state.positions.filter((posKey) => {
+      const hasCustomImage = !!state.images[posKey];
+      const hasDCA = (state.position_frames[posKey]?.length ?? 0) > 0;
+      return !hasCustomImage && !hasDCA;
+    });
+
+    // Kalau ada position tanpa creative, default image_url wajib jadi fallback
+    if (positionsWithoutCreative.length > 0 && !hasDefaultImage) {
+      errors.push({
+        field: 'images',
+        message: `Posisi belum punya banner: ${positionsWithoutCreative.join(', ')}. Klik "Upload Banner" di Targeting untuk set creative.`,
+      });
+    }
   }
 
   if (state.ad_format === 'text') {
@@ -244,7 +276,7 @@ export function validateAdForm(state: AdFormState): FieldError[] {
     errors.push({ field: 'ends_at', message: 'Tanggal akhir harus setelah tanggal mulai' });
   }
 
-  // Batch 2: DCA creative_frames validation
+  // Batch 2: DCA creative_frames validation (LEGACY flat)
   if (state.creative_frames !== null) {
     const frames = state.creative_frames;
 
@@ -278,6 +310,53 @@ export function validateAdForm(state: AdFormState): FieldError[] {
           message: `Frame ${invalidFrames.join(', ')} belum valid (headline min 5 char + image + durasi ${DCA_MIN_DURATION_MS / 1000}-${DCA_MAX_DURATION_MS / 1000}s)`,
         });
       }
+    }
+  }
+
+  // SESI 5E Phase 3a: Per-position frames validation
+  // Setiap key di position_frames WAJIB ada di positions array (alignment)
+  // Setiap value adalah AdFrame[] yang valid (2-5 frames, per-frame check)
+  for (const [posKey, frames] of Object.entries(state.position_frames)) {
+    if (!state.positions.includes(posKey)) {
+      errors.push({
+        field:   'position_frames',
+        message: `Posisi "${posKey}" punya DCA tapi belum dicentang di Targeting. Hapus atau centang posisi.`,
+      });
+      continue;
+    }
+
+    if (frames.length < DCA_MIN_FRAMES) {
+      errors.push({
+        field:   'position_frames',
+        message: `Posisi "${posKey}": DCA butuh minimal ${DCA_MIN_FRAMES} frames`,
+      });
+      continue;
+    }
+    if (frames.length > DCA_MAX_FRAMES) {
+      errors.push({
+        field:   'position_frames',
+        message: `Posisi "${posKey}": DCA maksimal ${DCA_MAX_FRAMES} frames`,
+      });
+      continue;
+    }
+
+    const invalidFrames: number[] = [];
+    frames.forEach((f, idx) => {
+      if (
+        !f.headline.trim() ||
+        f.headline.trim().length < 5 ||
+        !f.image_url.trim() ||
+        f.duration_ms < DCA_MIN_DURATION_MS ||
+        f.duration_ms > DCA_MAX_DURATION_MS
+      ) {
+        invalidFrames.push(idx + 1);
+      }
+    });
+    if (invalidFrames.length > 0) {
+      errors.push({
+        field:   'position_frames',
+        message: `Posisi "${posKey}" Frame ${invalidFrames.join(', ')}: headline min 5 char + image + durasi ${DCA_MIN_DURATION_MS / 1000}-${DCA_MAX_DURATION_MS / 1000}s`,
+      });
     }
   }
 
@@ -373,7 +452,14 @@ export function AdFormProvider({
           slug:                ad.slug ?? '',
           positions:           ad.positions ?? [],
           target_regions:      ad.target_regions ?? null,
-          creative_frames:     ad.creative_frames ?? null,
+          // SESI 5E Phase 3a: Detect creative_frames hybrid shape pada load
+          // - Array (legacy) → state.creative_frames flat
+          // - Record per-position → state.position_frames
+          // - null → both null/{}
+          creative_frames:     Array.isArray(ad.creative_frames) ? ad.creative_frames : null,
+          position_frames:     (ad.creative_frames && typeof ad.creative_frames === 'object' && !Array.isArray(ad.creative_frames))
+            ? ad.creative_frames as Record<string, AdFrame[]>
+            : {},
           starts_at:           ad.starts_at ?? new Date().toISOString(),
           ends_at:             ad.ends_at ?? new Date(Date.now() + 30 * 86400000).toISOString(),
         });
@@ -449,8 +535,13 @@ export function AdFormProvider({
         positions:           state.positions,
         target_regions:      state.target_regions,
 
-        // DCA
-        creative_frames:     state.creative_frames,
+        // DCA (SESI 5E Phase 3a Hybrid C):
+        // - position_frames non-empty → use Record shape (per-position)
+        // - position_frames empty + creative_frames non-null → legacy flat array
+        // - both empty/null → static ad (null)
+        creative_frames:     Object.keys(state.position_frames).length > 0
+          ? state.position_frames
+          : state.creative_frames,
 
         // Schedule
         starts_at:           state.starts_at,

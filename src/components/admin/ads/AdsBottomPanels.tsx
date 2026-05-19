@@ -270,28 +270,52 @@ export default function AdsBottomPanels({
         className
       )}
     >
-      {/* ── Panel 1: Slot Inventory (SESI 5D-2: all 13 positions scrollable) ── */}
+      {/* ── Panel 1: Slot Inventory (SESI 5E Phase 3b: PIPELINE-style colored rows) ── */}
       <div id="slot-inventory-panel">
         <PanelCard
           title="SLOT INVENTORY"
           subtitle={`Semua ${slotInventory.length} posisi`}
           icon={<CrosshairIcon className="text-ads" />}
         >
-          <div className="flex flex-col max-h-[340px] overflow-y-auto pr-1">
-            {slotInventory.map((slot, idx) => {
-              const isLast = idx === slotInventory.length - 1;
+          <div className="flex flex-col gap-2 max-h-[340px] overflow-y-auto pr-1">
+            {slotInventory.map((slot) => {
               const isFilled = slot.filled > 0;
               const isClickable = Boolean(onPositionClick);
               const Wrapper = isClickable ? 'button' : 'div';
+              // SESI 5E Phase 3b: pre-compute capacity status untuk row bg color
+              const meta = getPositionMetadata(slot.key);
+              const status = computeCapacityStatus(slot.filled, meta.recommendedMaxActive);
+              const display = formatCapacityDisplay(meta, slot.filled);
+              const renderTypeLabel: Record<string, string> = {
+                SINGLE_FIXED:   'POOL',
+                CAROUSEL_MULTI: 'CAROUSEL',
+                LIST_STACKED:   'LIST',
+              };
+              const statusBadgeStyle: Record<CapacityStatus, string> = {
+                available:     'bg-status-warning/12 text-status-warning',
+                optimal:       'bg-status-healthy/12 text-status-healthy',
+                near_full:     'bg-amber-500/15 text-amber-500',
+                over_capacity: 'bg-status-critical/12 text-status-critical',
+                unlimited_ok:  'bg-status-healthy/12 text-status-healthy',
+              };
+              // Row bg semantic per status (mirror ADS PIPELINE + ACTION QUEUE pattern)
+              const statusRowBg: Record<CapacityStatus, string> = {
+                available:     'bg-status-warning/8 hover:bg-status-warning/12',
+                optimal:       'bg-status-healthy/8 hover:bg-status-healthy/12',
+                near_full:     'bg-amber-500/8 hover:bg-amber-500/15',
+                over_capacity: 'bg-status-critical/8 hover:bg-status-critical/12',
+                unlimited_ok:  'bg-status-healthy/8 hover:bg-status-healthy/12',
+              };
               return (
                 <Wrapper
                   key={slot.key}
                   type={isClickable ? 'button' : undefined}
                   onClick={isClickable ? () => onPositionClick!(slot.key) : undefined}
                   className={cn(
-                    'flex items-center justify-between gap-2 py-2.5',
-                    !isLast && 'border-b border-border',
-                    isClickable && 'hover:bg-surface-muted/40 transition-colors -mx-1 px-1 rounded'
+                    'flex items-center justify-between gap-2 px-3 py-2.5 rounded-lg',
+                    'transition-colors w-full text-left',
+                    statusRowBg[status],
+                    isClickable && 'cursor-pointer'
                   )}
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">
@@ -314,37 +338,17 @@ export default function AdsBottomPanels({
                       </div>
                     </div>
                   </div>
-                  {/* SESI 5D-2: render-type-aware capacity display (replace simple "X aktif") */}
-                  {(() => {
-                    const meta = getPositionMetadata(slot.key);
-                    const status = computeCapacityStatus(slot.filled, meta.recommendedMaxActive);
-                    const display = formatCapacityDisplay(meta, slot.filled);
-                    const renderTypeLabel: Record<string, string> = {
-                      SINGLE_FIXED:   'POOL',
-                      CAROUSEL_MULTI: 'CAROUSEL',
-                      LIST_STACKED:   'LIST',
-                    };
-                    const statusStyle: Record<CapacityStatus, string> = {
-                      available:     'bg-status-warning/12 text-status-warning',
-                      optimal:       'bg-status-healthy/12 text-status-healthy',
-                      near_full:     'bg-amber-500/15 text-amber-500',
-                      over_capacity: 'bg-status-critical/12 text-status-critical',
-                      unlimited_ok:  'bg-status-healthy/12 text-status-healthy',
-                    };
-                    return (
-                      <div className="flex flex-col items-end gap-0.5 shrink-0">
-                        <span className={cn(
-                          'px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide',
-                          statusStyle[status]
-                        )}>
-                          {display}
-                        </span>
-                        <span className="text-[8px] text-text-subtle font-semibold tracking-wider">
-                          {renderTypeLabel[meta.renderType] || 'UNKNOWN'}
-                        </span>
-                      </div>
-                    );
-                  })()}
+                  <div className="flex flex-col items-end gap-0.5 shrink-0">
+                    <span className={cn(
+                      'px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide',
+                      statusBadgeStyle[status]
+                    )}>
+                      {display}
+                    </span>
+                    <span className="text-[8px] text-text-subtle font-semibold tracking-wider">
+                      {renderTypeLabel[meta.renderType] || 'UNKNOWN'}
+                    </span>
+                  </div>
                 </Wrapper>
               );
             })}

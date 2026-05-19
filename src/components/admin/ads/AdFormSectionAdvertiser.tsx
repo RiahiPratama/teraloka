@@ -44,16 +44,23 @@ import {
   ChevronDown,
   ChevronUp,
   Check,
-  Building2,
+  Sparkles,
   AlertTriangle,
   Zap,
   UserCheck,
   DollarSign,    // SESI 5C-B
   Wallet,        // SESI 5C-B
+  // SESI 5E Phase 3b: Modern icons untuk TIPE ADVERTISER (replace emoji)
+  Users,         // Umum
+  Briefcase,     // Komersial
+  Crown,         // Premium
+  Building2,     // Pemerintah
+  Landmark,      // Politisi
+  type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
-import ImageUpload from '@/components/ui/ImageUpload';
+// SESI 5E Phase 3b: ImageUpload removed — Logo Advertiser field eliminated
 import { useAdForm, type AdvertiserType } from './AdFormProvider';
 import AdvertiserPicker from './advertisers/AdvertiserPicker';
 import PricingTierPicker, {
@@ -114,15 +121,15 @@ const TYPE_OPTIONS: Array<{
   value: AdvertiserType;
   label: string;
   description: string;
-  emoji: string;
+  icon: LucideIcon;  // SESI 5E Phase 3b: lucide icon (replace emoji string)
   warning?: string;
   autoReview: boolean;  // SESI 5C-B: drives semantic 2-row layout
 }> = [
-  { value: 'umum',       label: 'Umum',       emoji: '🌐', autoReview: false, description: 'UMKM, individual, organisasi non-formal' },
-  { value: 'komersial',  label: 'Komersial',  emoji: '💼', autoReview: false, description: 'PT/CV lokal, brand daerah, korporasi menengah' },
-  { value: 'premium',    label: 'Premium',    emoji: '⭐', autoReview: false, description: 'Brand nasional besar (Telkomsel, Indomie, BCA, dll)' },
-  { value: 'pemerintah', label: 'Pemerintah', emoji: '🏢', autoReview: true,  description: 'Instansi pemerintah, BUMN, BPJS', warning: 'Auto pending_review' },
-  { value: 'politisi',   label: 'Politisi',   emoji: '🏛️', autoReview: true,  description: 'Calon legislatif, partai politik, calon kepala daerah', warning: 'KPU compliance + pending_review' },
+  { value: 'umum',       label: 'Umum',       icon: Users,     autoReview: false, description: 'UMKM, individual, organisasi non-formal' },
+  { value: 'komersial',  label: 'Komersial',  icon: Briefcase, autoReview: false, description: 'PT/CV lokal, brand daerah, korporasi menengah' },
+  { value: 'premium',    label: 'Premium',    icon: Crown,     autoReview: false, description: 'Brand nasional besar (Telkomsel, Indomie, BCA, dll)' },
+  { value: 'pemerintah', label: 'Pemerintah', icon: Building2, autoReview: true,  description: 'Instansi pemerintah, BUMN, BPJS', warning: 'Auto pending_review' },
+  { value: 'politisi',   label: 'Politisi',   icon: Landmark,  autoReview: true,  description: 'Calon legislatif, partai politik, calon kepala daerah', warning: 'KPU compliance + pending_review' },
 ];
 
 // ════════════════════════════════════════════════════════════════════
@@ -243,7 +250,7 @@ export default function AdFormSectionAdvertiser() {
       >
         <div className="flex items-center gap-3 min-w-0">
           <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-ads/12 text-ads shrink-0">
-            <Building2 size={16} />
+            <Sparkles size={16} />
           </div>
           <div className="min-w-0 text-left">
             <h3 className="text-[13px] font-bold text-text uppercase tracking-wider">
@@ -385,7 +392,7 @@ export default function AdFormSectionAdvertiser() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span aria-hidden className="text-[15px]">{opt.emoji}</span>
+                            <opt.icon size={16} className={cn(isActive ? "text-ads" : "text-text-muted")} aria-hidden />
                             <span
                               className={cn(
                                 'text-[12px] font-bold',
@@ -433,7 +440,7 @@ export default function AdFormSectionAdvertiser() {
                         />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
-                            <span aria-hidden className="text-[15px]">{opt.emoji}</span>
+                            <opt.icon size={16} className={cn(isActive ? "text-ads" : "text-text-muted")} aria-hidden />
                             <span
                               className={cn(
                                 'text-[12px] font-bold',
@@ -478,23 +485,8 @@ export default function AdFormSectionAdvertiser() {
                 </p>
               </div>
 
-              {/* Logo upload */}
-              <div>
-                <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
-                  Logo Advertiser <span className="text-text-subtle">(opsional)</span>
-                </label>
-                <ImageUpload
-                  bucket="ads"
-                  maxFiles={1}
-                  maxSizeMB={0.5}
-                  existingUrls={state.advertiser_logo_url ? [state.advertiser_logo_url] : []}
-                  onUpload={(urls) => setField('advertiser_logo_url', urls[0] ?? '')}
-                  label="Logo (square, max 500KB)"
-                />
-                <p className="text-[10px] text-text-subtle mt-1">
-                  Logo tampil di card iklan native (rekomen 200×200px)
-                </p>
-              </div>
+              {/* SESI 5E Phase 3b: Logo Advertiser field REMOVED.
+                  Advertiser logo udah include di banner image — gak perlu field terpisah. */}
             </div>
           )}
 
