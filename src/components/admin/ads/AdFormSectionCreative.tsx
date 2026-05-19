@@ -30,24 +30,8 @@ import {
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useAdForm } from './AdFormProvider';
-
-// SESI 5D: Position label mapping (mirror POSITION_GROUPS dari Targeting section)
-// Dipakai untuk render label per-position image upload.
-const POSITION_LABELS: Record<string, { label: string; aspectGuide: string }> = {
-  top_leaderboard:      { label: 'Top Billboard',       aspectGuide: 'Horizontal 7.6:1 (1680×220)' },
-  inline_banner:        { label: 'Inline 8:1',          aspectGuide: 'Horizontal 8:1 (1600×200)' },
-  banner:               { label: 'Banner Generic',      aspectGuide: 'Responsive horizontal' },
-  homepage_hero_banner: { label: 'Hero Fallback',       aspectGuide: 'Horizontal 16:9 atau 21:9' },
-  skyscraper_left:      { label: 'Sidebar Slot Kiri',   aspectGuide: 'Vertikal 1:3.75 (160×600)' },
-  skyscraper_right:     { label: 'Sidebar Slot Kanan',  aspectGuide: 'Vertikal 1:3.75 (160×600)' },
-  sidebar:              { label: 'Sidebar Generic',     aspectGuide: 'Vertikal responsive' },
-  in_article:           { label: 'In Article',          aspectGuide: 'Horizontal 16:9 atau 4:3' },
-  native:               { label: 'Native In-Article',   aspectGuide: 'Native auto-match' },
-  trending_native:      { label: 'Trending Native',     aspectGuide: 'Card 1:1 atau 4:3' },
-  political_banner:     { label: 'Politisi Banner',     aspectGuide: 'Horizontal 16:9 (KPU)' },
-  region_stack:         { label: 'Stack Banner Region', aspectGuide: 'Card 4:3' },
-  homepage:             { label: 'Homepage Generic',    aspectGuide: 'Responsive cross-section' },
-};
+// SESI 5D-2 (19 Mei 2026): single source of truth metadata
+import { getPositionMetadata } from './position-render-metadata';
 
 // Simple slugify (mirror slugifyTitle backend pattern)
 function slugify(text: string): string {
@@ -460,7 +444,7 @@ function MultiImageSection() {
           {/* Per-position upload list */}
           <div className="space-y-2">
             {state.positions.map((positionKey) => {
-              const meta = POSITION_LABELS[positionKey] || { label: positionKey, aspectGuide: 'Responsive' };
+              const meta = getPositionMetadata(positionKey);
               const customUrl = state.images[positionKey];
               const isUsingDefault = !customUrl || customUrl === state.image_url;
 
@@ -475,12 +459,19 @@ function MultiImageSection() {
                   )}
                 >
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <p className="text-[10px] font-bold text-text">
                         {meta.label}
                       </p>
-                      <p className="text-[9px] text-text-subtle">
-                        {meta.aspectGuide}
+                      {/* SESI 5D-2: dimensi konkrit recommended untuk upload */}
+                      <p className="text-[10px] text-ads font-bold mt-0.5">
+                        📐 {meta.recommendedImageDim}
+                      </p>
+                      <p className="text-[9px] text-text-muted mt-0.5 leading-tight">
+                        {meta.aspectRatio}
+                      </p>
+                      <p className="text-[8px] text-text-subtle mt-0.5 leading-tight">
+                        Render: {meta.realDim}
                       </p>
                     </div>
                     <span
@@ -504,8 +495,8 @@ function MultiImageSection() {
                     onUpload={(urls) => updateImageForPosition(positionKey, urls[0] ?? '')}
                     label={
                       isUsingDefault
-                        ? `Upload image khusus untuk ${meta.label}`
-                        : `Ganti image ${meta.label}`
+                        ? `Upload ${meta.label} — ${meta.recommendedImageDim}`
+                        : `Ganti image ${meta.label} (${meta.recommendedImageDim})`
                     }
                   />
                   {!isUsingDefault && (

@@ -32,14 +32,16 @@
  */
 
 import { useState } from 'react';
-import { Megaphone, DollarSign, Users } from 'lucide-react';
+import { Megaphone, DollarSign, Users, Layout } from 'lucide-react';
 import AdsPanel from '@/components/admin/ads/AdsCommandCenter';
 import PricingStrategicBar from '@/components/admin/ads/pricing-tiers/PricingStrategicBar';
 import PricingTiersPanel from '@/components/admin/ads/pricing-tiers/PricingTiersPanel';
 import AdvertiserPanel from '@/components/admin/ads/advertisers/AdvertiserPanel';
+// SESI 5D-2 (19 Mei 2026): Tab Layout Iklan documentation hub
+import AdsLayoutDocumentation from '@/components/admin/ads/AdsLayoutDocumentation';
 import { cn } from '@/lib/utils';
 
-type Tab = 'ads' | 'pricing' | 'advertisers';
+type Tab = 'ads' | 'pricing' | 'advertisers' | 'layout';
 
 interface TabConfig {
   key:   Tab;
@@ -51,10 +53,19 @@ const TABS: TabConfig[] = [
   { key: 'ads',         label: 'Iklan',         icon: Megaphone  },
   { key: 'pricing',     label: 'Pricing Tiers', icon: DollarSign },
   { key: 'advertisers', label: 'Advertiser',    icon: Users      },
+  { key: 'layout',      label: 'Layout Iklan',  icon: Layout     }, // SESI 5D-2
 ];
 
 export default function AdsAdminPage() {
   const [tab, setTab] = useState<Tab>('ads');
+  // SESI 5D-2 Phase C: bridge filter posisi dari Tab Layout → Tab IKLAN
+  const [jumpFilterPosition, setJumpFilterPosition] = useState<string | null>(null);
+
+  // Handler buat AdsLayoutDocumentation: switch tab + propagate filter
+  const handleJumpToAds = (positionKey: string) => {
+    setJumpFilterPosition(positionKey);
+    setTab('ads');
+  };
 
   return (
     <div className="flex flex-col gap-4 pb-12">
@@ -87,7 +98,12 @@ export default function AdsAdminPage() {
       </div>
 
       {/* ── Tab Content ── */}
-      {tab === 'ads' && <AdsPanel />}
+      {tab === 'ads' && (
+        <AdsPanel
+          initialFilterPosition={jumpFilterPosition}
+          onFilterPositionConsumed={() => setJumpFilterPosition(null)}
+        />
+      )}
 
       {tab === 'pricing' && (
         <div className="flex flex-col gap-4">
@@ -100,6 +116,11 @@ export default function AdsAdminPage() {
       )}
 
       {tab === 'advertisers' && <AdvertiserPanel />}
+
+      {/* SESI 5D-2 (19 Mei 2026): Layout Iklan documentation hub */}
+      {tab === 'layout' && (
+        <AdsLayoutDocumentation onJumpToAds={handleJumpToAds} />
+      )}
     </div>
   );
 }

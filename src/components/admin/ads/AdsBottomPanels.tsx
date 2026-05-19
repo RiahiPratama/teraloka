@@ -41,6 +41,14 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
+// SESI 5D-2 (19 Mei 2026): Position render type model
+import {
+  POSITION_RENDER_METADATA,
+  getPositionMetadata,
+  computeCapacityStatus,
+  formatCapacityDisplay,
+  type CapacityStatus,
+} from './position-render-metadata';
 
 const TOTAL_POSITIONS = 13;
 
@@ -116,22 +124,16 @@ export interface AdsBottomPanelsProps {
   className?: string;
 }
 
-// 13 positions dengan label human-readable
-const POSITIONS_META: Array<{ key: string; label: string; size: string }> = [
-  { key: 'top_leaderboard',      label: 'Top Billboard',     size: '1680×220' },
-  { key: 'skyscraper_left',      label: 'Sidebar Slot Kiri', size: '160×600'  },
-  { key: 'skyscraper_right',     label: 'Sidebar Slot Kanan',size: '160×600'  },
-  { key: 'trending_native',      label: 'Trending Native',   size: 'Inline'   },
-  { key: 'region_stack',         label: 'Stack Banner',      size: 'Block'    },
-  { key: 'political_banner',     label: 'Politisi Banner',   size: 'Hero'     },
-  { key: 'homepage_hero_banner', label: 'Hero Fallback',     size: 'Hero'     },
-  { key: 'inline_banner',        label: 'Inline 8:1',        size: '1600×200' },
-  { key: 'native',               label: 'Native In-Article', size: 'Inline'   },
-  { key: 'sidebar',              label: 'Sidebar Generic',   size: 'Vary'     },
-  { key: 'banner',               label: 'Banner Generic',    size: 'Vary'     },
-  { key: 'in_article',           label: 'In Article',        size: 'Inline'   },
-  { key: 'homepage',             label: 'Homepage Generic',  size: 'Vary'     },
-];
+// SESI 5D-2 (19 Mei 2026): POSITIONS_META derived dari source-of-truth metadata.
+// realDim + aspectRatio + renderType + capacity awareness sekarang akurat
+// per audit komponen Bakabar (lihat position-render-metadata.ts).
+const POSITIONS_META: Array<{ key: string; label: string; size: string }> = Object.values(
+  POSITION_RENDER_METADATA
+).map((meta) => ({
+  key:   meta.key,
+  label: meta.label,
+  size:  meta.realDim, // dimensi spesifik real, bukan tebakan
+}));
 
 export default function AdsBottomPanels({
   ads,
@@ -144,15 +146,14 @@ export default function AdsBottomPanels({
 }: AdsBottomPanelsProps) {
   const activeAds = ads.filter((a) => a.status === 'active' && !a.deleted_at);
 
-  // ─── Panel 1 data: Slot Inventory (top 6) ─────────────────────
+  // ─── Panel 1 data: Slot Inventory (ALL 13 positions, SESI 5D-2) ─────────────────────
   const slotInventory = POSITIONS_META.map((pos) => {
     const filledCount = activeAds.filter((a) =>
       a.positions.includes(pos.key)
     ).length;
     return { ...pos, filled: filledCount };
   })
-    .sort((a, b) => b.filled - a.filled)
-    .slice(0, 6);
+    .sort((a, b) => b.filled - a.filled);
 
   // ─── Panel 2 data: Ads Pipeline ───────────────────────────────
   const pipelineStages = [
@@ -269,14 +270,14 @@ export default function AdsBottomPanels({
         className
       )}
     >
-      {/* ── Panel 1: Slot Inventory ── */}
+      {/* ── Panel 1: Slot Inventory (SESI 5D-2: all 13 positions scrollable) ── */}
       <div id="slot-inventory-panel">
         <PanelCard
           title="SLOT INVENTORY"
-          subtitle="Top 6 positions"
+          subtitle={`Semua ${slotInventory.length} posisi`}
           icon={<CrosshairIcon className="text-ads" />}
         >
-          <div className="flex flex-col">
+          <div className="flex flex-col max-h-[340px] overflow-y-auto pr-1">
             {slotInventory.map((slot, idx) => {
               const isLast = idx === slotInventory.length - 1;
               const isFilled = slot.filled > 0;
@@ -313,16 +314,37 @@ export default function AdsBottomPanels({
                       </div>
                     </div>
                   </div>
-                  <span
-                    className={cn(
-                      'shrink-0 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide',
-                      isFilled
-                        ? 'bg-status-healthy/12 text-status-healthy'
-                        : 'bg-status-critical/12 text-status-critical'
-                    )}
-                  >
-                    {isFilled ? `${slot.filled} aktif` : 'Empty'}
-                  </span>
+                  {/* SESI 5D-2: render-type-aware capacity display (replace simple "X aktif") */}
+                  {(() => {
+                    const meta = getPositionMetadata(slot.key);
+                    const status = computeCapacityStatus(slot.filled, meta.recommendedMaxActive);
+                    const display = formatCapacityDisplay(meta, slot.filled);
+                    const renderTypeLabel: Record<string, string> = {
+                      SINGLE_FIXED:   'POOL',
+                      CAROUSEL_MULTI: 'CAROUSEL',
+                      LIST_STACKED:   'LIST',
+                    };
+                    const statusStyle: Record<CapacityStatus, string> = {
+                      available:     'bg-status-warning/12 text-status-warning',
+                      optimal:       'bg-status-healthy/12 text-status-healthy',
+                      near_full:     'bg-amber-500/15 text-amber-500',
+                      over_capacity: 'bg-status-critical/12 text-status-critical',
+                      unlimited_ok:  'bg-status-healthy/12 text-status-healthy',
+                    };
+                    return (
+                      <div className="flex flex-col items-end gap-0.5 shrink-0">
+                        <span className={cn(
+                          'px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide',
+                          statusStyle[status]
+                        )}>
+                          {display}
+                        </span>
+                        <span className="text-[8px] text-text-subtle font-semibold tracking-wider">
+                          {renderTypeLabel[meta.renderType] || 'UNKNOWN'}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </Wrapper>
               );
             })}
@@ -494,7 +516,7 @@ function PanelCard({
   children: React.ReactNode;
 }) {
   return (
-    <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3 min-h-[280px]">
+    <div className="bg-surface border border-border rounded-xl p-4 flex flex-col gap-3 h-[420px]">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-[11px] font-bold text-text uppercase tracking-wider">

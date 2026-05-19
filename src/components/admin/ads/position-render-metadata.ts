@@ -45,6 +45,8 @@ export interface PositionRenderMetadata {
   component:            string;
   /** Real CSS dimension (sumber: grep audit komponen) */
   realDim:              string;
+  /** Recommended image asset dimension untuk upload (e.g., "888×220px") */
+  recommendedImageDim:  string;
   /** Aspect ratio hint untuk image upload */
   aspectRatio:          string;
   /** Group semantik untuk Targeting UI */
@@ -53,10 +55,21 @@ export interface PositionRenderMetadata {
   politisiOnly?:        boolean;
   /** Optional: tooltip "muncul di mana di public" */
   description:          string;
+  /**
+   * SESI 5D-2: Frontend URL untuk live preview di Bakabar.
+   * Format: path relatif (mis. '/bakabar' atau '/bakabar/sample-article-slug')
+   * Atau '#section-anchor' kalau scroll spesifik.
+   * Render: tombol "Lihat di Bakabar" → window.open(BAKABAR_BASE + frontendUrl)
+   */
+  frontendUrl:          string;
 }
 
 // ════════════════════════════════════════════════════════════════
 // METADATA MATRIX — 13 Position Keys
+// ────────────────────────────────────────────────────────────────
+// SESI 5D-2 (19 Mei 2026): realDim + recommendedImageDim hasil audit
+// dari komponen frontend (grep w-[]/h-[]/aspectRatio).
+// Sumber: ~/teraloka/src/components/bakabar/*.tsx + components/ads/*.tsx
 // ════════════════════════════════════════════════════════════════
 export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = {
   // ─── Banner Area (horizontal high visibility) ─────────────────
@@ -67,10 +80,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCATopLeaderboard',
-    realDim:              'Full-width × 220px (max-w-[480px] text area)',
-    aspectRatio:          'Horizontal panjang (responsive height 220px)',
+    realDim:              'w-full h-[220px], inner brand area w-[180px]',
+    recommendedImageDim:  '888×220px',
+    aspectRatio:          'Horizontal 4:1',
     pageGroup:            'banner_area',
     description:          'Banner paling atas, di bawah header navigasi. Pool rotation per pageview.',
+    frontendUrl:          '/bakabar',
   },
   inline_banner: {
     key:                  'inline_banner',
@@ -79,10 +94,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'InlineBannerAd',
-    realDim:              'aspectRatio 8:1 (full-width)',
-    aspectRatio:          'Horizontal 8:1 — image min 1600×200',
+    realDim:              'aspectRatio 8:1 (full-width responsive)',
+    recommendedImageDim:  '1600×200px',
+    aspectRatio:          'Horizontal 8:1',
     pageGroup:            'banner_area',
     description:          'Banner di antar region homepage, ratio 8:1 (panjang horizontal).',
+    frontendUrl:          '/bakabar',
   },
   banner: {
     key:                  'banner',
@@ -91,22 +108,26 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCABanner',
-    realDim:              'Responsive (varies per slot)',
-    aspectRatio:          'Responsive horizontal',
+    realDim:              'w-[52px] h-[52px] thumbnail (compact feed item)',
+    recommendedImageDim:  '104×104px',
+    aspectRatio:          'Square 1:1',
     pageGroup:            'banner_area',
-    description:          'Banner fleksibel, dipakai sebagai fallback generic.',
+    description:          'Banner kompak feed item, thumbnail 52×52 dengan side content.',
+    frontendUrl:          '/bakabar',
   },
   homepage_hero_banner: {
     key:                  'homepage_hero_banner',
-    label:                'Hero Fallback',
-    renderType:           'SINGLE_FIXED',
-    visualSlotCount:      1,
-    recommendedMaxActive: null,
-    component:            'HeroWithSidebar (fallback slot)',
-    realDim:              'Hero size (variable)',
-    aspectRatio:          'Horizontal 16:9 atau 21:9',
+    label:                'Hero Fallback + Pilihan Sponsor',
+    renderType:           'CAROUSEL_MULTI',
+    visualSlotCount:      9,
+    recommendedMaxActive: 9,
+    component:            'HeroWithSidebar + LaIndieMoviePoliticalBanner (fallback)',
+    realDim:              'Hero size (variable) ATAU 160×240 carousel base (fallback mode)',
+    recommendedImageDim:  '160×240px',
+    aspectRatio:          'Vertical poster 2:3',
     pageGroup:            'banner_area',
-    description:          'Backup hero kalau slot hero utama kosong.',
+    description:          'DUAL USAGE: (1) Backup hero kalau slot utama kosong, (2) Carousel "Pilihan Sponsor" homepage saat tidak ada iklan politik. 1 upload muncul di kedua tempat.',
+    frontendUrl:          '/bakabar',
   },
 
   // ─── Sidebar (vertical) ───────────────────────────────────────
@@ -117,10 +138,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCASkyscraper / SkyscraperBanner',
-    realDim:              '160×600 (fixed)',
+    realDim:              'w-[160px] h-[600px] fixed',
+    recommendedImageDim:  '160×600px',
     aspectRatio:          'Vertikal 1:3.75',
     pageGroup:            'sidebar',
     description:          'Skyscraper kiri artikel BAKABAR (desktop xl+ only).',
+    frontendUrl:          '/bakabar',
   },
   skyscraper_right: {
     key:                  'skyscraper_right',
@@ -129,10 +152,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCASkyscraper / SkyscraperBanner',
-    realDim:              '160×600 (fixed)',
+    realDim:              'w-[160px] h-[600px] fixed',
+    recommendedImageDim:  '160×600px',
     aspectRatio:          'Vertikal 1:3.75',
     pageGroup:            'sidebar',
     description:          'Skyscraper kanan artikel BAKABAR (desktop xl+ only).',
+    frontendUrl:          '/bakabar',
   },
   sidebar: {
     key:                  'sidebar',
@@ -141,10 +166,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdSidebarSlug',
-    realDim:              '~300×200 (placeholder hint)',
-    aspectRatio:          'Card 3:2 landscape',
+    realDim:              'h-52 w-full (~300×208 container)',
+    recommendedImageDim:  '300×200px',
+    aspectRatio:          'Card landscape 3:2',
     pageGroup:            'sidebar',
     description:          'Sidebar fleksibel slug artikel, random pick dari pool aktif.',
+    frontendUrl:          '/bakabar/sample-article',
   },
 
   // ─── In-Article & Native (inline) ─────────────────────────────
@@ -155,10 +182,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdInArticle (via BodyWithAds)',
-    realDim:              'h-48 w-full (~192px height, full-width)',
-    aspectRatio:          'Horizontal 16:9 atau 4:3',
+    realDim:              'h-48 w-full (~700×192 responsive)',
+    recommendedImageDim:  '700×192px',
+    aspectRatio:          'Horizontal 4:1',
     pageGroup:            'in_article_native',
     description:          'Banner di tengah artikel. Auto-inject 1-3x per artikel (BodyWithAds).',
+    frontendUrl:          '/bakabar/sample-article',
   },
   native: {
     key:                  'native',
@@ -167,10 +196,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdNativeSlug',
-    realDim:              'Card style w-14 h-14 icon + content',
-    aspectRatio:          'Native auto-match (card layout)',
+    realDim:              'w-14 h-14 icon (56×56) + side text content',
+    recommendedImageDim:  '112×112px',
+    aspectRatio:          'Square 1:1 (icon/logo)',
     pageGroup:            'in_article_native',
-    description:          'Advertorial yang menyatu dengan flow artikel (styled card).',
+    description:          'Advertorial yang menyatu dengan flow artikel. Icon kiri + headline + CTA.',
+    frontendUrl:          '/bakabar/sample-article',
   },
   trending_native: {
     key:                  'trending_native',
@@ -179,10 +210,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      3,
     recommendedMaxActive: 3,
     component:            'TrendingArticleAd',
-    realDim:              'Thumb 52×52 + content',
-    aspectRatio:          'Card thumbnail 1:1',
+    realDim:              'w-[52px] h-[52px] thumbnail + side content',
+    recommendedImageDim:  '104×104px',
+    aspectRatio:          'Square 1:1 thumbnail',
     pageGroup:            'in_article_native',
     description:          'Sticky di section "Trending Now", 3 visible slot stacked.',
+    frontendUrl:          '/bakabar',
   },
 
   // ─── Hero & Special ───────────────────────────────────────────
@@ -190,14 +223,16 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     key:                  'political_banner',
     label:                'Politisi Banner',
     renderType:           'CAROUSEL_MULTI',
-    visualSlotCount:      5,
-    recommendedMaxActive: 7,
+    visualSlotCount:      9,
+    recommendedMaxActive: 9,
     component:            'LaIndieMoviePoliticalBanner',
-    realDim:              '160×240 base (POSTER_W × POSTER_H), focused scale 1.3×',
-    aspectRatio:          'Vertical poster 2:3',
+    realDim:              '160×240 base (POSTER_W × POSTER_H), focused scale 1.30× = 208×312',
+    recommendedImageDim:  '208×312px',
+    aspectRatio:          'Vertikal poster 2:3',
     pageGroup:            'hero_special',
     politisiOnly:         true,
-    description:          'Carousel banner politisi (KPU compliance). Semua ads tampil simultan, fokus rotate auto.',
+    description:          'Carousel banner politisi KPU compliance. Up to 9 ads visible, fokus rotate auto.',
+    frontendUrl:          '/bakabar',
   },
   region_stack: {
     key:                  'region_stack',
@@ -206,10 +241,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      5,
     recommendedMaxActive: 5,
     component:            'DCAStackBanner / RegionSection',
-    realDim:              'Card responsive per-region',
-    aspectRatio:          'Card 4:3',
+    realDim:              'w-[52px] h-[52px] thumbnail per-region',
+    recommendedImageDim:  '104×104px',
+    aspectRatio:          'Square 1:1 thumbnail',
     pageGroup:            'hero_special',
-    description:          'Banner di section per-kabupaten homepage, 1 per region stack.',
+    description:          'Banner di section per-kabupaten homepage, 1 thumbnail per region stack.',
+    frontendUrl:          '/bakabar',
   },
   homepage: {
     key:                  'homepage',
@@ -218,10 +255,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'Generic (varies)',
-    realDim:              'Responsive cross-section',
-    aspectRatio:          'Responsive',
+    realDim:              'Responsive cross-section (no fixed CSS)',
+    recommendedImageDim:  '888×220px',
+    aspectRatio:          'Horizontal responsive',
     pageGroup:            'hero_special',
     description:          'Banner fleksibel cross-section homepage, generic fallback.',
+    frontendUrl:          '/bakabar',
   },
 };
 
@@ -241,9 +280,11 @@ export function getPositionMetadata(key: string): PositionRenderMetadata {
     recommendedMaxActive: null,
     component:            'Unknown',
     realDim:              'Unknown',
+    recommendedImageDim:  'Variabel',
     aspectRatio:          'Responsive',
     pageGroup:            'banner_area',
     description:          'Metadata belum di-define untuk posisi ini.',
+    frontendUrl:          '/bakabar',
   };
 }
 

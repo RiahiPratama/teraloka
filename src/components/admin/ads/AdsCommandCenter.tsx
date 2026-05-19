@@ -23,6 +23,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   RefreshCw, Trash2, AlertCircle, CheckCircle2, Plus, X, AlarmClock, ArrowLeft,
+  Crosshair as CrosshairIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
@@ -117,7 +118,16 @@ type BulkModalState =
 
 // ─── Component ───────────────────────────────────────────────────
 
-export default function AdsCommandCenter() {
+// SESI 5D-2 (19 Mei 2026) Phase C: bridge filter posisi dari Tab Layout
+interface AdsCommandCenterProps {
+  initialFilterPosition?:    string | null;
+  onFilterPositionConsumed?: () => void;
+}
+
+export default function AdsCommandCenter({
+  initialFilterPosition,
+  onFilterPositionConsumed,
+}: AdsCommandCenterProps = {}) {
   const { token, isLoading: authLoading } = useAuth();
   const router = useRouter();
 
@@ -134,6 +144,8 @@ export default function AdsCommandCenter() {
 
   const [filterStatus, setFilterStatus]     = useState<AdStatusFilter>('all');
   const [filterType, setFilterType]         = useState<AdvertiserTypeFilter>('all');
+  // SESI 5D-2 (19 Mei 2026): SMART filter posisi dari Slot Inventory
+  const [filterPosition, setFilterPosition] = useState<string | null>(null);
   const [searchQuery, setSearchQuery]       = useState('');
   const [endingSoonOnly, setEndingSoonOnly] = useState(false);
 
@@ -154,7 +166,21 @@ export default function AdsCommandCenter() {
 
   useEffect(() => {
     setSelectedAdIds(new Set());
-  }, [filterStatus, filterType, filterRegion, dateRange, searchQuery, showDeleted]);
+  }, [filterStatus, filterType, filterRegion, filterPosition, dateRange, searchQuery, showDeleted]);
+
+  // SESI 5D-2 Phase C: consume initial filter position dari parent (Tab Layout jump)
+  useEffect(() => {
+    if (initialFilterPosition) {
+      setFilterPosition(initialFilterPosition);
+      // notify parent agar reset state-nya (avoid loop)
+      onFilterPositionConsumed?.();
+      // scroll ke table setelah filter applied
+      setTimeout(() => {
+        document.getElementById('ads-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialFilterPosition]);
 
   // ─── Mini D: Auto-reset filters saat masuk Sampah mode ────────
   // Bahasa: di Sampah view, reset status/region/date filters supaya
@@ -275,6 +301,9 @@ export default function AdsCommandCenter() {
 
       if (filterType !== 'all' && ad.advertiser_type !== filterType) return false;
 
+      // SESI 5D-2: SMART position filter dari Slot Inventory click
+      if (filterPosition && !ad.positions.includes(filterPosition)) return false;
+
       if (filterRegion !== 'all' && regionMatchValues.length > 0) {
         const isUniversal = ad.target_regions === null;
         const isMatched = ad.target_regions?.some((r) =>
@@ -315,7 +344,7 @@ export default function AdsCommandCenter() {
     });
 
     return sorted;
-  }, [ads, filterStatus, filterType, filterRegion, searchQuery, endingSoonOnly, dateRange, sortBy, showDeleted]);
+  }, [ads, filterStatus, filterType, filterRegion, filterPosition, searchQuery, endingSoonOnly, dateRange, sortBy, showDeleted]);
 
   // ─── Mini D: deleted count untuk badge tombol ─────────────────
   const deletedCount = useMemo(() => {
@@ -391,9 +420,19 @@ export default function AdsCommandCenter() {
     scrollToTable();
   }, [scrollToTable, showDeleted]);
 
+  // SESI 5D-2 (19 Mei 2026): SMART filter posisi dari Slot Inventory.
+  // Click row di Slot Inventory → filter table by posisi + scroll to table.
+  // Click lagi posisi yang sama → toggle clear filter.
   const handlePositionClick = useCallback((positionKey: string) => {
-    showToast(`Filter posisi "${positionKey}" — coming Phase 2`, 'ok');
-  }, [showToast]);
+    if (filterPosition === positionKey) {
+      setFilterPosition(null);
+      showToast(`Filter posisi cleared`, 'ok');
+    } else {
+      setFilterPosition(positionKey);
+      showToast(`Filter posisi: "${positionKey}"`, 'ok');
+      scrollToTable();
+    }
+  }, [filterPosition, showToast, scrollToTable]);
 
   const refreshAll = useCallback(async () => {
     await Promise.all([fetchAds(), fetchActionQueue(false)]);
@@ -763,6 +802,24 @@ export default function AdsCommandCenter() {
             title="Hapus filter ending soon"
           >
             <X size={12} className="text-status-warning" />
+          </button>
+        </div>
+      )}
+
+      {/* SESI 5D-2: SMART position filter chip dari Slot Inventory click */}
+      {filterPosition && (
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-ads/8 border border-ads/30">
+          <CrosshairIcon className="text-ads shrink-0" size={14} />
+          <span className="text-[12px] font-semibold text-ads flex-1">
+            Filter posisi: <strong>{filterPosition}</strong>
+          </span>
+          <button
+            type="button"
+            onClick={() => setFilterPosition(null)}
+            className="shrink-0 p-1 rounded hover:bg-ads/15 transition-colors"
+            title="Hapus filter posisi"
+          >
+            <X size={12} className="text-ads" />
           </button>
         </div>
       )}
