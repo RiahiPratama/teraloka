@@ -3,43 +3,55 @@
 /**
  * TeraLoka — AdsFinancialPanel
  * SESI 5F (19 Mei 2026) — BATCH 5 (Tab Financial ADS)
+ * SESI 5G BATCH 1 (20 Mei 2026) — Phase 1 + 2 Polish
+ * SESI 5G BATCH 2.B (20 Mei 2026) — Phase 3 Audit Resolve Action UI
  * ────────────────────────────────────────────────────────────────
  * Tab ke-5 di /admin/ads: revenue analytics ADS-domain.
  *
  * Filosofi:
  *   - Source data: Money Domain (financial_events) sebagai source of truth
- *   - 4 section MVP: Revenue Period, By Bank, Audit Pending, Recent Activity
  *   - Client-side aggregation dari event metadata (puluhan event = OK)
  *
  * Endpoints (REUSE existing Money endpoints, no NEW backend):
  *   - GET /money/revenue/by-entity?period=30d (revenue total ads)
  *   - GET /money/admin/events?event_type=ad.payment_recorded&limit=100
- *     (detailed events untuk aggregation client-side)
  *
- * 4 Section MVP:
+ * 6 Section (SESI 5G Phase 1+2):
  *   1. Stats Cards (4): Total Revenue, Paid Ads Count, Avg per Ad, Audit Pending
- *   2. Bar Chart: Revenue by Bank Account (allocation visualization)
- *   3. Audit Pending Alert: list ads yang belum upload bukti
- *   4. Recent Activity: 10 event terakhir
+ *      → Audit Pending card CLICKABLE (drill-down scroll)
+ *   2. Bar Chart: Revenue by Bank Account
+ *      → Bar CLICKABLE (drill-down filter)
+ *   3. NEW — Horizontal BarChart: Revenue by Pricing Tier (Top 5)
+ *   4. NEW — Compact Table: Top Advertiser (Top 5 + REPEAT/FIRST-TIME badge)
+ *      → Row CLICKABLE (drill-down filter)
+ *   5. Audit Pending Alert: list ads yang belum upload bukti
+ *   6. Recent Activity: 10 event terakhir
+ *      → ActiveFilterPill prominent kalau drill-down active
  *
  * Pattern:
- *   - Tailwind v4 utility (no AdminThemeContext)
+ *   - Tailwind v4 utility (no AdminThemeContext) — Pattern AAP
  *   - Recharts BarChart untuk visualisasi
  *   - Lucide icons + cn() helper
  *   - useAuth() for token
+ *   - Pattern CCC Aggregation Source Consistency (events first)
+ *   - Pattern AAD Recharts Drill-Down Modal (extended to filter pill)
  */
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   TrendingUp, Wallet, AlertTriangle, Activity, Building2,
   Loader2, RefreshCw, Calendar, DollarSign, FileText,
-  ArrowUpRight, Clock, CheckCircle2,
+  ArrowUpRight, Clock, CheckCircle2, Package, Users, X, Filter,
+  ShieldCheck, CheckCircle,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
 } from 'recharts';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import AuditPendingResolveModal, {
+  type AuditPendingEventForModal,
+} from './AuditPendingResolveModal';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -69,9 +81,12 @@ interface FinancialEvent {
   fee_amount:       number;
   metadata: {
     ad_display_id?:         string;
+    advertiser_account_id?: string;
     advertiser_name?:       string;
     pricing_tier_id?:       string;
     tier_code?:             string;
+    tier_category?:         string;
+    tier_name?:             string;
     bank_account_id?:       string;
     bank_account_alias?:    string;
     bank_account_bank?:     string;
@@ -87,6 +102,15 @@ interface EventsResponse {
   success: boolean;
   data?:   FinancialEvent[];
   error?:  { code: string; message: string };
+}
+
+// Drill-down filter state
+type ActivityFilterType = 'bank' | 'advertiser' | null;
+
+interface ActivityFilter {
+  type:  ActivityFilterType;
+  value: string | null;   // bank: alias, advertiser: account_id
+  label: string | null;   // display label
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -112,6 +136,18 @@ const BANK_COLORS = [
   '#DC2626', // red
 ];
 
+// Tier category color mapping (PRD spec)
+const TIER_CATEGORY_COLOR: Record<string, { hex: string; bg: string; text: string; label: string }> = {
+  premium:    { hex: '#1B6B4A', bg: 'bg-status-healthy/12', text: 'text-status-healthy', label: 'Premium' },
+  standard:   { hex: '#0891B2', bg: 'bg-status-info/12',    text: 'text-status-info',    label: 'Standard' },
+  basic:      { hex: '#E8963A', bg: 'bg-ads/12',            text: 'text-ads',            label: 'Basic' },
+  compliance: { hex: '#7C3AED', bg: 'bg-balapor/12',        text: 'text-balapor',        label: 'Compliance' },
+};
+const TIER_FALLBACK_COLOR = { hex: '#6B7280', bg: 'bg-surface-muted', text: 'text-text-muted', label: 'Other' };
+
+const getTierColor = (category?: string) =>
+  TIER_CATEGORY_COLOR[(category ?? '').toLowerCase()] ?? TIER_FALLBACK_COLOR;
+
 // ─── Component ───────────────────────────────────────────────────
 
 export default function AdsFinancialPanel() {
@@ -123,6 +159,24 @@ export default function AdsFinancialPanel() {
   const [loading, setLoading]             = useState(true);
   const [error, setError]                 = useState<string | null>(null);
 
+  // SESI 5G — drill-down filter state
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>({
+    type: null, value: null, label: null,
+  });
+
+  // SESI 5G — ref untuk scroll ke Audit Pending section
+  const auditPendingRef = useRef<HTMLDivElement>(null);
+
+  // SESI 5G Phase 3 — Resolved events (separate fetch utk cross-reference)
+  const [resolvedEvents, setResolvedEvents] = useState<FinancialEvent[]>([]);
+
+  // SESI 5G Phase 3 — Modal state untuk resolve audit pending
+  const [resolveModalEvent, setResolveModalEvent] =
+    useState<AuditPendingEventForModal | null>(null);
+
+  // SESI 5G Phase 3 — Inline success/info message
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
   // ─── Fetch ───────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
@@ -133,13 +187,22 @@ export default function AdsFinancialPanel() {
     const h = { Authorization: `Bearer ${token}` };
 
     try {
-      const [beRes, evRes] = await Promise.all([
-        fetch(`${API}/money/revenue/by-entity?period=${period}`, { headers: h }).then(r => r.json()) as Promise<ByEntityResponse>,
-        fetch(`${API}/money/admin/events?event_type=ad.payment_recorded&limit=100`, { headers: h }).then(r => r.json()) as Promise<EventsResponse>,
+      // SESI 5G Phase 3 — fetch 3 paralel:
+      // 1. revenue by-entity (period-filtered)
+      // 2. ad.payment_recorded events (untuk semua section)
+      // 3. ad.audit_resolved events (untuk cross-reference Audit Pending list)
+      const [beRes, evRes, resolvedRes] = await Promise.all([
+        fetch(`${API}/money/revenue/by-entity?period=${period}`, { headers: h })
+          .then(r => r.json()) as Promise<ByEntityResponse>,
+        fetch(`${API}/money/admin/events?event_type=ad.payment_recorded&limit=100`, { headers: h })
+          .then(r => r.json()) as Promise<EventsResponse>,
+        fetch(`${API}/money/admin/events?event_type=ad.audit_resolved&limit=100`, { headers: h })
+          .then(r => r.json()) as Promise<EventsResponse>,
       ]);
 
       if (beRes?.success && beRes.data) setByEntity(beRes.data);
       if (evRes?.success && evRes.data) setEvents(evRes.data);
+      if (resolvedRes?.success && resolvedRes.data) setResolvedEvents(resolvedRes.data);
 
       if (!beRes?.success && !evRes?.success) {
         setError('Gagal memuat data analytics — cek koneksi atau permission');
@@ -155,38 +218,45 @@ export default function AdsFinancialPanel() {
     if (!authLoading) fetchData();
   }, [authLoading, fetchData]);
 
+  // SESI 5G — reset filter saat period berubah (data baru, filter mungkin gak valid)
+  useEffect(() => {
+    setActivityFilter({ type: null, value: null, label: null });
+  }, [period]);
+
   // ─── Computed (Client-side Aggregation) ──────────────────────
 
+  // SESI 5G Phase 3 — Set of ad_ids yang udah ada audit_resolved event
+  // Cross-reference dengan ini untuk exclude dari Audit Pending list/count.
+  const resolvedAdIds = useMemo(() => {
+    return new Set(resolvedEvents.map(e => e.source_entity_id));
+  }, [resolvedEvents]);
+
   const stats = useMemo(() => {
-    // Total revenue ADS dari events langsung (lebih akurat dari byEntity aggregation)
-    // byEntity.pt_digital.sources.ads kadang null/0 tergantung server logic,
-    // sum events.amount lebih reliable + match chart total.
     const adsRevenueFromEvents = events.reduce(
       (sum, e) => sum + (Number(e.amount) || 0),
       0
     );
 
-    // Fallback ke byEntity kalau events kosong (period filter beda dengan events limit)
     const adsRevenue = adsRevenueFromEvents > 0
       ? adsRevenueFromEvents
       : (byEntity?.pt_digital?.sources?.ads ?? 0);
 
-    // Paid ads count = unique source_entity_id di events
     const uniqueAdIds = new Set(events.map(e => e.source_entity_id));
     const paidAdsCount = uniqueAdIds.size;
 
-    // Average per ad
     const avgPerAd = paidAdsCount > 0 ? Math.round(adsRevenue / paidAdsCount) : 0;
 
-    // Audit pending count
-    // metadata.audit_pending bisa boolean true/false ATAU string "true"/"false"
+    // SESI 5G Phase 3 — exclude ads yang udah audit_resolved
     const auditPendingCount = events.filter(e => {
       const v = e.metadata?.audit_pending;
-      return v === true || v === 'true';
+      const isPending = v === true || v === 'true';
+      if (!isPending) return false;
+      if (resolvedAdIds.has(e.source_entity_id)) return false;
+      return true;
     }).length;
 
     return { adsRevenue, paidAdsCount, avgPerAd, auditPendingCount };
-  }, [byEntity, events]);
+  }, [byEntity, events, resolvedAdIds]);
 
   // Revenue by Bank Account (group by bank_account_alias)
   const revenueByBank = useMemo(() => {
@@ -210,24 +280,116 @@ export default function AdsFinancialPanel() {
       .slice(0, 6);
   }, [events]);
 
-  // Audit Pending List
+  // SESI 5G — Revenue by Pricing Tier (Top 5)
+  const revenueByTier = useMemo(() => {
+    const groups = new Map<string, {
+      tier_id:       string;
+      tier_code:     string;
+      tier_category: string;
+      tier_name:     string;
+      total:         number;
+      count:         number;
+    }>();
+
+    for (const ev of events) {
+      const tierId = ev.metadata?.pricing_tier_id;
+      if (!tierId) continue;
+
+      if (!groups.has(tierId)) {
+        groups.set(tierId, {
+          tier_id:       tierId,
+          tier_code:     ev.metadata?.tier_code ?? '—',
+          tier_category: (ev.metadata?.tier_category ?? 'other').toLowerCase(),
+          tier_name:     ev.metadata?.tier_name ?? ev.metadata?.tier_code ?? '—',
+          total:         0,
+          count:         0,
+        });
+      }
+      const g = groups.get(tierId)!;
+      g.total += ev.amount || 0;
+      g.count += 1;
+    }
+
+    return Array.from(groups.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5);
+  }, [events]);
+
+  // SESI 5G — Top Advertiser (Top 5)
+  const topAdvertisers = useMemo(() => {
+    const groups = new Map<string, {
+      advertiser_id:   string;
+      advertiser_name: string;
+      total:           number;
+      count:           number;
+    }>();
+
+    for (const ev of events) {
+      const advId = ev.metadata?.advertiser_account_id;
+      const advName = ev.metadata?.advertiser_name;
+      if (!advId || !advName) continue;
+
+      if (!groups.has(advId)) {
+        groups.set(advId, {
+          advertiser_id:   advId,
+          advertiser_name: advName,
+          total:           0,
+          count:           0,
+        });
+      }
+      const g = groups.get(advId)!;
+      g.total += ev.amount || 0;
+      g.count += 1;
+    }
+
+    return Array.from(groups.values())
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 5)
+      .map((adv) => ({
+        ...adv,
+        is_repeat: adv.count >= 2,
+      }));
+  }, [events]);
+
+  // Audit Pending List — SESI 5G Phase 3 cross-reference resolved
   const auditPendingList = useMemo(() => {
     return events
       .filter(e => {
         const v = e.metadata?.audit_pending;
-        return v === true || v === 'true';
+        const isPending = v === true || v === 'true';
+        if (!isPending) return false;
+        if (resolvedAdIds.has(e.source_entity_id)) return false;
+        return true;
       })
       .slice(0, 10);
-  }, [events]);
+  }, [events, resolvedAdIds]);
 
-  // Recent activity (10 latest)
+  // SESI 5G — Filtered events (per activityFilter)
+  // CRITICAL: filter SEBELUM slice(0,10) supaya hit advertiser/bank di luar top 10
+  const filteredEvents = useMemo(() => {
+    if (!activityFilter.type || !activityFilter.value) return events;
+
+    if (activityFilter.type === 'bank') {
+      return events.filter(ev =>
+        ev.metadata?.bank_account_alias === activityFilter.value
+      );
+    }
+    if (activityFilter.type === 'advertiser') {
+      return events.filter(ev =>
+        ev.metadata?.advertiser_account_id === activityFilter.value
+      );
+    }
+    return events;
+  }, [events, activityFilter]);
+
+  // Recent activity (10 latest, post-filter)
   const recentActivity = useMemo(() => {
-    return [...events]
+    return [...filteredEvents]
       .sort((a, b) => new Date(b.recorded_at).getTime() - new Date(a.recorded_at).getTime())
       .slice(0, 10);
-  }, [events]);
+  }, [filteredEvents]);
 
-  // Chart data for Recharts
+  // Chart data for Recharts (Bank)
   const chartData = useMemo(() => {
     return revenueByBank.map((b, i) => ({
       name:  b.alias,
@@ -237,6 +399,81 @@ export default function AdsFinancialPanel() {
       color: BANK_COLORS[i % BANK_COLORS.length],
     }));
   }, [revenueByBank]);
+
+  // SESI 5G — Chart data for Recharts (Tier horizontal)
+  const tierChartData = useMemo(() => {
+    return revenueByTier.map((t) => {
+      const colorMeta = getTierColor(t.tier_category);
+      return {
+        name:          t.tier_code,
+        tier_id:       t.tier_id,
+        tier_category: t.tier_category,
+        tier_name:     t.tier_name,
+        total:         t.total,
+        count:         t.count,
+        color:         colorMeta.hex,
+      };
+    });
+  }, [revenueByTier]);
+
+  // ─── Drill-Down Handlers ─────────────────────────────────────
+
+  const handleAuditPendingCardClick = useCallback(() => {
+    if (stats.auditPendingCount > 0 && auditPendingRef.current) {
+      auditPendingRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [stats.auditPendingCount]);
+
+  const handleBankBarClick = useCallback((data: any) => {
+    const payload = data?.payload ?? data;
+    const alias = payload?.name;
+    const bank = payload?.bank;
+    if (!alias) return;
+    setActivityFilter({
+      type:  'bank',
+      value: alias,
+      label: `${alias}${bank && bank !== '—' ? ' · ' + bank : ''}`,
+    });
+  }, []);
+
+  const handleAdvertiserRowClick = useCallback((adv: typeof topAdvertisers[number]) => {
+    setActivityFilter({
+      type:  'advertiser',
+      value: adv.advertiser_id,
+      label: adv.advertiser_name,
+    });
+  }, []);
+
+  const handleClearFilter = useCallback(() => {
+    setActivityFilter({ type: null, value: null, label: null });
+  }, []);
+
+  // SESI 5G Phase 3 — Audit resolve handlers
+  const handleOpenResolveModal = useCallback((ev: FinancialEvent) => {
+    setResolveModalEvent({
+      id:               ev.id,
+      source_entity_id: ev.source_entity_id,
+      amount:           ev.amount,
+      recorded_at:      ev.recorded_at,
+      metadata:         ev.metadata,
+    });
+  }, []);
+
+  const handleResolveSuccess = useCallback((msg: string) => {
+    setSuccessMessage(msg);
+    setError(null);
+    // Auto-clear setelah 6 detik
+    setTimeout(() => setSuccessMessage(null), 6000);
+    // Refresh data — audit pending list akan auto-update karena
+    // resolved event sekarang ada di resolvedEvents → exclude logic kick in
+    fetchData();
+  }, [fetchData]);
+
+  const handleResolveError = useCallback((msg: string) => {
+    setError(msg);
+    setSuccessMessage(null);
+    setTimeout(() => setError(null), 6000);
+  }, []);
 
   // ─── Render ──────────────────────────────────────────────────
 
@@ -291,6 +528,14 @@ export default function AdsFinancialPanel() {
         </div>
       )}
 
+      {/* ─── SESI 5G Phase 3 — Success message ─── */}
+      {successMessage && (
+        <div className="flex items-start gap-2 p-3 rounded-lg bg-status-healthy/8 border border-status-healthy/30 animate-in fade-in slide-in-from-top-1">
+          <CheckCircle size={14} className="text-status-healthy shrink-0 mt-0.5" />
+          <p className="text-[11px] text-status-healthy font-semibold leading-relaxed">{successMessage}</p>
+        </div>
+      )}
+
       {/* ─── Loading ─── */}
       {loading && !byEntity && (
         <div className="flex items-center justify-center gap-2 py-16 bg-surface border border-border rounded-xl">
@@ -301,6 +546,7 @@ export default function AdsFinancialPanel() {
 
       {/* ═══════════════════════════════════════════════════════
             SECTION 1 — STATS CARDS (4 cards)
+            SESI 5G: Card 4 Audit Pending CLICKABLE
           ═══════════════════════════════════════════════════════ */}
       {!loading && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -353,13 +599,19 @@ export default function AdsFinancialPanel() {
             </p>
           </div>
 
-          {/* Card 4: Audit Pending */}
-          <div className={cn(
-            'border rounded-xl p-4',
-            stats.auditPendingCount > 0
-              ? 'bg-status-warning/8 border-status-warning/30'
-              : 'bg-surface border-border'
-          )}>
+          {/* Card 4: Audit Pending — SESI 5G CLICKABLE */}
+          <button
+            type="button"
+            onClick={handleAuditPendingCardClick}
+            disabled={stats.auditPendingCount === 0}
+            className={cn(
+              'border rounded-xl p-4 text-left transition-all',
+              stats.auditPendingCount > 0
+                ? 'bg-status-warning/8 border-status-warning/30 hover:bg-status-warning/12 hover:border-status-warning/50 cursor-pointer'
+                : 'bg-surface border-border cursor-default'
+            )}
+            title={stats.auditPendingCount > 0 ? 'Click untuk scroll ke daftar Audit Pending' : 'Semua audit clean'}
+          >
             <div className="flex items-center justify-between mb-2">
               <div className={cn(
                 'flex items-center justify-center w-9 h-9 rounded-lg',
@@ -369,6 +621,9 @@ export default function AdsFinancialPanel() {
               )}>
                 {stats.auditPendingCount > 0 ? <AlertTriangle size={16} /> : <CheckCircle2 size={16} />}
               </div>
+              {stats.auditPendingCount > 0 && (
+                <ArrowUpRight size={12} className="text-status-warning" />
+              )}
             </div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
               Audit Pending
@@ -382,12 +637,13 @@ export default function AdsFinancialPanel() {
                 {stats.auditPendingCount > 0 ? 'tertunda' : 'clean'}
               </span>
             </p>
-          </div>
+          </button>
         </div>
       )}
 
       {/* ═══════════════════════════════════════════════════════
             SECTION 2 — REVENUE BY BANK ACCOUNT
+            SESI 5G: Bar CLICKABLE untuk drill-down filter
           ═══════════════════════════════════════════════════════ */}
       {!loading && events.length > 0 && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -401,7 +657,7 @@ export default function AdsFinancialPanel() {
                   Revenue by Bank Account
                 </h3>
                 <p className="text-[10px] text-text-muted">
-                  Alokasi pembayaran per rekening — monitoring concentration risk
+                  Alokasi pembayaran per rekening — click bar untuk filter Aktivitas
                 </p>
               </div>
             </div>
@@ -443,7 +699,12 @@ export default function AdsFinancialPanel() {
                     ]}
                     labelStyle={{ color: '#F9FAFB', fontWeight: 700 }}
                   />
-                  <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                  <Bar
+                    dataKey="total"
+                    radius={[6, 6, 0, 0]}
+                    onClick={handleBankBarClick}
+                    cursor="pointer"
+                  >
                     {chartData.map((entry, i) => (
                       <Cell key={i} fill={entry.color} />
                     ))}
@@ -454,7 +715,12 @@ export default function AdsFinancialPanel() {
               {/* Mini table legend below chart */}
               <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                 {chartData.map((b, i) => (
-                  <div key={i} className="flex items-center justify-between gap-2 px-3 py-2 bg-surface-muted rounded-lg">
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => handleBankBarClick({ payload: b })}
+                    className="flex items-center justify-between gap-2 px-3 py-2 bg-surface-muted hover:bg-surface-muted/70 rounded-lg transition-colors text-left"
+                  >
                     <div className="flex items-center gap-2 min-w-0">
                       <span
                         className="w-3 h-3 rounded shrink-0"
@@ -468,6 +734,103 @@ export default function AdsFinancialPanel() {
                     <span className="text-[11px] font-bold text-text tabular-nums shrink-0">
                       {formatRpShort(b.total)}
                     </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+            SECTION 3 — REVENUE BY PRICING TIER (NEW SESI 5G)
+            Horizontal BarChart, Top 5, color by tier_category
+          ═══════════════════════════════════════════════════════ */}
+      {!loading && events.length > 0 && (
+        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-7 h-7 rounded-md bg-ads/12 text-ads">
+                <Package size={14} />
+              </div>
+              <div>
+                <h3 className="text-[12px] font-bold text-text uppercase tracking-wider">
+                  Revenue by Pricing Tier
+                </h3>
+                <p className="text-[10px] text-text-muted">
+                  Top 5 tier paling laku — insight tier mana yang menggerakkan revenue
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {tierChartData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Package className="text-text-subtle mb-2" size={32} />
+              <p className="text-[12px] text-text-muted">
+                Belum ada data tier untuk period ini
+              </p>
+              <p className="text-[10px] text-text-subtle mt-1">
+                Tier akan muncul setelah ada pembayaran dengan pricing tier ter-set
+              </p>
+            </div>
+          ) : (
+            <div className="p-4">
+              <ResponsiveContainer width="100%" height={Math.max(180, tierChartData.length * 44)}>
+                <BarChart
+                  data={tierChartData}
+                  layout="vertical"
+                  margin={{ top: 10, right: 30, left: 10, bottom: 10 }}
+                >
+                  <XAxis
+                    type="number"
+                    tick={{ fontSize: 10, fill: '#9CA3AF' }}
+                    tickFormatter={formatRpShort}
+                  />
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    tick={{ fontSize: 11, fill: '#9CA3AF', fontWeight: 600 }}
+                    width={130}
+                  />
+                  <Tooltip
+                    cursor={{ fill: 'rgba(232,150,58,0.08)' }}
+                    contentStyle={{
+                      backgroundColor: '#111827',
+                      border: '1px solid #1F2937',
+                      borderRadius: 8,
+                      fontSize: 11,
+                    }}
+                    formatter={(value: any, _name: any, item: any) => {
+                      const p = item?.payload;
+                      const colorMeta = getTierColor(p?.tier_category);
+                      return [
+                        formatRp(Number(value)),
+                        `${colorMeta.label} · ${p?.count ?? 0}x bayar`,
+                      ];
+                    }}
+                    labelStyle={{ color: '#F9FAFB', fontWeight: 700 }}
+                  />
+                  <Bar dataKey="total" radius={[0, 6, 6, 0]}>
+                    {tierChartData.map((entry, i) => (
+                      <Cell key={i} fill={entry.color} />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* Legend tier category */}
+              <div className="mt-4 flex flex-wrap items-center gap-3 px-2 py-2 border-t border-border">
+                <span className="text-[10px] font-bold uppercase text-text-muted">Legend:</span>
+                {Object.entries(TIER_CATEGORY_COLOR).map(([key, meta]) => (
+                  <div key={key} className="flex items-center gap-1.5">
+                    <span
+                      className="w-3 h-3 rounded shrink-0"
+                      style={{ backgroundColor: meta.hex }}
+                    />
+                    <span className={cn('text-[10px] font-semibold', meta.text)}>
+                      {meta.label}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -477,10 +840,125 @@ export default function AdsFinancialPanel() {
       )}
 
       {/* ═══════════════════════════════════════════════════════
-            SECTION 3 — AUDIT PENDING ALERT
+            SECTION 4 — TOP ADVERTISER (NEW SESI 5G)
+            Compact table, Top 5, REPEAT/FIRST-TIME badge
+            Row CLICKABLE untuk drill-down filter
+          ═══════════════════════════════════════════════════════ */}
+      {!loading && events.length > 0 && (
+        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+            <div className="flex items-center gap-2">
+              <div className="flex items-center justify-center w-7 h-7 rounded-md bg-status-healthy/12 text-status-healthy">
+                <Users size={14} />
+              </div>
+              <div>
+                <h3 className="text-[12px] font-bold text-text uppercase tracking-wider">
+                  Top Advertiser ({period === 'ytd' ? 'YTD' : period.toUpperCase()})
+                </h3>
+                <p className="text-[10px] text-text-muted">
+                  Klien teratas berdasarkan revenue — click row untuk filter Aktivitas
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {topAdvertisers.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Users className="text-text-subtle mb-2" size={32} />
+              <p className="text-[12px] text-text-muted">
+                Belum ada advertiser yang membayar di period ini
+              </p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead className="bg-surface-muted/40">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider w-12">
+                      #
+                    </th>
+                    <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">
+                      Advertiser
+                    </th>
+                    <th className="px-3 py-2 text-right text-[9px] font-bold text-text-muted uppercase tracking-wider">
+                      Revenue
+                    </th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold text-text-muted uppercase tracking-wider w-16">
+                      Iklan
+                    </th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold text-text-muted uppercase tracking-wider w-24">
+                      Status
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {topAdvertisers.map((adv, i) => {
+                    const isActive =
+                      activityFilter.type === 'advertiser' &&
+                      activityFilter.value === adv.advertiser_id;
+                    return (
+                      <tr
+                        key={adv.advertiser_id}
+                        onClick={() => handleAdvertiserRowClick(adv)}
+                        className={cn(
+                          'border-t border-border cursor-pointer transition-colors',
+                          isActive
+                            ? 'bg-ads/8 hover:bg-ads/12'
+                            : 'hover:bg-surface-muted/30'
+                        )}
+                        title={`Click untuk filter Aktivitas ke ${adv.advertiser_name}`}
+                      >
+                        <td className="px-3 py-2.5">
+                          <span className={cn(
+                            'inline-flex items-center justify-center w-6 h-6 rounded-md text-[10px] font-bold',
+                            i === 0 ? 'bg-ads/15 text-ads' :
+                            i === 1 ? 'bg-status-info/12 text-status-info' :
+                            i === 2 ? 'bg-baronda/12 text-baronda' :
+                            'bg-surface-muted text-text-muted'
+                          )}>
+                            {i + 1}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2.5 text-[12px] font-semibold text-text">
+                          {adv.advertiser_name}
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-[12px] font-bold text-text tabular-nums">
+                          {formatRp(adv.total)}
+                        </td>
+                        <td className="px-3 py-2.5 text-center text-[11px] font-semibold text-text-muted tabular-nums">
+                          {adv.count}x
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {adv.is_repeat ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide bg-status-healthy/12 text-status-healthy">
+                              <ArrowUpRight size={9} />
+                              Repeat
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide bg-surface-muted text-text-muted">
+                              First-time
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ═══════════════════════════════════════════════════════
+            SECTION 5 — AUDIT PENDING ALERT
+            SESI 5G: ref untuk scroll target
           ═══════════════════════════════════════════════════════ */}
       {!loading && stats.auditPendingCount > 0 && (
-        <div className="bg-surface border border-status-warning/30 rounded-xl overflow-hidden">
+        <div
+          ref={auditPendingRef}
+          className="bg-surface border border-status-warning/30 rounded-xl overflow-hidden scroll-mt-4"
+        >
           <div className="flex items-center justify-between gap-3 px-4 py-3 bg-status-warning/8 border-b border-status-warning/20">
             <div className="flex items-center gap-2">
               <div className="flex items-center justify-center w-7 h-7 rounded-md bg-status-warning/20 text-status-warning">
@@ -506,6 +984,7 @@ export default function AdsFinancialPanel() {
                   <th className="px-3 py-2 text-right text-[9px] font-bold text-text-muted uppercase tracking-wider">Amount</th>
                   <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Bank</th>
                   <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Tercatat</th>
+                  <th className="px-3 py-2 text-right text-[9px] font-bold text-text-muted uppercase tracking-wider w-32">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -523,9 +1002,20 @@ export default function AdsFinancialPanel() {
                     <td className="px-3 py-2.5 text-[10px] text-text-muted">
                       {ev.metadata.bank_account_alias ?? '—'}
                     </td>
-                    <td className="px-3 py-2.5 text-[10px] text-text-muted">
+                    <td className="px-3 py-2.5 text-[10px] text-text-muted whitespace-nowrap">
                       <Clock size={9} className="inline mr-1" />
                       {formatDate(ev.recorded_at)} {formatTime(ev.recorded_at)}
+                    </td>
+                    <td className="px-3 py-2.5 text-right">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenResolveModal(ev)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[10px] font-bold uppercase tracking-wide bg-status-healthy/12 text-status-healthy hover:bg-status-healthy hover:text-white transition-all whitespace-nowrap"
+                        title="Upload bukti pembayaran untuk resolve audit"
+                      >
+                        <ShieldCheck size={11} />
+                        Upload Bukti
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -536,11 +1026,12 @@ export default function AdsFinancialPanel() {
       )}
 
       {/* ═══════════════════════════════════════════════════════
-            SECTION 4 — RECENT ACTIVITY
+            SECTION 6 — RECENT ACTIVITY
+            SESI 5G: ActiveFilterPill di header kalau drill-down active
           ═══════════════════════════════════════════════════════ */}
       {!loading && events.length > 0 && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
-          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
+          <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border flex-wrap">
             <div className="flex items-center gap-2">
               <div className="flex items-center justify-center w-7 h-7 rounded-md bg-status-healthy/12 text-status-healthy">
                 <Activity size={14} />
@@ -551,73 +1042,123 @@ export default function AdsFinancialPanel() {
                 </h3>
                 <p className="text-[10px] text-text-muted">
                   10 event terakhir di Money Domain
+                  {activityFilter.type && (
+                    <span className="text-ads font-semibold"> · filtered</span>
+                  )}
                 </p>
               </div>
             </div>
             <span className="text-[10px] font-mono text-text-muted">
-              Total: {events.length}
+              Total: {filteredEvents.length}
+              {activityFilter.type && filteredEvents.length !== events.length && (
+                <span className="text-text-subtle"> / {events.length}</span>
+              )}
             </span>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead className="bg-surface-muted/40">
-                <tr>
-                  <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Waktu</th>
-                  <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Ad</th>
-                  <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Advertiser</th>
-                  <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Method · Bank</th>
-                  <th className="px-3 py-2 text-right text-[9px] font-bold text-text-muted uppercase tracking-wider">Amount</th>
-                  <th className="px-3 py-2 text-center text-[9px] font-bold text-text-muted uppercase tracking-wider">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentActivity.map((ev) => {
-                  const isPending = ev.metadata?.audit_pending === true || ev.metadata?.audit_pending === 'true';
-                  return (
-                    <tr key={ev.id} className="border-t border-border hover:bg-surface-muted/30 transition-colors">
-                      <td className="px-3 py-2.5 text-[10px] text-text-muted whitespace-nowrap">
-                        {formatDate(ev.recorded_at)} {formatTime(ev.recorded_at)}
-                      </td>
-                      <td className="px-3 py-2.5 font-mono text-[10px] font-bold text-ads tabular-nums">
-                        {ev.metadata.ad_display_id ?? '—'}
-                      </td>
-                      <td className="px-3 py-2.5 text-[11px] text-text max-w-[140px] truncate">
-                        {ev.metadata.advertiser_name ?? '—'}
-                      </td>
-                      <td className="px-3 py-2.5">
-                        <div className="flex flex-col gap-0.5">
-                          <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-text-muted">
-                            {ev.metadata.payment_method ?? '—'}
-                          </span>
-                          {ev.metadata.bank_account_alias && (
-                            <span className="text-[9px] text-text-subtle">
-                              {ev.metadata.bank_account_alias} ({ev.metadata.bank_account_bank})
+          {/* SESI 5G — ActiveFilterPill */}
+          {activityFilter.type && activityFilter.label && (
+            <div className="flex items-center gap-2 px-4 py-2 bg-ads/4 border-b border-ads/20">
+              <Filter size={12} className="text-ads shrink-0" />
+              <span className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                Filter:
+              </span>
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-ads/12 border border-ads/30 max-w-full">
+                <span className="text-[9px] font-bold uppercase tracking-wide text-ads">
+                  {activityFilter.type === 'bank' ? 'Bank' : 'Klien'}
+                </span>
+                <span className="text-[11px] font-bold text-ads truncate">
+                  {activityFilter.label}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleClearFilter}
+                  className="inline-flex items-center justify-center w-4 h-4 rounded-sm hover:bg-ads/20 text-ads transition-colors shrink-0"
+                  title="Clear filter"
+                >
+                  <X size={10} />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {recentActivity.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-12 px-4">
+              <Activity className="text-text-subtle mb-2" size={32} />
+              <p className="text-[12px] text-text-muted">
+                Tidak ada aktivitas untuk filter ini
+              </p>
+              {activityFilter.type && (
+                <button
+                  type="button"
+                  onClick={handleClearFilter}
+                  className="mt-2 text-[10px] font-bold uppercase tracking-wide text-ads hover:underline"
+                >
+                  Clear filter
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead className="bg-surface-muted/40">
+                  <tr>
+                    <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Waktu</th>
+                    <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Ad</th>
+                    <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Advertiser</th>
+                    <th className="px-3 py-2 text-left text-[9px] font-bold text-text-muted uppercase tracking-wider">Method · Bank</th>
+                    <th className="px-3 py-2 text-right text-[9px] font-bold text-text-muted uppercase tracking-wider">Amount</th>
+                    <th className="px-3 py-2 text-center text-[9px] font-bold text-text-muted uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recentActivity.map((ev) => {
+                    const isPending = ev.metadata?.audit_pending === true || ev.metadata?.audit_pending === 'true';
+                    return (
+                      <tr key={ev.id} className="border-t border-border hover:bg-surface-muted/30 transition-colors">
+                        <td className="px-3 py-2.5 text-[10px] text-text-muted whitespace-nowrap">
+                          {formatDate(ev.recorded_at)} {formatTime(ev.recorded_at)}
+                        </td>
+                        <td className="px-3 py-2.5 font-mono text-[10px] font-bold text-ads tabular-nums">
+                          {ev.metadata.ad_display_id ?? '—'}
+                        </td>
+                        <td className="px-3 py-2.5 text-[11px] text-text max-w-[140px] truncate">
+                          {ev.metadata.advertiser_name ?? '—'}
+                        </td>
+                        <td className="px-3 py-2.5">
+                          <div className="flex flex-col gap-0.5">
+                            <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-text-muted">
+                              {ev.metadata.payment_method ?? '—'}
+                            </span>
+                            {ev.metadata.bank_account_alias && (
+                              <span className="text-[9px] text-text-subtle">
+                                {ev.metadata.bank_account_alias} ({ev.metadata.bank_account_bank})
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-3 py-2.5 text-right text-[11px] font-bold text-text tabular-nums">
+                          {formatRp(ev.amount)}
+                        </td>
+                        <td className="px-3 py-2.5 text-center">
+                          {isPending ? (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-status-warning/12 text-status-warning">
+                              Pending
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-status-healthy/12 text-status-healthy">
+                              <ArrowUpRight size={9} />
+                              OK
                             </span>
                           )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 text-right text-[11px] font-bold text-text tabular-nums">
-                        {formatRp(ev.amount)}
-                      </td>
-                      <td className="px-3 py-2.5 text-center">
-                        {isPending ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-status-warning/12 text-status-warning">
-                            Pending
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-status-healthy/12 text-status-healthy">
-                            <ArrowUpRight size={9} />
-                            OK
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -641,8 +1182,21 @@ export default function AdsFinancialPanel() {
           <strong>Source data:</strong> Money Domain (financial_events).
           Period filter ke <code>by-entity</code>, event list 100 terbaru.
           Aggregation client-side untuk fleksibilitas filter.
+          <span className="block mt-1">
+            <strong>Drill-down:</strong> click card "Audit Pending", bar Bank, atau row Top Advertiser
+            untuk filter Aktivitas.
+          </span>
         </p>
       </div>
+
+      {/* ─── SESI 5G Phase 3 — Resolve Audit Pending Modal ─── */}
+      <AuditPendingResolveModal
+        event={resolveModalEvent}
+        token={token ?? null}
+        onSuccess={handleResolveSuccess}
+        onError={handleResolveError}
+        onClose={() => setResolveModalEvent(null)}
+      />
     </div>
   );
 }
