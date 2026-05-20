@@ -17,6 +17,11 @@ import type { NextConfig } from "next";
 //               Mengikuti pola refactor /reports → /balapor — folder
 //               sekarang RENAMED (bukan rewrite) jadi URL public 1:1
 //               dengan brand BAKABAR. Pola brand-aligned routing.
+// May 20, 2026 — SESI 5H Phase 1.7: sponsored migration ke nested route.
+//               /sponsored/* → /bakabar/sponsored/* (semantic alignment:
+//               advertorial = konten mitra BAKABAR). Editorial-ADS Firewall
+//               preserved via URL distinction. Backend endpoint
+//               /public/sponsored/${slug} TIDAK berubah (API contract).
 //
 // Architectural philosophy LOCKED:
 //   📁 Folder code = URL public 1:1 untuk service yang sudah mature
@@ -100,6 +105,30 @@ const nextConfig: NextConfig = {
       {
         source: '/news',
         destination: '/bakabar',
+        permanent: true,
+      },
+
+      // ─── /sponsored → /bakabar/sponsored (SESI 5H, May 20, 2026) ─
+      // Phase 1.7 folder migration — advertorial = konten mitra BAKABAR.
+      //   - Folder src/app/(public)/sponsored/ RENAMED ke bakabar/sponsored/
+      //   - Word "sponsored" PRESERVED di URL (industry-standard signal)
+      //   - Editorial-ADS Firewall: URL distinction tambahan layer guard
+      //   - 308 permanent — preserve SEO juice + bookmark/share warga
+      //
+      // Backward compat:
+      //   - Existing advertorial yang sudah pernah live di /sponsored/[slug]
+      //   - WhatsApp shares yang sudah tersebar
+      //   - Klien iklan yang sudah notice URL lama
+      //   - Internal hardcoded link (sudah di-update di code,
+      //     redirect ini untuk external traffic)
+      {
+        source: '/sponsored/:path*',
+        destination: '/bakabar/sponsored/:path*',
+        permanent: true,
+      },
+      {
+        source: '/sponsored',
+        destination: '/bakabar/sponsored',
         permanent: true,
       },
     ];

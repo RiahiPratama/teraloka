@@ -129,7 +129,7 @@ export default function AdNativeSlug({ formatFilter }: Props = {}) {
     const preview = truncate(ad.body || '', 140);
 
     return (
-      <Link href={`/sponsored/${ad.slug}`}
+      <Link href={`/bakabar/sponsored/${ad.slug}`}
         onClick={() => trackAdClick(ad.id)}
         className="block mt-5 rounded-2xl border p-4 hover:shadow-md transition-all"
         style={{

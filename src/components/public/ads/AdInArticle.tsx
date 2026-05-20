@@ -198,7 +198,7 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
         `}</style>
         <Link
           ref={setRef as any}
-          href={`/sponsored/${ad.slug}`}
+          href={`/bakabar/sponsored/${ad.slug}`}
           onClick={() => trackAdClick(ad.id)}
           className="block my-6 rounded-2xl overflow-hidden border hover:shadow-md transition-all"
           style={{

@@ -659,7 +659,7 @@ export default function AdsPanel() {
                   )}
                   {!isEditMode && form.ad_format === 'text' && (
                     <p style={{ fontSize: 10, color: t.codeText, marginTop: 4, lineHeight: 1.5 }}>
-                      ℹ️ Advertorial tayang sebagai preview di feed + halaman dedicated <code>/sponsored/[slug]</code>. Posisi: native + in_article only.
+                      ℹ️ Advertorial tayang sebagai preview di feed + halaman dedicated <code>/bakabar/sponsored/[slug]</code>. Posisi: native + in_article only.
                     </p>
                   )}
                 </div>
@@ -768,7 +768,7 @@ export default function AdsPanel() {
                     <div style={{ marginBottom: 10 }}>
                       <label style={labelStyle}>
                         Slug URL * <span style={{ color: t.textDim, fontWeight: 400 }}>
-                          (URL: /sponsored/<strong>{form.slug || 'slug-akan-muncul-disini'}</strong>)
+                          (URL: /bakabar/sponsored/<strong>{form.slug || 'slug-akan-muncul-disini'}</strong>)
                         </span>
                       </label>
                       <div style={{ display: 'flex', gap: 6 }}>
@@ -888,7 +888,7 @@ export default function AdsPanel() {
                     </p>
                     <p style={{ fontSize: 10, color: '#D97706', opacity: 0.9, lineHeight: 1.6 }}>
                       Advertorial tayang sebagai <strong>preview card</strong> di posisi <code>native</code> dan <code>in_article</code>.
-                      Pembaca yang klik akan dialihkan ke halaman full <code>/sponsored/{form.slug || '[slug]'}</code>.
+                      Pembaca yang klik akan dialihkan ke halaman full <code>/bakabar/sponsored/{form.slug || '[slug]'}</code>.
                       Posisi lain (sidebar, banner, homepage) tidak tersedia untuk format ini.
                     </p>
                   </div>

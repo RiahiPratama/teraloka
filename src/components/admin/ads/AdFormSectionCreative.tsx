@@ -247,7 +247,7 @@ export default function AdFormSectionCreative() {
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-text-muted shrink-0 font-mono">
-                  /sponsored/
+                  /bakabar/sponsored/
                 </span>
                 <input
                   type="text"

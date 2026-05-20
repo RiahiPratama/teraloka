@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
+import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 

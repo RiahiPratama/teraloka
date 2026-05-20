@@ -3,10 +3,10 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { Siren, Users, ArrowRight, Check } from 'lucide-react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
-import AdInArticle from '@/components/ads/AdInArticle';
-import AdSidebarSlug from '@/components/ads/AdSidebarSlug';
-import AdNativeSlug from '@/components/ads/AdNativeSlug';
-import BodyWithAds from '@/components/ads/BodyWithAds';
+import AdInArticle from '@/components/public/ads/AdInArticle';
+import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
+import AdNativeSlug from '@/components/public/ads/AdNativeSlug';
+import BodyWithAds from '@/components/public/ads/BodyWithAds';
 import ShareInline from '@/components/shared/ShareInline';
 import { resolveAdSettings } from '@/lib/ad-settings';
 

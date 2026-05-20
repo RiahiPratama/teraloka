@@ -169,7 +169,7 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
     return (
       <Link
         ref={setRef as any}
-        href={`/sponsored/${ad.slug}`}
+        href={`/bakabar/sponsored/${ad.slug}`}
         onClick={() => trackAdClick(ad.id)}
         className="block rounded-xl overflow-hidden border hover:shadow-md transition-all"
         style={{
