@@ -1,10 +1,15 @@
 'use client';
 
 /**
- * TeraLoka — AdSidebarSlug (v5)
- * Mission 8 Sub-Phase 8-D Phase 2 Turn 2
+ * TeraLoka — AdSidebarSlug (v6)
+ * Mission 8 Sub-Phase 8-D + SESI 5H Phase 4
  * ────────────────────────────────────────────────────────────────
  * Sidebar ad untuk slug page BAKABAR.
+ *
+ * v6 Changes (21 Mei 2026 SESI 5H Phase 4):
+ *   - Support ad_format='animated' → render AdAnimatedBanner (GSAP)
+ *   - Extend Ad interface: animation_timeline?: AnimationTimelineConfig
+ *   - Branch priority: skeleton → fallback → ANIMATED → text → image
  *
  * v5 Changes (16 Mei 2026 Phase 2 Turn 2):
  *   - Accept `formatFilter?` prop dari slug page (editor OFFICE control)
@@ -15,6 +20,7 @@
  *   - v3 (16 Mei 2026 Batch C2): refactor pakai shared useAdRotation hook
  *   - v4 (16 Mei 2026 Batch C3): region targeting
  *   - v5 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
+ *   - v6 (21 Mei 2026 SESI 5H Phase 4): animated banner support
  */
 
 import Link from 'next/link';
@@ -26,6 +32,10 @@ import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
+// SESI 5H Phase 4: GSAP animated banner
+import AdAnimatedBanner, {
+  type AnimationTimelineConfig,
+} from '@/components/public/ads/AdAnimatedBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -35,13 +45,14 @@ interface Ad {
   body?: string;
   image_url?: string | null;
   link_url: string;
-  ad_format?: 'image' | 'text';
+  ad_format?: 'image' | 'text' | 'animated';  // SESI 5H: + 'animated'
   slug?: string;
   advertiser_name?: string;
   advertiser_logo_url?: string | null;
   advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
   creative_frames?: AdFrame[] | null;
+  animation_timeline?: AnimationTimelineConfig | null;  // SESI 5H NEW
 }
 
 interface Props {
@@ -157,6 +168,37 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
           <p className="text-xs text-gray-400 font-bold uppercase">IKLAN MITRA</p>
           <p className="text-xs text-gray-300 mt-1">300 × 200</p>
         </div>
+      </div>
+    );
+  }
+
+  // ═══ ANIMATED BANNER — SESI 5H Phase 4 (GSAP timeline) ═══
+  // Render AdAnimatedBanner standalone component.
+  // Internal lifecycle:
+  //   - Lazy load GSAP (Pattern PPP)
+  //   - prefers-reduced-motion + slow-network fallback (Pattern QQQ)
+  //   - IntersectionObserver replay-on-scroll (play-once + replay)
+  //
+  // Wrapper preserves existing animStyle + setRef untuk consistent
+  // entrance pattern dengan branches lain.
+  if (ad.ad_format === 'animated' && ad.animation_timeline) {
+    return (
+      <div ref={setRef as any} style={animStyle}>
+        <AdAnimatedBanner
+          ad={{
+            id:                  ad.id,
+            slug:                ad.slug ?? null,
+            title:               ad.title,
+            body:                ad.body ?? null,
+            image_url:           ad.image_url ?? null,
+            link_url:            ad.link_url,
+            advertiser_name:     ad.advertiser_name ?? 'Sponsor',
+            advertiser_logo_url: ad.advertiser_logo_url ?? null,
+            disclaimer_text:     ad.disclaimer_text ?? null,
+            animation_timeline:  ad.animation_timeline,
+          }}
+          onClick={trackAdClick}
+        />
       </div>
     );
   }

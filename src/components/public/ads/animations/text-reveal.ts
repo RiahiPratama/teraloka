@@ -1,6 +1,7 @@
 /**
  * TeraLoka — Animation Helper: Text Reveal Pattern
  * SESI 5H Phase 1 (20 Mei 2026) — GSAP Banner Foundation Track B
+ * SESI 5H Phase 2 FIX (21 Mei 2026) — container opacity flip
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/public/ads/animations/text-reveal.ts
  *
@@ -19,12 +20,23 @@
  *   2. Wrap each char dalam <span class="char"> dengan opacity 0
  *   3. GSAP stagger animate opacity 1 dengan delay between chars
  *
+ * FIX 21 Mei 2026 (CSS opacity cascade bug):
+ *   Caller component (AdAnimatedBanner) preSet container opacity:0 untuk
+ *   prevent flash sebelum animasi mulai. Tapi container opacity:0 cascade
+ *   ke spans children → spans tetap invisible meskipun opacity 1.
+ *
+ *   Solution: helper FIRST instant-set container opacity:1 via tl.set(),
+ *             lalu animate spans dari opacity:0 → 1 (initial set di
+ *             splitTextIntoSpans inline style).
+ *
+ *   Result: container visible, spans kontrol per-char animation.
+ *
  * Default ease 'power1.out' (gentle deceleration, readable typing-like feel).
  *
  * Edge cases handled:
  *   - HTML entity preservation (&nbsp; untuk spaces)
  *   - innerHTML overwrite — caller WAJIB pakai element kosong / dedicated text
- *   - Re-call same element = re-split (idempotent via cleanup ref)
+ *   - Re-call same element = re-split (idempotent OK)
  *
  * Pattern RRR consistency:
  *   { pattern: 'text_reveal', delay, duration, stagger, unit?: 'char'|'word' }
@@ -175,6 +187,17 @@ export function applyTextReveal(
   // Per-char/word duration (short, biar overall feels typing-like)
   const itemDuration = unit === 'word' ? 0.15 : 0.05;
 
+  // ─── CRITICAL FIX (21 Mei 2026) ──────────────────────────────────
+  // Caller (AdAnimatedBanner) preSet container opacity:0 untuk prevent
+  // flash. Tapi container opacity:0 cascade ke spans → spans tetap
+  // invisible meski di-animate ke opacity:1.
+  //
+  // Solution: instant-flip container ke opacity:1 di awal animation.
+  // Spans tetap kontrol per-char via inline opacity:0 → animate ke 1.
+  // ─────────────────────────────────────────────────────────────────
+  tl.set(target, { opacity: 1 }, delay / 1000);
+
+  // Animate spans stagger
   tl.to(
     items,
     {
