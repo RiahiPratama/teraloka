@@ -52,6 +52,16 @@
  *   ⚠️ Soft bounds: render apply clamp visual, store raw value (creative effect OK)
  *   ⚠️ Phase 6C.1 = engine + minimal X/Y number input UI (Batch 6C.2 = PositionCanvas)
  *
+ * SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102 (SVG Illustration Layer):
+ *   ✅ SVGLayer type: { id, name, svg_markup, position, width, height,
+ *      animation, delay_ms, duration_ms, z_index, visible }
+ *   ✅ AnimationVariant.svg_layers?: SVGLayer[] (optional, backward compat)
+ *   ✅ Render: dangerouslySetInnerHTML SANITIZED markup di div absolute positioned
+ *   ✅ GSAP integration: 3 animation mode (none/fade_in/scale_in)
+ *   ⚠️ Sanitization done at SAVE time (admin builder), public render trusts stored
+ *   ⚠️ Backward compat: svg_layers optional, variant tanpa SVG render normal
+ *   ⚠️ Defer Phase 7: draw_on path animation, file upload (paste-only MVP)
+ *
  * Layout engine:
  *   - Absolute positioning per element (9 anchor preset)
  *   - Z-index: logo=20, headline=15, body=12, cta=18 (CTA top untuk clickability)
@@ -488,6 +498,47 @@ export const DEFAULT_ELEMENT_OVERRIDES: Record<ElementKey, ElementOverride> = {
 // DATA SHAPE — Phase 5B DCA-Aligned + Tier 2 element_overrides
 // ════════════════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════════════════
+// SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102: SVG ILLUSTRATION LAYER
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Animation mode untuk SVG layer.
+ * Phase 6D.2 MVP: 3 mode only.
+ * Phase 7+: `draw_on` (path stroke-dasharray reveal), `slide_in`, etc.
+ */
+export type SVGLayerAnimation = 'none' | 'fade_in' | 'scale_in';
+
+/**
+ * Per-layer SVG illustration data.
+ * Stored di variant.svg_layers JSONB array. Markup SANITIZED at SAVE time
+ * (admin builder via svg-parser.ts), public render trusts stored markup.
+ *
+ *   - id:          stable unique key untuk React + GSAP selector
+ *   - name:        admin-set label (e.g. "Burst icon", "Logo accent")
+ *   - svg_markup:  full <svg>...</svg> markup string (sanitized)
+ *   - position:    AbsolutePosition (px, top-left of layer container)
+ *   - width/height: numeric px (admin set, defaults from SVG viewBox)
+ *   - animation:   entry animation mode
+ *   - delay_ms:    delay before animation starts
+ *   - duration_ms: animation duration
+ *   - z_index:     stacking order (1-30 typical, default 5)
+ *   - visible:     toggle render (default true)
+ */
+export interface SVGLayer {
+  id:          string;
+  name:        string;
+  svg_markup:  string;
+  position:    AbsolutePosition;
+  width:       number;
+  height:      number;
+  animation:   SVGLayerAnimation;
+  delay_ms:    number;
+  duration_ms: number;
+  z_index?:    number;
+  visible?:    boolean;
+}
+
 export interface AnimationVariant {
   order:       number;
   image_url:   string;
@@ -497,6 +548,8 @@ export interface AnimationVariant {
   duration_ms: number;
   /** Tier 2: per-element override (null/undefined = use defaults). */
   element_overrides?: Partial<Record<ElementKey, ElementOverride>>;
+  /** SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102: SVG illustration layers (optional). */
+  svg_layers?: SVGLayer[];
 }
 
 export type TransitionPattern = 'fade' | 'slide_left' | 'slide_up' | 'none';
@@ -1085,6 +1138,34 @@ export default function AdAnimatedBanner({
             });
           }
 
+          // ════════════════════════════════════════════════════════
+          // SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102:
+          // SVG layer entry animations (variant-level)
+          // ════════════════════════════════════════════════════════
+          const svgLayers = activeVariant.svg_layers ?? [];
+          for (const layer of svgLayers) {
+            if (layer.visible === false || layer.animation === 'none') continue;
+            const selector    = `.tlk-svg-layer-${layer.id}`;
+            const delaySec    = (layer.delay_ms ?? 0)    / 1000;
+            const durationSec = (layer.duration_ms ?? 800) / 1000;
+
+            if (layer.animation === 'fade_in') {
+              tl.fromTo(
+                selector,
+                { opacity: 0 },
+                { opacity: 1, duration: durationSec, ease: 'power2.out' },
+                delaySec
+              );
+            } else if (layer.animation === 'scale_in') {
+              tl.fromTo(
+                selector,
+                { opacity: 0, scale: 0.4, transformOrigin: 'center center' },
+                { opacity: 1, scale: 1, duration: durationSec, ease: 'back.out(1.4)' },
+                delaySec
+              );
+            }
+          }
+
           timelineRef.current = tl;
         }, containerEl);
 
@@ -1361,6 +1442,32 @@ export default function AdAnimatedBanner({
             {resolved.cta_text}
           </div>
         )}
+
+        {/* ════════════════════════════════════════════════════════
+            SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102:
+            SVG Illustration Layers (variant-level)
+            Render BEFORE disclaimer supaya disclaimer overlay layer.
+            ════════════════════════════════════════════════════════ */}
+        {(activeVariant.svg_layers ?? []).map((layer) => {
+          if (layer.visible === false) return null;
+          return (
+            <div
+              key={layer.id}
+              className={`tlk-svg-layer tlk-svg-layer-${layer.id}`}
+              style={{
+                position: 'absolute',
+                ...getPositionStyle(layer.position),
+                width:    `${layer.width}px`,
+                height:   `${layer.height}px`,
+                zIndex:   layer.z_index ?? 5,
+                pointerEvents: 'none',
+                // Start hidden if has animation, else fully visible
+                opacity:  layer.animation !== 'none' ? 0 : 1,
+              }}
+              dangerouslySetInnerHTML={{ __html: layer.svg_markup }}
+            />
+          );
+        })}
 
         {/* Disclaimer at bottom (always visible) */}
         {ad.disclaimer_text && (

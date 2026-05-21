@@ -15,7 +15,7 @@
  *                                      Batch 6C.2 = PositionCanvas drag-drop UI (LIVE)
  * SESI 6  Sub-Phase 6D (22 Mei 2026) — TD-ANIM-106 Timeline Visualizer UI
  *                                      Batch 6D.1 = TimelineEditor multi-element drag (LIVE)
- *                                      Batch 6D.2 = TD-ANIM-102 SVG Layer (next)
+ *                                      Batch 6D.2 = TD-ANIM-102 SVG Layer paste-only MVP (LIVE)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -120,6 +120,8 @@ import AdAnimatedBanner, {
   type AbsolutePosition,
   isAbsolutePosition,
   DEFAULT_ABSOLUTE_POSITION,
+  // SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102 SVG layer
+  type SVGLayer,
   DEFAULT_ELEMENT_OVERRIDES,
   DEFAULT_TEXT_GRADIENT,
   TEXT_COLOR_MAP,
@@ -136,6 +138,9 @@ import PositionCanvas from './PositionCanvas';
 
 // SESI 6 Sub-Phase 6D Batch 6D.1 — TD-ANIM-106: TimelineEditor multi-element
 import TimelineEditor, { type TimelineElementData } from './TimelineEditor';
+
+// SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102: SVG Illustration Layer
+import SVGLayerEditor from './SVGLayerEditor';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1632,6 +1637,19 @@ function VariantEditor({
                 </div>
               );
             })()}
+
+            {/* ════════════════════════════════════════════════════════
+                SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102:
+                SVG Illustration Layer Editor (per-variant)
+                ════════════════════════════════════════════════════════ */}
+            <div className="rounded-md border border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-900/15 p-2.5">
+              <SVGLayerEditor
+                layers={variant.svg_layers ?? []}
+                onChange={(layers) => onChange({ svg_layers: layers })}
+                bannerWidth={bannerWidth}
+                bannerHeight={bannerHeight}
+              />
+            </div>
 
             {(['logo', 'headline', 'body', 'cta'] as ElementKey[]).map((key) => (
               <ElementAdvancedEditor
