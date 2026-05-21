@@ -1,31 +1,26 @@
 'use client';
 
 /**
- * TeraLoka — AnimationBuilder (Inline Controls Per Field)
- * SESI 5H Phase 5B (21 Mei 2026)
+ * TeraLoka — AnimationBuilder (Banner Studio V1)
+ * SESI 5H Phase 5B (21 Mei 2026) — Banner Studio V1
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
- * Design philosophy:
- *   Setiap text field (Headline/Body/CTA) punya MINI-CONTROLS inline:
- *     - 📍 Position: Left | Center | Right
- *     - 📐 Size:     S | M | L (+ XL untuk Headline)
- *     - ✨ Animation: Fade In | Slide In | Scale In | Text Reveal (+ Pulse untuk CTA)
- *     - 🎨 Warna:    8 color palette untuk text color
- *     - 🎨 Backdrop: None + 8 color palette untuk tint di belakang text
- *
- * Klien isi text → langsung sebelahnya atur kontrol. Linear flow, low cognitive load.
+ * Admin solo founder tool untuk craft banner cinematic.
  *
  * UI STRUCTURE:
- *   1. Preset Picker (5 template cepat)
- *   2. Variants CRUD (per variant inline controls)
- *   3. Transition antar variant (kalau 2+)
- *   4. Text Reveal Animation GLOBAL (fallback default)
- *   5. Loop Toggle
- *   6. Live Preview (auto-scale)
+ *   A. TEMPLATE PICKER       — 5 cinematic templates + Custom Scratch
+ *   B. VARIANTS CRUD         — Per variant: bg + text fields + inline controls
+ *      └─ INLINE CONTROLS    — Per field: Position + Size + Animation + Color + Backdrop
+ *      └─ ELEMENT EDITOR     — Collapsible per-element fine-tune (Tier 2 Full)
+ *   C. TRANSITION antar variant (kalau 2+)
+ *   D. TEXT REVEAL GLOBAL    — Fallback default kalau element override gak set
+ *   E. LOOP toggle
+ *   F. LIVE PREVIEW auto-scale
  *
- * Engine support: AdAnimatedBanner Tier 2 (per-element override engine).
- * UI sends `element_overrides` dengan auto-calculated delay_ms + duration_ms.
+ * Persona: Admin POWER USER (founder solo).
+ * Workflow: Pilih template → isi text + upload bg → fine-tune → save.
+ * Output: 1 banner cinematic dalam 15-30 menit (bukan 8 jam designer work).
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -39,6 +34,20 @@ import {
   Eye,
   Wand2,
   Image as ImageIcon,
+  ChevronDown,
+  ChevronUp,
+  Settings2,
+  RotateCcw,
+  Film,
+  Layers,
+  Plane,
+  Building2,
+  ShoppingBag,
+  PartyPopper,
+  Megaphone,
+  Car,
+  Type,
+  Bold,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -48,6 +57,12 @@ import {
   clonePresetTimeline,
   buildEmptyTimeline,
 } from '@/lib/ads/animation-presets';
+import {
+  BANNER_TEMPLATES,
+  getBannerTemplate,
+  cloneBannerTemplateTimeline,
+  type BannerTemplate,
+} from '@/lib/ads/banner-templates';
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
   type AnimationVariant,
@@ -58,8 +73,12 @@ import AdAnimatedBanner, {
   type ElementKey,
   type ElementAnimation,
   type ElementPosition,
+  type SlideFromDirection,
   type TextSize,
   type TextColorKey,
+  type BackgroundTint,
+  type FontFamily,
+  type FontWeight,
   DEFAULT_ELEMENT_OVERRIDES,
   TEXT_COLOR_MAP,
 } from '@/components/public/ads/AdAnimatedBanner';
@@ -90,7 +109,6 @@ const TEXT_REVEAL_OPTIONS: { value: TextRevealPattern; label: string; descriptio
 
 // ─── Inline Controls Constants ────────────────────────────────────
 
-// 3-way horizontal position
 type HorizontalPosition = 'left' | 'center' | 'right';
 
 const POSITION_OPTIONS: { value: HorizontalPosition; label: string; emoji: string }[] = [
@@ -99,40 +117,37 @@ const POSITION_OPTIONS: { value: HorizontalPosition; label: string; emoji: strin
   { value: 'right',  label: 'Right',  emoji: '➡' },
 ];
 
-// Map HorizontalPosition + element type ke ElementPosition (9-anchor) di engine
 function toEnginePosition(field: 'headline' | 'body' | 'cta', horizontal: HorizontalPosition): ElementPosition {
-  // Headline & Body di middle row
-  // CTA di bottom row
   if (field === 'cta') {
     if (horizontal === 'left')   return 'bottom_left';
     if (horizontal === 'center') return 'bottom_center';
     return 'bottom_right';
   }
-  // Headline & Body middle row
   if (horizontal === 'left')   return 'middle_left';
   if (horizontal === 'center') return 'middle_center';
   return 'middle_right';
 }
 
-// Reverse: ElementPosition → HorizontalPosition (untuk read state existing)
 function fromEnginePosition(position: ElementPosition): HorizontalPosition {
   if (position.includes('center')) return 'center';
   if (position.includes('right'))  return 'right';
   return 'left';
 }
 
-// Size options per field
 const HEADLINE_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
-  { value: 'sm', label: 'S' },
-  { value: 'md', label: 'M' },
-  { value: 'lg', label: 'L' },
-  { value: 'xl', label: 'XL' },
+  { value: 'sm',  label: 'S' },
+  { value: 'md',  label: 'M' },
+  { value: 'lg',  label: 'L' },
+  { value: 'xl',  label: 'XL' },
+  { value: '2xl', label: '2XL' },
+  { value: '3xl', label: '3XL' },
 ];
 
 const BODY_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
   { value: 'sm', label: 'S' },
   { value: 'md', label: 'M' },
   { value: 'lg', label: 'L' },
+  { value: 'xl', label: 'XL' },
 ];
 
 const CTA_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
@@ -141,7 +156,22 @@ const CTA_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
   { value: 'lg', label: 'L' },
 ];
 
-// Animation per field (Headline/Body sama, CTA exclusive Pulse)
+// ─── Font Family Options ──────────────────────────────────────────
+
+const FONT_FAMILY_OPTIONS: { value: FontFamily; label: string; sample: string; fontFamily: string }[] = [
+  { value: 'sans',    label: 'Sans',    sample: 'Aa',  fontFamily: 'Inter, system-ui, sans-serif' },
+  { value: 'serif',   label: 'Serif',   sample: 'Aa',  fontFamily: '"Playfair Display", Georgia, serif' },
+  { value: 'display', label: 'Display', sample: 'Aa',  fontFamily: '"Bebas Neue", Impact, sans-serif' },
+  { value: 'mono',    label: 'Mono',    sample: 'Aa',  fontFamily: '"JetBrains Mono", monospace' },
+];
+
+const FONT_WEIGHT_OPTIONS: { value: FontWeight; label: string; weight: number }[] = [
+  { value: 'normal',   label: 'Reg',     weight: 400 },
+  { value: 'semibold', label: 'Semi',    weight: 600 },
+  { value: 'bold',     label: 'Bold',    weight: 700 },
+  { value: 'black',    label: 'Black',   weight: 900 },
+];
+
 const TEXT_ANIM_OPTIONS: { value: ElementAnimation; label: string; emoji: string }[] = [
   { value: 'fade_in',     label: 'Fade In',     emoji: '🌫️' },
   { value: 'slide_in',    label: 'Slide In',    emoji: '➡️' },
@@ -156,7 +186,6 @@ const CTA_ANIM_OPTIONS: { value: ElementAnimation; label: string; emoji: string 
   { value: 'pulse',    label: 'Pulse',    emoji: '💗' },
 ];
 
-// Color palette — 8 swatches restricted untuk klarity
 const COLOR_PALETTE: { value: TextColorKey; label: string; swatch: string }[] = [
   { value: 'white',  label: 'White',  swatch: TEXT_COLOR_MAP.white  },
   { value: 'black',  label: 'Black',  swatch: TEXT_COLOR_MAP.black  },
@@ -168,7 +197,6 @@ const COLOR_PALETTE: { value: TextColorKey; label: string; swatch: string }[] = 
   { value: 'gray',   label: 'Gray',   swatch: TEXT_COLOR_MAP.gray   },
 ];
 
-// Auto-calculated delay per field (klien gak perlu lihat angka)
 const AUTO_DELAY_MS: Record<'headline' | 'body' | 'cta', number> = {
   headline: 0,
   body:     300,
@@ -176,6 +204,49 @@ const AUTO_DELAY_MS: Record<'headline' | 'body' | 'cta', number> = {
 };
 
 const AUTO_DURATION_MS = 500;
+
+// ─── Element editor (Tier 2 Full) Constants ───────────────────────
+
+const SLIDE_DIRECTION_OPTIONS: { value: SlideFromDirection; label: string }[] = [
+  { value: 'left',   label: '⬅ Left' },
+  { value: 'right',  label: '➡ Right' },
+  { value: 'top',    label: '⬆ Top' },
+  { value: 'bottom', label: '⬇ Bottom' },
+];
+
+const POSITION_LABELS: Record<ElementPosition, string> = {
+  top_left:        'Top Left',
+  top_center:      'Top Center',
+  top_right:       'Top Right',
+  middle_left:     'Mid Left',
+  middle_center:   'Mid Center',
+  middle_right:    'Mid Right',
+  bottom_left:     'Bot Left',
+  bottom_center:   'Bot Center',
+  bottom_right:    'Bot Right',
+};
+
+const POSITION_GRID: ElementPosition[][] = [
+  ['top_left',    'top_center',    'top_right'],
+  ['middle_left', 'middle_center', 'middle_right'],
+  ['bottom_left', 'bottom_center', 'bottom_right'],
+];
+
+const ALL_ANIM_OPTIONS: { value: ElementAnimation; label: string; emoji: string }[] = [
+  { value: 'fade_in',     label: 'Fade In',     emoji: '🌫️' },
+  { value: 'slide_in',    label: 'Slide In',    emoji: '➡️' },
+  { value: 'scale_in',    label: 'Scale In',    emoji: '🔍' },
+  { value: 'text_reveal', label: 'Reveal',      emoji: '⌨️' },
+  { value: 'pulse',       label: 'Pulse',       emoji: '💗' },
+  { value: 'none',        label: 'None',        emoji: '⊘' },
+];
+
+const ELEMENT_META: Record<ElementKey, { label: string; emoji: string }> = {
+  logo:     { label: 'Logo',     emoji: '🏷️' },
+  headline: { label: 'Headline', emoji: '📰' },
+  body:     { label: 'Body',     emoji: '📝' },
+  cta:      { label: 'CTA',      emoji: '🎯' },
+};
 
 // ════════════════════════════════════════════════════════════════
 // PREVIEW CONTEXT
@@ -223,21 +294,28 @@ function renumberVariants(variants: AnimationVariant[]): AnimationVariant[] {
   return variants.map((v, idx) => ({ ...v, order: idx }));
 }
 
-/**
- * Get effective ElementOverride for variant + field (merge default + override).
- */
-function getElementOverride(
-  variant: AnimationVariant,
-  field:   ElementKey,
-): ElementOverride {
+function getElementOverride(variant: AnimationVariant, field: ElementKey): ElementOverride {
   const custom = variant.element_overrides?.[field];
   const defaults = DEFAULT_ELEMENT_OVERRIDES[field];
   return { ...defaults, ...(custom ?? {}) };
 }
 
 /**
- * Build mutation: update element override for specific field di variant.
+ * Template ID → Lucide icon component mapping.
+ * Phase 5B Banner Studio V1: Lucide premium icons replacing emoji.
  */
+function getTemplateIcon(templateId: string): React.ComponentType<{ className?: string }> {
+  switch (templateId) {
+    case 'travel-cinematic':   return Plane;
+    case 'hotel-premium':      return Building2;
+    case 'umkm-energetic':     return ShoppingBag;
+    case 'event-festival':     return PartyPopper;
+    case 'event-multi-text':   return Megaphone;
+    case 'auto-showroom':      return Car;
+    default:                   return Sparkles;
+  }
+}
+
 function patchElementOverride(
   variant: AnimationVariant,
   field:   ElementKey,
@@ -266,7 +344,8 @@ export default function AnimationBuilder({
   previewHeight = 250,
   errorMessage,
 }: AnimationBuilderProps) {
-  const [selectedPresetId, setSelectedPresetId] = useState<string>('custom');
+  const [activeTemplateId, setActiveTemplateId] = useState<string>('custom');
+  const [activeLegacyPresetId, setActiveLegacyPresetId] = useState<string>('custom');
 
   const timeline = timelineProp ?? buildEmptyTimeline();
   const variants = timeline.variants;
@@ -277,8 +356,21 @@ export default function AnimationBuilder({
     onChange({ ...timeline, ...patch });
   };
 
-  const handlePresetSelect = (presetId: string) => {
-    setSelectedPresetId(presetId);
+  const handleTemplateSelect = (templateId: string) => {
+    setActiveTemplateId(templateId);
+    setActiveLegacyPresetId('custom');
+    if (templateId === 'custom') {
+      onChange(buildEmptyTimeline());
+      return;
+    }
+    const template = getBannerTemplate(templateId);
+    if (!template) return;
+    onChange(cloneBannerTemplateTimeline(template));
+  };
+
+  const handleLegacyPresetSelect = (presetId: string) => {
+    setActiveLegacyPresetId(presetId);
+    setActiveTemplateId('custom');
     if (presetId === 'custom') return;
     const preset = getPresetById(presetId);
     if (!preset) return;
@@ -288,7 +380,8 @@ export default function AnimationBuilder({
   const replaceVariant = (idx: number, nextVariant: AnimationVariant) => {
     const next = variants.map((v, i) => (i === idx ? nextVariant : v));
     updateTimeline({ variants: next });
-    setSelectedPresetId('custom');
+    setActiveTemplateId('custom');
+    setActiveLegacyPresetId('custom');
   };
 
   const updateVariant = (idx: number, patch: Partial<AnimationVariant>) => {
@@ -307,18 +400,31 @@ export default function AnimationBuilder({
     replaceVariant(idx, patchElementOverride(current, field, patch));
   };
 
+  const resetVariantElement = (idx: number, field: ElementKey) => {
+    const current = variants[idx];
+    if (!current || !current.element_overrides) return;
+    const nextOverrides = { ...current.element_overrides };
+    delete nextOverrides[field];
+    replaceVariant(idx, {
+      ...current,
+      element_overrides: Object.keys(nextOverrides).length > 0 ? nextOverrides : undefined,
+    });
+  };
+
   const addVariant = () => {
     if (variants.length >= MAX_VARIANTS) return;
     const next = [...variants, createEmptyVariant(variants.length)];
     updateTimeline({ variants: renumberVariants(next) });
-    setSelectedPresetId('custom');
+    setActiveTemplateId('custom');
+    setActiveLegacyPresetId('custom');
   };
 
   const removeVariant = (idx: number) => {
     if (variants.length <= MIN_VARIANTS) return;
     const next = renumberVariants(variants.filter((_, i) => i !== idx));
     updateTimeline({ variants: next });
-    setSelectedPresetId('custom');
+    setActiveTemplateId('custom');
+    setActiveLegacyPresetId('custom');
   };
 
   const moveVariant = (idx: number, direction: 'up' | 'down') => {
@@ -327,7 +433,8 @@ export default function AnimationBuilder({
     const next = [...variants];
     [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
     updateTimeline({ variants: renumberVariants(next) });
-    setSelectedPresetId('custom');
+    setActiveTemplateId('custom');
+    setActiveLegacyPresetId('custom');
   };
 
   // ─── Preview Ad ────────────────────────────────────────────────
@@ -384,6 +491,13 @@ export default function AnimationBuilder({
   const scaledHeight   = previewHeight * scaleFactor;
   const isScaled       = scaleFactor < 1;
 
+  // ─── Active template metadata ──────────────────────────────────
+
+  const activeTemplate = useMemo(
+    () => getBannerTemplate(activeTemplateId),
+    [activeTemplateId],
+  );
+
   // ════════════════════════════════════════════════════════════════
   // RENDER
   // ════════════════════════════════════════════════════════════════
@@ -398,10 +512,16 @@ export default function AnimationBuilder({
             <span className="font-semibold">{variants.length} variant</span>
             <span className="text-purple-600 dark:text-purple-400"> · </span>
             <span>Total {totalDurationSec}s</span>
+            {activeTemplate && (
+              <>
+                <span className="text-purple-600 dark:text-purple-400"> · </span>
+                <span className="font-semibold">{activeTemplate.label}</span>
+              </>
+            )}
             {timeline.loop && (
               <>
                 <span className="text-purple-600 dark:text-purple-400"> · </span>
-                <span className="font-semibold">Loop forever</span>
+                <span className="font-semibold">Loop</span>
               </>
             )}
           </p>
@@ -419,33 +539,179 @@ export default function AnimationBuilder({
         </div>
       )}
 
-      {/* ─── PRESET PICKER ─── */}
-      <div>
-        <label className="block text-xs font-semibold text-purple-900 dark:text-purple-200 mb-2">
-          <Wand2 className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
-          Pilih Template Cepat
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SECTION A: BANNER TEMPLATE PICKER (cinematic templates)       */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      <div className="rounded-lg border-2 border-purple-300 dark:border-purple-700 p-4 bg-gradient-to-br from-purple-50/50 to-amber-50/30 dark:from-purple-950/30 dark:to-amber-950/20">
+        <label className="flex items-center gap-2 text-xs font-bold text-purple-900 dark:text-purple-100 mb-3">
+          <Film className="w-4 h-4" />
+          Banner Template Cinematic (Pilih Cepat)
         </label>
-        <select
-          value={selectedPresetId}
-          onChange={(e) => handlePresetSelect(e.target.value)}
-          className="w-full px-3 py-2 rounded-md border border-purple-300 dark:border-purple-800 bg-white dark:bg-gray-900 text-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-        >
-          <option value="custom">— Custom (craft manual) —</option>
-          {ANIMATION_PRESETS.map((preset) => (
-            <option key={preset.id} value={preset.id}>
-              {preset.icon} {preset.label}
-            </option>
-          ))}
-        </select>
-        {selectedPresetId !== 'custom' && (
-          <p className="mt-2 text-[11px] text-purple-700/80 dark:text-purple-300/80">
-            {getPresetById(selectedPresetId)?.description}
-          </p>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-3">
+          {/* Custom Scratch */}
+          <button
+            type="button"
+            onClick={() => handleTemplateSelect('custom')}
+            className={cn(
+              'p-3 rounded-lg border-2 text-left transition shadow-sm',
+              activeTemplateId === 'custom'
+                ? 'bg-purple-600 text-white border-purple-700 shadow-md'
+                : 'bg-white text-gray-900 border-gray-300 hover:border-purple-400 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-700',
+            )}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Wand2 className={cn(
+                'w-4 h-4 shrink-0',
+                activeTemplateId === 'custom'
+                  ? 'text-white'
+                  : 'text-purple-600 dark:text-purple-400',
+              )} />
+              <p className="text-[12px] font-bold">Custom Scratch</p>
+            </div>
+            <p className={cn(
+              'text-[10px] leading-tight',
+              activeTemplateId === 'custom'
+                ? 'text-purple-100'
+                : 'text-gray-600 dark:text-gray-300',
+            )}>Bangun dari kosong</p>
+          </button>
+
+          {/* Cinematic Templates */}
+          {BANNER_TEMPLATES.map((tpl) => {
+            const IconComp = getTemplateIcon(tpl.id);
+            const isActive = activeTemplateId === tpl.id;
+            return (
+              <button
+                key={tpl.id}
+                type="button"
+                onClick={() => handleTemplateSelect(tpl.id)}
+                className={cn(
+                  'p-3 rounded-lg border-2 text-left transition shadow-sm',
+                  isActive
+                    ? 'bg-purple-600 text-white border-purple-700 shadow-md ring-2 ring-purple-300 dark:ring-purple-800'
+                    : 'bg-white text-gray-900 border-gray-300 hover:border-purple-400 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-100 dark:border-gray-600 dark:hover:bg-gray-700',
+                )}
+                title={tpl.description_id}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <IconComp className={cn(
+                    'w-4 h-4 shrink-0',
+                    isActive
+                      ? 'text-white'
+                      : 'text-purple-600 dark:text-purple-400',
+                  )} />
+                  <p className="text-[12px] font-bold leading-tight">
+                    {tpl.label}
+                  </p>
+                </div>
+                <p className={cn(
+                  'text-[10px] leading-tight line-clamp-2',
+                  isActive
+                    ? 'text-purple-100'
+                    : 'text-gray-600 dark:text-gray-300',
+                )}>
+                  {tpl.tagline}
+                </p>
+              </button>
+            );
+          })}
+        </div>
+
+        {activeTemplate && (
+          <div className="mt-3 p-3 rounded-md bg-white dark:bg-gray-800 border border-purple-200 dark:border-purple-700 shadow-sm">
+            <p className="text-[12px] text-gray-900 dark:text-gray-100">
+              <span className="font-bold">{activeTemplate.label}</span>
+              <span className="text-purple-600 dark:text-purple-400 mx-1.5">·</span>
+              <span className="italic text-gray-700 dark:text-gray-300">{activeTemplate.target_use_case}</span>
+            </p>
+            <p className="text-[11px] text-gray-600 dark:text-gray-300 mt-1.5 leading-relaxed">
+              {activeTemplate.description_id}
+            </p>
+            {activeTemplate.variant_hints.length > 0 && (
+              <details className="mt-2">
+                <summary className="text-[11px] font-semibold text-purple-700 dark:text-purple-300 cursor-pointer hover:underline">
+                  💡 Hint isi per variant ({activeTemplate.variant_hints.length} scene)
+                </summary>
+                <ul className="mt-1.5 space-y-1">
+                  {activeTemplate.variant_hints.map((hint, i) => (
+                    <li key={i} className="text-[11px] text-gray-700 dark:text-gray-300 pl-2 leading-relaxed">
+                      <span className="font-bold text-purple-700 dark:text-purple-400">#{i + 1}:</span> {hint}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        )}
+
+        {/* Legacy preset picker (kalau admin masih mau pakai preset DCA lama) */}
+        <details className="mt-3">
+          <summary className="text-[10px] text-purple-700 dark:text-purple-300 cursor-pointer hover:underline">
+            Atau pilih preset DCA simpel (legacy)
+          </summary>
+          <div className="mt-2">
+            <select
+              value={activeLegacyPresetId}
+              onChange={(e) => handleLegacyPresetSelect(e.target.value)}
+              className="w-full px-2 py-1.5 rounded-md border border-purple-300 dark:border-purple-800 bg-white dark:bg-gray-900 text-xs text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            >
+              <option value="custom">— Custom —</option>
+              {ANIMATION_PRESETS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.icon} {preset.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </details>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SECTION B0: SHARED BACKGROUND (Kumparan-style 1 bg + multi text)*/}
+      {/* ════════════════════════════════════════════════════════════ */}
+      <div className="rounded-lg border-2 border-dashed border-amber-300 dark:border-amber-700 p-3 bg-amber-50/40 dark:bg-amber-950/20">
+        <div className="flex items-start gap-2 mb-2">
+          <Layers className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <label className="text-[12px] font-bold text-amber-900 dark:text-amber-200">
+              📚 Shared Background (Kumparan-style 1 image + multi text)
+            </label>
+            <p className="text-[10px] text-amber-800/80 dark:text-amber-300/80 mt-0.5">
+              Upload 1 image → semua variant pakai background ini.
+              Bisa di-override per variant (kalau variant.image_url diisi, fallback skip shared).
+              <span className="font-semibold"> Cocok untuk event multi-kota, brand consistency.</span>
+            </p>
+          </div>
+        </div>
+
+        <ImageUpload
+          bucket="ads"
+          maxFiles={1}
+          maxSizeMB={0.5}
+          existingUrls={timeline.shared_background_url ? [timeline.shared_background_url] : []}
+          onUpload={(urls: string[]) => updateTimeline({ shared_background_url: urls[0] ?? null })}
+          label="Shared background untuk semua variant"
+        />
+
+        {timeline.shared_background_url && (
+          <div className="mt-2 flex items-center justify-between p-2 rounded-md bg-amber-100/60 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-800">
+            <span className="text-[10px] text-amber-900 dark:text-amber-200">
+              ✅ Shared background aktif. Variant tanpa image akan pakai ini.
+            </span>
+            <button
+              type="button"
+              onClick={() => updateTimeline({ shared_background_url: null })}
+              className="text-[10px] font-semibold text-red-600 hover:text-red-700 dark:text-red-400 underline"
+            >
+              Hapus
+            </button>
+          </div>
         )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* SECTION: VARIANTS                                            */}
+      {/* SECTION B: VARIANTS CRUD                                      */}
       {/* ════════════════════════════════════════════════════════════ */}
       <div>
         <div className="flex items-center justify-between mb-3">
@@ -471,8 +737,11 @@ export default function AnimationBuilder({
               variant={variant}
               index={idx}
               totalVariants={variants.length}
+              variantHint={activeTemplate?.variant_hints?.[idx]}
+              sharedBackground={timeline.shared_background_url ?? null}
               onChange={(patch) => updateVariant(idx, patch)}
               onChangeElement={(field, patch) => updateVariantElement(idx, field, patch)}
+              onResetElement={(field) => resetVariantElement(idx, field)}
               onRemove={() => removeVariant(idx)}
               onMove={(dir) => moveVariant(idx, dir)}
             />
@@ -485,12 +754,13 @@ export default function AnimationBuilder({
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* SECTION: TRANSITION (visible kalau 2+ variants)               */}
+      {/* SECTION C: TRANSITION                                          */}
       {/* ════════════════════════════════════════════════════════════ */}
       {variants.length >= 2 && (
         <div className="rounded-lg border border-purple-200 dark:border-purple-800 p-3 bg-purple-50/30 dark:bg-purple-950/10">
-          <label className="text-xs font-semibold text-purple-900 dark:text-purple-200 mb-2 block">
-            🎞️ Transisi antar Variant
+          <label className="flex items-center gap-1.5 text-xs font-semibold text-purple-900 dark:text-purple-100 mb-2">
+            <Film className="w-3.5 h-3.5" />
+            Transisi antar Variant
           </label>
           <div className="grid grid-cols-2 gap-2 mb-3">
             {TRANSITION_OPTIONS.map((opt) => (
@@ -540,7 +810,7 @@ export default function AnimationBuilder({
       )}
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* SECTION: TEXT REVEAL ANIMATION (Global Fallback)              */}
+      {/* SECTION D: TEXT REVEAL ANIMATION (Global Fallback)            */}
       {/* ════════════════════════════════════════════════════════════ */}
       <div className="rounded-lg border border-purple-200 dark:border-purple-800 p-3 bg-purple-50/30 dark:bg-purple-950/10">
         <div className="flex items-center justify-between mb-2">
@@ -559,7 +829,7 @@ export default function AnimationBuilder({
         </div>
 
         <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mb-3">
-          Default animasi semua element. Bisa di-override per field di variant (animation picker di bawah field).
+          Default animasi semua element. Bisa di-override per field di variant (di inline controls + element editor).
         </p>
 
         {timeline.text_reveal_enabled && (
@@ -613,7 +883,7 @@ export default function AnimationBuilder({
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* LOOP TOGGLE                                                    */}
+      {/* SECTION E: LOOP TOGGLE                                         */}
       {/* ════════════════════════════════════════════════════════════ */}
       <div className="flex items-center justify-between p-3 rounded-md bg-purple-100/40 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
         <div>
@@ -634,7 +904,7 @@ export default function AnimationBuilder({
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}
-      {/* LIVE PREVIEW                                                   */}
+      {/* SECTION F: LIVE PREVIEW                                        */}
       {/* ════════════════════════════════════════════════════════════ */}
       <div>
         <label className="block text-xs font-semibold text-purple-900 dark:text-purple-200 mb-2">
@@ -708,169 +978,328 @@ export default function AnimationBuilder({
 }
 
 // ════════════════════════════════════════════════════════════════
-// SUB-COMPONENT: VariantEditor (DCA + inline controls per field)
+// SUB-COMPONENT: VariantEditor
 // ════════════════════════════════════════════════════════════════
 
 interface VariantEditorProps {
-  variant:         AnimationVariant;
-  index:           number;
-  totalVariants:   number;
-  onChange:        (patch: Partial<AnimationVariant>) => void;
-  onChangeElement: (field: ElementKey, patch: Partial<ElementOverride>) => void;
-  onRemove:        () => void;
-  onMove:          (direction: 'up' | 'down') => void;
+  variant:           AnimationVariant;
+  index:             number;
+  totalVariants:     number;
+  variantHint?:      string;
+  sharedBackground?: string | null;
+  onChange:          (patch: Partial<AnimationVariant>) => void;
+  onChangeElement:   (field: ElementKey, patch: Partial<ElementOverride>) => void;
+  onResetElement:    (field: ElementKey) => void;
+  onRemove:          () => void;
+  onMove:            (direction: 'up' | 'down') => void;
 }
 
 function VariantEditor({
   variant,
   index,
   totalVariants,
+  variantHint,
+  sharedBackground,
   onChange,
   onChangeElement,
+  onResetElement,
   onRemove,
   onMove,
 }: VariantEditorProps) {
-  // Compute resolved overrides for inline display
+  const [showAdvanced, setShowAdvanced]   = useState(false);
+  const [showOverrideBg, setShowOverrideBg] = useState(false);
+  const [activeFieldTab, setActiveFieldTab] = useState<'headline' | 'body' | 'cta'>('headline');
+
   const headlineOverride = getElementOverride(variant, 'headline');
   const bodyOverride     = getElementOverride(variant, 'body');
   const ctaOverride      = getElementOverride(variant, 'cta');
 
+  const overriddenCount = variant.element_overrides
+    ? Object.keys(variant.element_overrides).length
+    : 0;
+
+  // Auto-show override bg kalau variant.image_url udah ada (admin sudah upload sebelumnya)
+  const shouldShowOverrideBg = showOverrideBg || !!variant.image_url;
+  const hasSharedBg          = !!sharedBackground;
+
+  // Field tab indicators
+  const fieldHasValue: Record<'headline' | 'body' | 'cta', boolean> = {
+    headline: !!variant.headline,
+    body:     !!variant.body,
+    cta:      !!variant.cta_text,
+  };
+
   return (
-    <div className="p-3 rounded-md border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-900">
-      {/* ─── Header ─── */}
+    <div className="p-3 rounded-md border border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-800 shadow-sm">
+      {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-xs font-bold text-purple-900 dark:text-purple-200">
-          🎞️ Variant #{index + 1}
+        <span className="flex items-center gap-1.5 text-xs font-bold text-purple-900 dark:text-purple-100">
+          <Film className="w-3.5 h-3.5" />
+          Variant #{index + 1}
         </span>
         <div className="flex items-center gap-1">
-          <button
-            type="button"
-            onClick={() => onMove('up')}
-            disabled={index === 0}
-            className={cn(
-              'p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40 transition',
-              index === 0 && 'opacity-30 cursor-not-allowed',
-            )}
-            title="Pindah ke atas"
-          >
+          <button type="button" onClick={() => onMove('up')} disabled={index === 0}
+            className={cn('p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40 transition',
+              index === 0 && 'opacity-30 cursor-not-allowed')} title="Pindah ke atas">
             <ArrowUp className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300" />
           </button>
-          <button
-            type="button"
-            onClick={() => onMove('down')}
-            disabled={index === totalVariants - 1}
-            className={cn(
-              'p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40 transition',
-              index === totalVariants - 1 && 'opacity-30 cursor-not-allowed',
-            )}
-            title="Pindah ke bawah"
-          >
+          <button type="button" onClick={() => onMove('down')} disabled={index === totalVariants - 1}
+            className={cn('p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40 transition',
+              index === totalVariants - 1 && 'opacity-30 cursor-not-allowed')} title="Pindah ke bawah">
             <ArrowDown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300" />
           </button>
-          <button
-            type="button"
-            onClick={onRemove}
-            disabled={totalVariants <= MIN_VARIANTS}
-            className={cn(
-              'p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition',
-              totalVariants <= MIN_VARIANTS && 'opacity-30 cursor-not-allowed',
-            )}
-            title={totalVariants <= MIN_VARIANTS ? `Min ${MIN_VARIANTS} variant` : 'Hapus variant'}
-          >
+          <button type="button" onClick={onRemove} disabled={totalVariants <= MIN_VARIANTS}
+            className={cn('p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition',
+              totalVariants <= MIN_VARIANTS && 'opacity-30 cursor-not-allowed')}
+            title={totalVariants <= MIN_VARIANTS ? `Min ${MIN_VARIANTS} variant` : 'Hapus variant'}>
             <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
           </button>
         </div>
       </div>
 
-      {/* ─── Image upload ─── */}
+      {/* Template hint */}
+      {variantHint && (
+        <div className="mb-3 p-2 rounded bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800">
+          <p className="text-[11px] text-amber-900 dark:text-amber-200">
+            <span className="font-bold">💡 Hint Template:</span> {variantHint}
+          </p>
+        </div>
+      )}
+
+      {/* Background image — Conditional logic based on shared bg presence */}
       <div className="mb-3">
-        <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-          <ImageIcon className="w-3 h-3 inline mr-1" />
-          Background Image *
-        </label>
-        <ImageUpload
-          bucket="ads"
-          maxFiles={1}
-          maxSizeMB={0.5}
-          existingUrls={variant.image_url ? [variant.image_url] : []}
-          onUpload={(urls: string[]) => onChange({ image_url: urls[0] ?? '' })}
-          label={`Variant #${index + 1} background`}
-        />
+        {hasSharedBg ? (
+          // Shared bg ACTIVE — hide upload by default, allow override expansion
+          <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50/40 dark:bg-amber-950/20 p-2.5">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-[11px] text-amber-900 dark:text-amber-200">
+                <Layers className="w-3.5 h-3.5" />
+                <span className="font-semibold">Pakai Shared Background</span>
+                {variant.image_url && (
+                  <span className="ml-1 px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-[9px] font-bold">
+                    Override aktif
+                  </span>
+                )}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowOverrideBg(!shouldShowOverrideBg)}
+                className="flex items-center gap-1 text-[10px] font-semibold text-purple-700 dark:text-purple-300 hover:underline"
+              >
+                {shouldShowOverrideBg ? (
+                  <>
+                    <ChevronUp className="w-3 h-3" />
+                    Tutup override
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="w-3 h-3" />
+                    Override bg variant ini
+                  </>
+                )}
+              </button>
+            </div>
+
+            {shouldShowOverrideBg && (
+              <div className="mt-2.5 pt-2.5 border-t border-amber-200 dark:border-amber-800">
+                <p className="text-[10px] text-amber-800 dark:text-amber-300 mb-1.5 italic">
+                  Upload image khusus variant ini (akan override Shared Background).
+                </p>
+                <ImageUpload
+                  bucket="ads"
+                  maxFiles={1}
+                  maxSizeMB={0.5}
+                  existingUrls={variant.image_url ? [variant.image_url] : []}
+                  onUpload={(urls: string[]) => onChange({ image_url: urls[0] ?? '' })}
+                  label={`Variant #${index + 1} background override`}
+                />
+                {variant.image_url && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onChange({ image_url: '' });
+                      setShowOverrideBg(false);
+                    }}
+                    className="mt-1.5 text-[10px] text-red-600 dark:text-red-400 hover:underline font-semibold"
+                  >
+                    Hapus override (kembali ke Shared)
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          // No shared bg — show standard upload
+          <>
+            <label className="block text-[11px] font-semibold text-gray-900 dark:text-gray-100 mb-1">
+              <ImageIcon className="w-3 h-3 inline mr-1" />
+              Background Image <span className="text-red-500">*</span>
+            </label>
+            <ImageUpload
+              bucket="ads"
+              maxFiles={1}
+              maxSizeMB={0.5}
+              existingUrls={variant.image_url ? [variant.image_url] : []}
+              onUpload={(urls: string[]) => onChange({ image_url: urls[0] ?? '' })}
+              label={`Variant #${index + 1} background`}
+            />
+          </>
+        )}
       </div>
 
-      {/* ─── Text fields dengan INLINE controls ─── */}
-      <div className="space-y-4">
-
-        {/* HEADLINE */}
-        <FieldWithInlineControls
-          fieldType="headline"
-          label="Headline *"
-          required
-          minLength={5}
-          maxLength={80}
-          placeholder="e.g., Diskon 50% Lebaran"
-          value={variant.headline}
-          override={headlineOverride}
-          sizeOptions={HEADLINE_SIZE_OPTIONS}
-          animOptions={TEXT_ANIM_OPTIONS}
-          onChangeText={(text) => onChange({ headline: text })}
-          onChangeElement={(patch) => onChangeElement('headline', patch)}
-        />
-
-        {/* BODY */}
-        <FieldWithInlineControls
-          fieldType="body"
-          label="Body override"
-          optional
-          maxLength={120}
-          placeholder="Kosong = pakai Body dari section Kreatif"
-          value={variant.body ?? ''}
-          override={bodyOverride}
-          sizeOptions={BODY_SIZE_OPTIONS}
-          animOptions={TEXT_ANIM_OPTIONS}
-          onChangeText={(text) => onChange({ body: text || null })}
-          onChangeElement={(patch) => onChangeElement('body', patch)}
-        />
-
-        {/* CTA */}
-        <FieldWithInlineControls
-          fieldType="cta"
-          label="CTA Text override"
-          optional
-          maxLength={30}
-          placeholder='Default: "Pelajari Lebih Lanjut"'
-          value={variant.cta_text ?? ''}
-          override={ctaOverride}
-          sizeOptions={CTA_SIZE_OPTIONS}
-          animOptions={CTA_ANIM_OPTIONS}
-          onChangeText={(text) => onChange({ cta_text: text || null })}
-          onChangeElement={(patch) => onChangeElement('cta', patch)}
-        />
-
-        {/* DURASI */}
-        <div>
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Durasi tampil
-          </label>
-          <div className="flex items-center gap-2">
-            <input
-              type="number"
-              value={variant.duration_ms / 1000}
-              onChange={(e) => {
-                const sec = Number(e.target.value);
-                if (isNaN(sec)) return;
-                onChange({ duration_ms: Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, Math.round(sec * 1000))) });
-              }}
-              min={MIN_DURATION_MS / 1000}
-              max={MAX_DURATION_MS / 1000}
-              step={1}
-              className="w-20 px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center"
-            />
-            <span className="text-[11px] text-gray-500 dark:text-gray-400">
-              detik ({MIN_DURATION_MS / 1000}-{MAX_DURATION_MS / 1000}s)
-            </span>
-          </div>
+      {/* ──────────────────────────────────────────────────────────── */}
+      {/* TAB-STYLE FIELD SELECTOR (Headline / Body / CTA)            */}
+      {/* ──────────────────────────────────────────────────────────── */}
+      <div className="mb-3">
+        <div className="flex items-center gap-0 border-b-2 border-purple-200 dark:border-purple-700">
+          {(['headline', 'body', 'cta'] as const).map((tab) => {
+            const isActive   = activeFieldTab === tab;
+            const hasValue   = fieldHasValue[tab];
+            const labelMap   = { headline: 'Headline', body: 'Body', cta: 'CTA Text' };
+            const requiredMap = { headline: true, body: false, cta: false };
+            return (
+              <button
+                key={tab}
+                type="button"
+                onClick={() => setActiveFieldTab(tab)}
+                className={cn(
+                  'flex-1 px-3 py-2 text-[11px] font-bold transition border-b-2 -mb-[2px] flex items-center justify-center gap-1.5',
+                  isActive
+                    ? 'border-purple-600 text-purple-700 dark:text-purple-300 bg-purple-50/50 dark:bg-purple-900/20'
+                    : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50/30 dark:hover:bg-purple-900/10',
+                )}
+              >
+                <span>{labelMap[tab]}</span>
+                {requiredMap[tab] && (
+                  <span className="text-red-500 text-[10px]">*</span>
+                )}
+                {hasValue && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" title="Sudah diisi" />
+                )}
+              </button>
+            );
+          })}
         </div>
+
+        {/* Tab content — render only active field */}
+        <div className="mt-3">
+          {activeFieldTab === 'headline' && (
+            <FieldWithInlineControls
+              fieldType="headline"
+              label="Headline"
+              required
+              minLength={5}
+              maxLength={80}
+              placeholder="e.g., Diskon 50% Lebaran"
+              value={variant.headline}
+              override={headlineOverride}
+              sizeOptions={HEADLINE_SIZE_OPTIONS}
+              animOptions={TEXT_ANIM_OPTIONS}
+              onChangeText={(text) => onChange({ headline: text })}
+              onChangeElement={(patch) => onChangeElement('headline', patch)}
+            />
+          )}
+          {activeFieldTab === 'body' && (
+            <FieldWithInlineControls
+              fieldType="body"
+              label="Body override"
+              optional
+              maxLength={120}
+              placeholder="Kosong = pakai Body dari section Kreatif"
+              value={variant.body ?? ''}
+              override={bodyOverride}
+              sizeOptions={BODY_SIZE_OPTIONS}
+              animOptions={TEXT_ANIM_OPTIONS}
+              onChangeText={(text) => onChange({ body: text || null })}
+              onChangeElement={(patch) => onChangeElement('body', patch)}
+            />
+          )}
+          {activeFieldTab === 'cta' && (
+            <FieldWithInlineControls
+              fieldType="cta"
+              label="CTA Text override"
+              optional
+              maxLength={30}
+              placeholder='Default: "Pelajari Lebih Lanjut"'
+              value={variant.cta_text ?? ''}
+              override={ctaOverride}
+              sizeOptions={CTA_SIZE_OPTIONS}
+              animOptions={CTA_ANIM_OPTIONS}
+              onChangeText={(text) => onChange({ cta_text: text || null })}
+              onChangeElement={(patch) => onChangeElement('cta', patch)}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Durasi */}
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-gray-900 dark:text-gray-100 mb-1">
+          Durasi tampil
+        </label>
+        <div className="flex items-center gap-2">
+          <input
+            type="number"
+            value={variant.duration_ms / 1000}
+            onChange={(e) => {
+              const sec = Number(e.target.value);
+              if (isNaN(sec)) return;
+              onChange({ duration_ms: Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, Math.round(sec * 1000))) });
+            }}
+            min={MIN_DURATION_MS / 1000}
+            max={MAX_DURATION_MS / 1000}
+            step={1}
+            className="w-20 px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center"
+          />
+          <span className="text-[11px] text-gray-600 dark:text-gray-300">
+            detik ({MIN_DURATION_MS / 1000}-{MAX_DURATION_MS / 1000}s)
+          </span>
+        </div>
+      </div>
+
+      {/* ────────────────────────────────────────────────────────── */}
+      {/* ADVANCED ELEMENT EDITOR (Tier 2 Full collapsible)          */}
+      {/* ────────────────────────────────────────────────────────── */}
+      <div className="mt-4 border-t border-purple-200 dark:border-purple-800 pt-3">
+        <button
+          type="button"
+          onClick={() => setShowAdvanced(!showAdvanced)}
+          className="flex items-center justify-between w-full px-2 py-1.5 rounded-md bg-purple-50 dark:bg-purple-950/30 hover:bg-purple-100 dark:hover:bg-purple-900/40 transition"
+        >
+          <span className="flex items-center gap-2 text-[11px] font-bold text-purple-900 dark:text-purple-200">
+            <Settings2 className="w-3.5 h-3.5" />
+            Element Editor — Logo + advanced fine-tune
+            {overriddenCount > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full bg-purple-600 text-white text-[9px] font-bold">
+                {overriddenCount} override
+              </span>
+            )}
+          </span>
+          {showAdvanced ? (
+            <ChevronUp className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300" />
+          ) : (
+            <ChevronDown className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300" />
+          )}
+        </button>
+
+        {showAdvanced && (
+          <div className="mt-3 space-y-3">
+            <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 italic">
+              💎 Editor element granular: 9-anchor position, slide direction, fine-tune delay/duration.
+              Logo dikontrol di sini (gak ada inline section di atas).
+            </p>
+            {(['logo', 'headline', 'body', 'cta'] as ElementKey[]).map((key) => (
+              <ElementAdvancedEditor
+                key={key}
+                elementKey={key}
+                override={getElementOverride(variant, key)}
+                isOverridden={!!variant.element_overrides?.[key]}
+                onChange={(patch) => onChangeElement(key, patch)}
+                onReset={() => onResetElement(key)}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -912,17 +1341,16 @@ function FieldWithInlineControls({
   onChangeElement,
 }: FieldWithInlineControlsProps) {
   const currentHorizontal: HorizontalPosition = fromEnginePosition(override.position);
+  const currentFont   = override.font_family ?? 'sans';
+  const currentWeight = override.font_weight ?? 'bold';
 
   return (
-    <div className="rounded-md border border-purple-200/60 dark:border-purple-800/60 p-2.5 bg-purple-50/20 dark:bg-purple-950/10">
-      {/* Text input */}
-      <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+    <div className="rounded-md border border-purple-300 dark:border-purple-700 p-3 bg-white dark:bg-gray-800 shadow-sm">
+      <label className="block text-[11px] font-bold text-gray-900 dark:text-gray-100 mb-1">
         {label}
         {required && <span className="text-red-500 ml-0.5">*</span>}
-        {required && minLength && (
-          <span className="text-gray-400 ml-1">(min {minLength} char)</span>
-        )}
-        {optional && <span className="text-gray-400 ml-1">(opsional)</span>}
+        {required && minLength && <span className="text-gray-500 dark:text-gray-400 ml-1 font-normal">(min {minLength} char)</span>}
+        {optional && <span className="text-gray-500 dark:text-gray-400 ml-1 font-normal">(opsional)</span>}
       </label>
       <input
         type="text"
@@ -930,177 +1358,351 @@ function FieldWithInlineControls({
         onChange={(e) => onChangeText(e.target.value)}
         maxLength={maxLength}
         placeholder={placeholder}
-        className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+        className="w-full px-2.5 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
       />
       {required && (
-        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">
-          {value.length}/{maxLength} karakter
-        </p>
+        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">{value.length}/{maxLength} karakter</p>
       )}
 
-      {/* Inline mini-controls */}
-      <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-purple-300/40 dark:border-purple-700/40">
+      {/* COMPACT CONTROLS — 2 rows max */}
+      <div className="mt-2.5 space-y-2 pl-2 border-l-2 border-purple-300 dark:border-purple-700">
 
-        {/* POSITION */}
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
-            📍 Posisi
-          </span>
-          <div className="flex gap-1">
-            {POSITION_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() =>
-                  onChangeElement({ position: toEnginePosition(fieldType, opt.value) })
-                }
-                className={cn(
-                  'px-2 py-0.5 text-[10px] rounded border transition',
-                  currentHorizontal === opt.value
-                    ? 'bg-purple-600 text-white border-purple-700'
-                    : 'bg-white text-gray-600 border-gray-300 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
-                )}
-                title={opt.label}
-              >
-                {opt.emoji} {opt.label}
-              </button>
-            ))}
+        {/* ROW 1: Position + Size + Animation (dropdown) */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {/* Position pills */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Pos</span>
+            <div className="flex">
+              {POSITION_OPTIONS.map((opt, i) => (
+                <button key={opt.value} type="button"
+                  onClick={() => onChangeElement({ position: toEnginePosition(fieldType, opt.value) })}
+                  className={cn('px-2 py-1 text-[10px] border-y border-r transition',
+                    i === 0 && 'border-l rounded-l',
+                    i === POSITION_OPTIONS.length - 1 && 'rounded-r',
+                    currentHorizontal === opt.value
+                      ? 'bg-purple-600 text-white border-purple-700'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* SIZE */}
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
-            📐 Size
-          </span>
-          <div className="flex gap-1">
-            {sizeOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => onChangeElement({ text_size: opt.value })}
-                className={cn(
-                  'px-2 py-0.5 text-[10px] rounded border transition font-bold min-w-[26px]',
-                  override.text_size === opt.value
-                    ? 'bg-purple-600 text-white border-purple-700'
-                    : 'bg-white text-gray-600 border-gray-300 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+          {/* Size pills */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Size</span>
+            <div className="flex">
+              {sizeOptions.map((opt, i) => (
+                <button key={opt.value} type="button"
+                  onClick={() => onChangeElement({ text_size: opt.value })}
+                  className={cn('px-1.5 py-1 text-[10px] border-y border-r transition font-bold min-w-[28px]',
+                    i === 0 && 'border-l rounded-l',
+                    i === sizeOptions.length - 1 && 'rounded-r',
+                    override.text_size === opt.value
+                      ? 'bg-purple-600 text-white border-purple-700'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
 
-        {/* ANIMATION */}
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
-            ✨ Animasi
-          </span>
-          <div className="flex gap-1 flex-wrap">
-            {animOptions.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() =>
-                  onChangeElement({
-                    animation: opt.value,
-                    delay_ms:    AUTO_DELAY_MS[fieldType],
-                    duration_ms: AUTO_DURATION_MS,
-                  })
-                }
-                className={cn(
-                  'px-2 py-0.5 text-[10px] rounded border transition',
-                  override.animation === opt.value
-                    ? 'bg-purple-600 text-white border-purple-700'
-                    : 'bg-white text-gray-600 border-gray-300 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
-                )}
-                title={opt.label}
-              >
-                {opt.emoji} {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* COLOR */}
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
-            🎨 Warna
-          </span>
-          <div className="flex gap-1 flex-wrap items-center">
-            {COLOR_PALETTE.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => onChangeElement({ text_color: c.value })}
-                className={cn(
-                  'w-6 h-6 rounded border-2 transition relative',
-                  override.text_color === c.value
-                    ? 'border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700 scale-110'
-                    : 'border-gray-300 dark:border-gray-700 hover:border-purple-400',
-                )}
-                style={{ backgroundColor: c.swatch }}
-                title={c.label}
-                aria-label={`Warna ${c.label}`}
-              />
-            ))}
-            <span className="text-[9px] text-gray-500 dark:text-gray-400 ml-1 italic capitalize">
-              {override.text_color}
-            </span>
-          </div>
-        </div>
-
-        {/* TINT PALETTE — Backdrop di belakang text */}
-        <div className="flex items-center gap-2">
-          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
-            🎨 Backdrop
-          </span>
-          <div className="flex gap-1 flex-wrap items-center">
-            {/* None option (transparent) */}
-            <button
-              type="button"
-              onClick={() => onChangeElement({ background_tint: 'none' })}
-              className={cn(
-                'w-6 h-6 rounded border-2 transition relative overflow-hidden',
-                override.background_tint === 'none'
-                  ? 'border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700 scale-110'
-                  : 'border-gray-300 dark:border-gray-700 hover:border-purple-400',
-              )}
-              title="None — Transparent (tidak ada backdrop)"
-              aria-label="Backdrop None"
-              style={{
-                background:
-                  'repeating-linear-gradient(45deg, #fff 0 4px, #ddd 4px 8px)',
-              }}
+          {/* Animation dropdown */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Anim</span>
+            <select
+              value={override.animation}
+              onChange={(e) => onChangeElement({
+                animation:   e.target.value as ElementAnimation,
+                delay_ms:    AUTO_DELAY_MS[fieldType],
+                duration_ms: AUTO_DURATION_MS,
+              })}
+              className="px-2 py-1 text-[10px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none font-medium"
             >
-              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-gray-700">
-                ⊘
-              </span>
-            </button>
-            {/* 8 color swatches mirror text color */}
-            {COLOR_PALETTE.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => onChangeElement({ background_tint: c.value })}
-                className={cn(
-                  'w-6 h-6 rounded border-2 transition relative',
-                  override.background_tint === c.value
-                    ? 'border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700 scale-110'
-                    : 'border-gray-300 dark:border-gray-700 hover:border-purple-400',
-                )}
-                style={{ backgroundColor: c.swatch, opacity: 0.85 }}
-                title={`Backdrop ${c.label}`}
-                aria-label={`Backdrop ${c.label}`}
-              />
-            ))}
-            <span className="text-[9px] text-gray-500 dark:text-gray-400 ml-1 italic capitalize">
-              {override.background_tint === 'none' ? 'transparent' : override.background_tint}
+              {animOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* ROW 2: Font Family + Weight (compact) */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {/* Font Family */}
+          <div className="flex items-center gap-1.5">
+            <Type className="w-3 h-3 text-purple-700 dark:text-purple-300" />
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Font</span>
+            <select
+              value={currentFont}
+              onChange={(e) => onChangeElement({ font_family: e.target.value as FontFamily })}
+              className="px-2 py-1 text-[10px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none font-medium"
+            >
+              {FONT_FAMILY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value} style={{ fontFamily: opt.fontFamily }}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <span
+              className="px-2 py-0.5 text-sm border border-gray-200 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[28px] text-center"
+              style={{
+                fontFamily: FONT_FAMILY_OPTIONS.find((o) => o.value === currentFont)?.fontFamily,
+                fontWeight: FONT_WEIGHT_OPTIONS.find((o) => o.value === currentWeight)?.weight,
+              }}
+              title="Live font preview"
+            >
+              Aa
             </span>
+          </div>
+
+          {/* Font Weight */}
+          <div className="flex items-center gap-1.5">
+            <Bold className="w-3 h-3 text-purple-700 dark:text-purple-300" />
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Wt</span>
+            <div className="flex">
+              {FONT_WEIGHT_OPTIONS.map((opt, i) => (
+                <button key={opt.value} type="button"
+                  onClick={() => onChangeElement({ font_weight: opt.value })}
+                  className={cn('px-1.5 py-1 text-[10px] border-y border-r transition min-w-[34px]',
+                    i === 0 && 'border-l rounded-l',
+                    i === FONT_WEIGHT_OPTIONS.length - 1 && 'rounded-r',
+                    currentWeight === opt.value
+                      ? 'bg-purple-600 text-white border-purple-700'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}
+                  style={{ fontWeight: opt.weight }}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ROW 3: Color + Backdrop (kompak swatch row) */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          {/* Text Color */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Color</span>
+            <div className="flex gap-0.5">
+              {COLOR_PALETTE.map((c) => (
+                <button key={c.value} type="button"
+                  onClick={() => onChangeElement({ text_color: c.value })}
+                  className={cn('w-5 h-5 rounded border-2 transition',
+                    override.text_color === c.value
+                      ? 'border-purple-600 ring-1 ring-purple-300 dark:ring-purple-700 scale-110 shadow-sm'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-purple-400')}
+                  style={{ backgroundColor: c.swatch }}
+                  title={c.label}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Backdrop */}
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">BG</span>
+            <div className="flex gap-0.5">
+              <button type="button"
+                onClick={() => onChangeElement({ background_tint: 'none' })}
+                className={cn('w-5 h-5 rounded border-2 transition relative overflow-hidden',
+                  override.background_tint === 'none'
+                    ? 'border-purple-600 ring-1 ring-purple-300 dark:ring-purple-700 scale-110 shadow-sm'
+                    : 'border-gray-300 dark:border-gray-600 hover:border-purple-400')}
+                title="None — Transparent"
+                style={{ background: 'repeating-linear-gradient(45deg, #fff 0 3px, #ccc 3px 6px)' }}>
+                <span className="absolute inset-0 flex items-center justify-center text-[7px] font-bold text-gray-800">⊘</span>
+              </button>
+              {COLOR_PALETTE.map((c) => (
+                <button key={c.value} type="button"
+                  onClick={() => onChangeElement({ background_tint: c.value })}
+                  className={cn('w-5 h-5 rounded border-2 transition',
+                    override.background_tint === c.value
+                      ? 'border-purple-600 ring-1 ring-purple-300 dark:ring-purple-700 scale-110 shadow-sm'
+                      : 'border-gray-300 dark:border-gray-600 hover:border-purple-400')}
+                  style={{ backgroundColor: c.swatch, opacity: 0.85 }}
+                  title={`Backdrop ${c.label}`}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// SUB-COMPONENT: ElementAdvancedEditor (Tier 2 Full advanced)
+// ════════════════════════════════════════════════════════════════
+
+interface ElementAdvancedEditorProps {
+  elementKey:   ElementKey;
+  override:     ElementOverride;
+  isOverridden: boolean;
+  onChange:     (patch: Partial<ElementOverride>) => void;
+  onReset:      () => void;
+}
+
+function ElementAdvancedEditor({
+  elementKey,
+  override,
+  isOverridden,
+  onChange,
+  onReset,
+}: ElementAdvancedEditorProps) {
+  const meta = ELEMENT_META[elementKey];
+
+  return (
+    <div className={cn(
+      'rounded-md border p-2.5 transition',
+      isOverridden
+        ? 'border-purple-400 bg-purple-50/50 dark:bg-purple-900/20'
+        : 'border-gray-200 bg-gray-50/50 dark:border-gray-700 dark:bg-gray-800/30',
+    )}>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[11px] font-bold text-gray-900 dark:text-gray-100">
+          {meta.emoji} {meta.label}
+          {isOverridden && (
+            <span className="ml-1.5 text-[9px] font-medium text-purple-600 dark:text-purple-400">· customized</span>
+          )}
+        </span>
+        <div className="flex items-center gap-2">
+          {isOverridden && (
+            <button type="button" onClick={onReset}
+              className="flex items-center gap-0.5 text-[9px] font-medium text-gray-500 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400">
+              <RotateCcw className="w-2.5 h-2.5" />
+              Reset
+            </button>
+          )}
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" checked={override.visible}
+              onChange={(e) => onChange({ visible: e.target.checked })}
+              className="sr-only peer" />
+            <div className="w-7 h-4 bg-gray-300 dark:bg-gray-600 peer-checked:bg-purple-600 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
+          </label>
+        </div>
+      </div>
+
+      {!override.visible ? (
+        <p className="text-[10px] italic text-gray-500 dark:text-gray-400">
+          Element disembunyikan di variant ini.
+        </p>
+      ) : (
+        <div className="space-y-2">
+          {/* Animation full palette */}
+          <div>
+            <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">Animation</label>
+            <select value={override.animation}
+              onChange={(e) => onChange({ animation: e.target.value as ElementAnimation })}
+              className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none">
+              {ALL_ANIM_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.emoji} {opt.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Slide direction (kalau slide_in) */}
+          {override.animation === 'slide_in' && (
+            <div>
+              <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">Slide Direction</label>
+              <div className="grid grid-cols-4 gap-1">
+                {SLIDE_DIRECTION_OPTIONS.map((opt) => (
+                  <button key={opt.value} type="button"
+                    onClick={() => onChange({ slide_from: opt.value })}
+                    className={cn('px-1.5 py-1 text-[10px] rounded border transition',
+                      (override.slide_from ?? 'left') === opt.value
+                        ? 'bg-purple-600 text-white border-purple-700'
+                        : 'bg-white text-gray-700 border-gray-300 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700')}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Delay + Duration */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">Delay (ms)</label>
+              <input type="number" value={override.delay_ms} min={0} max={5000} step={100}
+                onChange={(e) => onChange({ delay_ms: Math.max(0, parseInt(e.target.value, 10) || 0) })}
+                className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none" />
+            </div>
+            <div>
+              <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">Duration (ms)</label>
+              <input type="number" value={override.duration_ms} min={100} max={3000} step={100}
+                onChange={(e) => onChange({ duration_ms: Math.max(100, parseInt(e.target.value, 10) || 500) })}
+                className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none" />
+            </div>
+          </div>
+
+          {/* Position 9-grid picker */}
+          <div>
+            <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">
+              Position ({POSITION_LABELS[override.position]})
+            </label>
+            <div className="inline-grid grid-cols-3 gap-1 p-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+              {POSITION_GRID.map((row) => row.map((pos) => (
+                <button key={pos} type="button"
+                  onClick={() => onChange({ position: pos })}
+                  className={cn('w-7 h-7 rounded border-2 transition flex items-center justify-center',
+                    override.position === pos
+                      ? 'bg-purple-600 border-purple-700 text-white'
+                      : 'bg-white border-gray-300 hover:border-purple-400 dark:bg-gray-800 dark:border-gray-600')}
+                  title={POSITION_LABELS[pos]}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                </button>
+              )))}
+            </div>
+          </div>
+
+          {/* Color + Backdrop (kompak) */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">Color</label>
+              <div className="flex gap-1 flex-wrap">
+                {COLOR_PALETTE.map((c) => (
+                  <button key={c.value} type="button"
+                    onClick={() => onChange({ text_color: c.value })}
+                    className={cn('w-5 h-5 rounded border-2 transition',
+                      override.text_color === c.value
+                        ? 'border-purple-600 ring-1 ring-purple-300 scale-110'
+                        : 'border-gray-300 dark:border-gray-700 hover:border-purple-400')}
+                    style={{ backgroundColor: c.swatch }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">Backdrop</label>
+              <div className="flex gap-1 flex-wrap">
+                <button type="button"
+                  onClick={() => onChange({ background_tint: 'none' })}
+                  className={cn('w-5 h-5 rounded border-2 transition relative overflow-hidden',
+                    override.background_tint === 'none'
+                      ? 'border-purple-600 ring-1 ring-purple-300 scale-110'
+                      : 'border-gray-300 dark:border-gray-700')}
+                  style={{ background: 'repeating-linear-gradient(45deg, #fff 0 3px, #ddd 3px 6px)' }}
+                  title="None" />
+                {COLOR_PALETTE.map((c) => (
+                  <button key={c.value} type="button"
+                    onClick={() => onChange({ background_tint: c.value })}
+                    className={cn('w-5 h-5 rounded border-2 transition',
+                      override.background_tint === c.value
+                        ? 'border-purple-600 ring-1 ring-purple-300 scale-110'
+                        : 'border-gray-300 dark:border-gray-700')}
+                    style={{ backgroundColor: c.swatch, opacity: 0.85 }}
+                    title={c.label}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

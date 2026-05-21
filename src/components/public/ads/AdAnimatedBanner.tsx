@@ -83,14 +83,49 @@ export const TEXT_COLOR_MAP: Record<TextColorKey, string> = {
   gray:   '#6B7280',
 };
 
-/** Text size scale. */
-export type TextSize = 'sm' | 'md' | 'lg' | 'xl';
+/**
+ * Text size scale.
+ * Phase 5B (21 Mei 2026): expanded sampai 3xl untuk Kumparan-style hero headlines.
+ */
+export type TextSize = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl';
 
 const TEXT_SIZE_MAP: Record<TextSize, string> = {
-  sm: '0.75rem',   // 12px
-  md: '0.875rem',  // 14px
-  lg: '1.125rem',  // 18px
-  xl: '1.5rem',    // 24px
+  sm:    '0.875rem',  // 14px — body small / footnote
+  md:    '1.125rem',  // 18px — body normal
+  lg:    '1.5rem',    // 24px — sub-headline
+  xl:    '2.25rem',   // 36px — headline
+  '2xl': '3rem',      // 48px — big headline
+  '3xl': '4rem',      // 64px — HERO headline (Kumparan-style)
+};
+
+/**
+ * Font family.
+ * Phase 5B (21 Mei 2026): admin power user dapat pilih typography mood per element.
+ *   - sans:    Modern, friendly (default — Inter)
+ *   - serif:   Elegant, premium (Georgia/Playfair)
+ *   - display: Cinematic, bold (Bebas Neue/Impact) — Kumparan-style headline
+ *   - mono:    Techy, code-feel (JetBrains Mono)
+ */
+export type FontFamily = 'sans' | 'serif' | 'display' | 'mono';
+
+const FONT_FAMILY_MAP: Record<FontFamily, string> = {
+  sans:    'Inter, system-ui, -apple-system, sans-serif',
+  serif:   '"Playfair Display", Georgia, "Times New Roman", serif',
+  display: '"Bebas Neue", Impact, "Arial Black", sans-serif',
+  mono:    '"JetBrains Mono", "Courier New", monospace',
+};
+
+/**
+ * Font weight.
+ * Phase 5B (21 Mei 2026): weight selector untuk hierarchy emphasis.
+ */
+export type FontWeight = 'normal' | 'semibold' | 'bold' | 'black';
+
+const FONT_WEIGHT_MAP: Record<FontWeight, number> = {
+  normal:    400,
+  semibold:  600,
+  bold:      700,
+  black:     900,
 };
 
 /** Text alignment. */
@@ -128,6 +163,14 @@ export interface ElementOverride {
   text_size:       TextSize;
   text_align:      TextAlign;
   background_tint: BackgroundTint;
+
+  /**
+   * SESI 5H Phase 5B Banner Studio V1 (21 Mei 2026):
+   * Typography customization untuk Kumparan-like hierarchy.
+   * Optional dengan fallback default (sans + bold).
+   */
+  font_family?:    FontFamily;
+  font_weight?:    FontWeight;
 }
 
 /** Element key types. */
@@ -207,6 +250,21 @@ export interface AnimationTimelineConfig {
   text_reveal_pattern:     TextRevealPattern;
   text_reveal_stagger_ms:  number;
   loop:                    boolean;
+
+  /**
+   * SESI 5H Phase 5B Banner Studio V1 (21 Mei 2026):
+   * Shared background URL untuk pattern Kumparan-style (1 image + multi text).
+   * Fallback chain di variant level:
+   *   variant.image_url || timeline.shared_background_url || ad.image_url || ''
+   *
+   * Use case:
+   *   - Tech event banner: same venue/logo bg, text rotation per scene
+   *   - Brand campaign: consistent visual identity across variants
+   *   - Multi-text storytelling: hook → value → CTA dengan bg sama
+   *
+   * Null/undefined = no shared bg, klien upload per variant.
+   */
+  shared_background_url?:  string | null;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -268,8 +326,10 @@ interface ResolvedVariantContent {
 }
 
 function resolveVariantContent(variant: AnimationVariant, ad: AnimatedBannerAd): ResolvedVariantContent {
+  // SESI 5H Phase 5B Banner Studio V1: Fallback chain dengan shared_background_url
+  const sharedBg = ad.animation_timeline?.shared_background_url ?? null;
   return {
-    image_url: variant.image_url || ad.image_url || '',
+    image_url: variant.image_url || sharedBg || ad.image_url || '',
     headline:  variant.headline  || ad.title     || '',
     body:      variant.body      ?? ad.body      ?? null,
     cta_text:  variant.cta_text  || DEFAULT_CTA_TEXT,
@@ -322,18 +382,31 @@ function getPositionStyle(position: ElementPosition): React.CSSProperties {
 
 /**
  * Build CSS style untuk element berdasarkan override.
+ * Phase 5B (21 Mei 2026): font_family + font_weight + improved line-height
+ * untuk Kumparan-style hierarchy.
  */
 function buildElementStyle(override: ElementOverride): React.CSSProperties {
+  const fontFamily = override.font_family
+    ? FONT_FAMILY_MAP[override.font_family]
+    : FONT_FAMILY_MAP.sans;
+  const fontWeight = override.font_weight
+    ? FONT_WEIGHT_MAP[override.font_weight]
+    : FONT_WEIGHT_MAP.bold;
+
   return {
     position:         'absolute',
     ...getPositionStyle(override.position),
     color:            TEXT_COLOR_MAP[override.text_color],
     fontSize:         TEXT_SIZE_MAP[override.text_size],
+    fontFamily,
+    fontWeight,
     textAlign:        override.text_align,
+    lineHeight:       1.15,
+    letterSpacing:    override.font_family === 'display' ? '0.02em' : '-0.01em',
     backgroundColor:  TINT_MAP[override.background_tint],
-    padding:          override.background_tint !== 'none' ? '4px 8px' : undefined,
-    borderRadius:     override.background_tint !== 'none' ? '4px' : undefined,
-    maxWidth:         '70%',
+    padding:          override.background_tint !== 'none' ? '6px 12px' : undefined,
+    borderRadius:     override.background_tint !== 'none' ? '6px' : undefined,
+    maxWidth:         '80%',
     wordBreak:        'break-word',
   };
 }
