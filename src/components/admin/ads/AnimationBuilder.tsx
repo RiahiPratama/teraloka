@@ -12,7 +12,7 @@
  *                                      + customFonts threading ke Live Preview
  * SESI 6  Sub-Phase 6C (22 Mei 2026) — TD-ANIM-103 Drag-Drop Pixel Positioning
  *                                      Batch 6C.1 = engine extend + minimal X/Y input
- *                                      Batch 6C.2 = PositionCanvas drag-drop UI (next)
+ *                                      Batch 6C.2 = PositionCanvas drag-drop UI (LIVE)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -127,6 +127,9 @@ import CustomFontUploadModal, {
   type CustomFontRecord,
 } from './CustomFontUploadModal';
 import { useApi, ApiError } from '@/lib/api/client';
+
+// SESI 6 Sub-Phase 6C Batch 6C.2 — TD-ANIM-103: PositionCanvas drag-drop
+import PositionCanvas from './PositionCanvas';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -319,6 +322,25 @@ const POSITION_GRID: PresetPosition[][] = [
   ['middle_left', 'middle_center', 'middle_right'],
   ['bottom_left', 'bottom_center', 'bottom_right'],
 ];
+
+// SESI 6 Sub-Phase 6C Batch 6C.2 — TD-ANIM-103:
+// Approximate visual size untuk PositionCanvas element box (display only).
+// Real render size depend pada text content + font_size + font_family;
+// nilai disini cuma indikator visual untuk drag-drop UX (top-left anchor).
+const ELEMENT_APPROX_SIZE: Record<ElementKey, { width: number; height: number }> = {
+  logo:     { width: 36, height: 36 },
+  headline: { width: 110, height: 24 },
+  body:     { width: 90, height: 18 },
+  cta:      { width: 70, height: 24 },
+};
+
+// Short label per element untuk display di PositionCanvas box
+const ELEMENT_CANVAS_LABEL: Record<ElementKey, string> = {
+  logo:     'L',
+  headline: 'H',
+  body:     'B',
+  cta:      'CTA',
+};
 
 const ALL_ANIM_OPTIONS: { value: ElementAnimation; label: string; emoji: string }[] = [
   { value: 'fade_in',     label: 'Fade In',     emoji: '🌫️' },
@@ -923,6 +945,8 @@ export default function AnimationBuilder({
               customFontsLoading={customFontsLoading}
               onOpenUploadModal={() => setUploadModalOpen(true)}
               onDeleteFont={handleFontDelete}
+              bannerWidth={previewWidth}
+              bannerHeight={previewHeight}
             />
           ))}
         </div>
@@ -1247,6 +1271,9 @@ interface VariantEditorProps {
   customFontsLoading:   boolean;
   onOpenUploadModal:    () => void;
   onDeleteFont:         (font: CustomFontRecord) => Promise<void>;
+  // SESI 6 Sub-Phase 6C Batch 6C.2 — TD-ANIM-103: banner dims untuk PositionCanvas
+  bannerWidth:          number;
+  bannerHeight:         number;
 }
 
 function VariantEditor({
@@ -1266,6 +1293,8 @@ function VariantEditor({
   customFontsLoading,
   onOpenUploadModal,
   onDeleteFont,
+  bannerWidth,
+  bannerHeight,
 }: VariantEditorProps) {
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [showOverrideBg, setShowOverrideBg] = useState(false);
@@ -1575,6 +1604,8 @@ function VariantEditor({
                 isOverridden={!!variant.element_overrides?.[key]}
                 onChange={(patch) => onChangeElement(key, patch)}
                 onReset={() => onResetElement(key)}
+                bannerWidth={bannerWidth}
+                bannerHeight={bannerHeight}
               />
             ))}
           </div>
@@ -2067,6 +2098,9 @@ interface ElementAdvancedEditorProps {
   isOverridden: boolean;
   onChange:     (patch: Partial<ElementOverride>) => void;
   onReset:      () => void;
+  // SESI 6 Sub-Phase 6C Batch 6C.2 — TD-ANIM-103: banner dims untuk PositionCanvas
+  bannerWidth:  number;
+  bannerHeight: number;
 }
 
 function ElementAdvancedEditor({
@@ -2075,6 +2109,8 @@ function ElementAdvancedEditor({
   isOverridden,
   onChange,
   onReset,
+  bannerWidth,
+  bannerHeight,
 }: ElementAdvancedEditorProps) {
   const meta = ELEMENT_META[elementKey];
 
@@ -2233,48 +2269,61 @@ function ElementAdvancedEditor({
                       )))}
                     </div>
                   ) : (
-                    // ─── ABSOLUTE MODE (TD-103 minimal X/Y inputs — Batch 6C.2 = PositionCanvas) ───
-                    <div className="p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
-                      <div className="grid grid-cols-2 gap-2 mb-1.5">
-                        <div>
-                          <label className="block text-[9px] font-bold text-amber-700 dark:text-amber-300 mb-0.5">
-                            X (px dari kiri)
-                          </label>
-                          <input
-                            type="number"
-                            value={(override.position as AbsolutePosition).x}
-                            onChange={(e) => {
-                              const x = parseInt(e.target.value, 10);
-                              if (Number.isNaN(x)) return;
-                              const cur = override.position as AbsolutePosition;
-                              onChange({ position: { ...cur, x, unit: 'px' } });
-                            }}
-                            step={5}
-                            className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
-                          />
+                    // ─── ABSOLUTE MODE (TD-103 Batch 6C.2 — PositionCanvas drag-drop + precision inputs) ───
+                    <div className="p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700 space-y-2.5">
+                      {/* Drag-drop canvas */}
+                      <PositionCanvas
+                        bannerWidth={bannerWidth}
+                        bannerHeight={bannerHeight}
+                        position={override.position as AbsolutePosition}
+                        elementLabel={ELEMENT_CANVAS_LABEL[elementKey]}
+                        elementSize={ELEMENT_APPROX_SIZE[elementKey]}
+                        onChange={(pos) => onChange({ position: pos })}
+                        snapGrid={5}
+                      />
+
+                      {/* Precision X/Y inputs (kept as fallback) */}
+                      <details className="text-[10px]">
+                        <summary className="cursor-pointer font-bold text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100">
+                          ⚙ Precision Input (manual XY)
+                        </summary>
+                        <div className="grid grid-cols-2 gap-2 mt-1.5">
+                          <div>
+                            <label className="block text-[9px] font-bold text-amber-700 dark:text-amber-300 mb-0.5">
+                              X (px dari kiri)
+                            </label>
+                            <input
+                              type="number"
+                              value={(override.position as AbsolutePosition).x}
+                              onChange={(e) => {
+                                const x = parseInt(e.target.value, 10);
+                                if (Number.isNaN(x)) return;
+                                const cur = override.position as AbsolutePosition;
+                                onChange({ position: { ...cur, x, unit: 'px' } });
+                              }}
+                              step={1}
+                              className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-amber-700 dark:text-amber-300 mb-0.5">
+                              Y (px dari atas)
+                            </label>
+                            <input
+                              type="number"
+                              value={(override.position as AbsolutePosition).y}
+                              onChange={(e) => {
+                                const y = parseInt(e.target.value, 10);
+                                if (Number.isNaN(y)) return;
+                                const cur = override.position as AbsolutePosition;
+                                onChange({ position: { ...cur, y, unit: 'px' } });
+                              }}
+                              step={1}
+                              className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
+                            />
+                          </div>
                         </div>
-                        <div>
-                          <label className="block text-[9px] font-bold text-amber-700 dark:text-amber-300 mb-0.5">
-                            Y (px dari atas)
-                          </label>
-                          <input
-                            type="number"
-                            value={(override.position as AbsolutePosition).y}
-                            onChange={(e) => {
-                              const y = parseInt(e.target.value, 10);
-                              if (Number.isNaN(y)) return;
-                              const cur = override.position as AbsolutePosition;
-                              onChange({ position: { ...cur, y, unit: 'px' } });
-                            }}
-                            step={5}
-                            className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
-                          />
-                        </div>
-                      </div>
-                      <p className="text-[9px] text-amber-700/80 dark:text-amber-400/80 italic">
-                        💡 Negative atau over-canvas OK (creative off-screen effect).
-                        Drag-drop canvas datang di Batch 6C.2.
-                      </p>
+                      </details>
                     </div>
                   )}
                 </>
