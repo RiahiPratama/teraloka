@@ -47,7 +47,7 @@ import {
 } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { PricingTier } from '@/components/admin/ads/pricing-tiers/PricingTierPicker';
-// SESI 5H Phase 5A.7 (21 Mei 2026): Per-position GSAP animation timeline type
+// SESI 5H Phase 5B (21 Mei 2026): Per-position GSAP animation timeline (DCA-Aligned)
 import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
 
 const API =
@@ -55,7 +55,7 @@ const API =
 
 // ─── Types ────────────────────────────────────────────────────────
 
-// SESI 5H Phase 5A.7 (21 Mei 2026): +animated (per-position GSAP timeline)
+// SESI 5H Phase 5B (21 Mei 2026): +animated (DCA-Aligned variant carousel)
 export type AdFormat = 'image' | 'text' | 'animated';
 // SESI 5C-B (18 Mei 2026): +premium (PT/CV brand nasional besar)
 export type AdvertiserType = 'umum' | 'politisi' | 'pemerintah' | 'komersial' | 'premium';
@@ -74,20 +74,20 @@ export const DCA_MAX_FRAMES = 5;
 export const DCA_MIN_DURATION_MS = 2000;
 export const DCA_MAX_DURATION_MS = 15000;
 
-// ─── SESI 5H Phase 5A.7 Helper ────────────────────────────────────
+// ─── SESI 5H Phase 5B Helper ──────────────────────────────────────
 /**
  * Normalize animation_timeline shape dari DB ke per-position Record.
  *
  * Detection logic:
  *   1. null/undefined → {} (empty Record)
- *   2. Shape `{ duration_ms, loop, steps }` (legacy single global config from Phase 5A.3):
- *      → normalize ke { [firstPosition]: legacyConfig }
- *   3. Shape Record<string, AnimationTimelineConfig> (Phase 5A.7 per-position):
- *      → use directly
+ *   2. Shape `{ steps, duration_ms, loop }` (legacy Phase 5A.3 single global):
+ *      → empty {} (klien re-craft via Phase 5B variants)
+ *   3. Shape `{ variants, ... }` (NEW Phase 5B per-position):
+ *      → use as-is
  *
  * @param raw       Raw animation_timeline dari ad object (DB JSONB)
- * @param positions Active positions array (untuk backward compat anchor)
- * @returns         Normalized Record per-position
+ * @param positions Active positions array (untuk backward compat)
+ * @returns         Normalized Record per-position (Phase 5B shape)
  */
 function normalizeAnimationTimelines(
   raw:       any,
@@ -95,22 +95,22 @@ function normalizeAnimationTimelines(
 ): Record<string, AnimationTimelineConfig> {
   if (!raw || typeof raw !== 'object') return {};
 
-  // Legacy single config (Phase 5A.3): has 'steps' array directly
-  if (Array.isArray(raw.steps)) {
-    const legacyConfig = raw as AnimationTimelineConfig;
-    if (positions.length > 0) {
-      return { [positions[0]]: legacyConfig };
-    }
+  // Legacy Phase 5A.3 shape: has 'steps' at root → empty (incompatible)
+  if (Array.isArray((raw as any).steps)) {
     return {};
   }
 
-  // Per-position Record (Phase 5A.7): values are AnimationTimelineConfig
-  // Defensive validation: each value must have 'steps' array
+  // Per-position Record (Phase 5A.7 / 5B): values are timeline configs
   const result: Record<string, AnimationTimelineConfig> = {};
   for (const [key, value] of Object.entries(raw)) {
-    if (value && typeof value === 'object' && Array.isArray((value as any).steps)) {
-      result[key] = value as AnimationTimelineConfig;
+    if (!value || typeof value !== 'object') continue;
+    const v = value as any;
+    // Phase 5B shape: has 'variants' array
+    if (Array.isArray(v.variants) && v.variants.length > 0) {
+      result[key] = v as AnimationTimelineConfig;
     }
+    // Legacy Phase 5A.7 shape (steps-based): SKIP — klien re-craft
+    // Founder yang baru push 5A.7, kemungkinan belum ada production ad pakai shape ini
   }
   return result;
 }
@@ -178,11 +178,12 @@ export interface AdFormState {
    */
   position_frames: Record<string, AdFrame[]>;
 
-  // ─── Animation (SESI 5H Phase 5A.7) ─────────────────
+  // ─── Animation (SESI 5H Phase 5B) ───────────────────
   /**
-   * SESI 5H Phase 5A.7 (21 Mei 2026): Per-position GSAP animation timelines.
+   * SESI 5H Phase 5B (21 Mei 2026): Per-position GSAP animation timelines.
    * Key = position key (top_leaderboard, sidebar, in_article, etc).
-   * Value = AnimationTimelineConfig untuk posisi tersebut.
+   * Value = AnimationTimelineConfig dengan DCA-Aligned shape:
+   *           variants[] + transition_* + text_reveal_* + loop.
    *
    * Empty {} = no animation set (default).
    * Submit logic: kalau ad_format='animated' DAN map non-empty, kirim Record
@@ -234,7 +235,7 @@ const EMPTY_STATE: AdFormState = {
   // SESI 5E Phase 3a: per-position frames (empty = use legacy creative_frames flat)
   position_frames:     {},
 
-  // SESI 5H Phase 5A.7: per-position animation timelines (empty = no animation)
+  // SESI 5H Phase 5B: per-position animation timelines (empty = no animation)
   position_animation_timelines: {},
 
   // Schedule
@@ -325,7 +326,7 @@ export function validateAdForm(state: AdFormState): FieldError[] {
     }
   }
 
-  // SESI 5H Phase 5A.7: Per-position animation validation
+  // SESI 5H Phase 5B: Per-position animation validation (DCA-Aligned)
   if (state.ad_format === 'animated') {
     const timelines = state.position_animation_timelines;
     const timelineKeys = Object.keys(timelines);
@@ -333,26 +334,50 @@ export function validateAdForm(state: AdFormState): FieldError[] {
     if (timelineKeys.length === 0) {
       errors.push({
         field:   'position_animation_timelines',
-        message: 'Animasi belum dikonfigurasi. Klik "Edit Creative" di Targeting per posisi, lalu pilih tab "Animated".',
+        message: 'Animasi belum dikonfigurasi. Klik "Edit Creative" di Targeting per posisi, lalu pilih tab "Animated GSAP".',
       });
     } else {
       // Validate setiap timeline yang ada
       for (const posKey of timelineKeys) {
         const tl = timelines[posKey];
 
-        if (!Array.isArray(tl.steps) || tl.steps.length === 0) {
+        if (!Array.isArray(tl.variants) || tl.variants.length === 0) {
           errors.push({
             field:   'position_animation_timelines',
-            message: `Posisi "${posKey}": animasi belum punya step (minimal 1 step).`,
+            message: `Posisi "${posKey}": animasi belum punya variant (minimal 1 variant).`,
           });
           continue;
         }
-        if (typeof tl.duration_ms !== 'number' || tl.duration_ms <= 0) {
+        if (tl.variants.length > 5) {
           errors.push({
             field:   'position_animation_timelines',
-            message: `Posisi "${posKey}": durasi total animasi harus angka > 0.`,
+            message: `Posisi "${posKey}": maksimal 5 variant per posisi.`,
           });
         }
+
+        // Per-variant validation (mirror DCA pattern)
+        for (let i = 0; i < tl.variants.length; i++) {
+          const v = tl.variants[i];
+          if (!v.image_url || v.image_url.trim() === '') {
+            errors.push({
+              field:   'position_animation_timelines',
+              message: `Posisi "${posKey}" variant #${i + 1}: background image wajib upload.`,
+            });
+          }
+          if (!v.headline || v.headline.trim().length < 5) {
+            errors.push({
+              field:   'position_animation_timelines',
+              message: `Posisi "${posKey}" variant #${i + 1}: headline minimal 5 karakter.`,
+            });
+          }
+          if (typeof v.duration_ms !== 'number' || v.duration_ms < 2000 || v.duration_ms > 15000) {
+            errors.push({
+              field:   'position_animation_timelines',
+              message: `Posisi "${posKey}" variant #${i + 1}: durasi harus 2-15 detik.`,
+            });
+          }
+        }
+
         if (typeof tl.loop !== 'boolean') {
           errors.push({
             field:   'position_animation_timelines',
@@ -375,7 +400,7 @@ export function validateAdForm(state: AdFormState): FieldError[] {
       if (positionsWithoutTimeline.length > 0) {
         errors.push({
           field:   'position_animation_timelines',
-          message: `Posisi belum punya animasi: ${positionsWithoutTimeline.join(', ')}. Edit creative per posisi → tab Animated.`,
+          message: `Posisi belum punya animasi: ${positionsWithoutTimeline.join(', ')}. Edit creative per posisi → tab Animated GSAP.`,
         });
       }
     }
@@ -579,11 +604,7 @@ export function AdFormProvider({
           position_frames:     (ad.creative_frames && typeof ad.creative_frames === 'object' && !Array.isArray(ad.creative_frames))
             ? ad.creative_frames as Record<string, AdFrame[]>
             : {},
-          // SESI 5H Phase 5A.7: Detect animation_timeline shape pada load.
-          //   - Record<string, AnimationTimelineConfig> (per-position) → use directly
-          //   - Legacy single AnimationTimelineConfig (Phase 5A.3) → normalize ke Record
-          //     dengan key = first position (best-effort backward compat)
-          //   - null/undefined → empty {}
+          // SESI 5H Phase 5B: per-position animation timelines from DB
           position_animation_timelines: normalizeAnimationTimelines(
             ad.animation_timeline,
             ad.positions ?? [],
@@ -671,7 +692,7 @@ export function AdFormProvider({
           ? state.position_frames
           : state.creative_frames,
 
-        // SESI 5H Phase 5A.7: per-position animation timelines
+        // SESI 5H Phase 5B: per-position animation timelines (DCA-Aligned)
         // - ad_format='animated' + map non-empty → kirim Record shape ke backend
         // - else → null (clear field di backend update)
         animation_timeline:  state.ad_format === 'animated' && Object.keys(state.position_animation_timelines).length > 0

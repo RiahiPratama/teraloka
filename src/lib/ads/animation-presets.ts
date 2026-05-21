@@ -1,34 +1,36 @@
 /**
  * TeraLoka — Animation Presets Library
- * SESI 5H Phase 5A.6 (21 Mei 2026)
+ * SESI 5H Phase 5B (21 Mei 2026) — DCA-Aligned Refactor
  * ────────────────────────────────────────────────────────────────
  * PATH: src/lib/ads/animation-presets.ts
  *
- * 5 preset siap-pakai untuk admin form pilih cepat tanpa craft JSON manual.
+ * 5 preset siap-pakai untuk admin form pilih cepat.
+ * Preset structure mirror DCA familiar pattern: variants + transition + text reveal.
+ *
  * Filosofi: "Manual-first, automate-later" — founder craft preset di sini,
- *           klien (atau founder sendiri di workflow) tinggal pilih.
+ *           klien tinggal pilih preset → adjust isi variant.
  *
  * Setiap preset:
- *   - id            : unique identifier (untuk dropdown value)
- *   - label         : display name (Indonesia)
- *   - description   : 1-line use case description
- *   - mood          : tone descriptor (professional/premium/energik/festive/elegant)
- *   - target_segment: klien yang cocok pakai preset ini
- *   - timeline      : AnimationTimelineConfig (struktur sama dengan
- *                     yang di-store di DB ads.animation_timeline JSONB)
+ *   - id          : unique identifier
+ *   - label       : display name (Indonesia)
+ *   - description : 1-line use case description
+ *   - icon        : emoji untuk dropdown visual
+ *   - timeline    : ready-to-use AnimationTimelineConfig
  *
- * Pattern: AAO (JSONB-First) compliant — timeline ready-to-INSERT.
+ * Pattern AAO (JSONB-First) compliant.
  *
- * Selectors yang dipakai di preset = match dengan AdAnimatedBanner DOM:
- *   - .logo       : advertiser logo (kalau ada)
- *   - .headline   : ad.title
- *   - .body       : ad.body
- *   - .cta        : "Pelajari Lebih Lanjut" button
- *
+ * NOTE: variant.image_url DI-LEAVE EMPTY '' karena klien upload manual.
+ *       Klien pilih preset → preset isi struktur variants kosong + transition
+ *       + text reveal config → klien upload image per variant + edit text.
  * ────────────────────────────────────────────────────────────────
  */
 
-import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
+import type {
+  AnimationTimelineConfig,
+  AnimationVariant,
+  TransitionPattern,
+  TextRevealPattern,
+} from '@/components/public/ads/AdAnimatedBanner';
 
 // ─── Types ────────────────────────────────────────────────────────
 
@@ -55,286 +57,178 @@ export interface AnimationPreset {
   /** Klien segment yang cocok. */
   target_segment: string;
 
-  /** Emoji icon untuk dropdown (visual scanning). */
+  /** Emoji icon untuk dropdown. */
   icon:           string;
 
   /** Ready-to-INSERT timeline config. */
   timeline:       AnimationTimelineConfig;
 }
 
+// ─── Helper: Build empty variant template ─────────────────────────
+
+function emptyVariant(order: number, headline: string, duration_ms = 4000): AnimationVariant {
+  return {
+    order,
+    image_url:   '',      // klien upload manual
+    headline,
+    body:        null,
+    cta_text:    null,
+    duration_ms,
+  };
+}
+
 // ─── 5 Preset Library ─────────────────────────────────────────────
 
 /**
- * PRESET 1 — TeraLoka Self-Promo
+ * PRESET 1 — Single Banner Self-Promo
  *
- * Animation story:
- *   t=0     → Logo fade in subtle
- *   t=400ms → Headline slide dari kiri (energetic emphasis)
- *   t=1000ms → Body fade in (supporting detail)
- *   t=1500ms → CTA text reveal char-by-char (call-to-action)
+ * 1 variant + text reveal animation.
+ * Mirror Skenario B feel: single background dengan text muncul stagger.
  *
- * Total: 3000ms.
  * Mood: Professional, balanced.
- * Cocok: Konten in-house TeraLoka, partnership announcement.
+ * Cocok: Konten in-house TeraLoka, partnership announcement, single message.
  */
 const PRESET_SELF_PROMO: AnimationPreset = {
   id:             'self-promo',
-  label:          'TeraLoka Self-Promo',
-  description:    'Logo fade → headline slide → body fade → CTA reveal (3 detik)',
+  label:          'Single Banner Self-Promo',
+  description:    '1 banner + text reveal halus — single message campaign',
   mood:           'professional',
   target_segment: 'Konten in-house TeraLoka, partnership',
   icon:           '📺',
   timeline: {
-    duration_ms: 3000,
-    loop:        false,
-    steps: [
-      {
-        target_selector: '.logo',
-        pattern:         'fade_in',
-        delay:           0,
-        duration:        500,
-      },
-      {
-        target_selector: '.headline',
-        pattern:         'slide_in',
-        from:            'left',
-        delay:           400,
-        duration:        600,
-      },
-      {
-        target_selector: '.body',
-        pattern:         'fade_in',
-        delay:           1000,
-        duration:        500,
-      },
-      {
-        target_selector: '.cta',
-        pattern:         'text_reveal',
-        unit:            'char',
-        delay:           1500,
-        duration:        1000,
-      },
+    variants: [
+      emptyVariant(0, 'Judul Iklan Anda', 6000),
     ],
+    transition_pattern:     'fade',
+    transition_ms:          500,
+    text_reveal_enabled:    true,
+    text_reveal_pattern:    'fade_in',
+    text_reveal_stagger_ms: 150,
+    loop:                   false,
   },
 };
 
 /**
- * PRESET 2 — Hotel/Wisata Premium
+ * PRESET 2 — Hotel/Wisata 3-Slide Carousel
  *
- * Animation story:
- *   t=0     → Logo fade in elegant
- *   t=500ms → Headline scale-in (premium "zoom in" feel)
- *   t=1200ms → Body fade in
- *   t=1800ms → CTA fade in (subtle, gak overlay flashy)
- *
- * Total: 2800ms.
+ * 3 variants + fade transition + text slide_in.
  * Mood: Premium, calm.
  * Cocok: Hotel, resort, wisata premium, jasa profesional kelas atas.
  */
 const PRESET_HOTEL_PREMIUM: AnimationPreset = {
   id:             'hotel-premium',
-  label:          'Hotel/Wisata Premium',
-  description:    'Elegant scale-in + fade — vibe mewah & tenang (2.8 detik)',
+  label:          'Hotel/Wisata 3-Slide',
+  description:    '3 foto rotasi + text slide masuk — premium feel',
   mood:           'premium',
   target_segment: 'Hotel, resort, wisata, jasa profesional',
   icon:           '🏨',
   timeline: {
-    duration_ms: 2800,
-    loop:        false,
-    steps: [
-      {
-        target_selector: '.logo',
-        pattern:         'fade_in',
-        delay:           0,
-        duration:        600,
-      },
-      {
-        target_selector: '.headline',
-        pattern:         'scale',
-        delay:           500,
-        duration:        800,
-      },
-      {
-        target_selector: '.body',
-        pattern:         'fade_in',
-        delay:           1200,
-        duration:        600,
-      },
-      {
-        target_selector: '.cta',
-        pattern:         'fade_in',
-        delay:           1800,
-        duration:        500,
-      },
+    variants: [
+      emptyVariant(0, 'Kamar Deluxe Pemandangan Laut', 4000),
+      emptyVariant(1, 'Restoran Mewah dengan Cita Rasa Lokal', 4000),
+      emptyVariant(2, 'Book Now untuk Pengalaman Tak Terlupakan', 4000),
     ],
+    transition_pattern:     'fade',
+    transition_ms:          800,
+    text_reveal_enabled:    true,
+    text_reveal_pattern:    'slide_in',
+    text_reveal_stagger_ms: 120,
+    loop:                   true,
   },
 };
 
 /**
- * PRESET 3 — UMKM Energik
+ * PRESET 3 — UMKM Flash Sale 5-Slide
  *
- * Animation story:
- *   t=0     → Headline slide dari atas + bounce ringan (attention grabber)
- *   t=500ms → Body slide dari kiri (energy continuation)
- *   t=1000ms → CTA scale-in dengan overshoot (action emphasis)
- *
- * Total: 1800ms.
- * Mood: Energik, urgent, action-oriented.
- * Cocok: UMKM, e-commerce, retail, promo flash sale.
- *
- * Note: Logo skip di preset ini karena emphasis ke message, bukan brand.
- *       Klien UMKM biasanya brand recognition rendah, fokus offer.
+ * 5 variants + slide_left transition cepat + text fade_in.
+ * Mood: Energik, urgent.
+ * Cocok: UMKM, e-commerce, retail, promo flash sale, marketplace.
  */
 const PRESET_UMKM_ENERGIK: AnimationPreset = {
   id:             'umkm-energik',
-  label:          'UMKM Energik',
-  description:    'Slide cepat + scale CTA — urgent feel (1.8 detik)',
+  label:          'UMKM Flash Sale 5-Slide',
+  description:    '5 produk rotasi cepat + slide kiri — urgent flash sale',
   mood:           'energik',
   target_segment: 'UMKM, e-commerce, retail, promo flash sale',
   icon:           '🛒',
   timeline: {
-    duration_ms: 1800,
-    loop:        false,
-    steps: [
-      {
-        target_selector: '.headline',
-        pattern:         'slide_in',
-        from:            'top',
-        delay:           0,
-        duration:        500,
-      },
-      {
-        target_selector: '.body',
-        pattern:         'slide_in',
-        from:            'left',
-        delay:           500,
-        duration:        500,
-      },
-      {
-        target_selector: '.cta',
-        pattern:         'scale',
-        delay:           1000,
-        duration:        600,
-      },
+    variants: [
+      emptyVariant(0, 'Diskon 50% Lebaran!', 2500),
+      emptyVariant(1, 'Gratis Ongkir Maluku Utara', 2500),
+      emptyVariant(2, 'Beli 2 Gratis 1 Hari Ini', 2500),
+      emptyVariant(3, 'Limited Stock - Buruan!', 2500),
+      emptyVariant(4, 'Klik Sekarang →', 2500),
     ],
+    transition_pattern:     'slide_left',
+    transition_ms:          400,
+    text_reveal_enabled:    true,
+    text_reveal_pattern:    'fade_in',
+    text_reveal_stagger_ms: 100,
+    loop:                   true,
   },
 };
 
 /**
- * PRESET 4 — Event/Festival
+ * PRESET 4 — Event/Festival 3-Slide
  *
- * Animation story:
- *   t=0     → Logo scale-in subtle (brand intro)
- *   t=600ms → Headline text reveal word-by-word (excitement build-up)
- *   t=1600ms → Body fade in
- *   t=2200ms → CTA slide dari bawah (action call)
- *
- * Total: 3200ms.
- * Mood: Festive, fun, build-up.
+ * 3 variants + slide_up transition + text_reveal char-by-char.
+ * Mood: Festive, fun, build-up excitement.
  * Cocok: Konser, festival, workshop, exhibition, event announcement.
  */
 const PRESET_EVENT_FESTIVAL: AnimationPreset = {
   id:             'event-festival',
-  label:          'Event/Festival',
-  description:    'Build-up dengan word reveal + slide CTA — festive (3.2 detik)',
+  label:          'Event/Festival 3-Slide',
+  description:    '3 frame event + slide atas + text reveal — festive feel',
   mood:           'festive',
   target_segment: 'Konser, festival, workshop, exhibition',
   icon:           '🎉',
   timeline: {
-    duration_ms: 3200,
-    loop:        false,
-    steps: [
-      {
-        target_selector: '.logo',
-        pattern:         'scale',
-        delay:           0,
-        duration:        600,
-      },
-      {
-        target_selector: '.headline',
-        pattern:         'text_reveal',
-        unit:            'word',
-        delay:           600,
-        duration:        1000,
-      },
-      {
-        target_selector: '.body',
-        pattern:         'fade_in',
-        delay:           1600,
-        duration:        500,
-      },
-      {
-        target_selector: '.cta',
-        pattern:         'slide_in',
-        from:            'bottom',
-        delay:           2200,
-        duration:        500,
-      },
+    variants: [
+      emptyVariant(0, 'Festival Cengkeh Maluku Utara 2026', 4500),
+      emptyVariant(1, '7-9 Agustus | Benteng Oranje, Ternate', 4500),
+      emptyVariant(2, 'Tickets Now Available!', 4500),
     ],
+    transition_pattern:     'slide_up',
+    transition_ms:          600,
+    text_reveal_enabled:    true,
+    text_reveal_pattern:    'text_reveal',
+    text_reveal_stagger_ms: 100,
+    loop:                   true,
   },
 };
 
 /**
- * PRESET 5 — Minimalist Premium
+ * PRESET 5 — Minimalist Elegant Single
  *
- * Animation story:
- *   Semua elemen fade in subtle berurutan, NO slide/scale/text reveal.
- *   Pure minimal entrance — focus content, motion sebagai "garnish" saja.
- *
- *   t=0     → Logo fade in
- *   t=400ms → Headline fade in
- *   t=800ms → Body fade in
- *   t=1200ms → CTA fade in
- *
- * Total: 1800ms.
+ * 1 variant + no transition + text fade_in halus dengan stagger besar.
  * Mood: Elegant, tenang, refined.
- * Cocok: Bank, asuransi, jasa finansial, jasa profesional B2B,
- *        klien yang mau "tampil profesional" tanpa flashy.
+ * Cocok: Bank, asuransi, jasa finansial, jasa profesional B2B.
  */
 const PRESET_MINIMALIST: AnimationPreset = {
   id:             'minimalist',
-  label:          'Minimalist Premium',
-  description:    'Pure fade halus berurutan — elegant & tenang (1.8 detik)',
+  label:          'Minimalist Elegant Single',
+  description:    '1 banner + fade halus elegant — bank, asuransi, B2B premium',
   mood:           'elegant',
   target_segment: 'Bank, asuransi, finansial, B2B profesional',
   icon:           '✨',
   timeline: {
-    duration_ms: 1800,
-    loop:        false,
-    steps: [
-      {
-        target_selector: '.logo',
-        pattern:         'fade_in',
-        delay:           0,
-        duration:        500,
-      },
-      {
-        target_selector: '.headline',
-        pattern:         'fade_in',
-        delay:           400,
-        duration:        500,
-      },
-      {
-        target_selector: '.body',
-        pattern:         'fade_in',
-        delay:           800,
-        duration:        500,
-      },
-      {
-        target_selector: '.cta',
-        pattern:         'fade_in',
-        delay:           1200,
-        duration:        500,
-      },
+    variants: [
+      emptyVariant(0, 'Solusi Terpercaya untuk Anda', 8000),
     ],
+    transition_pattern:     'none',
+    transition_ms:          500,
+    text_reveal_enabled:    true,
+    text_reveal_pattern:    'fade_in',
+    text_reveal_stagger_ms: 250,
+    loop:                   false,
   },
 };
 
 // ─── Export Library ───────────────────────────────────────────────
 
 /**
- * Full preset library array — ordered by use case priority.
- * Founder paling sering pakai = di atas.
+ * Full preset library — ordered by use case priority.
+ * Self-promo paling sering dipakai = di atas.
  */
 export const ANIMATION_PRESETS: AnimationPreset[] = [
   PRESET_SELF_PROMO,
@@ -346,7 +240,6 @@ export const ANIMATION_PRESETS: AnimationPreset[] = [
 
 /**
  * Lookup preset by ID.
- * Returns undefined kalau preset tidak ditemukan.
  */
 export function getPresetById(id: string): AnimationPreset | undefined {
   return ANIMATION_PRESETS.find((p) => p.id === id);
@@ -361,8 +254,22 @@ export function getDefaultPreset(): AnimationPreset {
 
 /**
  * Deep clone preset timeline untuk safe mutation di form state.
- * (Tanpa clone, edit form akan mutate library object — bug.)
  */
 export function clonePresetTimeline(preset: AnimationPreset): AnimationTimelineConfig {
   return JSON.parse(JSON.stringify(preset.timeline));
+}
+
+/**
+ * Build empty timeline (no preset selected, klien start from scratch).
+ */
+export function buildEmptyTimeline(): AnimationTimelineConfig {
+  return {
+    variants:               [emptyVariant(0, 'Judul Iklan Anda', 4000)],
+    transition_pattern:     'fade',
+    transition_ms:          500,
+    text_reveal_enabled:    false,
+    text_reveal_pattern:    'fade_in',
+    text_reveal_stagger_ms: 150,
+    loop:                   false,
+  };
 }

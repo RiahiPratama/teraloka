@@ -2,23 +2,19 @@
 
 /**
  * TeraLoka — AdSidebarSlug (v6)
- * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5A.7
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5B
  * ────────────────────────────────────────────────────────────────
  * Sidebar ad untuk slug page BAKABAR.
  *
- * v6 Changes (21 Mei 2026 SESI 5H Phase 5A.7):
- *   - Support ad_format='animated' (GSAP per-position animation)
+ * v6 Changes (21 Mei 2026 SESI 5H Phase 5B):
+ *   - Support ad_format='animated' (GSAP DCA-Aligned variant carousel)
  *   - Resolve animation_timeline['sidebar'] from Record shape
- *   - Render AdAnimatedBanner kalau timeline available
- *   - Static fallback ke image branch kalau animation_timeline['sidebar'] empty
+ *   - Render AdAnimatedBanner kalau variants[] available
+ *   - Static fallback ke image branch kalau variants empty/invalid
  *
  * History:
- *   - v1 (15 Mei 2026): basic sidebar fetch + impression tracking
- *   - v2 (16 Mei 2026 Batch C1): advertorial + disclaimer + DCA inline
- *   - v3 (16 Mei 2026 Batch C2): refactor pakai shared useAdRotation hook
- *   - v4 (16 Mei 2026 Batch C3): region targeting
- *   - v5 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
- *   - v6 (21 Mei 2026 SESI 5H Phase 5A.7): animated banner support
+ *   - v1-v5: see git log
+ *   - v6 (21 Mei 2026 SESI 5H Phase 5B): animated DCA-Aligned support
  */
 
 import Link from 'next/link';
@@ -30,7 +26,7 @@ import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
-// SESI 5H Phase 5A.7 (21 Mei 2026): GSAP animated banner support
+// SESI 5H Phase 5B (21 Mei 2026): GSAP animated banner DCA-Aligned
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
 } from '@/components/public/ads/AdAnimatedBanner';
@@ -47,7 +43,7 @@ interface Ad {
   body?: string;
   image_url?: string | null;
   link_url: string;
-  // SESI 5H Phase 5A.7: +animated format
+  // SESI 5H Phase 5B: +animated format
   ad_format?: 'image' | 'text' | 'animated';
   slug?: string;
   advertiser_name?: string;
@@ -55,7 +51,7 @@ interface Ad {
   advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
   creative_frames?: AdFrame[] | null;
-  // SESI 5H Phase 5A.7: Per-position animation timelines (Record shape)
+  // SESI 5H Phase 5B: Per-position animation timelines (Record shape)
   animation_timeline?: Record<string, AnimationTimelineConfig> | null;
 }
 
@@ -176,14 +172,14 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
     );
   }
 
-  // ═══ ANIMATED BANNER (SESI 5H Phase 5A.7) ═══
+  // ═══ ANIMATED BANNER (SESI 5H Phase 5B DCA-Aligned) ═══
   // Branch SEBELUM text/image karena ad_format='animated' bisa override visual mode.
-  // Resolve timeline dari Record per-position. Kalau timeline untuk 'sidebar' tidak
-  // ada, fallback ke image branch (graceful degradation).
+  // Resolve timeline dari Record per-position. Cek variants[] (Phase 5B shape).
+  // Fallback ke image branch kalau timeline empty/invalid (graceful degradation).
   if (ad.ad_format === 'animated') {
     const sidebarTimeline = ad.animation_timeline?.['sidebar'];
 
-    if (sidebarTimeline && Array.isArray(sidebarTimeline.steps) && sidebarTimeline.steps.length > 0) {
+    if (sidebarTimeline && Array.isArray(sidebarTimeline.variants) && sidebarTimeline.variants.length > 0) {
       return (
         <div ref={setRef as any} style={animStyle}>
           <AdAnimatedBanner
@@ -206,7 +202,7 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
         </div>
       );
     }
-    // Fallback: lanjut ke image branch (kalau ada image_url)
+    // Fallback: lanjut ke image branch
   }
 
   // ═══ TEXT ADVERTORIAL — sidebar card ═══
@@ -296,8 +292,7 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
 
         {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
         {(() => {
-          // SESI 5H Phase 5A.7: Coerce 'animated' → 'image' untuk label compat
-          // (getAdLabel signature lama; 'animated' treated as visual = same as image)
+          // SESI 5H Phase 5B: Coerce 'animated' → 'image' untuk getAdLabel compat
           const formatForLabel = ad.ad_format === 'animated' ? 'image' : ad.ad_format;
           const label = getAdLabel({
             advertiser_type: ad.advertiser_type,

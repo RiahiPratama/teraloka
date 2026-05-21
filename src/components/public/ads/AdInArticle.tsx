@@ -2,24 +2,20 @@
 
 /**
  * TeraLoka — AdInArticle (v5)
- * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5A.7
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5B
  * ────────────────────────────────────────────────────────────────
  * In-article ad banner — inject di tengah artikel BAKABAR via BodyWithAds.
  *
- * v5 Changes (21 Mei 2026 SESI 5H Phase 5A.7):
- *   - Support ad_format='animated' (GSAP per-position animation)
+ * v5 Changes (21 Mei 2026 SESI 5H Phase 5B):
+ *   - Support ad_format='animated' (GSAP DCA-Aligned variant carousel)
  *   - Resolve animation_timeline['in_article'] from Record shape
- *   - Render AdAnimatedBanner kalau timeline available
- *   - Static fallback ke image branch kalau animation_timeline['in_article'] empty
+ *   - Render AdAnimatedBanner kalau variants[] available
  *
  * Endpoint: GET /public/ads?position=in_article&region=X&format=Y
  *
  * History:
- *   - v1 (15 Mei 2026): advertorial branching + image banner static
- *   - v2 (16 Mei 2026 Batch C2): DCA rotation + shared hook + politisi disclaimer
- *   - v3 (16 Mei 2026 Batch C3): region targeting param
- *   - v4 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
- *   - v5 (21 Mei 2026 SESI 5H Phase 5A.7): animated banner support
+ *   - v1-v4: see git log
+ *   - v5 (21 Mei 2026 SESI 5H Phase 5B): animated DCA-Aligned support
  */
 
 import Link from 'next/link';
@@ -30,7 +26,7 @@ import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
-// SESI 5H Phase 5A.7 (21 Mei 2026): GSAP animated banner support
+// SESI 5H Phase 5B (21 Mei 2026): GSAP animated banner DCA-Aligned
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
 } from '@/components/public/ads/AdAnimatedBanner';
@@ -47,7 +43,7 @@ interface Ad {
   body?: string;
   image_url?: string | null;
   link_url: string;
-  // SESI 5H Phase 5A.7: +animated format
+  // SESI 5H Phase 5B: +animated format
   ad_format?: 'image' | 'text' | 'animated';
   // Advertorial fields
   slug?: string;
@@ -57,7 +53,7 @@ interface Ad {
   disclaimer_text?: string | null;
   // DCA fields (Mission 7)
   creative_frames?: AdFrame[] | null;
-  // SESI 5H Phase 5A.7: Per-position animation timelines (Record shape)
+  // SESI 5H Phase 5B: Per-position animation timelines (Record shape)
   animation_timeline?: Record<string, AnimationTimelineConfig> | null;
 }
 
@@ -193,14 +189,11 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
     );
   }
 
-  // ═══ ANIMATED BANNER (SESI 5H Phase 5A.7) ═══
-  // Branch SEBELUM text/image karena ad_format='animated' bisa override visual mode.
-  // Resolve timeline dari Record per-position. Kalau timeline untuk 'in_article'
-  // tidak ada, fallback ke image branch (graceful degradation).
+  // ═══ ANIMATED BANNER (SESI 5H Phase 5B DCA-Aligned) ═══
   if (ad.ad_format === 'animated') {
     const inArticleTimeline = ad.animation_timeline?.['in_article'];
 
-    if (inArticleTimeline && Array.isArray(inArticleTimeline.steps) && inArticleTimeline.steps.length > 0) {
+    if (inArticleTimeline && Array.isArray(inArticleTimeline.variants) && inArticleTimeline.variants.length > 0) {
       return (
         <div ref={setRef as any} style={animStyle} className="my-6 flex justify-center">
           <AdAnimatedBanner
@@ -223,7 +216,7 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
         </div>
       );
     }
-    // Fallback: lanjut ke image branch (kalau ada image_url)
+    // Fallback: lanjut ke image branch
   }
 
   // ═══ TEXT ADVERTORIAL — preview card ═══
@@ -339,7 +332,7 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
 
         {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
         {(() => {
-          // SESI 5H Phase 5A.7: Coerce 'animated' → 'image' untuk label compat
+          // SESI 5H Phase 5B: Coerce 'animated' → 'image' untuk getAdLabel compat
           const formatForLabel = ad.ad_format === 'animated' ? 'image' : ad.ad_format;
           const label = getAdLabel({
             advertiser_type: ad.advertiser_type,

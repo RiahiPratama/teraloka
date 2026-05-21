@@ -1,33 +1,35 @@
 'use client';
 
 /**
- * TeraLoka — AnimationBuilder (Generic Controlled Component)
- * SESI 5H Phase 5A.7 (21 Mei 2026) — Per-Position Animation Refactor
+ * TeraLoka — AnimationBuilder (Inline Controls Per Field)
+ * SESI 5H Phase 5B (21 Mei 2026)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
- * Generic reusable builder untuk GSAP animation timeline.
- * Controlled component (state lifted ke parent via props).
+ * Design philosophy:
+ *   Setiap text field (Headline/Body/CTA) punya MINI-CONTROLS inline:
+ *     - 📍 Position: Left | Center | Right
+ *     - 📐 Size:     S | M | L (+ XL untuk Headline)
+ *     - ✨ Animation: Fade In | Slide In | Scale In | Text Reveal (+ Pulse untuk CTA)
+ *     - 🎨 Warna:    8 color palette untuk text color
+ *     - 🎨 Backdrop: None + 8 color palette untuk tint di belakang text
  *
- * Use cases:
- *   - PositionCreativeModal tab 3 "Animated" (per-position config)
- *   - Future standalone preview pages
+ * Klien isi text → langsung sebelahnya atur kontrol. Linear flow, low cognitive load.
  *
- * Refactor source: AdFormSectionAnimation.tsx (Phase 5A.4) — diextract
- * jadi generic biar reusable per-position. Logic builder 80% same.
+ * UI STRUCTURE:
+ *   1. Preset Picker (5 template cepat)
+ *   2. Variants CRUD (per variant inline controls)
+ *   3. Transition antar variant (kalau 2+)
+ *   4. Text Reveal Animation GLOBAL (fallback default)
+ *   5. Loop Toggle
+ *   6. Live Preview (auto-scale)
  *
- * Props design:
- *   - timeline: current timeline (atau null untuk init empty)
- *   - onChange: callback (newTimeline) => void
- *   - previewContext: data dari form lain untuk live preview (title, body, etc)
- *   - previewWidth/Height: dimensi preview banner sesuai position
- *
- * Pattern: Fully controlled — gak pakai useAdForm langsung.
- *          Parent yang sync ke AdFormProvider state.
+ * Engine support: AdAnimatedBanner Tier 2 (per-element override engine).
+ * UI sends `element_overrides` dengan auto-calculated delay_ms + duration_ms.
  * ────────────────────────────────────────────────────────────────
  */
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 import {
   Sparkles,
   Plus,
@@ -36,67 +38,147 @@ import {
   ArrowDown,
   Eye,
   Wand2,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import ImageUpload from '@/components/ui/ImageUpload';
 import {
   ANIMATION_PRESETS,
   getPresetById,
   clonePresetTimeline,
+  buildEmptyTimeline,
 } from '@/lib/ads/animation-presets';
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
-  type AnimationStep,
-  type AnimationPattern,
+  type AnimationVariant,
   type AnimatedBannerAd,
+  type TransitionPattern,
+  type TextRevealPattern,
+  type ElementOverride,
+  type ElementKey,
+  type ElementAnimation,
+  type ElementPosition,
+  type TextSize,
+  type TextColorKey,
+  DEFAULT_ELEMENT_OVERRIDES,
+  TEXT_COLOR_MAP,
 } from '@/components/public/ads/AdAnimatedBanner';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════════════════════
 
-const TARGET_OPTIONS = [
-  { value: '.logo',     label: 'Logo Advertiser'    },
-  { value: '.headline', label: 'Headline (Judul)'   },
-  { value: '.body',     label: 'Body (Deskripsi)'   },
-  { value: '.cta',      label: 'CTA Button'         },
-] as const;
+const MIN_VARIANTS = 1;
+const MAX_VARIANTS = 5;
+const MIN_DURATION_MS = 2000;
+const MAX_DURATION_MS = 15000;
+const DEFAULT_DURATION_MS = 4000;
 
-const PATTERN_OPTIONS: { value: AnimationPattern; label: string; description: string }[] = [
-  { value: 'fade_in',       label: 'Fade In',         description: 'Muncul perlahan transparan → jelas'    },
-  { value: 'fade_out',      label: 'Fade Out',        description: 'Hilang perlahan jelas → transparan'    },
-  { value: 'slide_in',      label: 'Slide In',        description: 'Geser masuk dari arah tertentu'        },
-  { value: 'text_reveal',   label: 'Text Reveal',     description: 'Tulisan muncul huruf-per-huruf'        },
-  { value: 'scale',         label: 'Scale (Zoom In)', description: 'Membesar subtle 0.8 → 1.0'             },
-  { value: 'stagger_group', label: 'Stagger Group',   description: 'Multi-elemen muncul berurutan (children)' },
+const TRANSITION_OPTIONS: { value: TransitionPattern; label: string; description: string }[] = [
+  { value: 'fade',       label: 'Fade',       description: 'Crossfade halus antar variant' },
+  { value: 'slide_left', label: 'Slide Left', description: 'Geser ke kiri (carousel feel)' },
+  { value: 'slide_up',   label: 'Slide Up',   description: 'Geser ke atas (story feel)' },
+  { value: 'none',       label: 'None',       description: 'Cut langsung, tanpa transisi' },
 ];
 
-const SLIDE_FROM_OPTIONS = [
-  { value: 'left',   label: 'Dari Kiri'    },
-  { value: 'right',  label: 'Dari Kanan'   },
-  { value: 'top',    label: 'Dari Atas'    },
-  { value: 'bottom', label: 'Dari Bawah'   },
-] as const;
+const TEXT_REVEAL_OPTIONS: { value: TextRevealPattern; label: string; description: string }[] = [
+  { value: 'fade_in',     label: 'Fade In',     description: 'Element muncul transparan → jelas' },
+  { value: 'slide_in',    label: 'Slide In',    description: 'Element geser masuk dari kiri' },
+  { value: 'text_reveal', label: 'Text Reveal', description: 'Tulisan muncul karakter-per-karakter' },
+  { value: 'none',        label: 'None',        description: 'Tidak ada animasi text' },
+];
 
-const TEXT_REVEAL_UNIT_OPTIONS = [
-  { value: 'char', label: 'Per Karakter (smooth)' },
-  { value: 'word', label: 'Per Kata (cepat)'      },
-] as const;
+// ─── Inline Controls Constants ────────────────────────────────────
 
-const EMPTY_TIMELINE: AnimationTimelineConfig = {
-  duration_ms: 2000,
-  loop:        false,
-  steps:       [],
+// 3-way horizontal position
+type HorizontalPosition = 'left' | 'center' | 'right';
+
+const POSITION_OPTIONS: { value: HorizontalPosition; label: string; emoji: string }[] = [
+  { value: 'left',   label: 'Left',   emoji: '⬅' },
+  { value: 'center', label: 'Center', emoji: '⬌' },
+  { value: 'right',  label: 'Right',  emoji: '➡' },
+];
+
+// Map HorizontalPosition + element type ke ElementPosition (9-anchor) di engine
+function toEnginePosition(field: 'headline' | 'body' | 'cta', horizontal: HorizontalPosition): ElementPosition {
+  // Headline & Body di middle row
+  // CTA di bottom row
+  if (field === 'cta') {
+    if (horizontal === 'left')   return 'bottom_left';
+    if (horizontal === 'center') return 'bottom_center';
+    return 'bottom_right';
+  }
+  // Headline & Body middle row
+  if (horizontal === 'left')   return 'middle_left';
+  if (horizontal === 'center') return 'middle_center';
+  return 'middle_right';
+}
+
+// Reverse: ElementPosition → HorizontalPosition (untuk read state existing)
+function fromEnginePosition(position: ElementPosition): HorizontalPosition {
+  if (position.includes('center')) return 'center';
+  if (position.includes('right'))  return 'right';
+  return 'left';
+}
+
+// Size options per field
+const HEADLINE_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
+  { value: 'sm', label: 'S' },
+  { value: 'md', label: 'M' },
+  { value: 'lg', label: 'L' },
+  { value: 'xl', label: 'XL' },
+];
+
+const BODY_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
+  { value: 'sm', label: 'S' },
+  { value: 'md', label: 'M' },
+  { value: 'lg', label: 'L' },
+];
+
+const CTA_SIZE_OPTIONS: { value: TextSize; label: string }[] = [
+  { value: 'sm', label: 'S' },
+  { value: 'md', label: 'M' },
+  { value: 'lg', label: 'L' },
+];
+
+// Animation per field (Headline/Body sama, CTA exclusive Pulse)
+const TEXT_ANIM_OPTIONS: { value: ElementAnimation; label: string; emoji: string }[] = [
+  { value: 'fade_in',     label: 'Fade In',     emoji: '🌫️' },
+  { value: 'slide_in',    label: 'Slide In',    emoji: '➡️' },
+  { value: 'scale_in',    label: 'Scale In',    emoji: '🔍' },
+  { value: 'text_reveal', label: 'Reveal',      emoji: '⌨️' },
+];
+
+const CTA_ANIM_OPTIONS: { value: ElementAnimation; label: string; emoji: string }[] = [
+  { value: 'fade_in',  label: 'Fade In',  emoji: '🌫️' },
+  { value: 'slide_in', label: 'Slide In', emoji: '➡️' },
+  { value: 'scale_in', label: 'Scale In', emoji: '🔍' },
+  { value: 'pulse',    label: 'Pulse',    emoji: '💗' },
+];
+
+// Color palette — 8 swatches restricted untuk klarity
+const COLOR_PALETTE: { value: TextColorKey; label: string; swatch: string }[] = [
+  { value: 'white',  label: 'White',  swatch: TEXT_COLOR_MAP.white  },
+  { value: 'black',  label: 'Black',  swatch: TEXT_COLOR_MAP.black  },
+  { value: 'amber',  label: 'Amber',  swatch: TEXT_COLOR_MAP.amber  },
+  { value: 'red',    label: 'Red',    swatch: TEXT_COLOR_MAP.red    },
+  { value: 'blue',   label: 'Blue',   swatch: TEXT_COLOR_MAP.blue   },
+  { value: 'green',  label: 'Green',  swatch: TEXT_COLOR_MAP.green  },
+  { value: 'purple', label: 'Purple', swatch: TEXT_COLOR_MAP.purple },
+  { value: 'gray',   label: 'Gray',   swatch: TEXT_COLOR_MAP.gray   },
+];
+
+// Auto-calculated delay per field (klien gak perlu lihat angka)
+const AUTO_DELAY_MS: Record<'headline' | 'body' | 'cta', number> = {
+  headline: 0,
+  body:     300,
+  cta:      600,
 };
 
-const NEW_STEP_DEFAULT: AnimationStep = {
-  target_selector: '.headline',
-  pattern:         'fade_in',
-  delay:           0,
-  duration:        500,
-};
+const AUTO_DURATION_MS = 500;
 
 // ════════════════════════════════════════════════════════════════
-// PREVIEW CONTEXT — Data from outer form untuk live preview
+// PREVIEW CONTEXT
 // ════════════════════════════════════════════════════════════════
 
 export interface PreviewContext {
@@ -114,34 +196,70 @@ export interface PreviewContext {
 // ════════════════════════════════════════════════════════════════
 
 export interface AnimationBuilderProps {
-  /** Current timeline (null = empty initial state) */
-  timeline: AnimationTimelineConfig | null;
-  /** Callback saat timeline berubah */
-  onChange: (timeline: AnimationTimelineConfig) => void;
-  /** Data dari outer form untuk preview render */
-  previewContext: PreviewContext;
-  /** Preview dimensions (default MPU 300×250) */
-  previewWidth?:  number;
-  previewHeight?: number;
-  /** Optional error message untuk display di top */
-  errorMessage?: string;
+  timeline:        AnimationTimelineConfig | null;
+  onChange:        (timeline: AnimationTimelineConfig) => void;
+  previewContext:  PreviewContext;
+  previewWidth?:   number;
+  previewHeight?:  number;
+  errorMessage?:   string;
 }
 
 // ════════════════════════════════════════════════════════════════
 // HELPERS
 // ════════════════════════════════════════════════════════════════
 
-function computeTotalDuration(steps: AnimationStep[]): number {
-  if (steps.length === 0) return 0;
-  return Math.max(...steps.map((s) => s.delay + s.duration));
+function createEmptyVariant(order: number): AnimationVariant {
+  return {
+    order,
+    image_url:   '',
+    headline:    '',
+    body:        null,
+    cta_text:    null,
+    duration_ms: DEFAULT_DURATION_MS,
+  };
+}
+
+function renumberVariants(variants: AnimationVariant[]): AnimationVariant[] {
+  return variants.map((v, idx) => ({ ...v, order: idx }));
+}
+
+/**
+ * Get effective ElementOverride for variant + field (merge default + override).
+ */
+function getElementOverride(
+  variant: AnimationVariant,
+  field:   ElementKey,
+): ElementOverride {
+  const custom = variant.element_overrides?.[field];
+  const defaults = DEFAULT_ELEMENT_OVERRIDES[field];
+  return { ...defaults, ...(custom ?? {}) };
+}
+
+/**
+ * Build mutation: update element override for specific field di variant.
+ */
+function patchElementOverride(
+  variant: AnimationVariant,
+  field:   ElementKey,
+  patch:   Partial<ElementOverride>,
+): AnimationVariant {
+  const current = getElementOverride(variant, field);
+  const next: ElementOverride = { ...current, ...patch };
+  return {
+    ...variant,
+    element_overrides: {
+      ...(variant.element_overrides ?? {}),
+      [field]: next,
+    },
+  };
 }
 
 // ════════════════════════════════════════════════════════════════
-// COMPONENT
+// MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════
 
 export default function AnimationBuilder({
-  timeline: timelineProp,
+  timeline:       timelineProp,
   onChange,
   previewContext,
   previewWidth  = 300,
@@ -150,13 +268,13 @@ export default function AnimationBuilder({
 }: AnimationBuilderProps) {
   const [selectedPresetId, setSelectedPresetId] = useState<string>('custom');
 
-  // Derived: current timeline (atau EMPTY kalau null)
-  const timeline = timelineProp ?? EMPTY_TIMELINE;
+  const timeline = timelineProp ?? buildEmptyTimeline();
+  const variants = timeline.variants;
 
-  // ─── Helpers untuk mutate timeline ─────────────────────────────
+  // ─── Mutate helpers ────────────────────────────────────────────
 
-  const updateTimeline = (next: AnimationTimelineConfig) => {
-    onChange(next);
+  const updateTimeline = (patch: Partial<AnimationTimelineConfig>) => {
+    onChange({ ...timeline, ...patch });
   };
 
   const handlePresetSelect = (presetId: string) => {
@@ -164,64 +282,58 @@ export default function AnimationBuilder({
     if (presetId === 'custom') return;
     const preset = getPresetById(presetId);
     if (!preset) return;
-    updateTimeline(clonePresetTimeline(preset));
+    onChange(clonePresetTimeline(preset));
   };
 
-  const handleAddStep = () => {
-    const nextSteps = [...timeline.steps, { ...NEW_STEP_DEFAULT }];
-    updateTimeline({
-      ...timeline,
-      steps:       nextSteps,
-      duration_ms: computeTotalDuration(nextSteps),
-    });
+  const replaceVariant = (idx: number, nextVariant: AnimationVariant) => {
+    const next = variants.map((v, i) => (i === idx ? nextVariant : v));
+    updateTimeline({ variants: next });
     setSelectedPresetId('custom');
   };
 
-  const handleRemoveStep = (index: number) => {
-    const nextSteps = timeline.steps.filter((_, i) => i !== index);
-    updateTimeline({
-      ...timeline,
-      steps:       nextSteps,
-      duration_ms: computeTotalDuration(nextSteps),
-    });
+  const updateVariant = (idx: number, patch: Partial<AnimationVariant>) => {
+    const current = variants[idx];
+    if (!current) return;
+    replaceVariant(idx, { ...current, ...patch });
+  };
+
+  const updateVariantElement = (
+    idx:   number,
+    field: ElementKey,
+    patch: Partial<ElementOverride>,
+  ) => {
+    const current = variants[idx];
+    if (!current) return;
+    replaceVariant(idx, patchElementOverride(current, field, patch));
+  };
+
+  const addVariant = () => {
+    if (variants.length >= MAX_VARIANTS) return;
+    const next = [...variants, createEmptyVariant(variants.length)];
+    updateTimeline({ variants: renumberVariants(next) });
     setSelectedPresetId('custom');
   };
 
-  const handleUpdateStep = (index: number, field: keyof AnimationStep, value: any) => {
-    const nextSteps = timeline.steps.map((step, i) =>
-      i === index ? { ...step, [field]: value } : step,
-    );
-    updateTimeline({
-      ...timeline,
-      steps:       nextSteps,
-      duration_ms: computeTotalDuration(nextSteps),
-    });
+  const removeVariant = (idx: number) => {
+    if (variants.length <= MIN_VARIANTS) return;
+    const next = renumberVariants(variants.filter((_, i) => i !== idx));
+    updateTimeline({ variants: next });
     setSelectedPresetId('custom');
   };
 
-  const handleMoveStep = (index: number, direction: 'up' | 'down') => {
-    const newIndex = direction === 'up' ? index - 1 : index + 1;
-    if (newIndex < 0 || newIndex >= timeline.steps.length) return;
-
-    const nextSteps = [...timeline.steps];
-    [nextSteps[index], nextSteps[newIndex]] = [nextSteps[newIndex], nextSteps[index]];
-
-    updateTimeline({
-      ...timeline,
-      steps: nextSteps,
-    });
+  const moveVariant = (idx: number, direction: 'up' | 'down') => {
+    const targetIdx = direction === 'up' ? idx - 1 : idx + 1;
+    if (targetIdx < 0 || targetIdx >= variants.length) return;
+    const next = [...variants];
+    [next[idx], next[targetIdx]] = [next[targetIdx], next[idx]];
+    updateTimeline({ variants: renumberVariants(next) });
     setSelectedPresetId('custom');
   };
 
-  const handleLoopToggle = (loop: boolean) => {
-    updateTimeline({ ...timeline, loop });
-    setSelectedPresetId('custom');
-  };
+  // ─── Preview Ad ────────────────────────────────────────────────
 
-  // ─── Build preview Ad data dari previewContext ─────────────────
   const previewAd: AnimatedBannerAd | null = useMemo(() => {
-    if (timeline.steps.length === 0) return null;
-
+    if (variants.length === 0) return null;
     return {
       id:                  'preview-ad',
       slug:                null,
@@ -234,10 +346,43 @@ export default function AnimationBuilder({
       disclaimer_text:     previewContext.disclaimer_text || null,
       animation_timeline:  timeline,
     };
-  }, [timeline, previewContext]);
+  }, [timeline, previewContext, variants.length]);
 
-  // Preview key — force re-mount AdAnimatedBanner saat timeline change
   const previewKey = useMemo(() => JSON.stringify(timeline), [timeline]);
+
+  const totalDurationSec = useMemo(() => {
+    const sum = variants.reduce((acc, v) => acc + v.duration_ms, 0);
+    return (sum / 1000).toFixed(1);
+  }, [variants]);
+
+  // ─── Smart Preview Auto-Scale ──────────────────────────────────
+
+  const previewContainerRef = useRef<HTMLDivElement | null>(null);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  useEffect(() => {
+    const el = previewContainerRef.current;
+    if (!el) return;
+
+    const updateWidth = () => setContainerWidth(el.clientWidth);
+    updateWidth();
+
+    if (typeof ResizeObserver !== 'undefined') {
+      const ro = new ResizeObserver(updateWidth);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }
+
+    window.addEventListener('resize', updateWidth);
+    return () => window.removeEventListener('resize', updateWidth);
+  }, []);
+
+  const availableWidth = Math.max(containerWidth - 32, 0);
+  const scaleFactor    = availableWidth > 0 && previewWidth > availableWidth
+    ? availableWidth / previewWidth
+    : 1;
+  const scaledHeight   = previewHeight * scaleFactor;
+  const isScaled       = scaleFactor < 1;
 
   // ════════════════════════════════════════════════════════════════
   // RENDER
@@ -245,15 +390,14 @@ export default function AnimationBuilder({
 
   return (
     <div className="space-y-5">
-
       {/* ─── Status Summary Bar ─── */}
       <div className="flex items-center justify-between p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-900">
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-purple-600 dark:text-purple-400" />
           <p className="text-xs text-purple-900 dark:text-purple-200">
-            <span className="font-semibold">{timeline.steps.length} step</span>
+            <span className="font-semibold">{variants.length} variant</span>
             <span className="text-purple-600 dark:text-purple-400"> · </span>
-            <span>Total {timeline.duration_ms}ms</span>
+            <span>Total {totalDurationSec}s</span>
             {timeline.loop && (
               <>
                 <span className="text-purple-600 dark:text-purple-400"> · </span>
@@ -300,93 +444,263 @@ export default function AnimationBuilder({
         )}
       </div>
 
-      {/* ─── STEP BUILDER ─── */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SECTION: VARIANTS                                            */}
+      {/* ════════════════════════════════════════════════════════════ */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <label className="text-xs font-semibold text-purple-900 dark:text-purple-200">
-            Steps Animasi ({timeline.steps.length})
+            Variants Animasi ({variants.length}/{MAX_VARIANTS})
           </label>
-          <button
-            type="button"
-            onClick={handleAddStep}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold transition"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            Tambah Step
-          </button>
+          {variants.length < MAX_VARIANTS && (
+            <button
+              type="button"
+              onClick={addVariant}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold transition"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Tambah Variant
+            </button>
+          )}
         </div>
 
-        {timeline.steps.length === 0 ? (
-          <div className="p-6 rounded-md border-2 border-dashed border-purple-300 dark:border-purple-800 bg-purple-50/50 dark:bg-purple-950/10 text-center">
-            <Sparkles className="w-6 h-6 text-purple-400 mx-auto mb-2 opacity-50" />
-            <p className="text-xs text-purple-700 dark:text-purple-300">
-              Belum ada step animasi. Pilih template di atas, atau klik "Tambah Step".
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {timeline.steps.map((step, index) => (
-              <StepEditor
-                key={index}
-                step={step}
-                index={index}
-                totalSteps={timeline.steps.length}
-                onChange={(field, value) => handleUpdateStep(index, field, value)}
-                onRemove={() => handleRemoveStep(index)}
-                onMove={(direction) => handleMoveStep(index, direction)}
-              />
+        <div className="space-y-3">
+          {variants.map((variant, idx) => (
+            <VariantEditor
+              key={idx}
+              variant={variant}
+              index={idx}
+              totalVariants={variants.length}
+              onChange={(patch) => updateVariant(idx, patch)}
+              onChangeElement={(field, patch) => updateVariantElement(idx, field, patch)}
+              onRemove={() => removeVariant(idx)}
+              onMove={(dir) => moveVariant(idx, dir)}
+            />
+          ))}
+        </div>
+
+        <p className="text-[10px] text-text-subtle mt-2">
+          Min {MIN_VARIANTS} · Max {MAX_VARIANTS} variant · Durasi {MIN_DURATION_MS/1000}-{MAX_DURATION_MS/1000}s per variant
+        </p>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SECTION: TRANSITION (visible kalau 2+ variants)               */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {variants.length >= 2 && (
+        <div className="rounded-lg border border-purple-200 dark:border-purple-800 p-3 bg-purple-50/30 dark:bg-purple-950/10">
+          <label className="text-xs font-semibold text-purple-900 dark:text-purple-200 mb-2 block">
+            🎞️ Transisi antar Variant
+          </label>
+          <div className="grid grid-cols-2 gap-2 mb-3">
+            {TRANSITION_OPTIONS.map((opt) => (
+              <label
+                key={opt.value}
+                className={cn(
+                  'flex items-start gap-2 px-2 py-1.5 rounded-md border cursor-pointer transition',
+                  timeline.transition_pattern === opt.value
+                    ? 'bg-purple-100 border-purple-400 dark:bg-purple-900/40 dark:border-purple-600'
+                    : 'bg-white border-gray-200 hover:bg-purple-50 dark:bg-gray-900 dark:border-gray-700'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="transition_pattern"
+                  checked={timeline.transition_pattern === opt.value}
+                  onChange={() => updateTimeline({ transition_pattern: opt.value })}
+                  className="accent-purple-600 mt-0.5 shrink-0"
+                />
+                <div className="min-w-0">
+                  <p className="text-[11px] font-bold text-gray-900 dark:text-gray-100">{opt.label}</p>
+                  <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight">{opt.description}</p>
+                </div>
+              </label>
             ))}
           </div>
+
+          <div>
+            <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+              Durasi transisi (ms, 200-1000)
+            </label>
+            <input
+              type="number"
+              value={timeline.transition_ms}
+              min={200}
+              max={1000}
+              step={100}
+              onChange={(e) =>
+                updateTimeline({
+                  transition_ms: Math.max(200, Math.min(1000, parseInt(e.target.value, 10) || 500)),
+                })
+              }
+              className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+            />
+          </div>
+        </div>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SECTION: TEXT REVEAL ANIMATION (Global Fallback)              */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      <div className="rounded-lg border border-purple-200 dark:border-purple-800 p-3 bg-purple-50/30 dark:bg-purple-950/10">
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-xs font-semibold text-purple-900 dark:text-purple-200">
+            🎭 Text Reveal Animation (Default)
+          </label>
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={timeline.text_reveal_enabled}
+              onChange={(e) => updateTimeline({ text_reveal_enabled: e.target.checked })}
+              className="sr-only peer"
+            />
+            <div className="w-9 h-5 bg-gray-300 dark:bg-gray-700 peer-checked:bg-purple-600 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all" />
+          </label>
+        </div>
+
+        <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mb-3">
+          Default animasi semua element. Bisa di-override per field di variant (animation picker di bawah field).
+        </p>
+
+        {timeline.text_reveal_enabled && (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-3">
+              {TEXT_REVEAL_OPTIONS.filter((o) => o.value !== 'none').map((opt) => (
+                <label
+                  key={opt.value}
+                  className={cn(
+                    'flex items-start gap-2 px-2 py-1.5 rounded-md border cursor-pointer transition',
+                    timeline.text_reveal_pattern === opt.value
+                      ? 'bg-purple-100 border-purple-400 dark:bg-purple-900/40 dark:border-purple-600'
+                      : 'bg-white border-gray-200 hover:bg-purple-50 dark:bg-gray-900 dark:border-gray-700'
+                  )}
+                >
+                  <input
+                    type="radio"
+                    name="text_reveal_pattern"
+                    checked={timeline.text_reveal_pattern === opt.value}
+                    onChange={() => updateTimeline({ text_reveal_pattern: opt.value })}
+                    className="accent-purple-600 mt-0.5 shrink-0"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-bold text-gray-900 dark:text-gray-100">{opt.label}</p>
+                    <p className="text-[9px] text-gray-500 dark:text-gray-400 leading-tight">{opt.description}</p>
+                  </div>
+                </label>
+              ))}
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                Stagger antar element (ms, 50-500)
+              </label>
+              <input
+                type="number"
+                value={timeline.text_reveal_stagger_ms}
+                min={50}
+                max={500}
+                step={50}
+                onChange={(e) =>
+                  updateTimeline({
+                    text_reveal_stagger_ms: Math.max(50, Math.min(500, parseInt(e.target.value, 10) || 150)),
+                  })
+                }
+                className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+              />
+            </div>
+          </>
         )}
       </div>
 
-      {/* ─── LOOP TOGGLE ─── */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* LOOP TOGGLE                                                    */}
+      {/* ════════════════════════════════════════════════════════════ */}
       <div className="flex items-center justify-between p-3 rounded-md bg-purple-100/40 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
         <div>
-          <p className="text-xs font-semibold text-purple-900 dark:text-purple-200">
-            Loop Animasi
-          </p>
+          <p className="text-xs font-semibold text-purple-900 dark:text-purple-200">🔁 Loop Carousel</p>
           <p className="text-[11px] text-purple-700/80 dark:text-purple-300/80 mt-0.5">
-            Phase 1 LOCKED: matikan (play-once + replay-on-scroll)
+            Phase 1 LOCKED: matikan (play-once + replay-on-scroll). Loop hanya untuk carousel rotasi terus.
           </p>
         </div>
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
             checked={timeline.loop}
-            onChange={(e) => handleLoopToggle(e.target.checked)}
+            onChange={(e) => updateTimeline({ loop: e.target.checked })}
             className="sr-only peer"
           />
           <div className="w-9 h-5 bg-gray-300 dark:bg-gray-700 peer-checked:bg-purple-600 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all" />
         </label>
       </div>
 
-      {/* ─── LIVE PREVIEW ─── */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* LIVE PREVIEW                                                   */}
+      {/* ════════════════════════════════════════════════════════════ */}
       <div>
         <label className="block text-xs font-semibold text-purple-900 dark:text-purple-200 mb-2">
           <Eye className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
           Live Preview ({previewWidth}×{previewHeight})
+          {isScaled && (
+            <span className="ml-2 text-[10px] font-normal text-purple-600 dark:text-purple-400">
+              · scaled {(scaleFactor * 100).toFixed(0)}%
+            </span>
+          )}
         </label>
-        <div className="p-4 rounded-md border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-900 flex items-center justify-center min-h-[200px] overflow-auto">
+        <div
+          ref={previewContainerRef}
+          className="p-4 rounded-md border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-900 flex items-center justify-center overflow-hidden"
+          style={{
+            minHeight: isScaled ? `${Math.max(scaledHeight + 32, 200)}px` : '200px',
+          }}
+        >
           {previewAd ? (
-            <AdAnimatedBanner
-              key={previewKey}
-              ad={previewAd}
-              width={previewWidth}
-              height={previewHeight}
-            />
+            isScaled ? (
+              <div
+                style={{
+                  width:  `${previewWidth * scaleFactor}px`,
+                  height: `${previewHeight * scaleFactor}px`,
+                }}
+                className="relative"
+              >
+                <div
+                  style={{
+                    width:           `${previewWidth}px`,
+                    height:          `${previewHeight}px`,
+                    transform:       `scale(${scaleFactor})`,
+                    transformOrigin: 'top left',
+                  }}
+                  className="absolute top-0 left-0"
+                >
+                  <AdAnimatedBanner
+                    key={previewKey}
+                    ad={previewAd}
+                    width={previewWidth}
+                    height={previewHeight}
+                  />
+                </div>
+              </div>
+            ) : (
+              <AdAnimatedBanner
+                key={previewKey}
+                ad={previewAd}
+                width={previewWidth}
+                height={previewHeight}
+              />
+            )
           ) : (
             <div className="text-center">
               <Eye className="w-8 h-8 text-gray-300 dark:text-gray-700 mx-auto mb-2" />
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Preview muncul setelah ada minimal 1 step
-              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Preview muncul setelah ada minimal 1 variant</p>
             </div>
           )}
         </div>
         <p className="mt-2 text-[10px] text-purple-700/60 dark:text-purple-300/60 italic">
-          Animasi pakai data dari section Kreatif (title, body, image, dll).
-          Dimensi sesuai posisi yang sedang di-edit.
+          Preview pakai data dari section Kreatif (kalau variant field kosong).
+          {isScaled && (
+            <span className="block mt-0.5">
+              ℹ️ Banner di-scale-down agar fit modal. Render sebenarnya {previewWidth}×{previewHeight}px di production.
+            </span>
+          )}
         </p>
       </div>
     </div>
@@ -394,33 +708,39 @@ export default function AnimationBuilder({
 }
 
 // ════════════════════════════════════════════════════════════════
-// SUB-COMPONENT: StepEditor
+// SUB-COMPONENT: VariantEditor (DCA + inline controls per field)
 // ════════════════════════════════════════════════════════════════
 
-interface StepEditorProps {
-  step:       AnimationStep;
-  index:      number;
-  totalSteps: number;
-  onChange:   (field: keyof AnimationStep, value: any) => void;
-  onRemove:   () => void;
-  onMove:     (direction: 'up' | 'down') => void;
+interface VariantEditorProps {
+  variant:         AnimationVariant;
+  index:           number;
+  totalVariants:   number;
+  onChange:        (patch: Partial<AnimationVariant>) => void;
+  onChangeElement: (field: ElementKey, patch: Partial<ElementOverride>) => void;
+  onRemove:        () => void;
+  onMove:          (direction: 'up' | 'down') => void;
 }
 
-function StepEditor({
-  step,
+function VariantEditor({
+  variant,
   index,
-  totalSteps,
+  totalVariants,
   onChange,
+  onChangeElement,
   onRemove,
   onMove,
-}: StepEditorProps) {
-  const patternMeta = PATTERN_OPTIONS.find((p) => p.value === step.pattern);
+}: VariantEditorProps) {
+  // Compute resolved overrides for inline display
+  const headlineOverride = getElementOverride(variant, 'headline');
+  const bodyOverride     = getElementOverride(variant, 'body');
+  const ctaOverride      = getElementOverride(variant, 'cta');
 
   return (
     <div className="p-3 rounded-md border border-purple-200 dark:border-purple-800 bg-white dark:bg-gray-900">
+      {/* ─── Header ─── */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-xs font-bold text-purple-900 dark:text-purple-200">
-          Step {index + 1}
+          🎞️ Variant #{index + 1}
         </span>
         <div className="flex items-center gap-1">
           <button
@@ -438,10 +758,10 @@ function StepEditor({
           <button
             type="button"
             onClick={() => onMove('down')}
-            disabled={index === totalSteps - 1}
+            disabled={index === totalVariants - 1}
             className={cn(
               'p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40 transition',
-              index === totalSteps - 1 && 'opacity-30 cursor-not-allowed',
+              index === totalVariants - 1 && 'opacity-30 cursor-not-allowed',
             )}
             title="Pindah ke bawah"
           >
@@ -450,154 +770,337 @@ function StepEditor({
           <button
             type="button"
             onClick={onRemove}
-            className="p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition"
-            title="Hapus step"
+            disabled={totalVariants <= MIN_VARIANTS}
+            className={cn(
+              'p-1 rounded hover:bg-red-100 dark:hover:bg-red-900/40 transition',
+              totalVariants <= MIN_VARIANTS && 'opacity-30 cursor-not-allowed',
+            )}
+            title={totalVariants <= MIN_VARIANTS ? `Min ${MIN_VARIANTS} variant` : 'Hapus variant'}
           >
             <Trash2 className="w-3.5 h-3.5 text-red-600 dark:text-red-400" />
           </button>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Target
-          </label>
-          <select
-            value={step.target_selector}
-            onChange={(e) => onChange('target_selector', e.target.value)}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          >
-            {TARGET_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Efek
-          </label>
-          <select
-            value={step.pattern}
-            onChange={(e) => onChange('pattern', e.target.value as AnimationPattern)}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          >
-            {PATTERN_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Delay (ms)
-          </label>
-          <input
-            type="number"
-            value={step.delay}
-            min={0}
-            step={100}
-            onChange={(e) => onChange('delay', Math.max(0, parseInt(e.target.value, 10) || 0))}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          />
-        </div>
-
-        <div>
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Durasi (ms)
-          </label>
-          <input
-            type="number"
-            value={step.duration}
-            min={100}
-            step={100}
-            onChange={(e) => onChange('duration', Math.max(100, parseInt(e.target.value, 10) || 100))}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          />
-        </div>
+      {/* ─── Image upload ─── */}
+      <div className="mb-3">
+        <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+          <ImageIcon className="w-3 h-3 inline mr-1" />
+          Background Image *
+        </label>
+        <ImageUpload
+          bucket="ads"
+          maxFiles={1}
+          maxSizeMB={0.5}
+          existingUrls={variant.image_url ? [variant.image_url] : []}
+          onUpload={(urls: string[]) => onChange({ image_url: urls[0] ?? '' })}
+          label={`Variant #${index + 1} background`}
+        />
       </div>
 
-      {step.pattern === 'slide_in' && (
-        <div className="mt-2">
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Arah Slide
-          </label>
-          <select
-            value={step.from ?? 'left'}
-            onChange={(e) => onChange('from', e.target.value)}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          >
-            {SLIDE_FROM_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+      {/* ─── Text fields dengan INLINE controls ─── */}
+      <div className="space-y-4">
 
-      {step.pattern === 'text_reveal' && (
-        <div className="mt-2">
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Unit Reveal
-          </label>
-          <select
-            value={step.unit ?? 'char'}
-            onChange={(e) => onChange('unit', e.target.value)}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          >
-            {TEXT_REVEAL_UNIT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
+        {/* HEADLINE */}
+        <FieldWithInlineControls
+          fieldType="headline"
+          label="Headline *"
+          required
+          minLength={5}
+          maxLength={80}
+          placeholder="e.g., Diskon 50% Lebaran"
+          value={variant.headline}
+          override={headlineOverride}
+          sizeOptions={HEADLINE_SIZE_OPTIONS}
+          animOptions={TEXT_ANIM_OPTIONS}
+          onChangeText={(text) => onChange({ headline: text })}
+          onChangeElement={(patch) => onChangeElement('headline', patch)}
+        />
 
-      {step.pattern === 'scale' && (
-        <div className="mt-2">
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Scale Awal (0.5 - 0.95, default 0.8)
-          </label>
-          <input
-            type="number"
-            value={step.from_scale ?? 0.8}
-            min={0.5}
-            max={0.95}
-            step={0.05}
-            onChange={(e) => onChange('from_scale', parseFloat(e.target.value) || 0.8)}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          />
-        </div>
-      )}
+        {/* BODY */}
+        <FieldWithInlineControls
+          fieldType="body"
+          label="Body override"
+          optional
+          maxLength={120}
+          placeholder="Kosong = pakai Body dari section Kreatif"
+          value={variant.body ?? ''}
+          override={bodyOverride}
+          sizeOptions={BODY_SIZE_OPTIONS}
+          animOptions={TEXT_ANIM_OPTIONS}
+          onChangeText={(text) => onChange({ body: text || null })}
+          onChangeElement={(patch) => onChangeElement('body', patch)}
+        />
 
-      {step.pattern === 'stagger_group' && (
-        <div className="mt-2">
-          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
-            Y Offset (px, default 12)
-          </label>
-          <input
-            type="number"
-            value={step.y_offset ?? 12}
-            min={0}
-            step={2}
-            onChange={(e) => onChange('y_offset', parseInt(e.target.value, 10) || 12)}
-            className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
-          />
-        </div>
-      )}
+        {/* CTA */}
+        <FieldWithInlineControls
+          fieldType="cta"
+          label="CTA Text override"
+          optional
+          maxLength={30}
+          placeholder='Default: "Pelajari Lebih Lanjut"'
+          value={variant.cta_text ?? ''}
+          override={ctaOverride}
+          sizeOptions={CTA_SIZE_OPTIONS}
+          animOptions={CTA_ANIM_OPTIONS}
+          onChangeText={(text) => onChange({ cta_text: text || null })}
+          onChangeElement={(patch) => onChangeElement('cta', patch)}
+        />
 
-      {patternMeta && (
-        <p className="mt-2 text-[10px] text-gray-500 dark:text-gray-400 italic">
-          {patternMeta.description}
+        {/* DURASI */}
+        <div>
+          <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+            Durasi tampil
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              value={variant.duration_ms / 1000}
+              onChange={(e) => {
+                const sec = Number(e.target.value);
+                if (isNaN(sec)) return;
+                onChange({ duration_ms: Math.max(MIN_DURATION_MS, Math.min(MAX_DURATION_MS, Math.round(sec * 1000))) });
+              }}
+              min={MIN_DURATION_MS / 1000}
+              max={MAX_DURATION_MS / 1000}
+              step={1}
+              className="w-20 px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none text-center"
+            />
+            <span className="text-[11px] text-gray-500 dark:text-gray-400">
+              detik ({MIN_DURATION_MS / 1000}-{MAX_DURATION_MS / 1000}s)
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// SUB-COMPONENT: FieldWithInlineControls
+// ════════════════════════════════════════════════════════════════
+
+interface FieldWithInlineControlsProps {
+  fieldType:    'headline' | 'body' | 'cta';
+  label:        string;
+  required?:    boolean;
+  optional?:    boolean;
+  minLength?:   number;
+  maxLength:    number;
+  placeholder:  string;
+  value:        string;
+  override:     ElementOverride;
+  sizeOptions:  { value: TextSize; label: string }[];
+  animOptions:  { value: ElementAnimation; label: string; emoji: string }[];
+  onChangeText:    (text: string) => void;
+  onChangeElement: (patch: Partial<ElementOverride>) => void;
+}
+
+function FieldWithInlineControls({
+  fieldType,
+  label,
+  required,
+  optional,
+  minLength,
+  maxLength,
+  placeholder,
+  value,
+  override,
+  sizeOptions,
+  animOptions,
+  onChangeText,
+  onChangeElement,
+}: FieldWithInlineControlsProps) {
+  const currentHorizontal: HorizontalPosition = fromEnginePosition(override.position);
+
+  return (
+    <div className="rounded-md border border-purple-200/60 dark:border-purple-800/60 p-2.5 bg-purple-50/20 dark:bg-purple-950/10">
+      {/* Text input */}
+      <label className="block text-[10px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+        {required && minLength && (
+          <span className="text-gray-400 ml-1">(min {minLength} char)</span>
+        )}
+        {optional && <span className="text-gray-400 ml-1">(opsional)</span>}
+      </label>
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChangeText(e.target.value)}
+        maxLength={maxLength}
+        placeholder={placeholder}
+        className="w-full px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:outline-none"
+      />
+      {required && (
+        <p className="text-[9px] text-gray-500 dark:text-gray-400 mt-0.5">
+          {value.length}/{maxLength} karakter
         </p>
       )}
+
+      {/* Inline mini-controls */}
+      <div className="mt-2 space-y-1.5 pl-2 border-l-2 border-purple-300/40 dark:border-purple-700/40">
+
+        {/* POSITION */}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
+            📍 Posisi
+          </span>
+          <div className="flex gap-1">
+            {POSITION_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  onChangeElement({ position: toEnginePosition(fieldType, opt.value) })
+                }
+                className={cn(
+                  'px-2 py-0.5 text-[10px] rounded border transition',
+                  currentHorizontal === opt.value
+                    ? 'bg-purple-600 text-white border-purple-700'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
+                )}
+                title={opt.label}
+              >
+                {opt.emoji} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* SIZE */}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
+            📐 Size
+          </span>
+          <div className="flex gap-1">
+            {sizeOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => onChangeElement({ text_size: opt.value })}
+                className={cn(
+                  'px-2 py-0.5 text-[10px] rounded border transition font-bold min-w-[26px]',
+                  override.text_size === opt.value
+                    ? 'bg-purple-600 text-white border-purple-700'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
+                )}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* ANIMATION */}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
+            ✨ Animasi
+          </span>
+          <div className="flex gap-1 flex-wrap">
+            {animOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() =>
+                  onChangeElement({
+                    animation: opt.value,
+                    delay_ms:    AUTO_DELAY_MS[fieldType],
+                    duration_ms: AUTO_DURATION_MS,
+                  })
+                }
+                className={cn(
+                  'px-2 py-0.5 text-[10px] rounded border transition',
+                  override.animation === opt.value
+                    ? 'bg-purple-600 text-white border-purple-700'
+                    : 'bg-white text-gray-600 border-gray-300 hover:bg-purple-50 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700',
+                )}
+                title={opt.label}
+              >
+                {opt.emoji} {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* COLOR */}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
+            🎨 Warna
+          </span>
+          <div className="flex gap-1 flex-wrap items-center">
+            {COLOR_PALETTE.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => onChangeElement({ text_color: c.value })}
+                className={cn(
+                  'w-6 h-6 rounded border-2 transition relative',
+                  override.text_color === c.value
+                    ? 'border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700 scale-110'
+                    : 'border-gray-300 dark:border-gray-700 hover:border-purple-400',
+                )}
+                style={{ backgroundColor: c.swatch }}
+                title={c.label}
+                aria-label={`Warna ${c.label}`}
+              />
+            ))}
+            <span className="text-[9px] text-gray-500 dark:text-gray-400 ml-1 italic capitalize">
+              {override.text_color}
+            </span>
+          </div>
+        </div>
+
+        {/* TINT PALETTE — Backdrop di belakang text */}
+        <div className="flex items-center gap-2">
+          <span className="text-[9px] font-semibold text-purple-700 dark:text-purple-300 w-14 shrink-0">
+            🎨 Backdrop
+          </span>
+          <div className="flex gap-1 flex-wrap items-center">
+            {/* None option (transparent) */}
+            <button
+              type="button"
+              onClick={() => onChangeElement({ background_tint: 'none' })}
+              className={cn(
+                'w-6 h-6 rounded border-2 transition relative overflow-hidden',
+                override.background_tint === 'none'
+                  ? 'border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700 scale-110'
+                  : 'border-gray-300 dark:border-gray-700 hover:border-purple-400',
+              )}
+              title="None — Transparent (tidak ada backdrop)"
+              aria-label="Backdrop None"
+              style={{
+                background:
+                  'repeating-linear-gradient(45deg, #fff 0 4px, #ddd 4px 8px)',
+              }}
+            >
+              <span className="absolute inset-0 flex items-center justify-center text-[8px] font-bold text-gray-700">
+                ⊘
+              </span>
+            </button>
+            {/* 8 color swatches mirror text color */}
+            {COLOR_PALETTE.map((c) => (
+              <button
+                key={c.value}
+                type="button"
+                onClick={() => onChangeElement({ background_tint: c.value })}
+                className={cn(
+                  'w-6 h-6 rounded border-2 transition relative',
+                  override.background_tint === c.value
+                    ? 'border-purple-600 ring-2 ring-purple-300 dark:ring-purple-700 scale-110'
+                    : 'border-gray-300 dark:border-gray-700 hover:border-purple-400',
+                )}
+                style={{ backgroundColor: c.swatch, opacity: 0.85 }}
+                title={`Backdrop ${c.label}`}
+                aria-label={`Backdrop ${c.label}`}
+              />
+            ))}
+            <span className="text-[9px] text-gray-500 dark:text-gray-400 ml-1 italic capitalize">
+              {override.background_tint === 'none' ? 'transparent' : override.background_tint}
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

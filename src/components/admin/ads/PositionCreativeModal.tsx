@@ -46,7 +46,7 @@ import {
 } from './position-render-metadata';
 // SESI 5E Phase 3c: Live preview mini-player
 import PositionLivePreview from './PositionLivePreview';
-// SESI 5H Phase 5A.7 (21 Mei 2026): GSAP animation builder per-position
+// SESI 5H Phase 5B (21 Mei 2026): GSAP animation builder per-position (DCA-Aligned)
 import AnimationBuilder from './AnimationBuilder';
 import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
 
@@ -84,20 +84,32 @@ interface PositionCreativeModalProps {
   onClose:     () => void;
 }
 
-// SESI 5H Phase 5A.7: Mode extended dengan 'animated'
+// SESI 5H Phase 5B: Mode extended dengan 'animated'
 type Mode = 'static' | 'dca' | 'animated';
 
-// SESI 5H Phase 5A.7: Empty animation timeline template
+// SESI 5H Phase 5B: Empty animation timeline template (DCA-Aligned)
 const EMPTY_TIMELINE: AnimationTimelineConfig = {
-  duration_ms: 2000,
-  loop:        false,
-  steps:       [],
+  variants: [
+    {
+      order:       0,
+      image_url:   '',
+      headline:    '',
+      body:        null,
+      cta_text:    null,
+      duration_ms: 4000,
+    },
+  ],
+  transition_pattern:     'fade',
+  transition_ms:          500,
+  text_reveal_enabled:    false,
+  text_reveal_pattern:    'fade_in',
+  text_reveal_stagger_ms: 150,
+  loop:                   false,
 };
 
 /**
  * Parse recommendedImageDim string ke { width, height } number.
  * Format: "888×220px" atau "300x250" atau "300×250px"
- * Fallback default MPU 300×250.
  */
 function parseDimensions(dimStr: string): { width: number; height: number } {
   if (!dimStr) return { width: 300, height: 250 };
@@ -120,7 +132,7 @@ export default function PositionCreativeModal({
   const { state, setField } = useAdForm();
   const meta = getPositionMetadata(positionKey);
 
-  // SESI 5H Phase 5A.7: Parse dimensi position untuk live preview AnimationBuilder
+  // SESI 5H Phase 5B: Parse dimensi position untuk live preview AnimationBuilder
   const positionDims = useMemo(
     () => parseDimensions(meta.recommendedImageDim),
     [meta.recommendedImageDim],
@@ -129,7 +141,7 @@ export default function PositionCreativeModal({
   // Mode: detect dari state existing
   const existingFrames   = state.position_frames[positionKey];
   const existingImage    = state.images[positionKey];
-  // SESI 5H Phase 5A.7: per-position animation detection
+  // SESI 5H Phase 5B: per-position animation detection
   const existingTimeline = state.position_animation_timelines[positionKey];
 
   // Priority detection: animated > dca > static (fallback default)
@@ -181,7 +193,7 @@ export default function PositionCreativeModal({
   };
 
   // ───────────────────────────────────────────────────────────────
-  // ANIMATION HANDLERS (SESI 5H Phase 5A.7)
+  // ANIMATION HANDLERS (SESI 5H Phase 5B)
   // ───────────────────────────────────────────────────────────────
 
   const clearAnimationTimeline = () => {
@@ -202,7 +214,6 @@ export default function PositionCreativeModal({
   // ───────────────────────────────────────────────────────────────
 
   const switchToDCA = () => {
-    // Init dengan 2 empty frames
     const next = {
       ...state.position_frames,
       [positionKey]: [createEmptyFrame(0), createEmptyFrame(1)],
@@ -215,7 +226,6 @@ export default function PositionCreativeModal({
   };
 
   const switchToStatic = () => {
-    // Remove position_frames untuk posisi ini
     const next = { ...state.position_frames };
     delete next[positionKey];
     setField('position_frames', next);
@@ -225,7 +235,7 @@ export default function PositionCreativeModal({
   };
 
   const switchToAnimated = () => {
-    // Init dengan empty timeline (klien akan craft via builder)
+    // Init dengan empty timeline (klien craft via builder)
     setAnimationTimeline({ ...EMPTY_TIMELINE });
     // Mode-exclusive cleanup
     clearStaticImage();
@@ -347,7 +357,7 @@ export default function PositionCreativeModal({
               <Layers size={13} />
               DCA (2-5 rotate)
             </button>
-            {/* SESI 5H Phase 5A.7: 3rd mode — Animated GSAP */}
+            {/* SESI 5H Phase 5B: 3rd mode — Animated GSAP */}
             <button
               type="button"
               onClick={mode === 'animated' ? undefined : switchToAnimated}
@@ -524,14 +534,14 @@ export default function PositionCreativeModal({
             </div>
           )}
 
-          {/* ─── ANIMATED MODE (SESI 5H Phase 5A.7) ─── */}
+          {/* ─── ANIMATED MODE (SESI 5H Phase 5B) ─── */}
           {mode === 'animated' && (
             <div>
               <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
                 <Sparkles size={14} className="text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-[11px] font-bold text-purple-900 dark:text-purple-100">
-                    Animasi GSAP — Posisi {meta.label}
+                    Animated GSAP — Posisi {meta.label}
                   </p>
                   <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mt-0.5 leading-relaxed">
                     Dimensi: {meta.recommendedImageDim} ({meta.aspectRatio}).
@@ -560,7 +570,7 @@ export default function PositionCreativeModal({
           )}
 
           {/* ═══ SESI 5E Phase 3c: LIVE PREVIEW MINI-PLAYER ═══ */}
-          {/* SESI 5H Phase 5A.7: Skip saat mode='animated' (AnimationBuilder has own preview) */}
+          {/* SESI 5H Phase 5B: Skip saat mode='animated' (AnimationBuilder has own preview) */}
           {mode !== 'animated' && (
             <div className="mt-4">
               <PositionLivePreview
