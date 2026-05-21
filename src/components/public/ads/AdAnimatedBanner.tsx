@@ -1,6 +1,6 @@
 /**
  * AdAnimatedBanner — Tier 2 Full Per-Element Override Engine
- * SESI 5H Phase 5B Path Y (21 Mei 2026)
+ * SESI 5H Phase 5B Path Y (21 Mei 2026) + SESI 6 Phase 6A TD-ANIM-104 (22 Mei 2026)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/public/ads/AdAnimatedBanner.tsx
  *
@@ -16,6 +16,16 @@
  *      - Delay + duration individual
  *   ✅ "Use Global Default" fallback per element
  *
+ * SESI 6 Phase 6A — TD-ANIM-104 (Text Shadow / Stroke / Gradient):
+ *   ✅ text_shadow:   none|soft|medium|strong (depth/cinematic glow)
+ *   ✅ text_stroke:   none|thin|medium|thick  (outline kontras bg busy)
+ *   ✅ text_gradient: from→to color via background-clip:text trick
+ *   ⚠️ Trade-off: gradient mode pakai backgroundImage (bukan background shorthand)
+ *      → backgroundColor (tint) SURVIVE, jadi tint+gradient bisa coexist.
+ *      → color jadi transparent saat gradient enabled (text di-clip dari bg image)
+ *   ⚠️ Logo (img element) no-op untuk text effects — safe, gak break apapun
+ *   ⚠️ Backward compat: 3 field OPTIONAL, undefined = no effect (Phase 5B preserved)
+ *
  * Layout engine:
  *   - Absolute positioning per element (9 anchor preset)
  *   - Z-index: logo=20, headline=15, body=12, cta=18 (CTA top untuk clickability)
@@ -25,7 +35,8 @@
  *   - Editorial-ADS Firewall LAYER STRICT (Filosofi #9)
  *   - BAKABAR=JANTUNG: animation gak distract reading
  *
- * Patterns: PPP (lazy load), QQQ (reduce-motion respect)
+ * Patterns: PPP (lazy load), QQQ (reduce-motion respect),
+ *           AAX (frontend-only config for shadow/stroke/gradient — no DB needed)
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -151,6 +162,80 @@ const TINT_MAP: Record<BackgroundTint, string> = {
   gray:   'rgba(107, 114, 128, 0.75)',
 };
 
+// ════════════════════════════════════════════════════════════════
+// SESI 6 Phase 6A — TD-ANIM-104: TEXT EFFECTS (shadow / stroke / gradient)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Text shadow level — depth & cinematic glow.
+ * 'soft':   subtle separation di bg gelap
+ * 'medium': clear separation, default cinematic
+ * 'strong': dramatic glow, bg sangat busy
+ */
+export type TextShadow = 'none' | 'soft' | 'medium' | 'strong';
+
+const TEXT_SHADOW_MAP: Record<TextShadow, string | undefined> = {
+  none:   undefined,
+  soft:   '0 1px 2px rgba(0, 0, 0, 0.35)',
+  medium: '0 2px 4px rgba(0, 0, 0, 0.55)',
+  strong: '0 4px 12px rgba(0, 0, 0, 0.7), 0 0 2px rgba(0, 0, 0, 0.5)',
+};
+
+/**
+ * Text stroke (outline) — kontras kuat di bg busy / photo.
+ * Stroke color fixed BLACK untuk Phase 6A (simplicity).
+ * Future: user-configurable stroke color (Phase 7).
+ */
+export type TextStroke = 'none' | 'thin' | 'medium' | 'thick';
+
+const TEXT_STROKE_MAP: Record<TextStroke, { width: string; color: string } | undefined> = {
+  none:   undefined,
+  thin:   { width: '1px', color: '#000000' },
+  medium: { width: '2px', color: '#000000' },
+  thick:  { width: '3px', color: '#000000' },
+};
+
+/**
+ * Gradient direction — CSS linear-gradient angle.
+ */
+export type GradientDirection =
+  | 'to_right'
+  | 'to_bottom'
+  | 'to_bottom_right'
+  | 'to_top_right'
+  | 'diagonal';
+
+const GRADIENT_DIRECTION_MAP: Record<GradientDirection, string> = {
+  to_right:        'to right',
+  to_bottom:       'to bottom',
+  to_bottom_right: 'to bottom right',
+  to_top_right:    'to top right',
+  diagonal:        '135deg',
+};
+
+/**
+ * Text gradient config (background-clip:text trick).
+ * Saat enabled:
+ *   - backgroundImage = linear-gradient(dir, from, to)
+ *   - backgroundClip = 'text'
+ *   - color = 'transparent'  (text di-clip dari bg image)
+ *   - backgroundColor (tint) SURVIVE (kalau tint != 'none' tetap render behind)
+ */
+export interface TextGradientConfig {
+  enabled:    boolean;
+  from_color: TextColorKey;
+  to_color:   TextColorKey;
+  direction:  GradientDirection;
+}
+
+/** Default gradient — disabled, white→amber to_right (soft sunset feel). */
+export const DEFAULT_TEXT_GRADIENT: TextGradientConfig = {
+  enabled:    false,
+  from_color: 'white',
+  to_color:   'amber',
+  direction:  'to_right',
+};
+
 /** Per-element override config. */
 export interface ElementOverride {
   visible:         boolean;
@@ -171,6 +256,15 @@ export interface ElementOverride {
    */
   font_family?:    FontFamily;
   font_weight?:    FontWeight;
+
+  /**
+   * SESI 6 Phase 6A — TD-ANIM-104 (22 Mei 2026):
+   * Text effects untuk depth + kontras + premium feel.
+   * Semua OPTIONAL — undefined = no effect (backward compat Phase 5B).
+   */
+  text_shadow?:    TextShadow;
+  text_stroke?:    TextStroke;
+  text_gradient?:  TextGradientConfig;
 }
 
 /** Element key types. */
@@ -381,9 +475,62 @@ function getPositionStyle(position: ElementPosition): React.CSSProperties {
 }
 
 /**
+ * SESI 6 Phase 6A — TD-ANIM-104:
+ * Build text effect CSS partial (shadow + stroke + gradient).
+ *
+ * Trade-off rules (LOCKED 22 Mei 2026):
+ *   - gradient.enabled = true:
+ *     → backgroundImage = linear-gradient (di-clip ke text shape)
+ *     → color = 'transparent' (text bleed through gradient)
+ *     → backgroundColor (tint) SURVIVE — bisa coexist sebagai backdrop
+ *     → text_stroke STILL APPLIES (outline tetap visible meski text transparent)
+ *   - stroke + gradient: visual interesting (stroke garis + gradient fill)
+ *   - shadow di gradient text: shadow rendered di outer text shape, still works
+ *
+ * Returns partial CSSProperties — caller merge into buildElementStyle output.
+ */
+function buildTextEffectStyle(override: ElementOverride): React.CSSProperties {
+  const effects: React.CSSProperties = {};
+
+  // ─── Text Shadow ───
+  if (override.text_shadow && override.text_shadow !== 'none') {
+    const shadowCss = TEXT_SHADOW_MAP[override.text_shadow];
+    if (shadowCss) effects.textShadow = shadowCss;
+  }
+
+  // ─── Text Stroke (via -webkit-text-stroke) ───
+  if (override.text_stroke && override.text_stroke !== 'none') {
+    const stroke = TEXT_STROKE_MAP[override.text_stroke];
+    if (stroke) {
+      effects.WebkitTextStroke = `${stroke.width} ${stroke.color}`;
+      // paint-order: ensure stroke di luar fill (Safari quirk)
+      effects.paintOrder = 'stroke fill';
+    }
+  }
+
+  // ─── Text Gradient (via background-clip:text trick) ───
+  const gradient = override.text_gradient;
+  if (gradient && gradient.enabled) {
+    const dirCss   = GRADIENT_DIRECTION_MAP[gradient.direction];
+    const fromHex  = TEXT_COLOR_MAP[gradient.from_color];
+    const toHex    = TEXT_COLOR_MAP[gradient.to_color];
+
+    // backgroundImage (bukan background shorthand) → backgroundColor tint survive
+    effects.backgroundImage     = `linear-gradient(${dirCss}, ${fromHex}, ${toHex})`;
+    effects.backgroundClip      = 'text';
+    effects.WebkitBackgroundClip = 'text';
+    effects.color               = 'transparent';
+    effects.WebkitTextFillColor = 'transparent';
+  }
+
+  return effects;
+}
+
+/**
  * Build CSS style untuk element berdasarkan override.
  * Phase 5B (21 Mei 2026): font_family + font_weight + improved line-height
  * untuk Kumparan-style hierarchy.
+ * Phase 6A (22 Mei 2026): TD-ANIM-104 — merge text effects (shadow/stroke/gradient).
  */
 function buildElementStyle(override: ElementOverride): React.CSSProperties {
   const fontFamily = override.font_family
@@ -392,6 +539,9 @@ function buildElementStyle(override: ElementOverride): React.CSSProperties {
   const fontWeight = override.font_weight
     ? FONT_WEIGHT_MAP[override.font_weight]
     : FONT_WEIGHT_MAP.bold;
+
+  // Phase 6A: text effects partial (shadow + stroke + gradient)
+  const effects = buildTextEffectStyle(override);
 
   return {
     position:         'absolute',
@@ -408,6 +558,8 @@ function buildElementStyle(override: ElementOverride): React.CSSProperties {
     borderRadius:     override.background_tint !== 'none' ? '6px' : undefined,
     maxWidth:         '80%',
     wordBreak:        'break-word',
+    // Phase 6A: text effects MERGE LAST → bisa override color (gradient mode)
+    ...effects,
   };
 }
 

@@ -1,8 +1,9 @@
 'use client';
 
 /**
- * TeraLoka — AnimationBuilder (Banner Studio V1)
+ * TeraLoka — AnimationBuilder (Banner Studio V1 + V2 Phase 6A)
  * SESI 5H Phase 5B (21 Mei 2026) — Banner Studio V1
+ * SESI 6  Phase 6A (22 Mei 2026) — TD-ANIM-104 Text Effects (Shadow/Stroke/Gradient)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -11,7 +12,11 @@
  * UI STRUCTURE:
  *   A. TEMPLATE PICKER       — 5 cinematic templates + Custom Scratch
  *   B. VARIANTS CRUD         — Per variant: bg + text fields + inline controls
- *      └─ INLINE CONTROLS    — Per field: Position + Size + Animation + Color + Backdrop
+ *      └─ INLINE CONTROLS    — Per field 4 rows:
+ *         Row 1: Position + Size + Animation
+ *         Row 2: Font Family + Weight + Aa preview
+ *         Row 3: Text Color + Backdrop
+ *         Row 4 (SESI 6 NEW): Shadow + Stroke + Gradient (text effects)
  *      └─ ELEMENT EDITOR     — Collapsible per-element fine-tune (Tier 2 Full)
  *   C. TRANSITION antar variant (kalau 2+)
  *   D. TEXT REVEAL GLOBAL    — Fallback default kalau element override gak set
@@ -21,6 +26,9 @@
  * Persona: Admin POWER USER (founder solo).
  * Workflow: Pilih template → isi text + upload bg → fine-tune → save.
  * Output: 1 banner cinematic dalam 15-30 menit (bukan 8 jam designer work).
+ *
+ * Patterns: KEKE-2 (persona admin power user), AAX (frontend-only config),
+ *           AAS (folder profile explicit src/components/admin/ads/)
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -48,6 +56,9 @@ import {
   Car,
   Type,
   Bold,
+  Sun,
+  Square,
+  Palette,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -79,7 +90,13 @@ import AdAnimatedBanner, {
   type BackgroundTint,
   type FontFamily,
   type FontWeight,
+  // SESI 6 Phase 6A — TD-ANIM-104 text effects
+  type TextShadow,
+  type TextStroke,
+  type GradientDirection,
+  type TextGradientConfig,
   DEFAULT_ELEMENT_OVERRIDES,
+  DEFAULT_TEXT_GRADIENT,
   TEXT_COLOR_MAP,
 } from '@/components/public/ads/AdAnimatedBanner';
 
@@ -195,6 +212,32 @@ const COLOR_PALETTE: { value: TextColorKey; label: string; swatch: string }[] = 
   { value: 'green',  label: 'Green',  swatch: TEXT_COLOR_MAP.green  },
   { value: 'purple', label: 'Purple', swatch: TEXT_COLOR_MAP.purple },
   { value: 'gray',   label: 'Gray',   swatch: TEXT_COLOR_MAP.gray   },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// SESI 6 Phase 6A — TD-ANIM-104: Text Effects UI Constants
+// ═══════════════════════════════════════════════════════════════
+
+const TEXT_SHADOW_OPTIONS: { value: TextShadow; label: string; preview: string }[] = [
+  { value: 'none',   label: 'Off',  preview: '∅'   },
+  { value: 'soft',   label: 'Soft', preview: 'Aa·' },
+  { value: 'medium', label: 'Med',  preview: 'Aa‥' },
+  { value: 'strong', label: 'Strong', preview: 'Aa⁂' },
+];
+
+const TEXT_STROKE_OPTIONS: { value: TextStroke; label: string; thickness: string }[] = [
+  { value: 'none',   label: 'Off',  thickness: '0'   },
+  { value: 'thin',   label: 'Thin', thickness: '1px' },
+  { value: 'medium', label: 'Med',  thickness: '2px' },
+  { value: 'thick',  label: 'Thick', thickness: '3px' },
+];
+
+const GRADIENT_DIRECTION_OPTIONS: { value: GradientDirection; label: string; arrow: string }[] = [
+  { value: 'to_right',        label: 'Right',     arrow: '→' },
+  { value: 'to_bottom',       label: 'Down',      arrow: '↓' },
+  { value: 'to_bottom_right', label: 'Diag-DR',   arrow: '↘' },
+  { value: 'to_top_right',    label: 'Diag-UR',   arrow: '↗' },
+  { value: 'diagonal',        label: '135°',      arrow: '⤧' },
 ];
 
 const AUTO_DELAY_MS: Record<'headline' | 'body' | 'cta', number> = {
@@ -1344,6 +1387,16 @@ function FieldWithInlineControls({
   const currentFont   = override.font_family ?? 'sans';
   const currentWeight = override.font_weight ?? 'bold';
 
+  // SESI 6 Phase 6A — TD-ANIM-104: text effects computed state
+  const currentShadow:   TextShadow         = override.text_shadow   ?? 'none';
+  const currentStroke:   TextStroke         = override.text_stroke   ?? 'none';
+  const currentGradient: TextGradientConfig = override.text_gradient ?? DEFAULT_TEXT_GRADIENT;
+  const gradientOn = currentGradient.enabled;
+
+  // Helper untuk update gradient sub-fields tanpa break shape
+  const updateGradient = (patch: Partial<TextGradientConfig>) =>
+    onChangeElement({ text_gradient: { ...currentGradient, ...patch } });
+
   return (
     <div className="rounded-md border border-purple-300 dark:border-purple-700 p-3 bg-white dark:bg-gray-800 shadow-sm">
       <label className="block text-[11px] font-bold text-gray-900 dark:text-gray-100 mb-1">
@@ -1527,6 +1580,157 @@ function FieldWithInlineControls({
             </div>
           </div>
         </div>
+
+        {/* ═══════════════════════════════════════════════════════════
+            ROW 4 (SESI 6 Phase 6A — TD-ANIM-104):
+            Text Effects — Shadow + Stroke + Gradient toggle
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pt-1.5 border-t border-purple-100 dark:border-purple-800">
+
+          {/* Shadow pills */}
+          <div className="flex items-center gap-1.5">
+            <Sun className="w-3 h-3 text-purple-700 dark:text-purple-300" />
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Shadow</span>
+            <div className="flex">
+              {TEXT_SHADOW_OPTIONS.map((opt, i) => (
+                <button key={opt.value} type="button"
+                  onClick={() => onChangeElement({ text_shadow: opt.value })}
+                  className={cn('px-1.5 py-1 text-[10px] border-y border-r transition min-w-[34px] font-bold',
+                    i === 0 && 'border-l rounded-l',
+                    i === TEXT_SHADOW_OPTIONS.length - 1 && 'rounded-r',
+                    currentShadow === opt.value
+                      ? 'bg-purple-600 text-white border-purple-700'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}
+                  title={`Shadow ${opt.label}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Stroke pills */}
+          <div className="flex items-center gap-1.5">
+            <Square className="w-3 h-3 text-purple-700 dark:text-purple-300" />
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Stroke</span>
+            <div className="flex">
+              {TEXT_STROKE_OPTIONS.map((opt, i) => (
+                <button key={opt.value} type="button"
+                  onClick={() => onChangeElement({ text_stroke: opt.value })}
+                  className={cn('px-1.5 py-1 text-[10px] border-y border-r transition min-w-[34px] font-bold',
+                    i === 0 && 'border-l rounded-l',
+                    i === TEXT_STROKE_OPTIONS.length - 1 && 'rounded-r',
+                    currentStroke === opt.value
+                      ? 'bg-purple-600 text-white border-purple-700'
+                      : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}
+                  title={`Stroke ${opt.thickness}`}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Gradient toggle */}
+          <div className="flex items-center gap-1.5">
+            <Palette className="w-3 h-3 text-purple-700 dark:text-purple-300" />
+            <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Gradient</span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={gradientOn}
+                onChange={(e) => updateGradient({ enabled: e.target.checked })}
+                className="sr-only peer"
+              />
+              <div className="w-7 h-4 bg-gray-300 dark:bg-gray-600 peer-checked:bg-purple-600 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all" />
+            </label>
+          </div>
+        </div>
+
+        {/* Gradient sub-controls — hanya muncul saat enabled (conditional power) */}
+        {gradientOn && (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-3 ml-1 border-l-2 border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-900/20 py-1.5 rounded-r">
+            {/* From color swatch */}
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">From</span>
+              <div className="flex gap-0.5">
+                {COLOR_PALETTE.map((c) => (
+                  <button key={`from-${c.value}`} type="button"
+                    onClick={() => updateGradient({ from_color: c.value })}
+                    className={cn('w-4 h-4 rounded border-2 transition',
+                      currentGradient.from_color === c.value
+                        ? 'border-amber-600 ring-1 ring-amber-300 dark:ring-amber-700 scale-110'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-amber-400')}
+                    style={{ backgroundColor: c.swatch }}
+                    title={`From ${c.label}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Arrow indicator */}
+            <span className="text-amber-600 dark:text-amber-400 font-bold text-[12px]">→</span>
+
+            {/* To color swatch */}
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">To</span>
+              <div className="flex gap-0.5">
+                {COLOR_PALETTE.map((c) => (
+                  <button key={`to-${c.value}`} type="button"
+                    onClick={() => updateGradient({ to_color: c.value })}
+                    className={cn('w-4 h-4 rounded border-2 transition',
+                      currentGradient.to_color === c.value
+                        ? 'border-amber-600 ring-1 ring-amber-300 dark:ring-amber-700 scale-110'
+                        : 'border-gray-300 dark:border-gray-600 hover:border-amber-400')}
+                    style={{ backgroundColor: c.swatch }}
+                    title={`To ${c.label}`}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Direction pills */}
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 uppercase">Dir</span>
+              <div className="flex">
+                {GRADIENT_DIRECTION_OPTIONS.map((opt, i) => (
+                  <button key={opt.value} type="button"
+                    onClick={() => updateGradient({ direction: opt.value })}
+                    className={cn('px-1.5 py-0.5 text-[11px] border-y border-r transition font-bold',
+                      i === 0 && 'border-l rounded-l',
+                      i === GRADIENT_DIRECTION_OPTIONS.length - 1 && 'rounded-r',
+                      currentGradient.direction === opt.value
+                        ? 'bg-amber-600 text-white border-amber-700'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-amber-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}
+                    title={`Direction ${opt.label}`}>
+                    {opt.arrow}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Live gradient preview swatch */}
+            <div
+              className="px-2 py-0.5 rounded text-[11px] font-black border border-amber-300 dark:border-amber-700"
+              style={{
+                backgroundImage: `linear-gradient(${
+                  currentGradient.direction === 'to_right'        ? 'to right' :
+                  currentGradient.direction === 'to_bottom'       ? 'to bottom' :
+                  currentGradient.direction === 'to_bottom_right' ? 'to bottom right' :
+                  currentGradient.direction === 'to_top_right'    ? 'to top right' :
+                  '135deg'
+                }, ${TEXT_COLOR_MAP[currentGradient.from_color]}, ${TEXT_COLOR_MAP[currentGradient.to_color]})`,
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                color: 'transparent',
+                WebkitTextFillColor: 'transparent',
+                minWidth: '36px',
+                textAlign: 'center',
+              } as React.CSSProperties}
+              title="Live gradient preview"
+            >
+              Aa
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
