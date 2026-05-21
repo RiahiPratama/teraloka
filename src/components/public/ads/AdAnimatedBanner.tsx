@@ -1,31 +1,18 @@
 /**
  * AdAnimatedBanner — GSAP-powered animated banner for ad_format='animated'
- * SESI 5H Phase 2 (20 Mei 2026) — FULL + FIX VISUAL ISSUES
+ * SESI 5H Phase 2-5A.7 (20-21 Mei 2026)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/public/ads/AdAnimatedBanner.tsx
  *
- * Features (Phase 2 complete):
- *   ✅ Component skeleton + Props interface
- *   ✅ TimelineConfig TypeScript types (Pattern RRR)
- *   ✅ Editorial-ADS Firewall structure (IKLAN badge + amber tint + disclaimer + border)
- *   ✅ Animation engine (parse timeline JSON → dispatch ke helpers)
+ * Features:
+ *   ✅ Animation engine (6 patterns: fade_in/out, slide_in, text_reveal, scale, stagger_group)
  *   ✅ Lifecycle management (GSAP context + explicit phases + cleanup discipline)
  *   ✅ IntersectionObserver replay-on-scroll (play-once + replay)
  *   ✅ Static fallback (prefers-reduced-motion + slow-network)
+ *   ✅ Editorial-ADS Firewall structure (IKLAN badge + amber tint + disclaimer + border)
+ *   ✅ Phase 5A.7: Dynamic dimensions (width/height props, MPU default)
  *
- * Fix Phase 3 Smoke Test (21 Mei 2026):
- *   - 🐛 FIX: Initial state opacity:0 pre-set saat build (sebelum observer trigger)
- *           → element gak visible "by default" sebelum animasi
- *   - 🐛 FIX: IKLAN badge no longer overlap headline (padding-top container)
- *   - 🐛 FIX: Layout vertical balance (justify-end vs justify-between)
- *
- * Filosofi:
- *   - BAKABAR=JANTUNG → tidak boleh distract reading
- *   - Editorial-ADS Firewall STRICT (Filosofi #9)
- *   - Manual-first → founder craft animation_timeline JSON
- *   - "Quality visual = strategic differentiator"
- *
- * Dimensions Phase 1: MPU 300x250
+ * Patterns: PPP (lazy load), QQQ (reduce-motion respect), RRR (timeline schema)
  * ────────────────────────────────────────────────────────────────
  */
 
@@ -54,6 +41,14 @@ import {
   applyTextReveal,
   applyTextRevealStatic,
 } from '@/components/public/ads/animations/text-reveal';
+import {
+  applyScaleIn,
+  applyScaleStatic,
+} from '@/components/public/ads/animations/scale';
+import {
+  applyStaggerGroup,
+  applyStaggerGroupStatic,
+} from '@/components/public/ads/animations/stagger-group';
 
 // ════════════════════════════════════════════════════════════════
 // TIMELINE JSON SCHEMA (Pattern RRR)
@@ -63,7 +58,9 @@ export type AnimationPattern =
   | 'fade_in'
   | 'fade_out'
   | 'slide_in'
-  | 'text_reveal';
+  | 'text_reveal'
+  | 'scale'
+  | 'stagger_group';
 
 export interface AnimationStep {
   target_selector: string;
@@ -75,6 +72,8 @@ export interface AnimationStep {
   unit?:           'char' | 'word';
   stagger?:        number;
   ease?:           string;
+  from_scale?:     number;
+  y_offset?:       number;
 }
 
 export interface AnimationTimelineConfig {
@@ -108,15 +107,26 @@ export interface AdAnimatedBannerProps {
   ad: AnimatedBannerAd;
   className?: string;
   onClick?: (adId: string) => void;
+  /**
+   * SESI 5H Phase 5A.7: Dynamic dimensions per position.
+   * Default MPU 300×250 untuk backward compat.
+   *
+   * Examples per position:
+   *   - top_leaderboard: 888 × 220 (Top Billboard horizontal 4:1)
+   *   - sidebar:         300 × 250 (MPU square-ish)
+   *   - in_article:      640 × 360 (Mid-article 16:9)
+   */
+  width?: number;
+  height?: number;
 }
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ════════════════════════════════════════════════════════════════
 
-const MPU_WIDTH         = 300;
-const MPU_HEIGHT        = 250;
-const REPLAY_THRESHOLD  = 0.5;
+const DEFAULT_WIDTH      = 300;
+const DEFAULT_HEIGHT     = 250;
+const REPLAY_THRESHOLD   = 0.5;
 const REPLAY_ROOT_MARGIN = '0px 0px -50px 0px';
 
 // ════════════════════════════════════════════════════════════════
@@ -134,18 +144,6 @@ interface BuiltTimeline {
   context:  gsap.Context;
 }
 
-/**
- * Pre-set initial state untuk element animation target.
- *
- * CRITICAL FIX (21 Mei 2026):
- *   Tanpa pre-set ini, element visible (opacity:1) by default selama
- *   menunggu IntersectionObserver trigger. Animasi yang "fromTo opacity:0→1"
- *   gak kerasa karena element memang sudah visible.
- *
- * Strategy:
- *   - fade_in / slide_in / text_reveal → opacity:0 (sembunyikan dulu)
- *   - fade_out → opacity:1 (visible dulu)
- */
 function preSetInitialState(
   gsapInstance: typeof import('gsap'),
   containerEl:  HTMLElement,
@@ -164,8 +162,13 @@ function preSetInitialState(
       case 'fade_out':
         gsapInstance.gsap.set(targetEl, { opacity: 1 });
         break;
+      case 'scale':
+        gsapInstance.gsap.set(targetEl, { opacity: 0, scale: 0.8 });
+        break;
+      case 'stagger_group':
+        gsapInstance.gsap.set(targetEl.children, { opacity: 0, y: 12 });
+        break;
       default:
-        // No-op untuk pattern unknown
         break;
     }
   }
@@ -179,8 +182,6 @@ function buildAnimationTimeline({
   let tl: gsap.core.Timeline | null = null;
 
   const ctx = gsapInstance.gsap.context(() => {
-    // CRITICAL: Pre-set initial state SEBELUM build timeline.
-    // Tanpa ini, element visible saat menunggu observer trigger.
     preSetInitialState(gsapInstance, containerEl, config);
 
     tl = gsapInstance.gsap.timeline({
@@ -234,6 +235,25 @@ function buildAnimationTimeline({
           });
           break;
 
+        case 'scale':
+          applyScaleIn(tl, targetEl, {
+            delay:      step.delay,
+            duration:   step.duration,
+            from_scale: step.from_scale,
+            ease:       step.ease,
+          });
+          break;
+
+        case 'stagger_group':
+          applyStaggerGroup(tl, targetEl, {
+            delay:    step.delay,
+            duration: step.duration,
+            stagger:  step.stagger,
+            y_offset: step.y_offset,
+            ease:     step.ease,
+          });
+          break;
+
         default: {
           const _exhaustive: never = step.pattern;
           console.warn(
@@ -277,6 +297,12 @@ function applyStaticFallback(
       case 'text_reveal':
         applyTextRevealStatic(targetEl);
         break;
+      case 'scale':
+        applyScaleStatic(targetEl);
+        break;
+      case 'stagger_group':
+        applyStaggerGroupStatic(targetEl);
+        break;
       default: {
         const _exhaustive: never = step.pattern;
         void _exhaustive;
@@ -295,27 +321,23 @@ export default function AdAnimatedBanner({
   ad,
   className,
   onClick,
+  width  = DEFAULT_WIDTH,
+  height = DEFAULT_HEIGHT,
 }: AdAnimatedBannerProps) {
-  // ─── Refs ───────────────────────────────────────────────────────
   const containerRef     = useRef<HTMLDivElement | null>(null);
   const timelineRef      = useRef<gsap.core.Timeline | null>(null);
   const contextRef       = useRef<gsap.Context | null>(null);
   const observerRef      = useRef<IntersectionObserver | null>(null);
   const hasPlayedOnceRef = useRef(false);
 
-  // ─── State ─────────────────────────────────────────────────────
   const [phase, setPhase]               = useState<Phase>('idle');
   const [errorMsg, setErrorMsg]         = useState<string | null>(null);
   const [staticReason, setStaticReason] = useState<StaticFallbackReason>(null);
 
-  // ─── Click handler ─────────────────────────────────────────────
   const handleClick = () => {
     if (onClick) onClick(ad.id);
   };
 
-  // ═══════════════════════════════════════════════════════════════
-  // LIFECYCLE — Init + Cleanup
-  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     let cancelled = false;
     setPhase('loading');
@@ -417,9 +439,6 @@ export default function AdAnimatedBanner({
     };
   }, [ad.id, ad.animation_timeline]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // INTERSECTIONOBSERVER REPLAY
-  // ═══════════════════════════════════════════════════════════════
   useEffect(() => {
     if (phase !== 'ready' && phase !== 'playing' && phase !== 'paused') {
       return;
@@ -473,14 +492,9 @@ export default function AdAnimatedBanner({
     };
   }, [phase]);
 
-  // ─── Derived state untuk render ────────────────────────────────
   const isLoading      = phase === 'idle' || phase === 'loading';
   const hasError       = phase === 'error';
   const isStaticActive = phase === 'static';
-
-  // ═══════════════════════════════════════════════════════════════
-  // RENDER — Editorial-ADS Firewall Structure
-  // ═══════════════════════════════════════════════════════════════
 
   return (
     <div className={`teraloka-animated-banner ${className ?? ''}`}>
@@ -494,10 +508,7 @@ export default function AdAnimatedBanner({
           transition-all duration-200
           hover:border-amber-300 hover:shadow-md
         "
-        style={{
-          width:  MPU_WIDTH,
-          height: MPU_HEIGHT,
-        }}
+        style={{ width, height }}
         data-ad-id={ad.id}
         data-ad-format="animated"
         data-phase={phase}
@@ -505,7 +516,6 @@ export default function AdAnimatedBanner({
         role="link"
         aria-label={`Iklan: ${ad.title} oleh ${ad.advertiser_name}`}
       >
-        {/* ─── IKLAN Badge (Firewall Layer 1) ─── */}
         <div
           className="
             absolute top-2 left-2 z-30
@@ -517,14 +527,12 @@ export default function AdAnimatedBanner({
           IKLAN
         </div>
 
-        {/* ─── Loading state ─── */}
         {isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-amber-50/80">
             <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
           </div>
         )}
 
-        {/* ─── Error state ─── */}
         {hasError && (
           <div
             className="absolute top-2 right-2 z-25 rounded-sm bg-red-100 px-1.5 py-0.5 text-[9px] text-red-700"
@@ -534,7 +542,6 @@ export default function AdAnimatedBanner({
           </div>
         )}
 
-        {/* ─── Link wrapper ─── */}
         <Link
           href={ad.link_url}
           target="_blank"
@@ -542,7 +549,6 @@ export default function AdAnimatedBanner({
           className="block h-full w-full"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Background image */}
           {ad.image_url && (
             <img
               src={ad.image_url}
@@ -552,16 +558,7 @@ export default function AdAnimatedBanner({
             />
           )}
 
-          {/*
-            FIX: layout 3-zone vertical balance
-            - Top zone (pt-10): kasih ruang untuk IKLAN badge, gak overlap headline
-            - Middle zone (flex-1): logo + headline + body stacked
-            - Bottom zone (mt-auto): CTA + disclaimer space buffer
-
-            Padding bottom 7 = ruang untuk disclaimer footer 9px text + 2px py
-          */}
           <div className="relative z-10 flex h-full flex-col gap-2 px-3 pt-10 pb-7">
-            {/* Logo — selector: .logo */}
             {ad.advertiser_logo_url && (
               <div className="logo flex items-start">
                 <img
@@ -572,7 +569,6 @@ export default function AdAnimatedBanner({
               </div>
             )}
 
-            {/* Headline + Body — selectors: .headline, .body */}
             <div className="space-y-1.5">
               <h3 className="headline text-[14px] font-bold leading-tight text-gray-900">
                 {ad.title}
@@ -584,7 +580,6 @@ export default function AdAnimatedBanner({
               )}
             </div>
 
-            {/* CTA — selector: .cta — anchored di bawah */}
             <div className="mt-auto">
               <div className="cta inline-block rounded-md bg-amber-600 px-3 py-1.5 text-[11px] font-semibold text-white shadow-sm">
                 Pelajari Lebih Lanjut
@@ -593,7 +588,6 @@ export default function AdAnimatedBanner({
           </div>
         </Link>
 
-        {/* ─── Disclaimer footer (Firewall Layer 3) ─── */}
         {ad.disclaimer_text && (
           <div
             className="
@@ -607,7 +601,6 @@ export default function AdAnimatedBanner({
         )}
       </div>
 
-      {/* ─── Advertiser attribution ─── */}
       <p className="mt-1 text-center text-[9px] text-gray-500">
         oleh <span className="font-medium">{ad.advertiser_name}</span>
         {isStaticActive && staticReason && (

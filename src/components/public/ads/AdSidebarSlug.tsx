@@ -2,17 +2,15 @@
 
 /**
  * TeraLoka — AdSidebarSlug (v6)
- * Mission 8 Sub-Phase 8-D + SESI 5H Phase 4
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5A.7
  * ────────────────────────────────────────────────────────────────
  * Sidebar ad untuk slug page BAKABAR.
  *
- * v6 Changes (21 Mei 2026 SESI 5H Phase 4):
- *   - Support ad_format='animated' → render AdAnimatedBanner (GSAP)
- *   - Extend Ad interface: animation_timeline?: AnimationTimelineConfig
- *   - Branch priority: skeleton → fallback → ANIMATED → text → image
- *
- * v5 Changes (16 Mei 2026 Phase 2 Turn 2):
- *   - Accept `formatFilter?` prop dari slug page (editor OFFICE control)
+ * v6 Changes (21 Mei 2026 SESI 5H Phase 5A.7):
+ *   - Support ad_format='animated' (GSAP per-position animation)
+ *   - Resolve animation_timeline['sidebar'] from Record shape
+ *   - Render AdAnimatedBanner kalau timeline available
+ *   - Static fallback ke image branch kalau animation_timeline['sidebar'] empty
  *
  * History:
  *   - v1 (15 Mei 2026): basic sidebar fetch + impression tracking
@@ -20,7 +18,7 @@
  *   - v3 (16 Mei 2026 Batch C2): refactor pakai shared useAdRotation hook
  *   - v4 (16 Mei 2026 Batch C3): region targeting
  *   - v5 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
- *   - v6 (21 Mei 2026 SESI 5H Phase 4): animated banner support
+ *   - v6 (21 Mei 2026 SESI 5H Phase 5A.7): animated banner support
  */
 
 import Link from 'next/link';
@@ -32,12 +30,16 @@ import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
-// SESI 5H Phase 4: GSAP animated banner
+// SESI 5H Phase 5A.7 (21 Mei 2026): GSAP animated banner support
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
 } from '@/components/public/ads/AdAnimatedBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+// Sidebar position dimensions (MPU square-ish)
+const SIDEBAR_WIDTH  = 300;
+const SIDEBAR_HEIGHT = 250;
 
 interface Ad {
   id: string;
@@ -45,14 +47,16 @@ interface Ad {
   body?: string;
   image_url?: string | null;
   link_url: string;
-  ad_format?: 'image' | 'text' | 'animated';  // SESI 5H: + 'animated'
+  // SESI 5H Phase 5A.7: +animated format
+  ad_format?: 'image' | 'text' | 'animated';
   slug?: string;
   advertiser_name?: string;
   advertiser_logo_url?: string | null;
   advertiser_type?: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
   creative_frames?: AdFrame[] | null;
-  animation_timeline?: AnimationTimelineConfig | null;  // SESI 5H NEW
+  // SESI 5H Phase 5A.7: Per-position animation timelines (Record shape)
+  animation_timeline?: Record<string, AnimationTimelineConfig> | null;
 }
 
 interface Props {
@@ -172,35 +176,37 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
     );
   }
 
-  // ═══ ANIMATED BANNER — SESI 5H Phase 4 (GSAP timeline) ═══
-  // Render AdAnimatedBanner standalone component.
-  // Internal lifecycle:
-  //   - Lazy load GSAP (Pattern PPP)
-  //   - prefers-reduced-motion + slow-network fallback (Pattern QQQ)
-  //   - IntersectionObserver replay-on-scroll (play-once + replay)
-  //
-  // Wrapper preserves existing animStyle + setRef untuk consistent
-  // entrance pattern dengan branches lain.
-  if (ad.ad_format === 'animated' && ad.animation_timeline) {
-    return (
-      <div ref={setRef as any} style={animStyle}>
-        <AdAnimatedBanner
-          ad={{
-            id:                  ad.id,
-            slug:                ad.slug ?? null,
-            title:               ad.title,
-            body:                ad.body ?? null,
-            image_url:           ad.image_url ?? null,
-            link_url:            ad.link_url,
-            advertiser_name:     ad.advertiser_name ?? 'Sponsor',
-            advertiser_logo_url: ad.advertiser_logo_url ?? null,
-            disclaimer_text:     ad.disclaimer_text ?? null,
-            animation_timeline:  ad.animation_timeline,
-          }}
-          onClick={trackAdClick}
-        />
-      </div>
-    );
+  // ═══ ANIMATED BANNER (SESI 5H Phase 5A.7) ═══
+  // Branch SEBELUM text/image karena ad_format='animated' bisa override visual mode.
+  // Resolve timeline dari Record per-position. Kalau timeline untuk 'sidebar' tidak
+  // ada, fallback ke image branch (graceful degradation).
+  if (ad.ad_format === 'animated') {
+    const sidebarTimeline = ad.animation_timeline?.['sidebar'];
+
+    if (sidebarTimeline && Array.isArray(sidebarTimeline.steps) && sidebarTimeline.steps.length > 0) {
+      return (
+        <div ref={setRef as any} style={animStyle}>
+          <AdAnimatedBanner
+            ad={{
+              id:                  ad.id,
+              slug:                ad.slug ?? null,
+              title:               ad.title,
+              body:                ad.body ?? null,
+              image_url:           ad.image_url ?? null,
+              link_url:            ad.link_url,
+              advertiser_name:     ad.advertiser_name ?? 'Sponsor',
+              advertiser_logo_url: ad.advertiser_logo_url ?? null,
+              disclaimer_text:     ad.disclaimer_text ?? null,
+              animation_timeline:  sidebarTimeline,
+            }}
+            width={SIDEBAR_WIDTH}
+            height={SIDEBAR_HEIGHT}
+            onClick={trackAdClick}
+          />
+        </div>
+      );
+    }
+    // Fallback: lanjut ke image branch (kalau ada image_url)
   }
 
   // ═══ TEXT ADVERTORIAL — sidebar card ═══
@@ -290,9 +296,12 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
 
         {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
         {(() => {
+          // SESI 5H Phase 5A.7: Coerce 'animated' → 'image' untuk label compat
+          // (getAdLabel signature lama; 'animated' treated as visual = same as image)
+          const formatForLabel = ad.ad_format === 'animated' ? 'image' : ad.ad_format;
           const label = getAdLabel({
             advertiser_type: ad.advertiser_type,
-            ad_format: ad.ad_format,
+            ad_format: formatForLabel,
           });
           if (!label) return null;
           const isMandatory = isLabelMandatory({

@@ -24,11 +24,15 @@ import {
   FileText,
   AlertTriangle,
   Link as LinkIcon,
+  Sparkles,
+  Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // SESI 5E Phase 3b: ImageUpload removed — Default upload UI hidden, per-posisi via Modal
 import { useAdForm } from './AdFormProvider';
 // SESI 5E Phase 3b: getPositionMetadata removed — MultiImageSection eliminated
+// SESI 5H Phase 5A.7 (21 Mei 2026): AdFormSectionAnimation DEPRECATED.
+// Animation config moved to PositionCreativeModal (per-position tab "Animated").
 
 // Simple slugify (mirror slugifyTitle backend pattern)
 function slugify(text: string): string {
@@ -115,7 +119,7 @@ export default function AdFormSectionCreative() {
             <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
               Format Iklan <span className="text-status-critical">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <label
                 className={cn(
                   'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
@@ -164,6 +168,33 @@ export default function AdFormSectionCreative() {
                   </div>
                   <p className="text-[10px] text-text-muted mt-0.5">
                     Artikel sponsored 100-5000 karakter
+                  </p>
+                </div>
+              </label>
+
+              {/* SESI 5H Phase 5A.7: 3rd radio — Animated Banner (GSAP per-position) */}
+              <label
+                className={cn(
+                  'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
+                  state.ad_format === 'animated'
+                    ? 'bg-purple-100 border-purple-400 dark:bg-purple-900/30 dark:border-purple-700'
+                    : 'bg-surface border-border hover:bg-surface-muted'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="ad_format"
+                  checked={state.ad_format === 'animated'}
+                  onChange={() => setField('ad_format', 'animated')}
+                  className="accent-purple-600 mt-0.5 shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={12} className="text-purple-600 dark:text-purple-400" />
+                    <span className="text-[12px] font-bold text-text">Animated</span>
+                  </div>
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    GSAP per-posisi — premium tier
                   </p>
                 </div>
               </label>
@@ -247,7 +278,7 @@ export default function AdFormSectionCreative() {
               </label>
               <div className="flex items-center gap-2">
                 <span className="text-[11px] text-text-muted shrink-0 font-mono">
-                  /bakabar/sponsored/
+                  /sponsored/
                 </span>
                 <input
                   type="text"
@@ -354,6 +385,42 @@ export default function AdFormSectionCreative() {
                   {disclaimerError}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* SESI 5H Phase 5A.7: Animation builder moved ke PositionCreativeModal */}
+          {state.ad_format === 'animated' && (
+            <div className="rounded-xl border-2 border-purple-300 bg-purple-50/40 dark:border-purple-800 dark:bg-purple-950/20 p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-900/40 shrink-0">
+                  <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[13px] font-bold text-purple-900 dark:text-purple-100">
+                    Animasi GSAP Dikonfigurasi Per-Posisi
+                  </h4>
+                  <p className="text-[11px] text-purple-800/80 dark:text-purple-200/80 mt-1 leading-relaxed">
+                    Setiap posisi banner punya dimensi beda (Top Billboard 888×220,
+                    Sidebar 300×250, dll). Animasi GSAP dikonfigurasi <strong>per posisi</strong>
+                    {' '}supaya optimal untuk setiap dimensi.
+                  </p>
+                  <div className="flex items-start gap-2 mt-3 p-2.5 rounded-md bg-white/60 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700">
+                    <Info size={12} className="text-purple-700 dark:text-purple-300 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-purple-800 dark:text-purple-200 leading-relaxed">
+                      <strong>Langkah:</strong> Scroll ke section <em>Targeting</em> →
+                      pilih posisi → klik <em>"Edit Creative"</em> → pilih tab <strong>Animated GSAP</strong>.
+                      Bisa pilih preset siap-pakai atau craft step manual.
+                    </p>
+                  </div>
+                  {state.positions.length > 0 && (
+                    <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mt-2">
+                      Posisi aktif: <code className="font-mono bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-200">
+                        {state.positions.join(', ')}
+                      </code>
+                    </p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -46,7 +46,7 @@ interface Props {
   /** SESI 5E Phase 3c: Advertiser type untuk Kumparan-style conditional disclosure */
   advertiserType?: 'umum' | 'komersial' | 'premium' | 'pemerintah' | 'politisi' | string;
   /** Ad format — text mode render advertorial card style */
-  adFormat?: 'image' | 'text';
+  adFormat?: 'image' | 'text' | 'animated';
   /** Body untuk text mode preview */
   body?: string;
   /** Slug untuk Bakabar external link */

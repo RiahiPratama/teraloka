@@ -1,15 +1,16 @@
 'use client';
 
 /**
- * TeraLoka — AdInArticle (v4)
- * Mission 8 Sub-Phase 8-D Phase 2 Turn 2
+ * TeraLoka — AdInArticle (v5)
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5A.7
  * ────────────────────────────────────────────────────────────────
  * In-article ad banner — inject di tengah artikel BAKABAR via BodyWithAds.
  *
- * v4 Changes (16 Mei 2026 Phase 2 Turn 2):
- *   - Accept `formatFilter?` prop dari BodyWithAds (editor OFFICE control)
- *   - Append ?format=X ke fetch URL kalau filter != 'all'
- *   - Re-fetch saat formatFilter berubah
+ * v5 Changes (21 Mei 2026 SESI 5H Phase 5A.7):
+ *   - Support ad_format='animated' (GSAP per-position animation)
+ *   - Resolve animation_timeline['in_article'] from Record shape
+ *   - Render AdAnimatedBanner kalau timeline available
+ *   - Static fallback ke image branch kalau animation_timeline['in_article'] empty
  *
  * Endpoint: GET /public/ads?position=in_article&region=X&format=Y
  *
@@ -18,6 +19,7 @@
  *   - v2 (16 Mei 2026 Batch C2): DCA rotation + shared hook + politisi disclaimer
  *   - v3 (16 Mei 2026 Batch C3): region targeting param
  *   - v4 (16 Mei 2026 Phase 2 Turn 2): formatFilter prop
+ *   - v5 (21 Mei 2026 SESI 5H Phase 5A.7): animated banner support
  */
 
 import Link from 'next/link';
@@ -28,8 +30,16 @@ import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
+// SESI 5H Phase 5A.7 (21 Mei 2026): GSAP animated banner support
+import AdAnimatedBanner, {
+  type AnimationTimelineConfig,
+} from '@/components/public/ads/AdAnimatedBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+
+// In-article position dimensions (16:9 mid-article banner)
+const IN_ARTICLE_WIDTH  = 640;
+const IN_ARTICLE_HEIGHT = 360;
 
 interface Ad {
   id: string;
@@ -37,7 +47,8 @@ interface Ad {
   body?: string;
   image_url?: string | null;
   link_url: string;
-  ad_format?: 'image' | 'text';
+  // SESI 5H Phase 5A.7: +animated format
+  ad_format?: 'image' | 'text' | 'animated';
   // Advertorial fields
   slug?: string;
   advertiser_name?: string;
@@ -46,6 +57,8 @@ interface Ad {
   disclaimer_text?: string | null;
   // DCA fields (Mission 7)
   creative_frames?: AdFrame[] | null;
+  // SESI 5H Phase 5A.7: Per-position animation timelines (Record shape)
+  animation_timeline?: Record<string, AnimationTimelineConfig> | null;
 }
 
 interface Props {
@@ -180,6 +193,39 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
     );
   }
 
+  // ═══ ANIMATED BANNER (SESI 5H Phase 5A.7) ═══
+  // Branch SEBELUM text/image karena ad_format='animated' bisa override visual mode.
+  // Resolve timeline dari Record per-position. Kalau timeline untuk 'in_article'
+  // tidak ada, fallback ke image branch (graceful degradation).
+  if (ad.ad_format === 'animated') {
+    const inArticleTimeline = ad.animation_timeline?.['in_article'];
+
+    if (inArticleTimeline && Array.isArray(inArticleTimeline.steps) && inArticleTimeline.steps.length > 0) {
+      return (
+        <div ref={setRef as any} style={animStyle} className="my-6 flex justify-center">
+          <AdAnimatedBanner
+            ad={{
+              id:                  ad.id,
+              slug:                ad.slug ?? null,
+              title:               ad.title,
+              body:                ad.body ?? null,
+              image_url:           ad.image_url ?? null,
+              link_url:            ad.link_url,
+              advertiser_name:     ad.advertiser_name ?? 'Sponsor',
+              advertiser_logo_url: ad.advertiser_logo_url ?? null,
+              disclaimer_text:     ad.disclaimer_text ?? null,
+              animation_timeline:  inArticleTimeline,
+            }}
+            width={IN_ARTICLE_WIDTH}
+            height={IN_ARTICLE_HEIGHT}
+            onClick={trackAdClick}
+          />
+        </div>
+      );
+    }
+    // Fallback: lanjut ke image branch (kalau ada image_url)
+  }
+
   // ═══ TEXT ADVERTORIAL — preview card ═══
   if (ad.ad_format === 'text' && ad.slug) {
     const typeLabel = ADVERTISER_TYPE_LABEL[ad.advertiser_type || 'umum'] || 'Konten Mitra';
@@ -293,9 +339,11 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
 
         {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
         {(() => {
+          // SESI 5H Phase 5A.7: Coerce 'animated' → 'image' untuk label compat
+          const formatForLabel = ad.ad_format === 'animated' ? 'image' : ad.ad_format;
           const label = getAdLabel({
             advertiser_type: ad.advertiser_type,
-            ad_format: ad.ad_format,
+            ad_format: formatForLabel,
           });
           if (!label) return null;
           const isMandatory = isLabelMandatory({

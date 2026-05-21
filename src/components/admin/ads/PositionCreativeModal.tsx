@@ -24,7 +24,7 @@
  *   - Save → commit ke state + close modal
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   X,
   Image as ImageIcon,
@@ -35,6 +35,7 @@ import {
   ArrowDown,
   Info,
   ExternalLink,
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -45,6 +46,9 @@ import {
 } from './position-render-metadata';
 // SESI 5E Phase 3c: Live preview mini-player
 import PositionLivePreview from './PositionLivePreview';
+// SESI 5H Phase 5A.7 (21 Mei 2026): GSAP animation builder per-position
+import AnimationBuilder from './AnimationBuilder';
+import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
 
 // ─── Constants ────────────────────────────────────────────────────
 const DCA_MIN_FRAMES = 2;
@@ -80,7 +84,30 @@ interface PositionCreativeModalProps {
   onClose:     () => void;
 }
 
-type Mode = 'static' | 'dca';
+// SESI 5H Phase 5A.7: Mode extended dengan 'animated'
+type Mode = 'static' | 'dca' | 'animated';
+
+// SESI 5H Phase 5A.7: Empty animation timeline template
+const EMPTY_TIMELINE: AnimationTimelineConfig = {
+  duration_ms: 2000,
+  loop:        false,
+  steps:       [],
+};
+
+/**
+ * Parse recommendedImageDim string ke { width, height } number.
+ * Format: "888×220px" atau "300x250" atau "300×250px"
+ * Fallback default MPU 300×250.
+ */
+function parseDimensions(dimStr: string): { width: number; height: number } {
+  if (!dimStr) return { width: 300, height: 250 };
+  const match = dimStr.match(/(\d+)\s*[×x]\s*(\d+)/);
+  if (!match) return { width: 300, height: 250 };
+  return {
+    width:  parseInt(match[1], 10) || 300,
+    height: parseInt(match[2], 10) || 250,
+  };
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -93,19 +120,34 @@ export default function PositionCreativeModal({
   const { state, setField } = useAdForm();
   const meta = getPositionMetadata(positionKey);
 
-  // Mode: detect dari state existing
-  const existingFrames = state.position_frames[positionKey];
-  const existingImage  = state.images[positionKey];
-  const initialMode: Mode = existingFrames ? 'dca' : 'static';
+  // SESI 5H Phase 5A.7: Parse dimensi position untuk live preview AnimationBuilder
+  const positionDims = useMemo(
+    () => parseDimensions(meta.recommendedImageDim),
+    [meta.recommendedImageDim],
+  );
 
-  const [mode, setMode] = useState<Mode>(initialMode);
+  // Mode: detect dari state existing
+  const existingFrames   = state.position_frames[positionKey];
+  const existingImage    = state.images[positionKey];
+  // SESI 5H Phase 5A.7: per-position animation detection
+  const existingTimeline = state.position_animation_timelines[positionKey];
+
+  // Priority detection: animated > dca > static (fallback default)
+  const detectInitialMode = (): Mode => {
+    if (existingTimeline) return 'animated';
+    if (existingFrames)   return 'dca';
+    return 'static';
+  };
+
+  const [mode, setMode] = useState<Mode>(detectInitialMode());
 
   // Re-sync mode ketika modal open dengan position berbeda
   useEffect(() => {
     if (isOpen) {
-      setMode(existingFrames ? 'dca' : 'static');
+      setMode(detectInitialMode());
     }
-  }, [isOpen, positionKey, existingFrames]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, positionKey, existingFrames, existingTimeline]);
 
   // ESC + body scroll lock
   useEffect(() => {
@@ -138,6 +180,27 @@ export default function PositionCreativeModal({
     setField('images', next);
   };
 
+  // ───────────────────────────────────────────────────────────────
+  // ANIMATION HANDLERS (SESI 5H Phase 5A.7)
+  // ───────────────────────────────────────────────────────────────
+
+  const clearAnimationTimeline = () => {
+    const next = { ...state.position_animation_timelines };
+    delete next[positionKey];
+    setField('position_animation_timelines', next);
+  };
+
+  const setAnimationTimeline = (timeline: AnimationTimelineConfig) => {
+    setField('position_animation_timelines', {
+      ...state.position_animation_timelines,
+      [positionKey]: timeline,
+    });
+  };
+
+  // ───────────────────────────────────────────────────────────────
+  // MODE SWITCHERS (mode-exclusive cleanup)
+  // ───────────────────────────────────────────────────────────────
+
   const switchToDCA = () => {
     // Init dengan 2 empty frames
     const next = {
@@ -145,8 +208,9 @@ export default function PositionCreativeModal({
       [positionKey]: [createEmptyFrame(0), createEmptyFrame(1)],
     };
     setField('position_frames', next);
-    // Clear static image untuk posisi ini (mode-exclusive)
+    // Mode-exclusive cleanup
     clearStaticImage();
+    clearAnimationTimeline();
     setMode('dca');
   };
 
@@ -155,7 +219,20 @@ export default function PositionCreativeModal({
     const next = { ...state.position_frames };
     delete next[positionKey];
     setField('position_frames', next);
+    // Mode-exclusive cleanup
+    clearAnimationTimeline();
     setMode('static');
+  };
+
+  const switchToAnimated = () => {
+    // Init dengan empty timeline (klien akan craft via builder)
+    setAnimationTimeline({ ...EMPTY_TIMELINE });
+    // Mode-exclusive cleanup
+    clearStaticImage();
+    const nextFrames = { ...state.position_frames };
+    delete nextFrames[positionKey];
+    setField('position_frames', nextFrames);
+    setMode('animated');
   };
 
   // ───────────────────────────────────────────────────────────────
@@ -246,7 +323,7 @@ export default function PositionCreativeModal({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={switchToStatic}
+              onClick={mode === 'static' ? undefined : switchToStatic}
               className={cn(
                 'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
                 mode === 'static'
@@ -255,7 +332,7 @@ export default function PositionCreativeModal({
               )}
             >
               <ImageIcon size={13} />
-              Static (1 gambar)
+              Static
             </button>
             <button
               type="button"
@@ -268,15 +345,29 @@ export default function PositionCreativeModal({
               )}
             >
               <Layers size={13} />
-              Dynamic Creative (DCA — 2-5 variants rotate)
+              DCA (2-5 rotate)
+            </button>
+            {/* SESI 5H Phase 5A.7: 3rd mode — Animated GSAP */}
+            <button
+              type="button"
+              onClick={mode === 'animated' ? undefined : switchToAnimated}
+              className={cn(
+                'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
+                mode === 'animated'
+                  ? 'bg-purple-600 text-white shadow'
+                  : 'bg-surface text-text-muted border border-border hover:bg-purple-50 dark:hover:bg-purple-950/30'
+              )}
+            >
+              <Sparkles size={13} />
+              Animated GSAP
             </button>
           </div>
         </div>
 
         {/* ── BODY ── */}
         <div className="p-5">
-          {mode === 'static' ? (
-            // ─── STATIC MODE ───
+          {/* ─── STATIC MODE ─── */}
+          {mode === 'static' && (
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 block">
                 Upload Image — {meta.recommendedImageDim}
@@ -300,8 +391,10 @@ export default function PositionCreativeModal({
                 </p>
               </div>
             </div>
-          ) : (
-            // ─── DCA MODE ───
+          )}
+
+          {/* ─── DCA MODE ─── */}
+          {mode === 'dca' && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted">
@@ -431,21 +524,59 @@ export default function PositionCreativeModal({
             </div>
           )}
 
+          {/* ─── ANIMATED MODE (SESI 5H Phase 5A.7) ─── */}
+          {mode === 'animated' && (
+            <div>
+              <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800">
+                <Sparkles size={14} className="text-purple-600 dark:text-purple-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[11px] font-bold text-purple-900 dark:text-purple-100">
+                    Animasi GSAP — Posisi {meta.label}
+                  </p>
+                  <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mt-0.5 leading-relaxed">
+                    Dimensi: {meta.recommendedImageDim} ({meta.aspectRatio}).
+                    Preview di-render dengan dimensi asli posisi ini.
+                  </p>
+                </div>
+              </div>
+
+              {/* AnimationBuilder mount — fully controlled */}
+              <AnimationBuilder
+                timeline={existingTimeline ?? null}
+                onChange={setAnimationTimeline}
+                previewContext={{
+                  title:               state.title,
+                  body:                state.body,
+                  image_url:           existingImage ?? state.image_url,
+                  link_url:            state.link_url,
+                  advertiser_name:     state.advertiser_name,
+                  advertiser_logo_url: state.advertiser_logo_url,
+                  disclaimer_text:     state.disclaimer_text,
+                }}
+                previewWidth={positionDims.width}
+                previewHeight={positionDims.height}
+              />
+            </div>
+          )}
+
           {/* ═══ SESI 5E Phase 3c: LIVE PREVIEW MINI-PLAYER ═══ */}
-          <div className="mt-4">
-            <PositionLivePreview
-              positionKey={positionKey}
-              mode={mode}
-              imageUrl={existingImage ?? state.image_url}
-              frames={mode === 'dca' ? dcaFrames : undefined}
-              headline={state.title}
-              advertiserName={state.advertiser_name}
-              advertiserType={state.advertiser_type}
-              adFormat={state.ad_format}
-              body={state.body}
-              slug={state.slug}
-            />
-          </div>
+          {/* SESI 5H Phase 5A.7: Skip saat mode='animated' (AnimationBuilder has own preview) */}
+          {mode !== 'animated' && (
+            <div className="mt-4">
+              <PositionLivePreview
+                positionKey={positionKey}
+                mode={mode}
+                imageUrl={existingImage ?? state.image_url}
+                frames={mode === 'dca' ? dcaFrames : undefined}
+                headline={state.title}
+                advertiserName={state.advertiser_name}
+                advertiserType={state.advertiser_type}
+                adFormat={state.ad_format}
+                body={state.body}
+                slug={state.slug}
+              />
+            </div>
+          )}
         </div>
 
         {/* ── FOOTER ── */}

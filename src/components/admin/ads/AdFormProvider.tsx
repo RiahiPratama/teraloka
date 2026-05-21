@@ -47,13 +47,16 @@ import {
 } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import type { PricingTier } from '@/components/admin/ads/pricing-tiers/PricingTierPicker';
+// SESI 5H Phase 5A.7 (21 Mei 2026): Per-position GSAP animation timeline type
+import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
 // ─── Types ────────────────────────────────────────────────────────
 
-export type AdFormat = 'image' | 'text';
+// SESI 5H Phase 5A.7 (21 Mei 2026): +animated (per-position GSAP timeline)
+export type AdFormat = 'image' | 'text' | 'animated';
 // SESI 5C-B (18 Mei 2026): +premium (PT/CV brand nasional besar)
 export type AdvertiserType = 'umum' | 'politisi' | 'pemerintah' | 'komersial' | 'premium';
 
@@ -70,6 +73,47 @@ export const DCA_MIN_FRAMES = 2;
 export const DCA_MAX_FRAMES = 5;
 export const DCA_MIN_DURATION_MS = 2000;
 export const DCA_MAX_DURATION_MS = 15000;
+
+// ─── SESI 5H Phase 5A.7 Helper ────────────────────────────────────
+/**
+ * Normalize animation_timeline shape dari DB ke per-position Record.
+ *
+ * Detection logic:
+ *   1. null/undefined → {} (empty Record)
+ *   2. Shape `{ duration_ms, loop, steps }` (legacy single global config from Phase 5A.3):
+ *      → normalize ke { [firstPosition]: legacyConfig }
+ *   3. Shape Record<string, AnimationTimelineConfig> (Phase 5A.7 per-position):
+ *      → use directly
+ *
+ * @param raw       Raw animation_timeline dari ad object (DB JSONB)
+ * @param positions Active positions array (untuk backward compat anchor)
+ * @returns         Normalized Record per-position
+ */
+function normalizeAnimationTimelines(
+  raw:       any,
+  positions: string[],
+): Record<string, AnimationTimelineConfig> {
+  if (!raw || typeof raw !== 'object') return {};
+
+  // Legacy single config (Phase 5A.3): has 'steps' array directly
+  if (Array.isArray(raw.steps)) {
+    const legacyConfig = raw as AnimationTimelineConfig;
+    if (positions.length > 0) {
+      return { [positions[0]]: legacyConfig };
+    }
+    return {};
+  }
+
+  // Per-position Record (Phase 5A.7): values are AnimationTimelineConfig
+  // Defensive validation: each value must have 'steps' array
+  const result: Record<string, AnimationTimelineConfig> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (value && typeof value === 'object' && Array.isArray((value as any).steps)) {
+      result[key] = value as AnimationTimelineConfig;
+    }
+  }
+  return result;
+}
 
 export interface AdFormState {
   // ─── SESI 5B NEW ─────────────────────────────
@@ -134,6 +178,22 @@ export interface AdFormState {
    */
   position_frames: Record<string, AdFrame[]>;
 
+  // ─── Animation (SESI 5H Phase 5A.7) ─────────────────
+  /**
+   * SESI 5H Phase 5A.7 (21 Mei 2026): Per-position GSAP animation timelines.
+   * Key = position key (top_leaderboard, sidebar, in_article, etc).
+   * Value = AnimationTimelineConfig untuk posisi tersebut.
+   *
+   * Empty {} = no animation set (default).
+   * Submit logic: kalau ad_format='animated' DAN map non-empty, kirim Record
+   *               shape ke backend animation_timeline column.
+   *
+   * Mode-exclusive per position: setiap position pilih SATU dari
+   * static image (state.images) / DCA frames (state.position_frames) /
+   * animation timeline (state.position_animation_timelines).
+   */
+  position_animation_timelines: Record<string, AnimationTimelineConfig>;
+
   // ─── Schedule ──────────────────────────────────
   starts_at:       string;
   ends_at:         string;
@@ -173,6 +233,9 @@ const EMPTY_STATE: AdFormState = {
   creative_frames:     null,
   // SESI 5E Phase 3a: per-position frames (empty = use legacy creative_frames flat)
   position_frames:     {},
+
+  // SESI 5H Phase 5A.7: per-position animation timelines (empty = no animation)
+  position_animation_timelines: {},
 
   // Schedule
   starts_at:           new Date().toISOString(),
@@ -259,6 +322,62 @@ export function validateAdForm(state: AdFormState): FieldError[] {
         field:   'disclaimer_text',
         message: 'Disclaimer KPU wajib untuk advertiser politisi',
       });
+    }
+  }
+
+  // SESI 5H Phase 5A.7: Per-position animation validation
+  if (state.ad_format === 'animated') {
+    const timelines = state.position_animation_timelines;
+    const timelineKeys = Object.keys(timelines);
+
+    if (timelineKeys.length === 0) {
+      errors.push({
+        field:   'position_animation_timelines',
+        message: 'Animasi belum dikonfigurasi. Klik "Edit Creative" di Targeting per posisi, lalu pilih tab "Animated".',
+      });
+    } else {
+      // Validate setiap timeline yang ada
+      for (const posKey of timelineKeys) {
+        const tl = timelines[posKey];
+
+        if (!Array.isArray(tl.steps) || tl.steps.length === 0) {
+          errors.push({
+            field:   'position_animation_timelines',
+            message: `Posisi "${posKey}": animasi belum punya step (minimal 1 step).`,
+          });
+          continue;
+        }
+        if (typeof tl.duration_ms !== 'number' || tl.duration_ms <= 0) {
+          errors.push({
+            field:   'position_animation_timelines',
+            message: `Posisi "${posKey}": durasi total animasi harus angka > 0.`,
+          });
+        }
+        if (typeof tl.loop !== 'boolean') {
+          errors.push({
+            field:   'position_animation_timelines',
+            message: `Posisi "${posKey}": loop config harus boolean.`,
+          });
+        }
+      }
+
+      // Cross-check: setiap timeline key harus exist di state.positions
+      const orphanedKeys = timelineKeys.filter((k) => !state.positions.includes(k));
+      if (orphanedKeys.length > 0) {
+        errors.push({
+          field:   'position_animation_timelines',
+          message: `Animasi konfigurasi untuk posisi yang tidak aktif: ${orphanedKeys.join(', ')}. Aktifkan posisi atau hapus animasi.`,
+        });
+      }
+
+      // Cross-check: setiap position dicentang dengan ad_format='animated' WAJIB punya timeline
+      const positionsWithoutTimeline = state.positions.filter((p) => !timelines[p]);
+      if (positionsWithoutTimeline.length > 0) {
+        errors.push({
+          field:   'position_animation_timelines',
+          message: `Posisi belum punya animasi: ${positionsWithoutTimeline.join(', ')}. Edit creative per posisi → tab Animated.`,
+        });
+      }
     }
   }
 
@@ -460,6 +579,15 @@ export function AdFormProvider({
           position_frames:     (ad.creative_frames && typeof ad.creative_frames === 'object' && !Array.isArray(ad.creative_frames))
             ? ad.creative_frames as Record<string, AdFrame[]>
             : {},
+          // SESI 5H Phase 5A.7: Detect animation_timeline shape pada load.
+          //   - Record<string, AnimationTimelineConfig> (per-position) → use directly
+          //   - Legacy single AnimationTimelineConfig (Phase 5A.3) → normalize ke Record
+          //     dengan key = first position (best-effort backward compat)
+          //   - null/undefined → empty {}
+          position_animation_timelines: normalizeAnimationTimelines(
+            ad.animation_timeline,
+            ad.positions ?? [],
+          ),
           starts_at:           ad.starts_at ?? new Date().toISOString(),
           ends_at:             ad.ends_at ?? new Date(Date.now() + 30 * 86400000).toISOString(),
         });
@@ -542,6 +670,13 @@ export function AdFormProvider({
         creative_frames:     Object.keys(state.position_frames).length > 0
           ? state.position_frames
           : state.creative_frames,
+
+        // SESI 5H Phase 5A.7: per-position animation timelines
+        // - ad_format='animated' + map non-empty → kirim Record shape ke backend
+        // - else → null (clear field di backend update)
+        animation_timeline:  state.ad_format === 'animated' && Object.keys(state.position_animation_timelines).length > 0
+          ? state.position_animation_timelines
+          : null,
 
         // Schedule
         starts_at:           state.starts_at,
