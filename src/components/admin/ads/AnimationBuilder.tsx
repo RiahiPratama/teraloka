@@ -4,6 +4,7 @@
  * TeraLoka — AnimationBuilder (Banner Studio V1 + V2 Phase 6A)
  * SESI 5H Phase 5B (21 Mei 2026) — Banner Studio V1
  * SESI 6  Phase 6A (22 Mei 2026) — TD-ANIM-104 Text Effects (Shadow/Stroke/Gradient)
+ *                                 + TD-ANIM-105 Hover Behavior (pause/replay/speed_up)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -21,6 +22,7 @@
  *   C. TRANSITION antar variant (kalau 2+)
  *   D. TEXT REVEAL GLOBAL    — Fallback default kalau element override gak set
  *   E. LOOP toggle
+ *   E.5 HOVER BEHAVIOR (SESI 6 NEW) — none/pause/replay/speed_up timeline-level
  *   F. LIVE PREVIEW auto-scale
  *
  * Persona: Admin POWER USER (founder solo).
@@ -59,6 +61,7 @@ import {
   Sun,
   Square,
   Palette,
+  MousePointer,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -95,6 +98,8 @@ import AdAnimatedBanner, {
   type TextStroke,
   type GradientDirection,
   type TextGradientConfig,
+  // SESI 6 Phase 6A — TD-ANIM-105 hover behavior
+  type HoverBehavior,
   DEFAULT_ELEMENT_OVERRIDES,
   DEFAULT_TEXT_GRADIENT,
   TEXT_COLOR_MAP,
@@ -238,6 +243,20 @@ const GRADIENT_DIRECTION_OPTIONS: { value: GradientDirection; label: string; arr
   { value: 'to_bottom_right', label: 'Diag-DR',   arrow: '↘' },
   { value: 'to_top_right',    label: 'Diag-UR',   arrow: '↗' },
   { value: 'diagonal',        label: '135°',      arrow: '⤧' },
+];
+
+// ─── TD-ANIM-105 Hover Behavior Options ───────────────────────────
+
+const HOVER_BEHAVIOR_OPTIONS: {
+  value: HoverBehavior;
+  label: string;
+  emoji: string;
+  description: string;
+}[] = [
+  { value: 'none',     label: 'Off',      emoji: '⊘',  description: 'Tidak ada reaksi saat di-hover (default)' },
+  { value: 'pause',    label: 'Pause',    emoji: '⏸',  description: 'Carousel berhenti saat hover, lanjut saat lepas (user baca teks)' },
+  { value: 'replay',   label: 'Replay',   emoji: '↻',  description: 'Restart timeline saat hover (re-engage user)' },
+  { value: 'speed_up', label: 'Speed 2×', emoji: '⏩', description: 'Animasi 2× lebih cepat saat hover (preview cepat)' },
 ];
 
 const AUTO_DELAY_MS: Record<'headline' | 'body' | 'cta', number> = {
@@ -944,6 +963,61 @@ export default function AnimationBuilder({
           />
           <div className="w-9 h-5 bg-gray-300 dark:bg-gray-700 peer-checked:bg-purple-600 rounded-full peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border after:rounded-full after:h-4 after:w-4 after:transition-all" />
         </label>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SECTION E.5: HOVER BEHAVIOR (SESI 6 Phase 6A — TD-ANIM-105)   */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      <div className="p-3 rounded-md bg-purple-100/40 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800">
+        <div className="flex items-center gap-2 mb-2">
+          <MousePointer className="w-3.5 h-3.5 text-purple-700 dark:text-purple-300" />
+          <p className="text-xs font-semibold text-purple-900 dark:text-purple-200">
+            Hover Behavior
+          </p>
+          <span className="ml-auto text-[10px] text-purple-600 dark:text-purple-400 italic">
+            (desktop only — touch device skip otomatis)
+          </span>
+        </div>
+
+        {/* Radio pills */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+          {HOVER_BEHAVIOR_OPTIONS.map((opt) => {
+            const current = timeline.hover_behavior ?? 'none';
+            const isActive = current === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => updateTimeline({ hover_behavior: opt.value })}
+                className={cn(
+                  'flex flex-col items-start px-2.5 py-1.5 rounded border-2 transition text-left',
+                  isActive
+                    ? 'border-purple-600 bg-purple-600 text-white shadow-sm'
+                    : 'border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:border-purple-400'
+                )}
+                title={opt.description}
+              >
+                <span className="text-[11px] font-bold flex items-center gap-1">
+                  <span className="text-[14px]">{opt.emoji}</span>
+                  {opt.label}
+                </span>
+                <span className={cn(
+                  'text-[9px] mt-0.5 leading-tight',
+                  isActive ? 'text-purple-100' : 'text-gray-500 dark:text-gray-400'
+                )}>
+                  {opt.description}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Hint kalau aktif */}
+        {(timeline.hover_behavior ?? 'none') !== 'none' && (
+          <p className="text-[10px] text-amber-700 dark:text-amber-400 mt-2 italic">
+            💡 Tip: hover di Live Preview di bawah untuk test (animation harus playing dulu).
+          </p>
+        )}
       </div>
 
       {/* ════════════════════════════════════════════════════════════ */}

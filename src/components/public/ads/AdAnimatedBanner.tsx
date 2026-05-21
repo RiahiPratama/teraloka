@@ -26,6 +26,13 @@
  *   ⚠️ Logo (img element) no-op untuk text effects — safe, gak break apapun
  *   ⚠️ Backward compat: 3 field OPTIONAL, undefined = no effect (Phase 5B preserved)
  *
+ * SESI 6 Phase 6A — TD-ANIM-105 (Hover-Triggered Animation):
+ *   ✅ hover_behavior: none|pause|replay|speed_up (4 mode, TIMELINE-level)
+ *   ⚠️ reveal_extra DROPPED dari Phase 6A — defer Phase 6B (butuh per-variant element key)
+ *   ⚠️ Mobile-safe: matchMedia('(hover: hover) and (pointer: fine)') guard
+ *      → touch device skip handler binding TOTAL, gak ada tap-pause kecelakaan
+ *   ⚠️ Backward compat: hover_behavior optional, undefined = 'none' (no listener bound)
+ *
  * Layout engine:
  *   - Absolute positioning per element (9 anchor preset)
  *   - Z-index: logo=20, headline=15, body=12, cta=18 (CTA top untuk clickability)
@@ -336,6 +343,27 @@ export interface AnimationVariant {
 export type TransitionPattern = 'fade' | 'slide_left' | 'slide_up' | 'none';
 export type TextRevealPattern = 'fade_in' | 'slide_in' | 'text_reveal' | 'none';
 
+/**
+ * SESI 6 Phase 6A — TD-ANIM-105 (22 Mei 2026):
+ * Hover-triggered animation behavior (TIMELINE-level, bukan element-level).
+ *
+ *   - 'none':     no hover effect (default, backward compat Phase 5B)
+ *   - 'pause':    pause GSAP timeline on mouseenter, resume on mouseleave
+ *                 → use case: user hover untuk baca teks, carousel berhenti
+ *   - 'replay':   restart timeline on mouseenter (no leave action)
+ *                 → use case: re-engage saat user hover ulang
+ *   - 'speed_up': timeScale(2) on mouseenter, timeScale(1) on mouseleave
+ *                 → use case: cinematic preview cepat
+ *
+ * 'reveal_extra' DROPPED dari Phase 6A — defer Phase 6B (butuh per-variant
+ * hover_reveal_element_key + visibility orchestration, scope 4-6 jam).
+ *
+ * Mobile guard: matchMedia('(hover: hover) and (pointer: fine)').
+ *   - touch device: handler binding SKIPPED total, mode jadi no-op
+ *   - desktop/laptop: handler aktif sesuai mode
+ */
+export type HoverBehavior = 'none' | 'pause' | 'replay' | 'speed_up';
+
 export interface AnimationTimelineConfig {
   variants:                AnimationVariant[];
   transition_pattern:      TransitionPattern;
@@ -359,6 +387,13 @@ export interface AnimationTimelineConfig {
    * Null/undefined = no shared bg, klien upload per variant.
    */
   shared_background_url?:  string | null;
+
+  /**
+   * SESI 6 Phase 6A — TD-ANIM-105 (22 Mei 2026):
+   * Hover-triggered animation behavior.
+   * Optional — undefined ≡ 'none' (Phase 5B backward compat).
+   */
+  hover_behavior?:         HoverBehavior;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -716,6 +751,10 @@ export default function AdAnimatedBanner({
   const [staticReason, setStaticReason]         = useState<StaticFallbackReason>(null);
   const [activeVariantIdx, setActiveVariantIdx] = useState(0);
 
+  // SESI 6 Phase 6A — TD-ANIM-105: hover capability detection
+  // Touch devices: matchMedia returns false → handler binding SKIPPED total
+  const [hoverCapable, setHoverCapable] = useState(false);
+
   const variants = ad.animation_timeline.variants;
   const safeIdx  = Math.min(activeVariantIdx, variants.length - 1);
   const activeVariant = variants[safeIdx] ?? null;
@@ -734,6 +773,55 @@ export default function AdAnimatedBanner({
   const handleClick = useCallback(() => {
     if (onClick) onClick(ad.id);
   }, [onClick, ad.id]);
+
+  // ════════════════════════════════════════════════════════════════
+  // SESI 6 Phase 6A — TD-ANIM-105: Hover capability detection
+  // ════════════════════════════════════════════════════════════════
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(hover: hover) and (pointer: fine)');
+    setHoverCapable(mq.matches);
+    const listener = (e: MediaQueryListEvent) => setHoverCapable(e.matches);
+    mq.addEventListener('change', listener);
+    return () => mq.removeEventListener('change', listener);
+  }, []);
+
+  // ════════════════════════════════════════════════════════════════
+  // SESI 6 Phase 6A — TD-ANIM-105: Hover behavior handlers
+  // Guarded oleh hoverCapable + hover_behavior !== 'none'
+  // ════════════════════════════════════════════════════════════════
+  const hoverBehavior: HoverBehavior = ad.animation_timeline.hover_behavior ?? 'none';
+  const hoverActive = hoverCapable && hoverBehavior !== 'none' && phase === 'playing';
+
+  const handleMouseEnter = useCallback(() => {
+    const tl = timelineRef.current;
+    if (!tl || !hoverActive) return;
+    switch (hoverBehavior) {
+      case 'pause':
+        tl.pause();
+        break;
+      case 'replay':
+        tl.restart();
+        break;
+      case 'speed_up':
+        tl.timeScale(2);
+        break;
+    }
+  }, [hoverBehavior, hoverActive]);
+
+  const handleMouseLeave = useCallback(() => {
+    const tl = timelineRef.current;
+    if (!tl || !hoverActive) return;
+    switch (hoverBehavior) {
+      case 'pause':
+        tl.play();
+        break;
+      case 'speed_up':
+        tl.timeScale(1);
+        break;
+      // 'replay' no leave action — biarkan timeline play normal
+    }
+  }, [hoverBehavior, hoverActive]);
 
   // ════════════════════════════════════════════════════════════════
   // EFFECT 1 — Build animation untuk variant aktif
@@ -922,6 +1010,8 @@ export default function AdAnimatedBanner({
       <div
         ref={containerRef}
         onClick={handleClick}
+        onMouseEnter={hoverActive ? handleMouseEnter : undefined}
+        onMouseLeave={hoverActive ? handleMouseLeave : undefined}
         className="
           relative cursor-pointer overflow-hidden
           rounded-lg border-2 border-amber-200
@@ -935,6 +1025,7 @@ export default function AdAnimatedBanner({
         data-phase={phase}
         data-variant-idx={safeIdx}
         data-static-reason={staticReason ?? undefined}
+        data-hover-behavior={hoverActive ? hoverBehavior : undefined}
         role="link"
         aria-label={`Iklan: ${resolved.headline} oleh ${ad.advertiser_name}`}
       >
