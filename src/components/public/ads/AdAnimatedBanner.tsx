@@ -41,6 +41,17 @@
  *   ⚠️ Backward compat: customFonts prop optional, font_family preset tetap jalan
  *   ⚠️ Server-side render safe: skip FontFace API kalau window undefined
  *
+ * SESI 6 Sub-Phase 6C — TD-ANIM-103 (Drag-Drop Pixel Positioning):
+ *   ✅ ElementPosition extend: union PresetPosition | AbsolutePosition
+ *      - PresetPosition: 9 anchor preset (Phase 5B, backward compat)
+ *      - AbsolutePosition: { x, y } integer px dari top-left banner
+ *   ✅ Type guard isAbsolutePosition() untuk discriminate
+ *   ✅ getPositionStyle() handle dual mode (preset switch / absolute coord)
+ *   ⚠️ Backward compat 100%: Phase 5B data (string preset) render identik,
+ *      type guard fallback ke switch lama
+ *   ⚠️ Soft bounds: render apply clamp visual, store raw value (creative effect OK)
+ *   ⚠️ Phase 6C.1 = engine + minimal X/Y number input UI (Batch 6C.2 = PositionCanvas)
+ *
  * Layout engine:
  *   - Absolute positioning per element (9 anchor preset)
  *   - Z-index: logo=20, headline=15, body=12, cta=18 (CTA top untuk clickability)
@@ -77,11 +88,58 @@ import { applyPulse, applyPulseStatic } from '@/components/public/ads/animations
 // TIER 2 — TYPE DEFINITIONS
 // ════════════════════════════════════════════════════════════════
 
-/** 9 anchor positions di banner container. */
-export type ElementPosition =
+/**
+ * Element position dalam banner canvas.
+ * Phase 5B: 9 anchor preset (top_left ... bottom_right).
+ * Phase 6C (22 Mei 2026): + AbsolutePosition { x, y } untuk drag-drop pixel
+ *                          positioning. Stored as object di JSONB element_overrides.
+ *
+ * Backward compat: existing data ('top_left' string) tetap valid, type guard
+ * isAbsolutePosition() discriminate.
+ */
+export type PresetPosition =
   | 'top_left'    | 'top_center'    | 'top_right'
   | 'middle_left' | 'middle_center' | 'middle_right'
   | 'bottom_left' | 'bottom_center' | 'bottom_right';
+
+/**
+ * Absolute pixel position dari top-left edge banner.
+ * x, y integer. Bisa negatif (off-canvas creative effect — admin power user).
+ * Soft clamp di render (translate stays, gak hard clip jadi text bisa "peek"
+ * out dari edge kalau klien sengaja).
+ *
+ * `unit` future-proof — Phase 6C lock 'px'. Phase 7 mungkin tambah '%' atau 'rem'.
+ */
+export interface AbsolutePosition {
+  x:     number;
+  y:     number;
+  unit?: 'px';
+}
+
+export type ElementPosition = PresetPosition | AbsolutePosition;
+
+/**
+ * Type guard untuk discriminate union ElementPosition.
+ * Returns true kalau AbsolutePosition object, false kalau string preset.
+ *
+ * Safe untuk Phase 5B JSONB data: string 'top_left' → typeof 'string' → return false
+ * → fallback ke switch preset (existing path).
+ */
+export function isAbsolutePosition(pos: ElementPosition): pos is AbsolutePosition {
+  return (
+    typeof pos === 'object' &&
+    pos !== null &&
+    typeof (pos as AbsolutePosition).x === 'number' &&
+    typeof (pos as AbsolutePosition).y === 'number'
+  );
+}
+
+/** Default coord saat user toggle preset→absolute first time (center-ish). */
+export const DEFAULT_ABSOLUTE_POSITION: AbsolutePosition = {
+  x:    100,
+  y:    50,
+  unit: 'px',
+};
 
 /** Animation pattern palette per element. */
 export type ElementAnimation =
@@ -590,10 +648,29 @@ function resolveElementOverride(
 }
 
 /**
- * Compute position style berdasarkan ElementPosition preset.
- * Return CSS positioning + transform untuk anchor.
+ * Compute position style berdasarkan ElementPosition.
+ * Phase 6C (TD-103): handle dual mode — preset (string) OR absolute ({x,y}).
+ * Type guard isAbsolutePosition() discriminate.
+ *
+ * Absolute mode:
+ *   - Pakai inline left/top px, no transform (translate)
+ *   - Soft bounds: render apply value as-is, bisa negatif (off-canvas creative)
+ *
+ * Preset mode (Phase 5B path, unchanged):
+ *   - 9 anchor preset dengan padding 12px dari edge
+ *   - Center anchors pakai transform translate untuk center alignment
  */
 function getPositionStyle(position: ElementPosition): React.CSSProperties {
+  // ─── Phase 6C TD-103: absolute mode ───
+  if (isAbsolutePosition(position)) {
+    return {
+      left: `${position.x}px`,
+      top:  `${position.y}px`,
+      // No transform — koordinat udah final, gak perlu center adjust
+    };
+  }
+
+  // ─── Phase 5B path: preset 9-anchor (unchanged) ───
   const PADDING = 12; // px dari edge
 
   switch (position) {

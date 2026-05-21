@@ -10,6 +10,9 @@
  *                                      + Row 2 "Custom" pill + popover (select+delete)
  *                                      + CustomFontUploadModal integration
  *                                      + customFonts threading ke Live Preview
+ * SESI 6  Sub-Phase 6C (22 Mei 2026) — TD-ANIM-103 Drag-Drop Pixel Positioning
+ *                                      Batch 6C.1 = engine extend + minimal X/Y input
+ *                                      Batch 6C.2 = PositionCanvas drag-drop UI (next)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -109,6 +112,11 @@ import AdAnimatedBanner, {
   type CustomFontMap,
   type CustomFontEntry,
   makeCustomFontCssFamily,
+  // SESI 6 Sub-Phase 6C — TD-ANIM-103 drag-drop pixel positioning
+  type PresetPosition,
+  type AbsolutePosition,
+  isAbsolutePosition,
+  DEFAULT_ABSOLUTE_POSITION,
   DEFAULT_ELEMENT_OVERRIDES,
   DEFAULT_TEXT_GRADIENT,
   TEXT_COLOR_MAP,
@@ -166,6 +174,9 @@ function toEnginePosition(field: 'headline' | 'body' | 'cta', horizontal: Horizo
 }
 
 function fromEnginePosition(position: ElementPosition): HorizontalPosition {
+  // SESI 6 TD-103: absolute mode → no horizontal preset, return 'center' as safe default
+  // (Row 1 pills won't be used in absolute mode anyway — UI hide saat absolute).
+  if (isAbsolutePosition(position)) return 'center';
   if (position.includes('center')) return 'center';
   if (position.includes('right'))  return 'right';
   return 'left';
@@ -291,7 +302,7 @@ const SLIDE_DIRECTION_OPTIONS: { value: SlideFromDirection; label: string }[] = 
   { value: 'bottom', label: '⬇ Bottom' },
 ];
 
-const POSITION_LABELS: Record<ElementPosition, string> = {
+const POSITION_LABELS: Record<PresetPosition, string> = {
   top_left:        'Top Left',
   top_center:      'Top Center',
   top_right:       'Top Right',
@@ -303,7 +314,7 @@ const POSITION_LABELS: Record<ElementPosition, string> = {
   bottom_right:    'Bot Right',
 };
 
-const POSITION_GRID: ElementPosition[][] = [
+const POSITION_GRID: PresetPosition[][] = [
   ['top_left',    'top_center',    'top_right'],
   ['middle_left', 'middle_center', 'middle_right'],
   ['bottom_left', 'bottom_center', 'bottom_right'],
@@ -1663,20 +1674,28 @@ function FieldWithInlineControls({
           {/* Position pills */}
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Pos</span>
-            <div className="flex">
-              {POSITION_OPTIONS.map((opt, i) => (
-                <button key={opt.value} type="button"
-                  onClick={() => onChangeElement({ position: toEnginePosition(fieldType, opt.value) })}
-                  className={cn('px-2 py-1 text-[10px] border-y border-r transition',
-                    i === 0 && 'border-l rounded-l',
-                    i === POSITION_OPTIONS.length - 1 && 'rounded-r',
-                    currentHorizontal === opt.value
-                      ? 'bg-purple-600 text-white border-purple-700'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}>
-                  {opt.label}
-                </button>
-              ))}
-            </div>
+            {/* SESI 6 TD-103: show badge saat absolute mode, hide pills */}
+            {isAbsolutePosition(override.position) ? (
+              <span className="px-2 py-1 text-[10px] rounded border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 font-mono">
+                Custom XY ({(override.position as AbsolutePosition).x}, {(override.position as AbsolutePosition).y})
+                <span className="ml-1 text-[9px] italic">· edit di Advanced</span>
+              </span>
+            ) : (
+              <div className="flex">
+                {POSITION_OPTIONS.map((opt, i) => (
+                  <button key={opt.value} type="button"
+                    onClick={() => onChangeElement({ position: toEnginePosition(fieldType, opt.value) })}
+                    className={cn('px-2 py-1 text-[10px] border-y border-r transition',
+                      i === 0 && 'border-l rounded-l',
+                      i === POSITION_OPTIONS.length - 1 && 'rounded-r',
+                      currentHorizontal === opt.value
+                        ? 'bg-purple-600 text-white border-purple-700'
+                        : 'bg-white text-gray-700 border-gray-300 hover:bg-purple-50 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600')}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Size pills */}
@@ -2144,24 +2163,123 @@ function ElementAdvancedEditor({
             </div>
           </div>
 
-          {/* Position 9-grid picker */}
+          {/* Position picker — SESI 6 TD-103: dual mode Preset / Absolute */}
           <div>
-            <label className="block text-[9px] font-semibold text-gray-700 dark:text-gray-300 mb-0.5">
-              Position ({POSITION_LABELS[override.position]})
-            </label>
-            <div className="inline-grid grid-cols-3 gap-1 p-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
-              {POSITION_GRID.map((row) => row.map((pos) => (
-                <button key={pos} type="button"
-                  onClick={() => onChange({ position: pos })}
-                  className={cn('w-7 h-7 rounded border-2 transition flex items-center justify-center',
-                    override.position === pos
-                      ? 'bg-purple-600 border-purple-700 text-white'
-                      : 'bg-white border-gray-300 hover:border-purple-400 dark:bg-gray-800 dark:border-gray-600')}
-                  title={POSITION_LABELS[pos]}>
-                  <span className="w-1.5 h-1.5 rounded-full bg-current" />
-                </button>
-              )))}
-            </div>
+            {(() => {
+              const posIsAbsolute = isAbsolutePosition(override.position);
+              const presetLabel = posIsAbsolute
+                ? `Absolute (${(override.position as AbsolutePosition).x}, ${(override.position as AbsolutePosition).y})`
+                : POSITION_LABELS[override.position as PresetPosition];
+              return (
+                <>
+                  {/* Header dengan mode toggle */}
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[9px] font-semibold text-gray-700 dark:text-gray-300">
+                      Position ({presetLabel})
+                    </label>
+                    <div className="flex text-[9px] font-bold rounded overflow-hidden border border-gray-300 dark:border-gray-600">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (posIsAbsolute) {
+                            // Switch absolute → preset (default middle_center)
+                            onChange({ position: 'middle_center' });
+                          }
+                        }}
+                        className={cn(
+                          'px-1.5 py-0.5 transition',
+                          !posIsAbsolute
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-50'
+                        )}
+                        title="9-anchor preset (Phase 5B)"
+                      >
+                        Preset
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!posIsAbsolute) {
+                            // Switch preset → absolute (default coord)
+                            onChange({ position: { ...DEFAULT_ABSOLUTE_POSITION } });
+                          }
+                        }}
+                        className={cn(
+                          'px-1.5 py-0.5 transition border-l border-gray-300 dark:border-gray-600',
+                          posIsAbsolute
+                            ? 'bg-purple-600 text-white'
+                            : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-purple-50'
+                        )}
+                        title="Absolute pixel positioning (Phase 6C — drag-drop coming)"
+                      >
+                        Custom XY
+                      </button>
+                    </div>
+                  </div>
+
+                  {!posIsAbsolute ? (
+                    // ─── PRESET MODE (Phase 5B 9-anchor grid) ───
+                    <div className="inline-grid grid-cols-3 gap-1 p-2 rounded-md bg-gray-100 dark:bg-gray-900 border border-gray-200 dark:border-gray-700">
+                      {POSITION_GRID.map((row) => row.map((pos) => (
+                        <button key={pos} type="button"
+                          onClick={() => onChange({ position: pos })}
+                          className={cn('w-7 h-7 rounded border-2 transition flex items-center justify-center',
+                            override.position === pos
+                              ? 'bg-purple-600 border-purple-700 text-white'
+                              : 'bg-white border-gray-300 hover:border-purple-400 dark:bg-gray-800 dark:border-gray-600')}
+                          title={POSITION_LABELS[pos]}>
+                          <span className="w-1.5 h-1.5 rounded-full bg-current" />
+                        </button>
+                      )))}
+                    </div>
+                  ) : (
+                    // ─── ABSOLUTE MODE (TD-103 minimal X/Y inputs — Batch 6C.2 = PositionCanvas) ───
+                    <div className="p-2 rounded-md bg-amber-50 dark:bg-amber-900/20 border border-amber-300 dark:border-amber-700">
+                      <div className="grid grid-cols-2 gap-2 mb-1.5">
+                        <div>
+                          <label className="block text-[9px] font-bold text-amber-700 dark:text-amber-300 mb-0.5">
+                            X (px dari kiri)
+                          </label>
+                          <input
+                            type="number"
+                            value={(override.position as AbsolutePosition).x}
+                            onChange={(e) => {
+                              const x = parseInt(e.target.value, 10);
+                              if (Number.isNaN(x)) return;
+                              const cur = override.position as AbsolutePosition;
+                              onChange({ position: { ...cur, x, unit: 'px' } });
+                            }}
+                            step={5}
+                            className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[9px] font-bold text-amber-700 dark:text-amber-300 mb-0.5">
+                            Y (px dari atas)
+                          </label>
+                          <input
+                            type="number"
+                            value={(override.position as AbsolutePosition).y}
+                            onChange={(e) => {
+                              const y = parseInt(e.target.value, 10);
+                              if (Number.isNaN(y)) return;
+                              const cur = override.position as AbsolutePosition;
+                              onChange({ position: { ...cur, y, unit: 'px' } });
+                            }}
+                            step={5}
+                            className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-amber-500 focus:outline-none font-mono"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[9px] text-amber-700/80 dark:text-amber-400/80 italic">
+                        💡 Negative atau over-canvas OK (creative off-screen effect).
+                        Drag-drop canvas datang di Batch 6C.2.
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
           {/* Color + Backdrop (kompak) */}
