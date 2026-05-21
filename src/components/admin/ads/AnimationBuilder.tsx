@@ -5,6 +5,11 @@
  * SESI 5H Phase 5B (21 Mei 2026) — Banner Studio V1
  * SESI 6  Phase 6A (22 Mei 2026) — TD-ANIM-104 Text Effects (Shadow/Stroke/Gradient)
  *                                 + TD-ANIM-105 Hover Behavior (pause/replay/speed_up)
+ * SESI 6  Sub-Phase 6B (22 Mei 2026) — TD-ANIM-101 Custom Font Upload
+ *                                      + advertiserId prop threading
+ *                                      + Row 2 "Custom" pill + popover (select+delete)
+ *                                      + CustomFontUploadModal integration
+ *                                      + customFonts threading ke Live Preview
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -100,10 +105,20 @@ import AdAnimatedBanner, {
   type TextGradientConfig,
   // SESI 6 Phase 6A — TD-ANIM-105 hover behavior
   type HoverBehavior,
+  // SESI 6 Sub-Phase 6B — TD-ANIM-101 custom fonts
+  type CustomFontMap,
+  type CustomFontEntry,
+  makeCustomFontCssFamily,
   DEFAULT_ELEMENT_OVERRIDES,
   DEFAULT_TEXT_GRADIENT,
   TEXT_COLOR_MAP,
 } from '@/components/public/ads/AdAnimatedBanner';
+
+// SESI 6 Sub-Phase 6B — TD-ANIM-101: Custom Font Upload Modal + API client
+import CustomFontUploadModal, {
+  type CustomFontRecord,
+} from './CustomFontUploadModal';
+import { useApi, ApiError } from '@/lib/api/client';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -335,6 +350,13 @@ export interface AnimationBuilderProps {
   previewWidth?:   number;
   previewHeight?:  number;
   errorMessage?:   string;
+  /**
+   * SESI 6 Sub-Phase 6B — TD-ANIM-101 (22 Mei 2026):
+   * Advertiser ID untuk fetch custom fonts. Optional — kalau undefined,
+   * Custom font feature di-disable secara graceful (pill Custom hidden,
+   * upload modal gak bisa open).
+   */
+  advertiserId?:   string | null;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -405,9 +427,87 @@ export default function AnimationBuilder({
   previewWidth  = 300,
   previewHeight = 250,
   errorMessage,
+  advertiserId,
 }: AnimationBuilderProps) {
   const [activeTemplateId, setActiveTemplateId] = useState<string>('custom');
   const [activeLegacyPresetId, setActiveLegacyPresetId] = useState<string>('custom');
+
+  // SESI 6 Sub-Phase 6B — TD-ANIM-101: Custom font state
+  const api = useApi();
+  const [customFontsList, setCustomFontsList] = useState<CustomFontRecord[]>([]);
+  const [customFontsLoading, setCustomFontsLoading] = useState(false);
+  const [customFontsError, setCustomFontsError] = useState<string | null>(null);
+  const [uploadModalOpen, setUploadModalOpen] = useState(false);
+
+  // Fetch custom fonts setiap advertiserId berubah
+  useEffect(() => {
+    if (!advertiserId) {
+      setCustomFontsList([]);
+      return;
+    }
+    let cancelled = false;
+    setCustomFontsLoading(true);
+    setCustomFontsError(null);
+
+    (async () => {
+      try {
+        const res = await api.get<{ items: CustomFontRecord[]; total: number }>(
+          `/admin/ads/fonts?advertiser_id=${encodeURIComponent(advertiserId)}`
+        );
+        if (cancelled) return;
+        setCustomFontsList(res?.items ?? []);
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const msg = err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : 'Gagal load custom fonts';
+        setCustomFontsError(msg);
+        setCustomFontsList([]);
+      } finally {
+        if (!cancelled) setCustomFontsLoading(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [advertiserId, api]);
+
+  // Build CustomFontMap untuk pass ke AdAnimatedBanner Live Preview
+  const customFontMap: CustomFontMap = useMemo(() => {
+    const map: CustomFontMap = {};
+    for (const font of customFontsList) {
+      map[font.slug] = {
+        cssFamily: makeCustomFontCssFamily(font.slug),
+        url:       font.public_url,
+      };
+    }
+    return map;
+  }, [customFontsList]);
+
+  // Handler upload sukses: prepend ke list (sort by uploaded_at DESC pattern)
+  const handleFontUploaded = (font: CustomFontRecord) => {
+    setCustomFontsList((prev) => [font, ...prev]);
+  };
+
+  // Handler delete font (called from picker popover)
+  const handleFontDelete = async (font: CustomFontRecord) => {
+    const confirmed = window.confirm(
+      `Hapus font "${font.display_name}"?\n\nBanner yang masih reference font ini akan fallback ke 'sans'.`
+    );
+    if (!confirmed) return;
+    try {
+      await api.delete(`/admin/ads/fonts/${font.id}`);
+      setCustomFontsList((prev) => prev.filter((f) => f.id !== font.id));
+    } catch (err: unknown) {
+      const msg = err instanceof ApiError
+        ? err.message
+        : err instanceof Error
+          ? err.message
+          : 'unknown';
+      alert(`Gagal hapus: ${msg}`);
+    }
+  };
 
   const timeline = timelineProp ?? buildEmptyTimeline();
   const variants = timeline.variants;
@@ -806,6 +906,12 @@ export default function AnimationBuilder({
               onResetElement={(field) => resetVariantElement(idx, field)}
               onRemove={() => removeVariant(idx)}
               onMove={(dir) => moveVariant(idx, dir)}
+              advertiserId={advertiserId}
+              customFontsList={customFontsList}
+              customFontMap={customFontMap}
+              customFontsLoading={customFontsLoading}
+              onOpenUploadModal={() => setUploadModalOpen(true)}
+              onDeleteFont={handleFontDelete}
             />
           ))}
         </div>
@@ -1063,6 +1169,7 @@ export default function AnimationBuilder({
                     ad={previewAd}
                     width={previewWidth}
                     height={previewHeight}
+                    customFonts={customFontMap}
                   />
                 </div>
               </div>
@@ -1072,6 +1179,7 @@ export default function AnimationBuilder({
                 ad={previewAd}
                 width={previewWidth}
                 height={previewHeight}
+                customFonts={customFontMap}
               />
             )
           ) : (
@@ -1090,6 +1198,18 @@ export default function AnimationBuilder({
           )}
         </p>
       </div>
+
+      {/* ════════════════════════════════════════════════════════════ */}
+      {/* SESI 6 Sub-Phase 6B — TD-ANIM-101: Custom Font Upload Modal  */}
+      {/* ════════════════════════════════════════════════════════════ */}
+      {advertiserId && (
+        <CustomFontUploadModal
+          open={uploadModalOpen}
+          advertiserId={advertiserId}
+          onClose={() => setUploadModalOpen(false)}
+          onUploaded={handleFontUploaded}
+        />
+      )}
     </div>
   );
 }
@@ -1109,6 +1229,13 @@ interface VariantEditorProps {
   onResetElement:    (field: ElementKey) => void;
   onRemove:          () => void;
   onMove:            (direction: 'up' | 'down') => void;
+  // SESI 6 Sub-Phase 6B — TD-ANIM-101: custom font infra (passthrough ke FieldWithInlineControls)
+  advertiserId?:        string | null;
+  customFontsList:      CustomFontRecord[];
+  customFontMap:        CustomFontMap;
+  customFontsLoading:   boolean;
+  onOpenUploadModal:    () => void;
+  onDeleteFont:         (font: CustomFontRecord) => Promise<void>;
 }
 
 function VariantEditor({
@@ -1122,6 +1249,12 @@ function VariantEditor({
   onResetElement,
   onRemove,
   onMove,
+  advertiserId,
+  customFontsList,
+  customFontMap,
+  customFontsLoading,
+  onOpenUploadModal,
+  onDeleteFont,
 }: VariantEditorProps) {
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [showOverrideBg, setShowOverrideBg] = useState(false);
@@ -1314,6 +1447,12 @@ function VariantEditor({
               animOptions={TEXT_ANIM_OPTIONS}
               onChangeText={(text) => onChange({ headline: text })}
               onChangeElement={(patch) => onChangeElement('headline', patch)}
+              advertiserId={advertiserId}
+              customFontsList={customFontsList}
+              customFontMap={customFontMap}
+              customFontsLoading={customFontsLoading}
+              onOpenUploadModal={onOpenUploadModal}
+              onDeleteFont={onDeleteFont}
             />
           )}
           {activeFieldTab === 'body' && (
@@ -1329,6 +1468,12 @@ function VariantEditor({
               animOptions={TEXT_ANIM_OPTIONS}
               onChangeText={(text) => onChange({ body: text || null })}
               onChangeElement={(patch) => onChangeElement('body', patch)}
+              advertiserId={advertiserId}
+              customFontsList={customFontsList}
+              customFontMap={customFontMap}
+              customFontsLoading={customFontsLoading}
+              onOpenUploadModal={onOpenUploadModal}
+              onDeleteFont={onDeleteFont}
             />
           )}
           {activeFieldTab === 'cta' && (
@@ -1344,6 +1489,12 @@ function VariantEditor({
               animOptions={CTA_ANIM_OPTIONS}
               onChangeText={(text) => onChange({ cta_text: text || null })}
               onChangeElement={(patch) => onChangeElement('cta', patch)}
+              advertiserId={advertiserId}
+              customFontsList={customFontsList}
+              customFontMap={customFontMap}
+              customFontsLoading={customFontsLoading}
+              onOpenUploadModal={onOpenUploadModal}
+              onDeleteFont={onDeleteFont}
             />
           )}
         </div>
@@ -1440,6 +1591,13 @@ interface FieldWithInlineControlsProps {
   animOptions:  { value: ElementAnimation; label: string; emoji: string }[];
   onChangeText:    (text: string) => void;
   onChangeElement: (patch: Partial<ElementOverride>) => void;
+  // SESI 6 Sub-Phase 6B — TD-ANIM-101: custom font infra
+  advertiserId?:        string | null;
+  customFontsList:      CustomFontRecord[];
+  customFontMap:        CustomFontMap;
+  customFontsLoading:   boolean;
+  onOpenUploadModal:    () => void;
+  onDeleteFont:         (font: CustomFontRecord) => Promise<void>;
 }
 
 function FieldWithInlineControls({
@@ -1456,6 +1614,12 @@ function FieldWithInlineControls({
   animOptions,
   onChangeText,
   onChangeElement,
+  advertiserId,
+  customFontsList,
+  customFontMap,
+  customFontsLoading,
+  onOpenUploadModal,
+  onDeleteFont,
 }: FieldWithInlineControlsProps) {
   const currentHorizontal: HorizontalPosition = fromEnginePosition(override.position);
   const currentFont   = override.font_family ?? 'sans';
@@ -1557,31 +1721,95 @@ function FieldWithInlineControls({
 
         {/* ROW 2: Font Family + Weight (compact) */}
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          {/* Font Family */}
+          {/* Font Family — extended w/ custom fonts (SESI 6 TD-101) */}
           <div className="flex items-center gap-1.5">
             <Type className="w-3 h-3 text-purple-700 dark:text-purple-300" />
             <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">Font</span>
             <select
               value={currentFont}
-              onChange={(e) => onChangeElement({ font_family: e.target.value as FontFamily })}
-              className="px-2 py-1 text-[10px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none font-medium"
+              onChange={(e) => {
+                const val = e.target.value;
+                if (val === '__upload__') {
+                  // Sentinel: open upload modal, don't change actual font
+                  if (advertiserId) onOpenUploadModal();
+                  return;
+                }
+                onChangeElement({ font_family: val as FontFamily });
+              }}
+              className="px-2 py-1 text-[10px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none font-medium max-w-[180px]"
             >
-              {FONT_FAMILY_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value} style={{ fontFamily: opt.fontFamily }}>
-                  {opt.label}
-                </option>
-              ))}
+              <optgroup label="Built-in">
+                {FONT_FAMILY_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value} style={{ fontFamily: opt.fontFamily }}>
+                    {opt.label}
+                  </option>
+                ))}
+              </optgroup>
+              {advertiserId && customFontsList.length > 0 && (
+                <optgroup label={`Custom (${customFontsList.length})`}>
+                  {customFontsList.map((font) => (
+                    <option
+                      key={font.id}
+                      value={`custom:${font.slug}`}
+                      style={{ fontFamily: `'${makeCustomFontCssFamily(font.slug)}', sans-serif` }}
+                    >
+                      📁 {font.display_name}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {advertiserId && (
+                <optgroup label="Actions">
+                  <option value="__upload__">
+                    {customFontsLoading ? '⏳ Loading fonts…' : '➕ Upload custom font…'}
+                  </option>
+                </optgroup>
+              )}
             </select>
+            {/* Live font preview Aa */}
             <span
               className="px-2 py-0.5 text-sm border border-gray-200 dark:border-gray-600 rounded bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-w-[28px] text-center"
-              style={{
-                fontFamily: FONT_FAMILY_OPTIONS.find((o) => o.value === currentFont)?.fontFamily,
-                fontWeight: FONT_WEIGHT_OPTIONS.find((o) => o.value === currentWeight)?.weight,
-              }}
+              style={(() => {
+                // Custom font: build inline style from map
+                if (typeof currentFont === 'string' && currentFont.startsWith('custom:')) {
+                  const slug = currentFont.slice(7);
+                  const entry = customFontMap[slug];
+                  return {
+                    fontFamily: entry ? `'${entry.cssFamily}', sans-serif` : 'sans-serif',
+                    fontWeight: FONT_WEIGHT_OPTIONS.find((o) => o.value === currentWeight)?.weight,
+                  };
+                }
+                // Preset: lookup FONT_FAMILY_OPTIONS
+                return {
+                  fontFamily: FONT_FAMILY_OPTIONS.find((o) => o.value === currentFont)?.fontFamily,
+                  fontWeight: FONT_WEIGHT_OPTIONS.find((o) => o.value === currentWeight)?.weight,
+                };
+              })()}
               title="Live font preview"
             >
               Aa
             </span>
+            {/* Delete button — only when current is custom font (SESI 6 TD-101) */}
+            {typeof currentFont === 'string' && currentFont.startsWith('custom:') && (() => {
+              const slug = currentFont.slice(7);
+              const target = customFontsList.find((f) => f.slug === slug);
+              if (!target) return null;
+              return (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await onDeleteFont(target);
+                    // After delete, reset element font to 'sans' to avoid stale custom: ref
+                    onChangeElement({ font_family: 'sans' });
+                  }}
+                  className="p-1 rounded text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30"
+                  title={`Hapus font "${target.display_name}"`}
+                  aria-label={`Hapus font ${target.display_name}`}
+                >
+                  <Trash2 className="w-3 h-3" />
+                </button>
+              );
+            })()}
           </div>
 
           {/* Font Weight */}

@@ -565,6 +565,7 @@ export default function PositionCreativeModal({
                 }}
                 previewWidth={positionDims.width}
                 previewHeight={positionDims.height}
+                advertiserId={state.advertiser_account_id}
               />
             </div>
           )}

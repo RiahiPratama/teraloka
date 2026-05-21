@@ -33,6 +33,14 @@
  *      → touch device skip handler binding TOTAL, gak ada tap-pause kecelakaan
  *   ⚠️ Backward compat: hover_behavior optional, undefined = 'none' (no listener bound)
  *
+ * SESI 6 Sub-Phase 6B — TD-ANIM-101 (Custom Font Upload):
+ *   ✅ FontFamily extend: 'sans'|'serif'|'display'|'mono'|`custom:${slug}`
+ *   ✅ CustomFontMap prop: { [slug]: { cssFamily, url } } untuk lookup
+ *   ✅ Dynamic FontFace API loader (lazy + cached per session)
+ *   ✅ Graceful fallback: custom font tidak ter-load → fall back ke 'sans'
+ *   ⚠️ Backward compat: customFonts prop optional, font_family preset tetap jalan
+ *   ⚠️ Server-side render safe: skip FontFace API kalau window undefined
+ *
  * Layout engine:
  *   - Absolute positioning per element (9 anchor preset)
  *   - Z-index: logo=20, headline=15, body=12, cta=18 (CTA top untuk clickability)
@@ -119,19 +127,112 @@ const TEXT_SIZE_MAP: Record<TextSize, string> = {
 /**
  * Font family.
  * Phase 5B (21 Mei 2026): admin power user dapat pilih typography mood per element.
+ * Phase 6B (22 Mei 2026): + custom font upload via template literal
+ *                          'custom:${slug}'. Resolved via CustomFontMap prop.
+ *
  *   - sans:    Modern, friendly (default — Inter)
  *   - serif:   Elegant, premium (Georgia/Playfair)
  *   - display: Cinematic, bold (Bebas Neue/Impact) — Kumparan-style headline
  *   - mono:    Techy, code-feel (JetBrains Mono)
+ *   - custom:${slug}: user-uploaded font, lookup di CustomFontMap
  */
-export type FontFamily = 'sans' | 'serif' | 'display' | 'mono';
+export type PresetFontFamily = 'sans' | 'serif' | 'display' | 'mono';
+export type CustomFontKey    = `custom:${string}`;
+export type FontFamily       = PresetFontFamily | CustomFontKey;
 
-const FONT_FAMILY_MAP: Record<FontFamily, string> = {
+const FONT_FAMILY_MAP: Record<PresetFontFamily, string> = {
   sans:    'Inter, system-ui, -apple-system, sans-serif',
   serif:   '"Playfair Display", Georgia, "Times New Roman", serif',
   display: '"Bebas Neue", Impact, "Arial Black", sans-serif',
   mono:    '"JetBrains Mono", "Courier New", monospace',
 };
+
+// ════════════════════════════════════════════════════════════════
+// SESI 6 Sub-Phase 6B — TD-ANIM-101: CUSTOM FONT INFRA
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Per-font runtime metadata.
+ *   - cssFamily: namespaced CSS family value (e.g. 'tlk-font-brand-helvetica')
+ *                pakai prefix `tlk-font-` cegah collision dengan font lain
+ *                di page yang sama.
+ *   - url:       public URL ke font binary di Supabase Storage bucket ad-fonts
+ */
+export interface CustomFontEntry {
+  cssFamily: string;
+  url:       string;
+}
+
+/**
+ * Slug → entry map. Disuplai oleh AnimationBuilder dari hasil GET
+ * /admin/ads/fonts?advertiser_id=. Lookup O(1).
+ */
+export type CustomFontMap = Record<string, CustomFontEntry>;
+
+/**
+ * Convention untuk cssFamily naming.
+ * Public helper supaya UI builder bisa generate konsisten dengan engine.
+ */
+export function makeCustomFontCssFamily(slug: string): string {
+  return `tlk-font-${slug}`;
+}
+
+/**
+ * Module-level cache. FontFace yang udah ke-add ke document.fonts gak perlu
+ * di-add lagi (idempotent guard, hindari double registration).
+ */
+const _loadedFontFaces = new Set<string>();
+
+/**
+ * Lazy-load custom font via FontFace API.
+ * Idempotent: kalau cssFamily udah pernah load, langsung return true.
+ * SSR-safe: skip kalau window/document.fonts undefined.
+ *
+ * @returns true kalau berhasil load atau udah cached, false kalau gagal/SSR
+ */
+export async function loadCustomFont(
+  cssFamily: string,
+  url:       string
+): Promise<boolean> {
+  if (typeof window === 'undefined' || !('FontFace' in window) || !document.fonts) {
+    return false;
+  }
+  if (_loadedFontFaces.has(cssFamily)) return true;
+
+  try {
+    const face = new FontFace(cssFamily, `url(${url})`);
+    await face.load();
+    document.fonts.add(face);
+    _loadedFontFaces.add(cssFamily);
+    return true;
+  } catch (err) {
+    console.warn('[AdAnimatedBanner] Failed to load custom font:', cssFamily, err);
+    return false;
+  }
+}
+
+/**
+ * Resolve font_family key → actual CSS font-family value.
+ * - Preset: lookup di FONT_FAMILY_MAP
+ * - Custom: lookup di customFonts map, fallback ke 'sans' kalau gak ketemu
+ *   (font belum upload, atau klien delete tapi banner masih reference)
+ */
+function buildFontFamilyValue(
+  key:         FontFamily,
+  customFonts: CustomFontMap | undefined,
+): string {
+  if (typeof key === 'string' && key.startsWith('custom:')) {
+    const slug  = key.slice(7);
+    const entry = customFonts?.[slug];
+    if (entry) {
+      // Wrap dengan sans fallback supaya kalau FontFace belum loaded,
+      // text rendered pakai system font sambil tunggu (graceful).
+      return `'${entry.cssFamily}', ${FONT_FAMILY_MAP.sans}`;
+    }
+    return FONT_FAMILY_MAP.sans;
+  }
+  return FONT_FAMILY_MAP[key as PresetFontFamily] ?? FONT_FAMILY_MAP.sans;
+}
 
 /**
  * Font weight.
@@ -423,6 +524,16 @@ export interface AdAnimatedBannerProps {
   onClick?: (adId: string) => void;
   width?: number;
   height?: number;
+
+  /**
+   * SESI 6 Sub-Phase 6B — TD-ANIM-101 (22 Mei 2026):
+   * Optional custom fonts lookup map (slug → CustomFontEntry).
+   * Disuplai dari Banner Studio admin builder pakai data hasil GET
+   * /admin/ads/fonts. Public-facing render TIDAK perlu kasih prop ini —
+   * banner yang reference custom font tapi map kosong akan gracefully
+   * fallback ke 'sans'.
+   */
+  customFonts?: CustomFontMap;
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -566,11 +677,14 @@ function buildTextEffectStyle(override: ElementOverride): React.CSSProperties {
  * Phase 5B (21 Mei 2026): font_family + font_weight + improved line-height
  * untuk Kumparan-style hierarchy.
  * Phase 6A (22 Mei 2026): TD-ANIM-104 — merge text effects (shadow/stroke/gradient).
+ * Phase 6B (22 Mei 2026): TD-ANIM-101 — customFonts param untuk custom:${slug} resolve.
  */
-function buildElementStyle(override: ElementOverride): React.CSSProperties {
-  const fontFamily = override.font_family
-    ? FONT_FAMILY_MAP[override.font_family]
-    : FONT_FAMILY_MAP.sans;
+function buildElementStyle(
+  override:     ElementOverride,
+  customFonts?: CustomFontMap,
+): React.CSSProperties {
+  const fontKey    = override.font_family ?? 'sans';
+  const fontFamily = buildFontFamilyValue(fontKey, customFonts);
   const fontWeight = override.font_weight
     ? FONT_WEIGHT_MAP[override.font_weight]
     : FONT_WEIGHT_MAP.bold;
@@ -587,7 +701,9 @@ function buildElementStyle(override: ElementOverride): React.CSSProperties {
     fontWeight,
     textAlign:        override.text_align,
     lineHeight:       1.15,
-    letterSpacing:    override.font_family === 'display' ? '0.02em' : '-0.01em',
+    // letterSpacing tetap based on preset 'display'. Custom font dianggap
+    // generic, pakai default letter-spacing (klien adjust kalau perlu).
+    letterSpacing:    fontKey === 'display' ? '0.02em' : '-0.01em',
     backgroundColor:  TINT_MAP[override.background_tint],
     padding:          override.background_tint !== 'none' ? '6px 12px' : undefined,
     borderRadius:     override.background_tint !== 'none' ? '6px' : undefined,
@@ -740,6 +856,7 @@ export default function AdAnimatedBanner({
   onClick,
   width  = DEFAULT_WIDTH,
   height = DEFAULT_HEIGHT,
+  customFonts,
 }: AdAnimatedBannerProps) {
   const containerRef     = useRef<HTMLDivElement | null>(null);
   const timelineRef      = useRef<gsap.core.Timeline | null>(null);
@@ -754,6 +871,18 @@ export default function AdAnimatedBanner({
   // SESI 6 Phase 6A — TD-ANIM-105: hover capability detection
   // Touch devices: matchMedia returns false → handler binding SKIPPED total
   const [hoverCapable, setHoverCapable] = useState(false);
+
+  // SESI 6 Sub-Phase 6B — TD-ANIM-101: lazy-load custom fonts.
+  // Trigger setiap customFonts berubah. loadCustomFont() idempotent.
+  useEffect(() => {
+    if (!customFonts) return;
+    const entries = Object.values(customFonts);
+    if (entries.length === 0) return;
+    // Fire-and-forget per entry. _loadedFontFaces Set cegah duplicate.
+    entries.forEach((entry) => {
+      void loadCustomFont(entry.cssFamily, entry.url);
+    });
+  }, [customFonts]);
 
   const variants = ad.animation_timeline.variants;
   const safeIdx  = Math.min(activeVariantIdx, variants.length - 1);
@@ -1099,7 +1228,7 @@ export default function AdAnimatedBanner({
           <div
             className="logo"
             style={{
-              ...buildElementStyle(elementOverrides.logo),
+              ...buildElementStyle(elementOverrides.logo, customFonts),
               zIndex: Z_INDEX_MAP.logo,
               pointerEvents: 'none',
             }}
@@ -1117,7 +1246,7 @@ export default function AdAnimatedBanner({
           <h3
             className="headline font-bold leading-tight"
             style={{
-              ...buildElementStyle(elementOverrides.headline),
+              ...buildElementStyle(elementOverrides.headline, customFonts),
               zIndex: Z_INDEX_MAP.headline,
               pointerEvents: 'none',
             }}
@@ -1131,7 +1260,7 @@ export default function AdAnimatedBanner({
           <p
             className="body leading-snug"
             style={{
-              ...buildElementStyle(elementOverrides.body),
+              ...buildElementStyle(elementOverrides.body, customFonts),
               zIndex: Z_INDEX_MAP.body,
               pointerEvents: 'none',
             }}
@@ -1145,7 +1274,7 @@ export default function AdAnimatedBanner({
           <div
             className="cta font-semibold shadow-sm"
             style={{
-              ...buildElementStyle(elementOverrides.cta),
+              ...buildElementStyle(elementOverrides.cta, customFonts),
               zIndex: Z_INDEX_MAP.cta,
               padding: '6px 12px',
               borderRadius: '6px',
