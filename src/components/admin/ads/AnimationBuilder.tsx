@@ -13,6 +13,9 @@
  * SESI 6  Sub-Phase 6C (22 Mei 2026) — TD-ANIM-103 Drag-Drop Pixel Positioning
  *                                      Batch 6C.1 = engine extend + minimal X/Y input
  *                                      Batch 6C.2 = PositionCanvas drag-drop UI (LIVE)
+ * SESI 6  Sub-Phase 6D (22 Mei 2026) — TD-ANIM-106 Timeline Visualizer UI
+ *                                      Batch 6D.1 = TimelineEditor multi-element drag (LIVE)
+ *                                      Batch 6D.2 = TD-ANIM-102 SVG Layer (next)
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -130,6 +133,9 @@ import { useApi, ApiError } from '@/lib/api/client';
 
 // SESI 6 Sub-Phase 6C Batch 6C.2 — TD-ANIM-103: PositionCanvas drag-drop
 import PositionCanvas from './PositionCanvas';
+
+// SESI 6 Sub-Phase 6D Batch 6D.1 — TD-ANIM-106: TimelineEditor multi-element
+import TimelineEditor, { type TimelineElementData } from './TimelineEditor';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -1596,6 +1602,37 @@ function VariantEditor({
               💎 Editor element granular: 9-anchor position, slide direction, fine-tune delay/duration.
               Logo dikontrol di sini (gak ada inline section di atas).
             </p>
+
+            {/* ════════════════════════════════════════════════════════
+                SESI 6 Sub-Phase 6D Batch 6D.1 — TD-ANIM-106:
+                TimelineEditor multi-element timing visualizer
+                ════════════════════════════════════════════════════════ */}
+            {(() => {
+              // Build TimelineElementData[] dari 4 element overrides
+              const timelineElements: TimelineElementData[] = (['logo', 'headline', 'body', 'cta'] as ElementKey[]).map((key) => {
+                const ov = getElementOverride(variant, key);
+                return {
+                  key,
+                  label:       ELEMENT_META[key].label,
+                  visible:     ov.visible,
+                  animated:    ov.animation !== 'none',
+                  delay_ms:    ov.delay_ms,
+                  duration_ms: ov.duration_ms,
+                };
+              });
+              return (
+                <div className="rounded-md border border-purple-300 dark:border-purple-700 bg-purple-50/40 dark:bg-purple-900/15 p-2.5">
+                  <TimelineEditor
+                    variantDurationMs={variant.duration_ms}
+                    elements={timelineElements}
+                    onChange={(key, patch) => onChangeElement(key, patch)}
+                    snapMs={100}
+                    maxWidth={460}
+                  />
+                </div>
+              );
+            })()}
+
             {(['logo', 'headline', 'body', 'cta'] as ElementKey[]).map((key) => (
               <ElementAdvancedEditor
                 key={key}
