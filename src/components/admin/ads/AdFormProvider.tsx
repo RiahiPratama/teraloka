@@ -49,6 +49,8 @@ import { useAuth } from '@/hooks/useAuth';
 import type { PricingTier } from '@/components/admin/ads/pricing-tiers/PricingTierPicker';
 // SESI 5H Phase 5B (21 Mei 2026): Per-position GSAP animation timeline (DCA-Aligned)
 import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
+// SESI 6 Sub-Phase 6H — Defer upload object files til submit
+import { commitPendingObjectUploads } from '@/components/admin/ads/ObjectLayerEditor';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -645,6 +647,31 @@ export function AdFormProvider({
     setSubmitError(null);
 
     try {
+      // ════════════════════════════════════════════════════════════════
+      // SESI 6 Sub-Phase 6H — Commit pending object file uploads
+      // ────────────────────────────────────────────────────────────────
+      // Object file (.gif/.png/.webp) belum di-upload ke Storage saat
+      // admin tambah Object di builder. Sekarang (sebelum kirim payload)
+      // upload semua pending file → replace blob: URL dengan public URL.
+      // Kalau upload gagal → throw → user lihat error message.
+      // ════════════════════════════════════════════════════════════════
+      let committedAnimationTimelines = state.position_animation_timelines;
+      if (state.ad_format === 'animated' && Object.keys(state.position_animation_timelines).length > 0) {
+        const advertiserId = state.advertiser_account_id ?? null;
+        const nextTimelines: Record<string, AnimationTimelineConfig> = {};
+        for (const [positionKey, timeline] of Object.entries(state.position_animation_timelines)) {
+          if (!timeline || !Array.isArray(timeline.variants) || timeline.variants.length === 0) {
+            nextTimelines[positionKey] = timeline;
+            continue;
+          }
+          const updatedVariants = await commitPendingObjectUploads(timeline.variants, advertiserId);
+          nextTimelines[positionKey] = { ...timeline, variants: updatedVariants };
+        }
+        committedAnimationTimelines = nextTimelines;
+        // Sync state supaya UI gak refer ke blob: URL stale post-save
+        setState((prev) => ({ ...prev, position_animation_timelines: nextTimelines }));
+      }
+
       const url = isEditMode
         ? `${API}/admin/ads/admin-update/${editingAdId}`
         : `${API}/admin/ads/admin-create`;
@@ -695,8 +722,9 @@ export function AdFormProvider({
         // SESI 5H Phase 5B: per-position animation timelines (DCA-Aligned)
         // - ad_format='animated' + map non-empty → kirim Record shape ke backend
         // - else → null (clear field di backend update)
-        animation_timeline:  state.ad_format === 'animated' && Object.keys(state.position_animation_timelines).length > 0
-          ? state.position_animation_timelines
+        // SESI 6H: committedAnimationTimelines = pending object files udah ke-upload
+        animation_timeline:  state.ad_format === 'animated' && Object.keys(committedAnimationTimelines).length > 0
+          ? committedAnimationTimelines
           : null,
 
         // Schedule

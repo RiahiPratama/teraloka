@@ -62,6 +62,17 @@
  *   ⚠️ Backward compat: svg_layers optional, variant tanpa SVG render normal
  *   ⚠️ Defer Phase 7: draw_on path animation, file upload (paste-only MVP)
  *
+ * SESI 6 Sub-Phase 6F (22 Mei 2026) — Object Layer + Logo Cleanup:
+ *   ✅ ObjectLayer type: { id, name, image_url, position, width, height,
+ *      animation, delay_ms, duration_ms, z_index, visible }
+ *   ✅ AnimationVariant.object_layers?: ObjectLayer[] (optional, backward compat)
+ *   ✅ Render: <img> element di absolute position dengan GSAP entry animation
+ *   ✅ Accept .gif (animated), .png, .webp (static transparent)
+ *   ✅ 3 animation mode (none/fade_in/scale_in) — mirror SVGLayer
+ *   ⚠️ Logo element deprecation: 'logo' kind tetap di ElementKey type (backward compat data lama).
+ *      Engine render logo HANYA kalau ada explicit override + image source.
+ *      Builder UI tidak expose logo tab lagi (Phase 6F.1 cleanup).
+ *
  * Layout engine:
  *   - Absolute positioning per element (9 anchor preset)
  *   - Z-index: logo=20, headline=15, body=12, cta=18 (CTA top untuk clickability)
@@ -539,6 +550,45 @@ export interface SVGLayer {
   visible?:    boolean;
 }
 
+// ════════════════════════════════════════════════════════════════
+// SESI 6 Sub-Phase 6F (22 Mei 2026) — OBJECT LAYER (.gif/.png/.webp)
+// ════════════════════════════════════════════════════════════════
+
+/**
+ * Animation mode untuk Object layer.
+ * Mirror SVGLayerAnimation (consistency cross-layer).
+ */
+export type ObjectLayerAnimation = 'none' | 'fade_in' | 'scale_in';
+
+/**
+ * Object illustration layer (raster image — .gif animated, .png/.webp static).
+ * Distinct from SVGLayer (vector) — punya image_url instead of svg_markup.
+ *
+ *   - id:          stable unique key untuk React + GSAP selector
+ *   - name:        admin-set label (e.g. "Mascot", "Badge promo", "Logo accent")
+ *   - image_url:   public URL ke file di Storage bucket ad-objects
+ *   - position:    AbsolutePosition (px, top-left of layer container)
+ *   - width/height: numeric px (admin set)
+ *   - animation:   entry animation mode (none/fade_in/scale_in)
+ *   - delay_ms:    delay before animation starts
+ *   - duration_ms: animation duration
+ *   - z_index:     stacking order (1-30 typical, default 5)
+ *   - visible:     toggle render (default true)
+ */
+export interface ObjectLayer {
+  id:          string;
+  name:        string;
+  image_url:   string;
+  position:    AbsolutePosition;
+  width:       number;
+  height:      number;
+  animation:   ObjectLayerAnimation;
+  delay_ms:    number;
+  duration_ms: number;
+  z_index?:    number;
+  visible?:    boolean;
+}
+
 export interface AnimationVariant {
   order:       number;
   image_url:   string;
@@ -550,6 +600,8 @@ export interface AnimationVariant {
   element_overrides?: Partial<Record<ElementKey, ElementOverride>>;
   /** SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102: SVG illustration layers (optional). */
   svg_layers?: SVGLayer[];
+  /** SESI 6 Sub-Phase 6F — Object (raster) illustration layers (optional). */
+  object_layers?: ObjectLayer[];
 }
 
 export type TransitionPattern = 'fade' | 'slide_left' | 'slide_up' | 'none';
@@ -1166,6 +1218,35 @@ export default function AdAnimatedBanner({
             }
           }
 
+          // ════════════════════════════════════════════════════════
+          // SESI 6 Sub-Phase 6F:
+          // Object layer entry animations (raster .gif/.png/.webp)
+          // Mirror SVG layer pattern. Selector .tlk-object-layer-{id}.
+          // ════════════════════════════════════════════════════════
+          const objectLayers = activeVariant.object_layers ?? [];
+          for (const layer of objectLayers) {
+            if (layer.visible === false || layer.animation === 'none') continue;
+            const selector    = `.tlk-object-layer-${layer.id}`;
+            const delaySec    = (layer.delay_ms ?? 0)    / 1000;
+            const durationSec = (layer.duration_ms ?? 800) / 1000;
+
+            if (layer.animation === 'fade_in') {
+              tl.fromTo(
+                selector,
+                { opacity: 0 },
+                { opacity: 1, duration: durationSec, ease: 'power2.out' },
+                delaySec
+              );
+            } else if (layer.animation === 'scale_in') {
+              tl.fromTo(
+                selector,
+                { opacity: 0, scale: 0.4, transformOrigin: 'center center' },
+                { opacity: 1, scale: 1, duration: durationSec, ease: 'back.out(1.4)' },
+                delaySec
+              );
+            }
+          }
+
           timelineRef.current = tl;
         }, containerEl);
 
@@ -1465,6 +1546,34 @@ export default function AdAnimatedBanner({
                 opacity:  layer.animation !== 'none' ? 0 : 1,
               }}
               dangerouslySetInnerHTML={{ __html: layer.svg_markup }}
+            />
+          );
+        })}
+
+        {/* ════════════════════════════════════════════════════════
+            SESI 6 Sub-Phase 6F — Object Layers (raster .gif/.png/.webp)
+            Same z-order tier sebagai SVG layers (admin atur z_index per layer).
+            ════════════════════════════════════════════════════════ */}
+        {(activeVariant.object_layers ?? []).map((layer) => {
+          if (layer.visible === false) return null;
+          return (
+            <img
+              key={layer.id}
+              className={`tlk-object-layer tlk-object-layer-${layer.id}`}
+              src={layer.image_url}
+              alt={layer.name}
+              draggable={false}
+              style={{
+                position: 'absolute',
+                ...getPositionStyle(layer.position),
+                width:    `${layer.width}px`,
+                height:   `${layer.height}px`,
+                zIndex:   layer.z_index ?? 5,
+                pointerEvents: 'none',
+                userSelect:    'none',
+                opacity:  layer.animation !== 'none' ? 0 : 1,
+                objectFit: 'contain',
+              }}
             />
           );
         })}

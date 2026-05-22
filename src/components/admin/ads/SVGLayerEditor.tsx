@@ -139,15 +139,48 @@ export default function SVGLayerEditor({
 
       {/* Add form */}
       {showAddForm && (
-        <AddLayerForm
-          onAdd={(layer) => {
-            addLayer(layer);
-            setShowAddForm(false);
-          }}
-          onCancel={() => setShowAddForm(false)}
-          bannerWidth={bannerWidth}
-          bannerHeight={bannerHeight}
-        />
+        <>
+          {/* SESI 6F: Curated free SVG sources untuk admin discovery */}
+          <details className="rounded border border-emerald-300 dark:border-emerald-700 bg-emerald-50/30 dark:bg-emerald-900/10 px-2.5 py-1.5">
+            <summary className="cursor-pointer text-[10px] font-bold text-emerald-700 dark:text-emerald-300 hover:text-emerald-900 dark:hover:text-emerald-100">
+              💡 Sumber SVG gratis (quality bagus)
+            </summary>
+            <div className="mt-2 grid grid-cols-2 gap-1.5 text-[10px]">
+              <a href="https://heroicons.com/" target="_blank" rel="noreferrer" className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                🎨 <span className="font-bold">Heroicons</span> · UI icons · MIT
+              </a>
+              <a href="https://lucide.dev/" target="_blank" rel="noreferrer" className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                ✨ <span className="font-bold">Lucide</span> · 5800+ icons · ISC
+              </a>
+              <a href="https://tabler.io/icons" target="_blank" rel="noreferrer" className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                🔷 <span className="font-bold">Tabler Icons</span> · 5400+ · MIT
+              </a>
+              <a href="https://undraw.co/illustrations" target="_blank" rel="noreferrer" className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                🖼️ <span className="font-bold">unDraw</span> · illustrations · gratis
+              </a>
+              <a href="https://www.svgrepo.com/" target="_blank" rel="noreferrer" className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                📦 <span className="font-bold">SVG Repo</span> · 500K+ · mix MIT/CC0
+              </a>
+              <a href="https://phosphoricons.com/" target="_blank" rel="noreferrer" className="px-2 py-1 rounded border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100 dark:hover:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                ⚡ <span className="font-bold">Phosphor</span> · icons + shapes · MIT
+              </a>
+            </div>
+            <p className="mt-2 text-[9px] text-emerald-700/70 dark:text-emerald-300/70 italic">
+              Cara pakai: buka source → cari icon → "Copy SVG" atau download .svg → buka dengan text editor → copy markup → paste di bawah.
+              Phase 7+ akan ada Lottie animation support.
+            </p>
+          </details>
+
+          <AddLayerForm
+            onAdd={(layer) => {
+              addLayer(layer);
+              setShowAddForm(false);
+            }}
+            onCancel={() => setShowAddForm(false)}
+            bannerWidth={bannerWidth}
+            bannerHeight={bannerHeight}
+          />
+        </>
       )}
 
       {/* Empty state */}

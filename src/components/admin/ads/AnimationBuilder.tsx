@@ -16,6 +16,13 @@
  * SESI 6  Sub-Phase 6D (22 Mei 2026) — TD-ANIM-106 Timeline Visualizer UI
  *                                      Batch 6D.1 = TimelineEditor multi-element drag (LIVE)
  *                                      Batch 6D.2 = TD-ANIM-102 SVG Layer paste-only MVP (LIVE)
+ * SESI 6  Sub-Phase 6E (22 Mei 2026) — UX Consolidation
+ *                                      Batch 6E.1 = Variant Accordion (LIVE)
+ * SESI 6  Sub-Phase 6F (22 Mei 2026) — Logo Cleanup + Object Upload
+ *                                      - Logo tab REMOVED dari Element Editor (3 tab: Headline/Body/CTA)
+ *                                      - TimelineEditor: 3 track (bukan 4 — logo gone)
+ *                                      - NEW ObjectLayerEditor (.gif/.png/.webp upload)
+ *                                      - SVG Layer: source links enhancement
  * ────────────────────────────────────────────────────────────────
  * PATH: src/components/admin/ads/AnimationBuilder.tsx
  *
@@ -122,6 +129,8 @@ import AdAnimatedBanner, {
   DEFAULT_ABSOLUTE_POSITION,
   // SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102 SVG layer
   type SVGLayer,
+  // SESI 6 Sub-Phase 6F — Object layer (raster upload)
+  type ObjectLayer,
   DEFAULT_ELEMENT_OVERRIDES,
   DEFAULT_TEXT_GRADIENT,
   TEXT_COLOR_MAP,
@@ -141,6 +150,9 @@ import TimelineEditor, { type TimelineElementData } from './TimelineEditor';
 
 // SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102: SVG Illustration Layer
 import SVGLayerEditor from './SVGLayerEditor';
+
+// SESI 6 Sub-Phase 6F: Object Layer Editor (.gif/.png/.webp upload)
+import ObjectLayerEditor from './ObjectLayerEditor';
 
 // ════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -483,6 +495,11 @@ export default function AnimationBuilder({
   const [customFontsError, setCustomFontsError] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
 
+  // SESI 6 Sub-Phase 6E Batch 6E.1 — Variant Accordion state
+  // Single-active accordion: only one variant expanded at a time. null = all collapsed.
+  // Default: variant 0 expanded saat mount.
+  const [expandedVariantIdx, setExpandedVariantIdx] = useState<number | null>(0);
+
   // Fetch custom fonts setiap advertiserId berubah
   useEffect(() => {
     if (!advertiserId) {
@@ -623,6 +640,8 @@ export default function AnimationBuilder({
     updateTimeline({ variants: renumberVariants(next) });
     setActiveTemplateId('custom');
     setActiveLegacyPresetId('custom');
+    // SESI 6E.1: Auto-expand baru variant (idx = old length sebelum push)
+    setExpandedVariantIdx(variants.length);
   };
 
   const removeVariant = (idx: number) => {
@@ -631,6 +650,17 @@ export default function AnimationBuilder({
     updateTimeline({ variants: next });
     setActiveTemplateId('custom');
     setActiveLegacyPresetId('custom');
+    // SESI 6E.1: Handle accordion state setelah remove
+    setExpandedVariantIdx((prev) => {
+      if (prev === null) return null;
+      if (prev === idx) {
+        // Removed yang aktif → activate variant sebelumnya, atau 0 kalau remove yang pertama
+        return idx > 0 ? idx - 1 : (next.length > 0 ? 0 : null);
+      }
+      // Removed bukan yang aktif → adjust idx kalau yang aktif di-shift
+      if (prev > idx) return prev - 1;
+      return prev;
+    });
   };
 
   const moveVariant = (idx: number, direction: 'up' | 'down') => {
@@ -641,6 +671,13 @@ export default function AnimationBuilder({
     updateTimeline({ variants: renumberVariants(next) });
     setActiveTemplateId('custom');
     setActiveLegacyPresetId('custom');
+    // SESI 6E.1: Follow moved variant kalau yang lagi expanded di-move
+    setExpandedVariantIdx((prev) => {
+      if (prev === null) return null;
+      if (prev === idx)      return targetIdx;
+      if (prev === targetIdx) return idx;
+      return prev;
+    });
   };
 
   // ─── Preview Ad ────────────────────────────────────────────────
@@ -958,6 +995,11 @@ export default function AnimationBuilder({
               onDeleteFont={handleFontDelete}
               bannerWidth={previewWidth}
               bannerHeight={previewHeight}
+              isExpanded={expandedVariantIdx === idx}
+              onToggleExpand={() => {
+                // Toggle: kalau idx udah expanded → collapse. Kalau beda atau null → activate idx.
+                setExpandedVariantIdx((prev) => (prev === idx ? null : idx));
+              }}
             />
           ))}
         </div>
@@ -1285,6 +1327,9 @@ interface VariantEditorProps {
   // SESI 6 Sub-Phase 6C Batch 6C.2 — TD-ANIM-103: banner dims untuk PositionCanvas
   bannerWidth:          number;
   bannerHeight:         number;
+  // SESI 6 Sub-Phase 6E Batch 6E.1 — Variant Accordion
+  isExpanded:           boolean;
+  onToggleExpand:       () => void;
 }
 
 function VariantEditor({
@@ -1306,6 +1351,8 @@ function VariantEditor({
   onDeleteFont,
   bannerWidth,
   bannerHeight,
+  isExpanded,
+  onToggleExpand,
 }: VariantEditorProps) {
   const [showAdvanced, setShowAdvanced]   = useState(false);
   const [showOverrideBg, setShowOverrideBg] = useState(false);
@@ -1331,14 +1378,74 @@ function VariantEditor({
   };
 
   return (
-    <div className="p-3 rounded-md border border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-800 shadow-sm">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-3">
-        <span className="flex items-center gap-1.5 text-xs font-bold text-purple-900 dark:text-purple-100">
-          <Film className="w-3.5 h-3.5" />
-          Variant #{index + 1}
-        </span>
-        <div className="flex items-center gap-1">
+    <div className="rounded-md border border-purple-200 dark:border-purple-700 bg-white dark:bg-gray-800 shadow-sm overflow-hidden">
+      {/* ════════════════════════════════════════════════════════
+          Accordion Header (always visible, clickable to toggle)
+          ════════════════════════════════════════════════════════ */}
+      <div className={cn(
+        'flex items-center px-3 py-2.5',
+        isExpanded
+          ? 'bg-purple-50 dark:bg-purple-900/30 border-b border-purple-200 dark:border-purple-700'
+          : 'hover:bg-purple-50/50 dark:hover:bg-purple-900/20 cursor-pointer transition-colors'
+      )}
+        onClick={() => { if (!isExpanded) onToggleExpand(); }}
+      >
+        {/* Toggle chevron — clickable area */}
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onToggleExpand(); }}
+          className="p-0.5 rounded hover:bg-purple-100 dark:hover:bg-purple-800/50 transition mr-1.5"
+          title={isExpanded ? 'Tutup variant' : 'Buka variant'}
+          aria-label={isExpanded ? 'Collapse variant' : 'Expand variant'}
+        >
+          <ChevronDown className={cn(
+            'w-4 h-4 text-purple-600 dark:text-purple-300 transition-transform',
+            !isExpanded && '-rotate-90'
+          )} />
+        </button>
+
+        {/* Title + summary */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <Film className="w-3.5 h-3.5 text-purple-600 dark:text-purple-300 flex-shrink-0" />
+            <span className="text-xs font-bold text-purple-900 dark:text-purple-100">
+              Variant #{index + 1}
+            </span>
+            {/* Required field indicator */}
+            {!variant.headline && (
+              <span className="text-[10px] font-bold text-red-600 dark:text-red-400">
+                · Headline kosong
+              </span>
+            )}
+          </div>
+          {/* Collapsed summary line */}
+          {!isExpanded && (
+            <div className="mt-0.5 flex items-center gap-2 text-[10px] text-gray-600 dark:text-gray-400 truncate">
+              <span className="truncate">
+                {variant.headline || <em className="italic">(belum ada headline)</em>}
+              </span>
+              <span className="text-gray-400 flex-shrink-0">·</span>
+              <span className="font-mono flex-shrink-0">{variant.duration_ms / 1000}s</span>
+              {overriddenCount > 0 && (
+                <>
+                  <span className="text-gray-400 flex-shrink-0">·</span>
+                  <span className="flex-shrink-0">{overriddenCount} element override</span>
+                </>
+              )}
+              {(variant.svg_layers?.length ?? 0) > 0 && (
+                <>
+                  <span className="text-gray-400 flex-shrink-0">·</span>
+                  <span className="flex-shrink-0 text-emerald-600 dark:text-emerald-400">
+                    {variant.svg_layers!.length} SVG
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Action buttons (move/delete) — stopPropagation supaya gak trigger expand */}
+        <div className="flex items-center gap-1 ml-2" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => onMove('up')} disabled={index === 0}
             className={cn('p-1 rounded hover:bg-purple-100 dark:hover:bg-purple-900/40 transition',
               index === 0 && 'opacity-30 cursor-not-allowed')} title="Pindah ke atas">
@@ -1357,6 +1464,12 @@ function VariantEditor({
           </button>
         </div>
       </div>
+
+      {/* ════════════════════════════════════════════════════════
+          Accordion Content (conditional render when expanded)
+          ════════════════════════════════════════════════════════ */}
+      {isExpanded && (
+      <div className="p-3">
 
       {/* Template hint */}
       {variantHint && (
@@ -1504,6 +1617,8 @@ function VariantEditor({
               customFontsLoading={customFontsLoading}
               onOpenUploadModal={onOpenUploadModal}
               onDeleteFont={onDeleteFont}
+              bannerWidth={bannerWidth}
+              bannerHeight={bannerHeight}
             />
           )}
           {activeFieldTab === 'body' && (
@@ -1525,6 +1640,8 @@ function VariantEditor({
               customFontsLoading={customFontsLoading}
               onOpenUploadModal={onOpenUploadModal}
               onDeleteFont={onDeleteFont}
+              bannerWidth={bannerWidth}
+              bannerHeight={bannerHeight}
             />
           )}
           {activeFieldTab === 'cta' && (
@@ -1546,6 +1663,8 @@ function VariantEditor({
               customFontsLoading={customFontsLoading}
               onOpenUploadModal={onOpenUploadModal}
               onDeleteFont={onDeleteFont}
+              bannerWidth={bannerWidth}
+              bannerHeight={bannerHeight}
             />
           )}
         </div>
@@ -1614,7 +1733,7 @@ function VariantEditor({
                 ════════════════════════════════════════════════════════ */}
             {(() => {
               // Build TimelineElementData[] dari 4 element overrides
-              const timelineElements: TimelineElementData[] = (['logo', 'headline', 'body', 'cta'] as ElementKey[]).map((key) => {
+              const timelineElements: TimelineElementData[] = (['headline', 'body', 'cta'] as ElementKey[]).map((key) => {
                 const ov = getElementOverride(variant, key);
                 return {
                   key,
@@ -1641,31 +1760,45 @@ function VariantEditor({
             {/* ════════════════════════════════════════════════════════
                 SESI 6 Sub-Phase 6D Batch 6D.2 — TD-ANIM-102:
                 SVG Illustration Layer Editor (per-variant)
+                ────────────────────────────────────────────────────────
+                SESI 6 Polish (22 Mei 2026) — HIDDEN per founder vision:
+                "Fungsinya sama dengan Object Layer, sederhanakan satu section."
+                Backward compat: variant dengan svg_layers existing tetap
+                render via engine (engine code unchanged). SVGLayerEditor.tsx
+                tetap di repo untuk re-enable kalau founder change mind di
+                Phase 7 (atau merge sebagai sub-tab di ObjectLayerEditor).
                 ════════════════════════════════════════════════════════ */}
-            <div className="rounded-md border border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-900/15 p-2.5">
+            {/* <div className="rounded-md border border-emerald-300 dark:border-emerald-700 bg-emerald-50/40 dark:bg-emerald-900/15 p-2.5">
               <SVGLayerEditor
                 layers={variant.svg_layers ?? []}
                 onChange={(layers) => onChange({ svg_layers: layers })}
                 bannerWidth={bannerWidth}
                 bannerHeight={bannerHeight}
               />
-            </div>
+            </div> */}
 
-            {(['logo', 'headline', 'body', 'cta'] as ElementKey[]).map((key) => (
-              <ElementAdvancedEditor
-                key={key}
-                elementKey={key}
-                override={getElementOverride(variant, key)}
-                isOverridden={!!variant.element_overrides?.[key]}
-                onChange={(patch) => onChangeElement(key, patch)}
-                onReset={() => onResetElement(key)}
+            {/* ════════════════════════════════════════════════════════
+                SESI 6 Sub-Phase 6F:
+                Object Layer Editor (per-variant) — .gif/.png/.webp upload
+                ════════════════════════════════════════════════════════ */}
+            <div className="rounded-md border border-orange-300 dark:border-orange-700 bg-orange-50/40 dark:bg-orange-900/15 p-2.5">
+              <ObjectLayerEditor
+                layers={variant.object_layers ?? []}
+                onChange={(layers) => onChange({ object_layers: layers })}
                 bannerWidth={bannerWidth}
                 bannerHeight={bannerHeight}
+                advertiserId={advertiserId}
               />
-            ))}
+            </div>
+
+            {/* SESI 6 Sub-Phase 6G — ElementAdvancedEditor REMOVED.
+                Kontrol position + delay/duration sekarang di FieldWithInlineControls
+                (tab Headline/Body/CTA atas). Founder vision: "1 element = 1 tempat". */}
           </div>
         )}
       </div>
+      </div>
+      )}
     </div>
   );
 }
@@ -1695,6 +1828,9 @@ interface FieldWithInlineControlsProps {
   customFontsLoading:   boolean;
   onOpenUploadModal:    () => void;
   onDeleteFont:         (font: CustomFontRecord) => Promise<void>;
+  // SESI 6 Sub-Phase 6G — Merge controls per element (1 card all-in-one)
+  bannerWidth:  number;
+  bannerHeight: number;
 }
 
 function FieldWithInlineControls({
@@ -1717,6 +1853,8 @@ function FieldWithInlineControls({
   customFontsLoading,
   onOpenUploadModal,
   onDeleteFont,
+  bannerWidth,
+  bannerHeight,
 }: FieldWithInlineControlsProps) {
   const currentHorizontal: HorizontalPosition = fromEnginePosition(override.position);
   const currentFont   = override.font_family ?? 'sans';
@@ -2138,6 +2276,140 @@ function FieldWithInlineControls({
             </div>
           </div>
         )}
+      </div>
+
+      {/* ════════════════════════════════════════════════════════
+          SESI 6 Sub-Phase 6G — Position + Timing all-in-one card
+          Layout: 2-column grid (Position kiri ~150px, Timing kanan flex)
+          ════════════════════════════════════════════════════════ */}
+      <div className="mt-3 pt-2.5 border-t border-purple-200 dark:border-purple-800">
+        <div className="grid grid-cols-[150px_1fr] gap-4 items-start">
+          {/* ─── COL 1: Position ─── */}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-[10px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide">
+                📍 Position
+              </span>
+              <div className="flex items-center gap-0.5 text-[9px] font-bold">
+                <button
+                  type="button"
+                  onClick={() => onChangeElement({ position: 'middle_center' as PresetPosition })}
+                  className={cn(
+                    'px-1.5 py-0.5 rounded transition',
+                    !isAbsolutePosition(override.position)
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/30'
+                  )}
+                >
+                  Preset
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!isAbsolutePosition(override.position)) {
+                      onChangeElement({ position: { x: 100, y: 50, unit: 'px' } });
+                    }
+                  }}
+                  className={cn(
+                    'px-1.5 py-0.5 rounded transition',
+                    isAbsolutePosition(override.position)
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-purple-50 dark:hover:bg-purple-900/30'
+                  )}
+                >
+                  XY
+                </button>
+              </div>
+            </div>
+
+            {!isAbsolutePosition(override.position) ? (
+              <>
+                <div className="grid grid-cols-3 gap-1">
+                  {(['top_left','top_center','top_right','middle_left','middle_center','middle_right','bottom_left','bottom_center','bottom_right'] as PresetPosition[]).map((p) => {
+                    const active = !isAbsolutePosition(override.position) && override.position === p;
+                    return (
+                      <button
+                        key={p}
+                        type="button"
+                        onClick={() => onChangeElement({ position: p })}
+                        className={cn(
+                          'aspect-square rounded border flex items-center justify-center transition',
+                          active
+                            ? 'bg-purple-600 border-purple-700'
+                            : 'bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 hover:border-purple-400 dark:hover:border-purple-500'
+                        )}
+                        title={p.replace('_', ' ')}
+                      >
+                        <div className={cn(
+                          'w-1.5 h-1.5 rounded-full',
+                          active ? 'bg-white' : 'bg-gray-300 dark:bg-gray-500'
+                        )} />
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-[9px] text-purple-700/70 dark:text-purple-300/70 font-mono">
+                  {(override.position as string).replace('_', ' ')}
+                </p>
+              </>
+            ) : (
+              <>
+                <PositionCanvas
+                  bannerWidth={bannerWidth}
+                  bannerHeight={bannerHeight}
+                  position={override.position as AbsolutePosition}
+                  elementLabel={fieldType.slice(0,2).toUpperCase()}
+                  elementSize={{ width: 80, height: 28 }}
+                  onChange={(pos) => onChangeElement({ position: pos })}
+                  snapGrid={5}
+                />
+                <p className="mt-1 text-[9px] text-purple-700/70 dark:text-purple-300/70 font-mono">
+                  ({(override.position as AbsolutePosition).x}, {(override.position as AbsolutePosition).y})
+                </p>
+              </>
+            )}
+          </div>
+
+          {/* ─── COL 2: Timing (Delay + Duration stacked) ─── */}
+          <div className="space-y-2">
+            <div>
+              <label className="block text-[9px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-0.5">
+                ⏱ Delay (ms)
+              </label>
+              <input
+                type="number"
+                value={override.delay_ms}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(v) && v >= 0 && v <= 5000) onChangeElement({ delay_ms: v });
+                }}
+                min={0} max={5000} step={100}
+                className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
+              />
+              <p className="mt-0.5 text-[9px] text-gray-500 dark:text-gray-400">
+                Jeda sebelum animasi mulai
+              </p>
+            </div>
+            <div>
+              <label className="block text-[9px] font-bold text-purple-700 dark:text-purple-300 uppercase tracking-wide mb-0.5">
+                ⏱ Duration (ms)
+              </label>
+              <input
+                type="number"
+                value={override.duration_ms}
+                onChange={(e) => {
+                  const v = parseInt(e.target.value, 10);
+                  if (!Number.isNaN(v) && v >= 100 && v <= 3000) onChangeElement({ duration_ms: v });
+                }}
+                min={100} max={3000} step={100}
+                className="w-full px-2 py-1 text-[11px] rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-1 focus:ring-purple-500 focus:outline-none font-mono"
+              />
+              <p className="mt-0.5 text-[9px] text-gray-500 dark:text-gray-400">
+                Lama animasi dijalankan
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
