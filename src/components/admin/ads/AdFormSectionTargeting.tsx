@@ -38,11 +38,20 @@ import {
   Home,
   Globe2,
   Sparkles,  // SESI 5C-B — "Disarankan tier" badge
+  Ruler,     // SESI 8 — dimensi format-aware icon
+  Ban,       // SESI 8 — format incompatibility icon
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdForm } from './AdFormProvider';
 // SESI 5E Phase 3a (19 Mei 2026): Position-First Creative Modal
 import PositionCreativeModal from './PositionCreativeModal';
+// SESI 8 (24 Mei 2026): Format-aware dim helpers
+import {
+  getPositionMetadata,
+  getRecommendedDimForFormat,
+  getAspectRatioForFormat,
+  isPositionCompatibleWithFormat,
+} from './position-render-metadata';
 
 // Page scope label per group (visual hint, semantic only — backend trust positions)
 type PageScope = 'homepage' | 'slug' | 'both';
@@ -236,6 +245,22 @@ export default function AdFormSectionTargeting() {
               </div>
             )}
 
+            {/* SESI 8 (24 Mei 2026): Advertorial mode banner — show dim per advertorial format */}
+            {state.ad_format === 'text' && (
+              <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/40">
+                <FileText size={12} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                    Mode: Advertorial (text format)
+                  </p>
+                  <p className="text-[10px] text-amber-700/80 dark:text-amber-400/70 mt-0.5 leading-relaxed">
+                    Dimensi gambar di kartu posisi disesuaikan untuk advertorial. Posisi non-compatible
+                    {' '}<Ban size={9} className="inline-block align-middle" /> di-disable.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="flex flex-col gap-3">
               {POSITION_GROUPS.map((group) => {
                 const ScopeIcon = PAGE_SCOPE_DISPLAY[group.pageScope].icon;
@@ -296,41 +321,73 @@ export default function AdFormSectionTargeting() {
                                     : 'bg-surface border-border hover:bg-surface-muted'
                             )}
                           >
-                            <label
-                              className={cn(
-                                'flex items-center gap-2 px-2.5 py-1.5 text-[11px]',
-                                isDisabled ? 'cursor-not-allowed' : 'cursor-pointer'
-                              )}
-                            >
-                              <input
-                                type="checkbox"
-                                checked={isActive}
-                                disabled={isDisabled}
-                                onChange={() => togglePosition(pos.key)}
-                                className="accent-baronda shrink-0"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <div className="font-semibold text-text truncate flex items-center gap-1">
-                                  {pos.label}
-                                  {pos.politisiOnly && (
-                                    <span className="ml-1 text-[9px] text-status-warning">
-                                      🏛️
-                                    </span>
+                            {/* SESI 8 (24 Mei 2026): Format-aware dim resolution
+                                Pull metadata + compute dim string based on state.ad_format.
+                                Show "incompatible" indicator kalau ad_format='text' + position
+                                tidak support advertorial. */}
+                            {(() => {
+                              const meta = getPositionMetadata(pos.key);
+                              const dimForFormat = getRecommendedDimForFormat(meta, state.ad_format);
+                              const aspectForFormat = getAspectRatioForFormat(meta, state.ad_format);
+                              const isCompatible = isPositionCompatibleWithFormat(meta, state.ad_format);
+                              const isAdvertorialMode = state.ad_format === 'text';
+                              return (
+                                <label
+                                  className={cn(
+                                    'flex items-center gap-2 px-2.5 py-1.5 text-[11px]',
+                                    isDisabled || !isCompatible ? 'cursor-not-allowed' : 'cursor-pointer'
                                   )}
-                                  {isSuggestedTier && !isDisabled && (
-                                    <span
-                                      className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
-                                      title="Direkomendasi tier ini"
-                                    >
-                                      ⭐
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="text-[9px] text-text-muted">
-                                  {pos.size}
-                                </div>
-                              </div>
-                            </label>
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isActive}
+                                    disabled={isDisabled || !isCompatible}
+                                    onChange={() => togglePosition(pos.key)}
+                                    className="accent-baronda shrink-0"
+                                  />
+                                  <div className="min-w-0 flex-1">
+                                    <div className="font-semibold text-text truncate flex items-center gap-1">
+                                      {pos.label}
+                                      {pos.politisiOnly && (
+                                        <span className="ml-1 text-[9px] text-status-warning">
+                                          🏛️
+                                        </span>
+                                      )}
+                                      {isSuggestedTier && !isDisabled && (
+                                        <span
+                                          className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
+                                          title="Direkomendasi tier ini"
+                                        >
+                                          ⭐
+                                        </span>
+                                      )}
+                                      {!isCompatible && (
+                                        <span
+                                          className="inline-flex items-center gap-0.5 text-[8px] font-bold text-status-warning"
+                                          title="Tidak support format advertorial"
+                                        >
+                                          <Ban size={9} />
+                                        </span>
+                                      )}
+                                    </div>
+                                    {/* SESI 8: Format-aware dim hint (Option A — switch by ad_format) */}
+                                    <div className={cn(
+                                      'flex items-center gap-1 text-[10px] mt-0.5',
+                                      isAdvertorialMode && isCompatible
+                                        ? 'text-ads font-semibold'
+                                        : 'text-text-muted'
+                                    )}>
+                                      <Ruler size={9} className="shrink-0" />
+                                      <span className="truncate">
+                                        {!isCompatible
+                                          ? 'Hanya untuk banner image'
+                                          : `${dimForFormat} · ${aspectForFormat}`}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </label>
+                              );
+                            })()}
 
                             {/* SESI 5E Phase 3a: Status badge + Edit Creative button (only kalau aktif) */}
                             {isActive && !isDisabled && (

@@ -148,6 +148,8 @@ export interface AdFormState {
   title:           string;
   body:            string;
   image_url:       string;
+  /** SESI 7 (22 Mei 2026): Caption untuk cover image advertorial (max 200 char). */
+  cover_image_caption: string;
   /**
    * SESI 5D (18 Mei 2026): Per-position image map (HYBRID).
    * Key = position key (top_leaderboard, sidebar_left, etc).
@@ -223,6 +225,7 @@ const EMPTY_STATE: AdFormState = {
   title:               '',
   body:                '',
   image_url:           '',
+  cover_image_caption: '',          // SESI 7: caption untuk cover image advertorial
   images:              {},  // SESI 5D: empty map (HYBRID fallback ke image_url)
   link_url:            '',
   disclaimer_text:     '',
@@ -592,6 +595,7 @@ export function AdFormProvider({
           title:               ad.title ?? '',
           body:                ad.body ?? '',
           image_url:           ad.image_url ?? '',
+          cover_image_caption: ad.cover_image_caption ?? '',  // SESI 7
           images:              ad.images ?? {},  // SESI 5D
           link_url:            ad.link_url ?? '',
           disclaimer_text:     ad.disclaimer_text ?? '',
@@ -702,6 +706,7 @@ export function AdFormProvider({
         title:               state.title.trim(),
         body:                state.body.trim() || null,
         image_url:           state.image_url.trim() || null,
+        cover_image_caption: state.cover_image_caption.trim() || null,  // SESI 7
         images:              Object.keys(state.images).length > 0 ? state.images : null,  // SESI 5D
         link_url:            state.link_url.trim(),
         disclaimer_text:     state.disclaimer_text.trim() || null,

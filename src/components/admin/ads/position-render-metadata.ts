@@ -49,6 +49,22 @@ export interface PositionRenderMetadata {
   recommendedImageDim:  string;
   /** Aspect ratio hint untuk image upload */
   aspectRatio:          string;
+  /**
+   * SESI 8 (24 Mei 2026): Apakah posisi support advertorial (ad_format='text').
+   * Whitelist: in_article, native, trending_native. Lainnya = false.
+   */
+  supportsTextFormat:   boolean;
+  /**
+   * SESI 8 (24 Mei 2026): Recommended image dim khusus advertorial mode.
+   * Optional — kalau undefined, fallback ke recommendedImageDim (banner dim).
+   * Used untuk format-aware UI hint (Option A: switch dim by ad_format).
+   */
+  textFormatDim?:       string;
+  /**
+   * SESI 8 (24 Mei 2026): Aspect ratio hint khusus advertorial mode.
+   * Optional — fallback ke aspectRatio kalau undefined.
+   */
+  textFormatAspectRatio?: string;
   /** Group semantik untuk Targeting UI */
   pageGroup:            'banner_area' | 'sidebar' | 'in_article_native' | 'hero_special';
   /** Optional: politisi-only constraint */
@@ -83,6 +99,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-full h-[220px], inner brand area w-[180px]',
     recommendedImageDim:  '888×220px',
     aspectRatio:          'Horizontal 4:1',
+    supportsTextFormat:   false,
     pageGroup:            'banner_area',
     description:          'Banner paling atas, di bawah header navigasi. Pool rotation per pageview.',
     frontendUrl:          '/bakabar',
@@ -97,6 +114,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'aspectRatio 8:1 (full-width responsive)',
     recommendedImageDim:  '1600×200px',
     aspectRatio:          'Horizontal 8:1',
+    supportsTextFormat:   false,
     pageGroup:            'banner_area',
     description:          'Banner di antar region homepage, ratio 8:1 (panjang horizontal).',
     frontendUrl:          '/bakabar',
@@ -111,6 +129,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-[52px] h-[52px] thumbnail (compact feed item)',
     recommendedImageDim:  '104×104px',
     aspectRatio:          'Square 1:1',
+    supportsTextFormat:   false,
     pageGroup:            'banner_area',
     description:          'Banner kompak feed item, thumbnail 52×52 dengan side content.',
     frontendUrl:          '/bakabar',
@@ -125,6 +144,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'Hero size (variable) ATAU 160×240 carousel base (fallback mode)',
     recommendedImageDim:  '160×240px',
     aspectRatio:          'Vertical poster 2:3',
+    supportsTextFormat:   false,
     pageGroup:            'banner_area',
     description:          'DUAL USAGE: (1) Backup hero kalau slot utama kosong, (2) Carousel "Pilihan Sponsor" homepage saat tidak ada iklan politik. 1 upload muncul di kedua tempat.',
     frontendUrl:          '/bakabar',
@@ -141,6 +161,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-[160px] h-[600px] fixed',
     recommendedImageDim:  '160×600px',
     aspectRatio:          'Vertikal 1:3.75',
+    supportsTextFormat:   false,
     pageGroup:            'sidebar',
     description:          'Skyscraper kiri artikel BAKABAR (desktop xl+ only).',
     frontendUrl:          '/bakabar',
@@ -155,6 +176,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-[160px] h-[600px] fixed',
     recommendedImageDim:  '160×600px',
     aspectRatio:          'Vertikal 1:3.75',
+    supportsTextFormat:   false,
     pageGroup:            'sidebar',
     description:          'Skyscraper kanan artikel BAKABAR (desktop xl+ only).',
     frontendUrl:          '/bakabar',
@@ -169,6 +191,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'h-52 w-full (~300×208 container)',
     recommendedImageDim:  '300×200px',
     aspectRatio:          'Card landscape 3:2',
+    supportsTextFormat:   false,
     pageGroup:            'sidebar',
     description:          'Sidebar fleksibel slug artikel, random pick dari pool aktif.',
     frontendUrl:          '/bakabar/sample-article',
@@ -185,6 +208,10 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'h-48 w-full (~700×192 responsive)',
     recommendedImageDim:  '700×192px',
     aspectRatio:          'Horizontal 4:1',
+    // SESI 8 (24 Mei 2026): advertorial render = LEFT panel 192×192 square crop
+    supportsTextFormat:   true,
+    textFormatDim:        '192×192px',
+    textFormatAspectRatio: 'Square 1:1 (LEFT panel)',
     pageGroup:            'in_article_native',
     description:          'Banner di tengah artikel. Auto-inject 1-3x per artikel (BodyWithAds).',
     frontendUrl:          '/bakabar/sample-article',
@@ -199,6 +226,10 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-14 h-14 icon (56×56) + side text content',
     recommendedImageDim:  '112×112px',
     aspectRatio:          'Square 1:1 (icon/logo)',
+    // SESI 8 (24 Mei 2026): advertorial render = 80×80 icon replace logo
+    supportsTextFormat:   true,
+    textFormatDim:        '112×112px',
+    textFormatAspectRatio: 'Square 1:1 (icon advertorial)',
     pageGroup:            'in_article_native',
     description:          'Advertorial yang menyatu dengan flow artikel. Icon kiri + headline + CTA.',
     frontendUrl:          '/bakabar/sample-article',
@@ -213,6 +244,10 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-[52px] h-[52px] thumbnail + side content',
     recommendedImageDim:  '104×104px',
     aspectRatio:          'Square 1:1 thumbnail',
+    // SESI 8 (24 Mei 2026): advertorial render = 52×52 thumbnail replace logo
+    supportsTextFormat:   true,
+    textFormatDim:        '104×104px',
+    textFormatAspectRatio: 'Square 1:1 (thumbnail trending)',
     pageGroup:            'in_article_native',
     description:          'Sticky di section "Trending Now", 3 visible slot stacked.',
     frontendUrl:          '/bakabar',
@@ -229,6 +264,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              '160×240 base (POSTER_W × POSTER_H), focused scale 1.30× = 208×312',
     recommendedImageDim:  '208×312px',
     aspectRatio:          'Vertikal poster 2:3',
+    supportsTextFormat:   false,
     pageGroup:            'hero_special',
     politisiOnly:         true,
     description:          'Carousel banner politisi KPU compliance. Up to 9 ads visible, fokus rotate auto.',
@@ -244,6 +280,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'w-[52px] h-[52px] thumbnail per-region',
     recommendedImageDim:  '104×104px',
     aspectRatio:          'Square 1:1 thumbnail',
+    supportsTextFormat:   false,
     pageGroup:            'hero_special',
     description:          'Banner di section per-kabupaten homepage, 1 thumbnail per region stack.',
     frontendUrl:          '/bakabar',
@@ -258,6 +295,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              'Responsive cross-section (no fixed CSS)',
     recommendedImageDim:  '888×220px',
     aspectRatio:          'Horizontal responsive',
+    supportsTextFormat:   false,
     pageGroup:            'hero_special',
     description:          'Banner fleksibel cross-section homepage, generic fallback.',
     frontendUrl:          '/bakabar',
@@ -282,10 +320,74 @@ export function getPositionMetadata(key: string): PositionRenderMetadata {
     realDim:              'Unknown',
     recommendedImageDim:  'Variabel',
     aspectRatio:          'Responsive',
+    supportsTextFormat:   false,  // SESI 8: safe default
     pageGroup:            'banner_area',
     description:          'Metadata belum di-define untuk posisi ini.',
     frontendUrl:          '/bakabar',
   };
+}
+
+// ════════════════════════════════════════════════════════════════
+// SESI 8 (24 Mei 2026) — Format-Aware Dim Helpers
+// ────────────────────────────────────────────────────────────────
+// Option A pattern: switch dim by ad_format (image vs text).
+// Used by AdFormSectionTargeting (checkbox card) +
+// PositionCreativeModal (upload header + label).
+// ════════════════════════════════════════════════════════════════
+
+export type AdFormatKind = 'image' | 'text' | 'animated';
+
+/**
+ * Get recommended image dimension untuk position + ad_format pair.
+ *
+ * Logic:
+ *   - ad_format='text' AND position support text + has textFormatDim
+ *     → return textFormatDim (advertorial-specific dim)
+ *   - else → return recommendedImageDim (banner dim default)
+ *
+ * Example:
+ *   - in_article + 'image' → "700×192px"
+ *   - in_article + 'text'  → "192×192px"
+ *   - native     + 'text'  → "112×112px" (same as banner — both square)
+ */
+export function getRecommendedDimForFormat(
+  meta: PositionRenderMetadata,
+  ad_format: AdFormatKind,
+): string {
+  if (ad_format === 'text' && meta.supportsTextFormat && meta.textFormatDim) {
+    return meta.textFormatDim;
+  }
+  return meta.recommendedImageDim;
+}
+
+/**
+ * Get aspect ratio hint untuk position + ad_format pair.
+ * Same waterfall pattern sebagai getRecommendedDimForFormat.
+ */
+export function getAspectRatioForFormat(
+  meta: PositionRenderMetadata,
+  ad_format: AdFormatKind,
+): string {
+  if (ad_format === 'text' && meta.supportsTextFormat && meta.textFormatAspectRatio) {
+    return meta.textFormatAspectRatio;
+  }
+  return meta.aspectRatio;
+}
+
+/**
+ * Check apakah position support ad_format yang dipilih.
+ * Used untuk disable checkbox di Targeting kalau format mismatch.
+ *
+ * Logic:
+ *   - ad_format='text' → cek meta.supportsTextFormat
+ *   - else → always true (image/animated support semua position)
+ */
+export function isPositionCompatibleWithFormat(
+  meta: PositionRenderMetadata,
+  ad_format: AdFormatKind,
+): boolean {
+  if (ad_format === 'text') return meta.supportsTextFormat;
+  return true;
 }
 
 /**

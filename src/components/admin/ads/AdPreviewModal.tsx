@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { renderMarkdown } from '@/lib/ads/markdown';  // SESI 7 — Phase 7 Advertorial
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -41,6 +42,7 @@ interface AdDetailData {
     title:               string | null;
     body:                string | null;
     image_url:           string | null;
+    cover_image_caption?: string | null;  // SESI 7 — Advertorial cover caption
     link_url:            string | null;
     advertiser_name:     string;
     advertiser_logo_url: string | null;
@@ -148,6 +150,79 @@ export default function AdPreviewModal({ adId, onClose }: AdPreviewModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
+      {/* SESI 7 — Phase 7 Advertorial markdown styling */}
+      <style jsx>{`
+        :global(.advertorial-body h1) {
+          font-size: 1.75rem;
+          font-weight: 800;
+          margin: 1.25rem 0 0.75rem;
+          line-height: 1.2;
+        }
+        :global(.advertorial-body h2) {
+          font-size: 1.5rem;
+          font-weight: 700;
+          margin: 1rem 0 0.625rem;
+          line-height: 1.3;
+        }
+        :global(.advertorial-body h3) {
+          font-size: 1.2rem;
+          font-weight: 600;
+          margin: 0.875rem 0 0.5rem;
+          line-height: 1.4;
+        }
+        :global(.advertorial-body p) {
+          margin: 0.625rem 0;
+        }
+        :global(.advertorial-body strong) {
+          font-weight: 700;
+        }
+        :global(.advertorial-body em) {
+          font-style: italic;
+        }
+        :global(.advertorial-body blockquote) {
+          border-left: 3px solid var(--color-ads, #f59e0b);
+          padding-left: 0.875rem;
+          margin: 0.875rem 0;
+          font-style: italic;
+          opacity: 0.85;
+        }
+        :global(.advertorial-body ul),
+        :global(.advertorial-body ol) {
+          padding-left: 1.5rem;
+          margin: 0.625rem 0;
+        }
+        :global(.advertorial-body ul) {
+          list-style: disc;
+        }
+        :global(.advertorial-body ol) {
+          list-style: decimal;
+        }
+        :global(.advertorial-body li) {
+          margin: 0.25rem 0;
+        }
+        :global(.advertorial-body a) {
+          color: var(--color-ads, #f59e0b);
+          text-decoration: underline;
+        }
+        :global(.advertorial-body img) {
+          max-width: 100%;
+          height: auto;
+          border-radius: 0.5rem;
+          margin: 0.875rem 0;
+          display: block;
+        }
+        :global(.advertorial-body figure) {
+          margin: 1rem 0;
+        }
+        :global(.advertorial-body figcaption) {
+          font-size: 0.75rem;
+          text-align: center;
+          opacity: 0.7;
+          margin-top: 0.25rem;
+          font-style: italic;
+        }
+      `}</style>
+
       <div className="w-full max-w-3xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
         {/* ── Header ── */}
         <div className="flex items-start justify-between gap-3 px-5 py-4 border-b border-border">
@@ -223,30 +298,39 @@ export default function AdPreviewModal({ adId, onClose }: AdPreviewModalProps) {
                 </h4>
 
                 <div className="bg-surface-muted/40 rounded-lg overflow-hidden border border-border">
-                  {/* Visual Card */}
-                  <div className="p-4 flex gap-3">
-                    {displayImage ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={displayImage}
-                        alt=""
-                        className="w-32 h-32 rounded-lg object-cover bg-surface shrink-0"
-                      />
-                    ) : (
-                      <div className="w-32 h-32 rounded-lg bg-surface flex items-center justify-center shrink-0 text-text-subtle">
-                        <ImageIcon size={32} />
-                      </div>
-                    )}
+                  {/* SESI 7 — Phase 7 Advertorial Layout (full-width, markdown body) */}
+                  {data.ad.ad_format === 'text' ? (
+                    <article className="advertorial-preview">
+                      {/* Cover Image — full width */}
+                      {data.ad.image_url ? (
+                        <figure className="advertorial-cover">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={data.ad.image_url}
+                            alt={data.ad.cover_image_caption ?? data.ad.title ?? ''}
+                            className="w-full h-auto max-h-[400px] object-cover"
+                          />
+                          {data.ad.cover_image_caption && (
+                            <figcaption className="text-[11px] italic text-text-muted text-center px-4 py-2 bg-surface/50">
+                              {data.ad.cover_image_caption}
+                            </figcaption>
+                          )}
+                        </figure>
+                      ) : (
+                        <div className="w-full h-48 bg-surface flex items-center justify-center text-text-subtle">
+                          <ImageIcon size={32} />
+                          <span className="ml-2 text-[11px] italic">Belum ada cover image</span>
+                        </div>
+                      )}
 
-                    <div className="flex-1 min-w-0 flex flex-col">
-                      {/* Advertiser branding */}
-                      <div className="flex items-center gap-2 mb-1">
+                      {/* Header — advertiser + IKLAN badge */}
+                      <header className="px-5 pt-4 pb-2 flex items-center gap-2 flex-wrap">
                         {data.ad.advertiser_logo_url && (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={data.ad.advertiser_logo_url}
                             alt=""
-                            className="w-4 h-4 rounded-full object-cover"
+                            className="w-5 h-5 rounded-full object-cover"
                           />
                         )}
                         <span className="text-[10px] font-bold text-text-muted uppercase tracking-wide">
@@ -255,40 +339,117 @@ export default function AdPreviewModal({ adId, onClose }: AdPreviewModalProps) {
                         <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-500/12 text-amber-600 dark:text-amber-400">
                           IKLAN
                         </span>
-                      </div>
+                      </header>
 
-                      <h5 className="text-[14px] font-extrabold text-text leading-snug">
-                        {displayTitle ?? '(no title)'}
-                      </h5>
+                      {/* Title — large headline */}
+                      <h2 className="px-5 text-[20px] font-extrabold text-text leading-tight mb-3">
+                        {data.ad.title ?? '(Belum ada judul)'}
+                      </h2>
 
-                      {displayBody && (
-                        <p className="text-[12px] text-text-muted mt-1 line-clamp-3">
-                          {displayBody}
+                      {/* Body — markdown rendered */}
+                      {data.ad.body ? (
+                        <div
+                          className="advertorial-body px-5 pb-4 text-[13px] text-text leading-relaxed"
+                          dangerouslySetInnerHTML={{ __html: renderMarkdown(data.ad.body) }}
+                        />
+                      ) : (
+                        <p className="px-5 pb-4 text-[12px] italic text-text-muted">
+                          (Belum ada body content)
                         </p>
                       )}
 
+                      {/* CTA Link */}
                       {data.ad.link_url && (
-                        <a
-                          href={data.ad.link_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-ads hover:underline mt-auto pt-2"
-                        >
-                          <ExternalLink size={10} />
-                          <span className="truncate max-w-[300px]">{data.ad.link_url}</span>
-                        </a>
+                        <div className="px-5 pb-4">
+                          <a
+                            href={data.ad.link_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-md bg-ads/10 text-ads text-[12px] font-bold hover:bg-ads/20 transition-colors"
+                          >
+                            <ExternalLink size={12} />
+                            <span className="truncate max-w-[400px]">{data.ad.link_url}</span>
+                          </a>
+                        </div>
                       )}
 
+                      {/* Disclaimer */}
                       {data.ad.disclaimer_text && (
-                        <p className="text-[10px] italic text-text-subtle mt-1.5 line-clamp-2">
-                          ⚠ {data.ad.disclaimer_text}
-                        </p>
+                        <div className="px-5 pb-4">
+                          <p className="text-[10px] italic text-text-subtle">
+                            ⚠ {data.ad.disclaimer_text}
+                          </p>
+                        </div>
                       )}
-                    </div>
-                  </div>
+                    </article>
+                  ) : (
+                    /* Existing horizontal card layout — image/video/dca/animated formats */
+                    <div className="p-4 flex gap-3">
+                      {displayImage ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={displayImage}
+                          alt=""
+                          className="w-32 h-32 rounded-lg object-cover bg-surface shrink-0"
+                        />
+                      ) : (
+                        <div className="w-32 h-32 rounded-lg bg-surface flex items-center justify-center shrink-0 text-text-subtle">
+                          <ImageIcon size={32} />
+                        </div>
+                      )}
 
-                  {/* DCA frame controls */}
-                  {isDCA && (
+                      <div className="flex-1 min-w-0 flex flex-col">
+                        {/* Advertiser branding */}
+                        <div className="flex items-center gap-2 mb-1">
+                          {data.ad.advertiser_logo_url && (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={data.ad.advertiser_logo_url}
+                              alt=""
+                              className="w-4 h-4 rounded-full object-cover"
+                            />
+                          )}
+                          <span className="text-[10px] font-bold text-text-muted uppercase tracking-wide">
+                            {data.ad.advertiser_name}
+                          </span>
+                          <span className="px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-amber-500/12 text-amber-600 dark:text-amber-400">
+                            IKLAN
+                          </span>
+                        </div>
+
+                        <h5 className="text-[14px] font-extrabold text-text leading-snug">
+                          {displayTitle ?? '(no title)'}
+                        </h5>
+
+                        {displayBody && (
+                          <p className="text-[12px] text-text-muted mt-1 line-clamp-3">
+                            {displayBody}
+                          </p>
+                        )}
+
+                        {data.ad.link_url && (
+                          <a
+                            href={data.ad.link_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-[11px] text-ads hover:underline mt-auto pt-2"
+                          >
+                            <ExternalLink size={10} />
+                            <span className="truncate max-w-[300px]">{data.ad.link_url}</span>
+                          </a>
+                        )}
+
+                        {data.ad.disclaimer_text && (
+                          <p className="text-[10px] italic text-text-subtle mt-1.5 line-clamp-2">
+                            ⚠ {data.ad.disclaimer_text}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* DCA frame controls — only for DCA format */}
+                  {isDCA && data.ad.ad_format !== 'text' && (
                     <div className="flex items-center justify-between gap-2 px-4 py-2 border-t border-border bg-surface">
                       <button
                         type="button"

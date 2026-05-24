@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
+// SESI 7 (22 Mei 2026): Render markdown body + cover image
+import { renderMarkdown } from '@/lib/ads/markdown';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -11,6 +13,8 @@ interface Advertorial {
   id: string;
   title: string;
   body: string;
+  image_url: string | null;                  // SESI 7: cover image
+  cover_image_caption: string | null;        // SESI 7: cover caption
   link_url: string;
   advertiser_name: string;
   advertiser_type: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
@@ -72,15 +76,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 // ─────────────────────────────────────────────────────────────────
-// Render body — double line break = paragraph (Q2 = c, plain)
+// SESI 7 (22 Mei 2026): Body rendering pakai renderMarkdown (BAKABAR pattern)
+// Support: # H1-H3, **bold**, *italic*, > quote, - list, [link], ![img]
 // ─────────────────────────────────────────────────────────────────
-function renderBodyAsParagraphs(body: string): string[] {
-  if (!body) return [];
-  return body
-    .split(/\n\s*\n+/)
-    .map(p => p.trim())
-    .filter(p => p.length > 0);
-}
+// renderBodyAsParagraphs() removed — replaced dengan renderMarkdown dari @/lib/markdown
 
 // ─────────────────────────────────────────────────────────────────
 // Helper — label advertiser type
@@ -100,8 +99,8 @@ export default async function SponsoredPage({ params }: Props) {
   const ad = await getAdvertorial(slug);
   if (!ad) notFound();
 
-  const paragraphs = renderBodyAsParagraphs(ad.body);
   const typeConfig = ADVERTISER_TYPE_CONFIG[ad.advertiser_type] || ADVERTISER_TYPE_CONFIG.umum;
+  const bodyHtml = renderMarkdown(ad.body);
 
   return (
     <div className="min-h-screen bg-white">
@@ -115,6 +114,69 @@ export default async function SponsoredPage({ params }: Props) {
         }
         .sponsored-body p {
           margin-bottom: 1.3em;
+        }
+        .sponsored-body h1 {
+          font-size: 1.7em;
+          font-weight: 700;
+          line-height: 1.3;
+          margin: 1.5em 0 0.6em;
+          color: #111827;
+        }
+        .sponsored-body h2 {
+          font-size: 1.4em;
+          font-weight: 700;
+          line-height: 1.35;
+          margin: 1.4em 0 0.5em;
+          color: #111827;
+        }
+        .sponsored-body h3 {
+          font-size: 1.2em;
+          font-weight: 600;
+          line-height: 1.4;
+          margin: 1.3em 0 0.4em;
+          color: #1f2937;
+        }
+        .sponsored-body ul {
+          margin: 0.5em 0 1.3em 1.5em;
+          list-style: disc;
+        }
+        .sponsored-body ul li {
+          margin-bottom: 0.4em;
+        }
+        .sponsored-body blockquote {
+          margin: 1.5em 0;
+          padding: 0.8em 1.2em;
+          border-left: 4px solid #1B6B4A;
+          background: rgba(27, 107, 74, 0.04);
+          font-style: italic;
+          color: #4B5563;
+        }
+        .sponsored-body strong {
+          font-weight: 700;
+          color: #111827;
+        }
+        .sponsored-body a {
+          color: #1B6B4A;
+          text-decoration: underline;
+          text-underline-offset: 2px;
+        }
+        .sponsored-body .bk-fig {
+          margin: 1.5em 0;
+        }
+        .sponsored-body .bk-fig img,
+        .sponsored-body .bk-inline {
+          max-width: 100%;
+          height: auto;
+          border-radius: 8px;
+          display: block;
+          margin: 0 auto;
+        }
+        .sponsored-body .bk-fig figcaption {
+          margin-top: 0.6em;
+          text-align: center;
+          font-size: 0.85em;
+          color: #6B7280;
+          font-style: italic;
         }
       `}</style>
 
@@ -166,14 +228,30 @@ export default async function SponsoredPage({ params }: Props) {
               {ad.title}
             </h1>
 
-            {/* Body */}
-            <div className="sponsored-body">
-              {paragraphs.length > 0 ? (
-                paragraphs.map((p, i) => <p key={i}>{p}</p>)
-              ) : (
-                <p className="text-gray-400 italic">Konten tidak tersedia.</p>
-              )}
-            </div>
+            {/* SESI 7: Cover image (hero photo) di atas body */}
+            {ad.image_url && (
+              <figure className="mb-6 -mx-4 md:mx-0">
+                <img
+                  src={ad.image_url}
+                  alt={ad.title}
+                  className="w-full h-auto md:rounded-xl"
+                  style={{ aspectRatio: '16 / 9', objectFit: 'cover' }}
+                />
+                {ad.cover_image_caption && (
+                  <figcaption className="mt-2 px-4 md:px-0 text-xs italic text-gray-500 leading-relaxed">
+                    {ad.cover_image_caption}
+                  </figcaption>
+                )}
+              </figure>
+            )}
+
+            {/* Body — SESI 7: Markdown render via renderMarkdown() */}
+            <div
+              className="sponsored-body"
+              dangerouslySetInnerHTML={{
+                __html: bodyHtml || '<p class="text-gray-400 italic">Konten tidak tersedia.</p>'
+              }}
+            />
 
             {/* CTA Prominent */}
             <div className="mt-10 rounded-2xl p-6 text-center"

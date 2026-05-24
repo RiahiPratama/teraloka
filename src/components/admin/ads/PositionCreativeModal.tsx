@@ -42,6 +42,9 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import { useAdForm, type AdFrame } from './AdFormProvider';
 import {
   getPositionMetadata,
+  // SESI 8 (24 Mei 2026): Format-aware dim helpers
+  getRecommendedDimForFormat,
+  getAspectRatioForFormat,
   type PositionRenderMetadata,
 } from './position-render-metadata';
 // SESI 5E Phase 3c: Live preview mini-player
@@ -299,14 +302,20 @@ export default function PositionCreativeModal({
             <p className="text-[11px] text-text-muted mt-0.5">
               Position key: <code className="text-ads bg-ads/10 px-1 rounded">{positionKey}</code>
             </p>
+            {/* SESI 8 (24 Mei 2026): Format-aware dim — switch by state.ad_format */}
             <div className="flex flex-wrap items-center gap-3 mt-2 text-[10px]">
               <span className="inline-flex items-center gap-1 text-ads font-bold">
                 <ImageIcon size={11} />
-                {meta.recommendedImageDim}
+                {getRecommendedDimForFormat(meta, state.ad_format)}
               </span>
               <span className="text-text-subtle">
-                {meta.aspectRatio}
+                {getAspectRatioForFormat(meta, state.ad_format)}
               </span>
+              {state.ad_format === 'text' && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/40 text-amber-800 dark:text-amber-300 text-[9px] font-bold uppercase tracking-wide">
+                  Advertorial
+                </span>
+              )}
               <a
                 href={`${BAKABAR_BASE_URL}${meta.frontendUrl}`}
                 target="_blank"
@@ -380,7 +389,8 @@ export default function PositionCreativeModal({
           {mode === 'static' && (
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 block">
-                Upload Image — {meta.recommendedImageDim}
+                {/* SESI 8 (24 Mei 2026): Format-aware dim label */}
+                Upload Image — {getRecommendedDimForFormat(meta, state.ad_format)}
               </label>
               <ImageUpload
                 bucket="ads"
@@ -391,7 +401,7 @@ export default function PositionCreativeModal({
                   const url = urls[0] ?? '';
                   url ? setStaticImage(url) : clearStaticImage();
                 }}
-                label={`Upload ${meta.label} (${meta.recommendedImageDim})`}
+                label={`Upload ${meta.label} (${getRecommendedDimForFormat(meta, state.ad_format)})`}
               />
               <div className="flex items-start gap-2 mt-3 p-3 rounded-lg bg-status-info/8 border border-status-info/30">
                 <Info size={12} className="text-status-info shrink-0 mt-0.5" />
@@ -565,7 +575,6 @@ export default function PositionCreativeModal({
                 }}
                 previewWidth={positionDims.width}
                 previewHeight={positionDims.height}
-                advertiserId={state.advertiser_account_id}
               />
             </div>
           )}

@@ -29,6 +29,10 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // SESI 5E Phase 3b: ImageUpload removed — Default upload UI hidden, per-posisi via Modal
+// SESI 7 (22 Mei 2026): Re-introduce ImageUpload untuk Advertorial cover image
+import ImageUpload from '@/components/ui/ImageUpload';
+// SESI 7 — Rich text editor untuk Advertorial body (BAKABAR-style markdown)
+import MarkdownEditor from '@/components/admin/ads/MarkdownEditor';
 import { useAdForm } from './AdFormProvider';
 // SESI 5E Phase 3b: getPositionMetadata removed — MultiImageSection eliminated
 // SESI 5H Phase 5A.7 (21 Mei 2026): AdFormSectionAnimation DEPRECATED.
@@ -230,43 +234,77 @@ export default function AdFormSectionCreative() {
             </div>
           </div>
 
+          {/* ════════════════════════════════════════════════════════
+              SESI 7 (22 Mei 2026) — Advertorial Cover Image + Caption
+              Cover photo di atas headline saat artikel di-render publik.
+              image_url field di-reuse (existing kolom, no migration).
+              ════════════════════════════════════════════════════════ */}
+          {state.ad_format === 'text' && (
+            <div>
+              <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
+                Foto Depan (Cover) <span className="text-text-subtle">— tampil di atas artikel</span>
+              </label>
+              <ImageUpload
+                bucket="ad-content"
+                onUpload={(urls: string[]) => setField('image_url', urls[0] ?? '')}
+                existingUrls={state.image_url ? [state.image_url] : []}
+                maxFiles={1}
+              />
+              {state.image_url && (
+                <div className="mt-2">
+                  <label className="block text-[10px] font-bold uppercase tracking-wide text-text-muted mb-1">
+                    Caption Foto <span className="text-text-subtle font-normal">(opsional — credit photographer, sumber, dll)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={state.cover_image_caption ?? ''}
+                    onChange={(e) => setField('cover_image_caption', e.target.value.slice(0, 200))}
+                    maxLength={200}
+                    placeholder="contoh: Dok. Pemda Ternate · Foto: Antara/Andika"
+                    className="w-full px-3 py-2 rounded-lg bg-surface border border-border text-[12px] text-text placeholder:text-text-subtle focus:outline-none focus:ring-2 focus:ring-ads/20 focus:border-ads/50 transition-all"
+                  />
+                  <p className="text-[10px] text-text-subtle mt-0.5 text-right">
+                    {(state.cover_image_caption ?? '').length}/200
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Body (advertorial only) */}
           {state.ad_format === 'text' && (
             <div>
               <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
                 Body Advertorial <span className="text-status-critical">*</span>
               </label>
-              <textarea
+              {/* SESI 7 (22 Mei 2026): Replace plain textarea dengan MarkdownEditor.
+                  Markdown support: # H1-H3, **bold**, *italic*, > quote, - list,
+                  [link](url), ![alt](url) gambar. Inline image upload via toolbar
+                  langsung ke bucket 'ad-content'. */}
+              <MarkdownEditor
                 value={state.body}
-                onChange={(e) => setField('body', e.target.value)}
-                rows={8}
-                placeholder="Tulis artikel sponsored di sini. Min 100 karakter, max 5000."
-                className={cn(
-                  'w-full px-3 py-2 rounded-lg bg-surface border text-[13px] text-text leading-relaxed',
-                  'placeholder:text-text-subtle resize-y',
-                  'focus:outline-none focus:ring-2 focus:ring-ads/20 transition-all',
-                  bodyError
-                    ? 'border-status-critical/40 focus:border-status-critical/60'
-                    : 'border-border focus:border-ads/50'
-                )}
+                onChange={(v) => setField('body', v)}
+                bucket="ad-content"
+                folderPrefix={state.advertiser_account_id ?? 'misc'}
+                placeholder="Tulis artikel sponsored di sini. Gunakan toolbar untuk format teks atau tambah gambar inline.
+
+# Judul Bagian
+Paragraf pembuka yang menarik perhatian pembaca...
+
+## Subjudul
+Konten utama dengan **bold** dan *italic*.
+
+- Poin penting 1
+- Poin penting 2
+
+> Kutipan testimoni atau quote menarik.
+
+![alt text gambar](otomatis-terisi-saat-upload)"
+                minLength={100}
+                maxLength={15000}
+                minRows={14}
+                errorMessage={bodyError}
               />
-              <div className="flex items-center justify-between mt-1">
-                {bodyError ? (
-                  <p className="text-[10px] text-status-critical">{bodyError}</p>
-                ) : (
-                  <span className="text-[10px] text-text-subtle">Min 100 chars</span>
-                )}
-                <p
-                  className={cn(
-                    'text-[10px] tabular-nums',
-                    state.body.length < 100 || state.body.length > 5000
-                      ? 'text-status-critical'
-                      : 'text-text-subtle'
-                  )}
-                >
-                  {state.body.length}/5000
-                </p>
-              </div>
             </div>
           )}
 

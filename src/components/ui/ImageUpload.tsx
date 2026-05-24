@@ -22,7 +22,7 @@ import { compressImage, triggerHaptic, isMobile, formatFileSize } from '@/utils/
 import { useToast } from '@/components/ui/Toast';
 
 interface ImageUploadProps {
-  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads' | 'donations' | 'kyc';
+  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads' | 'ad-content' | 'donations' | 'kyc';
   onUpload: (urls: string[]) => void;
   existingUrls?: string[];
   label?: string;
@@ -31,14 +31,17 @@ interface ImageUploadProps {
 }
 
 const BUCKET_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
-  listings:  { maxFiles: 5, maxSizeMB: 3 },
-  articles:  { maxFiles: 1, maxSizeMB: 2 },
-  campaigns: { maxFiles: 1, maxSizeMB: 2 },
-  avatars:   { maxFiles: 1, maxSizeMB: 1 },
-  reports:   { maxFiles: 3, maxSizeMB: 3 },
-  ads:       { maxFiles: 1, maxSizeMB: 0.5 },
-  donations: { maxFiles: 1, maxSizeMB: 5 },
-  kyc:       { maxFiles: 3, maxSizeMB: 5 },
+  listings:    { maxFiles: 5, maxSizeMB: 3 },
+  articles:    { maxFiles: 1, maxSizeMB: 2 },
+  campaigns:   { maxFiles: 1, maxSizeMB: 2 },
+  avatars:     { maxFiles: 1, maxSizeMB: 1 },
+  reports:     { maxFiles: 3, maxSizeMB: 3 },
+  ads:         { maxFiles: 1, maxSizeMB: 0.5 },
+  // SESI 7 (22 Mei 2026) — Advertorial cover + inline images.
+  // 2MB limit untuk quality hero image + multiple inline images.
+  'ad-content':{ maxFiles: 1, maxSizeMB: 2 },
+  donations:   { maxFiles: 1, maxSizeMB: 5 },
+  kyc:         { maxFiles: 3, maxSizeMB: 5 },
 };
 
 const supportsPdf = (bucket: string) => bucket === 'donations';
