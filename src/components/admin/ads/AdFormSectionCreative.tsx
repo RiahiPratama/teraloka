@@ -6,13 +6,16 @@
  * ------------------------------------------------------------
  * Section 2 form: Konten Kreatif.
  * Fields:
- *   - ad_format (radio: image / text)
+ *   - ad_format (radio: image / text / animated)
  *   - title (required)
  *   - body (textarea, required kalau ad_format=text)
  *   - image_url (ImageUpload, required kalau ad_format=image)
  *   - link_url (required)
  *   - disclaimer_text (required kalau advertiser_type=politisi & ad_format=text)
  *   - slug (auto-generate dari title, editable manual)
+ *
+ * SESI 10 (24 Mei 2026) — Sub-Phase B GIF Support:
+ *   Banner info card update — disebut GIF support untuk format image.
  */
 
 import { useState, useEffect } from 'react';
@@ -145,7 +148,7 @@ export default function AdFormSectionCreative() {
                     <span className="text-[12px] font-bold text-text">Image</span>
                   </div>
                   <p className="text-[10px] text-text-muted mt-0.5">
-                    Banner/native dengan gambar — paling umum
+                    Banner/native — static (JPG/PNG/WebP) atau GIF animasi
                   </p>
                 </div>
               </label>
@@ -338,7 +341,9 @@ Konten utama dengan **bold** dan *italic*.
           {/* SESI 5E Phase 3b: Default Image Upload UI HIDDEN.
               Per-position upload udah dihandle di Modal Targeting cards.
               state.image_url tetap ada di state untuk backward compat (legacy ads).
-              Info banner inform admin untuk upload via Targeting modal. */}
+              Info banner inform admin untuk upload via Targeting modal.
+              
+              SESI 10 Sub-Phase B (24 Mei 2026): GIF support info ditambahkan. */}
           {state.ad_format === 'image' && (
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-ads/5 border border-ads/30">
               <ImageIcon size={14} className="text-ads shrink-0 mt-0.5" />
@@ -349,8 +354,18 @@ Konten utama dengan **bold** dan *italic*.
                 <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
                   Centang posisi tayang di section <strong>Targeting</strong> di bawah,
                   lalu klik <strong>+ Upload Banner</strong> di posisi yang dipilih.
-                  Setiap posisi bisa punya banner sendiri (static atau DCA rotate).
+                  Setiap posisi bisa punya banner sendiri.
                 </p>
+                {/* SESI 10 Sub-Phase B — GIF support hint */}
+                <div className="mt-2 pt-2 border-t border-ads/20 flex items-start gap-1.5">
+                  <Sparkles size={11} className="text-ads shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-text-muted leading-relaxed">
+                    <strong className="text-text">Static</strong> (JPG/PNG/WebP, maks 500KB) untuk banner standar.
+                    <br />
+                    <strong className="text-text">GIF animasi</strong> (maks 2MB) untuk banner dinamis ala Kumparan —
+                    upload langsung, animasi auto-render di public.
+                  </p>
+                </div>
               </div>
             </div>
           )}

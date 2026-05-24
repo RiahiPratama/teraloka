@@ -3,6 +3,7 @@
 /**
  * TeraLoka — PositionCreativeModal
  * SESI 5E Phase 3a (19 Mei 2026) — Position-First DCA Workflow
+ * SESI 10 Sub-Phase B (24 Mei 2026) — GIF support di STATIC mode
  * ────────────────────────────────────────────────────────────────
  * Modal popup untuk edit creative spesifik per-posisi.
  *
@@ -10,8 +11,17 @@
  * di sebuah position card.
  *
  * Modes:
- *   - STATIC: 1 image per posisi (commit ke state.images[positionKey])
- *   - DCA:    2-5 variants rotate (commit ke state.position_frames[positionKey])
+ *   - STATIC:   1 image per posisi (commit ke state.images[positionKey])
+ *               → Support static (JPG/PNG/WebP 500KB) ATAU GIF animasi (2MB)
+ *   - DCA:      2-5 variants rotate (commit ke state.position_frames[positionKey])
+ *               → Static only (rotation animation = JS-driven, GIF redundant)
+ *   - ANIMATED: GSAP timeline per posisi (premium tier)
+ *               → Static only (GSAP overlay on static, GIF = double animation chaos)
+ *
+ * Paradigm separation:
+ *   STATIC      = quick banner (incl. GIF Kumparan-style)
+ *   DCA         = code-driven multi-message rotation
+ *   ANIMATED    = code-driven custom animation (GSAP)
  *
  * Backward compat:
  *   - Modal opsional. Admin tetap bisa pakai Section Creative + Section DCA legacy.
@@ -386,6 +396,12 @@ export default function PositionCreativeModal({
         {/* ── BODY ── */}
         <div className="p-5">
           {/* ─── STATIC MODE ─── */}
+          {/* SESI 10 Sub-Phase B: Support GIF animasi up to 2MB.
+              Sebelumnya hardcode maxSizeMB={0.5} → block GIF.
+              Sekarang remove override → inherit BUCKET_LIMITS.ads:
+                static (JPG/PNG/WebP) capped 0.5MB via staticMaxSizeMB
+                GIF capped 2MB via maxSizeMB
+              Per-MIME validation di ImageUpload v3. */}
           {mode === 'static' && (
             <div>
               <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 block">
@@ -395,7 +411,6 @@ export default function PositionCreativeModal({
               <ImageUpload
                 bucket="ads"
                 maxFiles={1}
-                maxSizeMB={0.5}
                 existingUrls={existingImage ? [existingImage] : []}
                 onUpload={(urls) => {
                   const url = urls[0] ?? '';
@@ -403,6 +418,23 @@ export default function PositionCreativeModal({
                 }}
                 label={`Upload ${meta.label} (${getRecommendedDimForFormat(meta, state.ad_format)})`}
               />
+
+              {/* SESI 10 Sub-Phase B: GIF support hint */}
+              <div className="flex items-start gap-2 mt-3 p-3 rounded-lg bg-ads/5 border border-ads/30">
+                <Sparkles size={12} className="text-ads shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-text">
+                    Static atau GIF animasi
+                  </p>
+                  <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                    <strong>JPG/PNG/WebP</strong> (maks 500KB) untuk banner standar.
+                    <br />
+                    <strong>GIF</strong> (maks 2MB) untuk banner dinamis ala Kumparan —
+                    animasi auto-play di public.
+                  </p>
+                </div>
+              </div>
+
               <div className="flex items-start gap-2 mt-3 p-3 rounded-lg bg-status-info/8 border border-status-info/30">
                 <Info size={12} className="text-status-info shrink-0 mt-0.5" />
                 <p className="text-[11px] text-status-info leading-relaxed">
@@ -414,6 +446,11 @@ export default function PositionCreativeModal({
           )}
 
           {/* ─── DCA MODE ─── */}
+          {/* SESI 10 Sub-Phase B: DCA tetap static-only by design.
+              Reasoning: DCA = JS-driven rotation antar static frames.
+              GIF dalam DCA frame = "apakah ini rotate atau play?" → confusion.
+              Paradigm separation: STATIC=GIF entry, DCA=static rotation,
+              ANIMATED=GSAP timeline. maxSizeMB={0.5} preserved di frame upload. */}
           {mode === 'dca' && (
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -469,7 +506,7 @@ export default function PositionCreativeModal({
 
                     {/* Frame fields */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      {/* Image */}
+                      {/* Image — DCA paradigm static-only, cap 0.5MB hardcode */}
                       <div className="md:col-span-1">
                         <label className="text-[10px] font-bold text-text-muted block mb-1">
                           Image *

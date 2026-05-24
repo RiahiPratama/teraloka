@@ -1,18 +1,21 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// IMAGE UPLOAD v2 — PWA Mobile-First
+// IMAGE UPLOAD v3 — PWA Mobile-First + GIF Support
 // ────────────────────────────────────────────────────────────────
-// Upgrade dari v1:
-//   ✅ Camera capture (capture="environment") — langsung snap dari HP
-//   ✅ Tombol Galeri terpisah — clear UX untuk gaptek user
-//   ✅ Client-side compression (Balanced: 1920px / 85%)
-//   ✅ PDF di-tucked ke "Lainnya" expandable (donations bucket only)
-//   ✅ Per-file progress + retry
-//   ✅ Haptic feedback on success/error
-//   ✅ Toast notifications (replace alert)
-//   ✅ Drag-drop di desktop, button-based di mobile
-//   ✅ Smart hint: "📸 Snap langsung dari HP-mu"
+// SESI 10 (24 Mei 2026) — Phase 1 Sub-Phase B
+//
+// Upgrade dari v2:
+//   ✅ GIF support untuk bucket 'ads' (animasi banner Kumparan-style)
+//   ✅ Skip canvas compression untuk GIF (preserve animation frames)
+//   ✅ Per-MIME size limit: GIF 2MB, static 500KB di bucket ads
+//   ✅ Per-bucket MIME accept map (selective GIF allowance)
+//   ✅ UI hint adaptive per bucket
+//
+// Backward compat:
+//   ✅ Existing buckets (listings, articles, etc) tetap static-only
+//   ✅ Existing maxSizeMB prop override masih honored
+//   ✅ Camera capture tetap static (kamera HP gak capture GIF)
 // ════════════════════════════════════════════════════════════════
 
 import { useState, useRef, useEffect } from 'react';
@@ -21,8 +24,19 @@ import { FileText, X, Camera, Image as ImageIcon, Loader2, ChevronDown, RefreshC
 import { compressImage, triggerHaptic, isMobile, formatFileSize } from '@/utils/pwa-utils';
 import { useToast } from '@/components/ui/Toast';
 
+type BucketName =
+  | 'listings'
+  | 'articles'
+  | 'campaigns'
+  | 'avatars'
+  | 'reports'
+  | 'ads'
+  | 'ad-content'
+  | 'donations'
+  | 'kyc';
+
 interface ImageUploadProps {
-  bucket: 'listings' | 'articles' | 'campaigns' | 'avatars' | 'reports' | 'ads' | 'ad-content' | 'donations' | 'kyc';
+  bucket: BucketName;
   onUpload: (urls: string[]) => void;
   existingUrls?: string[];
   label?: string;
@@ -30,18 +44,47 @@ interface ImageUploadProps {
   maxSizeMB?: number;
 }
 
-const BUCKET_LIMITS: Record<string, { maxFiles: number; maxSizeMB: number }> = {
+interface BucketConfig {
+  maxFiles: number;
+  maxSizeMB: number;          // bucket cap (untuk GIF / file terbesar yang allowed)
+  staticMaxSizeMB?: number;   // override khusus untuk static image (kalau bucket support GIF)
+}
+
+const BUCKET_LIMITS: Record<BucketName, BucketConfig> = {
   listings:    { maxFiles: 5, maxSizeMB: 3 },
   articles:    { maxFiles: 1, maxSizeMB: 2 },
   campaigns:   { maxFiles: 1, maxSizeMB: 2 },
   avatars:     { maxFiles: 1, maxSizeMB: 1 },
   reports:     { maxFiles: 3, maxSizeMB: 3 },
-  ads:         { maxFiles: 1, maxSizeMB: 0.5 },
+  // SESI 10 Sub-Phase B (24 Mei 2026):
+  // GIF up to 2MB untuk banner dinamis; static tetap 500KB strict (page speed discipline).
+  ads:         { maxFiles: 1, maxSizeMB: 2, staticMaxSizeMB: 0.5 },
   // SESI 7 (22 Mei 2026) — Advertorial cover + inline images.
   // 2MB limit untuk quality hero image + multiple inline images.
+  // Cover = photographic content, GIF tidak relevan.
   'ad-content':{ maxFiles: 1, maxSizeMB: 2 },
   donations:   { maxFiles: 1, maxSizeMB: 5 },
   kyc:         { maxFiles: 3, maxSizeMB: 5 },
+};
+
+// ────────────────────────────────────────────────────────────────
+// MIME accept per bucket — SELECTIVE GIF allowance.
+// Hanya bucket 'ads' yang accept GIF (banner dinamis).
+// Bucket lain static-only untuk discipline & photographic context.
+// ────────────────────────────────────────────────────────────────
+const STATIC_MIMES = 'image/jpeg,image/png,image/webp';
+const GIF_MIMES    = 'image/jpeg,image/png,image/webp,image/gif';
+
+const MIME_BY_BUCKET: Record<BucketName, string> = {
+  listings:    STATIC_MIMES,
+  articles:    STATIC_MIMES,
+  campaigns:   STATIC_MIMES,
+  avatars:     STATIC_MIMES,
+  reports:     STATIC_MIMES,
+  ads:         GIF_MIMES,      // ✅ GIF allowed di bucket ads
+  'ad-content':STATIC_MIMES,
+  donations:   STATIC_MIMES,
+  kyc:         STATIC_MIMES,
 };
 
 const supportsPdf = (bucket: string) => bucket === 'donations';
@@ -52,6 +95,7 @@ const supportsPdf = (bucket: string) => bucket === 'donations';
 const EMPTY_URLS: string[] = [];
 
 const isPdfUrl = (url: string) => url.toLowerCase().endsWith('.pdf');
+const isGifFile = (file: File) => file.type === 'image/gif';
 
 interface UploadingFile {
   id: string;
@@ -74,6 +118,8 @@ export default function ImageUpload({
   const _maxFiles  = maxFiles  ?? limits.maxFiles;
   const _maxSizeMB = maxSizeMB ?? limits.maxSizeMB;
   const _supportsPdf = supportsPdf(bucket);
+  const _supportsGif = MIME_BY_BUCKET[bucket].includes('image/gif');
+  const _galleryAccept = MIME_BY_BUCKET[bucket];
 
   const { toast } = useToast();
   const [urls, setUrls] = useState<string[]>(existingUrls);
@@ -102,6 +148,17 @@ export default function ImageUpload({
 
   const canAddMore = urls.length + uploading.length < _maxFiles;
 
+  // ─── Compute per-file effective size limit ────────────────────
+  // Priority:
+  //   1. User-provided maxSizeMB prop (explicit override) — wins for both GIF & static
+  //   2. GIF: gunakan bucket maxSizeMB (cap besar)
+  //   3. Static: gunakan staticMaxSizeMB kalau ada, else maxSizeMB
+  function getEffectiveLimit(file: File): number {
+    if (maxSizeMB !== undefined) return maxSizeMB;
+    if (isGifFile(file)) return limits.maxSizeMB;
+    return limits.staticMaxSizeMB ?? limits.maxSizeMB;
+  }
+
   // ─── Core upload logic ────────────────────────────────────────
 
   async function processFile(file: File): Promise<string | null> {
@@ -110,8 +167,17 @@ export default function ImageUpload({
     // Validate type
     const isPdf = file.type === 'application/pdf';
     const isImg = file.type.startsWith('image/');
+    const isGif = isGifFile(file);
+
     if (!isImg && !(_supportsPdf && isPdf)) {
       toast.error(`Format tidak didukung: ${file.name}`);
+      triggerHaptic('error');
+      return null;
+    }
+
+    // ⛔ GIF di bucket non-ads → reject explicit (defense in depth, walaupun accept attr seharusnya filter)
+    if (isGif && !_supportsGif) {
+      toast.error(`GIF tidak didukung di bucket "${bucket}". Gunakan JPG/PNG/WebP.`);
       triggerHaptic('error');
       return null;
     }
@@ -120,16 +186,20 @@ export default function ImageUpload({
     setUploading(prev => [...prev, { id, name: file.name, status: 'compressing', progress: 0, file }]);
 
     try {
-      // 1. Compress (skip for PDF)
+      // 1. Compress (skip for PDF + skip for GIF)
+      // ⚠️ KRITIS: GIF tidak boleh di-compress via canvas — animasi akan hilang
+      //           (canvas render = frame pertama only).
       let processedFile = file;
-      if (isImg) {
+      if (isImg && !isGif) {
         processedFile = await compressImage(file);
       }
 
       // Validate size AFTER compression
-      if (processedFile.size > _maxSizeMB * 1024 * 1024) {
+      const effectiveLimit = getEffectiveLimit(processedFile);
+      if (processedFile.size > effectiveLimit * 1024 * 1024) {
         const sizeStr = formatFileSize(processedFile.size);
-        const msg = `File terlalu besar (${sizeStr}). Maks ${_maxSizeMB}MB.`;
+        const formatLabel = isGif ? 'GIF animasi' : 'gambar statis';
+        const msg = `File terlalu besar (${sizeStr}). Maks ${effectiveLimit}MB untuk ${formatLabel}.`;
         setUploading(prev => prev.map(u => u.id === id ? { ...u, status: 'error', error: msg } : u));
         toast.error(msg);
         triggerHaptic('error');
@@ -139,6 +209,11 @@ export default function ImageUpload({
       // PDF size warning (non-blocking)
       if (isPdf && processedFile.size > 1024 * 1024) {
         toast.warning('File PDF cukup besar, upload mungkin agak lama di koneksi lambat');
+      }
+
+      // GIF size warning (non-blocking, untuk awareness page speed)
+      if (isGif && processedFile.size > 1024 * 1024) {
+        toast.warning('GIF >1MB akan lebih lambat dimuat di koneksi lambat. Optimalkan kalau perlu.');
       }
 
       // 2. Upload to Supabase
@@ -200,13 +275,17 @@ export default function ImageUpload({
     const updated = urls.filter(u => u !== url);
     setUrls(updated);
     onUpload(updated);
-    triggerHaptic('tap');
   }
 
-  function handleRetry(uploadingFile: UploadingFile) {
-    if (!uploadingFile.file) return;
-    setUploading(prev => prev.filter(u => u.id !== uploadingFile.id));
-    processFile(uploadingFile.file).then(url => {
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    handleFiles(e.dataTransfer.files);
+  }
+
+  function handleRetry(u: UploadingFile) {
+    if (!u.file) return;
+    setUploading(prev => prev.filter(item => item.id !== u.id));
+    processFile(u.file).then(url => {
       if (url) {
         const updated = [...urls, url];
         setUrls(updated);
@@ -219,11 +298,28 @@ export default function ImageUpload({
     setUploading(prev => prev.filter(u => u.id !== id));
   }
 
-  // ─── Drag-drop (desktop only) ─────────────────────────────────
-
-  function handleDrop(e: React.DragEvent<HTMLDivElement>) {
-    e.preventDefault();
-    handleFiles(e.dataTransfer.files);
+  // ─── Helper text formatter ─────────────────────────────────────
+  // Bucket dengan GIF support: tampilkan 2-line hint (static + GIF)
+  // Bucket static-only: tampilkan 1-line hint (existing pattern)
+  function renderFormatHint() {
+    if (_supportsGif) {
+      const staticCap = limits.staticMaxSizeMB ?? limits.maxSizeMB;
+      const gifCap = limits.maxSizeMB;
+      return (
+        <>
+          <p className="text-xs text-gray-400">
+            JPG/PNG/WebP <strong>{staticCap}MB</strong> · GIF animasi <strong>{gifCap}MB</strong>
+            {_maxFiles > 1 && ` · hingga ${_maxFiles} file`}
+          </p>
+        </>
+      );
+    }
+    return (
+      <p className="text-xs text-gray-400">
+        JPG, PNG, atau WebP · maks {_maxSizeMB}MB
+        {_maxFiles > 1 && ` · hingga ${_maxFiles} file`}
+      </p>
+    );
   }
 
   // ─── Render ───────────────────────────────────────────────────
@@ -349,10 +445,7 @@ export default function ImageUpload({
                 <p className="text-xs text-gray-600 font-semibold">
                   Klik atau drag file ke sini
                 </p>
-                <p className="text-xs text-gray-400">
-                  JPG, PNG, atau WebP · maks {_maxSizeMB}MB
-                  {_maxFiles > 1 && ` · hingga ${_maxFiles} file`}
-                </p>
+                {renderFormatHint()}
               </div>
             </div>
           )}
@@ -361,6 +454,7 @@ export default function ImageUpload({
           {mobile && (
             <p className="text-xs text-gray-500 text-center mt-2">
               📸 Snap langsung pakai kamera HP-mu, atau pilih foto yang ada di galeri
+              {_supportsGif && ' · GIF animasi dari galeri'}
             </p>
           )}
 
@@ -399,18 +493,20 @@ export default function ImageUpload({
       )}
 
       {/* Hidden inputs */}
+      {/* Camera: static only — kamera HP tidak capture GIF */}
       <input
         ref={cameraInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={STATIC_MIMES}
         capture="environment"
         onChange={(e) => handleFiles(e.target.files)}
         className="hidden"
       />
+      {/* Gallery: per-bucket MIME — bucket ads include GIF */}
       <input
         ref={galleryInputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp"
+        accept={_galleryAccept}
         multiple={_maxFiles > 1}
         onChange={(e) => handleFiles(e.target.files)}
         className="hidden"
