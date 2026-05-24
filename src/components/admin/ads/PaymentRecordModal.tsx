@@ -35,6 +35,7 @@ import { useState, useEffect, useRef } from 'react';
 import {
   Wallet, X, AlertTriangle, Loader2, Building2, Banknote,
   Smartphone, CreditCard, Calendar, Link2, MessageSquareWarning,
+  Gift, // SESI 9 Sub-Phase A — Complimentary
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
@@ -97,6 +98,66 @@ const METHODS: Array<{
   { value: 'lainnya',  label: 'Lainnya',   icon: CreditCard },
 ];
 
+// ═══════════════════════════════════════════════════════════════
+// SESI 9 Sub-Phase A (24 Mei 2026) — Complimentary types
+// ═══════════════════════════════════════════════════════════════
+
+type ComplimentaryCategory =
+  | 'founder_business'
+  | 'strategic_partnership'
+  | 'community_grant'
+  | 'pilot_test'
+  | 'internal_dogfood';
+
+const COMPLIMENTARY_CATEGORIES: Array<{
+  value: ComplimentaryCategory;
+  label: string;
+  description: string;
+  reasonOptional: boolean;
+}> = [
+  {
+    value: 'founder_business',
+    label: 'Bisnis Founder',
+    description: 'Edukazia, BMK, bisnis founder/spouse',
+    reasonOptional: true,
+  },
+  {
+    value: 'strategic_partnership',
+    label: 'Partnership Strategis',
+    description: 'NGO partnership, foundation deal',
+    reasonOptional: false,
+  },
+  {
+    value: 'community_grant',
+    label: 'Community Grant',
+    description: 'Yayasan/komunitas, gratis untuk dampak sosial',
+    reasonOptional: false,
+  },
+  {
+    value: 'pilot_test',
+    label: 'Pilot Test',
+    description: 'Test feature dengan advertiser real',
+    reasonOptional: false,
+  },
+  {
+    value: 'internal_dogfood',
+    label: 'Internal Promo',
+    description: 'TeraLoka self-promotion',
+    reasonOptional: true,
+  },
+];
+
+interface GrantComplimentaryResponse {
+  success: boolean;
+  data?: {
+    ad_id:         string;
+    category:      ComplimentaryCategory;
+    granted_at:    string;
+    money_emitted: boolean;
+  };
+  error?: { code: string; message: string };
+}
+
 function todayISO(): string {
   return new Date().toISOString().split('T')[0]!; // YYYY-MM-DD
 }
@@ -118,6 +179,14 @@ export default function PaymentRecordModal({
   const [proofUrl, setProofUrl]             = useState<string>('');
   const [auditPending, setAuditPending]     = useState<boolean>(false);
   const [notes, setNotes]                   = useState<string>('');
+
+  // SESI 9 Sub-Phase A — Complimentary state
+  const [isComplimentary, setIsComplimentary]
+                                            = useState<boolean>(false);
+  const [complimentaryCategory, setComplimentaryCategory]
+                                            = useState<ComplimentaryCategory>('founder_business');
+  const [complimentaryReason, setComplimentaryReason]
+                                            = useState<string>('');
 
   // Bank dropdown state
   const [banks, setBanks]                   = useState<BankAccountDropdown[]>([]);
@@ -172,6 +241,10 @@ export default function PaymentRecordModal({
       setProofUrl('');
       setAuditPending(false);
       setNotes('');
+      // SESI 9 Sub-Phase A — Reset complimentary state
+      setIsComplimentary(false);
+      setComplimentaryCategory('founder_business');
+      setComplimentaryReason('');
       setError(null);
       setLoading(false);
     }
@@ -209,6 +282,68 @@ export default function PaymentRecordModal({
   const handleSubmit = async () => {
     setError(null);
 
+    if (!token) {
+      setError('Session expired, login ulang');
+      return;
+    }
+
+    // ═══ SESI 9 Sub-Phase A: BRANCH 1 — Complimentary flow ═══
+    if (isComplimentary) {
+      const catMeta = COMPLIMENTARY_CATEGORIES.find(
+        (c) => c.value === complimentaryCategory,
+      )!;
+      const reasonRequired = !catMeta.reasonOptional;
+      const reasonText = complimentaryReason.trim();
+
+      if (reasonRequired && reasonText.length === 0) {
+        setError(
+          `Alasan wajib diisi untuk kategori "${catMeta.label}". ` +
+          `Alasan opsional hanya untuk: Bisnis Founder, Internal Promo.`,
+        );
+        return;
+      }
+
+      const payload: Record<string, any> = {
+        category: complimentaryCategory,
+        reason:   reasonText.length > 0 ? reasonText : null,
+        notes:    notes.trim() || null,
+      };
+
+      setLoading(true);
+      try {
+        const res = await fetch(
+          `${API}/admin/ads/${ad.id}/grant-complimentary`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          },
+        );
+        const json: GrantComplimentaryResponse = await res.json();
+
+        if (!json.success || !json.data) {
+          const msg = json.error?.message ?? 'Gagal grant complimentary';
+          setError(msg);
+          setLoading(false);
+          return;
+        }
+
+        onSuccess(
+          `🎁 Complimentary tercatat: ${catMeta.label} (Rp 0)`,
+        );
+        onClose();
+      } catch (err: any) {
+        setError(err?.message ?? 'Network error — cek koneksi internet');
+        setLoading(false);
+      }
+      return;
+    }
+
+    // ═══ BRANCH 2 — Paid payment flow (existing) ═══
+
     // Validation
     const priceNum = Number(pricePaid.replace(/[^\d]/g, ''));
     if (!priceNum || priceNum <= 0) {
@@ -226,11 +361,6 @@ export default function PaymentRecordModal({
 
     if (method === 'transfer' && !bankAccountId) {
       setError('Pilih rekening penerima untuk metode transfer');
-      return;
-    }
-
-    if (!token) {
-      setError('Session expired, login ulang');
       return;
     }
 
@@ -337,12 +467,17 @@ export default function PaymentRecordModal({
         {/* ─── Header ─── */}
         <div className="flex items-start justify-between gap-3 p-5 border-b border-border shrink-0">
           <div className="flex items-start gap-3 min-w-0">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-status-healthy/12 text-status-healthy shrink-0">
-              <Wallet size={18} />
+            <div className={cn(
+              "flex items-center justify-center w-10 h-10 rounded-lg shrink-0 transition-colors",
+              isComplimentary
+                ? "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400"
+                : "bg-status-healthy/12 text-status-healthy"
+            )}>
+              {isComplimentary ? <Gift size={18} /> : <Wallet size={18} />}
             </div>
             <div className="min-w-0">
               <h2 className="text-[15px] font-extrabold text-text leading-tight">
-                Catat Pembayaran
+                {isComplimentary ? 'Grant Complimentary' : 'Catat Pembayaran'}
               </h2>
               <p className="text-[11px] text-text-muted mt-1 line-clamp-2">
                 <span className="font-semibold text-text">{adTitle}</span>
@@ -364,6 +499,144 @@ export default function PaymentRecordModal({
 
         {/* ─── Body (scrollable) ─── */}
         <div className="p-5 flex flex-col gap-4 overflow-y-auto flex-1">
+
+          {/* SESI 9 Sub-Phase A — Complimentary Toggle */}
+          <div className={cn(
+            "rounded-lg border-2 transition-colors",
+            isComplimentary
+              ? "bg-amber-50 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700/50"
+              : "bg-surface-muted border-border"
+          )}>
+            <label className="flex items-start gap-3 p-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isComplimentary}
+                onChange={(e) => setIsComplimentary(e.target.checked)}
+                disabled={loading}
+                className="mt-0.5 w-4 h-4 accent-amber-600 cursor-pointer disabled:opacity-50"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Gift size={14} className={cn(
+                    "shrink-0",
+                    isComplimentary ? "text-amber-700" : "text-text-muted"
+                  )} />
+                  <span className={cn(
+                    "text-[13px] font-bold",
+                    isComplimentary ? "text-amber-900 dark:text-amber-200" : "text-text"
+                  )}>
+                    Tandai sebagai Complimentary (Rp 0)
+                  </span>
+                </div>
+                <p className="text-[11px] text-text-muted mt-1 leading-relaxed">
+                  Ad gratis untuk advertiser tertentu (bisnis founder, partnership strategis,
+                  community grant, pilot test, atau internal promo). Money event tetap di-record
+                  dengan amount Rp 0 untuk audit trail.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          {/* ═══ COMPLIMENTARY FIELDS (visible when toggled ON) ═══ */}
+          {isComplimentary && (
+            <>
+              {/* Category Selector */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
+                  Kategori Complimentary <span className="text-status-critical">*</span>
+                </label>
+                <div className="flex flex-col gap-1.5">
+                  {COMPLIMENTARY_CATEGORIES.map((cat) => (
+                    <label
+                      key={cat.value}
+                      className={cn(
+                        "flex items-start gap-2.5 p-2.5 rounded-lg border cursor-pointer transition-colors",
+                        complimentaryCategory === cat.value
+                          ? "bg-amber-100/50 dark:bg-amber-950/30 border-amber-400 dark:border-amber-600"
+                          : "bg-surface-muted border-border hover:border-amber-300"
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="complimentary_category"
+                        value={cat.value}
+                        checked={complimentaryCategory === cat.value}
+                        onChange={() => setComplimentaryCategory(cat.value)}
+                        disabled={loading}
+                        className="mt-0.5 accent-amber-600 cursor-pointer disabled:opacity-50"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-[12px] font-bold text-text">
+                            {cat.label}
+                          </span>
+                          {cat.reasonOptional && (
+                            <span className="text-[9px] font-semibold text-amber-700 bg-amber-100 dark:bg-amber-950/40 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                              Alasan opsional
+                            </span>
+                          )}
+                          {!cat.reasonOptional && (
+                            <span className="text-[9px] font-semibold text-status-critical bg-status-critical/10 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                              Alasan wajib
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-text-muted mt-0.5">
+                          {cat.description}
+                        </p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Reason Textarea */}
+              {(() => {
+                const catMeta = COMPLIMENTARY_CATEGORIES.find(
+                  (c) => c.value === complimentaryCategory,
+                )!;
+                const isRequired = !catMeta.reasonOptional;
+                return (
+                  <div>
+                    <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
+                      Alasan {isRequired
+                        ? <span className="text-status-critical">*</span>
+                        : <span className="text-text-muted font-normal normal-case tracking-normal">(opsional)</span>}
+                    </label>
+                    <textarea
+                      value={complimentaryReason}
+                      onChange={(e) => setComplimentaryReason(e.target.value)}
+                      placeholder={isRequired
+                        ? "Jelaskan alasan kenapa ad ini diberikan gratis..."
+                        : "(Opsional) Konteks tambahan untuk audit trail..."
+                      }
+                      rows={3}
+                      disabled={loading}
+                      className="w-full px-3 py-2 text-[13px] text-text bg-surface-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/60 disabled:opacity-50 resize-none"
+                    />
+                  </div>
+                );
+              })()}
+
+              {/* Notes (shared dengan paid flow) */}
+              <div>
+                <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
+                  Notes Internal (opsional)
+                </label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  placeholder="Catatan admin internal..."
+                  rows={2}
+                  disabled={loading}
+                  className="w-full px-3 py-2 text-[13px] text-text bg-surface-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500/60 disabled:opacity-50 resize-none"
+                />
+              </div>
+            </>
+          )}
+
+          {/* ═══ PAID PAYMENT FIELDS (hidden when complimentary) ═══ */}
+          {!isComplimentary && <>
 
           {/* Price Paid */}
           <div>
@@ -559,6 +832,9 @@ export default function PaymentRecordModal({
             />
           </div>
 
+          </>}
+          {/* ═══ END PAID FIELDS ═══ */}
+
           {/* Error display */}
           {error && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-status-critical/8 border border-status-critical/20">
@@ -569,12 +845,28 @@ export default function PaymentRecordModal({
             </div>
           )}
 
-          {/* Info box */}
-          <div className="flex items-start gap-2 p-3 rounded-lg bg-status-info/8 border border-status-info/20">
-            <AlertTriangle size={13} className="text-status-info shrink-0 mt-0.5" />
-            <p className="text-[10px] text-status-info leading-relaxed">
-              Pembayaran tercatat → status iklan tetap (admin pakai action terpisah untuk activate).
-              Revenue masuk ke <strong>Dashboard Financial</strong>.
+          {/* Info box — conditional message */}
+          <div className={cn(
+            "flex items-start gap-2 p-3 rounded-lg border",
+            isComplimentary
+              ? "bg-amber-100/40 dark:bg-amber-950/20 border-amber-300 dark:border-amber-700/40"
+              : "bg-status-info/8 border-status-info/20"
+          )}>
+            <AlertTriangle size={13} className={cn(
+              "shrink-0 mt-0.5",
+              isComplimentary ? "text-amber-700 dark:text-amber-400" : "text-status-info"
+            )} />
+            <p className={cn(
+              "text-[10px] leading-relaxed",
+              isComplimentary ? "text-amber-800 dark:text-amber-300" : "text-status-info"
+            )}>
+              {isComplimentary ? (
+                <>Complimentary ad → Money event <code className="font-mono bg-amber-200/40 dark:bg-amber-950/40 px-1 rounded">ad.complimentary_granted</code> emit
+                  dengan amount Rp 0. Tracked di <strong>Dashboard Financial</strong> sebagai operational metric (bukan revenue).</>
+              ) : (
+                <>Pembayaran tercatat → status iklan tetap (admin pakai action terpisah untuk activate).
+                  Revenue masuk ke <strong>Dashboard Financial</strong>.</>
+              )}
             </p>
           </div>
         </div>
@@ -592,10 +884,12 @@ export default function PaymentRecordModal({
           <button
             type="button"
             onClick={handleSubmit}
-            disabled={loading || priceNumeric === 0}
+            disabled={loading || (!isComplimentary && priceNumeric === 0)}
             className={cn(
               'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-bold uppercase tracking-wide transition-all',
-              'bg-status-healthy text-white hover:bg-status-healthy/90',
+              isComplimentary
+                ? 'bg-amber-600 text-white hover:bg-amber-700'
+                : 'bg-status-healthy text-white hover:bg-status-healthy/90',
               'disabled:opacity-50 disabled:cursor-not-allowed'
             )}
           >
@@ -603,6 +897,11 @@ export default function PaymentRecordModal({
               <>
                 <Loader2 size={13} className="animate-spin" />
                 Memproses...
+              </>
+            ) : isComplimentary ? (
+              <>
+                <Gift size={13} />
+                Grant Complimentary
               </>
             ) : (
               <>

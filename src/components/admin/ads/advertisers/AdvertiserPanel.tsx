@@ -55,7 +55,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/
 
 // ─── Types ───────────────────────────────────────────────────
 
-export type AccountType = 'umkm' | 'local_corporate' | 'premium' | 'politik' | 'pemerintah';
+export type AccountType = 'umkm' | 'local_corporate' | 'premium' | 'politik' | 'pemerintah' | 'internal';
 export type AdvertiserStatus = 'active' | 'suspended' | 'banned';
 
 export interface Advertiser {
@@ -104,6 +104,7 @@ const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   premium:         'Premium',
   politik:         'Politik',
   pemerintah:      'Pemerintah',
+  internal:        'Internal',         // SESI 9 Sub-Phase A.5 — Owner business + TeraLoka self-promo
 };
 
 const ACCOUNT_TYPE_COLOR: Record<AccountType, string> = {
@@ -112,6 +113,7 @@ const ACCOUNT_TYPE_COLOR: Record<AccountType, string> = {
   premium:         'bg-bakabar/12 text-bakabar',
   politik:         'bg-balapor/12 text-balapor',
   pemerintah:      'bg-baronda/12 text-baronda',
+  internal:        'bg-amber-500/15 text-amber-700 dark:text-amber-400', // SESI 9 Sub-Phase A.5
 };
 
 export default function AdvertiserPanel() {
@@ -324,6 +326,7 @@ export default function AdvertiserPanel() {
               <option value="premium">Premium</option>
               <option value="politik">Politik</option>
               <option value="pemerintah">Pemerintah</option>
+              <option value="internal">Internal</option>
             </select>
 
             {/* Status Filter */}

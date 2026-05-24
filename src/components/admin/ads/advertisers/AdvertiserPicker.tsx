@@ -64,6 +64,7 @@ const ACCOUNT_TYPE_LABEL: Record<AccountType, string> = {
   premium:         'Premium',
   politik:         'Politik',
   pemerintah:      'Pemerintah',
+  internal:        'Internal',         // SESI 9 Sub-Phase A.5
 };
 
 const ACCOUNT_TYPE_COLOR: Record<AccountType, string> = {
@@ -72,6 +73,7 @@ const ACCOUNT_TYPE_COLOR: Record<AccountType, string> = {
   premium:         'bg-bakabar/12 text-bakabar',
   politik:         'bg-balapor/12 text-balapor',
   pemerintah:      'bg-baronda/12 text-baronda',
+  internal:        'bg-amber-500/15 text-amber-700 dark:text-amber-400', // SESI 9 Sub-Phase A.5
 };
 
 // Status hierarchy: active first, then suspended, then banned

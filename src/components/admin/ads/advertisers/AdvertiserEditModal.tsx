@@ -101,6 +101,9 @@ const ACCOUNT_TYPES: { value: AccountType; label: string; desc: string; colorCla
   { value: 'premium',         label: 'Premium',         desc: 'Enterprise besar',          colorClass: 'border-bakabar/40 bg-bakabar/8 text-bakabar' },
   { value: 'politik',         label: 'Politik',         desc: 'Caleg / partai politik',    colorClass: 'border-balapor/40 bg-balapor/8 text-balapor' },
   { value: 'pemerintah',      label: 'Pemerintah',      desc: 'Instansi/program PemKab',   colorClass: 'border-baronda/40 bg-baronda/8 text-baronda' },
+  // SESI 9 Sub-Phase A.5 (24 Mei 2026) — Internal: founder/spouse businesses + TeraLoka self-promo
+  // Use case: Edukazia, BMK, TeraLoka own brand campaigns. Visual amber theme = signal related-party.
+  { value: 'internal',        label: 'Internal',        desc: 'Bisnis owner/spouse + TeraLoka', colorClass: 'border-amber-500/40 bg-amber-500/10 text-amber-700' },
 ];
 
 const LEGAL_FORM_OPTIONS = ['', 'PT', 'CV', 'UD', 'Firma', 'Koperasi', 'Yayasan', 'Perseorangan'];
