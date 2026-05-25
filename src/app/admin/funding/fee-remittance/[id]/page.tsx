@@ -32,6 +32,7 @@ const ADMIN_ROLES = ['admin_funding', 'super_admin'];
 interface CoveredDonation {
   id: string;
   donation_code: string;
+  display_id?: string;
   donor_name: string;
   amount: number;
   fee_snapshot?: number;
@@ -664,7 +665,7 @@ function CoveredDonationsList({ donations }: { donations: CoveredDonation[] }) {
             <div style={{ flex: 1, minWidth: 0 }}>
               <p style={{ fontSize: 13, fontWeight: 600, color: '#fff' }}>{d.donor_name}</p>
               <p style={{ fontSize: 11, color: '#94A3B8', fontFamily: 'monospace', marginTop: 2 }}>
-                {d.donation_code} · {fmtShort(d.verified_at)}
+                {d.display_id ?? d.donation_code} · {fmtShort(d.verified_at)}
               </p>
             </div>
             <div style={{ textAlign: 'right' }}>

@@ -28,6 +28,7 @@ type StatusFilter = 'unresolved' | 'resolved' | 'all';
 interface EscalatedDonation {
   id: string;
   donation_code: string;
+  display_id?: string;
   campaign_id: string;
   donor_name: string;
   donor_phone: string | null;
@@ -52,6 +53,7 @@ interface ScanResult {
   candidates: Array<{
     donation_id: string;
     donation_code: string;
+    display_id?: string;
     campaign_id: string;
     campaign_title: string;
     donor_name: string;
@@ -448,7 +450,7 @@ export default function AdminEscalationsPage() {
                         </span>
                       </div>
                       <p style={{ color: t.textDim }}>
-                        {c.donor_name} · Kode {c.donation_code} · {c.days_pending} hari pending
+                        {c.donor_name} · {c.display_id ?? `Kode ${c.donation_code}`} · {c.days_pending} hari pending
                       </p>
                     </div>
                   ))}
@@ -543,7 +545,7 @@ export default function AdminEscalationsPage() {
                   t={t}
                   isVerifying={verifyingId === d.id}
                   onVerify={() => handleInlineVerify(d.id)}
-                  onReject={() => setRejectModal({ id: d.id, code: d.donation_code })}
+                  onReject={() => setRejectModal({ id: d.id, code: d.display_id ?? d.donation_code })}
                 />
               ))}
             </>
@@ -673,7 +675,7 @@ function EscalatedDonationCard({
             {donation.campaigns?.title || 'Campaign'}
           </p>
           <p style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
-            Donor: {donation.is_anonymous ? 'Hamba Allah' : donation.donor_name} · Kode {donation.donation_code}
+            Donor: {donation.is_anonymous ? 'Hamba Allah' : donation.donor_name} · {donation.display_id ?? `Kode ${donation.donation_code}`}
           </p>
         </div>
         <span style={{

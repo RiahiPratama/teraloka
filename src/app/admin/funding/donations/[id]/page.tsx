@@ -38,6 +38,7 @@ interface DonationDetail {
   penggalang_fee?: number;
   total_transfer: number;
   donation_code: string;
+  display_id?: string;
   message: string | null;
   transfer_proof_url: string | null;
   verification_status: string;
@@ -401,7 +402,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
             <span className="text-gray-600 flex items-center gap-1.5">
               <Hash size={11} /> Kode unik
             </span>
-            <span className="font-bold font-mono text-[#EC4899]">{donation.donation_code}</span>
+            <span className="font-bold font-mono text-[#EC4899]">{donation.display_id ?? donation.donation_code}</span>
           </div>
           <div className="flex justify-between pt-2 border-t border-gray-100">
             <span className="text-sm font-bold text-gray-900">TOTAL TRANSFER</span>

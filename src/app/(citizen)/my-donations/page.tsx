@@ -31,6 +31,7 @@ type DonationStatus = 'pending' | 'verified' | 'rejected';
 interface MyDonation {
   id: string;
   donation_code: string;
+  display_id?: string;
   amount: number;
   operational_fee: number;
   penggalang_fee: number;

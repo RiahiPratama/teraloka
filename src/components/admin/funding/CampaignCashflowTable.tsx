@@ -41,6 +41,7 @@ interface DrilldownDonation {
   amount: number;
   operational_fee: number;
   donation_code: string;
+  display_id?: string;
   verification_status: 'pending' | 'verified' | 'rejected' | 'under_audit';
   verified_at?: string;
   fee_remitted_at?: string;
@@ -757,7 +758,7 @@ function ExpandedDonations({
                       color: isMatch ? '#EC4899' : t.textDim,
                       border: isMatch ? '1px solid rgba(236,72,153,0.4)' : 'none',
                     }}>
-                      {highlightMatch(d.donation_code)}
+                      {highlightMatch(d.display_id ?? d.donation_code)}
                     </span>
                   </td>
                   <td style={{ padding: '8px 12px', textAlign: 'center' }}>

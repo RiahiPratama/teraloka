@@ -269,7 +269,7 @@ export default function FraudFlagDetailModal({
                   title="Donasi"
                   primary={`${shortRupiah(flag.donation.amount)} · ${flag.donation.donor_name ?? 'Anonim'}`}
                   meta={[
-                    flag.donation.donation_code ? `Code: ${flag.donation.donation_code}` : null,
+                    flag.donation.donation_code ? `Code: ${(flag.donation as any).display_id ?? flag.donation.donation_code}` : null,
                     flag.donation.verification_status ? `Status: ${flag.donation.verification_status}` : null,
                   ].filter(Boolean) as string[]}
                 />

@@ -486,7 +486,7 @@ function DonationPreviewList({ donations, t }: { donations: Donation[]; t: any }
             fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
             color: t.textDim, minWidth: 80,
           }}>
-            {d.donation_code}
+            {(d as any).display_id ?? d.donation_code}
           </span>
           <span style={{
             fontSize: 11, color: t.textPrimary, fontWeight: 600,

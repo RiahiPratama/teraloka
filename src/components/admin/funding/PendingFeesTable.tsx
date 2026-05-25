@@ -15,6 +15,7 @@ const Icons = {
 export interface PendingFeeDonation {
   id: string;
   donation_code: string;
+  display_id?: string;
   donor_name: string;
   donor_phone?: string;
   is_anonymous: boolean;
@@ -163,7 +164,7 @@ export default function PendingFeesTable({
                       color: t.textPrimary, background: t.navHover,
                       padding: '3px 8px', borderRadius: 6, display: 'inline-block',
                     }}>
-                      {d.donation_code}
+                      {d.display_id ?? d.donation_code}
                     </span>
                   </td>
 

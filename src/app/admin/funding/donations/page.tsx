@@ -358,7 +358,7 @@ export default function AdminDonationsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal verify');
-      showToast(true, `✓ Donasi ${d.donation_code} ter-verifikasi`);
+      showToast(true, `✓ Donasi ${d.display_id ?? d.donation_code} ter-verifikasi`);
       setModal(null);
       fetchDonations();
       fetchStatusCounts();
@@ -385,7 +385,7 @@ export default function AdminDonationsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal tolak');
-      showToast(true, `✗ Donasi ${d.donation_code} ditolak`);
+      showToast(true, `✗ Donasi ${d.display_id ?? d.donation_code} ditolak`);
       setModal(null);
       setRejectReason('');
       fetchDonations();
@@ -1069,7 +1069,7 @@ function DonationSummary({ d, t }: { d: Donation; t: any }) {
           fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
           color: t.textDim, background: t.mainBg, padding: '3px 8px', borderRadius: 6,
         }}>
-          {d.donation_code}
+          {d.display_id ?? d.donation_code}
         </span>
       </div>
       <p style={{ fontSize: 12, color: t.textPrimary, fontWeight: 600 }}>
@@ -1107,7 +1107,15 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
           {shortRupiah(d.amount)}
         </p>
         <p style={{ fontSize: 12, color: t.textDim, marginTop: 4, fontFamily: 'monospace' }}>
-          Kode: <strong>{d.donation_code}</strong>
+          {d.display_id ? (
+            <>
+              ID: <strong style={{ color: t.textPrimary }}>{d.display_id}</strong>
+              {' · '}
+              <span title="Kode unik 3-digit untuk cross-check nominal">Kode: <strong>{d.donation_code}</strong></span>
+            </>
+          ) : (
+            <>Kode: <strong>{d.donation_code}</strong></>
+          )}
         </p>
       </div>
 
@@ -1126,7 +1134,7 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
               </p>
               <a
                 href={`https://wa.me/${normalizeWaNumber(d.donor_phone)}?text=${encodeURIComponent(
-                  `Halo ${d.is_anonymous ? '' : d.donor_name + ' '}—saya admin TeraLoka, mau konfirmasi donasi Rp ${d.amount.toLocaleString('id-ID')} dengan kode ${d.donation_code}. Terima kasih.`
+                  `Halo ${d.is_anonymous ? '' : d.donor_name + ' '}—saya admin TeraLoka, mau konfirmasi donasi ${d.display_id ?? ''} sebesar Rp ${d.amount.toLocaleString('id-ID')} dengan kode unik ${d.donation_code}. Terima kasih.`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"

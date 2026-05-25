@@ -18,6 +18,7 @@ const Icons = {
 export interface Donation {
   id: string;
   donation_code: string;
+  display_id?: string;       // ⭐ BDN-DON-2026-XXXXX (human-readable)
   campaign_id: string;
   donor_id?: string;
   donor_name: string;
@@ -193,17 +194,32 @@ export default function DonationsTable({
 
                   {/* Donation Code */}
                   <td style={tdStyle(t, 'left')}>
-                    <span style={{
-                      fontSize: 11, fontFamily: 'monospace',
-                      fontWeight: 700,
-                      color: t.textPrimary,
-                      background: t.navHover,
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      display: 'inline-block',
-                    }}>
-                      {d.donation_code}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {/* Primary: display_id (BDN-DON-2026-XXXXX) */}
+                      <span style={{
+                        fontSize: 11, fontFamily: 'monospace',
+                        fontWeight: 700,
+                        color: t.textPrimary,
+                        background: t.navHover,
+                        padding: '3px 8px',
+                        borderRadius: 6,
+                        display: 'inline-block',
+                        whiteSpace: 'nowrap',
+                      }}>
+                        {d.display_id ?? d.donation_code}
+                      </span>
+                      {/* Sub: kode unik 3-digit untuk cross-check transfer */}
+                      {d.display_id && (
+                        <span title="Kode unik 3-digit untuk cross-check nominal transfer" style={{
+                          fontSize: 10,
+                          fontFamily: 'monospace',
+                          color: t.textDim,
+                          paddingLeft: 4,
+                        }}>
+                          #{d.donation_code}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   {/* Donor */}
