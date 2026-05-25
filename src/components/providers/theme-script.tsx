@@ -6,7 +6,7 @@
  * Tugasnya: baca localStorage + apply class `.dark` ke <html> sehingga
  * halaman dilukis dengan theme yang benar di frame pertama (no flicker).
  *
- * Wajib mount di src/app/layout.tsx:
+ * Mount di src/app/layout.tsx (di dalam <head>):
  *   <html>
  *     <head>
  *       <ThemeScript />
@@ -15,14 +15,22 @@
  *   </html>
  *
  * Catatan:
- * - Script isi-nya SENGAJA string plain (bukan import) supaya jalan
- *   sebelum React bundle di-load.
- * - Script handle migrasi legacy key 'tl_admin_theme' → 'teraloka-theme'
- *   biar consistent dengan ThemeProvider di runtime.
+ * - Script string SENGAJA plain (bukan import) supaya jalan sebelum
+ *   React bundle di-load.
+ * - Handle migrasi legacy key 'tl_admin_theme' → 'teraloka-theme'.
  * - Try/catch melindungi mode incognito strict yang ngeblock localStorage.
- * - suppressHydrationWarning: React tidak bisa tahu konten script ini
- *   saat SSR — flag ini memberi tahu React untuk skip hydration mismatch
- *   check pada element ini (intentional, bukan workaround).
+ *
+ * React 19 / Next.js 16.2+ Dev Warning:
+ *   Console muncul "Encountered a script tag while rendering React
+ *   component". Ini FALSE POSITIVE ecosystem-wide bug (next-themes #387,
+ *   shadcn-ui #10104, heroui #6348). Script ACTUALLY execute saat initial
+ *   SSR HTML render — anti-FOUC tetap berfungsi. Warning hanya dev mode
+ *   console noise, production user TIDAK terdampak.
+ *
+ *   Suppressed via DevConsoleFilter di layout.tsx (filter specific string
+ *   "Encountered a script tag" di dev mode only).
+ *
+ *   Reference: https://github.com/shadcn-ui/ui/issues/10104
  */
 
 const themeScript = `
@@ -64,7 +72,7 @@ const themeScript = `
 export function ThemeScript() {
   return (
     <script
-      suppressHydrationWarning  // ← FIX: script ini intentionally berbeda SSR vs client
+      suppressHydrationWarning
       // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: themeScript }}
     />

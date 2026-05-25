@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import { ThemeProvider } from '@/lib/theme'
 import { ThemeScript } from '@/components/providers/theme-script'
+import { DevConsoleFilter } from '@/components/providers/dev-console-filter'
 import { AuthProvider } from '@/components/providers/AuthProvider'
 import { PostHogProvider } from '@/components/providers/PostHogProvider'
 import { ToastProvider } from '@/components/ui/Toast'
@@ -37,8 +38,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // class antara server-render vs DOM actual.
     <html lang="id" suppressHydrationWarning>
       <head>
-        {/* ThemeScript harus di awal <head> supaya execute sebelum paint →
-            no FOUC pada page load. Anti-flicker baik di light maupun dark. */}
+        {/* DevConsoleFilter HARUS first di <head> supaya module-level
+            side effect (filter console.error) aktif sebelum React 19 emit
+            false-positive warning untuk ThemeScript <script> tag.
+            Render null (no DOM output), dev-mode only, production noop.
+            Track: TD-REACT19-001 — remove kalau React 19 patch warning ini. */}
+        <DevConsoleFilter />
+
+        {/* ThemeScript di <head> supaya execute sebelum paint → no FOUC
+            pada page load. Anti-flicker baik di light maupun dark.
+            React 19 warn false-positive di dev console — handled oleh
+            DevConsoleFilter di atas. */}
         <ThemeScript />
         <link
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
@@ -58,8 +68,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
             ModalProvider HARUS membungkus {children} DAN <ConditionalBottomNav />
             karena both side perlu akses state — modal (registerModal) dan
-            BottomNav (isAnyModalOpen). 
-            
+            BottomNav (isAnyModalOpen).
+
             SosFab juga di mount di sini sebagai sibling — visible di SEMUA
             pages (panic button always-on, Day 12 Step 6, 10 Mei 2026). */}
         <PostHogProvider>
