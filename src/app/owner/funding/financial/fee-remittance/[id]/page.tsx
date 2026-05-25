@@ -34,6 +34,7 @@ type RemittanceStatus = 'pending' | 'verified' | 'rejected';
 interface CoveredDonation {
   id: string;
   donation_code: string;
+  display_id?: string;
   donor_name: string;
   amount: number;
   fee_snapshot: number;
@@ -426,7 +427,11 @@ function DetailContent() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-800 truncate">{d.donor_name}</p>
                       <p className="text-xs text-gray-500 font-mono mt-0.5">
-                        Kode: {d.donation_code}
+                        {d.display_id ? (
+                          <>{d.display_id} · #{d.donation_code}</>
+                        ) : (
+                          <>Kode: {d.donation_code}</>
+                        )}
                       </p>
                     </div>
                     <div className="text-right flex-shrink-0">

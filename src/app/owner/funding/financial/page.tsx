@@ -28,11 +28,12 @@ function getMonthRange(offset = 0) {
 }
 
 function exportCSV(rows: any[], filename: string) {
-  const headers = ['Tanggal', 'Kampanye', 'Donor', 'Kode', 'Nominal', 'Fee Op', 'Fee Penggalang', 'Kode Unik', 'Total Transfer', 'Status', 'Diterima'];
+  const headers = ['Tanggal', 'ID Donasi', 'Kampanye', 'Donor', 'Kode Unik', 'Nominal', 'Fee Op', 'Fee Penggalang', 'Kode Unik Nominal', 'Total Transfer', 'Status', 'Diterima'];
   const lines = [
     headers.join(','),
     ...rows.map(r => [
       fmt(r.created_at),
+      r.display_id ?? '',
       `"${r.campaign_title ?? ''}"`,
       r.is_anonymous ? 'Anonim' : `"${r.donor_name}"`,
       r.donation_code,
@@ -79,6 +80,7 @@ interface Summary {
 interface Donation {
   id: string;
   donation_code: string;
+  display_id?: string;
   campaign_id: string;
   campaign_title?: string;
   donor_name: string;
@@ -549,7 +551,11 @@ function FinancialContent() {
                             {d.is_anonymous ? '🎭 Anonim' : d.donor_name}
                           </p>
                           <p style={{ fontFamily: 'monospace', fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>
-                            Kode #{d.donation_code}
+                            {d.display_id ? (
+                              <>{d.display_id} · #{d.donation_code}</>
+                            ) : (
+                              <>Kode #{d.donation_code}</>
+                            )}
                           </p>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>

@@ -43,6 +43,7 @@ interface DonationListItem {
   amount_received: number | null;
   discrepancy_amount: number | null;
   donation_code: string;
+  display_id?: string;
   message: string | null;
   transfer_proof_url: string | null;
   verification_status: string;
@@ -155,7 +156,7 @@ function DonationsPageContent() {
           setCampaigns(j.data.map((c: any) => ({ id: c.id, title: c.title })));
         }
       })
-      .catch(() => {});
+      .catch(() => { });
   }, [token]);
 
   // Fetch financial summary on mount + after successful verify/reject
@@ -260,7 +261,8 @@ function DonationsPageContent() {
         merged = merged.filter(
           (d) =>
             d.donor_name?.toLowerCase().includes(q) ||
-            d.donation_code?.toLowerCase().includes(q)
+            d.donation_code?.toLowerCase().includes(q) ||
+            d.display_id?.toLowerCase().includes(q)
         );
       }
 
@@ -370,11 +372,10 @@ function DonationsPageContent() {
                     setSmartView(view.value);
                     setPage(1);
                   }}
-                  className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap ${
-                    isActive
+                  className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap ${isActive
                       ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
                       : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
-                  }`}
+                    }`}
                 >
                   <span className="mr-1">{view.emoji}</span>
                   {view.label}
@@ -408,11 +409,10 @@ function DonationsPageContent() {
                   setCampaignFilter('all');
                   setPage(1);
                 }}
-                className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${
-                  campaignFilter === 'all'
+                className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${campaignFilter === 'all'
                     ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
                     : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
-                }`}
+                  }`}
               >
                 <span className="material-symbols-outlined text-sm">apps</span>
                 Semua Kampanye
@@ -427,11 +427,10 @@ function DonationsPageContent() {
                       setCampaignFilter(c.id);
                       setPage(1);
                     }}
-                    className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${
-                      isActive
+                    className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${isActive
                         ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
                         : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
-                    }`}
+                      }`}
                     title={c.title}
                   >
                     <span className="material-symbols-outlined text-sm">campaign</span>
@@ -572,10 +571,10 @@ function DonationCard({
   const statusBadge = isPending
     ? { bg: '#FEF3C7', text: '#92400E', label: 'Pending' }
     : isVerified
-    ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
-    : isRejected
-    ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
-    : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
+      ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
+      : isRejected
+        ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
+        : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
 
   // Discrepancy display — defensive against undefined/null/string from backend
   const hasDiscrepancy = donation.discrepancy_decision && donation.discrepancy_decision !== 'exact_match';
@@ -624,7 +623,13 @@ function DonationCard({
         <div>
           <p className="text-xs text-gray-500">Total Transfer</p>
           <p className="font-semibold text-gray-900">Rp {formatRp(donation.total_transfer)}</p>
-          <p className="text-xs text-gray-500 mt-0.5">Kode: {donation.donation_code}</p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            {donation.display_id ? (
+              <>ID: <strong>{donation.display_id}</strong> · Kode: {donation.donation_code}</>
+            ) : (
+              <>Kode: {donation.donation_code}</>
+            )}
+          </p>
         </div>
         {amountReceivedNum !== null && Number.isFinite(amountReceivedNum) && (
           <div>
@@ -917,9 +922,9 @@ function EmptyState({ smartView, hasFilter }: { smartView: SmartView; hasFilter:
   return (
     <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center shadow-sm">
       <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center"
-           style={{ background: `${meta.accent}15` }}>
+        style={{ background: `${meta.accent}15` }}>
         <span className="material-symbols-outlined text-2xl"
-              style={{ color: meta.accent, fontVariationSettings: "'FILL' 1" }}>
+          style={{ color: meta.accent, fontVariationSettings: "'FILL' 1" }}>
           {meta.icon}
         </span>
       </div>

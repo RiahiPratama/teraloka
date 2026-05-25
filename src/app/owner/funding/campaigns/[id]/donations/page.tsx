@@ -51,6 +51,7 @@ interface Donation {
   amount_received: number | null;
   discrepancy_amount: number | null;
   donation_code: string;
+  display_id?: string;
   message: string | null;
   transfer_proof_url: string | null;
   verification_status: string;
@@ -157,7 +158,7 @@ export default function PerCampaignDonationsPage() {
     const q = urlSearch.trim().toLowerCase();
     return donations.filter(d => {
       const name = d.is_anonymous ? 'Hamba Allah' : (d.donor_name || '');
-      return name.toLowerCase().includes(q) || d.donation_code.includes(q);
+      return name.toLowerCase().includes(q) || d.donation_code.includes(q) || (d.display_id ?? '').toLowerCase().includes(q);
     });
   }, [donations, urlSearch]);
 
@@ -403,7 +404,11 @@ function DonationCard({ donation }: { donation: Donation }) {
                 )}
               </div>
               <p className="text-[10px] text-gray-400 mt-0.5">
-                Kode: {donation.donation_code} · {new Date(donation.created_at).toLocaleDateString('id-ID', {
+                {donation.display_id ? (
+                  <>{donation.display_id} · #{donation.donation_code}</>
+                ) : (
+                  <>Kode: {donation.donation_code}</>
+                )} · {new Date(donation.created_at).toLocaleDateString('id-ID', {
                   day: 'numeric',
                   month: 'short',
                   hour: '2-digit',
