@@ -20,6 +20,8 @@ export interface CampaignCashflow {
   collected_amount: number;
   donor_count: number;
   disbursed_amount: number;
+  disbursed_pending_amount?: number;  // ⭐ Sesi 12: pending disbursements (admin pipeline)
+  disbursement_count?: number;
   remaining_at_partner: number;
   disbursement_rate: number;
   report_count: number;
@@ -41,7 +43,6 @@ interface DrilldownDonation {
   amount: number;
   operational_fee: number;
   donation_code: string;
-  display_id?: string;
   verification_status: 'pending' | 'verified' | 'rejected' | 'under_audit';
   verified_at?: string;
   fee_remitted_at?: string;
@@ -265,6 +266,7 @@ export default function CampaignCashflowTable({
           <thead>
             <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.navHover + '55' }}>
               <th style={thStyle(t, 'center', 36)}></th>{/* Expand toggle column */}
+              <th style={thStyle(t, 'center', 40)}>#</th>
               <th style={thStyle(t, 'left')}>Kampanye</th>
               <th style={thStyle(t, 'right', 110)}>Terkumpul</th>
               <th style={thStyle(t, 'right', 110)}>Disalurkan</th>
@@ -326,6 +328,17 @@ export default function CampaignCashflowTable({
                       transition: 'all 150ms',
                     }}>
                       {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                    </span>
+                  </td>
+
+                  {/* ⭐ Sequential Number (audit tracking) */}
+                  <td style={tdStyle(t, 'center')}>
+                    <span style={{ 
+                      fontSize: 12, fontWeight: 700, 
+                      color: t.textMuted,
+                      fontFamily: 'monospace',
+                    }}>
+                      {idx + 1}
                     </span>
                   </td>
 
@@ -471,7 +484,7 @@ export default function CampaignCashflowTable({
                     )}
                   </td>
 
-                  {/* Disbursed */}
+                  {/* Disbursed (verified + pending) */}
                   <td style={tdStyle(t, 'right')}>
                     <div style={{
                       fontSize: 13, fontWeight: 700,
@@ -479,16 +492,40 @@ export default function CampaignCashflowTable({
                     }}>
                       {shortRupiah(c.disbursed_amount)}
                     </div>
+                    {(c.disbursed_pending_amount ?? 0) > 0 && (
+                      <div style={{ 
+                        fontSize: 10, color: '#F59E0B', marginTop: 2,
+                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3,
+                      }}>
+                        <span style={{ 
+                          display: 'inline-block', width: 6, height: 6, 
+                          borderRadius: '50%', background: '#F59E0B',
+                        }} />
+                        + {shortRupiah(c.disbursed_pending_amount!)} pending
+                      </div>
+                    )}
                   </td>
 
-                  {/* Remaining at partner */}
+                  {/* Remaining at partner — adjusted (exclude pending disbursement) */}
                   <td style={tdStyle(t, 'right')}>
-                    <div style={{
-                      fontSize: 12, fontWeight: 600,
-                      color: c.remaining_at_partner > 0 ? '#F59E0B' : t.textMuted,
-                    }}>
-                      {shortRupiah(c.remaining_at_partner)}
-                    </div>
+                    {(() => {
+                      const adjustedRemaining = c.remaining_at_partner - (c.disbursed_pending_amount ?? 0);
+                      return (
+                        <>
+                          <div style={{
+                            fontSize: 12, fontWeight: 600,
+                            color: adjustedRemaining > 0 ? '#F59E0B' : t.textMuted,
+                          }}>
+                            {shortRupiah(Math.max(0, adjustedRemaining))}
+                          </div>
+                          {(c.disbursed_pending_amount ?? 0) > 0 && (
+                            <div style={{ fontSize: 9, color: t.textDim, marginTop: 1 }}>
+                              setelah pending
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </td>
 
                   {/* Rate with mini progress bar */}
@@ -554,7 +591,7 @@ export default function CampaignCashflowTable({
                       background: t.navHover + '15',
                     }}
                   >
-                    <td colSpan={8} style={{ padding: '0 16px 16px 16px' }}>
+                    <td colSpan={9} style={{ padding: '0 16px 16px 16px' }}>
                       <ExpandedDonations
                         donations={donations}
                         loading={isLoading}
@@ -708,6 +745,7 @@ function ExpandedDonations({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.mainBg }}>
+              <th style={{ ...thStyle(t, 'center', 36), padding: '8px 12px', fontSize: 9 }}>#</th>
               <th style={{ ...thStyle(t, 'left'), padding: '8px 12px', fontSize: 9 }}>Donor</th>
               <th style={{ ...thStyle(t, 'right', 100), padding: '8px 12px', fontSize: 9 }}>Nominal</th>
               <th style={{ ...thStyle(t, 'right', 80), padding: '8px 12px', fontSize: 9 }}>Fee</th>
@@ -730,6 +768,14 @@ function ExpandedDonations({
                     transition: 'all 150ms',
                   }}
                 >
+                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                    <span style={{ 
+                      fontSize: 11, fontWeight: 700, 
+                      color: t.textMuted, fontFamily: 'monospace',
+                    }}>
+                      {di + 1}
+                    </span>
+                  </td>
                   <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, marginBottom: 2 }}>
                       {d.is_anonymous ? '🎭 Anonim' : highlightMatch(d.donor_name)}
@@ -758,7 +804,7 @@ function ExpandedDonations({
                       color: isMatch ? '#EC4899' : t.textDim,
                       border: isMatch ? '1px solid rgba(236,72,153,0.4)' : 'none',
                     }}>
-                      {highlightMatch(d.display_id ?? d.donation_code)}
+                      {highlightMatch(d.donation_code)}
                     </span>
                   </td>
                   <td style={{ padding: '8px 12px', textAlign: 'center' }}>

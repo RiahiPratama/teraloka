@@ -6,6 +6,7 @@ import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import CashflowFlowDiagram, { type FlowData } from '@/components/admin/funding/CashflowFlowDiagram';
+import CashflowDetailPanel, { type DetailCategory } from '@/components/admin/funding/CashflowDetailPanel';
 import CampaignCashflowTable, { type CampaignCashflow } from '@/components/admin/funding/CampaignCashflowTable';
 import Pagination from '@/components/admin/funding/Pagination';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
@@ -305,6 +306,9 @@ export default function AdminCashflowPage() {
 
   // ── UI state for breakdown panel ──
   const [showSisaBreakdown, setShowSisaBreakdown] = useState(false);
+  
+  // ⭐ Sesi 12 Phase Final: Inline expansion panel (replace modal)
+  const [expansionPanel, setExpansionPanel] = useState<DetailCategory | null>(null);
 
   // ── AUDIT TRACKING: Universal Search State ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -542,7 +546,12 @@ export default function AdminCashflowPage() {
 
       {/* Flow Diagram */}
       <div style={{ marginBottom: 16 }}>
-        {summary && <CashflowFlowDiagram data={summary} />}
+        {summary && (
+          <CashflowFlowDiagram 
+            data={summary} 
+            onCardClick={(category) => setExpansionPanel(prev => prev === category ? null : category)}
+          />
+        )}
       </div>
 
       {/* Stats Grid */}
@@ -552,10 +561,17 @@ export default function AdminCashflowPage() {
           gap: 12, marginBottom: 24,
         }}>
           <StatCard
-            label="Total Masuk"
+            label="Total Masuk (GROSS)"
             value={formatRupiah(summary.total_in)}
             subtext={`${summary.donation_count} donasi · ${summary.donor_count} donatur`}
             color="#6366F1" t={t}
+          />
+          <StatCard
+            label="Dana Beneficiary"
+            value={formatRupiah((summary as any).total_beneficiary ?? 0)}
+            subtext="Klik untuk detail + CSV"
+            color="#0891B2" t={t}
+            onClick={() => setExpansionPanel(prev => prev === 'beneficiary' ? null : 'beneficiary')}
           />
           <StatCard
             label="Disalurkan"
@@ -564,22 +580,49 @@ export default function AdminCashflowPage() {
             color="#10B981" t={t}
           />
           <StatCard
-            label="Sisa di Partner"
-            value={formatRupiah(summary.remaining_at_partner)}
-            subtext={summary.total_in > 0
-              ? `${summary.disbursement_rate}% sudah disalurkan · ${showSisaBreakdown ? 'Tutup ▲' : 'Klik untuk breakdown ▼'}`
-              : 'Belum ada dana masuk'}
+            label="Hak Beneficiary"
+            value={formatRupiah(Math.max(0, ((summary as any).total_beneficiary_verified ?? (summary as any).total_beneficiary ?? 0) - summary.total_disbursed))}
+            subtext="Utang ke penerima · Klik untuk breakdown"
             color="#F59E0B" t={t}
-            alert={summary.remaining_at_partner > 0 && summary.disbursement_rate < 20}
-            onClick={() => setShowSisaBreakdown(prev => !prev)}
+            alert={
+              ((summary as any).total_beneficiary_verified ?? 0) > 0 && 
+              ((((summary as any).total_beneficiary_verified ?? 0) - summary.total_disbursed) / ((summary as any).total_beneficiary_verified ?? 1)) > 0.5
+            }
+            onClick={() => setExpansionPanel(prev => prev === 'hak_beneficiary' ? null : 'hak_beneficiary')}
           />
+          {(summary as any).total_beneficiary_under_audit > 0 && (
+            <StatCard
+              label="Hak Beneficiary Proses Audit"
+              value={formatRupiah((summary as any).total_beneficiary_under_audit ?? 0)}
+              subtext="Dana tertahan · menunggu resolusi audit"
+              color="#8B5CF6" t={t}
+              alert
+              onClick={() => setExpansionPanel(prev => prev === 'under_audit' ? null : 'under_audit')}
+            />
+          )}
           <StatCard
             label="Fee TeraLoka"
             value={formatRupiah(summary.total_fee_remitted)}
             subtext={`dari expected ${formatRupiah(summary.total_fee_expected)}`}
             color="#BE185D" t={t}
+            onClick={() => setExpansionPanel(prev => prev === 'fee_teraloka' ? null : 'fee_teraloka')}
+          />
+          <StatCard
+            label="Tip Penggalang"
+            value={formatRupiah((summary as any).total_penggalang_fee ?? 0)}
+            subtext="Pendapatan Partner (opt-in)"
+            color="#8B5CF6" t={t}
+            onClick={() => setExpansionPanel(prev => prev === 'tip' ? null : 'tip')}
           />
         </div>
+      )}
+
+      {/* ⭐ Sesi 12 Phase Final: Inline expansion panel (replace modal) */}
+      {expansionPanel && summary && (
+        <CashflowDetailPanel
+          category={expansionPanel}
+          onClose={() => setExpansionPanel(null)}
+        />
       )}
 
       {/* ⭐ Sisa di Partner Breakdown Panel — Smart Drilldown */}

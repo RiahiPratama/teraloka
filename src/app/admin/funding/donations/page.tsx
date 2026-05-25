@@ -94,12 +94,13 @@ export default function AdminDonationsPage() {
     pending: 0, pendingOver24h: 0, verifiedToday: 0, rejectedToday: 0,
   });
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
-  // ⭐ Sprint 2.3 Phase 3a: Accrual breakdown (4 metrics)
+  // ⭐ Sprint 2.3 Phase 3a: Accrual breakdown (5 metrics) — sesi 12 fix
   const [accrualStats, setAccrualStats] = useState({
-    accrualAmount: 0,    accrualCount: 0,    // Total semua donations (verified + pending + rejected)
-    pendingAmount: 0,    pendingCount: 0,    // Donations menunggu verifikasi
-    rejectedAmount: 0,   rejectedCount: 0,   // Donations ditolak
-    aktualAmount: 0,     aktualCount: 0,     // = accrual − pending − rejected (verified saja)
+    accrualAmount: 0,      accrualCount: 0,      // Total semua donations (gross total_transfer)
+    pendingAmount: 0,      pendingCount: 0,      // Donations menunggu verifikasi
+    rejectedAmount: 0,     rejectedCount: 0,     // Donations ditolak
+    underAuditAmount: 0,   underAuditCount: 0,   // ⭐ Donations under_audit (awaiting_topup, refund_pending, escalation)
+    aktualAmount: 0,       aktualCount: 0,       // = accrual − pending − rejected − underAudit (verified bersih)
   });
   const [smartViewCounts, setSmartViewCounts] = useState<DonationSmartViewCounts | null>(null);
   const [subNavRefresh, setSubNavRefresh] = useState(0);
@@ -222,8 +223,11 @@ export default function AdminDonationsPage() {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
     try {
-      // Fetch each status with high limit untuk dapat semua amount
-      const statuses = ['pending', 'verified', 'rejected'];
+      // ⭐ Sesi 12 Fix (25 Mei 2026):
+      // 1. Pakai total_transfer (gross) bukan amount (beneficiary only)
+      //    Filosofi: Akrual = SUM(total_transfer) = beneficiary + fee Teraloka + fee penggalang + kode unik
+      // 2. Include under_audit (uang udah masuk rekening Partner, tahan di Penelaahan)
+      const statuses = ['pending', 'verified', 'rejected', 'under_audit'];
       const results = await Promise.all(
         statuses.map(s =>
           fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1000`, {
@@ -232,30 +236,34 @@ export default function AdminDonationsPage() {
         )
       );
 
-      // Sum amount per status
+      // Sum total_transfer per status (gross, includes fee + tip + kode unik)
       const sumByStatus = (data: any[] | undefined) => {
         if (!Array.isArray(data)) return 0;
-        return data.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
+        return data.reduce((acc, d) => acc + (Number(d.total_transfer) || 0), 0);
       };
 
       const pendingData = results[0]?.data ?? [];
       const verifiedData = results[1]?.data ?? [];
       const rejectedData = results[2]?.data ?? [];
+      const underAuditData = results[3]?.data ?? [];
 
       const pendingAmount = sumByStatus(pendingData);
       const aktualAmount = sumByStatus(verifiedData);
       const rejectedAmount = sumByStatus(rejectedData);
-      const accrualAmount = pendingAmount + aktualAmount + rejectedAmount;
+      const underAuditAmount = sumByStatus(underAuditData);
+      const accrualAmount = pendingAmount + aktualAmount + rejectedAmount + underAuditAmount;
 
       const pendingCount = results[0]?.meta?.total ?? 0;
       const aktualCount = results[1]?.meta?.total ?? 0;
       const rejectedCount = results[2]?.meta?.total ?? 0;
-      const accrualCount = pendingCount + aktualCount + rejectedCount;
+      const underAuditCount = results[3]?.meta?.total ?? 0;
+      const accrualCount = pendingCount + aktualCount + rejectedCount + underAuditCount;
 
       setAccrualStats({
         accrualAmount, accrualCount,
         pendingAmount, pendingCount,
         rejectedAmount, rejectedCount,
+        underAuditAmount, underAuditCount,
         aktualAmount, aktualCount,
       });
     } catch (err) {
@@ -358,7 +366,7 @@ export default function AdminDonationsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal verify');
-      showToast(true, `✓ Donasi ${d.display_id ?? d.donation_code} ter-verifikasi`);
+      showToast(true, `✓ Donasi ${d.donation_code} ter-verifikasi`);
       setModal(null);
       fetchDonations();
       fetchStatusCounts();
@@ -385,7 +393,7 @@ export default function AdminDonationsPage() {
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal tolak');
-      showToast(true, `✗ Donasi ${d.display_id ?? d.donation_code} ditolak`);
+      showToast(true, `✗ Donasi ${d.donation_code} ditolak`);
       setModal(null);
       setRejectReason('');
       fetchDonations();
@@ -435,17 +443,17 @@ export default function AdminDonationsPage() {
             📊 Rekonsiliasi Donasi
           </p>
           <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic' }}>
-            Rumus: Aktual = Akrual − Pending − Ditolak
+            Rumus: Aktual = Akrual − Pending − Ditolak − Under Audit
           </p>
         </div>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
           gap: 10,
         }}>
           <AccrualCard
             label="AKRUAL (Total)"
-            sublabel="Semua donasi tercatat"
+            sublabel="Gross total transfer"
             amount={accrualStats.accrualAmount}
             count={accrualStats.accrualCount}
             color="#3B82F6"
@@ -474,6 +482,17 @@ export default function AdminDonationsPage() {
             operator="−"
             href="/admin/funding/donations?status=rejected"
             Icon={XOctagon}
+          />
+          <AccrualCard
+            label="UNDER AUDIT"
+            sublabel="Tahan di Penelaahan"
+            amount={accrualStats.underAuditAmount}
+            count={accrualStats.underAuditCount}
+            color="#8B5CF6"
+            t={t}
+            operator="−"
+            href="/admin/funding/donations?status=under_audit"
+            Icon={PauseCircle}
           />
           <AccrualCard
             label="AKTUAL"
@@ -1069,7 +1088,7 @@ function DonationSummary({ d, t }: { d: Donation; t: any }) {
           fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
           color: t.textDim, background: t.mainBg, padding: '3px 8px', borderRadius: 6,
         }}>
-          {d.display_id ?? d.donation_code}
+          {d.donation_code}
         </span>
       </div>
       <p style={{ fontSize: 12, color: t.textPrimary, fontWeight: 600 }}>
@@ -1107,15 +1126,7 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
           {shortRupiah(d.amount)}
         </p>
         <p style={{ fontSize: 12, color: t.textDim, marginTop: 4, fontFamily: 'monospace' }}>
-          {d.display_id ? (
-            <>
-              ID: <strong style={{ color: t.textPrimary }}>{d.display_id}</strong>
-              {' · '}
-              <span title="Kode unik 3-digit untuk cross-check nominal">Kode: <strong>{d.donation_code}</strong></span>
-            </>
-          ) : (
-            <>Kode: <strong>{d.donation_code}</strong></>
-          )}
+          Kode: <strong>{d.donation_code}</strong>
         </p>
       </div>
 
@@ -1134,7 +1145,7 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
               </p>
               <a
                 href={`https://wa.me/${normalizeWaNumber(d.donor_phone)}?text=${encodeURIComponent(
-                  `Halo ${d.is_anonymous ? '' : d.donor_name + ' '}—saya admin TeraLoka, mau konfirmasi donasi ${d.display_id ?? ''} sebesar Rp ${d.amount.toLocaleString('id-ID')} dengan kode unik ${d.donation_code}. Terima kasih.`
+                  `Halo ${d.is_anonymous ? '' : d.donor_name + ' '}—saya admin TeraLoka, mau konfirmasi donasi Rp ${d.amount.toLocaleString('id-ID')} dengan kode ${d.donation_code}. Terima kasih.`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
