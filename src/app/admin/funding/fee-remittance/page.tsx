@@ -6,7 +6,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -234,7 +234,7 @@ export default function AdminFundingFeeRemittancePage() {
   return (
     <div style={{ background: t.mainBg, minHeight: '100vh', padding: '24px 32px' }}>
       {/* SubNav */}
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="feeremit" refreshKey={subNavRefresh} />
 
       {/* Header */}
       <div style={{ marginBottom: 24 }}>

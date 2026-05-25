@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, useContext } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -61,10 +61,8 @@ function formatRupiah(n: number): string {
 }
 
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000)     return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000)         return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 function formatDate(iso: string): string {
@@ -323,7 +321,7 @@ export default function AdminDisbursementsPage() {
           </p>
         </div>
 
-        <AdminFundingSubNav refreshKey={subNavKey} />
+        <CommandCenterTabs active="disbursements" refreshKey={subNavKey} />
 
         {/* Stats */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>

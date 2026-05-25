@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback, useContext } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import ReportsTable, { type UsageReport } from '@/components/admin/funding/ReportsTable';
 import ReportReviewModal from '@/components/admin/funding/ReportReviewModal';
 import ReportCreateModal from '@/components/admin/funding/ReportCreateModal';
@@ -54,9 +54,8 @@ function formatRupiah(n: number): string {
 }
 
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -199,7 +198,7 @@ export default function AdminReportsPage() {
         Review laporan penggunaan dana dari partner. Approve untuk tampil ke publik & naikin disbursement rate.
       </p>
 
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="reports" refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       {stats && (

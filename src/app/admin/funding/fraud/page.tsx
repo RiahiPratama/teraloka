@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback, useContext } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import FraudFlagsTable, { type FraudFlag } from '@/components/admin/funding/FraudFlagsTable';
 import FraudFlagDetailModal from '@/components/admin/funding/FraudFlagDetailModal';
 import Pagination from '@/components/admin/funding/Pagination';
@@ -233,7 +233,7 @@ export default function AdminFraudPage() {
         Review & resolve 12 fraud signals (7 donasi + 5 kampanye). Auto-scan aktif setiap verify donation & approve campaign.
       </p>
 
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="fraud" refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       {stats && (

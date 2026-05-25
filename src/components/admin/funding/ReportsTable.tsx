@@ -48,10 +48,8 @@ export interface UsageReport {
 
 // ── Helpers ──────────────────────────────────────
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 function timeAgo(iso: string): string {

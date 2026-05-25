@@ -6,7 +6,11 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
+import {
+  Inbox, PauseCircle, XOctagon, CheckCheck, AlertCircle,
+  Clock, CheckCircle2, XCircle, ArrowRight, Eye,
+} from 'lucide-react';
 import DonationSmartViewsPills, {
   type DonationSmartViewKey, type DonationSmartViewCounts,
 } from '@/components/admin/funding/DonationSmartViewsPills';
@@ -419,7 +423,7 @@ export default function AdminDonationsPage() {
         Verifikasi donasi yang masuk — pastikan transfer sudah diterima sebelum konfirmasi.
       </p>
 
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="donations" refreshKey={subNavRefresh} />
 
       {/* ⭐ Sprint 2.3 Phase 3a: Accrual Breakdown — formula visual */}
       <div style={{
@@ -440,33 +444,39 @@ export default function AdminDonationsPage() {
           gap: 10,
         }}>
           <AccrualCard
-            label="📥 AKRUAL (Total)"
+            label="AKRUAL (Total)"
             sublabel="Semua donasi tercatat"
             amount={accrualStats.accrualAmount}
             count={accrualStats.accrualCount}
             color="#3B82F6"
             t={t}
+            href="/admin/funding/donations?status=all"
+            Icon={Inbox}
           />
           <AccrualCard
-            label="⏸️ PENDING"
+            label="PENDING"
             sublabel="Menunggu verifikasi"
             amount={accrualStats.pendingAmount}
             count={accrualStats.pendingCount}
             color="#F59E0B"
             t={t}
             operator="−"
+            href="/admin/funding/donations?status=pending"
+            Icon={PauseCircle}
           />
           <AccrualCard
-            label="❌ DITOLAK"
+            label="DITOLAK"
             sublabel="Tidak masuk hitungan"
             amount={accrualStats.rejectedAmount}
             count={accrualStats.rejectedCount}
             color="#EF4444"
             t={t}
             operator="−"
+            href="/admin/funding/donations?status=rejected"
+            Icon={XOctagon}
           />
           <AccrualCard
-            label="✅ AKTUAL"
+            label="AKTUAL"
             sublabel="Real terkumpul (verified)"
             amount={accrualStats.aktualAmount}
             count={accrualStats.aktualCount}
@@ -474,6 +484,8 @@ export default function AdminDonationsPage() {
             t={t}
             operator="="
             highlight
+            href="/admin/funding/donations?status=verified"
+            Icon={CheckCheck}
           />
         </div>
       </div>
@@ -483,16 +495,39 @@ export default function AdminDonationsPage() {
         display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
         gap: 12, marginBottom: 24,
       }}>
-        <StatCard label="Pending Total" value={stats.pending} color="#F59E0B" t={t} />
         <StatCard
-          label="⚠️ Pending >24 Jam"
+          label="Pending Total"
+          value={stats.pending}
+          color="#F59E0B"
+          t={t}
+          href="/admin/funding/donations?status=pending"
+          Icon={Clock}
+        />
+        <StatCard
+          label="Pending >24 Jam"
           value={stats.pendingOver24h}
           color="#EF4444"
           t={t}
           alert={stats.pendingOver24h > 0}
+          href="/admin/funding/donations?sv=verify_urgent"
+          Icon={AlertCircle}
         />
-        <StatCard label="✓ Verified Hari Ini" value={stats.verifiedToday} color="#10B981" t={t} />
-        <StatCard label="✗ Rejected Hari Ini" value={stats.rejectedToday} color="#6B7280" t={t} />
+        <StatCard
+          label="Verified Hari Ini"
+          value={stats.verifiedToday}
+          color="#10B981"
+          t={t}
+          href="/admin/funding/donations?status=verified"
+          Icon={CheckCircle2}
+        />
+        <StatCard
+          label="Rejected Hari Ini"
+          value={stats.rejectedToday}
+          color="#6B7280"
+          t={t}
+          href="/admin/funding/donations?status=rejected"
+          Icon={XCircle}
+        />
       </div>
 
       {/* Status Tabs */}
@@ -827,10 +862,8 @@ function normalizeWaNumber(phone: string): string {
 }
 
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 function cancelBtnStyle(t: any): React.CSSProperties {
@@ -851,40 +884,102 @@ function primaryBtnStyle(c1: string, c2: string, disabled: boolean): React.CSSPr
   };
 }
 
-function StatCard({ label, value, color, t, alert }: {
+// v2.0 (24 Mei 2026): Clickable + Lucide premium icon
+function StatCard({ label, value, color, t, alert, href, Icon }: {
   label: string; value: number; color: string; t: any; alert?: boolean;
+  href?: string; Icon?: any;
 }) {
-  return (
+  const cardContent = (
     <div style={{
       background: alert ? 'rgba(239,68,68,0.08)' : t.mainBg,
       border: `1px solid ${alert ? 'rgba(239,68,68,0.3)' : t.sidebarBorder}`,
       borderRadius: 12,
       padding: 14,
-    }}>
-      <p style={{
-        fontSize: 11, fontWeight: 700, color: alert ? '#EF4444' : t.textMuted,
-        textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6,
+      cursor: href ? 'pointer' : 'default',
+      transition: 'all 200ms',
+      height: '100%',
+      position: 'relative',
+    }}
+    className={href ? 'stat-card-hover-v2' : ''}
+    >
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+        marginBottom: 6,
       }}>
-        {label}
-      </p>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {Icon && (
+            <div style={{
+              width: 22, height: 22, borderRadius: 6,
+              background: alert ? 'rgba(239,68,68,0.15)' : `${color}18`,
+              color: alert ? '#EF4444' : color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Icon size={13} strokeWidth={2.4} />
+            </div>
+          )}
+          <p style={{
+            fontSize: 11, fontWeight: 700,
+            color: alert ? '#EF4444' : t.textMuted,
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+          }}>
+            {label}
+          </p>
+        </div>
+        {href && value > 0 && (
+          <Eye size={11} color={t.textMuted} strokeWidth={2.2} />
+        )}
+      </div>
       <p style={{ fontSize: 24, fontWeight: 800, color }}>{value}</p>
+      {href && value > 0 && (
+        <p style={{
+          fontSize: 10, color, fontWeight: 600, marginTop: 4,
+          display: 'inline-flex', alignItems: 'center', gap: 2,
+        }}>
+          Lihat semua <ArrowRight size={10} strokeWidth={2.5} />
+        </p>
+      )}
+
+      <style jsx>{`
+        :global(.stat-card-hover-v2):hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+          border-color: ${alert ? 'rgba(239,68,68,0.5)' : color + '50'} !important;
+        }
+      `}</style>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} style={{ textDecoration: 'none' }}>
+        {cardContent}
+      </Link>
+    );
+  }
+  return cardContent;
 }
 
 // ⭐ Sprint 2.3 Phase 3a: AccrualCard — for donation rekonsiliasi (4 cards)
-function AccrualCard({ label, sublabel, amount, count, color, t, operator, highlight }: {
+// v2.0 (24 Mei 2026): Clickable navigation + Lucide premium icon + hover lift
+function AccrualCard({ label, sublabel, amount, count, color, t, operator, highlight, href, Icon }: {
   label: string; sublabel: string; amount: number; count: number;
   color: string; t: any; operator?: string; highlight?: boolean;
+  href?: string; Icon?: any;
 }) {
-  return (
+  const cardContent = (
     <div style={{
       position: 'relative',
       background: highlight ? `${color}10` : t.navHover,
       border: `2px solid ${highlight ? color : 'transparent'}`,
       borderRadius: 12,
       padding: 12,
-    }}>
+      cursor: href ? 'pointer' : 'default',
+      transition: 'all 200ms',
+      height: '100%',
+    }}
+    className={href ? 'accrual-card-hover' : ''}
+    >
       {operator && (
         <span style={{
           position: 'absolute', top: -10, left: 12,
@@ -896,12 +991,35 @@ function AccrualCard({ label, sublabel, amount, count, color, t, operator, highl
           {operator}
         </span>
       )}
-      <p style={{
-        fontSize: 10, fontWeight: 700, color,
-        letterSpacing: '0.04em', marginBottom: 2, marginTop: operator ? 6 : 0,
+
+      {/* Header row: Icon + Label + Action indicator */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginBottom: 2, marginTop: operator ? 6 : 0,
       }}>
-        {label}
-      </p>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {Icon && (
+            <div style={{
+              width: 20, height: 20, borderRadius: 5,
+              background: `${color}20`, color,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <Icon size={12} strokeWidth={2.4} />
+            </div>
+          )}
+          <p style={{
+            fontSize: 10, fontWeight: 700, color,
+            letterSpacing: '0.04em',
+          }}>
+            {label}
+          </p>
+        </div>
+        {href && (
+          <Eye size={11} color={t.textMuted} strokeWidth={2.2} />
+        )}
+      </div>
+
       <p style={{ fontSize: 9, color: t.textDim, marginBottom: 8 }}>
         {sublabel}
       </p>
@@ -910,9 +1028,34 @@ function AccrualCard({ label, sublabel, amount, count, color, t, operator, highl
       </p>
       <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
         {count} transaksi
+        {href && count > 0 && (
+          <span style={{
+            color, fontWeight: 600, marginLeft: 6,
+            display: 'inline-flex', alignItems: 'center', gap: 2,
+          }}>
+            · Lihat semua <ArrowRight size={10} strokeWidth={2.5} />
+          </span>
+        )}
       </p>
+
+      <style jsx>{`
+        :global(.accrual-card-hover):hover {
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+          border-color: ${color}40 !important;
+        }
+      `}</style>
     </div>
   );
+
+  if (href) {
+    return (
+      <Link href={href} style={{ textDecoration: 'none' }}>
+        {cardContent}
+      </Link>
+    );
+  }
+  return cardContent;
 }
 
 function DonationSummary({ d, t }: { d: Donation; t: any }) {

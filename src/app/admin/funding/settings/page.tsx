@@ -4,7 +4,7 @@ import { useEffect, useState, useContext, useMemo } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -335,7 +335,7 @@ export default function AdminFundingSettings() {
         Konfigurasi sistem untuk operasional BADONASI. Perubahan langsung berlaku ke production.
       </p>
 
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="settings" refreshKey={subNavRefresh} />
 
       {message && (
         <div style={{

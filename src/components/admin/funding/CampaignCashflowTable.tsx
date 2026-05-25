@@ -1,6 +1,6 @@
 'use client';
 
-import { useContext, useState, useEffect, useCallback, Fragment } from 'react';
+import { useContext, useState, useEffect, useCallback, useMemo, Fragment } from 'react';
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
@@ -52,10 +52,8 @@ interface DrilldownDonation {
 
 // ── Helpers ──────────────────────────────────────
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 function rateColor(rate: number): string {
@@ -69,10 +67,32 @@ function rateColor(rate: number): string {
 // CAMPAIGN CASHFLOW TABLE
 // ═══════════════════════════════════════════════════════════════
 
+// ⭐ Smart anomaly types (mirror cashflow page)
+export type AnomalyLevel = 'critical' | 'at_risk' | 'warning' | 'healthy' | 'closed';
+export interface AnomalyInfo {
+  level: AnomalyLevel;
+  label: string;
+  reasons: string[];
+  priority_score: number;
+  action_hint: string;
+}
+
+const SMART_ANOMALY_COLORS: Record<AnomalyLevel, { fg: string; bg: string; border: string }> = {
+  critical: { fg: '#DC2626', bg: 'rgba(220,38,38,0.10)', border: 'rgba(220,38,38,0.35)' },
+  at_risk:  { fg: '#EA580C', bg: 'rgba(234,88,12,0.10)',  border: 'rgba(234,88,12,0.35)' },
+  warning:  { fg: '#D97706', bg: 'rgba(217,119,6,0.10)',  border: 'rgba(217,119,6,0.30)' },
+  healthy:  { fg: '#10B981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.25)' },
+  closed:   { fg: '#6B7280', bg: 'rgba(107,114,128,0.08)',border: 'rgba(107,114,128,0.25)' },
+};
+
 export default function CampaignCashflowTable({
   campaigns,
+  anomalyMap,
+  searchQuery = '',
 }: {
   campaigns: CampaignCashflow[];
+  anomalyMap?: Record<string, AnomalyInfo>;
+  searchQuery?: string;
 }) {
   const { t } = useContext(AdminThemeContext);
 
@@ -80,6 +100,43 @@ export default function CampaignCashflowTable({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [donationsByCampaign, setDonationsByCampaign] = useState<Record<string, DrilldownDonation[]>>({});
   const [loadingCampaign, setLoadingCampaign] = useState<string | null>(null);
+
+  // ── AUDIT TRACKING: Highlight matched text helper ──
+  const highlightMatch = useCallback((text: string | null | undefined): React.ReactNode => {
+    if (!text) return null;
+    if (!searchQuery.trim()) return text;
+    const q = searchQuery.trim().toLowerCase();
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(q);
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.substring(0, idx)}
+        <span style={{
+          background: 'rgba(236,72,153,0.25)',
+          color: '#EC4899',
+          fontWeight: 700,
+          padding: '0 2px',
+          borderRadius: 3,
+        }}>
+          {text.substring(idx, idx + q.length)}
+        </span>
+        {text.substring(idx + q.length)}
+      </>
+    );
+  }, [searchQuery]);
+
+  // ── AUDIT TRACKING: Check if donation matches search ──
+  const donationMatchesSearch = useCallback((d: DrilldownDonation): boolean => {
+    if (!searchQuery.trim()) return false;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      d.donation_code?.toLowerCase().includes(q) ||
+      d.donor_name?.toLowerCase().includes(q) ||
+      d.donor_phone?.toLowerCase().includes(q) ||
+      false
+    );
+  }, [searchQuery]);
 
   const fetchDonations = useCallback(async (campaignId: string) => {
     if (donationsByCampaign[campaignId]) return; // sudah ada cache
@@ -113,6 +170,53 @@ export default function CampaignCashflowTable({
     }
   }, [expandedId, fetchDonations]);
 
+  // ── AUDIT TRACKING: Auto-fetch donations untuk SEMUA campaign saat search aktif ──
+  // Ini supaya search by kode donasi / donor name bisa cross-campaign tanpa expand manual.
+  // Strategi: kalau searchQuery aktif, pre-fetch donations untuk visible campaigns.
+  useEffect(() => {
+    if (!searchQuery.trim() || campaigns.length === 0) return;
+
+    // Pre-fetch donations untuk first N campaigns yang belum di-cache
+    const PREFETCH_LIMIT = 10; // batasi untuk performa
+    const toFetch = campaigns
+      .slice(0, PREFETCH_LIMIT)
+      .filter(c => !donationsByCampaign[c.id]);
+
+    toFetch.forEach(c => {
+      fetchDonations(c.id);
+    });
+  }, [searchQuery, campaigns, donationsByCampaign, fetchDonations]);
+
+  // ── AUDIT TRACKING: Identify campaigns with matching donations ──
+  // Untuk auto-expand: campaign yang donations-nya ada yang match search
+  const campaignsWithDonationMatch = useMemo(() => {
+    if (!searchQuery.trim()) return new Set<string>();
+    const q = searchQuery.trim().toLowerCase();
+    const matched = new Set<string>();
+
+    Object.entries(donationsByCampaign).forEach(([campaignId, donations]) => {
+      const hasMatch = donations.some(d =>
+        d.donation_code?.toLowerCase().includes(q) ||
+        d.donor_name?.toLowerCase().includes(q) ||
+        d.donor_phone?.toLowerCase().includes(q)
+      );
+      if (hasMatch) matched.add(campaignId);
+    });
+
+    return matched;
+  }, [searchQuery, donationsByCampaign]);
+
+  // Auto-expand first campaign yang punya donation match (kalau expandedId belum di set)
+  useEffect(() => {
+    if (!searchQuery.trim() || campaignsWithDonationMatch.size === 0) return;
+    if (expandedId && campaignsWithDonationMatch.has(expandedId)) return; // sudah expand yang correct
+
+    const firstMatch = campaigns.find(c => campaignsWithDonationMatch.has(c.id));
+    if (firstMatch && firstMatch.id !== expandedId) {
+      setExpandedId(firstMatch.id);
+    }
+  }, [searchQuery, campaignsWithDonationMatch, campaigns, expandedId]);
+
   if (campaigns.length === 0) {
     return (
       <div style={{
@@ -120,12 +224,28 @@ export default function CampaignCashflowTable({
         border: `1px solid ${t.sidebarBorder}`,
         borderRadius: 16, padding: 60, textAlign: 'center',
       }}>
-        <p style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 4 }}>
-          Tidak ada kampanye dalam rentang ini
-        </p>
-        <p style={{ fontSize: 12, color: t.textDim }}>
-          Coba ubah rentang tanggal atau filter.
-        </p>
+        {searchQuery.trim() ? (
+          <>
+            <p style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 4 }}>
+              🔍 Tidak ada kampanye yang cocok
+            </p>
+            <p style={{ fontSize: 12, color: t.textDim, marginBottom: 8 }}>
+              Tidak ada hasil untuk "<strong>{searchQuery}</strong>"
+            </p>
+            <p style={{ fontSize: 11, color: t.textMuted }}>
+              Tips: search bisa pakai kode donasi (412), nama donor, slug kampanye, atau partner.
+            </p>
+          </>
+        ) : (
+          <>
+            <p style={{ fontSize: 14, fontWeight: 600, color: t.textPrimary, marginBottom: 4 }}>
+              Tidak ada kampanye dalam rentang ini
+            </p>
+            <p style={{ fontSize: 12, color: t.textDim }}>
+              Coba ubah rentang tanggal atau filter.
+            </p>
+          </>
+        )}
       </div>
     );
   }
@@ -169,13 +289,30 @@ export default function CampaignCashflowTable({
                     borderBottom: (isLast && !isExpanded) ? 'none' : `1px solid ${t.sidebarBorder}`,
                     transition: 'background 120ms',
                     cursor: 'pointer',
-                    background: isExpanded ? t.navHover + '33' : 'transparent',
+                    background: isExpanded
+                      ? t.navHover + '33'
+                      : anomalyMap && anomalyMap[c.id]?.level === 'critical'
+                        ? 'rgba(220,38,38,0.04)'
+                        : anomalyMap && anomalyMap[c.id]?.level === 'at_risk'
+                          ? 'rgba(234,88,12,0.03)'
+                          : 'transparent',
+                    boxShadow: anomalyMap && anomalyMap[c.id]?.level === 'critical'
+                      ? 'inset 3px 0 0 #DC2626'
+                      : anomalyMap && anomalyMap[c.id]?.level === 'at_risk'
+                        ? 'inset 3px 0 0 #EA580C'
+                        : 'none',
                   }}
                   onMouseEnter={e => {
                     if (!isExpanded) e.currentTarget.style.background = t.navHover + '22';
                   }}
                   onMouseLeave={e => {
-                    if (!isExpanded) e.currentTarget.style.background = 'transparent';
+                    if (!isExpanded) {
+                      const lvl = anomalyMap?.[c.id]?.level;
+                      e.currentTarget.style.background =
+                        lvl === 'critical' ? 'rgba(220,38,38,0.04)' :
+                        lvl === 'at_risk' ? 'rgba(234,88,12,0.03)' :
+                        'transparent';
+                    }
                   }}
                 >
                   {/* ⭐ Expand toggle */}
@@ -193,30 +330,114 @@ export default function CampaignCashflowTable({
 
                   {/* Campaign Info */}
                   <td style={tdStyle(t, 'left')}>
-                    <div style={{ minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                      {c.is_urgent && (
-                        <span style={{
-                          fontSize: 8, padding: '2px 6px', borderRadius: 4,
-                          background: 'rgba(239,68,68,0.15)', color: '#EF4444',
-                          fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em',
-                          flexShrink: 0, marginTop: 2,
-                        }}>
-                          Urgent
-                        </span>
-                      )}
-                      <div style={{ minWidth: 0 }}>
+                    <div style={{ minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
+                      {/* ⭐ AUDIT TRACKING: Nomor Kampanye Prominent */}
+                      {(() => {
+                        // Extract unique identifier dari slug
+                        // Format slug umum: "seed-2-3-pak-hasan-f47a62" → suffix = "f47a62"
+                        // Atau pakai 8 chars terakhir UUID kalau slug gak ada suffix hash
+                        const slugParts = (c.slug || '').split('-');
+                        const lastPart = slugParts[slugParts.length - 1];
+                        // Cek apakah suffix is hex-like (5-8 chars alphanumeric lowercase)
+                        const isHashSuffix = /^[a-f0-9]{4,8}$/i.test(lastPart);
+                        const campaignNumber = isHashSuffix
+                          ? `#${lastPart.toUpperCase()}`
+                          : `#${c.id.substring(0, 6).toUpperCase()}`;
+
+                        // Anomaly tooltip info (kalau ada)
+                        const anomalyTooltip = anomalyMap && anomalyMap[c.id] && anomalyMap[c.id].level !== 'healthy' && anomalyMap[c.id].level !== 'closed'
+                          ? `${anomalyMap[c.id].label}: ${anomalyMap[c.id].reasons.join(' · ')}${anomalyMap[c.id].action_hint ? ` || Action: ${anomalyMap[c.id].action_hint}` : ''}`
+                          : c.is_urgent ? 'Kampanye urgent humanitarian' : `Nomor kampanye: ${campaignNumber}`;
+
+                        // Border color tergantung anomaly level (subtle indicator)
+                        const anomalyLevel = anomalyMap?.[c.id]?.level;
+                        const numberColor = anomalyLevel === 'critical' ? '#DC2626'
+                                         : anomalyLevel === 'at_risk' ? '#EA580C'
+                                         : anomalyLevel === 'warning' ? '#D97706'
+                                         : c.is_urgent ? '#EF4444'
+                                         : t.textMuted;
+                        const numberBg = anomalyLevel === 'critical' ? 'rgba(220,38,38,0.10)'
+                                       : anomalyLevel === 'at_risk' ? 'rgba(234,88,12,0.10)'
+                                       : anomalyLevel === 'warning' ? 'rgba(217,119,6,0.10)'
+                                       : c.is_urgent ? 'rgba(239,68,68,0.10)'
+                                       : t.navHover;
+                        const numberBorder = anomalyLevel === 'critical' ? 'rgba(220,38,38,0.40)'
+                                          : anomalyLevel === 'at_risk' ? 'rgba(234,88,12,0.40)'
+                                          : anomalyLevel === 'warning' ? 'rgba(217,119,6,0.35)'
+                                          : c.is_urgent ? 'rgba(239,68,68,0.30)'
+                                          : t.sidebarBorder;
+
+                        return (
+                          <span
+                            title={anomalyTooltip}
+                            style={{
+                              fontSize: 10, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                              fontWeight: 800,
+                              padding: '3px 8px', borderRadius: 6,
+                              background: numberBg,
+                              color: numberColor,
+                              border: `1px solid ${numberBorder}`,
+                              flexShrink: 0, marginTop: 1,
+                              cursor: anomalyTooltip ? 'help' : 'default',
+                              letterSpacing: '0.04em',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {campaignNumber}
+                          </span>
+                        );
+                      })()}
+
+                      <div style={{ minWidth: 0, flex: 1 }}>
+                        {/* Campaign Title */}
                         <div style={{
                           fontSize: 12, fontWeight: 700, color: t.textPrimary,
                           overflow: 'hidden', textOverflow: 'ellipsis',
                           display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
                           marginBottom: 3,
                         }}>
-                          {c.title}
+                          {highlightMatch(c.title)}
                         </div>
+
+                        {/* ⭐ AUDIT TRACKING: Slug (kode kampanye human-readable) */}
+                        <div style={{
+                          fontSize: 9, color: t.textMuted, marginBottom: 4,
+                          fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                        }}>
+                          {highlightMatch(c.slug)}
+                        </div>
+
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                          {/* ⭐ AUDIT TRACKING: Badge ✓ Ada Match Donasi */}
+                          {searchQuery.trim() && campaignsWithDonationMatch.has(c.id) && (
+                            <span style={{
+                              fontSize: 9, fontWeight: 800,
+                              padding: '2px 6px', borderRadius: 4,
+                              background: 'rgba(236,72,153,0.15)',
+                              color: '#EC4899',
+                              textTransform: 'uppercase', letterSpacing: '0.04em',
+                              border: '1px solid rgba(236,72,153,0.3)',
+                            }}>
+                              ✓ MATCH DONASI
+                            </span>
+                          )}
                           {c.partner_name && (
-                            <span style={{ fontSize: 10, color: '#EC4899', fontWeight: 600 }}>
-                              {c.partner_name}
+                            <span style={{
+                              fontSize: 10, color: '#EC4899', fontWeight: 700,
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                            }}>
+                              <span style={{ fontSize: 9, opacity: 0.7 }}>🏢</span>
+                              {highlightMatch(c.partner_name)}
+                            </span>
+                          )}
+                          {c.beneficiary_name && (
+                            <span style={{
+                              fontSize: 10, color: t.textDim, fontWeight: 500,
+                              display: 'inline-flex', alignItems: 'center', gap: 4,
+                            }}>
+                              <span style={{ fontSize: 9, opacity: 0.7 }}>👤</span>
+                              {highlightMatch(c.beneficiary_name)}
                             </span>
                           )}
                           {c.needs_report && (
@@ -338,6 +559,7 @@ export default function CampaignCashflowTable({
                         loading={isLoading}
                         campaignTitle={c.title}
                         t={t}
+                        searchQuery={searchQuery}
                       />
                     </td>
                   </tr>
@@ -358,12 +580,50 @@ function ExpandedDonations({
   loading,
   campaignTitle,
   t,
+  searchQuery = '',
 }: {
   donations: DrilldownDonation[] | undefined;
   loading: boolean;
   campaignTitle: string;
   t: any;
+  searchQuery?: string;
 }) {
+  // ── AUDIT TRACKING: Highlight matched text ──
+  const highlightMatch = (text: string | null | undefined): React.ReactNode => {
+    if (!text) return null;
+    if (!searchQuery.trim()) return text;
+    const q = searchQuery.trim().toLowerCase();
+    const lower = text.toLowerCase();
+    const idx = lower.indexOf(q);
+    if (idx === -1) return text;
+    return (
+      <>
+        {text.substring(0, idx)}
+        <span style={{
+          background: 'rgba(236,72,153,0.25)',
+          color: '#EC4899',
+          fontWeight: 700,
+          padding: '0 2px',
+          borderRadius: 3,
+        }}>
+          {text.substring(idx, idx + q.length)}
+        </span>
+        {text.substring(idx + q.length)}
+      </>
+    );
+  };
+
+  // Check if donation matches search
+  const donationMatches = (d: DrilldownDonation): boolean => {
+    if (!searchQuery.trim()) return false;
+    const q = searchQuery.trim().toLowerCase();
+    return (
+      d.donation_code?.toLowerCase().includes(q) ||
+      d.donor_name?.toLowerCase().includes(q) ||
+      d.donor_phone?.toLowerCase().includes(q) ||
+      false
+    );
+  };
   if (loading) {
     return (
       <div style={{
@@ -459,17 +719,23 @@ function ExpandedDonations({
             {donations.map((d, di) => {
               const isLastDon = di === donations.length - 1;
               const statusMeta = getStatusMeta(d.verification_status);
+              const isMatch = donationMatches(d);
               return (
                 <tr key={d.id}
-                  style={{ borderBottom: isLastDon ? 'none' : `1px solid ${t.sidebarBorder}` }}
+                  style={{
+                    borderBottom: isLastDon ? 'none' : `1px solid ${t.sidebarBorder}`,
+                    background: isMatch ? 'rgba(236,72,153,0.06)' : 'transparent',
+                    boxShadow: isMatch ? 'inset 3px 0 0 #EC4899' : 'none',
+                    transition: 'all 150ms',
+                  }}
                 >
                   <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, marginBottom: 2 }}>
-                      {d.is_anonymous ? '🎭 Anonim' : d.donor_name}
+                      {d.is_anonymous ? '🎭 Anonim' : highlightMatch(d.donor_name)}
                     </div>
                     {d.donor_phone && !d.is_anonymous && (
                       <div style={{ fontSize: 9, color: t.textDim, fontFamily: 'monospace' }}>
-                        {d.donor_phone}
+                        {highlightMatch(d.donor_phone)}
                       </div>
                     )}
                   </td>
@@ -487,9 +753,11 @@ function ExpandedDonations({
                     <span style={{
                       fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
                       padding: '2px 6px', borderRadius: 4,
-                      background: t.navHover, color: t.textDim,
+                      background: isMatch ? 'rgba(236,72,153,0.2)' : t.navHover,
+                      color: isMatch ? '#EC4899' : t.textDim,
+                      border: isMatch ? '1px solid rgba(236,72,153,0.4)' : 'none',
                     }}>
-                      {d.donation_code}
+                      {highlightMatch(d.donation_code)}
                     </span>
                   </td>
                   <td style={{ padding: '8px 12px', textAlign: 'center' }}>

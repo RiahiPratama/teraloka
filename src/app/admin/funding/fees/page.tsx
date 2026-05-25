@@ -5,7 +5,7 @@ import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import PartnerFeeCards, { type PartnerFeeSummary } from '@/components/admin/funding/PartnerFeeCards';
 import PendingFeesTable, { type PendingFeeDonation } from '@/components/admin/funding/PendingFeesTable';
 import RecordRemittanceModal from '@/components/admin/funding/RecordRemittanceModal';
@@ -71,10 +71,8 @@ function formatRupiah(n: number): string {
 }
 
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -337,7 +335,7 @@ export default function AdminFeesPage() {
         Pantau setoran fee operasional dari partner ke TeraLoka — transparansi revenue platform.
       </p>
 
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="feeremit" refreshKey={subNavRefresh} />
 
       {/* Stats Cards */}
       {summary && (

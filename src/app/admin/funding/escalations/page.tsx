@@ -14,7 +14,7 @@ import { useEffect, useState, useCallback, useContext } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 import {
   ArrowLeft, Loader2, AlertTriangle, RefreshCw, CheckCircle2,
@@ -265,7 +265,7 @@ export default function AdminEscalationsPage() {
 
       {/* SubNav */}
       <div style={{ padding: '16px 16px 0', maxWidth: 1280, margin: '0 auto' }}>
-        <AdminFundingSubNav refreshKey={subNavRefresh} />
+        <CommandCenterTabs active="escalations" refreshKey={subNavRefresh} />
       </div>
 
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: '0 16px' }}>

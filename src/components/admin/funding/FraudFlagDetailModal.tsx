@@ -21,11 +21,8 @@ function formatRupiah(n: number): string {
 }
 
 function shortRupiah(n: number): string {
-  const num = Number(n) || 0;
-  if (num >= 1_000_000_000) return 'Rp ' + (num / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (num >= 1_000_000) return 'Rp ' + (num / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (num >= 1_000) return 'Rp ' + (num / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + num.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 function formatKey(key: string): string {

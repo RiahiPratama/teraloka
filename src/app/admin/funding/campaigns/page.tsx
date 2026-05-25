@@ -14,7 +14,7 @@ import AdvancedFiltersDrawer, {
 } from '@/components/admin/funding/AdvancedFiltersDrawer';
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
-import AdminFundingSubNav from '@/components/admin/funding/AdminFundingSubNav';     // ← M1-Polish
+import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
@@ -430,7 +430,7 @@ export default function AdminCampaignsPage() {
         Verifikasi dokumen, approve kampanye yang memenuhi standar, atau tolak dengan alasan jelas.
       </p>
 
-      <AdminFundingSubNav refreshKey={subNavRefresh} />
+      <CommandCenterTabs active="campaigns" refreshKey={subNavRefresh} />
 
       {/* Status Tabs */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
@@ -949,10 +949,8 @@ export default function AdminCampaignsPage() {
 // ── Helpers ──────────────────────────────────────
 
 function shortRupiah(n: number): string {
-  if (n >= 1_000_000_000) return 'Rp ' + (n / 1_000_000_000).toFixed(1).replace(/\.0$/, '') + 'M';
-  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(1).replace(/\.0$/, '') + 'jt';
-  if (n >= 1_000) return 'Rp ' + (n / 1_000).toFixed(0) + 'rb';
-  return 'Rp ' + n.toLocaleString('id-ID');
+  // Long format (full precision) — for financial verification context.
+  return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
 }
 
 function cancelBtnStyle(t: any): React.CSSProperties {
