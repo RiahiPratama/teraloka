@@ -15,7 +15,7 @@ const Icons = {
 export interface PendingFeeDonation {
   id: string;
   donation_code: string;
-  display_id?: string;
+  display_id?: string | null;  // ⭐ Sesi 12: BDN-DON-2026-XXXXX (donation level)
   donor_name: string;
   donor_phone?: string;
   is_anonymous: boolean;
@@ -27,6 +27,7 @@ export interface PendingFeeDonation {
   created_at: string;
   campaign?: {
     id: string;
+    display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
     title: string;
     slug: string;
     partner_name: string;
@@ -164,7 +165,7 @@ export default function PendingFeesTable({
                       color: t.textPrimary, background: t.navHover,
                       padding: '3px 8px', borderRadius: 6, display: 'inline-block',
                     }}>
-                      {d.display_id ?? d.donation_code}
+                      {d.donation_code}
                     </span>
                   </td>
 
@@ -198,6 +199,16 @@ export default function PendingFeesTable({
                         }}>
                           {d.campaign.title}
                         </div>
+                        {/* ⭐ Sesi 13: Display ID */}
+                        {d.campaign.display_id && (
+                          <div style={{ 
+                            fontSize: 9, color: t.textMuted, marginTop: 2,
+                            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                            fontWeight: 700, letterSpacing: '0.04em',
+                          }}>
+                            {d.campaign.display_id}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <span style={{ fontSize: 11, color: t.textMuted, fontStyle: 'italic' }}>

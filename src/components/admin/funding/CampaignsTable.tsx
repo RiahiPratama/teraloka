@@ -28,6 +28,7 @@ const CATEGORY_LABEL: Record<string, string> = {
 export interface Campaign {
   // Required for table rendering
   id: string;
+  display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
   title: string;
   slug: string;
   category: string;
@@ -237,6 +238,22 @@ export default function CampaignsTable({
                       )}
                       <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2, flexWrap: 'wrap' }}>
+                          {/* ⭐ Sesi 13: Display ID badge (full BDN-CMP-2026-XXXXX) */}
+                          {c.display_id && (
+                            <span 
+                              title={`Nomor kampanye: ${c.display_id}`}
+                              style={{
+                                fontSize: 9, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                                fontWeight: 800, letterSpacing: '0.04em',
+                                padding: '2px 6px', borderRadius: 4,
+                                background: t.navHover, color: t.textMuted,
+                                border: `1px solid ${t.sidebarBorder}`,
+                                whiteSpace: 'nowrap', flexShrink: 0,
+                              }}
+                            >
+                              {c.display_id}
+                            </span>
+                          )}
                           <span style={{
                             fontSize: 13, fontWeight: 700, color: t.textPrimary,
                             overflow: 'hidden', textOverflow: 'ellipsis',

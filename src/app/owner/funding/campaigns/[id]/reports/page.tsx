@@ -40,6 +40,7 @@ interface UsageReport {
 
 interface CampaignSummary {
   id: string;
+  display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
   title: string;
   status: string;
   collected_amount: number;
@@ -133,7 +134,12 @@ export default function OwnerCampaignReportsPage() {
           </Link>
           <div className="flex-1 min-w-0">
             <h1 className="text-base font-bold text-gray-900 truncate">Laporan Penggunaan</h1>
-            <p className="text-xs text-gray-500 truncate">{campaign.title}</p>
+            <p className="text-xs text-gray-500 truncate">
+              {campaign.display_id && (
+                <span className="font-mono font-bold text-gray-400 mr-1.5">{campaign.display_id}</span>
+              )}
+              {campaign.title}
+            </p>
           </div>
         </div>
       </header>

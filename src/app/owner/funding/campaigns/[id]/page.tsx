@@ -23,6 +23,7 @@ const TOKEN_KEY = 'tl_token';
 
 interface Campaign {
   id: string;
+  display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
   title: string;
   slug: string;
   status: 'draft' | 'pending_review' | 'active' | 'completed' | 'rejected';
@@ -341,9 +342,20 @@ export default function CampaignDetailPage() {
           <div className="flex items-start gap-2 mb-2">
             <HeartHandshake size={18} className="text-[#F472B6] mt-0.5 shrink-0" strokeWidth={2.2} />
             <div className="flex-1 min-w-0">
-              <p className="text-[10px] font-bold text-[#F472B6] uppercase tracking-widest mb-0.5">
-                BADONASI · Detail Kampanye
-              </p>
+              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                <p className="text-[10px] font-bold text-[#F472B6] uppercase tracking-widest">
+                  BADONASI · Detail Kampanye
+                </p>
+                {/* ⭐ Sesi 13: Display ID badge */}
+                {campaign.display_id && (
+                  <span 
+                    className="font-mono text-[9px] font-extrabold bg-white/15 text-white/90 px-2 py-0.5 rounded border border-white/20 tracking-wide"
+                    title={`Nomor kampanye: ${campaign.display_id}`}
+                  >
+                    {campaign.display_id}
+                  </span>
+                )}
+              </div>
               <h1 className="text-base font-extrabold text-white leading-tight">
                 {campaign.title || '(Tanpa judul)'}
               </h1>

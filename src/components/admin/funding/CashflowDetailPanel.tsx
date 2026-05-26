@@ -41,6 +41,7 @@ interface DetailRow {
 
 interface CampaignSisa {
   campaign_id: string;
+  campaign_display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
   campaign_title: string;
   partner_id: string;
   partner_name: string;
@@ -182,13 +183,14 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
     
     if (category === 'hak_beneficiary') {
       filename = `hak-beneficiary-2level-${new Date().toISOString().slice(0, 10)}.csv`;
-      csv += 'No,Penggalang,Campaign,Partner,Utang Beneficiary,Sudah Disalurkan,Sisa Belum Disalurkan\n';
+      csv += 'No,Penggalang,Campaign ID,Campaign,Partner,Utang Beneficiary,Sudah Disalurkan,Sisa Belum Disalurkan\n';
       let rowNum = 1;
       penggalangs.forEach(p => {
         p.campaigns.forEach(c => {
           csv += [
             rowNum++,
             `"${p.penggalang_name}"`,
+            c.campaign_display_id ?? '',
             `"${c.campaign_title}"`,
             `"${c.partner_name}"`,
             c.utang_beneficiary,
@@ -496,8 +498,19 @@ function HakBeneficiary2Level({
                       {p.campaigns.map((c, ci) => (
                         <tr key={c.campaign_id} style={{ borderBottom: ci < p.campaigns.length - 1 ? `1px solid ${t.sidebarBorder}` : 'none' }}>
                           <td style={{ ...td(t), color: t.textDim, paddingLeft: 0, width: 30 }}>{ci + 1}</td>
-                          <td style={{ ...td(t), maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {c.campaign_title}
+                          <td style={{ ...td(t), maxWidth: 280 }}>
+                            <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {c.campaign_title}
+                            </div>
+                            {c.campaign_display_id && (
+                              <div style={{ 
+                                fontSize: 9, color: t.textMuted, marginTop: 1,
+                                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+                                fontWeight: 700,
+                              }}>
+                                {c.campaign_display_id}
+                              </div>
+                            )}
                           </td>
                           <td style={{ ...td(t), color: '#EC4899' }}>{c.partner_name}</td>
                           <td style={{ ...td(t), textAlign: 'right', color: '#10B981' }}>{formatRupiah(c.utang_beneficiary)}</td>

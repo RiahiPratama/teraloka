@@ -20,6 +20,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/
 
 interface MyCampaign {
   id: string;
+  display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
   title: string;
   slug: string;
   status: 'draft' | 'pending_review' | 'active' | 'completed' | 'rejected';
@@ -475,6 +476,15 @@ function CampaignCard({
 
             {/* Status badge + category */}
             <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              {/* ⭐ Sesi 13: Display ID badge (full BDN-CMP-2026-XXXXX) */}
+              {campaign.display_id && (
+                <span 
+                  className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wider font-mono bg-gray-100 text-gray-600"
+                  title={`Nomor kampanye: ${campaign.display_id}`}
+                >
+                  {campaign.display_id}
+                </span>
+              )}
               <span
                 className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider"
                 style={{ color: meta.color, backgroundColor: meta.bg.includes('bg-') ? '' : meta.bg }}

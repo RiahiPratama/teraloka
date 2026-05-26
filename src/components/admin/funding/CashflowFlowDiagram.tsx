@@ -117,33 +117,42 @@ export default function CashflowFlowDiagram({
 
         {/* ═══ FLOW ARROWS (drawn first so boxes sit on top) ═══ */}
 
-        {/* Donor → Partner (pink) — GROSS total_transfer */}
+        {/* Donor → Partner (pink) — GROSS total_transfer + breakdown beneficiary */}
         <line x1="260" y1="110" x2="370" y2="110"
               stroke="#EC4899" strokeWidth="3" markerEnd="url(#arrow-pink)" />
+        {/* "total transfer" label di atas */}
+        <text x="315" y="80" textAnchor="middle" fontSize="10" fill="#EC4899" opacity="0.7">
+          total transfer
+        </text>
+        {/* Gross amount */}
         <text x="315" y="95" textAnchor="middle" fontSize="13" fontWeight="700" fill="#EC4899">
           {formatRupiah(data.total_in)}
         </text>
-        <text x="315" y="128" textAnchor="middle" fontSize="10" fill="#EC4899" opacity="0.7">
-          total transfer
+        {/* Dana Beneficiary breakdown di bawah — 2-line layout */}
+        <text x="315" y="130" textAnchor="middle" fontSize="9" fill="#10B981" opacity="0.7">
+          Dana Beneficiary:
+        </text>
+        <text x="315" y="145" textAnchor="middle" fontSize="11" fontWeight="700" fill="#10B981">
+          {formatRupiah(data.total_beneficiary ?? 0)}
         </text>
 
         {/* Partner → Beneficiary (green) */}
         <line x1="560" y1="110" x2="670" y2="110"
               stroke="#10B981" strokeWidth="3" markerEnd="url(#arrow-green)" />
+        <text x="615" y="80" textAnchor="middle" fontSize="10" fill="#10B981" opacity="0.7">
+          disalurkan
+        </text>
         <text x="615" y="95" textAnchor="middle" fontSize="13" fontWeight="700" fill="#10B981">
           {formatRupiah(data.total_disbursed)}
         </text>
-        <text x="615" y="128" textAnchor="middle" fontSize="10" fill="#10B981" opacity="0.7">
-          disalurkan
-        </text>
-
         {/* Partner → TeraLoka (orange, diagonal kiri-bawah) */}
         <line x1="410" y1="170" x2="340" y2="260"
               stroke="#EA580C" strokeWidth="3" strokeDasharray="6 4" markerEnd="url(#arrow-orange)" />
-        <text x="290" y="225" fontSize="12" fontWeight="700" fill="#EA580C">
+        {/* Text ORANGE: dekat arrow, di kiri */}
+        <text x="320" y="215" fontSize="12" fontWeight="700" fill="#EA580C" textAnchor="end">
           {formatRupiah(data.total_fee_expected)}
         </text>
-        <text x="290" y="241" fontSize="9" fill="#EA580C" opacity="0.7">
+        <text x="320" y="230" fontSize="9" fill="#EA580C" opacity="0.7" textAnchor="end">
           fee operasional
         </text>
 
@@ -152,10 +161,11 @@ export default function CashflowFlowDiagram({
           <g>
             <line x1="520" y1="170" x2="590" y2="260"
                   stroke="#8B5CF6" strokeWidth="3" strokeDasharray="6 4" markerEnd="url(#arrow-purple)" />
-            <text x="595" y="225" fontSize="12" fontWeight="700" fill="#8B5CF6">
+            {/* Text PURPLE: dekat arrow, di kanan */}
+            <text x="610" y="215" fontSize="12" fontWeight="700" fill="#8B5CF6">
               {formatRupiah((data.total_penggalang_fee ?? 0) + (data.total_kode_unik ?? 0))}
             </text>
-            <text x="595" y="241" fontSize="9" fill="#8B5CF6" opacity="0.7">
+            <text x="610" y="230" fontSize="9" fill="#8B5CF6" opacity="0.7">
               tip + kode unik
             </text>
           </g>
@@ -237,14 +247,22 @@ export default function CashflowFlowDiagram({
           </g>
         )}
 
-        {/* Hak Beneficiary di Partner (Utang Dana Beneficiary belum settled) */}
+        {/* ⌛ Hak Beneficiary di Partner — curved arc Partner → Beneficiary */}
         {(() => {
           const hakBeneficiary = (data.total_beneficiary ?? 0) - data.total_disbursed;
           if (hakBeneficiary > 0) {
             return (
               <g>
-                <text x="465" y="200" textAnchor="middle" fontSize="10" fontWeight="600"
-                      fill={t.textMuted} opacity="0.8">
+                {/* Curved dashed arc dari Partner top ke Beneficiary top */}
+                <path 
+                  d="M 510 60 Q 615 5 720 60"
+                  fill="none"
+                  stroke="#F59E0B" strokeWidth="2" strokeDasharray="5 4"
+                  opacity="0.7"
+                />
+                {/* Text "⌛ Hak Beneficiary di Partner" di atas arc (di midpoint y=15) */}
+                <text x="615" y="22" textAnchor="middle" fontSize="11" fontWeight="700"
+                      fill="#F59E0B">
                   ⌛ Hak Beneficiary di Partner: {formatRupiah(hakBeneficiary)}
                 </text>
               </g>

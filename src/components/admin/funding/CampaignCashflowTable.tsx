@@ -9,6 +9,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.
 // ── Types ─────────────────────────────────────────
 export interface CampaignCashflow {
   id: string;
+  display_id?: string;  // ⭐ Sesi 13: BDN-CMP-2026-XXXXX
   title: string;
   slug: string;
   partner_name: string | null;
@@ -20,8 +21,6 @@ export interface CampaignCashflow {
   collected_amount: number;
   donor_count: number;
   disbursed_amount: number;
-  disbursed_pending_amount?: number;  // ⭐ Sesi 12: pending disbursements (admin pipeline)
-  disbursement_count?: number;
   remaining_at_partner: number;
   disbursement_rate: number;
   report_count: number;
@@ -266,7 +265,6 @@ export default function CampaignCashflowTable({
           <thead>
             <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.navHover + '55' }}>
               <th style={thStyle(t, 'center', 36)}></th>{/* Expand toggle column */}
-              <th style={thStyle(t, 'center', 40)}>#</th>
               <th style={thStyle(t, 'left')}>Kampanye</th>
               <th style={thStyle(t, 'right', 110)}>Terkumpul</th>
               <th style={thStyle(t, 'right', 110)}>Disalurkan</th>
@@ -331,32 +329,25 @@ export default function CampaignCashflowTable({
                     </span>
                   </td>
 
-                  {/* ⭐ Sequential Number (audit tracking) */}
-                  <td style={tdStyle(t, 'center')}>
-                    <span style={{ 
-                      fontSize: 12, fontWeight: 700, 
-                      color: t.textMuted,
-                      fontFamily: 'monospace',
-                    }}>
-                      {idx + 1}
-                    </span>
-                  </td>
-
                   {/* Campaign Info */}
                   <td style={tdStyle(t, 'left')}>
                     <div style={{ minWidth: 0, display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-                      {/* ⭐ AUDIT TRACKING: Nomor Kampanye Prominent */}
+                      {/* ⭐ AUDIT TRACKING: Display ID Prominent (Sesi 13) */}
                       {(() => {
-                        // Extract unique identifier dari slug
-                        // Format slug umum: "seed-2-3-pak-hasan-f47a62" → suffix = "f47a62"
-                        // Atau pakai 8 chars terakhir UUID kalau slug gak ada suffix hash
-                        const slugParts = (c.slug || '').split('-');
-                        const lastPart = slugParts[slugParts.length - 1];
-                        // Cek apakah suffix is hex-like (5-8 chars alphanumeric lowercase)
-                        const isHashSuffix = /^[a-f0-9]{4,8}$/i.test(lastPart);
-                        const campaignNumber = isHashSuffix
-                          ? `#${lastPart.toUpperCase()}`
-                          : `#${c.id.substring(0, 6).toUpperCase()}`;
+                        // Pakai display_id (BDN-CMP-2026-XXXXX) sebagai primary identifier
+                        // Tampil FULL untuk audit clarity (konsisten dengan BDN-DON-2026-XXXXX)
+                        let campaignNumber: string;
+                        if (c.display_id) {
+                          campaignNumber = c.display_id;
+                        } else {
+                          // Legacy fallback
+                          const slugParts = (c.slug || '').split('-');
+                          const lastPart = slugParts[slugParts.length - 1];
+                          const isHashSuffix = /^[a-f0-9]{4,8}$/i.test(lastPart);
+                          campaignNumber = isHashSuffix
+                            ? `#${lastPart.toUpperCase()}`
+                            : `#${c.id.substring(0, 6).toUpperCase()}`;
+                        }
 
                         // Anomaly tooltip info (kalau ada)
                         const anomalyTooltip = anomalyMap && anomalyMap[c.id] && anomalyMap[c.id].level !== 'healthy' && anomalyMap[c.id].level !== 'closed'
@@ -484,7 +475,7 @@ export default function CampaignCashflowTable({
                     )}
                   </td>
 
-                  {/* Disbursed (verified + pending) */}
+                  {/* Disbursed */}
                   <td style={tdStyle(t, 'right')}>
                     <div style={{
                       fontSize: 13, fontWeight: 700,
@@ -492,40 +483,16 @@ export default function CampaignCashflowTable({
                     }}>
                       {shortRupiah(c.disbursed_amount)}
                     </div>
-                    {(c.disbursed_pending_amount ?? 0) > 0 && (
-                      <div style={{ 
-                        fontSize: 10, color: '#F59E0B', marginTop: 2,
-                        display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3,
-                      }}>
-                        <span style={{ 
-                          display: 'inline-block', width: 6, height: 6, 
-                          borderRadius: '50%', background: '#F59E0B',
-                        }} />
-                        + {shortRupiah(c.disbursed_pending_amount!)} pending
-                      </div>
-                    )}
                   </td>
 
-                  {/* Remaining at partner — adjusted (exclude pending disbursement) */}
+                  {/* Remaining at partner */}
                   <td style={tdStyle(t, 'right')}>
-                    {(() => {
-                      const adjustedRemaining = c.remaining_at_partner - (c.disbursed_pending_amount ?? 0);
-                      return (
-                        <>
-                          <div style={{
-                            fontSize: 12, fontWeight: 600,
-                            color: adjustedRemaining > 0 ? '#F59E0B' : t.textMuted,
-                          }}>
-                            {shortRupiah(Math.max(0, adjustedRemaining))}
-                          </div>
-                          {(c.disbursed_pending_amount ?? 0) > 0 && (
-                            <div style={{ fontSize: 9, color: t.textDim, marginTop: 1 }}>
-                              setelah pending
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
+                    <div style={{
+                      fontSize: 12, fontWeight: 600,
+                      color: c.remaining_at_partner > 0 ? '#F59E0B' : t.textMuted,
+                    }}>
+                      {shortRupiah(c.remaining_at_partner)}
+                    </div>
                   </td>
 
                   {/* Rate with mini progress bar */}
@@ -591,7 +558,7 @@ export default function CampaignCashflowTable({
                       background: t.navHover + '15',
                     }}
                   >
-                    <td colSpan={9} style={{ padding: '0 16px 16px 16px' }}>
+                    <td colSpan={8} style={{ padding: '0 16px 16px 16px' }}>
                       <ExpandedDonations
                         donations={donations}
                         loading={isLoading}
@@ -745,7 +712,6 @@ function ExpandedDonations({
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.mainBg }}>
-              <th style={{ ...thStyle(t, 'center', 36), padding: '8px 12px', fontSize: 9 }}>#</th>
               <th style={{ ...thStyle(t, 'left'), padding: '8px 12px', fontSize: 9 }}>Donor</th>
               <th style={{ ...thStyle(t, 'right', 100), padding: '8px 12px', fontSize: 9 }}>Nominal</th>
               <th style={{ ...thStyle(t, 'right', 80), padding: '8px 12px', fontSize: 9 }}>Fee</th>
@@ -768,14 +734,6 @@ function ExpandedDonations({
                     transition: 'all 150ms',
                   }}
                 >
-                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                    <span style={{ 
-                      fontSize: 11, fontWeight: 700, 
-                      color: t.textMuted, fontFamily: 'monospace',
-                    }}>
-                      {di + 1}
-                    </span>
-                  </td>
                   <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
                     <div style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, marginBottom: 2 }}>
                       {d.is_anonymous ? '🎭 Anonim' : highlightMatch(d.donor_name)}
