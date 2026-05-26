@@ -35,13 +35,19 @@ export interface CampaignCashflow {
 }
 
 // ⭐ Sprint 2.3 Phase 3b: Donation drilldown type
+// ⭐ Sesi 13 Mission 2A: Extended dengan display_id + total_transfer + penggalang_fee + kode_unik
 interface DrilldownDonation {
   id: string;
+  display_id?: string;          // ⭐ BDN-DON-2026-XXXXX
   donor_name: string;
   donor_phone?: string;
   is_anonymous: boolean;
-  amount: number;
-  operational_fee: number;
+  amount: number;                // Hak Beneficiary
+  operational_fee: number;       // Fee TeraLoka
+  penggalang_fee?: number;       // ⭐ Tip Penggalang (0 = tidak opt-in)
+  // NOTE: Kode Unik DERIVE dari parseInt(donation_code) — bukan kolom DB terpisah
+  // Source: donations-public.ts (totalTransfer formula)
+  total_transfer?: number;       // ⭐ Gross (amount + operational_fee + penggalang_fee + parseInt(donation_code))
   donation_code: string;
   verification_status: 'pending' | 'verified' | 'rejected' | 'under_audit';
   verified_at?: string;
@@ -56,6 +62,20 @@ interface DrilldownDonation {
 function shortRupiah(n: number): string {
   // Long format (full precision) — for financial verification context.
   return 'Rp ' + (n ?? 0).toLocaleString('id-ID');
+}
+
+function formatDateShort(iso: string | undefined): string {
+  if (!iso) return '-';
+  const d = new Date(iso);
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+}
+
+// ⭐ Sesi 13 Mission 2A: Accounting standard format
+// Parentheses notation untuk deductible (rejected donations = pengurang)
+// Standard internasional: $(106,641) = -$106,641
+function accountingFormat(n: number, isDeductible: boolean = false): string {
+  const formatted = shortRupiah(Math.abs(n));
+  return isDeductible ? `(${formatted})` : formatted;
 }
 
 function rateColor(rate: number): string {
@@ -594,6 +614,7 @@ export default function CampaignCashflowTable({
 }
 
 // ⭐ Sprint 2.3 Phase 3b: Expanded donations drilldown component
+// ⭐ Sesi 13 Mission 2A: + Pagination 10/page + Footer Total + 4 kolom baru
 function ExpandedDonations({
   donations,
   loading,
@@ -607,6 +628,8 @@ function ExpandedDonations({
   t: any;
   searchQuery?: string;
 }) {
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
   // ── AUDIT TRACKING: Highlight matched text ──
   const highlightMatch = (text: string | null | undefined): React.ReactNode => {
     if (!text) return null;
@@ -721,93 +744,338 @@ function ExpandedDonations({
         </div>
       </div>
 
-      {/* Donations list */}
-      <div style={{ maxHeight: 320, overflowY: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
-          <thead>
-            <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.mainBg }}>
-              <th style={{ ...thStyle(t, 'left'), padding: '8px 12px', fontSize: 9 }}>Donor</th>
-              <th style={{ ...thStyle(t, 'right', 100), padding: '8px 12px', fontSize: 9 }}>Nominal</th>
-              <th style={{ ...thStyle(t, 'right', 80), padding: '8px 12px', fontSize: 9 }}>Fee</th>
-              <th style={{ ...thStyle(t, 'center', 80), padding: '8px 12px', fontSize: 9 }}>Kode</th>
-              <th style={{ ...thStyle(t, 'center', 90), padding: '8px 12px', fontSize: 9 }}>Status</th>
-              <th style={{ ...thStyle(t, 'center', 80), padding: '8px 12px', fontSize: 9 }}>Fee Setor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {donations.map((d, di) => {
-              const isLastDon = di === donations.length - 1;
-              const statusMeta = getStatusMeta(d.verification_status);
-              const isMatch = donationMatches(d);
-              return (
-                <tr key={d.id}
-                  style={{
-                    borderBottom: isLastDon ? 'none' : `1px solid ${t.sidebarBorder}`,
-                    background: isMatch ? 'rgba(236,72,153,0.06)' : 'transparent',
-                    boxShadow: isMatch ? 'inset 3px 0 0 #EC4899' : 'none',
-                    transition: 'all 150ms',
-                  }}
-                >
-                  <td style={{ padding: '8px 12px', verticalAlign: 'top' }}>
-                    <div style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, marginBottom: 2 }}>
-                      {d.is_anonymous ? '🎭 Anonim' : highlightMatch(d.donor_name)}
-                    </div>
-                    {d.donor_phone && !d.is_anonymous && (
-                      <div style={{ fontSize: 9, color: t.textDim, fontFamily: 'monospace' }}>
-                        {highlightMatch(d.donor_phone)}
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-                      {shortRupiah(d.amount)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'right' }}>
-                    <span style={{ fontSize: 11, color: t.textDim }}>
-                      {shortRupiah(d.operational_fee)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                    <span style={{
-                      fontSize: 10, fontFamily: 'monospace', fontWeight: 700,
-                      padding: '2px 6px', borderRadius: 4,
-                      background: isMatch ? 'rgba(236,72,153,0.2)' : t.navHover,
-                      color: isMatch ? '#EC4899' : t.textDim,
-                      border: isMatch ? '1px solid rgba(236,72,153,0.4)' : 'none',
+      {/* Donations list — paginated */}
+      {(() => {
+        // ⭐ Sesi 13 Mission 2A: pagination 10/page + footer total
+        const totalPages = Math.max(1, Math.ceil(donations.length / PAGE_SIZE));
+        const safePage = Math.min(currentPage, totalPages);
+        const startIdx = (safePage - 1) * PAGE_SIZE;
+        const endIdx = startIdx + PAGE_SIZE;
+        const paginated = donations.slice(startIdx, endIdx);
+
+        // Aggregate totals (across ALL donations, not just current page)
+        // ⭐ Sesi 13 Mission 2A: Accounting principle — exclude REJECTED dari total
+        // Rejected = uang tidak pernah masuk partner, tidak ada journal entry
+        // kode_unik DERIVE dari donation_code (3-digit) - bukan kolom DB terpisah
+        const validDonations = donations.filter(d => d.verification_status !== 'rejected');
+        const rejectedDonations = donations.filter(d => d.verification_status === 'rejected');
+
+        const totalTransferAll = validDonations.reduce((s, d) => s + (Number(d.total_transfer) || 0), 0);
+        const totalBeneficiaryAll = validDonations.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+        const totalFeeAll = validDonations.reduce((s, d) => s + (Number(d.operational_fee) || 0), 0);
+        const totalKodeUnikAll = validDonations.reduce((s, d) => {
+          const kode = d.donation_code ? parseInt(d.donation_code, 10) : 0;
+          return s + (isNaN(kode) ? 0 : kode);
+        }, 0);
+        const totalTipAll = validDonations.reduce((s, d) => s + (Number(d.penggalang_fee) || 0), 0);
+
+        // Rejected aggregates (untuk disclaimer footer + visual)
+        const rejectedTransferAll = rejectedDonations.reduce((s, d) => s + (Number(d.total_transfer) || 0), 0);
+        const rejectedBeneficiaryAll = rejectedDonations.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+        const rejectedFeeAll = rejectedDonations.reduce((s, d) => s + (Number(d.operational_fee) || 0), 0);
+        const rejectedKodeUnikAll = rejectedDonations.reduce((s, d) => {
+          const kode = d.donation_code ? parseInt(d.donation_code, 10) : 0;
+          return s + (isNaN(kode) ? 0 : kode);
+        }, 0);
+        const rejectedTipAll = rejectedDonations.reduce((s, d) => s + (Number(d.penggalang_fee) || 0), 0);
+
+        return (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.mainBg }}>
+                    <th style={{ ...thStyle(t, 'left'), padding: '8px 10px', fontSize: 9 }}>Donor</th>
+                    <th style={{ ...thStyle(t, 'left'), padding: '8px 10px', fontSize: 9, minWidth: 140 }}>Nomor + Tgl</th>
+                    <th style={{ ...thStyle(t, 'right'), padding: '8px 10px', fontSize: 9, minWidth: 100 }}>Total Transfer</th>
+                    <th style={{ ...thStyle(t, 'right'), padding: '8px 10px', fontSize: 9, minWidth: 100 }}>Hak Beneficiary</th>
+                    <th style={{ ...thStyle(t, 'right'), padding: '8px 10px', fontSize: 9, minWidth: 80 }}>Fee TeraLoka</th>
+                    <th style={{ ...thStyle(t, 'right'), padding: '8px 10px', fontSize: 9, minWidth: 70 }}>Kode Unik</th>
+                    <th style={{ ...thStyle(t, 'right'), padding: '8px 10px', fontSize: 9, minWidth: 80 }}>Tip Penggalang</th>
+                    <th style={{ ...thStyle(t, 'center', 90), padding: '8px 10px', fontSize: 9 }}>Status</th>
+                    <th style={{ ...thStyle(t, 'center', 80), padding: '8px 10px', fontSize: 9 }}>Fee Setor</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {paginated.map((d, di) => {
+                    const isLastDon = di === paginated.length - 1;
+                    const statusMeta = getStatusMeta(d.verification_status);
+                    const isMatch = donationMatches(d);
+                    const isRejected = d.verification_status === 'rejected';  // ⭐ Accounting: deductible
+                    const kodeUnikDerived = d.donation_code ? (parseInt(d.donation_code, 10) || 0) : 0;
+                    const totalTransfer = Number(d.total_transfer) || ((Number(d.amount) || 0) + (Number(d.operational_fee) || 0) + (Number(d.penggalang_fee) || 0) + kodeUnikDerived);
+                    
+                    // ⭐ Accounting: rejected row pakai parentheses (deductible) + RED color
+                    const rejectedTextColor = '#EF4444';  // red-500 = jelas visual untuk auditor
+                    return (
+                      <tr key={d.id}
+                        style={{
+                          borderBottom: isLastDon ? 'none' : `1px solid ${t.sidebarBorder}`,
+                          background: isMatch ? 'rgba(236,72,153,0.06)' : 'transparent',
+                          boxShadow: isMatch ? 'inset 3px 0 0 #EC4899' : 'none',
+                          transition: 'all 150ms',
+                        }}
+                      >
+                        {/* Col 1: Donor */}
+                        <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: t.textPrimary, marginBottom: 2 }}>
+                            {d.is_anonymous ? '🎭 Anonim' : highlightMatch(d.donor_name)}
+                          </div>
+                          {d.donor_phone && !d.is_anonymous && (
+                            <div style={{ fontSize: 9, color: t.textDim, fontFamily: 'monospace' }}>
+                              {highlightMatch(d.donor_phone)}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Col 2: ⭐ Nomor + Tgl (compact 2-line) */}
+                        <td style={{ padding: '8px 10px', verticalAlign: 'top' }}>
+                          {d.display_id ? (
+                            <div style={{
+                              fontSize: 10, fontFamily: 'ui-monospace, monospace',
+                              fontWeight: 800, color: '#EC4899', marginBottom: 2,
+                              letterSpacing: '0.03em',
+                            }}>
+                              {d.display_id}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 10, color: t.textMuted, marginBottom: 2, fontStyle: 'italic' }}>
+                              (no ID)
+                            </div>
+                          )}
+                          <div style={{ fontSize: 9, color: t.textDim }}>
+                            {formatDateShort(d.created_at)}
+                            {d.verified_at && (
+                              <span style={{ color: '#10B981', marginLeft: 4, opacity: 0.8 }}>
+                                ✓ {formatDateShort(d.verified_at)}
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Col 3: ⭐ Total Transfer (gross, hijau bold | rejected = parentheses muted) */}
+                        <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top' }}>
+                          <span style={{ 
+                            fontSize: 12, fontWeight: 700, 
+                            color: isRejected ? rejectedTextColor : '#10B981',
+                            fontStyle: isRejected ? 'italic' : 'normal',
+                          }}>
+                            {accountingFormat(totalTransfer, isRejected)}
+                          </span>
+                        </td>
+
+                        {/* Col 4: ⭐ Hak Beneficiary */}
+                        <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top' }}>
+                          <span style={{ 
+                            fontSize: 11, fontWeight: 700, 
+                            color: isRejected ? rejectedTextColor : t.textPrimary,
+                            fontStyle: isRejected ? 'italic' : 'normal',
+                          }}>
+                            {accountingFormat(d.amount, isRejected)}
+                          </span>
+                        </td>
+
+                        {/* Col 5: Fee TeraLoka */}
+                        <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top' }}>
+                          <span style={{ 
+                            fontSize: 11, 
+                            color: isRejected ? rejectedTextColor : '#BE185D',
+                            fontStyle: isRejected ? 'italic' : 'normal',
+                          }}>
+                            {accountingFormat(d.operational_fee, isRejected)}
+                          </span>
+                        </td>
+
+                        {/* Col 6: ⭐ Kode Unik (derive dari donation_code 3-digit) */}
+                        <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top' }}>
+                          {(() => {
+                            // Kode unik = parseInt(donation_code) — 3-digit nominal pembulatan
+                            // Architecture: donations TIDAK punya kolom kode_unik terpisah
+                            // Source: donations-public.ts line 114 (totalTransfer formula)
+                            const kodeUnikVal = d.donation_code ? parseInt(d.donation_code, 10) : 0;
+                            return (
+                              <span style={{ 
+                                fontSize: 11, 
+                                color: isRejected 
+                                  ? rejectedTextColor 
+                                  : (kodeUnikVal > 0 ? '#F59E0B' : t.textMuted),
+                                fontStyle: isRejected ? 'italic' : 'normal',
+                              }}>
+                                {kodeUnikVal > 0 ? accountingFormat(kodeUnikVal, isRejected) : '—'}
+                              </span>
+                            );
+                          })()}
+                        </td>
+
+                        {/* Col 7: ⭐ Tip Penggalang */}
+                        <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top' }}>
+                          <span style={{ 
+                            fontSize: 11, 
+                            color: isRejected 
+                              ? rejectedTextColor 
+                              : ((d.penggalang_fee ?? 0) > 0 ? '#8B5CF6' : t.textMuted),
+                            fontStyle: isRejected ? 'italic' : 'normal',
+                          }}>
+                            {(d.penggalang_fee ?? 0) > 0 ? accountingFormat(d.penggalang_fee ?? 0, isRejected) : '—'}
+                          </span>
+                        </td>
+
+                        {/* Col 8: Status (with donation_code tooltip) */}
+                        <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                          <span 
+                            title={`Kode: ${d.donation_code}`}
+                            style={{
+                              fontSize: 9, fontWeight: 700,
+                              padding: '3px 8px', borderRadius: 999,
+                              background: statusMeta.bg, color: statusMeta.color,
+                              textTransform: 'uppercase', letterSpacing: '0.04em',
+                              cursor: 'help',
+                            }}
+                          >
+                            {statusMeta.label}
+                          </span>
+                          {isMatch && (
+                            <div style={{
+                              fontSize: 9, fontFamily: 'monospace', color: '#EC4899',
+                              marginTop: 2, fontWeight: 700,
+                            }}>
+                              {highlightMatch(d.donation_code)}
+                            </div>
+                          )}
+                        </td>
+
+                        {/* Col 9: Fee Setor */}
+                        <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }}>
+                          {d.fee_remitted_at ? (
+                            <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>
+                              ✓ Sudah
+                            </span>
+                          ) : d.verification_status === 'verified' ? (
+                            <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>
+                              ⏳ Belum
+                            </span>
+                          ) : (
+                            <span style={{ fontSize: 10, color: t.textMuted }}>—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+
+                {/* ⭐ Sesi 13 Mission 2A: Footer Total row (Accounting Standard) */}
+                <tfoot>
+                  {/* Sub-row REJECTED (deductible, parentheses notation) */}
+                  {rejectedDonations.length > 0 && (
+                    <tr style={{ 
+                      background: 'rgba(156,163,175,0.05)',
+                      borderTop: `1px solid ${t.sidebarBorder}`,
+                      fontStyle: 'italic',
                     }}>
-                      {highlightMatch(d.donation_code)}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                    <span style={{
-                      fontSize: 9, fontWeight: 700,
-                      padding: '3px 8px', borderRadius: 999,
-                      background: statusMeta.bg, color: statusMeta.color,
-                      textTransform: 'uppercase', letterSpacing: '0.04em',
-                    }}>
-                      {statusMeta.label}
-                    </span>
-                  </td>
-                  <td style={{ padding: '8px 12px', textAlign: 'center' }}>
-                    {d.fee_remitted_at ? (
-                      <span style={{ fontSize: 10, color: '#10B981', fontWeight: 600 }}>
-                        ✓ Sudah
-                      </span>
-                    ) : d.verification_status === 'verified' ? (
-                      <span style={{ fontSize: 10, color: '#F59E0B', fontWeight: 600 }}>
-                        ⏳ Belum
-                      </span>
-                    ) : (
-                      <span style={{ fontSize: 10, color: t.textMuted }}>—</span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+                      <td style={{ padding: '8px 10px', fontSize: 10, color: '#EF4444', fontWeight: 600 }}>
+                        ❌ REJECTED
+                      </td>
+                      <td style={{ padding: '8px 10px', fontSize: 9, color: '#EF4444' }}>
+                        ({rejectedDonations.length} pengurang)
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EF4444' }}>
+                        ({shortRupiah(rejectedTransferAll)})
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EF4444' }}>
+                        ({shortRupiah(rejectedBeneficiaryAll)})
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EF4444' }}>
+                        ({shortRupiah(rejectedFeeAll)})
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EF4444' }}>
+                        {rejectedKodeUnikAll > 0 ? `(${shortRupiah(rejectedKodeUnikAll)})` : '—'}
+                      </td>
+                      <td style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EF4444' }}>
+                        {rejectedTipAll > 0 ? `(${shortRupiah(rejectedTipAll)})` : '—'}
+                      </td>
+                      <td colSpan={2} style={{ padding: '8px 10px' }}></td>
+                    </tr>
+                  )}
+
+                  {/* Main TOTAL row (exclude rejected per accounting principle) */}
+                  <tr style={{ 
+                    background: t.navHover, 
+                    borderTop: `2px solid ${t.sidebarBorder}`,
+                    fontWeight: 800,
+                  }}>
+                    <td style={{ padding: '10px', fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                      TOTAL
+                    </td>
+                    <td style={{ padding: '10px', fontSize: 9, color: t.textDim, fontStyle: 'italic' }}>
+                      ({validDonations.length} donasi valid)
+                    </td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: '#10B981' }}>
+                      {shortRupiah(totalTransferAll)}
+                    </td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: t.textPrimary }}>
+                      {shortRupiah(totalBeneficiaryAll)}
+                    </td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: '#BE185D' }}>
+                      {shortRupiah(totalFeeAll)}
+                    </td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: totalKodeUnikAll > 0 ? '#F59E0B' : t.textMuted }}>
+                      {totalKodeUnikAll > 0 ? shortRupiah(totalKodeUnikAll) : '—'}
+                    </td>
+                    <td style={{ padding: '10px', textAlign: 'right', fontSize: 11, fontWeight: 800, color: totalTipAll > 0 ? '#8B5CF6' : t.textMuted }}>
+                      {totalTipAll > 0 ? shortRupiah(totalTipAll) : '—'}
+                    </td>
+                    <td colSpan={2} style={{ padding: '10px' }}></td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* ⭐ Sesi 13 Mission 2A: Pagination Controls */}
+            {donations.length > PAGE_SIZE && (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '10px 12px', borderTop: `1px solid ${t.sidebarBorder}`,
+                background: t.mainBg,
+              }}>
+                <div style={{ fontSize: 10, color: t.textDim }}>
+                  Menampilkan {startIdx + 1}–{Math.min(endIdx, donations.length)} dari {donations.length} donasi
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={safePage === 1}
+                    style={{
+                      padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                      background: safePage === 1 ? t.navHover : t.cardBg,
+                      color: safePage === 1 ? t.textMuted : t.textPrimary,
+                      border: `1px solid ${t.sidebarBorder}`, borderRadius: 4,
+                      cursor: safePage === 1 ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    ◀ Prev
+                  </button>
+                  <span style={{ fontSize: 11, color: t.textPrimary, fontWeight: 700 }}>
+                    Halaman {safePage} dari {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={safePage === totalPages}
+                    style={{
+                      padding: '4px 10px', fontSize: 11, fontWeight: 600,
+                      background: safePage === totalPages ? t.navHover : t.cardBg,
+                      color: safePage === totalPages ? t.textMuted : t.textPrimary,
+                      border: `1px solid ${t.sidebarBorder}`, borderRadius: 4,
+                      cursor: safePage === totalPages ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    Next ▶
+                  </button>
+                </div>
+              </div>
+            )}
+          </>
+        );
+      })()}
     </div>
   );
 }
