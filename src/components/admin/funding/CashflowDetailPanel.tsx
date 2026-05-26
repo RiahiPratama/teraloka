@@ -98,6 +98,44 @@ function formatDate(iso: string): string {
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
+function daysAgo(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.floor((Date.now() - new Date(iso).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+// ⭐ Sesi 13 Mission 2: Fee TeraLoka 3-tab types
+type FeeTeralokaTab = 'donations' | 'partners' | 'remittances';
+
+interface FeeTeralokaPartner {
+  partner_name: string;
+  total_fee_expected: number;
+  total_fee_remitted: number;
+  total_fee_pending: number;
+  donation_count: number;
+  donation_count_remitted: number;
+  donation_count_pending: number;
+  aging_0_7: number;
+  aging_8_14: number;
+  aging_15_30: number;
+  aging_over_30: number;
+  oldest_pending_date: string | null;
+  last_remitted_at: string | null;       // ⭐ Sesi 13 Mission 2 fix
+  remittance_batch_count: number;
+  is_berutang: boolean;
+}
+
+interface FeeRemittanceBatch {
+  id: string;
+  partner_name: string;
+  amount: number;
+  donation_count: number;
+  status: string;
+  submitted_at: string | null;
+  reviewed_at: string | null;
+  reference_code: string | null;
+  notes: string | null;
+}
+
 export default function CashflowDetailPanel({ category, onClose }: Props) {
   const { t } = useContext(AdminThemeContext);
   const [loading, setLoading] = useState(true);
@@ -119,10 +157,16 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
   // ⭐ Under audit donations
   const [underAuditDonations, setUnderAuditDonations] = useState<UnderAuditDonation[]>([]);
 
+  // ⭐ Sesi 13 Mission 2: Fee TeraLoka 3-tab state
+  const [feeTeralokaTab, setFeeTeralokaTab] = useState<FeeTeralokaTab>('donations');
+  const [feePartnerAggregate, setFeePartnerAggregate] = useState<FeeTeralokaPartner[]>([]);
+  const [feeRemittanceBatches, setFeeRemittanceBatches] = useState<FeeRemittanceBatch[]>([]);
+
   const meta = CATEGORY_META[category];
 
   useEffect(() => {
     setExpandedPenggalangId(null);
+    setFeeTeralokaTab('donations');
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
@@ -158,6 +202,35 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
         const json = await res.json();
         if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal load');
         setUnderAuditDonations(json.data ?? []);
+      } else if (category === 'fee_teraloka') {
+        // ⭐ Sesi 13 Mission 2: Fetch 3 endpoints parallel untuk 3-tab view
+        const [detailRes, partnerRes, remittanceRes] = await Promise.all([
+          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=fee_teraloka&limit=500`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/fee-teraloka/by-partner`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/fee-teraloka/by-remittance`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+        ]);
+
+        const [detailJson, partnerJson, remittanceJson] = await Promise.all([
+          detailRes.json(),
+          partnerRes.json(),
+          remittanceRes.json(),
+        ]);
+
+        if (!detailRes.ok || !detailJson.success) throw new Error(detailJson?.error?.message ?? 'Gagal load detail');
+        if (!partnerRes.ok || !partnerJson.success) throw new Error(partnerJson?.error?.message ?? 'Gagal load partner');
+        if (!remittanceRes.ok || !remittanceJson.success) throw new Error(remittanceJson?.error?.message ?? 'Gagal load remittance');
+
+        setDetailRows(detailJson.data.rows ?? []);
+        setTotalAmount(detailJson.data.total_amount ?? 0);
+        setTotalCount(detailJson.data.total_count ?? 0);
+        setFeePartnerAggregate(partnerJson.data.partners ?? []);
+        setFeeRemittanceBatches(remittanceJson.data.batches ?? []);
       } else {
         // Fetch detail rows per simple category
         const res = await fetch(
@@ -213,6 +286,42 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
           `"${d.partner_name}"`,
           d.amount,
           d.total_transfer,
+        ].join(',') + '\n';
+      });
+    } else if (category === 'fee_teraloka' && feeTeralokaTab === 'partners') {
+      filename = `fee-teraloka-per-partner-${new Date().toISOString().slice(0, 10)}.csv`;
+      csv += 'No,Partner,Total Fee,Sudah Setor,Setor Terakhir,Jumlah Batch,Belum Setor,Aging 0-7,Aging 8-14,Aging 15-30,Aging >30,Tanggal Tertua Belum Setor,Status\n';
+      feePartnerAggregate.forEach((p, i) => {
+        csv += [
+          i + 1,
+          `"${p.partner_name}"`,
+          p.total_fee_expected,
+          p.total_fee_remitted,
+          p.last_remitted_at ? formatDate(p.last_remitted_at) : '-',
+          p.remittance_batch_count,
+          p.total_fee_pending,
+          p.aging_0_7,
+          p.aging_8_14,
+          p.aging_15_30,
+          p.aging_over_30,
+          p.oldest_pending_date ? formatDate(p.oldest_pending_date) : '-',
+          p.is_berutang ? 'Berutang' : 'Lunas',
+        ].join(',') + '\n';
+      });
+    } else if (category === 'fee_teraloka' && feeTeralokaTab === 'remittances') {
+      filename = `fee-teraloka-remittance-history-${new Date().toISOString().slice(0, 10)}.csv`;
+      csv += 'No,Tanggal Submit,Tanggal Verified,Partner,Jumlah Donasi,Total Fee,Status,Reference Code,Catatan\n';
+      feeRemittanceBatches.forEach((b, i) => {
+        csv += [
+          i + 1,
+          b.submitted_at ? formatDate(b.submitted_at) : '-',
+          b.reviewed_at ? formatDate(b.reviewed_at) : '-',
+          `"${b.partner_name}"`,
+          b.donation_count,
+          b.amount,
+          b.status,
+          b.reference_code ?? '',
+          `"${(b.notes ?? '').replace(/"/g, '""')}"`,
         ].join(',') + '\n';
       });
     } else {
@@ -307,8 +416,22 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
         </div>
       )}
 
-      {!loading && !error && category !== 'hak_beneficiary' && category !== 'under_audit' && (
+      {!loading && !error && category !== 'hak_beneficiary' && category !== 'under_audit' && category !== 'fee_teraloka' && (
         <DetailTable rows={detailRows} totalAmount={totalAmount} totalCount={totalCount} color={meta.color} t={t} />
+      )}
+
+      {!loading && !error && category === 'fee_teraloka' && (
+        <FeeTeralokaTabbedView
+          detailRows={detailRows}
+          totalAmount={totalAmount}
+          totalCount={totalCount}
+          partnerAggregate={feePartnerAggregate}
+          remittanceBatches={feeRemittanceBatches}
+          activeTab={feeTeralokaTab}
+          onChangeTab={setFeeTeralokaTab}
+          color={meta.color}
+          t={t}
+        />
       )}
 
       {!loading && !error && category === 'hak_beneficiary' && (
@@ -393,6 +516,305 @@ function DetailTable({ rows, totalAmount, totalCount, color, t }: {
                 </td>
               </tr>
             ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ⭐ Sesi 13 Mission 2: Fee TeraLoka 3-tab view
+function FeeTeralokaTabbedView({
+  detailRows, totalAmount, totalCount,
+  partnerAggregate, remittanceBatches,
+  activeTab, onChangeTab,
+  color, t,
+}: {
+  detailRows: DetailRow[];
+  totalAmount: number;
+  totalCount: number;
+  partnerAggregate: FeeTeralokaPartner[];
+  remittanceBatches: FeeRemittanceBatch[];
+  activeTab: FeeTeralokaTab;
+  onChangeTab: (tab: FeeTeralokaTab) => void;
+  color: string;
+  t: any;
+}) {
+  return (
+    <div>
+      {/* Tab toggle */}
+      <div style={{ 
+        display: 'flex', gap: 4, marginBottom: 12,
+        borderBottom: `1px solid ${t.sidebarBorder}`,
+        paddingBottom: 0,
+      }}>
+        <TabButton 
+          label="Per Donasi" 
+          count={totalCount} 
+          active={activeTab === 'donations'} 
+          onClick={() => onChangeTab('donations')} 
+          color={color} t={t}
+        />
+        <TabButton 
+          label="Per Partner" 
+          count={partnerAggregate.length} 
+          active={activeTab === 'partners'} 
+          onClick={() => onChangeTab('partners')} 
+          color={color} t={t}
+        />
+        <TabButton 
+          label="Per Periode (Remittance)" 
+          count={remittanceBatches.length} 
+          active={activeTab === 'remittances'} 
+          onClick={() => onChangeTab('remittances')} 
+          color={color} t={t}
+        />
+      </div>
+
+      {/* Content per tab */}
+      {activeTab === 'donations' && (
+        <DetailTable rows={detailRows} totalAmount={totalAmount} totalCount={totalCount} color={color} t={t} />
+      )}
+      {activeTab === 'partners' && (
+        <FeeTeralokaPerPartner partners={partnerAggregate} color={color} t={t} />
+      )}
+      {activeTab === 'remittances' && (
+        <FeeTeralokaPerRemittance batches={remittanceBatches} color={color} t={t} />
+      )}
+    </div>
+  );
+}
+
+function TabButton({ 
+  label, count, active, onClick, color, t,
+}: { 
+  label: string; count: number; active: boolean; onClick: () => void; color: string; t: any;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        padding: '8px 14px',
+        background: 'transparent',
+        border: 'none',
+        borderBottom: active ? `2px solid ${color}` : `2px solid transparent`,
+        color: active ? color : t.textDim,
+        fontSize: 11,
+        fontWeight: active ? 800 : 600,
+        cursor: 'pointer',
+        marginBottom: -1,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {label} <span style={{ opacity: 0.7, fontSize: 10 }}>({count})</span>
+    </button>
+  );
+}
+
+function FeeTeralokaPerPartner({ 
+  partners, color, t,
+}: { 
+  partners: FeeTeralokaPartner[]; color: string; t: any;
+}) {
+  const totalExpected = partners.reduce((s, p) => s + p.total_fee_expected, 0);
+  const totalRemitted = partners.reduce((s, p) => s + p.total_fee_remitted, 0);
+  const totalPending = partners.reduce((s, p) => s + p.total_fee_pending, 0);
+  const berutangCount = partners.filter(p => p.is_berutang).length;
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{ 
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+        gap: 8, marginBottom: 14,
+      }}>
+        <SummaryStat label="Total Fee" value={formatRupiah(totalExpected)} color={color} t={t} />
+        <SummaryStat label="Sudah Setor" value={formatRupiah(totalRemitted)} color="#10B981" t={t} />
+        <SummaryStat label="Belum Setor" value={formatRupiah(totalPending)} color="#F59E0B" t={t} highlight />
+        <SummaryStat label="Partner Berutang" value={`${berutangCount} partner`} color="#DC2626" t={t} />
+      </div>
+
+      <div style={{ overflow: 'auto', maxHeight: 500, border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead style={{ background: t.navHover, position: 'sticky', top: 0 }}>
+            <tr>
+              <th style={th(t)}>#</th>
+              <th style={th(t)}>Partner</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total Fee</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Sudah Setor</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Belum Setor</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Aging (Belum Setor)</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Tertua</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {partners.length === 0 && (
+              <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Tidak ada data</td></tr>
+            )}
+            {partners.map((p, i) => {
+              const oldestDays = daysAgo(p.oldest_pending_date);
+              const oldestSeverity = oldestDays === null ? null 
+                : oldestDays > 30 ? '#DC2626' 
+                : oldestDays > 14 ? '#EA580C' 
+                : oldestDays > 7 ? '#D97706' 
+                : '#10B981';
+              return (
+                <tr key={p.partner_name} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                  <td style={{ ...td(t), color: t.textDim, width: 36 }}>{i + 1}</td>
+                  <td style={{ ...td(t), fontWeight: 700 }}>
+                    {p.partner_name}
+                    <div style={{ fontSize: 9, color: t.textDim, marginTop: 1 }}>
+                      {p.donation_count} donasi ({p.donation_count_remitted} setor, {p.donation_count_pending} pending)
+                    </div>
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'right' }}>{formatRupiah(p.total_fee_expected)}</td>
+                  <td style={{ ...td(t), textAlign: 'right' }}>
+                    <div style={{ color: '#10B981', fontWeight: 700 }}>
+                      {formatRupiah(p.total_fee_remitted)}
+                    </div>
+                    {/* ⭐ Sesi 13 Mission 2 fix: info tanggal setor + batch count */}
+                    {p.last_remitted_at ? (
+                      <div style={{ fontSize: 9, color: t.textDim, marginTop: 2, fontWeight: 500 }}>
+                        Terakhir: {formatDate(p.last_remitted_at)}
+                        {p.remittance_batch_count > 0 && (
+                          <span style={{ marginLeft: 4, opacity: 0.7 }}>
+                            ({p.remittance_batch_count} batch)
+                          </span>
+                        )}
+                      </div>
+                    ) : p.total_fee_remitted > 0 ? (
+                      // Path B: sudah setor tapi tidak lewat batch remittance
+                      // (data legacy/seed, atau direct admin action)
+                      <div 
+                        title="Setor tercatat di donasi tapi tidak ada batch remittance terkait (data legacy)"
+                        style={{ fontSize: 9, color: t.textDim, marginTop: 2, fontStyle: 'italic' }}
+                      >
+                        Tanpa batch (legacy)
+                      </div>
+                    ) : (
+                      // Genuine: partner ini memang belum pernah setor (total_fee_remitted = 0)
+                      <div style={{ fontSize: 9, color: t.textDim, marginTop: 2, fontStyle: 'italic' }}>
+                        Belum ada setoran
+                      </div>
+                    )}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'right', fontWeight: 700, color: p.total_fee_pending > 0 ? '#F59E0B' : t.textDim }}>
+                    {formatRupiah(p.total_fee_pending)}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center', fontSize: 10 }}>
+                    {p.total_fee_pending > 0 ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2, alignItems: 'center' }}>
+                        {p.aging_0_7 > 0 && <span style={{ color: '#10B981' }}>0-7h: {formatRupiah(p.aging_0_7)}</span>}
+                        {p.aging_8_14 > 0 && <span style={{ color: '#D97706' }}>8-14h: {formatRupiah(p.aging_8_14)}</span>}
+                        {p.aging_15_30 > 0 && <span style={{ color: '#EA580C' }}>15-30h: {formatRupiah(p.aging_15_30)}</span>}
+                        {p.aging_over_30 > 0 && <span style={{ color: '#DC2626', fontWeight: 700 }}>&gt;30h: {formatRupiah(p.aging_over_30)}</span>}
+                      </div>
+                    ) : (
+                      <span style={{ color: t.textDim }}>—</span>
+                    )}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center', fontSize: 10, color: oldestSeverity ?? t.textDim }}>
+                    {oldestDays === null ? '—' : `${oldestDays} hari`}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center' }}>
+                    {p.is_berutang ? (
+                      <span style={{ 
+                        padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
+                        background: 'rgba(220,38,38,0.15)', color: '#DC2626',
+                      }}>
+                        ❌ BERUTANG
+                      </span>
+                    ) : (
+                      <span style={{ 
+                        padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
+                        background: 'rgba(16,185,129,0.15)', color: '#10B981',
+                      }}>
+                        ✅ LUNAS
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function FeeTeralokaPerRemittance({ 
+  batches, color, t,
+}: { 
+  batches: FeeRemittanceBatch[]; color: string; t: any;
+}) {
+  const verifiedAmount = batches.filter(b => b.status === 'verified').reduce((s, b) => s + b.amount, 0);
+  const pendingAmount = batches.filter(b => b.status === 'pending').reduce((s, b) => s + b.amount, 0);
+  const rejectedCount = batches.filter(b => b.status === 'rejected').length;
+
+  return (
+    <div>
+      {/* Summary */}
+      <div style={{ 
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', 
+        gap: 8, marginBottom: 14,
+      }}>
+        <SummaryStat label="Total Verified" value={formatRupiah(verifiedAmount)} color="#10B981" t={t} highlight />
+        <SummaryStat label="Pending Review" value={formatRupiah(pendingAmount)} color="#F59E0B" t={t} />
+        <SummaryStat label="Total Batch" value={`${batches.length} remittance`} color={color} t={t} />
+        {rejectedCount > 0 && (
+          <SummaryStat label="Rejected" value={`${rejectedCount} batch`} color="#DC2626" t={t} />
+        )}
+      </div>
+
+      <div style={{ overflow: 'auto', maxHeight: 500, border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <thead style={{ background: t.navHover, position: 'sticky', top: 0 }}>
+            <tr>
+              <th style={th(t)}>#</th>
+              <th style={th(t)}>Tgl Submit</th>
+              <th style={th(t)}>Tgl Verified</th>
+              <th style={th(t)}>Partner</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Donasi</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total Fee</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Status</th>
+              <th style={th(t)}>Reference</th>
+            </tr>
+          </thead>
+          <tbody>
+            {batches.length === 0 && (
+              <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Belum ada remittance batch</td></tr>
+            )}
+            {batches.map((b, i) => {
+              const statusColor = b.status === 'verified' ? '#10B981'
+                                : b.status === 'pending' ? '#F59E0B'
+                                : '#DC2626';
+              const statusLabel = b.status === 'verified' ? '✅ Verified'
+                                : b.status === 'pending' ? '⏳ Pending'
+                                : '❌ Rejected';
+              return (
+                <tr key={b.id} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                  <td style={{ ...td(t), color: t.textDim, width: 36 }}>{i + 1}</td>
+                  <td style={td(t)}>{b.submitted_at ? formatDate(b.submitted_at) : '-'}</td>
+                  <td style={td(t)}>{b.reviewed_at ? formatDate(b.reviewed_at) : '-'}</td>
+                  <td style={{ ...td(t), fontWeight: 700 }}>{b.partner_name}</td>
+                  <td style={{ ...td(t), textAlign: 'right' }}>{b.donation_count}</td>
+                  <td style={{ ...td(t), textAlign: 'right', fontWeight: 700, color }}>{formatRupiah(b.amount)}</td>
+                  <td style={{ ...td(t), textAlign: 'center' }}>
+                    <span style={{ 
+                      padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
+                      background: `${statusColor}20`, color: statusColor,
+                    }}>
+                      {statusLabel}
+                    </span>
+                  </td>
+                  <td style={{ ...td(t), fontSize: 10, fontFamily: 'monospace', color: t.textMuted }}>
+                    {b.reference_code ?? '-'}
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

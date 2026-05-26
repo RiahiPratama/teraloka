@@ -21,6 +21,7 @@ export interface CampaignCashflow {
   collected_amount: number;
   donor_count: number;
   disbursed_amount: number;
+  disbursed_pending_amount?: number;  // ⭐ Sesi 13: dana perjalanan (pending verify admin)
   remaining_at_partner: number;
   disbursement_rate: number;
   report_count: number;
@@ -475,7 +476,7 @@ export default function CampaignCashflowTable({
                     )}
                   </td>
 
-                  {/* Disbursed */}
+                  {/* Disbursed (verified + pending visible) */}
                   <td style={tdStyle(t, 'right')}>
                     <div style={{
                       fontSize: 13, fontWeight: 700,
@@ -483,6 +484,19 @@ export default function CampaignCashflowTable({
                     }}>
                       {shortRupiah(c.disbursed_amount)}
                     </div>
+                    {/* ⭐ Sesi 13: Show pending disbursement (dana perjalanan) */}
+                    {(c.disbursed_pending_amount ?? 0) > 0 && (
+                      <div 
+                        title="Sedang proses verifikasi admin (belum masuk ledger verified)"
+                        style={{
+                          fontSize: 10, fontWeight: 600, color: '#F59E0B',
+                          marginTop: 2, opacity: 0.85,
+                        }}
+                      >
+                        ⏳ +{shortRupiah(c.disbursed_pending_amount ?? 0)}
+                        <span style={{ fontSize: 8, marginLeft: 3, opacity: 0.7 }}>pending</span>
+                      </div>
+                    )}
                   </td>
 
                   {/* Remaining at partner */}
