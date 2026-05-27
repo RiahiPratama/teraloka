@@ -139,24 +139,28 @@ interface FeeRemittanceBatch {
   notes: string | null;
 }
 
-// ⭐ Sesi 13 Mission 2D: Tip Penggalang types
+// ⭐ Sesi 13 Mission 2D: Tip Penggalang types (kode_unik = bonus partner)
 type TipPenggalangTab = 'donations' | 'partners' | 'periods';
 
 interface TipPenggalangPartner {
   partner_name: string;
-  total_tip: number;
+  total_tip_optin: number;
+  total_kode_unik: number;
+  total_partner_earnings: number;
   donation_count_with_tip: number;
   donation_count_total: number;
   tip_rate_percent: number;
-  avg_tip_per_donation: number;
-  largest_tip: number;
-  latest_tip_at: string | null;
+  avg_earnings_per_donation: number;
+  largest_earnings: number;
+  latest_earnings_at: string | null;
 }
 
 interface MonthlyPeriodRow {
   period: string;
   period_label: string;
-  amount: number;
+  tip_optin: number;
+  kode_unik: number;
+  total: number;
   count: number;
 }
 
@@ -1581,7 +1585,7 @@ function TipPenggalangTabbedView({
         />
         <TabButton 
           label="📅 Per Periode" 
-          count={periods.filter(p => p.amount > 0).length}
+          count={periods.filter(p => p.total > 0).length}
           active={activeTab === 'periods'} 
           onClick={() => onChangeTab('periods')} 
           color={color} t={t} 
@@ -1627,10 +1631,13 @@ function TipPerDonasi({
       }}>
         <div>
           <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-            🎁 Detail Tip per Donasi
+            🎁 Detail Tip Opt-in per Donasi
           </div>
           <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
             {filteredRows.length} dari {rows.length} donasi {!showAll && '(filter: tip > 0)'}
+            <span style={{ marginLeft: 6, opacity: 0.7, fontStyle: 'italic' }}>
+              · Detail kode unik per donasi → lihat CSV drilldown campaign
+            </span>
           </div>
         </div>
         <label style={{ 
@@ -1658,36 +1665,43 @@ function TipPerPartner({
   partners: TipPenggalangPartner[]; color: string; t: any;
 }) {
   const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
-  const totalTip = partners.reduce((s, p) => s + p.total_tip, 0);
+  const totalTipOptin = partners.reduce((s, p) => s + p.total_tip_optin, 0);
+  const totalKodeUnik = partners.reduce((s, p) => s + p.total_kode_unik, 0);
+  const totalEarnings = partners.reduce((s, p) => s + p.total_partner_earnings, 0);
 
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-          🏆 Ranking Penggalang Penerima Tip
+          🏆 Ranking Pendapatan Partner
         </div>
         <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
-          {partners.length} penggalang dapat tip · Total: <strong style={{ color }}>{formatRupiah(totalTip)}</strong>
+          {partners.length} penggalang · Total: <strong style={{ color }}>{formatRupiah(totalEarnings)}</strong>
+          <span style={{ marginLeft: 8, opacity: 0.7 }}>
+            (Tip {formatRupiah(totalTipOptin)} + Kode Unik {formatRupiah(totalKodeUnik)})
+          </span>
         </div>
       </div>
 
       <div style={{ overflowX: 'auto', border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
           <thead style={{ background: t.navHover + '60', position: 'sticky', top: 0 }}>
             <tr>
               <th style={{ ...th(t), width: 30, textAlign: 'center' }}>#</th>
               <th style={th(t)}>Penggalang</th>
-              <th style={{ ...th(t), textAlign: 'right' }}>Total Tip</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Tip Opt-in</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Kode Unik</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Donasi w/Tip</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Rate</th>
               <th style={{ ...th(t), textAlign: 'right' }}>Rata-rata</th>
-              <th style={{ ...th(t), textAlign: 'right' }}>Tip Tertinggi</th>
-              <th style={{ ...th(t), textAlign: 'center' }}>Tip Terakhir</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Tertinggi</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Terakhir</th>
             </tr>
           </thead>
           <tbody>
             {partners.length === 0 && (
-              <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Belum ada penggalang yang dapat tip</td></tr>
+              <tr><td colSpan={10} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Belum ada pendapatan Partner</td></tr>
             )}
             {partners.map((p, i) => (
               <tr key={p.partner_name} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
@@ -1698,8 +1712,14 @@ function TipPerPartner({
                   {i > 2 && (i + 1)}
                 </td>
                 <td style={{ ...td(t), fontWeight: 700 }}>{p.partner_name}</td>
+                <td style={{ ...td(t), textAlign: 'right', color: '#8B5CF6' }}>
+                  {formatRupiah(p.total_tip_optin)}
+                </td>
+                <td style={{ ...td(t), textAlign: 'right', color: '#F59E0B' }}>
+                  {formatRupiah(p.total_kode_unik)}
+                </td>
                 <td style={{ ...td(t), textAlign: 'right', fontWeight: 800, color }}>
-                  {formatRupiah(p.total_tip)}
+                  {formatRupiah(p.total_partner_earnings)}
                 </td>
                 <td style={{ ...td(t), textAlign: 'center' }}>
                   {p.donation_count_with_tip} / {p.donation_count_total}
@@ -1714,13 +1734,13 @@ function TipPerPartner({
                   </span>
                 </td>
                 <td style={{ ...td(t), textAlign: 'right', color: t.textDim }}>
-                  {formatRupiah(p.avg_tip_per_donation)}
+                  {formatRupiah(p.avg_earnings_per_donation)}
                 </td>
                 <td style={{ ...td(t), textAlign: 'right', color: t.textDim }}>
-                  {formatRupiah(p.largest_tip)}
+                  {formatRupiah(p.largest_earnings)}
                 </td>
                 <td style={{ ...td(t), textAlign: 'center', fontSize: 10, color: t.textDim }}>
-                  {p.latest_tip_at ? new Date(p.latest_tip_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '—'}
+                  {p.latest_earnings_at ? new Date(p.latest_earnings_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '—'}
                 </td>
               </tr>
             ))}
@@ -1737,26 +1757,30 @@ function TipPerPeriode({
   periods: MonthlyPeriodRow[]; color: string; t: any;
 }) {
   const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
-  const totalTip = periods.reduce((s, p) => s + p.amount, 0);
-  const maxAmount = Math.max(...periods.map(p => p.amount), 1);  // avoid div by 0
+  const totalTipOptin = periods.reduce((s, p) => s + p.tip_optin, 0);
+  const totalKodeUnik = periods.reduce((s, p) => s + p.kode_unik, 0);
+  const totalEarnings = periods.reduce((s, p) => s + p.total, 0);
+  const maxTotal = Math.max(...periods.map(p => p.total), 1);
 
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
         <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-          📅 Tip per Periode — 12 Bulan Terakhir
+          📅 Pendapatan Partner per Periode — 12 Bulan Terakhir
         </div>
-        <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
-          Total tip 12 bulan: <strong style={{ color }}>{formatRupiah(totalTip)}</strong>
+        <div style={{ display: 'flex', gap: 16, fontSize: 10, color: t.textDim, marginTop: 4 }}>
+          <span>Tip Opt-in: <strong style={{ color: '#8B5CF6' }}>{formatRupiah(totalTipOptin)}</strong></span>
+          <span>Kode Unik: <strong style={{ color: '#F59E0B' }}>{formatRupiah(totalKodeUnik)}</strong></span>
+          <span>Total: <strong style={{ color }}>{formatRupiah(totalEarnings)}</strong></span>
         </div>
       </div>
 
-      {/* Bar Chart Recharts */}
+      {/* Stacked Bar Chart Recharts */}
       <div style={{ 
         background: t.navHover + '30', 
         border: `1px solid ${t.sidebarBorder}`,
         borderRadius: 6, padding: 12, marginBottom: 16,
-        height: 280,
+        height: 300,
       }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={periods} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
@@ -1780,9 +1804,18 @@ function TipPerPeriode({
                 border: `1px solid ${t.sidebarBorder}`,
                 fontSize: 11, borderRadius: 4,
               }}
-              formatter={(value: any) => [formatRupiah(value), 'Tip']}
+              formatter={(value: any, name: any): [string, string] => {
+                const label = name === 'tip_optin' ? 'Tip Opt-in' : 'Kode Unik';
+                return [formatRupiah(value), label];
+              }}
             />
-            <Bar dataKey="amount" fill={color} radius={[4, 4, 0, 0]} />
+            <Legend 
+              wrapperStyle={{ fontSize: 11, color: t.textDim }}
+              formatter={(v: any) => v === 'tip_optin' ? 'Tip Opt-in' : 'Kode Unik'}
+            />
+            {/* Stacked bars */}
+            <Bar dataKey="tip_optin" stackId="a" fill="#8B5CF6" radius={[0, 0, 0, 0]} />
+            <Bar dataKey="kode_unik" stackId="a" fill="#F59E0B" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -1793,20 +1826,28 @@ function TipPerPeriode({
           <thead style={{ background: t.navHover + '60' }}>
             <tr>
               <th style={th(t)}>Periode</th>
-              <th style={{ ...th(t), textAlign: 'right' }}>Total Tip</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Tip Opt-in</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Kode Unik</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Donasi</th>
               <th style={{ ...th(t), textAlign: 'right' }}>% dari Total</th>
             </tr>
           </thead>
           <tbody>
             {periods.map((p) => {
-              const pct = totalTip > 0 ? (p.amount / totalTip) * 100 : 0;
-              const barWidth = maxAmount > 0 ? (p.amount / maxAmount) * 100 : 0;
+              const pct = totalEarnings > 0 ? (p.total / totalEarnings) * 100 : 0;
+              const barWidth = maxTotal > 0 ? (p.total / maxTotal) * 100 : 0;
               return (
                 <tr key={p.period} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
                   <td style={{ ...td(t), fontWeight: 700 }}>{p.period_label}</td>
-                  <td style={{ ...td(t), textAlign: 'right', fontWeight: 800, color: p.amount > 0 ? color : t.textDim }}>
-                    {p.amount > 0 ? formatRupiah(p.amount) : '—'}
+                  <td style={{ ...td(t), textAlign: 'right', color: p.tip_optin > 0 ? '#8B5CF6' : t.textDim }}>
+                    {p.tip_optin > 0 ? formatRupiah(p.tip_optin) : '—'}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'right', color: p.kode_unik > 0 ? '#F59E0B' : t.textDim }}>
+                    {p.kode_unik > 0 ? formatRupiah(p.kode_unik) : '—'}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'right', fontWeight: 800, color: p.total > 0 ? color : t.textDim }}>
+                    {p.total > 0 ? formatRupiah(p.total) : '—'}
                   </td>
                   <td style={{ ...td(t), textAlign: 'center', color: t.textDim }}>
                     {p.count > 0 ? p.count : '—'}
