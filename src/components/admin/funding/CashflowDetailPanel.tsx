@@ -162,6 +162,9 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
   const [feePartnerAggregate, setFeePartnerAggregate] = useState<FeeTeralokaPartner[]>([]);
   const [feeRemittanceBatches, setFeeRemittanceBatches] = useState<FeeRemittanceBatch[]>([]);
 
+  // ⭐ Sesi 13 Mission 2B Phase 1: Reminder modal state
+  const [reminderModalPartner, setReminderModalPartner] = useState<string | null>(null);
+
   const meta = CATEGORY_META[category];
 
   useEffect(() => {
@@ -429,7 +432,22 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
           remittanceBatches={feeRemittanceBatches}
           activeTab={feeTeralokaTab}
           onChangeTab={setFeeTeralokaTab}
+          onSendReminder={(partnerName) => setReminderModalPartner(partnerName)}
           color={meta.color}
+          t={t}
+        />
+      )}
+
+      {/* ⭐ Sesi 13 Mission 2B Phase 1: Reminder Modal */}
+      {reminderModalPartner && (
+        <FeeReminderModal
+          partnerName={reminderModalPartner}
+          onClose={() => setReminderModalPartner(null)}
+          onSuccess={() => {
+            setReminderModalPartner(null);
+            // Optionally refresh partner data after send
+            // fetchData();
+          }}
           t={t}
         />
       )}
@@ -528,6 +546,7 @@ function FeeTeralokaTabbedView({
   detailRows, totalAmount, totalCount,
   partnerAggregate, remittanceBatches,
   activeTab, onChangeTab,
+  onSendReminder,
   color, t,
 }: {
   detailRows: DetailRow[];
@@ -537,6 +556,7 @@ function FeeTeralokaTabbedView({
   remittanceBatches: FeeRemittanceBatch[];
   activeTab: FeeTeralokaTab;
   onChangeTab: (tab: FeeTeralokaTab) => void;
+  onSendReminder: (partnerName: string) => void;
   color: string;
   t: any;
 }) {
@@ -576,7 +596,7 @@ function FeeTeralokaTabbedView({
         <DetailTable rows={detailRows} totalAmount={totalAmount} totalCount={totalCount} color={color} t={t} />
       )}
       {activeTab === 'partners' && (
-        <FeeTeralokaPerPartner partners={partnerAggregate} color={color} t={t} />
+        <FeeTeralokaPerPartner partners={partnerAggregate} color={color} t={t} onSendReminder={onSendReminder} />
       )}
       {activeTab === 'remittances' && (
         <FeeTeralokaPerRemittance batches={remittanceBatches} color={color} t={t} />
@@ -612,9 +632,10 @@ function TabButton({
 }
 
 function FeeTeralokaPerPartner({ 
-  partners, color, t,
+  partners, color, t, onSendReminder,
 }: { 
   partners: FeeTeralokaPartner[]; color: string; t: any;
+  onSendReminder: (partnerName: string) => void;
 }) {
   const totalExpected = partners.reduce((s, p) => s + p.total_fee_expected, 0);
   const totalRemitted = partners.reduce((s, p) => s + p.total_fee_remitted, 0);
@@ -646,11 +667,12 @@ function FeeTeralokaPerPartner({
               <th style={{ ...th(t), textAlign: 'center' }}>Aging (Belum Setor)</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Tertua</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Status</th>
+              <th style={{ ...th(t), textAlign: 'center', minWidth: 110 }}>Aksi</th>
             </tr>
           </thead>
           <tbody>
             {partners.length === 0 && (
-              <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Tidak ada data</td></tr>
+              <tr><td colSpan={9} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Tidak ada data</td></tr>
             )}
             {partners.map((p, i) => {
               const oldestDays = daysAgo(p.oldest_pending_date);
@@ -732,6 +754,31 @@ function FeeTeralokaPerPartner({
                       }}>
                         ✅ LUNAS
                       </span>
+                    )}
+                  </td>
+                  {/* ⭐ Sesi 13 Mission 2B Phase 1: Kirim Reminder action */}
+                  <td style={{ ...td(t), textAlign: 'center' }}>
+                    {p.is_berutang ? (
+                      <button
+                        onClick={() => onSendReminder(p.partner_name)}
+                        style={{
+                          padding: '4px 8px',
+                          fontSize: 10, fontWeight: 700,
+                          background: 'rgba(220,38,38,0.12)',
+                          color: '#DC2626',
+                          border: '1px solid rgba(220,38,38,0.35)',
+                          borderRadius: 4,
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          transition: 'all 150ms',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.25)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; }}
+                      >
+                        📲 Kirim Reminder
+                      </button>
+                    ) : (
+                      <span style={{ fontSize: 9, color: t.textDim, fontStyle: 'italic' }}>—</span>
                     )}
                   </td>
                 </tr>
@@ -1070,4 +1117,291 @@ function td(t: any): React.CSSProperties {
     color: t.textPrimary,
     fontSize: 11,
   };
+}
+
+// ════════════════════════════════════════════════════════════════
+// Sesi 13 Mission 2B Phase 1 — Fee Reminder Modal
+// ════════════════════════════════════════════════════════════════
+
+interface ReminderPreview {
+  partner_name: string;
+  amount_due: number;
+  donation_count: number;
+  oldest_pending_at: string | null;
+  recipient_phone: string | null;
+  message_preview: string;
+  anti_spam_blocked: boolean;
+  anti_spam_reason?: string;
+  anti_spam_next_allowed_at?: string;
+}
+
+function FeeReminderModal({
+  partnerName, onClose, onSuccess, t,
+}: {
+  partnerName: string;
+  onClose: () => void;
+  onSuccess: () => void;
+  t: any;
+}) {
+  const [preview, setPreview] = useState<ReminderPreview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ success: boolean; message: string; recipient?: string } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function loadPreview() {
+      setLoading(true);
+      setError(null);
+      const tk = typeof window !== 'undefined' ? localStorage.getItem('tl_token') : null;
+      if (!tk) {
+        setError('Belum login');
+        setLoading(false);
+        return;
+      }
+      try {
+        const res = await fetch(
+          `${API_URL}/funding/admin/cashflow/fee-teraloka/reminder-preview/${encodeURIComponent(partnerName)}`,
+          { headers: { Authorization: `Bearer ${tk}` } }
+        );
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal load preview');
+        if (!cancelled) setPreview(json.data);
+      } catch (err: any) {
+        if (!cancelled) setError(err.message ?? String(err));
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    loadPreview();
+    return () => { cancelled = true; };
+  }, [partnerName]);
+
+  async function handleSend() {
+    setSending(true);
+    setError(null);
+    const tk = typeof window !== 'undefined' ? localStorage.getItem('tl_token') : null;
+    if (!tk) {
+      setError('Belum login');
+      setSending(false);
+      return;
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/funding/admin/cashflow/fee-teraloka/send-reminder`, {
+        method: 'POST',
+        headers: { 
+          Authorization: `Bearer ${tk}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ partner_name: partnerName }),
+      });
+      const json = await res.json();
+      
+      if (json.blocked) {
+        setResult({ success: false, message: json.blocked_reason ?? 'Reminder blocked' });
+      } else if (!res.ok || !json.success) {
+        setResult({ success: false, message: json?.error?.message ?? 'Gagal kirim reminder' });
+      } else {
+        setResult({ 
+          success: true, 
+          message: 'Reminder berhasil dikirim',
+          recipient: json.data.recipient_phone,
+        });
+        setTimeout(() => onSuccess(), 1800);
+      }
+    } catch (err: any) {
+      setResult({ success: false, message: err.message ?? String(err) });
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', zIndex: 10000,
+      display: 'flex', alignItems: 'center', justifyContent: 'center',
+      padding: 16,
+    }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div style={{
+        background: t.cardBg, borderRadius: 8, maxWidth: 520, width: '100%',
+        maxHeight: '90vh', overflow: 'auto',
+        border: `1px solid ${t.sidebarBorder}`,
+      }}>
+        {/* Header */}
+        <div style={{ 
+          padding: '14px 18px', 
+          borderBottom: `1px solid ${t.sidebarBorder}`,
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 800, color: t.textPrimary }}>
+              📲 Kirim Reminder WhatsApp
+            </div>
+            <div style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
+              {partnerName}
+            </div>
+          </div>
+          <button onClick={onClose} style={{
+            background: 'transparent', border: 'none', cursor: 'pointer',
+            color: t.textMuted, fontSize: 18, padding: 4,
+          }}>✕</button>
+        </div>
+
+        {/* Body */}
+        <div style={{ padding: 18 }}>
+          {loading && (
+            <div style={{ padding: 24, textAlign: 'center', color: t.textDim }}>
+              Memuat preview reminder...
+            </div>
+          )}
+
+          {error && !loading && (
+            <div style={{ 
+              padding: 12, background: 'rgba(220,38,38,0.1)', 
+              border: '1px solid rgba(220,38,38,0.3)', borderRadius: 6, 
+              color: '#DC2626', fontSize: 12,
+            }}>
+              ⚠️ {error}
+            </div>
+          )}
+
+          {preview && !loading && !result && (
+            <>
+              {/* Anti-spam warning */}
+              {preview.anti_spam_blocked && (
+                <div style={{
+                  padding: 12, marginBottom: 12,
+                  background: 'rgba(245,158,11,0.12)',
+                  border: '1px solid rgba(245,158,11,0.35)',
+                  borderRadius: 6, fontSize: 11, color: '#D97706',
+                }}>
+                  ⚠️ <strong>Anti-spam aktif:</strong> {preview.anti_spam_reason}
+                </div>
+              )}
+
+              {/* Recipient info */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  Nomor Tujuan
+                </div>
+                {preview.recipient_phone ? (
+                  <div style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary, fontFamily: 'monospace' }}>
+                    {preview.recipient_phone}
+                  </div>
+                ) : (
+                  <div style={{ fontSize: 11, color: '#DC2626', fontStyle: 'italic' }}>
+                    ⚠️ Nomor penggalang tidak ditemukan
+                  </div>
+                )}
+              </div>
+
+              {/* Snapshot data */}
+              <div style={{ 
+                display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8,
+                marginBottom: 12,
+              }}>
+                <div style={{ padding: 8, background: t.navHover, borderRadius: 4 }}>
+                  <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 2 }}>Fee Pending</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: '#F59E0B' }}>
+                    Rp {Math.round(preview.amount_due).toLocaleString('id-ID')}
+                  </div>
+                </div>
+                <div style={{ padding: 8, background: t.navHover, borderRadius: 4 }}>
+                  <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 2 }}>Donasi</div>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: t.textPrimary }}>
+                    {preview.donation_count}
+                  </div>
+                </div>
+                <div style={{ padding: 8, background: t.navHover, borderRadius: 4 }}>
+                  <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 2 }}>Tertua</div>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary }}>
+                    {preview.oldest_pending_at ? formatDate(preview.oldest_pending_at) : '—'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Message preview */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontSize: 10, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>
+                  Preview Pesan
+                </div>
+                <pre style={{
+                  padding: 12, background: t.navHover, borderRadius: 6,
+                  fontSize: 11, color: t.textPrimary,
+                  whiteSpace: 'pre-wrap', wordWrap: 'break-word',
+                  fontFamily: 'inherit', maxHeight: 250, overflow: 'auto',
+                  margin: 0, lineHeight: 1.5,
+                }}>
+                  {preview.message_preview}
+                </pre>
+              </div>
+            </>
+          )}
+
+          {/* Result feedback */}
+          {result && (
+            <div style={{
+              padding: 14, borderRadius: 6,
+              background: result.success ? 'rgba(16,185,129,0.12)' : 'rgba(220,38,38,0.12)',
+              border: `1px solid ${result.success ? 'rgba(16,185,129,0.35)' : 'rgba(220,38,38,0.35)'}`,
+              color: result.success ? '#10B981' : '#DC2626',
+              fontSize: 12, fontWeight: 600,
+              textAlign: 'center',
+            }}>
+              {result.success ? '✅' : '❌'} {result.message}
+              {result.recipient && (
+                <div style={{ fontSize: 10, marginTop: 4, opacity: 0.85, fontFamily: 'monospace' }}>
+                  → {result.recipient}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        {preview && !loading && !result && (
+          <div style={{ 
+            padding: '12px 18px', borderTop: `1px solid ${t.sidebarBorder}`,
+            display: 'flex', justifyContent: 'flex-end', gap: 8,
+          }}>
+            <button
+              onClick={onClose}
+              disabled={sending}
+              style={{
+                padding: '8px 16px', fontSize: 12, fontWeight: 600,
+                background: 'transparent', color: t.textDim,
+                border: `1px solid ${t.sidebarBorder}`, borderRadius: 4,
+                cursor: sending ? 'not-allowed' : 'pointer',
+              }}
+            >
+              Batal
+            </button>
+            <button
+              onClick={handleSend}
+              disabled={sending || preview.anti_spam_blocked || !preview.recipient_phone}
+              style={{
+                padding: '8px 16px', fontSize: 12, fontWeight: 800,
+                background: (sending || preview.anti_spam_blocked || !preview.recipient_phone) 
+                  ? t.navHover 
+                  : '#10B981',
+                color: (sending || preview.anti_spam_blocked || !preview.recipient_phone) 
+                  ? t.textMuted 
+                  : '#fff',
+                border: 'none', borderRadius: 4,
+                cursor: (sending || preview.anti_spam_blocked || !preview.recipient_phone) 
+                  ? 'not-allowed' 
+                  : 'pointer',
+              }}
+            >
+              {sending ? 'Mengirim...' : '📲 Kirim Sekarang'}
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
