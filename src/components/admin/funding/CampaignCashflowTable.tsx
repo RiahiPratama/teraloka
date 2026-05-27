@@ -78,6 +78,98 @@ function accountingFormat(n: number, isDeductible: boolean = false): string {
   return isDeductible ? `(${formatted})` : formatted;
 }
 
+// ⭐ Sesi 13 Mission 2C: Download CSV semua donasi (termasuk rejected dgn negative notation)
+function downloadCSV(donations: DrilldownDonation[], campaignTitle: string): void {
+  // Header
+  let csv = 'No,Donor,Phone,Nomor Donasi,Tgl Donasi,Tgl Verifikasi,Total Transfer,Hak Beneficiary,Fee TeraLoka,Kode Unik,Tip Penggalang,Status,Fee Setor,Kode Transfer\n';
+  
+  // Split valid + rejected (accounting standard)
+  const validDonations = donations.filter(d => d.verification_status !== 'rejected');
+  const rejectedDonations = donations.filter(d => d.verification_status === 'rejected');
+  
+  let rowNum = 1;
+  
+  // Valid rows first
+  validDonations.forEach((d) => {
+    const kodeUnik = d.donation_code ? (parseInt(d.donation_code, 10) || 0) : 0;
+    const totalTransfer = Number(d.total_transfer) || ((Number(d.amount) || 0) + (Number(d.operational_fee) || 0) + (Number(d.penggalang_fee) || 0) + kodeUnik);
+    csv += [
+      rowNum++,
+      `"${(d.is_anonymous ? 'Anonim' : d.donor_name).replace(/"/g, '""')}"`,
+      d.donor_phone ?? '',
+      d.display_id ?? '',
+      d.created_at ? new Date(d.created_at).toLocaleDateString('id-ID') : '',
+      d.verified_at ? new Date(d.verified_at).toLocaleDateString('id-ID') : '',
+      totalTransfer,
+      d.amount,
+      d.operational_fee,
+      kodeUnik,
+      d.penggalang_fee ?? 0,
+      d.verification_status,
+      d.fee_remitted_at ? 'Sudah' : 'Belum',
+      d.donation_code ?? '',
+    ].join(',') + '\n';
+  });
+  
+  // Rejected rows last (deductible — negative notation untuk Excel auto-detect)
+  rejectedDonations.forEach((d) => {
+    const kodeUnik = d.donation_code ? (parseInt(d.donation_code, 10) || 0) : 0;
+    const totalTransfer = Number(d.total_transfer) || ((Number(d.amount) || 0) + (Number(d.operational_fee) || 0) + (Number(d.penggalang_fee) || 0) + kodeUnik);
+    csv += [
+      rowNum++,
+      `"${(d.is_anonymous ? 'Anonim' : d.donor_name).replace(/"/g, '""')}"`,
+      d.donor_phone ?? '',
+      d.display_id ?? '',
+      d.created_at ? new Date(d.created_at).toLocaleDateString('id-ID') : '',
+      d.verified_at ? new Date(d.verified_at).toLocaleDateString('id-ID') : '',
+      `-${totalTransfer}`,
+      `-${d.amount}`,
+      `-${d.operational_fee}`,
+      `-${kodeUnik}`,
+      `-${d.penggalang_fee ?? 0}`,
+      'rejected',
+      '—',
+      d.donation_code ?? '',
+    ].join(',') + '\n';
+  });
+  
+  // Footer TOTAL (exclude rejected per accounting standard)
+  const totalTransferAll = validDonations.reduce((s, d) => {
+    const k = d.donation_code ? (parseInt(d.donation_code, 10) || 0) : 0;
+    return s + (Number(d.total_transfer) || ((Number(d.amount) || 0) + (Number(d.operational_fee) || 0) + (Number(d.penggalang_fee) || 0) + k));
+  }, 0);
+  const totalBenAll = validDonations.reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const totalFeeAll = validDonations.reduce((s, d) => s + (Number(d.operational_fee) || 0), 0);
+  const totalKodeAll = validDonations.reduce((s, d) => {
+    const k = d.donation_code ? (parseInt(d.donation_code, 10) || 0) : 0;
+    return s + k;
+  }, 0);
+  const totalTipAll = validDonations.reduce((s, d) => s + (Number(d.penggalang_fee) || 0), 0);
+  
+  csv += `\n,,,,,TOTAL VALID (${validDonations.length} donasi),${totalTransferAll},${totalBenAll},${totalFeeAll},${totalKodeAll},${totalTipAll},,,\n`;
+  
+  if (rejectedDonations.length > 0) {
+    const rejTransfer = rejectedDonations.reduce((s, d) => {
+      const k = d.donation_code ? (parseInt(d.donation_code, 10) || 0) : 0;
+      return s + (Number(d.total_transfer) || ((Number(d.amount) || 0) + (Number(d.operational_fee) || 0) + (Number(d.penggalang_fee) || 0) + k));
+    }, 0);
+    csv += `,,,,,REJECTED tak dihitung (${rejectedDonations.length} donasi),-${rejTransfer},,,,,,,\n`;
+  }
+  
+  // Trigger download (UTF-8 BOM untuk Excel)
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeTitle = (campaignTitle || 'campaign').replace(/[^a-zA-Z0-9-_]/g, '-').slice(0, 50);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `drilldown-${safeTitle}-${dateStr}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 function rateColor(rate: number): string {
   if (rate >= 80) return '#10B981'; // green — well disbursed
   if (rate >= 40) return '#F59E0B'; // amber — mid
@@ -726,7 +818,7 @@ function ExpandedDonations({
             {donations.length} transaksi | {verified.length} verified · {pending.length} pending · {rejected.length} rejected
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 12, fontSize: 11 }}>
+        <div style={{ display: 'flex', gap: 12, fontSize: 11, alignItems: 'center' }}>
           <div style={{ textAlign: 'right' }}>
             <span style={{ color: t.textMuted, marginRight: 6 }}>Verified:</span>
             <strong style={{ color: '#10B981' }}>{shortRupiah(verifiedAmount)}</strong>
@@ -741,6 +833,22 @@ function ExpandedDonations({
             <span style={{ color: t.textMuted, marginRight: 6 }}>Fee:</span>
             <strong style={{ color: t.textPrimary }}>{shortRupiah(remittedFee)}/{shortRupiah(totalFee)}</strong>
           </div>
+          {/* ⭐ Sesi 13 Mission 2C: Download CSV button */}
+          <button
+            onClick={() => downloadCSV(donations, campaignTitle)}
+            style={{
+              padding: '5px 10px', fontSize: 10, fontWeight: 700,
+              background: 'rgba(16,185,129,0.12)', color: '#10B981',
+              border: '1px solid rgba(16,185,129,0.35)', borderRadius: 4,
+              cursor: 'pointer', whiteSpace: 'nowrap',
+              transition: 'background 150ms',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(16,185,129,0.22)'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(16,185,129,0.12)'; }}
+            title="Download semua donasi sebagai CSV (termasuk rejected)"
+          >
+            📥 Download CSV
+          </button>
         </div>
       </div>
 
@@ -976,7 +1084,7 @@ function ExpandedDonations({
                         ❌ REJECTED
                       </td>
                       <td style={{ padding: '8px 10px', fontSize: 9, color: '#EF4444' }}>
-                        ({rejectedDonations.length} pengurang)
+                        ({rejectedDonations.length} tak dihitung)
                       </td>
                       <td style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: '#EF4444' }}>
                         ({shortRupiah(rejectedTransferAll)})

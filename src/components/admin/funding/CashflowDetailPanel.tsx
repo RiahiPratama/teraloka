@@ -3,6 +3,9 @@
 import { useEffect, useState, useContext } from 'react';
 import { Download, X, Loader2 } from 'lucide-react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+} from 'recharts';
 
 // ════════════════════════════════════════════════════════════════
 // CashflowDetailPanel — INLINE expansion panel
@@ -136,6 +139,52 @@ interface FeeRemittanceBatch {
   notes: string | null;
 }
 
+// ⭐ Sesi 13 Mission 2D: Tip Penggalang types
+type TipPenggalangTab = 'donations' | 'partners' | 'periods';
+
+interface TipPenggalangPartner {
+  partner_name: string;
+  total_tip: number;
+  donation_count_with_tip: number;
+  donation_count_total: number;
+  tip_rate_percent: number;
+  avg_tip_per_donation: number;
+  largest_tip: number;
+  latest_tip_at: string | null;
+}
+
+interface MonthlyPeriodRow {
+  period: string;
+  period_label: string;
+  amount: number;
+  count: number;
+}
+
+// ⭐ Sesi 13 Mission 2E: Beneficiary types
+type BeneficiaryTab = 'penggalangs' | 'partners' | 'periods';
+
+interface BeneficiaryPartner {
+  partner_name: string;
+  total_utang: number;
+  total_disbursed: number;
+  sisa_belum_disalurkan: number;
+  campaign_count: number;
+  donation_count: number;
+  disbursement_count: number;
+  oldest_unsettled_at: string | null;
+  rate_disbursed_percent: number;
+}
+
+interface BeneficiaryPeriodRow {
+  period: string;
+  period_label: string;
+  utang_in: number;
+  disbursed_out: number;
+  net: number;
+  donation_count: number;
+  disbursement_count: number;
+}
+
 export default function CashflowDetailPanel({ category, onClose }: Props) {
   const { t } = useContext(AdminThemeContext);
   const [loading, setLoading] = useState(true);
@@ -165,11 +214,24 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
   // ⭐ Sesi 13 Mission 2B Phase 1: Reminder modal state
   const [reminderModalPartner, setReminderModalPartner] = useState<string | null>(null);
 
+  // ⭐ Sesi 13 Mission 2D: Tip Penggalang 3-tab state
+  const [tipTab, setTipTab] = useState<TipPenggalangTab>('donations');
+  const [tipPartners, setTipPartners] = useState<TipPenggalangPartner[]>([]);
+  const [tipPeriods, setTipPeriods] = useState<MonthlyPeriodRow[]>([]);
+  const [tipShowAllDonations, setTipShowAllDonations] = useState(false);  // Q2=C: default filter tip>0
+
+  // ⭐ Sesi 13 Mission 2E: Beneficiary 3-tab state
+  const [benTab, setBenTab] = useState<BeneficiaryTab>('penggalangs');
+  const [benPartners, setBenPartners] = useState<BeneficiaryPartner[]>([]);
+  const [benPeriods, setBenPeriods] = useState<BeneficiaryPeriodRow[]>([]);
+
   const meta = CATEGORY_META[category];
 
   useEffect(() => {
     setExpandedPenggalangId(null);
     setFeeTeralokaTab('donations');
+    setTipTab('donations');
+    setBenTab('penggalangs');
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [category]);
@@ -186,18 +248,7 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
     }
 
     try {
-      if (category === 'hak_beneficiary') {
-        // ⭐ Fetch 2-level structure: penggalangs → campaigns
-        const res = await fetch(`${API_URL}/funding/admin/cashflow/sisa-partner-breakdown`, {
-          headers: { Authorization: `Bearer ${tk}` },
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal load');
-        setPenggalangs(json.data.penggalangs ?? []);
-        setTotalUtang(json.data.total_utang_beneficiary ?? 0);
-        setTotalDisbursed(json.data.total_disbursed ?? 0);
-        setTotalSisa(json.data.total_sisa ?? 0);
-      } else if (category === 'under_audit') {
+      if (category === 'under_audit') {
         // ⭐ Fetch donations status=under_audit
         const res = await fetch(`${API_URL}/funding/admin/donations?status=under_audit&limit=200`, {
           headers: { Authorization: `Bearer ${tk}` },
@@ -234,6 +285,63 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
         setTotalCount(detailJson.data.total_count ?? 0);
         setFeePartnerAggregate(partnerJson.data.partners ?? []);
         setFeeRemittanceBatches(remittanceJson.data.batches ?? []);
+      } else if (category === 'tip') {
+        // ⭐ Sesi 13 Mission 2D: Fetch 3 endpoints parallel
+        const [detailRes, partnerRes, periodRes] = await Promise.all([
+          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=tip&limit=500`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/tip-penggalang/by-partner`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/tip-penggalang/by-period`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+        ]);
+
+        const [detailJson, partnerJson, periodJson] = await Promise.all([
+          detailRes.json(), partnerRes.json(), periodRes.json(),
+        ]);
+
+        if (!detailRes.ok || !detailJson.success) throw new Error(detailJson?.error?.message ?? 'Gagal load detail');
+        if (!partnerRes.ok || !partnerJson.success) throw new Error(partnerJson?.error?.message ?? 'Gagal load partner');
+        if (!periodRes.ok || !periodJson.success) throw new Error(periodJson?.error?.message ?? 'Gagal load period');
+
+        setDetailRows(detailJson.data.rows ?? []);
+        setTotalAmount(detailJson.data.total_amount ?? 0);
+        setTotalCount(detailJson.data.total_count ?? 0);
+        setTipPartners(partnerJson.data.partners ?? []);
+        setTipPeriods(periodJson.data.periods ?? []);
+      } else if (category === 'hak_beneficiary') {
+        // ⭐ Sesi 13 Mission 2E: Fetch 3 endpoints parallel (extend existing)
+        // Existing endpoint: sisa-partner-breakdown (2-level Penggalang→Campaign)
+        // NEW: beneficiary/by-partner + beneficiary/by-period
+        const [penggalangRes, partnerRes, periodRes] = await Promise.all([
+          fetch(`${API_URL}/funding/admin/cashflow/sisa-partner-breakdown`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/beneficiary/by-partner`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/beneficiary/by-period`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+        ]);
+
+        const [penggalangJson, partnerJson, periodJson] = await Promise.all([
+          penggalangRes.json(), partnerRes.json(), periodRes.json(),
+        ]);
+
+        if (!penggalangRes.ok || !penggalangJson.success) throw new Error(penggalangJson?.error?.message ?? 'Gagal load penggalang');
+        if (!partnerRes.ok || !partnerJson.success) throw new Error(partnerJson?.error?.message ?? 'Gagal load partner');
+        if (!periodRes.ok || !periodJson.success) throw new Error(periodJson?.error?.message ?? 'Gagal load period');
+
+        setPenggalangs(penggalangJson.data.penggalangs ?? []);
+        setTotalUtang(penggalangJson.data.total_utang_beneficiary ?? 0);
+        setTotalDisbursed(penggalangJson.data.total_disbursed ?? 0);
+        setTotalSisa(penggalangJson.data.total_sisa ?? 0);
+        setBenPartners(partnerJson.data.partners ?? []);
+        setBenPeriods(periodJson.data.periods ?? []);
       } else {
         // Fetch detail rows per simple category
         const res = await fetch(
@@ -419,7 +527,7 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
         </div>
       )}
 
-      {!loading && !error && category !== 'hak_beneficiary' && category !== 'under_audit' && category !== 'fee_teraloka' && (
+      {!loading && !error && category !== 'hak_beneficiary' && category !== 'under_audit' && category !== 'fee_teraloka' && category !== 'tip' && (
         <DetailTable rows={detailRows} totalAmount={totalAmount} totalCount={totalCount} color={meta.color} t={t} />
       )}
 
@@ -453,14 +561,34 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
       )}
 
       {!loading && !error && category === 'hak_beneficiary' && (
-        <HakBeneficiary2Level 
+        <BeneficiaryTabbedView
           penggalangs={penggalangs}
           totalUtang={totalUtang}
           totalDisbursed={totalDisbursed}
           totalSisa={totalSisa}
+          partners={benPartners}
+          periods={benPeriods}
+          activeTab={benTab}
+          onChangeTab={setBenTab}
           expandedId={expandedPenggalangId}
           onToggleExpand={(id) => setExpandedPenggalangId(prev => prev === id ? null : id)}
-          color={meta.color} 
+          color={meta.color}
+          t={t}
+        />
+      )}
+
+      {!loading && !error && category === 'tip' && (
+        <TipPenggalangTabbedView
+          detailRows={detailRows}
+          totalAmount={totalAmount}
+          totalCount={totalCount}
+          partners={tipPartners}
+          periods={tipPeriods}
+          activeTab={tipTab}
+          onChangeTab={setTipTab}
+          showAllDonations={tipShowAllDonations}
+          onToggleShowAll={setTipShowAllDonations}
+          color={meta.color}
           t={t}
         />
       )}
@@ -1401,6 +1529,580 @@ function FeeReminderModal({
             </button>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// Sesi 13 Mission 2D — Tip Penggalang Tabbed View
+// ════════════════════════════════════════════════════════════════
+
+function TipPenggalangTabbedView({
+  detailRows, totalAmount, totalCount,
+  partners, periods,
+  activeTab, onChangeTab,
+  showAllDonations, onToggleShowAll,
+  color, t,
+}: {
+  detailRows: DetailRow[];
+  totalAmount: number;
+  totalCount: number;
+  partners: TipPenggalangPartner[];
+  periods: MonthlyPeriodRow[];
+  activeTab: TipPenggalangTab;
+  onChangeTab: (tab: TipPenggalangTab) => void;
+  showAllDonations: boolean;
+  onToggleShowAll: (v: boolean) => void;
+  color: string;
+  t: any;
+}) {
+  return (
+    <div style={{ padding: 16 }}>
+      {/* Tab navigation */}
+      <div style={{ 
+        display: 'flex', gap: 4, marginBottom: 16,
+        borderBottom: `1px solid ${t.sidebarBorder}`,
+        paddingBottom: 0,
+      }}>
+        <TabButton 
+          label="🎁 Per Donasi" 
+          count={detailRows.length}
+          active={activeTab === 'donations'} 
+          onClick={() => onChangeTab('donations')} 
+          color={color} t={t} 
+        />
+        <TabButton 
+          label="🏆 Per Penggalang" 
+          count={partners.length}
+          active={activeTab === 'partners'} 
+          onClick={() => onChangeTab('partners')} 
+          color={color} t={t} 
+        />
+        <TabButton 
+          label="📅 Per Periode" 
+          count={periods.filter(p => p.amount > 0).length}
+          active={activeTab === 'periods'} 
+          onClick={() => onChangeTab('periods')} 
+          color={color} t={t} 
+        />
+      </div>
+
+      {activeTab === 'donations' && (
+        <TipPerDonasi 
+          rows={detailRows} 
+          totalAmount={totalAmount} 
+          totalCount={totalCount}
+          showAll={showAllDonations}
+          onToggleShowAll={onToggleShowAll}
+          color={color} 
+          t={t} 
+        />
+      )}
+      {activeTab === 'partners' && (
+        <TipPerPartner partners={partners} color={color} t={t} />
+      )}
+      {activeTab === 'periods' && (
+        <TipPerPeriode periods={periods} color={color} t={t} />
+      )}
+    </div>
+  );
+}
+
+function TipPerDonasi({ 
+  rows, totalAmount, totalCount, showAll, onToggleShowAll, color, t 
+}: {
+  rows: DetailRow[]; totalAmount: number; totalCount: number;
+  showAll: boolean; onToggleShowAll: (v: boolean) => void;
+  color: string; t: any;
+}) {
+  // Filter sesuai toggle (Q2=C: default tip>0, toggle "tampil semua")
+  const filteredRows = showAll ? rows : rows.filter(r => Number(r.amount) > 0);
+
+  return (
+    <div>
+      <div style={{ 
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: 12, padding: '8px 0',
+      }}>
+        <div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
+            🎁 Detail Tip per Donasi
+          </div>
+          <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
+            {filteredRows.length} dari {rows.length} donasi {!showAll && '(filter: tip > 0)'}
+          </div>
+        </div>
+        <label style={{ 
+          display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+          fontSize: 10, color: t.textMuted,
+        }}>
+          <input 
+            type="checkbox" 
+            checked={showAll} 
+            onChange={(e) => onToggleShowAll(e.target.checked)}
+            style={{ cursor: 'pointer' }}
+          />
+          Tampilkan donasi tanpa tip
+        </label>
+      </div>
+      
+      <DetailTable rows={filteredRows} totalAmount={totalAmount} totalCount={totalCount} color={color} t={t} />
+    </div>
+  );
+}
+
+function TipPerPartner({ 
+  partners, color, t 
+}: { 
+  partners: TipPenggalangPartner[]; color: string; t: any;
+}) {
+  const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const totalTip = partners.reduce((s, p) => s + p.total_tip, 0);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
+          🏆 Ranking Penggalang Penerima Tip
+        </div>
+        <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
+          {partners.length} penggalang dapat tip · Total: <strong style={{ color }}>{formatRupiah(totalTip)}</strong>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto', border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 800 }}>
+          <thead style={{ background: t.navHover + '60', position: 'sticky', top: 0 }}>
+            <tr>
+              <th style={{ ...th(t), width: 30, textAlign: 'center' }}>#</th>
+              <th style={th(t)}>Penggalang</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total Tip</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Donasi w/Tip</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Rate</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Rata-rata</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Tip Tertinggi</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Tip Terakhir</th>
+            </tr>
+          </thead>
+          <tbody>
+            {partners.length === 0 && (
+              <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Belum ada penggalang yang dapat tip</td></tr>
+            )}
+            {partners.map((p, i) => (
+              <tr key={p.partner_name} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                <td style={{ ...td(t), textAlign: 'center', fontWeight: 700, color: i < 3 ? '#F59E0B' : t.textDim }}>
+                  {i === 0 && '🥇'}
+                  {i === 1 && '🥈'}
+                  {i === 2 && '🥉'}
+                  {i > 2 && (i + 1)}
+                </td>
+                <td style={{ ...td(t), fontWeight: 700 }}>{p.partner_name}</td>
+                <td style={{ ...td(t), textAlign: 'right', fontWeight: 800, color }}>
+                  {formatRupiah(p.total_tip)}
+                </td>
+                <td style={{ ...td(t), textAlign: 'center' }}>
+                  {p.donation_count_with_tip} / {p.donation_count_total}
+                </td>
+                <td style={{ ...td(t), textAlign: 'center' }}>
+                  <span style={{
+                    padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700,
+                    background: p.tip_rate_percent >= 50 ? 'rgba(16,185,129,0.15)' : 'rgba(245,158,11,0.15)',
+                    color: p.tip_rate_percent >= 50 ? '#10B981' : '#F59E0B',
+                  }}>
+                    {p.tip_rate_percent.toFixed(1)}%
+                  </span>
+                </td>
+                <td style={{ ...td(t), textAlign: 'right', color: t.textDim }}>
+                  {formatRupiah(p.avg_tip_per_donation)}
+                </td>
+                <td style={{ ...td(t), textAlign: 'right', color: t.textDim }}>
+                  {formatRupiah(p.largest_tip)}
+                </td>
+                <td style={{ ...td(t), textAlign: 'center', fontSize: 10, color: t.textDim }}>
+                  {p.latest_tip_at ? new Date(p.latest_tip_at).toLocaleDateString('id-ID', { day: '2-digit', month: 'short' }) : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function TipPerPeriode({ 
+  periods, color, t 
+}: { 
+  periods: MonthlyPeriodRow[]; color: string; t: any;
+}) {
+  const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const totalTip = periods.reduce((s, p) => s + p.amount, 0);
+  const maxAmount = Math.max(...periods.map(p => p.amount), 1);  // avoid div by 0
+
+  return (
+    <div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
+          📅 Tip per Periode — 12 Bulan Terakhir
+        </div>
+        <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
+          Total tip 12 bulan: <strong style={{ color }}>{formatRupiah(totalTip)}</strong>
+        </div>
+      </div>
+
+      {/* Bar Chart Recharts */}
+      <div style={{ 
+        background: t.navHover + '30', 
+        border: `1px solid ${t.sidebarBorder}`,
+        borderRadius: 6, padding: 12, marginBottom: 16,
+        height: 280,
+      }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={periods} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={t.sidebarBorder} opacity={0.4} />
+            <XAxis 
+              dataKey="period_label" 
+              tick={{ fontSize: 10, fill: t.textDim }}
+              stroke={t.sidebarBorder}
+              angle={-30}
+              textAnchor="end"
+              height={50}
+            />
+            <YAxis 
+              tick={{ fontSize: 10, fill: t.textDim }}
+              stroke={t.sidebarBorder}
+              tickFormatter={(v) => 'Rp ' + (v / 1000).toFixed(0) + 'K'}
+            />
+            <Tooltip 
+              contentStyle={{ 
+                background: t.cardBg, 
+                border: `1px solid ${t.sidebarBorder}`,
+                fontSize: 11, borderRadius: 4,
+              }}
+              formatter={(value: any) => [formatRupiah(value), 'Tip']}
+            />
+            <Bar dataKey="amount" fill={color} radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Table breakdown */}
+      <div style={{ overflowX: 'auto', border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead style={{ background: t.navHover + '60' }}>
+            <tr>
+              <th style={th(t)}>Periode</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total Tip</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Donasi</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>% dari Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {periods.map((p) => {
+              const pct = totalTip > 0 ? (p.amount / totalTip) * 100 : 0;
+              const barWidth = maxAmount > 0 ? (p.amount / maxAmount) * 100 : 0;
+              return (
+                <tr key={p.period} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                  <td style={{ ...td(t), fontWeight: 700 }}>{p.period_label}</td>
+                  <td style={{ ...td(t), textAlign: 'right', fontWeight: 800, color: p.amount > 0 ? color : t.textDim }}>
+                    {p.amount > 0 ? formatRupiah(p.amount) : '—'}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center', color: t.textDim }}>
+                    {p.count > 0 ? p.count : '—'}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'right' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, justifyContent: 'flex-end' }}>
+                      <div style={{ 
+                        width: 60, height: 8, background: t.sidebarBorder, borderRadius: 2,
+                        overflow: 'hidden', flexShrink: 0,
+                      }}>
+                        <div style={{ 
+                          width: `${barWidth}%`, height: '100%', background: color,
+                          transition: 'width 200ms',
+                        }} />
+                      </div>
+                      <span style={{ minWidth: 36, color: t.textDim, fontSize: 10 }}>{pct.toFixed(1)}%</span>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// Sesi 13 Mission 2E — Beneficiary Tabbed View (3-tab)
+// ════════════════════════════════════════════════════════════════
+
+function BeneficiaryTabbedView({
+  penggalangs, totalUtang, totalDisbursed, totalSisa,
+  partners, periods,
+  activeTab, onChangeTab,
+  expandedId, onToggleExpand,
+  color, t,
+}: {
+  penggalangs: PenggalangSaldo[];
+  totalUtang: number;
+  totalDisbursed: number;
+  totalSisa: number;
+  partners: BeneficiaryPartner[];
+  periods: BeneficiaryPeriodRow[];
+  activeTab: BeneficiaryTab;
+  onChangeTab: (tab: BeneficiaryTab) => void;
+  expandedId: string | null;
+  onToggleExpand: (id: string) => void;
+  color: string;
+  t: any;
+}) {
+  return (
+    <div style={{ padding: 16 }}>
+      {/* Tab navigation */}
+      <div style={{ 
+        display: 'flex', gap: 4, marginBottom: 16,
+        borderBottom: `1px solid ${t.sidebarBorder}`,
+      }}>
+        <TabButton 
+          label="👤 Per Penggalang" 
+          count={penggalangs.length}
+          active={activeTab === 'penggalangs'} 
+          onClick={() => onChangeTab('penggalangs')} 
+          color={color} t={t} 
+        />
+        <TabButton 
+          label="🏢 Per Partner" 
+          count={partners.length}
+          active={activeTab === 'partners'} 
+          onClick={() => onChangeTab('partners')} 
+          color={color} t={t} 
+        />
+        <TabButton 
+          label="📅 Per Periode" 
+          count={periods.filter(p => p.utang_in > 0 || p.disbursed_out > 0).length}
+          active={activeTab === 'periods'} 
+          onClick={() => onChangeTab('periods')} 
+          color={color} t={t} 
+        />
+      </div>
+
+      {activeTab === 'penggalangs' && (
+        <HakBeneficiary2Level 
+          penggalangs={penggalangs}
+          totalUtang={totalUtang}
+          totalDisbursed={totalDisbursed}
+          totalSisa={totalSisa}
+          expandedId={expandedId}
+          onToggleExpand={onToggleExpand}
+          color={color} 
+          t={t}
+        />
+      )}
+      {activeTab === 'partners' && (
+        <BeneficiaryPerPartner partners={partners} color={color} t={t} />
+      )}
+      {activeTab === 'periods' && (
+        <BeneficiaryPerPeriode periods={periods} color={color} t={t} />
+      )}
+    </div>
+  );
+}
+
+function BeneficiaryPerPartner({ 
+  partners, color, t 
+}: { 
+  partners: BeneficiaryPartner[]; color: string; t: any;
+}) {
+  const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const totalSisa = partners.reduce((s, p) => s + p.sisa_belum_disalurkan, 0);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
+          🏢 Hak Beneficiary per Partner
+        </div>
+        <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
+          {partners.length} partner · Total sisa: <strong style={{ color: totalSisa > 0 ? '#DC2626' : '#10B981' }}>{formatRupiah(totalSisa)}</strong>
+        </div>
+      </div>
+
+      <div style={{ overflowX: 'auto', border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900 }}>
+          <thead style={{ background: t.navHover + '60' }}>
+            <tr>
+              <th style={th(t)}>Partner</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Campaign</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Total Utang</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Disbursed</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Sisa</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Rate</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Tertua</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            {partners.length === 0 && (
+              <tr><td colSpan={8} style={{ padding: 20, textAlign: 'center', color: t.textDim }}>Tidak ada data</td></tr>
+            )}
+            {partners.map((p) => {
+              const oldestDays = p.oldest_unsettled_at 
+                ? Math.floor((Date.now() - new Date(p.oldest_unsettled_at).getTime()) / (1000 * 60 * 60 * 24))
+                : null;
+              const hasSisa = p.sisa_belum_disalurkan > 0;
+              return (
+                <tr key={p.partner_name} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                  <td style={{ ...td(t), fontWeight: 700 }}>{p.partner_name}</td>
+                  <td style={{ ...td(t), textAlign: 'center' }}>{p.campaign_count}</td>
+                  <td style={{ ...td(t), textAlign: 'right' }}>{formatRupiah(p.total_utang)}</td>
+                  <td style={{ ...td(t), textAlign: 'right', color: '#10B981' }}>
+                    {formatRupiah(p.total_disbursed)}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'right', fontWeight: 800, color: hasSisa ? '#DC2626' : '#10B981' }}>
+                    {formatRupiah(p.sisa_belum_disalurkan)}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center' }}>
+                    <span style={{
+                      padding: '2px 6px', borderRadius: 4, fontSize: 9, fontWeight: 700,
+                      background: p.rate_disbursed_percent >= 80 ? 'rgba(16,185,129,0.15)' :
+                                  p.rate_disbursed_percent >= 50 ? 'rgba(245,158,11,0.15)' : 'rgba(220,38,38,0.15)',
+                      color: p.rate_disbursed_percent >= 80 ? '#10B981' :
+                             p.rate_disbursed_percent >= 50 ? '#F59E0B' : '#DC2626',
+                    }}>
+                      {p.rate_disbursed_percent.toFixed(1)}%
+                    </span>
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center', fontSize: 10, color: t.textDim }}>
+                    {oldestDays === null ? '—' : `${oldestDays} hari`}
+                  </td>
+                  <td style={{ ...td(t), textAlign: 'center' }}>
+                    {hasSisa ? (
+                      <span style={{ 
+                        padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
+                        background: 'rgba(220,38,38,0.15)', color: '#DC2626',
+                      }}>
+                        ⚠️ ADA SISA
+                      </span>
+                    ) : (
+                      <span style={{ 
+                        padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
+                        background: 'rgba(16,185,129,0.15)', color: '#10B981',
+                      }}>
+                        ✅ LUNAS
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function BeneficiaryPerPeriode({ 
+  periods, color, t 
+}: { 
+  periods: BeneficiaryPeriodRow[]; color: string; t: any;
+}) {
+  const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  const totalIn = periods.reduce((s, p) => s + p.utang_in, 0);
+  const totalOut = periods.reduce((s, p) => s + p.disbursed_out, 0);
+
+  return (
+    <div>
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
+          📅 Beneficiary per Periode — 12 Bulan Terakhir
+        </div>
+        <div style={{ display: 'flex', gap: 16, fontSize: 10, color: t.textDim, marginTop: 4 }}>
+          <span>Utang masuk: <strong style={{ color: '#3B82F6' }}>{formatRupiah(totalIn)}</strong></span>
+          <span>Disalurkan: <strong style={{ color: '#10B981' }}>{formatRupiah(totalOut)}</strong></span>
+          <span>Net: <strong style={{ color: totalIn - totalOut > 0 ? '#DC2626' : '#10B981' }}>{formatRupiah(totalIn - totalOut)}</strong></span>
+        </div>
+      </div>
+
+      {/* Bar Chart Recharts — comparative IN vs OUT */}
+      <div style={{ 
+        background: t.navHover + '30', 
+        border: `1px solid ${t.sidebarBorder}`,
+        borderRadius: 6, padding: 12, marginBottom: 16,
+        height: 300,
+      }}>
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={periods} margin={{ top: 8, right: 12, left: 0, bottom: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke={t.sidebarBorder} opacity={0.4} />
+            <XAxis 
+              dataKey="period_label" 
+              tick={{ fontSize: 10, fill: t.textDim }}
+              stroke={t.sidebarBorder}
+              angle={-30}
+              textAnchor="end"
+              height={50}
+            />
+            <YAxis 
+              tick={{ fontSize: 10, fill: t.textDim }}
+              stroke={t.sidebarBorder}
+              tickFormatter={(v) => 'Rp ' + (v / 1000).toFixed(0) + 'K'}
+            />
+            <Tooltip 
+              contentStyle={{ 
+                background: t.cardBg, 
+                border: `1px solid ${t.sidebarBorder}`,
+                fontSize: 11, borderRadius: 4,
+              }}
+              formatter={(value: any, name: any): [string, string] => {
+                const label = name === 'utang_in' ? 'Utang Masuk' : 'Disalurkan';
+                return [formatRupiah(value), label];
+              }}
+            />
+            <Legend 
+              wrapperStyle={{ fontSize: 11, color: t.textDim }}
+              formatter={(v: any) => v === 'utang_in' ? 'Utang Masuk' : 'Disalurkan'}
+            />
+            <Bar dataKey="utang_in" fill="#3B82F6" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="disbursed_out" fill="#10B981" radius={[4, 4, 0, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+
+      {/* Table */}
+      <div style={{ overflowX: 'auto', border: `1px solid ${t.sidebarBorder}`, borderRadius: 6 }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead style={{ background: t.navHover + '60' }}>
+            <tr>
+              <th style={th(t)}>Periode</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Utang Masuk</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Disalurkan</th>
+              <th style={{ ...th(t), textAlign: 'right' }}>Net</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Donasi/Disburse</th>
+            </tr>
+          </thead>
+          <tbody>
+            {periods.map((p) => (
+              <tr key={p.period} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                <td style={{ ...td(t), fontWeight: 700 }}>{p.period_label}</td>
+                <td style={{ ...td(t), textAlign: 'right', color: p.utang_in > 0 ? '#3B82F6' : t.textDim }}>
+                  {p.utang_in > 0 ? formatRupiah(p.utang_in) : '—'}
+                </td>
+                <td style={{ ...td(t), textAlign: 'right', color: p.disbursed_out > 0 ? '#10B981' : t.textDim }}>
+                  {p.disbursed_out > 0 ? formatRupiah(p.disbursed_out) : '—'}
+                </td>
+                <td style={{ ...td(t), textAlign: 'right', fontWeight: 700, color: p.net > 0 ? '#DC2626' : p.net < 0 ? '#10B981' : t.textDim }}>
+                  {p.net !== 0 ? formatRupiah(p.net) : '—'}
+                </td>
+                <td style={{ ...td(t), textAlign: 'center', fontSize: 10, color: t.textDim }}>
+                  {p.donation_count}/{p.disbursement_count}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
