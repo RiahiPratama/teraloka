@@ -34,6 +34,7 @@ import {
   Siren as AlarmSiren, Banknote, Repeat2, CircleDollarSign,
   VenetianMask, BellOff, Activity, Bell, Brain, Rocket,
   ArrowUpRight, Eye, MoreHorizontal, ChevronRight,
+  HandCoins,
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
@@ -86,6 +87,8 @@ interface CommandCenterStats {
   activeCampaigns: number;
   pendingAmount: number;
   feePendingAmount: number;
+  underAuditAmount: number;   // ⭐ Mission 2O: tahan audit (escalated admin)
+  underAuditCount: number;    // ⭐ Mission 2O: jumlah tahan audit
   verifiedToday: number;
   rejectedToday: number;
   campaignSmartViews: Record<string, number>;
@@ -99,6 +102,7 @@ const EMPTY_STATS: CommandCenterStats = {
   pendingFeeRemittances: 0, pendingCampaigns: 0, activeFraudFlags: 0,
   criticalFraudFlags: 0, pendingEscalations: 0, totalRaised: 0,
   activeCampaigns: 0, pendingAmount: 0, feePendingAmount: 0,
+  underAuditAmount: 0, underAuditCount: 0,
   verifiedToday: 0, rejectedToday: 0,
   campaignSmartViews: {}, donationSmartViews: {},
   recentDonations: [], recentActivity: [],
@@ -128,6 +132,7 @@ export default function BadonasiCommandCenter() {
         campPending, fraudStats, esc,
         statsRes, donSmart, campSmart, donStatsToday, feeSum,
         recentDon,
+        donUnderAudit,  // ⭐ Mission 2O: fetch under_audit donations
       ] = await Promise.all([
         fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, { headers }).then(r => r.json()).catch(() => null),
         fetch(`${API_URL}/funding/admin/donations?status=pending&sv=verify_urgent&limit=1`, { headers }).then(r => r.json()).catch(() => null),
@@ -143,7 +148,16 @@ export default function BadonasiCommandCenter() {
         fetch(`${API_URL}/funding/admin/fees/summary`, { headers }).then(r => r.json()).catch(() => null),
         // Recent donations for activity feed
         fetch(`${API_URL}/funding/admin/donations?limit=10&sort=created_at:desc`, { headers }).then(r => r.json()).catch(() => null),
+        // ⭐ Mission 2O: Under audit donations (limit=1000 untuk sum amount)
+        fetch(`${API_URL}/funding/admin/donations?status=under_audit&limit=1000`, { headers }).then(r => r.json()).catch(() => null),
       ]);
+
+      // ⭐ Mission 2O: Sum amount under_audit dari data array
+      const underAuditData = donUnderAudit?.data ?? [];
+      const underAuditAmount = Array.isArray(underAuditData)
+        ? underAuditData.reduce((sum: number, d: any) => sum + (Number(d.amount) || 0), 0)
+        : 0;
+      const underAuditCount = donUnderAudit?.meta?.total ?? 0;
 
       setStats({
         pendingDonations:    donPending?.meta?.total ?? 0,
@@ -158,6 +172,8 @@ export default function BadonasiCommandCenter() {
         activeCampaigns:     statsRes?.data?.active_campaigns ?? 0,
         pendingAmount:       donStatsToday?.stats?.pending_amount ?? 0,
         feePendingAmount:    feeSum?.data?.total_pending ?? 0,
+        underAuditAmount,    // ⭐ Mission 2O
+        underAuditCount,     // ⭐ Mission 2O
         verifiedToday:       donStatsToday?.stats?.verifiedToday ?? 0,
         rejectedToday:       donStatsToday?.stats?.rejectedToday ?? 0,
         campaignSmartViews:  campSmart?.data ?? {},
@@ -183,7 +199,9 @@ export default function BadonasiCommandCenter() {
   }, []);
 
   const moneyAtRisk = useMemo(() => {
-    const amount = stats.pendingAmount + stats.feePendingAmount;
+    // ⭐ Mission 2O: Include under_audit (tahan audit) — dana belum tercatat resmi
+    // Filosofi: stuck di sistem = pending verify + fee belum setor + tahan audit
+    const amount = stats.pendingAmount + stats.feePendingAmount + stats.underAuditAmount;
     const ratio = stats.totalRaised > 0 ? amount / stats.totalRaised : 0;
     let color = '#10B981'; let label = 'Sehat';
     if (ratio >= 0.15) { color = '#EF4444'; label = 'Kritis'; }
@@ -208,11 +226,11 @@ export default function BadonasiCommandCenter() {
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               <div style={{
                 width: 40, height: 40, borderRadius: 12,
-                background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+                background: 'linear-gradient(135deg, #EC4899, #BE185D)',
                 color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+                boxShadow: '0 4px 12px rgba(236, 72, 153, 0.25)',
               }}>
-                <Siren size={22} strokeWidth={2.2} />
+                <HandCoins size={22} strokeWidth={2.2} />
               </div>
               <h1 style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary }}>
                 Command Center
@@ -236,7 +254,7 @@ export default function BadonasiCommandCenter() {
             fontSize: 13, color: t.textDim, flexWrap: 'wrap',
           }}>
             <span>
-              <strong style={{ color: t.textPrimary }}>{rp(stats.totalRaised)}</strong> total akrual
+              <strong style={{ color: t.textPrimary }}>{rp(stats.totalRaised)}</strong> dana donasi
             </span>
             <span style={{ color: t.textMuted }}>·</span>
             <span>
@@ -326,29 +344,30 @@ export default function BadonasiCommandCenter() {
         <div style={{
           display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 20,
         }}>
-          <Link href="/admin/funding/donations?status=pending" style={{ textDecoration: 'none' }}>
-            <div style={{
-              background: t.mainBg,
-              border: `1px solid ${moneyAtRisk.color}30`,
-              borderRadius: 16, padding: 20,
-              boxShadow: `0 0 0 3px ${moneyAtRisk.color}08`,
-              cursor: 'pointer', transition: 'all 150ms',
-              height: '100%',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <div>
-                  <p style={{
-                    display: 'inline-flex', alignItems: 'center', gap: 6,
-                    fontSize: 12, color: t.textDim, fontWeight: 600,
-                    letterSpacing: '0.05em', marginBottom: 4,
-                  }}>
-                    <TrendingUp size={14} strokeWidth={2.5} color={moneyAtRisk.color} />
-                    MONEY AT RISK
-                  </p>
-                  <p style={{ fontSize: 11, color: t.textMuted }}>
-                    Dana yang sedang stuck di sistem (pending verify + fee belum setor)
-                  </p>
-                </div>
+          {/* ⭐ Mission 2O+: Money at Risk Refactor — 3 action cards per source */}
+          <div style={{
+            background: t.mainBg,
+            border: `1px solid ${moneyAtRisk.color}30`,
+            borderRadius: 16, padding: 20,
+            boxShadow: `0 0 0 3px ${moneyAtRisk.color}08`,
+            height: '100%',
+          }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 16 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 12, color: t.textDim, fontWeight: 600,
+                  letterSpacing: '0.05em', marginBottom: 4,
+                }}>
+                  <TrendingUp size={14} strokeWidth={2.5} color={moneyAtRisk.color} />
+                  MONEY AT RISK
+                </p>
+                <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 0 }}>
+                  Dana stuck di sistem · klik card untuk action
+                </p>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                 <span style={{
                   display: 'inline-flex', alignItems: 'center', gap: 4,
                   background: `${moneyAtRisk.color}15`, color: moneyAtRisk.color,
@@ -357,38 +376,132 @@ export default function BadonasiCommandCenter() {
                   {moneyAtRisk.label}
                   <ArrowUpRight size={12} />
                 </span>
-              </div>
-              <p style={{ fontSize: 32, fontWeight: 800, color: moneyAtRisk.color, marginBottom: 8 }}>
-                {rp(moneyAtRisk.amount)}
-              </p>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: t.textDim }}>
-                <span>{(moneyAtRisk.ratio * 100).toFixed(1)}% dari total akrual</span>
-                <span style={{ color: t.textMuted }}>·</span>
-                <span>Threshold: &lt;5% sehat, 5-15% warning, &gt;15% kritis</span>
-              </div>
-              <div style={{
-                display: 'flex', gap: 4, marginTop: 16, height: 8, borderRadius: 4, overflow: 'hidden',
-                background: t.sidebarBorder,
-              }}>
-                {stats.pendingAmount > 0 && (
-                  <div style={{ flex: stats.pendingAmount, background: '#F59E0B' }}/>
-                )}
-                {stats.feePendingAmount > 0 && (
-                  <div style={{ flex: stats.feePendingAmount, background: '#F97316' }}/>
-                )}
-              </div>
-              <div style={{ display: 'flex', gap: 16, marginTop: 8, fontSize: 11, color: t.textDim }}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: '#F59E0B' }}/>
-                  Pending: {rp(stats.pendingAmount)}
-                </span>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 2, background: '#F97316' }}/>
-                  Fee: {rp(stats.feePendingAmount)}
-                </span>
+                <p style={{ fontSize: 11, color: t.textDim, margin: 0 }}>
+                  Total: <strong style={{ color: moneyAtRisk.color }}>{rp(moneyAtRisk.amount)}</strong>
+                  <span style={{ color: t.textMuted, marginLeft: 6 }}>
+                    ({(moneyAtRisk.ratio * 100).toFixed(1)}%)
+                  </span>
+                </p>
               </div>
             </div>
-          </Link>
+
+            {/* ⭐ 3 Action Cards: Pending / Fee / Tahan Audit */}
+            <div style={{
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+              gap: 10,
+            }}>
+              {/* Card 1: Pending Verify */}
+              <Link href="/admin/funding/donations?status=pending" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: stats.pendingAmount > 0 ? 'rgba(245,158,11,0.06)' : t.mainBg,
+                  border: `1px solid ${stats.pendingAmount > 0 ? 'rgba(245,158,11,0.3)' : t.sidebarBorder}`,
+                  borderRadius: 12, padding: 14,
+                  cursor: 'pointer', transition: 'all 150ms',
+                  opacity: stats.pendingAmount > 0 ? 1 : 0.6,
+                  height: '100%',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Clock size={14} strokeWidth={2.5} color="#F59E0B" />
+                    <p style={{ 
+                      fontSize: 10, fontWeight: 700, color: '#F59E0B', 
+                      textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
+                    }}>
+                      Pending Verify
+                    </p>
+                  </div>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: t.textPrimary, marginBottom: 4 }}>
+                    {rp(stats.pendingAmount)}
+                  </p>
+                  <p style={{ fontSize: 11, color: t.textDim, marginBottom: 10 }}>
+                    {stats.pendingDonations} donasi menunggu
+                  </p>
+                  <p style={{ 
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, color: '#F59E0B', fontWeight: 600, margin: 0,
+                  }}>
+                    Verify donasi <ArrowRight size={12} />
+                  </p>
+                </div>
+              </Link>
+
+              {/* Card 2: Fee Belum Setor */}
+              <Link href="/admin/funding/fees" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: stats.feePendingAmount > 0 ? 'rgba(249,115,22,0.06)' : t.mainBg,
+                  border: `1px solid ${stats.feePendingAmount > 0 ? 'rgba(249,115,22,0.3)' : t.sidebarBorder}`,
+                  borderRadius: 12, padding: 14,
+                  cursor: 'pointer', transition: 'all 150ms',
+                  opacity: stats.feePendingAmount > 0 ? 1 : 0.6,
+                  height: '100%',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Landmark size={14} strokeWidth={2.5} color="#F97316" />
+                    <p style={{ 
+                      fontSize: 10, fontWeight: 700, color: '#F97316', 
+                      textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
+                    }}>
+                      Fee Belum Setor
+                    </p>
+                  </div>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: t.textPrimary, marginBottom: 4 }}>
+                    {rp(stats.feePendingAmount)}
+                  </p>
+                  <p style={{ fontSize: 11, color: t.textDim, marginBottom: 10 }}>
+                    {stats.pendingFeeRemittances} setoran tertunda
+                  </p>
+                  <p style={{ 
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, color: '#F97316', fontWeight: 600, margin: 0,
+                  }}>
+                    Tagih partner <ArrowRight size={12} />
+                  </p>
+                </div>
+              </Link>
+
+              {/* Card 3: Tahan Audit */}
+              <Link href="/admin/funding/donations?status=under_audit" style={{ textDecoration: 'none' }}>
+                <div style={{
+                  background: stats.underAuditAmount > 0 ? 'rgba(139,92,246,0.06)' : t.mainBg,
+                  border: `1px solid ${stats.underAuditAmount > 0 ? 'rgba(139,92,246,0.3)' : t.sidebarBorder}`,
+                  borderRadius: 12, padding: 14,
+                  cursor: 'pointer', transition: 'all 150ms',
+                  opacity: stats.underAuditAmount > 0 ? 1 : 0.6,
+                  height: '100%',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <AlertCircle size={14} strokeWidth={2.5} color="#8B5CF6" />
+                    <p style={{ 
+                      fontSize: 10, fontWeight: 700, color: '#8B5CF6', 
+                      textTransform: 'uppercase', letterSpacing: '0.06em', margin: 0,
+                    }}>
+                      Tahan Audit
+                    </p>
+                  </div>
+                  <p style={{ fontSize: 20, fontWeight: 800, color: t.textPrimary, marginBottom: 4 }}>
+                    {rp(stats.underAuditAmount)}
+                  </p>
+                  <p style={{ fontSize: 11, color: t.textDim, marginBottom: 10 }}>
+                    {stats.underAuditCount} donasi escalated
+                  </p>
+                  <p style={{ 
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    fontSize: 11, color: '#8B5CF6', fontWeight: 600, margin: 0,
+                  }}>
+                    Selidiki audit <ArrowRight size={12} />
+                  </p>
+                </div>
+              </Link>
+            </div>
+
+            {/* Threshold footnote */}
+            <p style={{ 
+              fontSize: 10, color: t.textMuted, fontStyle: 'italic',
+              marginTop: 12, marginBottom: 0, textAlign: 'right',
+            }}>
+              Threshold: &lt;5% sehat · 5-15% warning · &gt;15% kritis
+            </p>
+          </div>
 
           {/* Pulse Card - dual link (verified vs rejected) */}
           <div style={{

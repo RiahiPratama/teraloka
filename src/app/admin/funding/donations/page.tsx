@@ -10,6 +10,7 @@ import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import {
   Inbox, PauseCircle, XOctagon, CheckCheck, AlertCircle,
   Clock, CheckCircle2, XCircle, ArrowRight, Eye,
+  BarChart3, Calendar,
 } from 'lucide-react';
 import DonationSmartViewsPills, {
   type DonationSmartViewKey, type DonationSmartViewCounts,
@@ -578,11 +579,13 @@ export default function AdminDonationsPage() {
         marginBottom: 16, paddingBottom: 4,
       }}>
         <span style={{ 
+          display: 'inline-flex', alignItems: 'center', gap: 6,
           fontSize: 11, fontWeight: 700, color: t.textMuted, 
           textTransform: 'uppercase', letterSpacing: '0.06em',
           marginRight: 4,
         }}>
-          📅 Periode:
+          <Calendar size={13} strokeWidth={2.5} />
+          Periode:
         </span>
         {DATE_PRESET_OPTIONS.map(opt => {
           const active = datePreset === opt.key;
@@ -625,8 +628,14 @@ export default function AdminDonationsPage() {
         borderRadius: 12, padding: 16, marginBottom: 16,
       }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-            📊 Rekonsiliasi Donasi
+          <p style={{ 
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 11, fontWeight: 700, color: t.textMuted, 
+            textTransform: 'uppercase', letterSpacing: '0.06em',
+            margin: 0,
+          }}>
+            <BarChart3 size={13} strokeWidth={2.5} />
+            Rekonsiliasi Donasi
           </p>
           <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic' }}>
             Rumus: Dana Donasi = Total Tercatat − Pending − Tahan Audit
