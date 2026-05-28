@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState, useContext } from 'react';
-import { Download, X, Loader2 } from 'lucide-react';
+import { 
+  Download, X, Loader2, 
+  // ⭐ Sesi 13 Mission 2D: Icons untuk Tip/Beneficiary tabs + actions
+  Gift, Trophy, Calendar, Building2, User, Send, 
+  CheckCircle2, XCircle, AlertCircle, AlertTriangle, Bell, 
+  Hourglass, Wallet, Crown, Medal, Award,
+  // ⭐ CATEGORY_META icons (replace emoji)
+  Target, Landmark, Hash, Clock4,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -81,13 +90,13 @@ interface Props {
   onClose: () => void;
 }
 
-const CATEGORY_META: Record<DetailCategory, { title: string; color: string; emoji: string; description: string; backendCategory: string }> = {
-  beneficiary:      { title: 'Dana Beneficiary',          color: '#0891B2', emoji: '🎯', description: 'Alokasi dana untuk penerima manfaat (dari 2101 Utang Dana Beneficiary)', backendCategory: 'beneficiary' },
-  fee_teraloka:     { title: 'Fee TeraLoka',              color: '#BE185D', emoji: '🏦', description: 'Penerimaan fee platform (dari 4201 Penerimaan Fee Platform)', backendCategory: 'fee_teraloka' },
-  tip:              { title: 'Tip Penggalang',            color: '#8B5CF6', emoji: '🎁', description: 'Pendapatan Partner dari tip donor opt-in (4101)', backendCategory: 'tip' },
-  kode_unik:        { title: 'Kode Unik',                 color: '#F59E0B', emoji: '🔢', description: 'Kode unik 3-digit cross-check verifikasi (4102)', backendCategory: 'kode_unik' },
-  hak_beneficiary:  { title: 'Hak Beneficiary di Partner', color: '#F59E0B', emoji: '⌛', description: 'Utang Dana Beneficiary belum settled per Penggalang & Campaign (Money Ledger 2101 - disbursements)', backendCategory: '' },
-  under_audit:      { title: 'Hak Beneficiary Proses Audit', color: '#8B5CF6', emoji: '🔍', description: 'Donasi under_audit · belum jadi journal entry, menunggu resolusi mismatch', backendCategory: '' },
+const CATEGORY_META: Record<DetailCategory, { title: string; color: string; Icon: LucideIcon; description: string; backendCategory: string }> = {
+  beneficiary:      { title: 'Dana Beneficiary',          color: '#0891B2', Icon: Target,     description: 'Alokasi dana untuk penerima manfaat (dari 2101 Utang Dana Beneficiary)', backendCategory: 'beneficiary' },
+  fee_teraloka:     { title: 'Fee TeraLoka',              color: '#BE185D', Icon: Landmark,   description: 'Penerimaan fee platform (dari 4201 Penerimaan Fee Platform)', backendCategory: 'fee_teraloka' },
+  tip:              { title: 'Tip Penggalang',            color: '#8B5CF6', Icon: Gift,       description: 'Pendapatan Partner dari tip donor opt-in (4101)', backendCategory: 'tip' },
+  kode_unik:        { title: 'Kode Unik',                 color: '#F59E0B', Icon: Hash,       description: 'Kode unik 3-digit cross-check verifikasi (4102)', backendCategory: 'kode_unik' },
+  hak_beneficiary:  { title: 'Hak Beneficiary di Partner', color: '#F59E0B', Icon: Hourglass,  description: 'Utang Dana Beneficiary belum settled per Penggalang & Campaign (Money Ledger 2101 - disbursements)', backendCategory: '' },
+  under_audit:      { title: 'Hak Beneficiary Proses Audit', color: '#8B5CF6', Icon: Clock4, description: 'Donasi under_audit · belum jadi journal entry, menunggu resolusi mismatch', backendCategory: '' },
 };
 
 function formatRupiah(n: number): string {
@@ -125,6 +134,12 @@ interface FeeTeralokaPartner {
   last_remitted_at: string | null;       // ⭐ Sesi 13 Mission 2 fix
   remittance_batch_count: number;
   is_berutang: boolean;
+  // ⭐ Sesi 13 Mission 2F: archived campaign anomaly flag
+  has_archived_campaign: boolean;
+  archived_campaign_count: number;
+  // ⭐ Sesi 13 Mission 2F: under_audit tracking
+  fee_under_audit: number;
+  donation_count_under_audit: number;
 }
 
 interface FeeRemittanceBatch {
@@ -481,7 +496,8 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
             fontSize: 11, fontWeight: 700, color: meta.color, 
             letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2,
           }}>
-            {meta.emoji} {meta.title}
+            <meta.Icon size={16} style={{ verticalAlign: 'middle', marginRight: 6 }} />
+            {meta.title}
           </p>
           <p style={{ fontSize: 12, color: t.textDim }}>
             {meta.description}
@@ -527,7 +543,7 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
 
       {error && (
         <div style={{ padding: 12, background: 'rgba(220,38,38,0.1)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 6, color: '#DC2626', fontSize: 12 }}>
-          ⚠️ {error}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {error}</span>
         </div>
       )}
 
@@ -692,8 +708,110 @@ function FeeTeralokaTabbedView({
   color: string;
   t: any;
 }) {
+  // ⭐ Sesi 13 Mission 2F: Anomaly Detection
+  const formatRupiah = (n: number) => 'Rp ' + Math.round(n).toLocaleString('id-ID');
+  
+  const totalExpected = partnerAggregate.reduce((s, p) => s + p.total_fee_expected, 0);
+  const totalRemitted = partnerAggregate.reduce((s, p) => s + p.total_fee_remitted, 0);
+  const totalPending = partnerAggregate.reduce((s, p) => s + p.total_fee_pending, 0);
+  const totalUnderAudit = partnerAggregate.reduce((s, p) => s + p.fee_under_audit, 0);
+  const totalDonationsUnderAudit = partnerAggregate.reduce((s, p) => s + p.donation_count_under_audit, 0);
+  
+  const archivedPartners = partnerAggregate.filter(p => p.has_archived_campaign);
+  const totalArchivedCampaigns = archivedPartners.reduce((s, p) => s + p.archived_campaign_count, 0);
+  
+  const partnersWithUnderAudit = partnerAggregate.filter(p => p.fee_under_audit > 0);
+  
+  const hasAnyAnomaly = totalPending > 0 || archivedPartners.length > 0 || totalUnderAudit > 0;
+  
   return (
     <div>
+      {/* ⭐ Mission 2F: Smart Anomaly Banner */}
+      {hasAnyAnomaly && (
+        <div style={{ 
+          marginBottom: 12,
+          padding: 12,
+          background: totalPending > 0 ? 'rgba(220,38,38,0.08)' : 'rgba(245,158,11,0.08)',
+          border: `1px solid ${totalPending > 0 ? 'rgba(220,38,38,0.35)' : 'rgba(245,158,11,0.35)'}`,
+          borderRadius: 6,
+        }}>
+          <div style={{ 
+            display: 'flex', alignItems: 'flex-start', gap: 10,
+          }}>
+            <AlertTriangle 
+              size={16} 
+              style={{ 
+                color: totalPending > 0 ? '#DC2626' : '#F59E0B',
+                flexShrink: 0, marginTop: 1,
+              }} 
+            />
+            <div style={{ flex: 1 }}>
+              <div style={{ 
+                fontSize: 11, fontWeight: 800, 
+                color: totalPending > 0 ? '#DC2626' : '#F59E0B',
+                marginBottom: 4,
+              }}>
+                ANOMALI TERDETEKSI
+              </div>
+              
+              {/* Audit summary */}
+              <div style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.6 }}>
+                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                  <span>Total Expected: <strong>{formatRupiah(totalExpected)}</strong></span>
+                  <span>Sudah Setor: <strong style={{ color: '#10B981' }}>{formatRupiah(totalRemitted)}</strong></span>
+                  <span>Belum Setor: <strong style={{ color: totalPending > 0 ? '#DC2626' : '#10B981' }}>{formatRupiah(totalPending)}</strong></span>
+                  {totalUnderAudit > 0 && (
+                    <span>Tahan Audit: <strong style={{ color: '#8B5CF6' }}>{formatRupiah(totalUnderAudit)}</strong></span>
+                  )}
+                </div>
+              </div>
+              
+              {/* Anomaly details */}
+              <ul style={{ 
+                margin: '6px 0 0 0', padding: '0 0 0 16px', 
+                fontSize: 10, color: t.textDim, lineHeight: 1.7,
+              }}>
+                {totalPending > 0 && (
+                  <li>
+                    <strong>{partnerAggregate.filter(p => p.is_berutang).length} partner</strong> belum setor fee 
+                    senilai <strong style={{ color: '#DC2626' }}>{formatRupiah(totalPending)}</strong> · 
+                    <button 
+                      onClick={() => onChangeTab('partners')}
+                      style={{ 
+                        marginLeft: 4, background: 'transparent', border: 'none', 
+                        color: '#DC2626', cursor: 'pointer', textDecoration: 'underline',
+                        padding: 0, fontSize: 10, fontWeight: 700,
+                      }}
+                    >
+                      Lihat Per Partner →
+                    </button>
+                  </li>
+                )}
+                {totalUnderAudit > 0 && (
+                  <li>
+                    <strong>{totalDonationsUnderAudit} donasi</strong> dalam status 'Tahan Audit' di 
+                    <strong> {partnersWithUnderAudit.length} partner</strong> · 
+                    fee <strong style={{ color: '#8B5CF6' }}>{formatRupiah(totalUnderAudit)}</strong> 
+                    <span style={{ marginLeft: 4, fontStyle: 'italic' }}>
+                      (belum confirmed, mungkin di-verify atau di-reject)
+                    </span>
+                  </li>
+                )}
+                {archivedPartners.length > 0 && (
+                  <li>
+                    <strong>{totalArchivedCampaigns} campaign</strong> dalam state aneh (active TAPI archived) 
+                    di <strong>{archivedPartners.length} partner</strong> · 
+                    <span style={{ marginLeft: 4, fontStyle: 'italic' }}>
+                      Donasi tetap ke-track, tapi UI Owner mungkin gak tampilkan campaign-nya
+                    </span>
+                  </li>
+                )}
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Tab toggle */}
       <div style={{ 
         display: 'flex', gap: 4, marginBottom: 12,
@@ -740,7 +858,7 @@ function FeeTeralokaTabbedView({
 function TabButton({ 
   label, count, active, onClick, color, t,
 }: { 
-  label: string; count: number; active: boolean; onClick: () => void; color: string; t: any;
+  label: React.ReactNode; count: number; active: boolean; onClick: () => void; color: string; t: any;
 }) {
   return (
     <button
@@ -817,9 +935,42 @@ function FeeTeralokaPerPartner({
                 <tr key={p.partner_name} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
                   <td style={{ ...td(t), color: t.textDim, width: 36 }}>{i + 1}</td>
                   <td style={{ ...td(t), fontWeight: 700 }}>
-                    {p.partner_name}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+                      <span>{p.partner_name}</span>
+                      {/* ⭐ Mission 2F: Archived campaign badge */}
+                      {p.has_archived_campaign && (
+                        <span 
+                          title={`${p.archived_campaign_count} campaign dalam state aneh (active TAPI archived). Donasi tetap ke-track.`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            padding: '1px 5px', borderRadius: 3,
+                            fontSize: 8, fontWeight: 800,
+                            background: 'rgba(245,158,11,0.15)', color: '#F59E0B',
+                            border: '1px solid rgba(245,158,11,0.3)',
+                          }}
+                        >
+                          <AlertTriangle size={8} /> {p.archived_campaign_count} ARCHIVED
+                        </span>
+                      )}
+                      {/* ⭐ Mission 2F: Under Audit badge */}
+                      {p.fee_under_audit > 0 && (
+                        <span 
+                          title={`${p.donation_count_under_audit} donasi dalam status 'Tahan Audit' senilai Rp ${Math.round(p.fee_under_audit).toLocaleString('id-ID')}. Belum confirmed.`}
+                          style={{
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            padding: '1px 5px', borderRadius: 3,
+                            fontSize: 8, fontWeight: 800,
+                            background: 'rgba(139,92,246,0.15)', color: '#8B5CF6',
+                            border: '1px solid rgba(139,92,246,0.3)',
+                          }}
+                        >
+                          <Hourglass size={8} /> Rp {Math.round(p.fee_under_audit).toLocaleString('id-ID')} TAHAN AUDIT
+                        </span>
+                      )}
+                    </div>
                     <div style={{ fontSize: 9, color: t.textDim, marginTop: 1 }}>
-                      {p.donation_count} donasi ({p.donation_count_remitted} setor, {p.donation_count_pending} pending)
+                      {p.donation_count} donasi ({p.donation_count_remitted} setor, {p.donation_count_pending} pending
+                      {p.donation_count_under_audit > 0 && `, ${p.donation_count_under_audit} audit`})
                     </div>
                   </td>
                   <td style={{ ...td(t), textAlign: 'right' }}>{formatRupiah(p.total_fee_expected)}</td>
@@ -876,15 +1027,17 @@ function FeeTeralokaPerPartner({
                       <span style={{ 
                         padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
                         background: 'rgba(220,38,38,0.15)', color: '#DC2626',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
                       }}>
-                        ❌ BERUTANG
+                        <AlertCircle size={10} /> BERUTANG
                       </span>
                     ) : (
                       <span style={{ 
                         padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
                         background: 'rgba(16,185,129,0.15)', color: '#10B981',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
                       }}>
-                        ✅ LUNAS
+                        <CheckCircle2 size={10} /> LUNAS
                       </span>
                     )}
                   </td>
@@ -903,11 +1056,12 @@ function FeeTeralokaPerPartner({
                           cursor: 'pointer',
                           whiteSpace: 'nowrap',
                           transition: 'all 150ms',
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
                         }}
                         onMouseEnter={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.25)'; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = 'rgba(220,38,38,0.12)'; }}
                       >
-                        📲 Kirim Reminder
+                        <Send size={11} /> Kirim Reminder
                       </button>
                     ) : (
                       <span style={{ fontSize: 9, color: t.textDim, fontStyle: 'italic' }}>—</span>
@@ -969,9 +1123,12 @@ function FeeTeralokaPerRemittance({
               const statusColor = b.status === 'verified' ? '#10B981'
                                 : b.status === 'pending' ? '#F59E0B'
                                 : '#DC2626';
-              const statusLabel = b.status === 'verified' ? '✅ Verified'
-                                : b.status === 'pending' ? '⏳ Pending'
-                                : '❌ Rejected';
+              const statusLabel = b.status === 'verified' ? 'Verified'
+                                : b.status === 'pending' ? 'Pending'
+                                : 'Rejected';
+              const StatusIcon = b.status === 'verified' ? CheckCircle2
+                                : b.status === 'pending' ? Hourglass
+                                : XCircle;
               return (
                 <tr key={b.id} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
                   <td style={{ ...td(t), color: t.textDim, width: 36 }}>{i + 1}</td>
@@ -984,8 +1141,9 @@ function FeeTeralokaPerRemittance({
                     <span style={{ 
                       padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
                       background: `${statusColor}20`, color: statusColor,
+                      display: 'inline-flex', alignItems: 'center', gap: 4,
                     }}>
-                      {statusLabel}
+                      <StatusIcon size={10} /> {statusLabel}
                     </span>
                   </td>
                   <td style={{ ...td(t), fontSize: 10, fontFamily: 'monospace', color: t.textMuted }}>
@@ -1370,8 +1528,8 @@ function FeeReminderModal({
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div>
-            <div style={{ fontSize: 14, fontWeight: 800, color: t.textPrimary }}>
-              📲 Kirim Reminder WhatsApp
+            <div style={{ fontSize: 14, fontWeight: 800, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Send size={14} /> Kirim Reminder WhatsApp
             </div>
             <div style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
               {partnerName}
@@ -1397,7 +1555,7 @@ function FeeReminderModal({
               border: '1px solid rgba(220,38,38,0.3)', borderRadius: 6, 
               color: '#DC2626', fontSize: 12,
             }}>
-              ⚠️ {error}
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><AlertCircle size={14} /> {error}</span>
             </div>
           )}
 
@@ -1410,8 +1568,10 @@ function FeeReminderModal({
                   background: 'rgba(245,158,11,0.12)',
                   border: '1px solid rgba(245,158,11,0.35)',
                   borderRadius: 6, fontSize: 11, color: '#D97706',
+                  display: 'flex', alignItems: 'flex-start', gap: 6,
                 }}>
-                  ⚠️ <strong>Anti-spam aktif:</strong> {preview.anti_spam_reason}
+                  <AlertTriangle size={14} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <div><strong>Anti-spam aktif:</strong> {preview.anti_spam_reason}</div>
                 </div>
               )}
 
@@ -1425,8 +1585,8 @@ function FeeReminderModal({
                     {preview.recipient_phone}
                   </div>
                 ) : (
-                  <div style={{ fontSize: 11, color: '#DC2626', fontStyle: 'italic' }}>
-                    ⚠️ Nomor penggalang tidak ditemukan
+                  <div style={{ fontSize: 11, color: '#DC2626', fontStyle: 'italic', display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <AlertTriangle size={12} /> Nomor penggalang tidak ditemukan
                   </div>
                 )}
               </div>
@@ -1483,8 +1643,10 @@ function FeeReminderModal({
               color: result.success ? '#10B981' : '#DC2626',
               fontSize: 12, fontWeight: 600,
               textAlign: 'center',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
             }}>
-              {result.success ? '✅' : '❌'} {result.message}
+              {result.success ? <CheckCircle2 size={16} /> : <XCircle size={16} />}
+              <span>{result.message}</span>
               {result.recipient && (
                 <div style={{ fontSize: 10, marginTop: 4, opacity: 0.85, fontFamily: 'monospace' }}>
                   → {result.recipient}
@@ -1529,7 +1691,13 @@ function FeeReminderModal({
                   : 'pointer',
               }}
             >
-              {sending ? 'Mengirim...' : '📲 Kirim Sekarang'}
+              {sending ? (
+                <>Mengirim...</>
+              ) : (
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  <Send size={12} /> Kirim Sekarang
+                </span>
+              )}
             </button>
           </div>
         )}
@@ -1570,21 +1738,21 @@ function TipPenggalangTabbedView({
         paddingBottom: 0,
       }}>
         <TabButton 
-          label="🎁 Per Donasi" 
+          label={<><Gift size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Per Donasi</>}
           count={detailRows.length}
           active={activeTab === 'donations'} 
           onClick={() => onChangeTab('donations')} 
           color={color} t={t} 
         />
         <TabButton 
-          label="🏆 Per Penggalang" 
+          label={<><Trophy size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Per Penggalang</>}
           count={partners.length}
           active={activeTab === 'partners'} 
           onClick={() => onChangeTab('partners')} 
           color={color} t={t} 
         />
         <TabButton 
-          label="📅 Per Periode" 
+          label={<><Calendar size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Per Periode</>}
           count={periods.filter(p => p.total > 0).length}
           active={activeTab === 'periods'} 
           onClick={() => onChangeTab('periods')} 
@@ -1630,8 +1798,8 @@ function TipPerDonasi({
         marginBottom: 12, padding: '8px 0',
       }}>
         <div>
-          <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-            🎁 Detail Tip Opt-in per Donasi
+          <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Gift size={14} /> Detail Tip Opt-in per Donasi
           </div>
           <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
             {filteredRows.length} dari {rows.length} donasi {!showAll && '(filter: tip > 0)'}
@@ -1672,8 +1840,8 @@ function TipPerPartner({
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-          🏆 Ranking Pendapatan Partner
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Trophy size={14} /> Ranking Pendapatan Partner
         </div>
         <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
           {partners.length} penggalang · Total: <strong style={{ color }}>{formatRupiah(totalEarnings)}</strong>
@@ -1706,9 +1874,9 @@ function TipPerPartner({
             {partners.map((p, i) => (
               <tr key={p.partner_name} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
                 <td style={{ ...td(t), textAlign: 'center', fontWeight: 700, color: i < 3 ? '#F59E0B' : t.textDim }}>
-                  {i === 0 && '🥇'}
-                  {i === 1 && '🥈'}
-                  {i === 2 && '🥉'}
+                  {i === 0 && <Crown size={16} style={{ color: '#FFD700' }} />}
+                  {i === 1 && <Medal size={16} style={{ color: '#C0C0C0' }} />}
+                  {i === 2 && <Award size={16} style={{ color: '#CD7F32' }} />}
                   {i > 2 && (i + 1)}
                 </td>
                 <td style={{ ...td(t), fontWeight: 700 }}>{p.partner_name}</td>
@@ -1765,8 +1933,8 @@ function TipPerPeriode({
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-          📅 Pendapatan Partner per Periode — 12 Bulan Terakhir
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Calendar size={14} /> Pendapatan Partner per Periode — 12 Bulan Terakhir
         </div>
         <div style={{ display: 'flex', gap: 16, fontSize: 10, color: t.textDim, marginTop: 4 }}>
           <span>Tip Opt-in: <strong style={{ color: '#8B5CF6' }}>{formatRupiah(totalTipOptin)}</strong></span>
@@ -1908,21 +2076,21 @@ function BeneficiaryTabbedView({
         borderBottom: `1px solid ${t.sidebarBorder}`,
       }}>
         <TabButton 
-          label="👤 Per Penggalang" 
+          label={<><User size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Per Penggalang</>}
           count={penggalangs.length}
           active={activeTab === 'penggalangs'} 
           onClick={() => onChangeTab('penggalangs')} 
           color={color} t={t} 
         />
         <TabButton 
-          label="🏢 Per Partner" 
+          label={<><Building2 size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Per Partner</>}
           count={partners.length}
           active={activeTab === 'partners'} 
           onClick={() => onChangeTab('partners')} 
           color={color} t={t} 
         />
         <TabButton 
-          label="📅 Per Periode" 
+          label={<><Calendar size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} /> Per Periode</>}
           count={periods.filter(p => p.utang_in > 0 || p.disbursed_out > 0).length}
           active={activeTab === 'periods'} 
           onClick={() => onChangeTab('periods')} 
@@ -1963,8 +2131,8 @@ function BeneficiaryPerPartner({
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-          🏢 Hak Beneficiary per Partner
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Building2 size={14} /> Hak Beneficiary per Partner
         </div>
         <div style={{ fontSize: 10, color: t.textDim, marginTop: 2 }}>
           {partners.length} partner · Total sisa: <strong style={{ color: totalSisa > 0 ? '#DC2626' : '#10B981' }}>{formatRupiah(totalSisa)}</strong>
@@ -2024,15 +2192,17 @@ function BeneficiaryPerPartner({
                       <span style={{ 
                         padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
                         background: 'rgba(220,38,38,0.15)', color: '#DC2626',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
                       }}>
-                        ⚠️ ADA SISA
+                        <AlertTriangle size={10} /> ADA SISA
                       </span>
                     ) : (
                       <span style={{ 
                         padding: '2px 8px', borderRadius: 4, fontSize: 9, fontWeight: 800,
                         background: 'rgba(16,185,129,0.15)', color: '#10B981',
+                        display: 'inline-flex', alignItems: 'center', gap: 4,
                       }}>
-                        ✅ LUNAS
+                        <CheckCircle2 size={10} /> LUNAS
                       </span>
                     )}
                   </td>
@@ -2058,8 +2228,8 @@ function BeneficiaryPerPeriode({
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
-        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary }}>
-          📅 Beneficiary per Periode — 12 Bulan Terakhir
+        <div style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 6 }}>
+          <Calendar size={14} /> Beneficiary per Periode — 12 Bulan Terakhir
         </div>
         <div style={{ display: 'flex', gap: 16, fontSize: 10, color: t.textDim, marginTop: 4 }}>
           <span>Utang masuk: <strong style={{ color: '#3B82F6' }}>{formatRupiah(totalIn)}</strong></span>
