@@ -40,7 +40,7 @@ import type { ApiResponse } from '@/types/admin';
 /* ─── Config ─── */
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 /* ─── Error class ─── */
 

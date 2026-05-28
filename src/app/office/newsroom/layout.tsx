@@ -6,7 +6,7 @@ import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/AdminThemeContext';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 interface Stats {
   articles: { total: number; draft: number };

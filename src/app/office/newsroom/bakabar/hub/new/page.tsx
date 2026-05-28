@@ -14,7 +14,7 @@ import AdSettingsControl from '@/components/admin/ads/AdSettingsControl';
 import { createClient } from '@/lib/supabase/client';
 import { NEW_ARTICLE_DEFAULT_AD_SETTINGS, type AdSettings } from '@/lib/ad-settings';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const LOCAL_DRAFT_KEY = 'bakabar_draft_v1';
 const AUTO_SAVE_DELAY = 2000;
 

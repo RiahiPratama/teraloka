@@ -12,7 +12,7 @@ import {
   ExternalLink, ShieldCheck, Calculator, TrendingUp, Clock,
 } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const ADMIN_ROLES = ['admin_funding', 'super_admin'];
 
 // ═══════════════════════════════════════════════════════════════

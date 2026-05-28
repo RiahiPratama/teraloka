@@ -5,7 +5,7 @@ import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
 // SESI 7 (22 Mei 2026): Render markdown body + cover image
 import { renderMarkdown } from '@/lib/ads/markdown';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 type Props = { params: Promise<{ slug: string }> };
 

@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import ImageUpload from '@/components/ui/ImageUpload';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 const KOS_FACILITIES = [
   'WiFi', 'AC', 'Kamar mandi dalam', 'Kamar mandi luar', 'Dapur',

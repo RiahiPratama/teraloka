@@ -4,20 +4,25 @@ import Link from 'next/link';
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import {
+  ShieldAlert, ShieldCheck, AlertCircle, AlertTriangle, AlertOctagon,
+  CheckCircle2, BarChart3, HandCoins, Target, User, List,
+  RefreshCw, Search, Eye, Shield, MapPin, Info,
+} from 'lucide-react';
 
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import FraudFlagsTable, { type FraudFlag } from '@/components/admin/funding/FraudFlagsTable';
+import FraudBulkActionsToolbar from '@/components/admin/funding/FraudBulkActionsToolbar';
 import FraudFlagDetailModal from '@/components/admin/funding/FraudFlagDetailModal';
 import Pagination from '@/components/admin/funding/Pagination';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
 
-// ── Icons ─────────────────────────────────────────
-const Icons = {
-  Search: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
-  Refresh: () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>,
-};
+// ⭐ Mission 2P: Filosofi LOCKED - Fraud Detection = OBSERVATIONAL, bukan ENFORCEMENT
+// Flag aktif TIDAK block donasi/kampanye dari money flow
+// Admin decide: confirmed fraud -> manual action ke entity asal
+// Penggalang Maluku Utara sering di 3T -> flag bisa false positive karena kondisi geografis
 
 // ── Types ─────────────────────────────────────────
 interface FraudStats {
@@ -31,26 +36,35 @@ interface FraudStats {
 
 type StatusTab = 'active' | 'resolved' | 'all';
 
-const STATUS_TABS: { key: StatusTab; label: string; emoji: string }[] = [
-  { key: 'active',   label: 'Active',   emoji: '🔴' },
-  { key: 'resolved', label: 'Resolved', emoji: '✅' },
-  { key: 'all',      label: 'Semua',    emoji: '📋' },
+const STATUS_TABS: { key: StatusTab; label: string; Icon: any; color: string }[] = [
+  { key: 'active',   label: 'Active',   Icon: AlertCircle,   color: '#EF4444' },
+  { key: 'resolved', label: 'Resolved', Icon: CheckCircle2,  color: '#10B981' },
+  { key: 'all',      label: 'Semua',    Icon: List,          color: '#6B7280' },
 ];
 
-const SEVERITY_OPTIONS = [
-  { key: '',         label: 'Semua Severity' },
-  { key: 'critical', label: '🔴 Critical' },
-  { key: 'high',     label: '🟠 High' },
-  { key: 'medium',   label: '🟡 Medium' },
-  { key: 'low',      label: '🔵 Low' },
+const SEVERITY_OPTIONS: { key: string; label: string; color: string }[] = [
+  { key: '',         label: 'Semua Severity', color: '' },
+  { key: 'critical', label: 'Critical',       color: '#EF4444' },
+  { key: 'high',     label: 'High',           color: '#F97316' },
+  { key: 'medium',   label: 'Medium',         color: '#F59E0B' },
+  { key: 'low',      label: 'Low',            color: '#3B82F6' },
 ];
 
-const TARGET_OPTIONS = [
-  { key: '',         label: 'Semua Target' },
-  { key: 'donation', label: '💰 Donasi' },
-  { key: 'campaign', label: '🎯 Kampanye' },
-  { key: 'user',     label: '👤 User' },
+const TARGET_OPTIONS: { key: string; label: string; Icon: any }[] = [
+  { key: '',         label: 'Semua Target', Icon: List },
+  { key: 'donation', label: 'Donasi',       Icon: HandCoins },
+  { key: 'campaign', label: 'Kampanye',     Icon: Target },
+  { key: 'user',     label: 'User',         Icon: User },
 ];
+
+// ⭐ Mission 2P-B: 3T-aware signal codes (kemungkinan false positive di Maluku Utara)
+// Signal codes HARUS match backend fraud-engine (UPPERCASE).
+const SIGNALS_3T_AWARE: Record<string, string> = {
+  OFF_HOURS_SPIKE: 'Donasi dini hari (02:00-05:00) bisa natural di MalUt — nelayan/petani aktif subuh, interpretasi timezone WIT',
+  VELOCITY_SPIKE: 'Lonjakan donasi bisa karena kampanye viral via grup WhatsApp kampung — wajar di komunitas kecil',
+  RAPID_FIRE: 'Donor sama berkali-kali bisa karena 1 HP dipakai bersama (keluarga/warnet) di area sinyal terbatas',
+  ROUND_CLUSTER: 'Banyak donasi angka bulat (50rb/100rb) wajar di ekonomi tunai daerah',
+};
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN PAGE
@@ -80,6 +94,9 @@ export default function AdminFraudPage() {
   const [stats, setStats] = useState<FraudStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+
+  // ⭐ Mission 2P-C: Bulk selection
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // ── Modal ──
   const [modalState, setModalState] = useState<{ open: boolean; flagId: string | null; mode: 'view' | 'resolve' }>({
@@ -140,6 +157,7 @@ export default function AdminFraudPage() {
       if (res.ok && json.success) {
         setFlags(json.data ?? []);
         setTotal(json.meta?.total ?? 0);
+        setSelectedIds(new Set());  // ⭐ 2P-C: reset selection saat data berubah (hindari stale)
       }
     } catch {}
     setLoading(false);
@@ -154,6 +172,30 @@ export default function AdminFraudPage() {
     setActiveTab(tab);
     setPage(1);
   }
+
+  // ⭐ Mission 2P-C: Selection handlers
+  function toggleSelect(id: string) {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    const activeFlagIds = flags.filter(f => f.status === 'active').map(f => f.id);
+    setSelectedIds(prev => {
+      // Kalau semua active sudah ke-select → clear. Else → select semua active.
+      const allSelected = activeFlagIds.length > 0 && activeFlagIds.every(id => prev.has(id));
+      return allSelected ? new Set() : new Set(activeFlagIds);
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  const selectedFlags = flags.filter(f => selectedIds.has(f.id));
 
   function openModal(f: FraudFlag, mode: 'view' | 'resolve') {
     setModalState({ open: true, flagId: f.id, mode });
@@ -212,8 +254,19 @@ export default function AdminFraudPage() {
       </div>
 
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-        <h1 style={{ fontSize: 28, fontWeight: 800, color: t.textPrimary }}>
-          🛡️ Fraud Detection
+        <h1 style={{ 
+          display: 'inline-flex', alignItems: 'center', gap: 10,
+          fontSize: 28, fontWeight: 800, color: t.textPrimary,
+        }}>
+          <span style={{
+            width: 40, height: 40, borderRadius: 12,
+            background: 'linear-gradient(135deg, #EF4444, #DC2626)',
+            color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            boxShadow: '0 4px 12px rgba(239, 68, 68, 0.25)',
+          }}>
+            <ShieldAlert size={22} strokeWidth={2.2} />
+          </span>
+          Fraud Detection
         </h1>
         <button
           onClick={handleScanAll}
@@ -226,49 +279,179 @@ export default function AdminFraudPage() {
             cursor: scanning ? 'not-allowed' : 'pointer',
             boxShadow: scanning ? 'none' : '0 2px 8px rgba(239,68,68,0.25)',
           }}>
-          <Icons.Refresh /> {scanning ? 'Scanning...' : 'Manual Scan All'}
+          <RefreshCw size={14} strokeWidth={2.5} className={scanning ? 'animate-spin' : ''} />
+          {scanning ? 'Scanning...' : 'Manual Scan All'}
         </button>
       </div>
-      <p style={{ fontSize: 14, color: t.textDim, marginBottom: 24 }}>
+      <p style={{ fontSize: 14, color: t.textDim, marginBottom: 8 }}>
         Review & resolve 12 fraud signals (7 donasi + 5 kampanye). Auto-scan aktif setiap verify donation & approve campaign.
       </p>
+      {/* ⭐ Mission 2P: Filosofi LOCKED disclaimer */}
+      <div style={{
+        display: 'flex', alignItems: 'flex-start', gap: 8,
+        padding: '10px 14px', marginBottom: 24,
+        background: 'rgba(59,130,246,0.06)',
+        border: '1px solid rgba(59,130,246,0.2)',
+        borderRadius: 10,
+      }}>
+        <Info size={14} strokeWidth={2.5} color="#3B82F6" style={{ flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 11, color: t.textDim, margin: 0, lineHeight: 1.5 }}>
+          <strong style={{ color: '#3B82F6' }}>Info-only:</strong> Fraud flag tidak otomatis blokir donasi/kampanye dari money flow. 
+          Admin review + decide action manual. 
+          <strong style={{ color: t.textPrimary }}>Konteks 3T:</strong> Penggalang Maluku Utara sering di area sinyal terbatas — 
+          flag bisa false positive karena kondisi geografis.
+        </p>
+      </div>
 
       <CommandCenterTabs active="fraud" refreshKey={subNavRefresh} />
 
-      {/* Stats Cards */}
-      {stats && (
-        <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-          gap: 12, marginBottom: 16,
-        }}>
-          <StatCard label="🔴 Active Flags" value={String(stats.active)} color="#EF4444" t={t} alert={stats.active > 0} />
-          <StatCard label="⚠️ Critical" value={String(stats.critical)} color="#DC2626" t={t} alert={stats.critical > 0} />
-          <StatCard label="🟠 High" value={String(stats.high)} color="#EA580C" t={t} alert={stats.high > 0} />
-          <StatCard label="✅ Resolved" value={String(stats.resolved)} color="#10B981" t={t} />
-        </div>
-      )}
+      {/* ⭐ Mission 2P: Stats Hierarchy Refactor — Active container + severity breakdown */}
+      {stats && (() => {
+        // by_severity might have keys: critical/high/medium/low
+        const medium = stats.by_severity?.medium ?? 0;
+        const low = stats.by_severity?.low ?? 0;
+        return (
+          <div style={{
+            display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 12, marginBottom: 16,
+          }}>
+            {/* ACTIVE FLAGS — parent container with breakdown */}
+            <div style={{
+              background: stats.active > 0 ? 'rgba(239,68,68,0.04)' : t.mainBg,
+              border: `1px solid ${stats.active > 0 ? 'rgba(239,68,68,0.2)' : t.sidebarBorder}`,
+              borderRadius: 12, padding: 16,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+                <div>
+                  <p style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontSize: 11, fontWeight: 700, color: '#EF4444',
+                    textTransform: 'uppercase', letterSpacing: '0.06em',
+                    marginBottom: 4,
+                  }}>
+                    <AlertCircle size={13} strokeWidth={2.5} />
+                    Active Flags
+                  </p>
+                  <p style={{ fontSize: 32, fontWeight: 800, color: '#EF4444', margin: 0, lineHeight: 1 }}>
+                    {stats.active}
+                  </p>
+                </div>
+                <span style={{ fontSize: 10, color: t.textMuted, fontStyle: 'italic' }}>
+                  klik breakdown → filter
+                </span>
+              </div>
+              {/* Severity breakdown — clickable filter */}
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                {[
+                  { key: 'critical', label: 'Critical', count: stats.critical, color: '#EF4444', Icon: AlertTriangle },
+                  { key: 'high',     label: 'High',     count: stats.high,     color: '#F97316', Icon: AlertOctagon },
+                  { key: 'medium',   label: 'Medium',   count: medium,         color: '#F59E0B', Icon: AlertCircle },
+                  { key: 'low',      label: 'Low',      count: low,            color: '#3B82F6', Icon: Info },
+                ].map(s => {
+                  const active = severity === s.key;
+                  return (
+                    <button
+                      key={s.key}
+                      onClick={() => { setSeverity(active ? '' : s.key); setPage(1); }}
+                      disabled={s.count === 0}
+                      style={{
+                        display: 'inline-flex', alignItems: 'center', gap: 6,
+                        padding: '6px 12px', borderRadius: 999,
+                        fontSize: 11, fontWeight: 700,
+                        cursor: s.count > 0 ? 'pointer' : 'not-allowed',
+                        opacity: s.count > 0 ? 1 : 0.4,
+                        background: active ? s.color : `${s.color}15`,
+                        color: active ? '#fff' : s.color,
+                        border: `1px solid ${active ? s.color : s.color + '40'}`,
+                        transition: 'all 150ms',
+                      }}
+                    >
+                      <s.Icon size={11} strokeWidth={2.5} />
+                      {s.label}
+                      <span style={{
+                        background: active ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.08)',
+                        color: active ? '#fff' : s.color,
+                        fontSize: 10, fontWeight: 800,
+                        padding: '1px 7px', borderRadius: 999,
+                      }}>
+                        {s.count}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
 
-      {/* Signal Breakdown (collapsed if empty) */}
+            {/* RESOLVED — separate card */}
+            <div style={{
+              background: t.mainBg,
+              border: `1px solid ${t.sidebarBorder}`,
+              borderRadius: 12, padding: 16,
+              display: 'flex', flexDirection: 'column', justifyContent: 'space-between',
+            }}>
+              <div>
+                <p style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 6,
+                  fontSize: 11, fontWeight: 700, color: '#10B981',
+                  textTransform: 'uppercase', letterSpacing: '0.06em',
+                  marginBottom: 4,
+                }}>
+                  <CheckCircle2 size={13} strokeWidth={2.5} />
+                  Resolved
+                </p>
+                <p style={{ fontSize: 32, fontWeight: 800, color: '#10B981', margin: 0, lineHeight: 1 }}>
+                  {stats.resolved}
+                </p>
+              </div>
+              <p style={{ fontSize: 10, color: t.textMuted, marginTop: 8, marginBottom: 0 }}>
+                Flag yang sudah di-review admin
+              </p>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* ⭐ Mission 2P: Signal Breakdown — Icon-based, no monospace */}
       {stats && Object.keys(stats.by_signal).length > 0 && (
         <div style={{
           background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
           borderRadius: 12, padding: 14, marginBottom: 20,
         }}>
-          <p style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>
-            📊 Breakdown by Signal
+          <p style={{
+            display: 'inline-flex', alignItems: 'center', gap: 6,
+            fontSize: 11, fontWeight: 700, color: t.textMuted, 
+            textTransform: 'uppercase', letterSpacing: '0.06em', 
+            marginBottom: 10,
+          }}>
+            <BarChart3 size={13} strokeWidth={2.5} />
+            Breakdown by Signal
           </p>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            {Object.entries(stats.by_signal).map(([signal, count]) => (
-              <span key={signal} style={{
-                fontSize: 11, fontWeight: 600,
-                padding: '4px 10px', borderRadius: 999,
-                background: t.navHover, color: t.textPrimary,
-                fontFamily: 'monospace',
-              }}>
-                {signal} · <strong>{count}</strong>
-              </span>
-            ))}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {Object.entries(stats.by_signal)
+              .sort(([, a], [, b]) => (b as number) - (a as number))
+              .map(([signal, count]) => {
+                const is3T = !!SIGNALS_3T_AWARE[signal];
+                return (
+                  <span key={signal} style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    fontSize: 11, fontWeight: 600,
+                    padding: '6px 12px', borderRadius: 8,
+                    background: is3T ? 'rgba(139,92,246,0.08)' : t.navHover,
+                    border: is3T ? '1px solid rgba(139,92,246,0.25)' : `1px solid ${t.sidebarBorder}`,
+                    color: t.textPrimary,
+                  }}>
+                    {is3T && <MapPin size={11} strokeWidth={2.5} color="#8B5CF6" />}
+                    {signal.replace(/_/g, ' ')} 
+                    <strong style={{ color: is3T ? '#8B5CF6' : t.textPrimary }}>
+                      {count as number}
+                    </strong>
+                  </span>
+                );
+              })}
           </div>
+          <p style={{ fontSize: 10, color: t.textMuted, fontStyle: 'italic', marginTop: 8, marginBottom: 0 }}>
+            <MapPin size={9} strokeWidth={2.5} color="#8B5CF6" style={{ display: 'inline', verticalAlign: 'middle', marginRight: 2 }} />
+            <strong style={{ color: '#8B5CF6' }}>Ungu</strong> = signal yang kemungkinan false positive karena kondisi 3T Maluku Utara
+          </p>
         </div>
       )}
 
@@ -281,12 +464,13 @@ export default function AdminFraudPage() {
           const count = stats
             ? (tab.key === 'all' ? stats.active + stats.resolved : stats[tab.key as 'active' | 'resolved'])
             : 0;
+          const TabIcon = tab.Icon;
           return (
             <button
               key={tab.key}
               onClick={() => switchTab(tab.key)}
               style={{
-                display: 'inline-flex', alignItems: 'center', gap: 6,
+                display: 'inline-flex', alignItems: 'center', gap: 8,
                 padding: '8px 14px', borderRadius: 10,
                 fontSize: 13, fontWeight: 600,
                 color: active ? '#fff' : t.textPrimary,
@@ -294,7 +478,7 @@ export default function AdminFraudPage() {
                 border: `1px solid ${active ? '#1F2937' : t.sidebarBorder}`,
                 cursor: 'pointer', whiteSpace: 'nowrap',
               }}>
-              <span>{tab.emoji}</span>
+              <TabIcon size={13} strokeWidth={2.5} color={active ? '#fff' : tab.color} />
               <span>{tab.label}</span>
               <span style={{
                 background: active ? 'rgba(255,255,255,0.2)' : t.navHover,
@@ -359,6 +543,9 @@ export default function AdminFraudPage() {
           <FraudFlagsTable
             flags={flags}
             onRowAction={(action, flag) => openModal(flag, action)}
+            selectedIds={selectedIds}
+            onToggleSelect={toggleSelect}
+            onToggleAll={toggleAll}
           />
 
           {total > 0 && (
@@ -380,6 +567,15 @@ export default function AdminFraudPage() {
         initialMode={modalState.mode}
         onClose={() => setModalState({ open: false, flagId: null, mode: 'view' })}
         onSuccess={handleModalSuccess}
+        onToast={showToast}
+      />
+
+      {/* ⭐ Mission 2P-C: Bulk Actions Toolbar (floating, muncul saat ada selection) */}
+      <FraudBulkActionsToolbar
+        selectedIds={selectedIds}
+        selectedFlags={selectedFlags}
+        onClear={clearSelection}
+        onComplete={() => { fetchStats(); fetchFlags(); }}
         onToast={showToast}
       />
 

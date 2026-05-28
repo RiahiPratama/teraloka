@@ -54,7 +54,7 @@ interface ActivityEntry {
   relativeTime: string;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 const REFRESH_INTERVAL_MS = 30000; // 30s polling
 const MAX_ACTIVITIES = 4;
 

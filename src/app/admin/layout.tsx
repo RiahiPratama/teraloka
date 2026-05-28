@@ -60,7 +60,7 @@ import { SidebarProfile } from '@/components/layout/admin/sidebar-profile';
 import { HeaderBar } from '@/components/layout/admin/header-bar';
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 /* ─── AdminStats shape (subset dari /admin/stats response) ─── */
 

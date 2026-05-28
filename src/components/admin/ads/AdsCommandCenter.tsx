@@ -44,7 +44,7 @@ import AdPreviewModal from './AdPreviewModal';
 import PaymentRecordModal from './PaymentRecordModal'; // SESI 5F (19 Mei 2026)
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 const ACTION_QUEUE_POLL_MS = 60_000;
 

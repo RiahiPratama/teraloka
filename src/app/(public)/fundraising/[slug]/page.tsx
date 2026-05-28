@@ -28,7 +28,7 @@ type Props = { params: Promise<{ slug: string }> };
 // Semua data via backend Hono API yang pakai service_role.
 // ════════════════════════════════════════════════════════════════
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 
 const CATEGORY_META: Record<string, { label: string; color: string }> = {
   kesehatan:      { label: 'Kesehatan',      color: '#D85A30' },

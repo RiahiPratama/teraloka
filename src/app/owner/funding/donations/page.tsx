@@ -26,7 +26,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import DonationVerifyModal, { DonationForVerify } from '@/components/owner/funding/donations/DonationVerifyModal';
 import DonationRejectModal from '@/components/owner/funding/donations/DonationRejectModal';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 
 type SmartView = 'perlu_verifikasi' | 'hampir_telat' | 'under_audit' | 'mismatch_diterima' | 'verified_today' | 'all';
 type StatusFilter = 'all' | 'pending' | 'verified' | 'rejected' | 'under_audit';

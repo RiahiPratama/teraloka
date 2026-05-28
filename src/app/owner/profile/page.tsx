@@ -27,7 +27,7 @@ import {
   HeartHandshake, Plus, ChevronRight, Trophy,
 } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const TOKEN_KEY = 'tl_token';
 
 type CreatorStatus = 'incomplete' | 'pending_verification' | 'verified';

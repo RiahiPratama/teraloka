@@ -2,12 +2,10 @@
 
 import { useContext } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-
-// ── Icons ─────────────────────────────────────────
-const Icons = {
-  Eye:    () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
-  Shield: () => <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
-};
+import {
+  Eye, Shield, HandCoins, Target, User, ShieldCheck,
+  ExternalLink, ChevronRight, Square, CheckSquare,
+} from 'lucide-react';
 
 // ── Types ─────────────────────────────────────────
 export interface FraudFlag {
@@ -55,11 +53,27 @@ const SEVERITY_STYLE: Record<string, { bg: string; text: string; label: string; 
   low:      { bg: 'rgba(59,130,246,0.15)', text: '#2563EB', label: 'LOW',      accent: '#3B82F6' },
 };
 
-const TARGET_LABEL: Record<string, string> = {
-  donation: '💰 Donasi',
-  campaign: '🎯 Kampanye',
-  user:     '👤 User',
+// ⭐ Mission 2P: Target labels with Lucide icons (no emoji)
+const TARGET_CONFIG: Record<string, { label: string; Icon: any; color: string; route: string }> = {
+  donation: { label: 'Donasi',   Icon: HandCoins, color: '#10B981', route: '/admin/funding/donations' },
+  campaign: { label: 'Kampanye', Icon: Target,    color: '#8B5CF6', route: '/admin/funding/campaigns' },
+  user:     { label: 'User',     Icon: User,      color: '#3B82F6', route: '' },
 };
+
+// ⭐ Mission 2P-B: 3T-aware signals
+// Signal yang berpotensi FALSE POSITIVE karena kondisi 3T Maluku Utara
+// (sinyal terbatas, ekonomi tunai, pola hidup pesisir, HP dipakai bersama).
+// Signal codes HARUS match backend fraud-engine (UPPERCASE).
+//   - OFF_HOURS_SPIKE: pola tidur/aktivitas beda (nelayan dini hari, interpretasi timezone)
+//   - VELOCITY_SPIKE:  donasi viral via WA grup kampung = natural di komunitas kecil
+//   - RAPID_FIRE:      1 HP dipakai rame-rame (keluarga/warnet) di area sinyal terbatas
+//   - ROUND_CLUSTER:   ekonomi tunai → donasi angka bulat (50rb/100rb) wajar
+const SIGNALS_3T_AWARE = new Set([
+  'OFF_HOURS_SPIKE',
+  'VELOCITY_SPIKE',
+  'RAPID_FIRE',
+  'ROUND_CLUSTER',
+]);
 
 // ═══════════════════════════════════════════════════════════════
 // FRAUD FLAGS TABLE
@@ -68,11 +82,26 @@ const TARGET_LABEL: Record<string, string> = {
 export default function FraudFlagsTable({
   flags,
   onRowAction,
+  selectedIds,
+  onToggleSelect,
+  onToggleAll,
 }: {
   flags: FraudFlag[];
   onRowAction: (action: 'view' | 'resolve', flag: FraudFlag) => void;
+  // ⭐ Mission 2P-C: bulk selection (optional — kalau gak dikasih, checkbox hidden)
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
+  onToggleAll?: () => void;
 }) {
   const { t } = useContext(AdminThemeContext);
+
+  // ⭐ Mission 2P-C: selection enabled hanya kalau props lengkap
+  const selectionEnabled = !!(selectedIds && onToggleSelect && onToggleAll);
+  const activeFlags = flags.filter(f => f.status === 'active');
+  const selectedActiveCount = selectionEnabled
+    ? activeFlags.filter(f => selectedIds!.has(f.id)).length
+    : 0;
+  const allActiveSelected = activeFlags.length > 0 && selectedActiveCount === activeFlags.length;
 
   if (flags.length === 0) {
     return (
@@ -80,7 +109,9 @@ export default function FraudFlagsTable({
         background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
         borderRadius: 16, padding: 60, textAlign: 'center',
       }}>
-        <div style={{ fontSize: 40, marginBottom: 10, color: '#10B981' }}>🛡️</div>
+        <div style={{ display: 'inline-flex', marginBottom: 10, color: '#10B981' }}>
+          <ShieldCheck size={40} strokeWidth={1.8} />
+        </div>
         <p style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary, marginBottom: 4 }}>
           Tidak ada fraud flag
         </p>
@@ -104,6 +135,26 @@ export default function FraudFlagsTable({
         }}>
           <thead>
             <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, background: t.navHover + '55' }}>
+              {selectionEnabled && (
+                <th style={thStyle(t, 'center', 44)}>
+                  <button
+                    onClick={onToggleAll}
+                    disabled={activeFlags.length === 0}
+                    title={allActiveSelected ? 'Batalkan semua' : 'Pilih semua flag aktif'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                      background: 'transparent', border: 'none', padding: 0,
+                      color: allActiveSelected ? '#8B5CF6' : t.textDim,
+                      cursor: activeFlags.length === 0 ? 'not-allowed' : 'pointer',
+                      opacity: activeFlags.length === 0 ? 0.4 : 1,
+                    }}
+                  >
+                    {allActiveSelected
+                      ? <CheckSquare size={16} strokeWidth={2.2} />
+                      : <Square size={16} strokeWidth={2.2} />}
+                  </button>
+                </th>
+              )}
               <th style={thStyle(t, 'left')}>Signal & Target</th>
               <th style={thStyle(t, 'center', 100)}>Severity</th>
               <th style={thStyle(t, 'center', 90)}>Confidence</th>
@@ -116,9 +167,11 @@ export default function FraudFlagsTable({
             {flags.map((f, idx) => {
               const isLast = idx === flags.length - 1;
               const sev = SEVERITY_STYLE[f.severity] ?? SEVERITY_STYLE.low;
-              const targetLabel = TARGET_LABEL[f.target_type] ?? f.target_type;
+              const targetCfg = TARGET_CONFIG[f.target_type] ?? TARGET_CONFIG.user;
+              const TargetIcon = targetCfg.Icon;
               const isActive = f.status === 'active';
               const confidencePercent = Math.round(f.confidence * 100);
+              const is3T = SIGNALS_3T_AWARE.has(f.signal_code);
 
               return (
                 <tr
@@ -131,6 +184,27 @@ export default function FraudFlagsTable({
                   onMouseEnter={e => { e.currentTarget.style.background = t.navHover + '33'; }}
                   onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; }}
                 >
+                  {/* ⭐ Mission 2P-C: Checkbox (disabled untuk resolved) */}
+                  {selectionEnabled && (
+                    <td style={tdStyle(t, 'center')}>
+                      <button
+                        onClick={() => isActive && onToggleSelect!(f.id)}
+                        disabled={!isActive}
+                        title={isActive ? 'Pilih flag' : 'Sudah resolved'}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                          background: 'transparent', border: 'none', padding: 0,
+                          color: selectedIds!.has(f.id) ? '#8B5CF6' : t.textDim,
+                          cursor: isActive ? 'pointer' : 'not-allowed',
+                          opacity: isActive ? 1 : 0.3,
+                        }}
+                      >
+                        {selectedIds!.has(f.id)
+                          ? <CheckSquare size={15} strokeWidth={2.2} />
+                          : <Square size={15} strokeWidth={2.2} />}
+                      </button>
+                    </td>
+                  )}
                   {/* Signal & Target */}
                   <td style={tdStyle(t, 'left')}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -138,26 +212,50 @@ export default function FraudFlagsTable({
                         width: 36, height: 36, borderRadius: 9,
                         background: sev.bg, color: sev.text,
                         display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        flexShrink: 0, fontSize: 14,
+                        flexShrink: 0,
                       }}>
-                        <Icons.Shield />
+                        <Shield size={14} strokeWidth={2.5} />
                       </div>
                       <div style={{ minWidth: 0 }}>
                         <div style={{
+                          display: 'flex', alignItems: 'center', gap: 6,
                           fontSize: 13, fontWeight: 700, color: t.textPrimary,
                           marginBottom: 2,
-                          display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
                         }}>
-                          {f.label ?? f.signal_code}
+                          <span style={{
+                            display: '-webkit-box', WebkitLineClamp: 1, WebkitBoxOrient: 'vertical',
+                            overflow: 'hidden',
+                          }}>
+                            {f.label ?? f.signal_code}
+                          </span>
+                          {/* ⭐ Mission 2P-B: 3T-aware badge */}
+                          {is3T && (
+                            <span 
+                              title="Signal ini sering false positive karena kondisi 3T Maluku Utara"
+                              style={{
+                                display: 'inline-flex', alignItems: 'center', gap: 2,
+                                fontSize: 9, fontWeight: 700,
+                                padding: '1px 6px', borderRadius: 999,
+                                background: 'rgba(139,92,246,0.15)',
+                                color: '#8B5CF6',
+                                cursor: 'help',
+                                flexShrink: 0,
+                              }}>
+                              3T
+                            </span>
+                          )}
                         </div>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 10 }}>
                           <span style={{ color: sev.text, fontWeight: 600, fontFamily: 'monospace' }}>
                             {f.signal_code}
                           </span>
                           <span style={{ color: t.textMuted }}>·</span>
-                          <span style={{ color: t.textDim, fontWeight: 600 }}>
-                            {targetLabel}
+                          <span style={{ 
+                            display: 'inline-flex', alignItems: 'center', gap: 3,
+                            color: targetCfg.color, fontWeight: 600,
+                          }}>
+                            <TargetIcon size={10} strokeWidth={2.5} />
+                            {targetCfg.label}
                           </span>
                         </div>
                       </div>
@@ -217,12 +315,31 @@ export default function FraudFlagsTable({
                   {/* Actions */}
                   <td style={tdStyle(t, 'right')}>
                     <div style={{ display: 'inline-flex', gap: 4 }}>
+                      {/* ⭐ Mission 2P-B: Cross-navigation - Buka entity asli */}
+                      {(f.target_type === 'donation' || f.target_type === 'campaign') && (
+                        <a
+                          href={f.target_type === 'donation' 
+                            ? `/admin/funding/donations?status=all&q=${f.target_id}`
+                            : `/admin/funding/campaigns/${f.target_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          title={`Buka ${TARGET_CONFIG[f.target_type].label} asli`}
+                          style={{
+                            ...actionBtnStyle(t, 'neutral'),
+                            color: TARGET_CONFIG[f.target_type].color,
+                            textDecoration: 'none',
+                          }}
+                        >
+                          <ExternalLink size={13} strokeWidth={2.2} />
+                        </a>
+                      )}
                       <button
                         onClick={e => { e.stopPropagation(); onRowAction('view', f); }}
                         title="Detail"
                         style={actionBtnStyle(t, 'neutral')}
                       >
-                        <Icons.Eye />
+                        <Eye size={13} strokeWidth={2.2} />
                       </button>
                       {isActive && (
                         <button

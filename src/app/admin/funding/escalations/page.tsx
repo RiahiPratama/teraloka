@@ -21,7 +21,7 @@ import {
   XCircle, Clock, Eye, ChevronRight,
 } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 type StatusFilter = 'unresolved' | 'resolved' | 'all';
 
@@ -63,7 +63,7 @@ interface ScanResult {
   }>;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 export default function AdminEscalationsPage() {
   const { t } = useContext(AdminThemeContext);

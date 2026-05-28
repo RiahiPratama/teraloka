@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { renderMarkdown } from '@/lib/ads/markdown';  // SESI 7 — Phase 7 Advertorial
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ─── Types ───────────────────────────────────────────────────────
 

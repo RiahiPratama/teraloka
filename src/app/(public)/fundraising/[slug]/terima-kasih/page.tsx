@@ -23,7 +23,7 @@ import {
 import { formatRupiah } from '@/utils/format';
 import ShareBar from '../_components/ShareBar';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const POLL_INTERVAL_MS = 30000;
 const MAX_POLL_DURATION_MS = 600000;
 const ADMIN_WA = '6281289539452';

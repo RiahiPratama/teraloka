@@ -39,7 +39,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // Ternate representative coords untuk Maluku Utara (provincial capital)
 const TERNATE_LAT = -0.79;

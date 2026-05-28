@@ -7,7 +7,7 @@ import GeographicScopePicker from '@/components/shared/locations/GeographicScope
 import type { LocationScope } from '@/components/shared/locations/locations-types';
 import { PhotoPolicyNotice } from '@/components/balapor/photo-policy-notice';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 const CATEGORIES = [
   { key: 'keamanan',       label: 'Keamanan',       icon: 'security',        color: 'bg-emerald-100 text-emerald-700', desc: 'Kamtibmas, pencurian, aktivitas mencurigakan.' },

@@ -31,7 +31,7 @@ import AdAnimatedBanner, {
   type AnimationTimelineConfig,
 } from '@/components/public/ads/AdAnimatedBanner';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // In-article position dimensions (16:9 mid-article banner)
 const IN_ARTICLE_WIDTH  = 640;

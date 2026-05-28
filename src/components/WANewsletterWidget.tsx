@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { MessageCircle, CheckCircle2, Lock } from 'lucide-react';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 function normalizePhone(phone: string): string {
   const cleaned = phone.replace(/\D/g, '');

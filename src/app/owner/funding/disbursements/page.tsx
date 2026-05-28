@@ -37,7 +37,7 @@ import {
   Wallet, Inbox, Search,
 } from 'lucide-react';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 
 // ─── Types ───────────────────────────────────────────────────────
 type DisbursementStatus = 'pending' | 'verified' | 'flagged' | 'rejected';

@@ -131,7 +131,7 @@ export default function CampaignInfoPage() {
     setCreateError(null);
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
       // ⭐ FIX-DUPLICATE-DRAFT: Smart check — re-use existing empty draft kalau ada.
       // Mencegah user create banyak draft kosong saat klik "Saya Siap" berkali-kali.

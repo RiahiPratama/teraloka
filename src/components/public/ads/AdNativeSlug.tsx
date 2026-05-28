@@ -24,7 +24,7 @@ import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 interface Ad {
   id: string;

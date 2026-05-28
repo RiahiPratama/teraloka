@@ -16,7 +16,7 @@ import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ── Icons ─────────────────────────────────────────
 const Icons = {

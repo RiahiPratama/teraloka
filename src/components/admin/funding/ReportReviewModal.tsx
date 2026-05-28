@@ -4,7 +4,7 @@ import { useContext, useState, useEffect } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import type { UsageReport } from './ReportsTable';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ── Icons ─────────────────────────────────────────
 const Icons = {

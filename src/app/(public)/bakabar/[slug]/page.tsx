@@ -10,7 +10,7 @@ import BodyWithAds from '@/components/public/ads/BodyWithAds';
 import ShareInline from '@/components/shared/ShareInline';
 import { resolveAdSettings } from '@/lib/ad-settings';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
 
 type Props = { params: Promise<{ slug: string }> };

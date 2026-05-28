@@ -38,7 +38,7 @@ import {
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ─── BADONASI Strategic Inline Promo ────────────────────────
 function BadonasiInlinePromo() {

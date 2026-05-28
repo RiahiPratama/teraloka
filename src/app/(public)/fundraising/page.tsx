@@ -100,7 +100,7 @@ export default async function FundraisingPage({
     // BRAIN tier handles aggregation (Supabase = MEMORY only)
     // Returns LIFETIME stats: collected, disbursed, donors, active campaigns, reports
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+      const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
       const statsRes = await fetch(`${API_URL}/funding/stats/public`, {
         next: { revalidate: 300 }, // 5 min cache (edge)
       });

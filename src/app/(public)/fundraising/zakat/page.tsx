@@ -18,7 +18,7 @@ const DEFAULT_CONFIG: ZakatConfig = {
 };
 
 export default async function ZakatPage() {
-  const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+  const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
   let config: ZakatConfig = DEFAULT_CONFIG;
   let updatedAt: string | null = null;

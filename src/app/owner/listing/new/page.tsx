@@ -6,7 +6,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Suspense } from 'react';
 import ImageUpload from '@/components/ui/ImageUpload';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 const LISTING_TYPES = [
   { key: 'kos', label: 'Kos-kosan', desc: 'Kos-kosan & kontrakan', icon: '🏠' },

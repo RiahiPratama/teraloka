@@ -4,7 +4,7 @@ import { useContext, useState, useEffect, useCallback, useMemo, Fragment } from 
 import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ── Types ─────────────────────────────────────────
 export interface CampaignCashflow {

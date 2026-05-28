@@ -35,7 +35,7 @@ import {
 import type { ServiceKey } from '@/components/ui/badge';
 
 const API =
-  process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+  process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 /* ─── Stats shape — subset dari /admin/stats response ─── */
 

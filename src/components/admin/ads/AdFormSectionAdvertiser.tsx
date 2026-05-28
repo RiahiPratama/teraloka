@@ -69,7 +69,7 @@ import PricingTierPicker, {
 } from './pricing-tiers/PricingTierPicker';
 import type { Advertiser } from './advertisers/AdvertiserPanel';
 
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ─── Helper: Map account_type (advertiser entity) → tier_category ───
 // PHASE 3: Symmetric 5×5 mapping (no more fallback to umkm/premium)
