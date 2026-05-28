@@ -64,7 +64,13 @@ export default async function FundraisingPage({
       .order('created_at', { ascending: false });
 
     if (params.cat && params.cat !== 'all') {
-      query = query.eq('category', params.cat);
+      if (params.cat === 'urgent') {
+        // 'urgent' BUKAN kategori — itu flag is_urgent. Filter by flag,
+        // bukan category (kalau eq('category','urgent') → 0 hasil → kosong).
+        query = query.eq('is_urgent', true);
+      } else {
+        query = query.eq('category', params.cat);
+      }
     }
 
     const { data } = await query;
@@ -355,8 +361,9 @@ export default async function FundraisingPage({
           })}
         </div>
 
-        {/* Urgent Slide */}
-        {urgentCampaigns.length > 0 && (
+        {/* Urgent Slide — cuma di view non-urgent. Saat cat=urgent,
+            semua kampanye urgent ditampilkan sebagai daftar penuh (bawah). */}
+        {activeCat !== 'urgent' && urgentCampaigns.length > 0 && (
           <UrgentCampaignsSlide campaigns={urgentCampaigns} />
         )}
 
@@ -375,9 +382,9 @@ export default async function FundraisingPage({
               Mulai Galang Dana
             </Link>
           </div>
-        ) : regularCampaigns.length > 0 && (
+        ) : (activeCat === 'urgent' ? campaigns : regularCampaigns).length > 0 && (
           <CampaignList
-            campaigns={regularCampaigns}
+            campaigns={activeCat === 'urgent' ? campaigns : regularCampaigns}
             hasUrgent={urgentCampaigns.length > 0}
             activeCategory={activeCat}
           />
