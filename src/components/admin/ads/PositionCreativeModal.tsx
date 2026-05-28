@@ -46,9 +46,11 @@ import {
   Info,
   ExternalLink,
   Sparkles,
+  Film,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import ImageUpload from '@/components/ui/ImageUpload';
+import VideoUpload, { type AdVideoSource } from './VideoUpload';
 import { useAdForm, type AdFrame } from './AdFormProvider';
 import {
   getPositionMetadata,
@@ -98,7 +100,21 @@ interface PositionCreativeModalProps {
 }
 
 // SESI 5H Phase 5B: Mode extended dengan 'animated'
-type Mode = 'static' | 'dca' | 'animated';
+// SESI 10 (24 Mei 2026): Mode extended dengan 'video'
+type Mode = 'static' | 'dca' | 'animated' | 'video';
+
+// SESI 10: Posisi yang boleh pakai video (mirror backend VIDEO_AD_POSITIONS).
+// Tab Video cuma muncul untuk posisi banner-ish.
+const VIDEO_ELIGIBLE_POSITIONS = [
+  'banner',
+  'homepage',
+  'homepage_hero_banner',
+  'top_leaderboard',
+  'inline_banner',
+  'sidebar',
+  'skyscraper_left',
+  'skyscraper_right',
+];
 
 // SESI 5H Phase 5B: Empty animation timeline template (DCA-Aligned)
 const EMPTY_TIMELINE: AnimationTimelineConfig = {
@@ -156,9 +172,13 @@ export default function PositionCreativeModal({
   const existingImage    = state.images[positionKey];
   // SESI 5H Phase 5B: per-position animation detection
   const existingTimeline = state.position_animation_timelines[positionKey];
+  // SESI 10: per-position video detection
+  const existingVideo    = state.position_video_sources[positionKey];
+  const videoEligible    = VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
 
-  // Priority detection: animated > dca > static (fallback default)
+  // Priority detection: video > animated > dca > static (fallback default)
   const detectInitialMode = (): Mode => {
+    if (existingVideo)    return 'video';
     if (existingTimeline) return 'animated';
     if (existingFrames)   return 'dca';
     return 'static';
@@ -172,7 +192,7 @@ export default function PositionCreativeModal({
       setMode(detectInitialMode());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, positionKey, existingFrames, existingTimeline]);
+  }, [isOpen, positionKey, existingFrames, existingTimeline, existingVideo]);
 
   // ESC + body scroll lock
   useEffect(() => {
@@ -223,6 +243,27 @@ export default function PositionCreativeModal({
   };
 
   // ───────────────────────────────────────────────────────────────
+  // VIDEO HANDLERS (SESI 10)
+  // ───────────────────────────────────────────────────────────────
+
+  const clearVideoSource = () => {
+    const next = { ...state.position_video_sources };
+    delete next[positionKey];
+    setField('position_video_sources', next);
+  };
+
+  const setVideoSource = (source: AdVideoSource | null) => {
+    if (source === null) {
+      clearVideoSource();
+      return;
+    }
+    setField('position_video_sources', {
+      ...state.position_video_sources,
+      [positionKey]: source,
+    });
+  };
+
+  // ───────────────────────────────────────────────────────────────
   // MODE SWITCHERS (mode-exclusive cleanup)
   // ───────────────────────────────────────────────────────────────
 
@@ -235,6 +276,7 @@ export default function PositionCreativeModal({
     // Mode-exclusive cleanup
     clearStaticImage();
     clearAnimationTimeline();
+    clearVideoSource();
     setMode('dca');
   };
 
@@ -244,6 +286,7 @@ export default function PositionCreativeModal({
     setField('position_frames', next);
     // Mode-exclusive cleanup
     clearAnimationTimeline();
+    clearVideoSource();
     setMode('static');
   };
 
@@ -252,10 +295,23 @@ export default function PositionCreativeModal({
     setAnimationTimeline({ ...EMPTY_TIMELINE });
     // Mode-exclusive cleanup
     clearStaticImage();
+    clearVideoSource();
     const nextFrames = { ...state.position_frames };
     delete nextFrames[positionKey];
     setField('position_frames', nextFrames);
     setMode('animated');
+  };
+
+  // SESI 10: switch ke video mode (mode-exclusive cleanup)
+  const switchToVideo = () => {
+    // Mode-exclusive cleanup — hapus creative mode lain
+    clearStaticImage();
+    clearAnimationTimeline();
+    const nextFrames = { ...state.position_frames };
+    delete nextFrames[positionKey];
+    setField('position_frames', nextFrames);
+    // Video source diisi via VideoUpload (start null/empty)
+    setMode('video');
   };
 
   // ───────────────────────────────────────────────────────────────
@@ -390,6 +446,22 @@ export default function PositionCreativeModal({
               <Sparkles size={13} />
               Animated GSAP
             </button>
+            {/* SESI 10: 4th mode — Video (hanya posisi video-eligible) */}
+            {videoEligible && (
+              <button
+                type="button"
+                onClick={mode === 'video' ? undefined : switchToVideo}
+                className={cn(
+                  'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
+                  mode === 'video'
+                    ? 'bg-cyan-600 text-white shadow'
+                    : 'bg-surface text-text-muted border border-border hover:bg-cyan-50 dark:hover:bg-cyan-950/30'
+                )}
+              >
+                <Film size={13} />
+                Video
+              </button>
+            )}
           </div>
         </div>
 
@@ -616,9 +688,34 @@ export default function PositionCreativeModal({
             </div>
           )}
 
+          {/* ═══ SESI 10: VIDEO MODE ═══ */}
+          {mode === 'video' && (
+            <div>
+              <div className="flex items-start gap-2 mb-4 p-3 rounded-lg bg-cyan-50 dark:bg-cyan-950/20 border border-cyan-200 dark:border-cyan-800">
+                <Film size={14} className="text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-[11px] font-bold text-cyan-900 dark:text-cyan-100">
+                    Video — Posisi {meta.label}
+                  </p>
+                  <p className="text-[10px] text-cyan-700/80 dark:text-cyan-300/80 mt-0.5 leading-relaxed">
+                    Dimensi: {meta.recommendedImageDim} ({meta.aspectRatio}).
+                    Upload MP4 (wajib) + WebM (opsional) + poster (wajib). Autoplay muted, loop otomatis.
+                  </p>
+                </div>
+              </div>
+
+              <VideoUpload
+                value={existingVideo ?? null}
+                onChange={setVideoSource}
+                positionLabel={meta.label}
+              />
+            </div>
+          )}
+
           {/* ═══ SESI 5E Phase 3c: LIVE PREVIEW MINI-PLAYER ═══ */}
           {/* SESI 5H Phase 5B: Skip saat mode='animated' (AnimationBuilder has own preview) */}
-          {mode !== 'animated' && (
+          {/* SESI 10: Skip juga saat mode='video' (VideoUpload has own preview) */}
+          {mode !== 'animated' && mode !== 'video' && (
             <div className="mt-4">
               <PositionLivePreview
                 positionKey={positionKey}
@@ -628,7 +725,7 @@ export default function PositionCreativeModal({
                 headline={state.title}
                 advertiserName={state.advertiser_name}
                 advertiserType={state.advertiser_type}
-                adFormat={state.ad_format}
+                adFormat={state.ad_format === 'video' ? 'image' : state.ad_format}
                 body={state.body}
                 slug={state.slug}
               />

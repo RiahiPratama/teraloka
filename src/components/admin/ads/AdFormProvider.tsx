@@ -58,7 +58,8 @@ const API =
 // ─── Types ────────────────────────────────────────────────────────
 
 // SESI 5H Phase 5B (21 Mei 2026): +animated (DCA-Aligned variant carousel)
-export type AdFormat = 'image' | 'text' | 'animated';
+// SESI 10 (24 Mei 2026): +video (MP4/WebM per-position)
+export type AdFormat = 'image' | 'text' | 'animated' | 'video';
 // SESI 5C-B (18 Mei 2026): +premium (PT/CV brand nasional besar)
 export type AdvertiserType = 'umum' | 'politisi' | 'pemerintah' | 'komersial' | 'premium';
 
@@ -68,6 +69,17 @@ export interface AdFrame {
   headline:    string;
   image_url:   string;
   duration_ms: number;
+}
+
+// SESI 10 (24 Mei 2026): Video source shape (mirror backend shared/types.ts).
+// Per-position di state.position_video_sources: Record<positionKey, AdVideoSource>.
+//   - mp4:    URL MP4 (H.264) — primary, wajib
+//   - webm:   URL WebM (VP9) — optional, bandwidth hemat
+//   - poster: URL static image — wajib, fallback + first-paint
+export interface AdVideoSource {
+  mp4:    string;
+  webm:   string | null;
+  poster: string;
 }
 
 // Mission 7 DCA constraints (mirror backend Batch 2 validation)
@@ -199,6 +211,21 @@ export interface AdFormState {
    */
   position_animation_timelines: Record<string, AnimationTimelineConfig>;
 
+  // ─── Video (SESI 10) ────────────────────────────────
+  /**
+   * SESI 10 (24 Mei 2026): Per-position video sources (MP4/WebM).
+   * Key = position key (banner, homepage_hero_banner, top_leaderboard, etc).
+   * Value = AdVideoSource { mp4, webm, poster }.
+   *
+   * Empty {} = no video set (default).
+   * Submit logic: kalau ad_format='video' DAN map non-empty, kirim Record
+   *               shape ke backend video_sources column.
+   *
+   * Mode-exclusive per position: setiap position pilih SATU dari
+   * static image / DCA frames / animation timeline / video.
+   */
+  position_video_sources: Record<string, AdVideoSource>;
+
   // ─── Schedule ──────────────────────────────────
   starts_at:       string;
   ends_at:         string;
@@ -242,6 +269,9 @@ const EMPTY_STATE: AdFormState = {
 
   // SESI 5H Phase 5B: per-position animation timelines (empty = no animation)
   position_animation_timelines: {},
+
+  // SESI 10: per-position video sources (empty = no video)
+  position_video_sources: {},
 
   // Schedule
   starts_at:           new Date().toISOString(),
@@ -406,6 +436,54 @@ export function validateAdForm(state: AdFormState): FieldError[] {
         errors.push({
           field:   'position_animation_timelines',
           message: `Posisi belum punya animasi: ${positionsWithoutTimeline.join(', ')}. Edit creative per posisi → tab Animated GSAP.`,
+        });
+      }
+    }
+  }
+
+  // SESI 10 (24 Mei 2026): Per-position video validation
+  if (state.ad_format === 'video') {
+    const sources = state.position_video_sources;
+    const sourceKeys = Object.keys(sources);
+
+    if (sourceKeys.length === 0) {
+      errors.push({
+        field:   'position_video_sources',
+        message: 'Video belum diupload. Klik "Edit Creative" di Targeting per posisi, lalu pilih tab "Video".',
+      });
+    } else {
+      // Validate setiap source: mp4 + poster wajib
+      for (const posKey of sourceKeys) {
+        const src = sources[posKey];
+        if (!src?.mp4?.trim()) {
+          errors.push({
+            field:   'position_video_sources',
+            message: `Posisi "${posKey}": file MP4 wajib diupload.`,
+          });
+        }
+        if (!src?.poster?.trim()) {
+          errors.push({
+            field:   'position_video_sources',
+            message: `Posisi "${posKey}": poster (thumbnail) wajib diupload.`,
+          });
+        }
+      }
+
+      // Cross-check: orphaned keys (source untuk posisi non-aktif)
+      const orphanedVideoKeys = sourceKeys.filter((k) => !state.positions.includes(k));
+      if (orphanedVideoKeys.length > 0) {
+        errors.push({
+          field:   'position_video_sources',
+          message: `Video untuk posisi tidak aktif: ${orphanedVideoKeys.join(', ')}. Aktifkan posisi atau hapus video.`,
+        });
+      }
+
+      // Cross-check: setiap position aktif WAJIB punya video
+      const positionsWithoutVideo = state.positions.filter((p) => !sources[p]);
+      if (positionsWithoutVideo.length > 0) {
+        errors.push({
+          field:   'position_video_sources',
+          message: `Posisi belum punya video: ${positionsWithoutVideo.join(', ')}. Edit creative per posisi → tab Video.`,
         });
       }
     }
@@ -615,6 +693,10 @@ export function AdFormProvider({
             ad.animation_timeline,
             ad.positions ?? [],
           ),
+          // SESI 10: per-position video sources from DB (video_sources jsonb)
+          position_video_sources: (ad.video_sources && typeof ad.video_sources === 'object' && !Array.isArray(ad.video_sources))
+            ? ad.video_sources as Record<string, AdVideoSource>
+            : {},
           starts_at:           ad.starts_at ?? new Date().toISOString(),
           ends_at:             ad.ends_at ?? new Date(Date.now() + 30 * 86400000).toISOString(),
         });
@@ -730,6 +812,13 @@ export function AdFormProvider({
         // SESI 6H: committedAnimationTimelines = pending object files udah ke-upload
         animation_timeline:  state.ad_format === 'animated' && Object.keys(committedAnimationTimelines).length > 0
           ? committedAnimationTimelines
+          : null,
+
+        // SESI 10 (24 Mei 2026): per-position video sources
+        // - ad_format='video' + map non-empty → kirim Record shape ke backend
+        // - else → null (clear field di backend update)
+        video_sources:       state.ad_format === 'video' && Object.keys(state.position_video_sources).length > 0
+          ? state.position_video_sources
           : null,
 
         // Schedule

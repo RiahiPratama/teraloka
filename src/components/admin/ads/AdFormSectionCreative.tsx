@@ -28,6 +28,7 @@ import {
   AlertTriangle,
   Link as LinkIcon,
   Sparkles,
+  Film,
   Info,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -76,9 +77,11 @@ export default function AdFormSectionCreative() {
   const isComplete =
     state.title.trim().length > 0 &&
     state.link_url.trim().length > 0 &&
-    (state.ad_format === 'image'
-      ? true  // SESI 5E Phase 3b: per-position validation di AdFormProvider, section dianggap complete
-      : state.body.trim().length >= 100);
+    // SESI 10: hanya 'text' (advertorial) yang butuh body. image/animated/video
+    // pakai per-position creative (divalidasi di AdFormProvider).
+    (state.ad_format === 'text'
+      ? state.body.trim().length >= 100
+      : true);
 
   const isPolitisi = state.advertiser_type === 'politisi';
   const needsDisclaimer = isPolitisi && state.ad_format === 'text';
@@ -126,7 +129,7 @@ export default function AdFormSectionCreative() {
             <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
               Format Iklan <span className="text-status-critical">*</span>
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               <label
                 className={cn(
                   'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
@@ -202,6 +205,33 @@ export default function AdFormSectionCreative() {
                   </div>
                   <p className="text-[10px] text-text-muted mt-0.5">
                     GSAP per-posisi — premium tier
+                  </p>
+                </div>
+              </label>
+
+              {/* SESI 10 (24 Mei 2026): 4th radio — Video (MP4+WebM per-position) */}
+              <label
+                className={cn(
+                  'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
+                  state.ad_format === 'video'
+                    ? 'bg-cyan-100 border-cyan-400 dark:bg-cyan-900/30 dark:border-cyan-700'
+                    : 'bg-surface border-border hover:bg-surface-muted'
+                )}
+              >
+                <input
+                  type="radio"
+                  name="ad_format"
+                  checked={state.ad_format === 'video'}
+                  onChange={() => setField('ad_format', 'video')}
+                  className="accent-cyan-600 mt-0.5 shrink-0"
+                />
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <Film size={12} className="text-cyan-600 dark:text-cyan-400" />
+                    <span className="text-[12px] font-bold text-text">Video</span>
+                  </div>
+                  <p className="text-[10px] text-text-muted mt-0.5">
+                    MP4+WebM per-posisi — managed tier
                   </p>
                 </div>
               </label>
@@ -468,6 +498,41 @@ Konten utama dengan **bold** dan *italic*.
                   {state.positions.length > 0 && (
                     <p className="text-[10px] text-purple-700/80 dark:text-purple-300/80 mt-2">
                       Posisi aktif: <code className="font-mono bg-purple-100 dark:bg-purple-900/50 px-1 rounded text-purple-900 dark:text-purple-200">
+                        {state.positions.join(', ')}
+                      </code>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* SESI 10 (24 Mei 2026): Video info block (per-position MP4+WebM) */}
+          {state.ad_format === 'video' && (
+            <div className="rounded-xl border-2 border-cyan-300 bg-cyan-50/40 dark:border-cyan-800 dark:bg-cyan-950/20 p-4">
+              <div className="flex items-start gap-3">
+                <div className="p-2 rounded-lg bg-cyan-100 dark:bg-cyan-900/40 shrink-0">
+                  <Film className="w-5 h-5 text-cyan-600 dark:text-cyan-300" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-[13px] font-bold text-cyan-900 dark:text-cyan-100">
+                    Video Dikonfigurasi Per-Posisi
+                  </h4>
+                  <p className="text-[11px] text-cyan-800/80 dark:text-cyan-200/80 mt-1 leading-relaxed">
+                    Setiap posisi banner punya dimensi beda. Upload video <strong>per posisi</strong>:
+                    {' '}MP4 (wajib, dari Canva), WebM (opsional, hemat bandwidth), poster (wajib, fallback).
+                  </p>
+                  <div className="flex items-start gap-2 mt-3 p-2.5 rounded-md bg-white/60 dark:bg-cyan-900/30 border border-cyan-200 dark:border-cyan-700">
+                    <Info size={12} className="text-cyan-700 dark:text-cyan-300 shrink-0 mt-0.5" />
+                    <p className="text-[10px] text-cyan-800 dark:text-cyan-200 leading-relaxed">
+                      <strong>Langkah:</strong> Scroll ke section <em>Targeting</em> →
+                      pilih posisi → klik <em>"Edit Creative"</em> → pilih tab <strong>Video</strong>.
+                      Autoplay selalu muted (aturan browser); video loop otomatis.
+                    </p>
+                  </div>
+                  {state.positions.length > 0 && (
+                    <p className="text-[10px] text-cyan-700/80 dark:text-cyan-300/80 mt-2">
+                      Posisi aktif: <code className="font-mono bg-cyan-100 dark:bg-cyan-900/50 px-1 rounded text-cyan-900 dark:text-cyan-200">
                         {state.positions.join(', ')}
                       </code>
                     </p>

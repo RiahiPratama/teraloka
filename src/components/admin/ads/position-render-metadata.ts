@@ -335,7 +335,9 @@ export function getPositionMetadata(key: string): PositionRenderMetadata {
 // PositionCreativeModal (upload header + label).
 // ════════════════════════════════════════════════════════════════
 
-export type AdFormatKind = 'image' | 'text' | 'animated';
+// SESI 8: image|text|animated. SESI 10 (24 Mei 2026): +video.
+// Video pakai dimensi banner sama kayak image (waterfall jatuh ke recommendedImageDim).
+export type AdFormatKind = 'image' | 'text' | 'animated' | 'video';
 
 /**
  * Get recommended image dimension untuk position + ad_format pair.

@@ -30,6 +30,10 @@ import { buildFormatFilterParam } from '@/lib/ad-settings';
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
 } from '@/components/public/ads/AdAnimatedBanner';
+// SESI 10 (24 Mei 2026): Video banner (MP4+WebM per-position)
+import AdVideoBanner, {
+  type AdVideoSource,
+} from '@/components/public/ads/AdVideoBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -44,7 +48,8 @@ interface Ad {
   image_url?: string | null;
   link_url: string;
   // SESI 5H Phase 5B: +animated format
-  ad_format?: 'image' | 'text' | 'animated';
+  // SESI 10: +video format
+  ad_format?: 'image' | 'text' | 'animated' | 'video';
   slug?: string;
   advertiser_name?: string;
   advertiser_logo_url?: string | null;
@@ -53,6 +58,8 @@ interface Ad {
   creative_frames?: AdFrame[] | null;
   // SESI 5H Phase 5B: Per-position animation timelines (Record shape)
   animation_timeline?: Record<string, AnimationTimelineConfig> | null;
+  // SESI 10: Per-position video sources (Record shape)
+  video_sources?: Record<string, AdVideoSource> | null;
 }
 
 interface Props {
@@ -170,6 +177,36 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
         </div>
       </div>
     );
+  }
+
+  // ═══ VIDEO BANNER (SESI 10) ═══
+  // Branch SEBELUM animated/text/image. Resolve video_sources['sidebar'].
+  // Fallback ke image branch kalau source absent (graceful).
+  if (ad.ad_format === 'video') {
+    const sidebarVideo = ad.video_sources?.['sidebar'];
+
+    if (sidebarVideo && sidebarVideo.mp4) {
+      return (
+        <div ref={setRef as any} style={animStyle}>
+          <AdVideoBanner
+            ad={{
+              id:                  ad.id,
+              link_url:            ad.link_url,
+              advertiser_name:     ad.advertiser_name ?? 'Sponsor',
+              advertiser_logo_url: ad.advertiser_logo_url ?? null,
+              disclaimer_text:     ad.disclaimer_text ?? null,
+              video_sources:       ad.video_sources ?? null,
+              image_url:           ad.image_url ?? null,
+            }}
+            positionKey="sidebar"
+            width={SIDEBAR_WIDTH}
+            height={SIDEBAR_HEIGHT}
+            onClick={trackAdClick}
+          />
+        </div>
+      );
+    }
+    // Fallback: lanjut ke image branch
   }
 
   // ═══ ANIMATED BANNER (SESI 5H Phase 5B DCA-Aligned) ═══
