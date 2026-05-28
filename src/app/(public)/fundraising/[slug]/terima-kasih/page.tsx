@@ -240,39 +240,7 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
       {/* Hero */}
       <HeroSection donation={donation} status={status} />
 
-      {/* Main Timeline Card */}
-      {data && donation && (
-        <div className="mx-auto max-w-md px-4 mb-4">
-          <FullTimelineCard
-            data={data}
-            refreshing={refreshing}
-            onRefresh={() => fetchTimeline(false)}
-          />
-        </div>
-      )}
-
-      {/* Financial Summary Card — show if verified + has disbursements */}
-      {status === 'verified' && hasDisbursements && data && (
-        <div className="mx-auto max-w-md px-4 mb-4">
-          <FinancialSummaryCard summary={data.financial_summary} />
-        </div>
-      )}
-
-      {/* Recent Disbursements — show if verified + has disbursements */}
-      {status === 'verified' && hasDisbursements && data && (
-        <div className="mx-auto max-w-md px-4 mb-4">
-          <DisbursementsList disbursements={data.recent_disbursements} totalCount={data.financial_summary.total_disbursements_count} />
-        </div>
-      )}
-
-      {/* Usage Report Card — kalau ada */}
-      {status === 'verified' && hasReport && data?.latest_usage_report && (
-        <div className="mx-auto max-w-md px-4 mb-4">
-          <UsageReportCard report={data.latest_usage_report} />
-        </div>
-      )}
-
-      {/* Donation Details */}
+      {/* Donation Details — di ATAS timeline (detail dulu, baru perjalanan) */}
       {donation && (
         <div className="mx-auto max-w-md px-4 mb-4">
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -311,6 +279,38 @@ export default function TerimaKasihPage({ params }: { params: Promise<{ slug: st
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Main Timeline Card */}
+      {data && donation && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <FullTimelineCard
+            data={data}
+            refreshing={refreshing}
+            onRefresh={() => fetchTimeline(false)}
+          />
+        </div>
+      )}
+
+      {/* Financial Summary Card — show if verified + has disbursements */}
+      {status === 'verified' && hasDisbursements && data && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <FinancialSummaryCard summary={data.financial_summary} />
+        </div>
+      )}
+
+      {/* Recent Disbursements — show if verified + has disbursements */}
+      {status === 'verified' && hasDisbursements && data && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <DisbursementsList disbursements={data.recent_disbursements} totalCount={data.financial_summary.total_disbursements_count} />
+        </div>
+      )}
+
+      {/* Usage Report Card — kalau ada */}
+      {status === 'verified' && hasReport && data?.latest_usage_report && (
+        <div className="mx-auto max-w-md px-4 mb-4">
+          <UsageReportCard report={data.latest_usage_report} />
         </div>
       )}
 
@@ -445,7 +445,7 @@ function getHeroConfig(status: string, donation: Donation | undefined) {
       eyebrow: 'Donasi Diterima ✓',
       eyebrowCls: 'text-emerald-600',
       title: (d: Donation | undefined) =>
-        d && !d.is_anonymous ? `Donasimu Sudah Tersalurkan, ${d.donor_name}!` : 'Donasimu Sudah Tersalurkan!',
+        d && !d.is_anonymous ? `Donasimu Sudah Diterima, ${d.donor_name}!` : 'Donasimu Sudah Diterima!',
       subtitle: (d: Donation | undefined) => d ? (
         <>
           <span className="font-bold text-emerald-700">{formatRupiah(d.amount)}</span>
