@@ -496,11 +496,25 @@ function FullTimelineCard({
   refreshing: boolean;
   onRefresh: () => void;
 }) {
-  const { donation, recent_disbursements, has_usage_report } = data;
+  const { donation, recent_disbursements } = data;
   const status = donation.verification_status;
   const hasProof = !!donation.transfer_proof_url;
   const isPending = status === 'pending';
-  const hasDisbursements = recent_disbursements.length > 0;
+  // ⭐ Timing-aware: step "Dana disalurkan" & "Laporan" hanya SELESAI untuk
+  // donasi INI kalau penyaluran/laporan terjadi SETELAH donasi diverifikasi.
+  // Penyaluran/laporan lama (sebelum donasi ini masuk) = punya donasi lain,
+  // BUKAN klaim donasi ini → jangan ditandai hijau (menyesatkan donor).
+  const verifiedTime = donation.verified_at ? new Date(donation.verified_at).getTime() : null;
+  const disbursedAfterDonation =
+    status === 'verified' && verifiedTime !== null &&
+    recent_disbursements.some((d) => {
+      const t = d.disbursed_at ?? d.verified_at ?? d.created_at;
+      return !!t && new Date(t).getTime() >= verifiedTime;
+    });
+  const reportAfterDonation =
+    status === 'verified' && verifiedTime !== null &&
+    !!data.latest_usage_report?.created_at &&
+    new Date(data.latest_usage_report.created_at).getTime() >= verifiedTime;
 
   const headerConfig = (() => {
     if (status === 'verified') {
@@ -635,24 +649,26 @@ function FullTimelineCard({
           {status !== 'rejected' && (
             <>
               <TimelineStep
-                done={hasDisbursements}
-                future={!hasDisbursements && status !== 'verified'}
+                done={disbursedAfterDonation}
+                future={!disbursedAfterDonation}
                 label="Dana disalurkan ke penerima"
                 time={
-                  hasDisbursements
+                  disbursedAfterDonation
                     ? `${data.financial_summary.total_disbursements_count}× pencairan terverifikasi`
                     : status === 'verified'
-                    ? 'Akan diproses penggalang'
+                    ? 'Menunggu penyaluran oleh penggalang'
                     : 'Setelah donasi diverifikasi'
                 }
               />
               <TimelineStep
-                done={has_usage_report}
-                future={!has_usage_report}
+                done={reportAfterDonation}
+                future={!reportAfterDonation}
                 label="Laporan penggunaan"
                 time={
-                  has_usage_report
+                  reportAfterDonation
                     ? 'Penggalang sudah laporkan'
+                    : status === 'verified'
+                    ? 'Menunggu laporan penggunaan'
                     : 'Setelah dana digunakan'
                 }
               />
