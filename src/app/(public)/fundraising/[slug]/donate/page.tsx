@@ -8,6 +8,7 @@ import {
   Info, Loader2, Phone,
 } from 'lucide-react';
 import { formatRupiah } from '@/utils/format';
+import { useAuth } from '@/hooks/useAuth';
 import {
   calculateTeralokaFee,
   calculatePenggalangFee,
@@ -51,6 +52,7 @@ export default function DonatePage() {
   const params = useParams();
   const router = useRouter();
   const slug = params?.slug as string;
+  const { user } = useAuth();
 
   // Campaign data
   const [campaign, setCampaign] = useState<Campaign | null>(null);
@@ -107,6 +109,16 @@ export default function DonatePage() {
     }
     fetchCampaign();
   }, [slug]);
+
+  // Auto-prefill identitas donor dari profil user yang login.
+  // Guard `prev ||` → cuma isi kalau field masih kosong, jadi TIDAK
+  // menimpa input yang sudah diketik donor. Dependency user?.id → jalan
+  // sekali saat user pertama tersedia (setelah auth context load).
+  useEffect(() => {
+    if (!user?.id) return;
+    setDonorName(prev => prev || user.name || '');
+    setDonorPhone(prev => prev || user.phone || '');
+  }, [user?.id]);
 
   // Auto-compute fees (real-time as donor types)
   const feeTeraloka = useMemo(() => calculateTeralokaFee(amount), [amount]);

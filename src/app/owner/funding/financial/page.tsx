@@ -4,6 +4,9 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  BarChart3, Wallet, Clock, AlertTriangle, ArrowDownToLine,
+} from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -28,12 +31,11 @@ function getMonthRange(offset = 0) {
 }
 
 function exportCSV(rows: any[], filename: string) {
-  const headers = ['Tanggal', 'ID Donasi', 'Kampanye', 'Donor', 'Kode Unik', 'Nominal', 'Fee Op', 'Fee Penggalang', 'Kode Unik Nominal', 'Total Transfer', 'Status', 'Diterima'];
+  const headers = ['Tanggal', 'Kampanye', 'Donor', 'Kode', 'Nominal', 'Fee Op', 'Fee Penggalang', 'Kode Unik', 'Total Transfer', 'Status', 'Diterima'];
   const lines = [
     headers.join(','),
     ...rows.map(r => [
       fmt(r.created_at),
-      r.display_id ?? '',
       `"${r.campaign_title ?? ''}"`,
       r.is_anonymous ? 'Anonim' : `"${r.donor_name}"`,
       r.donation_code,
@@ -80,7 +82,6 @@ interface Summary {
 interface Donation {
   id: string;
   donation_code: string;
-  display_id?: string;
   campaign_id: string;
   campaign_title?: string;
   donor_name: string;
@@ -122,8 +123,8 @@ const PERIOD_PRESETS = [
 ];
 
 const STATUS_META: Record<string, { label: string; color: string; bg: string }> = {
-  verified:    { label: '✅ Verified',     color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
-  under_audit: { label: '⏳ Under Audit',  color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
+  verified:    { label: 'Verified',     color: '#10B981', bg: 'rgba(16,185,129,0.12)' },
+  under_audit: { label: 'Diperiksa',    color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
   pending:     { label: '⏸️ Pending',      color: '#6B7280', bg: 'rgba(107,114,128,0.12)' },
   rejected:    { label: '🚫 Ditolak',      color: '#EF4444', bg: 'rgba(239,68,68,0.12)' },
 };
@@ -263,8 +264,8 @@ function FinancialContent() {
           <Link href="/owner" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, color: 'rgba(255,255,255,0.7)', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
             ← Portal Mitra
           </Link>
-          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 4 }}>
-            📊 Laporan Keuangan
+          <h1 style={{ fontSize: 22, fontWeight: 800, color: '#fff', marginBottom: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <BarChart3 size={22} strokeWidth={2.2} /> Laporan Keuangan
           </h1>
           <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.7)' }}>
             Ringkasan pendapatan dan transaksi dari semua kampanye kamu
@@ -294,8 +295,8 @@ function FinancialContent() {
 
               {/* 1. Accrual — Total Masuk Rekening */}
               <div style={{ background: 'rgba(0,53,38,0.04)', border: '1px solid rgba(0,53,38,0.12)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#003526', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
-                  📥 Accrual — Total Uang Masuk Rekening
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#003526', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <ArrowDownToLine size={13} strokeWidth={2.2} /> Total Uang Masuk Rekening
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                   <FinRow label={`Nominal Donasi (${summary.verified_count} verified)`} value={rp(summary.total_collected)} color="#065F46" />
@@ -305,7 +306,7 @@ function FinancialContent() {
                     <FinRow label="Fee Penggalang (opt-in)" value={rp(summary.total_fee_penggalang)} color="#374151" />
                   )}
                   <div style={{ borderTop: '1px solid rgba(0,53,38,0.1)', paddingTop: 8, marginTop: 2 }}>
-                    <FinRow label="TOTAL ACCRUAL" value={rp(summary.total_accrual || (summary.total_collected + summary.total_operational_fee + summary.total_kode_unik + summary.total_fee_penggalang))} color="#003526" bold />
+                    <FinRow label="TOTAL DITERIMA" value={rp(summary.total_accrual || (summary.total_collected + summary.total_operational_fee + summary.total_kode_unik + summary.total_fee_penggalang))} color="#003526" bold />
                   </div>
                 </div>
               </div>
@@ -314,7 +315,7 @@ function FinancialContent() {
               {summary.total_under_audit > 0 && (
                 <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.2)', borderRadius: 10, padding: '10px 14px', marginBottom: 10, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <p style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B' }}>⏳ Under Audit — {summary.under_audit_count} donasi</p>
+                    <p style={{ fontSize: 11, fontWeight: 700, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 5 }}><Clock size={12} strokeWidth={2.2} /> Sedang Diperiksa — {summary.under_audit_count} donasi</p>
                     <p style={{ fontSize: 11, color: '#6B7280', marginTop: 2 }}>Dana sudah masuk rekening, menunggu resolusi mismatch</p>
                   </div>
                   <p style={{ fontSize: 16, fontWeight: 800, color: '#92400E' }}>{rp(summary.total_under_audit)}</p>
@@ -323,8 +324,8 @@ function FinancialContent() {
 
               {/* 2. Saldo Breakdown */}
               <div style={{ background: '#F9FAFB', borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  💰 Saldo di Rekening (Dana Penerima)
+                <p style={{ fontSize: 10, fontWeight: 700, color: '#6B7280', marginBottom: 10, textTransform: 'uppercase', letterSpacing: '0.05em', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <Wallet size={13} strokeWidth={2.2} /> Saldo di Rekening (Dana Penerima)
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
                   <FinRow label="Nominal Donasi Terkumpul" value={rp(summary.total_collected)} color="#065F46" />
@@ -375,8 +376,8 @@ function FinancialContent() {
                   {(summary.total_fee_pending ?? 0) > 0 && (
                     <>
                       <div style={{ marginTop: 8, padding: '6px 10px', background: 'rgba(146,64,14,0.08)', borderRadius: 8 }}>
-                        <p style={{ fontSize: 10, color: '#92400E', fontWeight: 600 }}>
-                          ⚠️ Setor ke rekening TeraLoka sesuai jadwal settlement bulanan
+                        <p style={{ fontSize: 10, color: '#92400E', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 5 }}>
+                          <AlertTriangle size={11} strokeWidth={2.2} /> Setor ke rekening TeraLoka sesuai jadwal settlement bulanan
                         </p>
                       </div>
 
@@ -551,11 +552,7 @@ function FinancialContent() {
                             {d.is_anonymous ? '🎭 Anonim' : d.donor_name}
                           </p>
                           <p style={{ fontFamily: 'monospace', fontSize: 11, color: '#9CA3AF', marginTop: 1 }}>
-                            {d.display_id ? (
-                              <>{d.display_id} · #{d.donation_code}</>
-                            ) : (
-                              <>Kode #{d.donation_code}</>
-                            )}
+                            Kode #{d.donation_code}
                           </p>
                         </td>
                         <td style={{ padding: '12px', textAlign: 'right' }}>

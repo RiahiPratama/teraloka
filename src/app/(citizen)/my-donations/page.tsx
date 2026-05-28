@@ -26,7 +26,7 @@ import {
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const TOKEN_KEY = 'tl_token';
 
-type DonationStatus = 'pending' | 'verified' | 'rejected';
+type DonationStatus = 'pending' | 'verified' | 'rejected' | 'under_audit';
 
 interface MyDonation {
   id: string;
@@ -73,11 +73,18 @@ const STATUS_META: Record<DonationStatus, {
     icon: Hourglass,
   },
   verified: {
-    label: 'Tersalurkan',
+    label: 'Diterima',
     textCls: 'text-emerald-700',
     bgCls: 'bg-emerald-50',
     borderCls: 'border-emerald-200',
     icon: CheckCircle2,
+  },
+  under_audit: {
+    label: 'Diperiksa',
+    textCls: 'text-amber-700',
+    bgCls: 'bg-amber-50',
+    borderCls: 'border-amber-200',
+    icon: AlertTriangle,
   },
   rejected: {
     label: 'Ditolak',
@@ -89,10 +96,11 @@ const STATUS_META: Record<DonationStatus, {
 };
 
 const TABS: Array<{ key: 'all' | DonationStatus; label: string }> = [
-  { key: 'all',      label: 'Semua' },
-  { key: 'pending',  label: 'Menunggu' },
-  { key: 'verified', label: 'Tersalurkan' },
-  { key: 'rejected', label: 'Ditolak' },
+  { key: 'all',         label: 'Semua' },
+  { key: 'pending',     label: 'Menunggu' },
+  { key: 'verified',    label: 'Diterima' },
+  { key: 'under_audit', label: 'Diperiksa' },
+  { key: 'rejected',    label: 'Ditolak' },
 ];
 
 export default function MyDonationsPage() {
@@ -149,10 +157,11 @@ export default function MyDonationsPage() {
   }, [donations]);
 
   const counts = useMemo(() => ({
-    all:      donations.length,
-    pending:  donations.filter(d => d.verification_status === 'pending').length,
-    verified: donations.filter(d => d.verification_status === 'verified').length,
-    rejected: donations.filter(d => d.verification_status === 'rejected').length,
+    all:         donations.length,
+    pending:     donations.filter(d => d.verification_status === 'pending').length,
+    verified:    donations.filter(d => d.verification_status === 'verified').length,
+    under_audit: donations.filter(d => d.verification_status === 'under_audit').length,
+    rejected:    donations.filter(d => d.verification_status === 'rejected').length,
   }), [donations]);
 
   if (loading) return <LoadingSkeleton />;
@@ -249,7 +258,7 @@ function HeroStatsCard({ stats }: { stats: any }) {
         <div className="flex items-center gap-2 mb-2">
           <HeartHandshake size={14} className="opacity-90" />
           <p className="text-[11px] font-bold uppercase tracking-wider opacity-90">
-            Total Sudah Disalurkan
+            Total Donasi Berhasil
           </p>
         </div>
         <p className="text-3xl font-black mb-4 tracking-tight">
@@ -305,7 +314,7 @@ function DonationCard({ d }: { d: MyDonation }) {
   const meta = STATUS_META[d.verification_status];
   const c = d.campaigns;
 
-  // Adaptive: pending/rejected = full with cover (action needed)
+  // Adaptive: pending/rejected/under_audit = full with cover (perlu perhatian)
   // verified = compact (just info, less emphasis)
   const showCover = d.verification_status !== 'verified';
 
@@ -433,6 +442,20 @@ function DonationCardFull({ d, meta, c }: any) {
           <div className="bg-red-50 border border-red-100 rounded-xl p-3 mb-3">
             <p className="text-[10px] font-bold text-red-700 uppercase mb-1">Alasan Ditolak</p>
             <p className="text-xs text-red-800 leading-relaxed">{d.rejection_reason}</p>
+          </div>
+        )}
+
+        {d.verification_status === 'under_audit' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 mb-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle size={14} className="text-amber-700 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-[11px] font-bold text-amber-800 uppercase mb-0.5">Sedang Diperiksa</p>
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Ada selisih nominal yang sedang ditinjau tim. Donasi kamu aman dan tetap tercatat. Mohon tunggu konfirmasi lebih lanjut.
+                </p>
+              </div>
+            </div>
           </div>
         )}
 

@@ -23,6 +23,12 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
+import {
+  ArrowLeft, Inbox, Search, LayoutGrid, Megaphone, Loader2,
+  ChevronLeft, ChevronRight, BadgeCheck, X, Clock, Wallet, BarChart3,
+  TrendingUp, CheckCircle2, Users, SearchX, PartyPopper, ThumbsUp, Scale,
+  AlertCircle, AlertTriangle, Timer,
+} from 'lucide-react';
 import DonationVerifyModal, { DonationForVerify } from '@/components/owner/funding/donations/DonationVerifyModal';
 import DonationRejectModal from '@/components/owner/funding/donations/DonationRejectModal';
 
@@ -43,7 +49,6 @@ interface DonationListItem {
   amount_received: number | null;
   discrepancy_amount: number | null;
   donation_code: string;
-  display_id?: string;
   message: string | null;
   transfer_proof_url: string | null;
   verification_status: string;
@@ -77,12 +82,12 @@ interface FinancialSummary {
   platform_phase: string;
 }
 
-const SMART_VIEWS: Array<{ value: SmartView; label: string; emoji: string; color: string }> = [
-  { value: 'perlu_verifikasi', label: 'Perlu Verifikasi', emoji: '🔴', color: '#DC2626' },
-  { value: 'hampir_telat', label: 'Hampir Telat', emoji: '⏰', color: '#EA580C' },
-  { value: 'under_audit', label: 'Under Audit', emoji: '⚠️', color: '#CA8A04' },
-  { value: 'mismatch_diterima', label: 'Mismatch Diterima', emoji: '📊', color: '#0891B2' },
-  { value: 'verified_today', label: 'Verified Hari Ini', emoji: '✅', color: '#16A34A' },
+const SMART_VIEWS: Array<{ value: SmartView; label: string; Icon: any; color: string }> = [
+  { value: 'perlu_verifikasi', label: 'Perlu Verifikasi', Icon: AlertCircle, color: '#DC2626' },
+  { value: 'hampir_telat', label: 'Hampir Telat', Icon: Timer, color: '#EA580C' },
+  { value: 'under_audit', label: 'Under Audit', Icon: AlertTriangle, color: '#CA8A04' },
+  { value: 'mismatch_diterima', label: 'Mismatch Diterima', Icon: BarChart3, color: '#0891B2' },
+  { value: 'verified_today', label: 'Verified Hari Ini', Icon: CheckCircle2, color: '#16A34A' },
 ];
 
 export default function OwnerDonationsPage() {
@@ -156,7 +161,7 @@ function DonationsPageContent() {
           setCampaigns(j.data.map((c: any) => ({ id: c.id, title: c.title })));
         }
       })
-      .catch(() => { });
+      .catch(() => {});
   }, [token]);
 
   // Fetch financial summary on mount + after successful verify/reject
@@ -261,8 +266,7 @@ function DonationsPageContent() {
         merged = merged.filter(
           (d) =>
             d.donor_name?.toLowerCase().includes(q) ||
-            d.donation_code?.toLowerCase().includes(q) ||
-            d.display_id?.toLowerCase().includes(q)
+            d.donation_code?.toLowerCase().includes(q)
         );
       }
 
@@ -338,13 +342,13 @@ function DonationsPageContent() {
             onClick={() => router.push('/owner')}
             className="inline-flex items-center gap-1.5 text-xs text-[#F9A8D4] hover:text-white transition-colors mb-3 font-semibold"
           >
-            <span className="material-symbols-outlined text-sm">arrow_back</span>
+            <ArrowLeft size={16} strokeWidth={2.2} />
             Kembali ke Hub
           </button>
 
           <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-[#EC4899] flex items-center justify-center shadow-lg shadow-pink-500/30 shrink-0">
-              <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>inbox</span>
+              <Inbox size={20} strokeWidth={2.2} className="text-white" />
             </div>
             <div className="min-w-0 flex-1">
               <h1 className="text-xl font-extrabold text-white leading-tight">Inbox Donasi</h1>
@@ -372,12 +376,13 @@ function DonationsPageContent() {
                     setSmartView(view.value);
                     setPage(1);
                   }}
-                  className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap ${isActive
+                  className={`flex-shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap ${
+                    isActive
                       ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
                       : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
-                    }`}
+                  }`}
                 >
-                  <span className="mr-1">{view.emoji}</span>
+                  <view.Icon size={13} strokeWidth={2.2} style={isActive ? undefined : { color: view.color }} />
                   {view.label}
                 </button>
               );
@@ -387,7 +392,7 @@ function DonationsPageContent() {
 
         {/* Filter Row — search full-width mobile-first */}
         <div className="relative">
-          <span className="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-lg pointer-events-none">search</span>
+          <Search size={18} strokeWidth={2.2} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
           <input
             type="search"
             value={searchQuery}
@@ -409,12 +414,13 @@ function DonationsPageContent() {
                   setCampaignFilter('all');
                   setPage(1);
                 }}
-                className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${campaignFilter === 'all'
+                className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${
+                  campaignFilter === 'all'
                     ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
                     : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
-                  }`}
+                }`}
               >
-                <span className="material-symbols-outlined text-sm">apps</span>
+                <LayoutGrid size={15} strokeWidth={2.2} />
                 Semua Kampanye
               </button>
               {campaigns.map((c) => {
@@ -427,13 +433,14 @@ function DonationsPageContent() {
                       setCampaignFilter(c.id);
                       setPage(1);
                     }}
-                    className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${isActive
+                    className={`flex-shrink-0 rounded-full px-3.5 py-2 text-xs font-bold transition-all whitespace-nowrap inline-flex items-center gap-1.5 ${
+                      isActive
                         ? 'bg-gradient-to-r from-[#003526] to-[#BE185D] text-white shadow-md shadow-pink-500/20'
                         : 'bg-white text-gray-600 border border-gray-200 hover:border-[#EC4899]/30 hover:text-[#003526]'
-                      }`}
+                    }`}
                     title={c.title}
                   >
-                    <span className="material-symbols-outlined text-sm">campaign</span>
+                    <Megaphone size={15} strokeWidth={2.2} />
                     {truncatedTitle}
                   </button>
                 );
@@ -446,7 +453,7 @@ function DonationsPageContent() {
         <div className="flex items-center gap-2 text-sm">
           {loading ? (
             <span className="text-gray-500 flex items-center gap-2">
-              <span className="material-symbols-outlined text-base animate-spin">progress_activity</span>
+              <Loader2 size={16} strokeWidth={2.2} className="animate-spin" />
               Memuat...
             </span>
           ) : (
@@ -468,7 +475,7 @@ function DonationsPageContent() {
         {/* Donation List */}
         {loading && donations.length === 0 ? (
           <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center">
-            <span className="material-symbols-outlined text-3xl text-[#EC4899] animate-spin">progress_activity</span>
+            <Loader2 size={30} strokeWidth={2.2} className="text-[#EC4899] animate-spin" />
             <p className="text-sm text-gray-500 mt-2">Memuat donasi...</p>
           </div>
         ) : donations.length === 0 ? (
@@ -509,7 +516,7 @@ function DonationsPageContent() {
               disabled={page === 1}
               className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#EC4899]/40 hover:text-[#003526] transition-all flex items-center gap-1.5"
             >
-              <span className="material-symbols-outlined text-base">chevron_left</span>
+              <ChevronLeft size={16} strokeWidth={2.2} />
               <span className="hidden sm:inline">Sebelumnya</span>
             </button>
             <span className="px-3 py-2 text-sm font-bold text-[#003526]">
@@ -521,7 +528,7 @@ function DonationsPageContent() {
               className="rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:border-[#EC4899]/40 hover:text-[#003526] transition-all flex items-center gap-1.5"
             >
               <span className="hidden sm:inline">Selanjutnya</span>
-              <span className="material-symbols-outlined text-base">chevron_right</span>
+              <ChevronRight size={16} strokeWidth={2.2} />
             </button>
           </div>
         )}
@@ -571,10 +578,10 @@ function DonationCard({
   const statusBadge = isPending
     ? { bg: '#FEF3C7', text: '#92400E', label: 'Pending' }
     : isVerified
-      ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
-      : isRejected
-        ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
-        : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
+    ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
+    : isRejected
+    ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
+    : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
 
   // Discrepancy display — defensive against undefined/null/string from backend
   const hasDiscrepancy = donation.discrepancy_decision && donation.discrepancy_decision !== 'exact_match';
@@ -623,13 +630,7 @@ function DonationCard({
         <div>
           <p className="text-xs text-gray-500">Total Transfer</p>
           <p className="font-semibold text-gray-900">Rp {formatRp(donation.total_transfer)}</p>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {donation.display_id ? (
-              <>ID: <strong>{donation.display_id}</strong> · Kode: {donation.donation_code}</>
-            ) : (
-              <>Kode: {donation.donation_code}</>
-            )}
-          </p>
+          <p className="text-xs text-gray-500 mt-0.5">Kode: {donation.donation_code}</p>
         </div>
         {amountReceivedNum !== null && Number.isFinite(amountReceivedNum) && (
           <div>
@@ -646,15 +647,15 @@ function DonationCard({
 
       {/* Decision badge */}
       {hasDiscrepancy && donation.discrepancy_decision && (
-        <div className="mb-3 inline-block rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs text-blue-800">
-          📊 {decisionLabel(donation.discrepancy_decision)}
+        <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-blue-50 border border-blue-200 px-2.5 py-1 text-xs text-blue-800">
+          <BarChart3 size={13} strokeWidth={2.2} /> {decisionLabel(donation.discrepancy_decision)}
         </div>
       )}
 
       {/* Verifier badge */}
       {isVerified && donation.verified_by_role && (
-        <div className="mb-3 inline-block rounded-lg bg-green-50 border border-green-200 px-2.5 py-1 text-xs text-green-800">
-          ✅ Verified by {donation.verified_by_role === 'penggalang' ? 'Anda' : 'Admin'}
+        <div className="mb-3 inline-flex items-center gap-1.5 rounded-lg bg-green-50 border border-green-200 px-2.5 py-1 text-xs text-green-800">
+          <CheckCircle2 size={13} strokeWidth={2.2} /> Verified by {donation.verified_by_role === 'penggalang' ? 'Anda' : 'Admin'}
           {donation.verified_at && (
             <span className="text-green-600 ml-1">
               · {formatDate(donation.verified_at)}
@@ -665,15 +666,15 @@ function DonationCard({
 
       {/* Stale warning */}
       {isStale && (
-        <div className="mb-3 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-800">
-          ⏰ <b>Sudah {ageDays} hari pending.</b> Akan di-escalate ke admin di hari ke-3.
+        <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-orange-50 border border-orange-200 px-3 py-2 text-xs text-orange-800">
+          <Timer size={14} strokeWidth={2.2} className="flex-shrink-0" /> <span><b>Sudah {ageDays} hari pending.</b> Akan di-escalate ke admin di hari ke-3.</span>
         </div>
       )}
 
       {/* Under Audit notice */}
       {isUnderAudit && (
-        <div className="mb-3 rounded-lg bg-yellow-50 border border-yellow-300 px-3 py-2 text-xs text-yellow-900">
-          ⚠️ <b>Status under audit.</b> Donasi menunggu keputusan lanjutan (top-up / refund).
+        <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-yellow-50 border border-yellow-300 px-3 py-2 text-xs text-yellow-900">
+          <AlertTriangle size={14} strokeWidth={2.2} className="flex-shrink-0" /> <span><b>Status diperiksa.</b> Donasi menunggu keputusan lanjutan (top-up / refund).</span>
         </div>
       )}
 
@@ -691,14 +692,14 @@ function DonationCard({
             onClick={onVerify}
             className="flex-1 rounded-lg px-4 py-2.5 text-sm font-bold text-white transition-all hover:opacity-95 shadow-sm shadow-pink-500/20 flex items-center justify-center gap-2 bg-gradient-to-r from-[#003526] to-[#BE185D]"
           >
-            <span className="material-symbols-outlined text-base" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+            <BadgeCheck size={16} strokeWidth={2.2} />
             Verifikasi Diterima
           </button>
           <button
             onClick={onReject}
             className="rounded-lg border border-red-200 bg-white px-4 py-2.5 text-sm font-bold text-red-600 hover:bg-red-50 hover:border-red-300 transition-all flex items-center gap-1.5"
           >
-            <span className="material-symbols-outlined text-base">close</span>
+            <X size={16} strokeWidth={2.2} />
             Reject
           </button>
         </div>
@@ -706,7 +707,7 @@ function DonationCard({
 
       {/* Created time */}
       <p className="text-xs text-gray-400 mt-2 flex items-center gap-1">
-        <span className="material-symbols-outlined text-xs">schedule</span>
+        <Clock size={13} strokeWidth={2.2} />
         {formatDateTime(donation.created_at)}
       </p>
     </div>
@@ -724,7 +725,7 @@ function FinancialSummaryCard({
   if (loading) {
     return (
       <div className="rounded-2xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] p-4 text-center">
-        <span className="material-symbols-outlined text-2xl text-[#F9A8D4] animate-spin">progress_activity</span>
+        <Loader2 size={22} strokeWidth={2.2} className="text-[#F9A8D4] animate-spin" />
         <p className="text-xs text-[#95d3ba] mt-1">Memuat ringkasan keuangan...</p>
       </div>
     );
@@ -742,7 +743,7 @@ function FinancialSummaryCard({
         {/* Header */}
         <div className="flex items-center gap-2 mb-3">
           <div className="w-8 h-8 rounded-lg bg-[#EC4899] flex items-center justify-center shrink-0">
-            <span className="material-symbols-outlined text-white text-base" style={{ fontVariationSettings: "'FILL' 1" }}>account_balance_wallet</span>
+            <Wallet size={16} strokeWidth={2.2} className="text-white" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-[10px] font-bold text-[#F9A8D4] uppercase tracking-widest">Ringkasan Keuangan Saya</p>
@@ -763,7 +764,7 @@ function FinancialSummaryCard({
           {(summary.total_disbursed_pending ?? 0) > 0 && (
             <div className="mt-2 pt-2 border-t border-white/10">
               <div className="flex justify-between items-center">
-                <span className="text-[10px] text-[#FBBF24]">⏳ Pencairan pending (belum disetujui admin)</span>
+                <span className="inline-flex items-center gap-1 text-[10px] text-[#FBBF24]"><Clock size={11} strokeWidth={2.2} /> Pencairan pending (belum disetujui admin)</span>
                 <span className="text-[10px] font-bold text-[#FBBF24]">-{formatRupiahFull(summary.total_disbursed_pending ?? 0)}</span>
               </div>
               <p className="text-[9px] text-[#95d3ba] mt-0.5">
@@ -811,7 +812,7 @@ function FinancialSummaryCard({
           className="flex items-center justify-between w-full rounded-xl bg-white/10 backdrop-blur-sm p-3 border border-white/10 hover:bg-white/20 transition-all"
         >
           <div className="flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#F9A8D4] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>bar_chart</span>
+            <BarChart3 size={16} strokeWidth={2.2} className="text-[#F9A8D4]" />
             <div>
               <p className="text-[11px] font-bold text-white">Laporan Keuangan Lengkap</p>
               <p className="text-[9px] text-[#95d3ba]">Accrual · Saldo · Fee · Pendapatan · CSV Export</p>
@@ -823,6 +824,17 @@ function FinancialSummaryCard({
     </div>
   );
 }
+
+const DON_ICON_MAP: Record<string, any> = {
+  trending_up: TrendingUp,
+  check_circle: CheckCircle2,
+  groups: Users,
+  pending_actions: Clock,
+  search_off: SearchX,
+  celebration: PartyPopper,
+  thumb_up: ThumbsUp,
+  balance: Scale,
+};
 
 function SummaryStat({
   icon,
@@ -837,10 +849,11 @@ function SummaryStat({
   sublabel: string;
   color: string;
 }) {
+  const Ic = DON_ICON_MAP[icon] ?? TrendingUp;
   return (
     <div className="bg-white/10 backdrop-blur-sm rounded-xl p-2.5 border border-white/5">
       <div className="flex items-center gap-1.5 mb-1">
-        <span className="material-symbols-outlined text-sm" style={{ color, fontVariationSettings: "'FILL' 1" }}>{icon}</span>
+        <Ic size={15} strokeWidth={2.2} style={{ color }} />
         <p className="text-[10px] text-[#95d3ba] font-bold uppercase tracking-wider">{label}</p>
       </div>
       <p className="text-sm font-extrabold text-white leading-tight truncate">{value}</p>
@@ -920,17 +933,19 @@ function EmptyState({ smartView, hasFilter }: { smartView: SmartView; hasFilter:
   })();
 
   return (
-    <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center shadow-sm">
-      <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center"
-        style={{ background: `${meta.accent}15` }}>
-        <span className="material-symbols-outlined text-2xl"
-          style={{ color: meta.accent, fontVariationSettings: "'FILL' 1" }}>
-          {meta.icon}
-        </span>
-      </div>
-      <p className="text-sm font-bold text-gray-800 mb-1">{meta.title}</p>
-      <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">{meta.message}</p>
-    </div>
+    (() => {
+      const Ic = DON_ICON_MAP[meta.icon] ?? Inbox;
+      return (
+        <div className="rounded-2xl bg-white border border-gray-100 p-8 text-center shadow-sm">
+          <div className="w-14 h-14 rounded-full mx-auto mb-3 flex items-center justify-center"
+               style={{ background: `${meta.accent}15` }}>
+            <Ic size={26} strokeWidth={2.2} style={{ color: meta.accent }} />
+          </div>
+          <p className="text-sm font-bold text-gray-800 mb-1">{meta.title}</p>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto leading-relaxed">{meta.message}</p>
+        </div>
+      );
+    })()
   );
 }
 
