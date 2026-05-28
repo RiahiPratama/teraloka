@@ -8,7 +8,7 @@ import {
   CheckCircle2, XCircle, AlertCircle, AlertTriangle, Bell, 
   Hourglass, Wallet, Crown, Medal, Award,
   // ⭐ CATEGORY_META icons (replace emoji)
-  Target, Landmark, Hash, Clock4,
+  Target, Landmark, Hash, Clock4, CalendarRange,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
@@ -88,6 +88,12 @@ interface UnderAuditDonation {
 interface Props {
   category: DetailCategory;
   onClose: () => void;
+  // ⭐ Periode dari parent (cashflow page). breakdown-detail di-filter
+  // by periode ini. null/undefined = semua waktu.
+  dateFrom?: string | null;
+  dateTo?: string | null;
+  // ⭐ Label periode aktif (mis. "Bulan Ini") untuk badge di header panel.
+  periodLabel?: string;
 }
 
 const CATEGORY_META: Record<DetailCategory, { title: string; color: string; Icon: LucideIcon; description: string; backendCategory: string }> = {
@@ -107,7 +113,9 @@ function formatRupiah(n: number): string {
 function formatDate(iso: string): string {
   if (!iso) return '-';
   const d = new Date(iso);
-  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
+  // ⭐ transaction_date = tipe DATE. Pakai UTC biar '2026-04-30' tampil
+  // "30 Apr" persis (timezone lain bisa geser ke tanggal sebelum/sesudah).
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
 function daysAgo(iso: string | null): number | null {
@@ -204,7 +212,7 @@ interface BeneficiaryPeriodRow {
   disbursement_count: number;
 }
 
-export default function CashflowDetailPanel({ category, onClose }: Props) {
+export default function CashflowDetailPanel({ category, onClose, dateFrom, dateTo, periodLabel }: Props) {
   const { t } = useContext(AdminThemeContext);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -243,6 +251,8 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
   const [benTab, setBenTab] = useState<BeneficiaryTab>('penggalangs');
   const [benPartners, setBenPartners] = useState<BeneficiaryPartner[]>([]);
   const [benPeriods, setBenPeriods] = useState<BeneficiaryPeriodRow[]>([]);
+  // ⭐ Dana Beneficiary (category 'beneficiary') multi-tab
+  const [danaTab, setDanaTab] = useState<'transaksi' | 'partners' | 'periods'>('transaksi');
 
   const meta = CATEGORY_META[category];
 
@@ -251,9 +261,10 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
     setFeeTeralokaTab('donations');
     setTipTab('donations');
     setBenTab('penggalangs');
+    setDanaTab('transaksi');
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [category, dateFrom, dateTo]);
 
   async function fetchData() {
     setLoading(true);
@@ -265,6 +276,13 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
       setLoading(false);
       return;
     }
+
+    // ⭐ Periode → query string untuk endpoint breakdown-detail (yang
+    // support from/to di backend). Kosong = semua waktu.
+    const dateParams = new URLSearchParams();
+    if (dateFrom) dateParams.set('from', dateFrom);
+    if (dateTo) dateParams.set('to', dateTo);
+    const dateQs = dateParams.toString() ? `&${dateParams.toString()}` : '';
 
     try {
       if (category === 'under_audit') {
@@ -278,7 +296,7 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
       } else if (category === 'fee_teraloka') {
         // ⭐ Sesi 13 Mission 2: Fetch 3 endpoints parallel untuk 3-tab view
         const [detailRes, partnerRes, remittanceRes] = await Promise.all([
-          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=fee_teraloka&limit=500`, {
+          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=fee_teraloka&limit=500${dateQs}`, {
             headers: { Authorization: `Bearer ${tk}` },
           }),
           fetch(`${API_URL}/funding/admin/cashflow/fee-teraloka/by-partner`, {
@@ -307,7 +325,7 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
       } else if (category === 'tip') {
         // ⭐ Sesi 13 Mission 2D: Fetch 3 endpoints parallel
         const [detailRes, partnerRes, periodRes] = await Promise.all([
-          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=tip&limit=500`, {
+          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=tip&limit=500${dateQs}`, {
             headers: { Authorization: `Bearer ${tk}` },
           }),
           fetch(`${API_URL}/funding/admin/cashflow/tip-penggalang/by-partner`, {
@@ -361,10 +379,38 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
         setTotalSisa(penggalangJson.data.total_sisa ?? 0);
         setBenPartners(partnerJson.data.partners ?? []);
         setBenPeriods(periodJson.data.periods ?? []);
+      } else if (category === 'beneficiary') {
+        // ⭐ Dana Beneficiary multi-tab: detail (ikut periode) + by-partner + by-period.
+        // Reuse endpoint yang sama dengan hak_beneficiary (beneficiary/by-partner & by-period).
+        const [detailRes, partnerRes, periodRes] = await Promise.all([
+          fetch(`${API_URL}/funding/admin/cashflow/breakdown-detail?category=beneficiary&limit=500${dateQs}`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/beneficiary/by-partner`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+          fetch(`${API_URL}/funding/admin/cashflow/beneficiary/by-period`, {
+            headers: { Authorization: `Bearer ${tk}` },
+          }),
+        ]);
+
+        const [detailJson, partnerJson, periodJson] = await Promise.all([
+          detailRes.json(), partnerRes.json(), periodRes.json(),
+        ]);
+
+        if (!detailRes.ok || !detailJson.success) throw new Error(detailJson?.error?.message ?? 'Gagal load detail');
+        if (!partnerRes.ok || !partnerJson.success) throw new Error(partnerJson?.error?.message ?? 'Gagal load partner');
+        if (!periodRes.ok || !periodJson.success) throw new Error(periodJson?.error?.message ?? 'Gagal load periode');
+
+        setDetailRows(detailJson.data.rows ?? []);
+        setTotalAmount(detailJson.data.total_amount ?? 0);
+        setTotalCount(detailJson.data.total_count ?? 0);
+        setBenPartners(partnerJson.data.partners ?? []);
+        setBenPeriods(periodJson.data.periods ?? []);
       } else {
-        // Fetch detail rows per simple category
+        // Fetch detail rows per simple category (kode_unik)
         const res = await fetch(
-          `${API_URL}/funding/admin/cashflow/breakdown-detail?category=${meta.backendCategory}&limit=500`,
+          `${API_URL}/funding/admin/cashflow/breakdown-detail?category=${meta.backendCategory}&limit=500${dateQs}`,
           { headers: { Authorization: `Bearer ${tk}` } }
         );
         const json = await res.json();
@@ -547,8 +593,23 @@ export default function CashflowDetailPanel({ category, onClose }: Props) {
         </div>
       )}
 
-      {!loading && !error && category !== 'hak_beneficiary' && category !== 'under_audit' && category !== 'fee_teraloka' && category !== 'tip' && (
+      {!loading && !error && category !== 'hak_beneficiary' && category !== 'under_audit' && category !== 'fee_teraloka' && category !== 'tip' && category !== 'beneficiary' && (
         <DetailTable rows={detailRows} totalAmount={totalAmount} totalCount={totalCount} color={meta.color} t={t} />
+      )}
+
+      {!loading && !error && category === 'beneficiary' && (
+        <DanaBeneficiaryTabbedView
+          detailRows={detailRows}
+          totalAmount={totalAmount}
+          totalCount={totalCount}
+          partners={benPartners}
+          periods={benPeriods}
+          activeTab={danaTab}
+          onChangeTab={setDanaTab}
+          periodLabel={periodLabel}
+          color={meta.color}
+          t={t}
+        />
       )}
 
       {!loading && !error && category === 'fee_teraloka' && (
@@ -2315,6 +2376,153 @@ function BeneficiaryPerPeriode({
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ════════════════════════════════════════════════════════════════
+// ⭐ Dana Beneficiary — SMART Tabbed View (Transaksi | Per Partner | Per Periode)
+// Mirror pola FeeTeralokaTabbedView. Reuse DetailTable + data beneficiary/by-*.
+// ════════════════════════════════════════════════════════════════
+function DanaBeneficiaryTabbedView({
+  detailRows, totalAmount, totalCount, partners, periods,
+  activeTab, onChangeTab, periodLabel, color, t,
+}: {
+  detailRows: DetailRow[];
+  totalAmount: number;
+  totalCount: number;
+  partners: BeneficiaryPartner[];
+  periods: BeneficiaryPeriodRow[];
+  activeTab: 'transaksi' | 'partners' | 'periods';
+  onChangeTab: (tab: 'transaksi' | 'partners' | 'periods') => void;
+  periodLabel?: string;
+  color: string;
+  t: any;
+}) {
+  const fmt = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+
+  const totalUtang = partners.reduce((s, p) => s + (p.total_utang || 0), 0);
+  const totalDisbursed = partners.reduce((s, p) => s + (p.total_disbursed || 0), 0);
+  const totalSisa = partners.reduce((s, p) => s + (p.sisa_belum_disalurkan || 0), 0);
+  const maxNet = Math.max(1, ...periods.map(p => Math.abs(p.utang_in || 0)));
+
+  const TABS: { key: 'transaksi' | 'partners' | 'periods'; label: string }[] = [
+    { key: 'transaksi', label: `Transaksi (${totalCount})` },
+    { key: 'partners',  label: `Per Partner (${partners.length})` },
+    { key: 'periods',   label: 'Per Periode' },
+  ];
+
+  return (
+    <div>
+      {/* Tab pills */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 14, flexWrap: 'wrap' }}>
+        {TABS.map(tab => {
+          const active = activeTab === tab.key;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => onChangeTab(tab.key)}
+              style={{
+                padding: '7px 14px', borderRadius: 8, fontSize: 12.5, fontWeight: 700,
+                cursor: 'pointer', transition: 'all .15s',
+                border: `1px solid ${active ? color : t.sidebarBorder}`,
+                background: active ? color : 'transparent',
+                color: active ? '#fff' : t.textMuted,
+              }}
+            >
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TAB: Transaksi (ikut periode) */}
+      {activeTab === 'transaksi' && (
+        <div>
+          {periodLabel && (
+            <div style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 12,
+              padding: '5px 12px', borderRadius: 20, fontSize: 11.5, fontWeight: 700,
+              background: `${color}1A`, color, border: `1px solid ${color}40`,
+            }}>
+              <CalendarRange size={13} /> Periode: {periodLabel}
+            </div>
+          )}
+          <DetailTable rows={detailRows} totalAmount={totalAmount} totalCount={totalCount} color={color} t={t} />
+        </div>
+      )}
+
+      {/* TAB: Per Partner (all-time aggregate) */}
+      {activeTab === 'partners' && (
+        <div>
+          <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+            {[
+              { label: 'Total Dana Masuk', val: totalUtang, c: color },
+              { label: 'Sudah Disalurkan', val: totalDisbursed, c: t.success ?? '#10B981' },
+              { label: 'Belum Disalurkan', val: totalSisa, c: '#F59E0B' },
+            ].map((s, i) => (
+              <div key={i} style={{ flex: '1 1 160px', background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 10, padding: '10px 14px' }}>
+                <p style={{ fontSize: 10.5, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: 4 }}>{s.label}</p>
+                <p style={{ fontSize: 17, fontWeight: 800, color: s.c }}>{fmt(s.val)}</p>
+              </div>
+            ))}
+          </div>
+          {partners.length === 0 ? (
+            <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: 24 }}>Belum ada data partner.</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12.5 }}>
+                <thead>
+                  <tr style={{ borderBottom: `1px solid ${t.sidebarBorder}`, color: t.textDim, textAlign: 'left' }}>
+                    <th style={{ padding: '8px 10px', fontWeight: 700 }}>PARTNER</th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'right' }}>DANA MASUK</th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'right' }}>DISALURKAN</th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'right' }}>SISA</th>
+                    <th style={{ padding: '8px 10px', fontWeight: 700, textAlign: 'right' }}>%</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {partners.map((p, i) => (
+                    <tr key={i} style={{ borderBottom: `1px solid ${t.sidebarBorder}`, color: t.textPrimary }}>
+                      <td style={{ padding: '9px 10px', fontWeight: 600 }}>{p.partner_name}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right' }}>{fmt(p.total_utang)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', color: t.success ?? '#10B981' }}>{fmt(p.total_disbursed)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', color: p.sisa_belum_disalurkan > 0 ? '#F59E0B' : t.textMuted }}>{fmt(p.sisa_belum_disalurkan)}</td>
+                      <td style={{ padding: '9px 10px', textAlign: 'right', fontWeight: 700 }}>{(p.rate_disbursed_percent ?? 0).toFixed(0)}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB: Per Periode (12 bulan) */}
+      {activeTab === 'periods' && (
+        <div>
+          <p style={{ fontSize: 11.5, color: t.textDim, marginBottom: 12 }}>Dana masuk vs disalurkan, 12 bulan terakhir.</p>
+          {periods.length === 0 ? (
+            <p style={{ fontSize: 13, color: t.textMuted, textAlign: 'center', padding: 24 }}>Belum ada data periode.</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {periods.map((p, i) => (
+                <div key={i} style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 8, padding: '10px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12.5, fontWeight: 700, color: t.textPrimary }}>{p.period_label}</span>
+                    <span style={{ fontSize: 11.5, color: t.textMuted }}>
+                      Masuk <b style={{ color }}>{fmt(p.utang_in)}</b> · Salur <b style={{ color: t.success ?? '#10B981' }}>{fmt(p.disbursed_out)}</b>
+                    </span>
+                  </div>
+                  <div style={{ height: 6, background: t.sidebarBorder, borderRadius: 3, overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.min(100, (Math.abs(p.utang_in) / maxNet) * 100)}%`, height: '100%', background: color, borderRadius: 3 }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

@@ -164,9 +164,11 @@ function shortRupiah(n: number): string {
 }
 
 function isoAtDayStart(d: Date): string {
-  const copy = new Date(d);
-  copy.setHours(0, 0, 0, 0);
-  return copy.toISOString();
+  // ⭐ Kolom transaction_date = tipe DATE ('2026-05-01'), BUKAN timestamp.
+  // Boundary harus DATE polos 'YYYY-MM-DD' (tanpa jam/timezone) — kalau
+  // pakai timestamp berjam, DATE 30 April ke-tarik ke filter "Mei".
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 function datePreset(preset: DateRangePreset): { from: string | null; to: string | null } {
@@ -375,8 +377,10 @@ export default function AdminCashflowPage() {
   const dateRange = useMemo(() => {
     if (activePreset === 'custom') {
       return {
-        from: customFrom ? new Date(customFrom).toISOString() : null,
-        to: customTo ? new Date(customTo + 'T23:59:59').toISOString() : null,
+        // Kolom transaction_date = DATE → kirim YYYY-MM-DD polos (no timezone).
+        // customFrom/customTo dari input date sudah format 'YYYY-MM-DD'.
+        from: customFrom || null,
+        to: customTo || null,
       };
     }
     return datePreset(activePreset);
@@ -622,6 +626,9 @@ export default function AdminCashflowPage() {
         <CashflowDetailPanel
           category={expansionPanel}
           onClose={() => setExpansionPanel(null)}
+          dateFrom={dateRange.from}
+          dateTo={dateRange.to}
+          periodLabel={dateLabel}
         />
       )}
 
