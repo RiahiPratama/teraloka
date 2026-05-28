@@ -4,6 +4,7 @@ import { formatRupiah } from '@/utils/format';
 import {
   Heart, Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home,
   HeartHandshake, ShieldCheck, Users, TrendingUp, CheckCircle2, FileText, Info,
+  Plus, HandHeart,
 } from 'lucide-react';
 
 import DonorWall from './_components/DonorWall';
@@ -191,7 +192,7 @@ export default async function FundraisingPage({
               href="/owner/funding/campaigns/new/info"
               className="flex items-center gap-1.5 bg-gradient-to-r from-[#EC4899] to-[#BE185D] hover:opacity-90 transition-opacity text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg"
             >
-              <span className="material-symbols-outlined text-sm">add</span>
+              <Plus size={15} strokeWidth={2.4} />
               Galang Dana
             </Link>
           </div>
@@ -415,7 +416,7 @@ export default async function FundraisingPage({
               href="/owner/funding/campaigns/new/info"
               className="inline-flex items-center gap-2 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white font-bold text-sm px-5 py-2.5 rounded-xl hover:opacity-90 transition-opacity shadow-md"
             >
-              <span className="material-symbols-outlined text-sm">volunteer_activism</span>
+              <HandHeart size={15} strokeWidth={2.2} />
               Bantu Galang Dana
             </Link>
           </div>
