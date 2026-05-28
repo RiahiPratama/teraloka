@@ -18,7 +18,6 @@ const Icons = {
 export interface Donation {
   id: string;
   donation_code: string;
-  display_id?: string;       // ⭐ BDN-DON-2026-XXXXX (human-readable)
   campaign_id: string;
   donor_id?: string;
   donor_name: string;
@@ -26,8 +25,9 @@ export interface Donation {
   is_anonymous: boolean;
   amount: number;
   operational_fee: number;
+  penggalang_fee?: number;    // ⭐ Sesi 13 Mission 2K: tip opt-in
   total_transfer: number;
-  verification_status: string; // pending | verified | rejected
+  verification_status: string; // pending | verified | rejected | under_audit
   verified_at?: string;
   verified_by_role?: string | null;
   rejection_reason?: string;
@@ -38,6 +38,8 @@ export interface Donation {
     title: string;
     slug: string;
     status: string;
+    partner_name?: string;
+    is_archived?: boolean;     // ⭐ Sesi 13 Mission 2I bonus field
   } | null;
 }
 
@@ -194,32 +196,17 @@ export default function DonationsTable({
 
                   {/* Donation Code */}
                   <td style={tdStyle(t, 'left')}>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                      {/* Primary: display_id (BDN-DON-2026-XXXXX) */}
-                      <span style={{
-                        fontSize: 11, fontFamily: 'monospace',
-                        fontWeight: 700,
-                        color: t.textPrimary,
-                        background: t.navHover,
-                        padding: '3px 8px',
-                        borderRadius: 6,
-                        display: 'inline-block',
-                        whiteSpace: 'nowrap',
-                      }}>
-                        {d.display_id ?? d.donation_code}
-                      </span>
-                      {/* Sub: kode unik 3-digit untuk cross-check transfer */}
-                      {d.display_id && (
-                        <span title="Kode unik 3-digit untuk cross-check nominal transfer" style={{
-                          fontSize: 10,
-                          fontFamily: 'monospace',
-                          color: t.textDim,
-                          paddingLeft: 4,
-                        }}>
-                          #{d.donation_code}
-                        </span>
-                      )}
-                    </div>
+                    <span style={{
+                      fontSize: 11, fontFamily: 'monospace',
+                      fontWeight: 700,
+                      color: t.textPrimary,
+                      background: t.navHover,
+                      padding: '3px 8px',
+                      borderRadius: 6,
+                      display: 'inline-block',
+                    }}>
+                      {d.donation_code}
+                    </span>
                   </td>
 
                   {/* Donor */}
@@ -279,20 +266,60 @@ export default function DonationsTable({
                     )}
                   </td>
 
-                  {/* Amount */}
+                  {/* Amount — ⭐ Sesi 13 Mission 2L: Compact (breakdown ke modal) */}
                   <td style={tdStyle(t, 'right')}>
-                    <div>
-                      <span style={{
-                        fontSize: 14, fontWeight: 800, color: t.textPrimary,
-                      }}>
-                        {shortRupiah(d.amount)}
-                      </span>
-                      {d.operational_fee > 0 && (
-                        <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
-                          + fee {shortRupiah(d.operational_fee)}
+                    {(() => {
+                      const tip = Number((d as any).penggalang_fee) || 0;
+                      const totalTransfer = Number(d.total_transfer) || 0;
+                      const kodeUnik = Math.max(0, 
+                        totalTransfer - 
+                        (Number(d.amount) || 0) - 
+                        (Number(d.operational_fee) || 0) - 
+                        tip
+                      );
+                      const hasExtras = tip > 0 || kodeUnik > 0;
+                      const showTotal = hasExtras && totalTransfer > d.amount;
+                      
+                      return (
+                        <div>
+                          <span style={{
+                            fontSize: 14, fontWeight: 800, color: t.textPrimary,
+                          }}>
+                            {shortRupiah(d.amount)}
+                          </span>
+                          {d.operational_fee > 0 && (
+                            <div style={{ fontSize: 10, color: t.textMuted, marginTop: 2 }}>
+                              + fee {shortRupiah(d.operational_fee)}
+                              {hasExtras && (
+                                <span 
+                                  title={`Tip ${shortRupiah(tip)} · Unik ${shortRupiah(kodeUnik)}`}
+                                  style={{ 
+                                    marginLeft: 4, 
+                                    padding: '1px 5px',
+                                    borderRadius: 3,
+                                    background: 'rgba(139,92,246,0.15)',
+                                    color: '#8B5CF6',
+                                    fontWeight: 700,
+                                    fontSize: 9,
+                                    cursor: 'help',
+                                  }}
+                                >
+                                  +tip +unik
+                                </span>
+                              )}
+                            </div>
+                          )}
+                          {showTotal && (
+                            <div style={{ 
+                              fontSize: 10, color: t.textDim, marginTop: 2,
+                              fontStyle: 'italic',
+                            }}>
+                              Total {shortRupiah(totalTransfer)}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                      );
+                    })()}
                   </td>
 
                   {/* Time Ago */}

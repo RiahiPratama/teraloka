@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
@@ -33,11 +33,15 @@ const Icons = {
   Alert:       () => <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
 };
 
+// ⭐ Sesi 13 Mission 2N: Filosofi Cash Flow Real
+// "Semua" = valid only (exclude rejected)
+// "Rejected" = pill terpisah, visual distinct
 const STATUS_TABS = [
-  { key: 'pending',  label: 'Pending' },
-  { key: 'verified', label: 'Verified' },
-  { key: 'rejected', label: 'Rejected' },
-  { key: 'all',      label: 'Semua' },
+  { key: 'pending',     label: 'Pending',     separated: false },
+  { key: 'verified',    label: 'Verified',    separated: false },
+  { key: 'under_audit', label: 'Tahan Audit', separated: false },
+  { key: 'all',         label: 'Semua',       separated: false },
+  { key: 'rejected',    label: 'Rejected',    separated: true  }, // visual terpisah
 ];
 
 const SORT_OPTIONS = [
@@ -47,6 +51,50 @@ const SORT_OPTIONS = [
   { key: 'amount_low',  label: 'Nominal Terendah' },
   { key: 'donor_az',    label: 'Donor A-Z' },
 ];
+
+// ⭐ Sesi 13 Mission 2M: Date range filter
+type DateRangePreset = 'all' | 'today' | 'week' | 'month' | 'year' | 'custom';
+
+const DATE_PRESET_OPTIONS: { key: DateRangePreset; label: string }[] = [
+  { key: 'all',   label: 'Semua' },
+  { key: 'today', label: 'Hari Ini' },
+  { key: 'week',  label: 'Minggu Ini' },
+  { key: 'month', label: 'Bulan Ini' },
+  { key: 'year',  label: 'Tahun Ini' },
+];
+
+function isoAtDayStart(d: Date): string {
+  const startOfDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  return startOfDay.toISOString();
+}
+
+function getDateRangeFromPreset(preset: DateRangePreset): { from: string | null; to: string | null } {
+  const now = new Date();
+  switch (preset) {
+    case 'today': {
+      return { from: isoAtDayStart(now), to: null };
+    }
+    case 'week': {
+      // Senin minggu ini sebagai start (locale Indonesia)
+      const day = now.getDay(); // 0=Minggu, 1=Senin, ...
+      const diff = day === 0 ? 6 : day - 1; // diff dari Senin
+      const monday = new Date(now);
+      monday.setDate(now.getDate() - diff);
+      return { from: isoAtDayStart(monday), to: null };
+    }
+    case 'month': {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1);
+      return { from: isoAtDayStart(from), to: null };
+    }
+    case 'year': {
+      const from = new Date(now.getFullYear(), 0, 1);
+      return { from: isoAtDayStart(from), to: null };
+    }
+    case 'all':
+    default:
+      return { from: null, to: null };
+  }
+}
 
 interface DonationStats {
   pending: number;
@@ -94,23 +142,37 @@ export default function AdminDonationsPage() {
     pending: 0, pendingOver24h: 0, verifiedToday: 0, rejectedToday: 0,
   });
   const [statusCounts, setStatusCounts] = useState<Record<string, number>>({});
-  // ⭐ Sprint 2.3 Phase 3a: Accrual breakdown (5 metrics) — sesi 12 fix
+  // ⭐ Sprint 2.3 Phase 3a: Accrual breakdown (5 metrics including under_audit)
   const [accrualStats, setAccrualStats] = useState({
-    accrualAmount: 0,      accrualCount: 0,      // Total semua donations (gross total_transfer)
-    pendingAmount: 0,      pendingCount: 0,      // Donations menunggu verifikasi
-    rejectedAmount: 0,     rejectedCount: 0,     // Donations ditolak
-    underAuditAmount: 0,   underAuditCount: 0,   // ⭐ Donations under_audit (awaiting_topup, refund_pending, escalation)
-    aktualAmount: 0,       aktualCount: 0,       // = accrual − pending − rejected − underAudit (verified bersih)
+    accrualAmount: 0,    accrualCount: 0,    // Total semua donations (verified + pending + rejected + under_audit)
+    pendingAmount: 0,    pendingCount: 0,    // Donations menunggu verifikasi penggalang
+    underAuditAmount: 0, underAuditCount: 0, // ⭐ Sesi 13 Mission 2J: Donations tahan audit (escalated)
+    rejectedAmount: 0,   rejectedCount: 0,   // Donations ditolak
+    aktualAmount: 0,     aktualCount: 0,     // = accrual − pending − under_audit − rejected (verified saja)
   });
   const [smartViewCounts, setSmartViewCounts] = useState<DonationSmartViewCounts | null>(null);
   const [subNavRefresh, setSubNavRefresh] = useState(0);
+
+  // ⭐ Sesi 13 Mission 2M: Date range preset filter
+  const [datePreset, setDatePreset] = useState<DateRangePreset>('all');
+
+  const dateRange = useMemo(() => {
+    if (datePreset === 'custom') {
+      return {
+        from: activeFilters.dateFrom || null,
+        to: activeFilters.dateTo || null,
+      };
+    }
+    return getDateRangeFromPreset(datePreset);
+  }, [datePreset, activeFilters.dateFrom, activeFilters.dateTo]);
 
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const [modal, setModal] = useState<{ type: 'verify' | 'reject' | 'detail'; donation: Donation } | null>(null);
+  const [modal, setModal] = useState<{ type: 'verify' | 'reject' | 'detail' | 'addNote'; donation: Donation } | null>(null);
   const [rejectReason, setRejectReason] = useState('');
+  const [adminNote, setAdminNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
@@ -136,7 +198,12 @@ export default function AdminDonationsPage() {
   // Build current query string (for CSV export)
   const currentQueryString = useMemo(() => {
     const params = new URLSearchParams();
-    if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
+    // ⭐ Sesi 13 Mission 2N: "Semua" = valid only (exclude rejected)
+    if (activeStatus === 'all') {
+      params.set('status', 'valid');
+    } else if (activeStatus) {
+      params.set('status', activeStatus);
+    }
     if (activeSmartView) params.set('sv', activeSmartView);
     if (activeSort) params.set('sort', activeSort);
     if (urlSearch) params.set('q', urlSearch);
@@ -160,14 +227,20 @@ export default function AdminDonationsPage() {
       limit: String(urlLimit),
       sort: activeSort,
     });
-    if (activeStatus && activeStatus !== 'all') params.set('status', activeStatus);
+    // ⭐ Sesi 13 Mission 2N: "Semua" = valid only (exclude rejected)
+    if (activeStatus === 'all') {
+      params.set('status', 'valid');
+    } else if (activeStatus) {
+      params.set('status', activeStatus);
+    }
     if (activeSmartView) params.set('sv', activeSmartView);
     if (urlSearch) params.set('q', urlSearch);
     if (activeFilters.amountMin) params.set('amount_min', activeFilters.amountMin);
     if (activeFilters.amountMax) params.set('amount_max', activeFilters.amountMax);
     if (activeFilters.anonFilter) params.set('anon', activeFilters.anonFilter);
-    if (activeFilters.dateFrom) params.set('from', activeFilters.dateFrom);
-    if (activeFilters.dateTo) params.set('to', activeFilters.dateTo);
+    // ⭐ Mission 2M: dateRange (dari preset atau custom) takes priority
+    if (dateRange.from) params.set('from', dateRange.from);
+    if (dateRange.to) params.set('to', dateRange.to);
 
     try {
       const res = await fetch(`${API_URL}/funding/admin/donations?${params.toString()}`, {
@@ -188,15 +261,21 @@ export default function AdminDonationsPage() {
     } finally {
       setLoading(false);
     }
-  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit, activeFilters]);
+  }, [activeStatus, activeSmartView, activeSort, urlSearch, urlPage, urlLimit, activeFilters, dateRange]);
 
   const fetchStatusCounts = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
-    const statuses = ['pending', 'verified', 'rejected'];
+    // ⭐ Sesi 13 Mission 2J: Include under_audit
+    // ⭐ Mission 2M: respect date filter
+    const statuses = ['pending', 'verified', 'rejected', 'under_audit'];
+    const dateQs = [
+      dateRange.from ? `&from=${encodeURIComponent(dateRange.from)}` : '',
+      dateRange.to ? `&to=${encodeURIComponent(dateRange.to)}` : '',
+    ].join('');
     const results = await Promise.all(
       statuses.map(s =>
-        fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1`, {
+        fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1${dateQs}`, {
           headers: { Authorization: `Bearer ${tk}` },
         }).then(r => r.json()).catch(() => null)
       )
@@ -204,7 +283,7 @@ export default function AdminDonationsPage() {
     const next: Record<string, number> = {};
     statuses.forEach((s, i) => { next[s] = results[i]?.meta?.total ?? 0; });
     setStatusCounts(next);
-  }, []);
+  }, [dateRange]);
 
   const fetchSmartViewCounts = useCallback(async () => {
     const tk = localStorage.getItem('tl_token');
@@ -223,23 +302,26 @@ export default function AdminDonationsPage() {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
     try {
-      // ⭐ Sesi 12 Fix (25 Mei 2026):
-      // 1. Pakai total_transfer (gross) bukan amount (beneficiary only)
-      //    Filosofi: Akrual = SUM(total_transfer) = beneficiary + fee Teraloka + fee penggalang + kode unik
-      // 2. Include under_audit (uang udah masuk rekening Partner, tahan di Penelaahan)
+      // Fetch each status with high limit untuk dapat semua amount
+      // ⭐ Sesi 13 Mission 2J: Include under_audit
+      // ⭐ Mission 2M: respect date filter
       const statuses = ['pending', 'verified', 'rejected', 'under_audit'];
+      const dateQs = [
+        dateRange.from ? `&from=${encodeURIComponent(dateRange.from)}` : '',
+        dateRange.to ? `&to=${encodeURIComponent(dateRange.to)}` : '',
+      ].join('');
       const results = await Promise.all(
         statuses.map(s =>
-          fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1000`, {
+          fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1000${dateQs}`, {
             headers: { Authorization: `Bearer ${tk}` },
           }).then(r => r.json()).catch(() => null)
         )
       );
 
-      // Sum total_transfer per status (gross, includes fee + tip + kode unik)
+      // Sum amount per status
       const sumByStatus = (data: any[] | undefined) => {
         if (!Array.isArray(data)) return 0;
-        return data.reduce((acc, d) => acc + (Number(d.total_transfer) || 0), 0);
+        return data.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
       };
 
       const pendingData = results[0]?.data ?? [];
@@ -251,25 +333,28 @@ export default function AdminDonationsPage() {
       const aktualAmount = sumByStatus(verifiedData);
       const rejectedAmount = sumByStatus(rejectedData);
       const underAuditAmount = sumByStatus(underAuditData);
-      const accrualAmount = pendingAmount + aktualAmount + rejectedAmount + underAuditAmount;
+      // ⭐ Mission 2N: Filosofi Cash Flow Real LOCKED
+      // Total Tercatat = pending + verified + under_audit (EXCLUDE rejected)
+      // Rejected = riwayat terpisah, tidak masuk hitungan
+      const accrualAmount = pendingAmount + aktualAmount + underAuditAmount;
 
       const pendingCount = results[0]?.meta?.total ?? 0;
       const aktualCount = results[1]?.meta?.total ?? 0;
       const rejectedCount = results[2]?.meta?.total ?? 0;
       const underAuditCount = results[3]?.meta?.total ?? 0;
-      const accrualCount = pendingCount + aktualCount + rejectedCount + underAuditCount;
+      const accrualCount = pendingCount + aktualCount + underAuditCount;
 
       setAccrualStats({
         accrualAmount, accrualCount,
         pendingAmount, pendingCount,
-        rejectedAmount, rejectedCount,
         underAuditAmount, underAuditCount,
+        rejectedAmount, rejectedCount,
         aktualAmount, aktualCount,
       });
     } catch (err) {
       console.error('Fetch accrual stats failed:', err);
     }
-  }, []);
+  }, [dateRange]);
 
   useEffect(() => { fetchDonations(); }, [fetchDonations]);
   useEffect(() => {
@@ -405,6 +490,60 @@ export default function AdminDonationsPage() {
     } finally { setSubmitting(false); }
   }
 
+  // ⭐ Sesi 13 Mission 2H: Chat WA Donor / Partner (log + open WhatsApp)
+  async function handleChatWA(target: 'donor' | 'partner', d: any) {
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+    
+    const phone = target === 'donor' ? d.donor_phone : d.partner_phone;
+    if (!phone) {
+      showToast(false, `Nomor WA ${target === 'donor' ? 'donor' : 'penggalang'} tidak tersedia`);
+      return;
+    }
+    
+    // Empatic message — penggalang mungkin di daerah 3T
+    const greeting = target === 'partner' 
+      ? `Halo Penggalang ${d.campaigns?.partner_name || ''}, ini admin TeraLoka. Kami ingin konfirmasi donasi *${d.donation_code}* (${shortRupiah(d.amount)}) dari donor *${d.donor_name}*. Mungkin lagi di lokasi sulit sinyal? Mohon balas kalau sempat, terima kasih atas dedikasinya 🙏`
+      : `Halo *${d.donor_name}*, ini admin TeraLoka. Kami ingin verify donasi *${d.donation_code}* (${shortRupiah(d.amount)}) yang Anda kirim. Bisa konfirmasi transfer sudah berhasil? Terima kasih 🙏`;
+    
+    const waUrl = `https://wa.me/${normalizeWaNumber(phone)}?text=${encodeURIComponent(greeting)}`;
+    window.open(waUrl, '_blank');
+    
+    // Log action ke backend (non-blocking)
+    fetch(`${API_URL}/funding/admin/donations/${d.id}/view`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_taken: target === 'donor' ? 'wa_donor' : 'wa_partner' }),
+    }).catch(() => {});
+    
+    showToast(true, `📱 Chat WA ke ${target === 'donor' ? 'donor' : 'penggalang'} terbuka`);
+  }
+
+  // ⭐ Sesi 13 Mission 2H: Tambah catatan admin
+  async function handleAddNote(d: Donation) {
+    if (adminNote.trim().length < 3) {
+      showToast(false, 'Catatan minimal 3 karakter');
+      return;
+    }
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/funding/admin/donations/${d.id}/view`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action_taken: 'note', notes: adminNote.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal simpan');
+      showToast(true, '📝 Catatan tersimpan');
+      setAdminNote('');
+      setModal({ type: 'detail', donation: d });  // back to detail
+    } catch (err: any) {
+      showToast(false, err.message);
+    } finally { setSubmitting(false); }
+  }
+
   function handleBulkComplete() {
     fetchDonations();
     fetchStatusCounts();
@@ -433,6 +572,53 @@ export default function AdminDonationsPage() {
 
       <CommandCenterTabs active="donations" refreshKey={subNavRefresh} />
 
+      {/* ⭐ Sesi 13 Mission 2M: Date Range Preset Pills */}
+      <div style={{ 
+        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+        marginBottom: 16, paddingBottom: 4,
+      }}>
+        <span style={{ 
+          fontSize: 11, fontWeight: 700, color: t.textMuted, 
+          textTransform: 'uppercase', letterSpacing: '0.06em',
+          marginRight: 4,
+        }}>
+          📅 Periode:
+        </span>
+        {DATE_PRESET_OPTIONS.map(opt => {
+          const active = datePreset === opt.key;
+          return (
+            <button
+              key={opt.key}
+              onClick={() => setDatePreset(opt.key)}
+              style={{
+                padding: '6px 14px',
+                borderRadius: 999,
+                border: `1px solid ${active ? '#3B82F6' : t.sidebarBorder}`,
+                background: active ? 'rgba(59,130,246,0.15)' : 'transparent',
+                color: active ? '#3B82F6' : t.textDim,
+                fontSize: 12,
+                fontWeight: active ? 700 : 500,
+                cursor: 'pointer',
+                transition: 'all 0.15s',
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+        {/* Active range indicator */}
+        {dateRange.from && (
+          <span style={{ 
+            fontSize: 11, color: t.textDim, fontStyle: 'italic',
+            marginLeft: 'auto',
+          }}>
+            sejak {new Date(dateRange.from).toLocaleDateString('id-ID', { 
+              day: 'numeric', month: 'short', year: 'numeric' 
+            })}
+          </span>
+        )}
+      </div>
+
       {/* ⭐ Sprint 2.3 Phase 3a: Accrual Breakdown — formula visual */}
       <div style={{
         background: t.mainBg, border: `1px solid ${t.sidebarBorder}`,
@@ -443,17 +629,17 @@ export default function AdminDonationsPage() {
             📊 Rekonsiliasi Donasi
           </p>
           <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic' }}>
-            Rumus: Aktual = Akrual − Pending − Ditolak − Under Audit
+            Rumus: Dana Donasi = Total Tercatat − Pending − Tahan Audit
           </p>
         </div>
 
         <div style={{
-          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+          display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
           gap: 10,
         }}>
           <AccrualCard
-            label="AKRUAL (Total)"
-            sublabel="Gross total transfer"
+            label="TOTAL TERCATAT"
+            sublabel="Donasi valid masuk sistem"
             amount={accrualStats.accrualAmount}
             count={accrualStats.accrualCount}
             color="#3B82F6"
@@ -463,7 +649,7 @@ export default function AdminDonationsPage() {
           />
           <AccrualCard
             label="PENDING"
-            sublabel="Menunggu verifikasi"
+            sublabel="Menunggu verifikasi penggalang"
             amount={accrualStats.pendingAmount}
             count={accrualStats.pendingCount}
             color="#F59E0B"
@@ -473,30 +659,19 @@ export default function AdminDonationsPage() {
             Icon={PauseCircle}
           />
           <AccrualCard
-            label="DITOLAK"
-            sublabel="Tidak masuk hitungan"
-            amount={accrualStats.rejectedAmount}
-            count={accrualStats.rejectedCount}
-            color="#EF4444"
-            t={t}
-            operator="−"
-            href="/admin/funding/donations?status=rejected"
-            Icon={XOctagon}
-          />
-          <AccrualCard
-            label="UNDER AUDIT"
-            sublabel="Tahan di Penelaahan"
+            label="TAHAN AUDIT"
+            sublabel="Belum tercatat (escalated admin)"
             amount={accrualStats.underAuditAmount}
             count={accrualStats.underAuditCount}
             color="#8B5CF6"
             t={t}
             operator="−"
             href="/admin/funding/donations?status=under_audit"
-            Icon={PauseCircle}
+            Icon={AlertCircle}
           />
           <AccrualCard
-            label="AKTUAL"
-            sublabel="Real terkumpul (verified)"
+            label="DANA DONASI"
+            sublabel="Donasi valid terverifikasi"
             amount={accrualStats.aktualAmount}
             count={accrualStats.aktualCount}
             color="#10B981"
@@ -507,6 +682,40 @@ export default function AdminDonationsPage() {
             Icon={CheckCheck}
           />
         </div>
+
+        {/* ⭐ Mission 2N: Riwayat Ditolak terpisah (Filosofi Cash Flow Real) */}
+        {accrualStats.rejectedCount > 0 && (
+          <Link 
+            href="/admin/funding/donations?status=rejected" 
+            style={{ textDecoration: 'none', display: 'block', marginTop: 12 }}
+          >
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '10px 14px',
+              background: 'rgba(239,68,68,0.05)',
+              border: '1px dashed rgba(239,68,68,0.3)',
+              borderRadius: 8,
+              cursor: 'pointer',
+              transition: 'background 0.15s',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <XOctagon size={14} style={{ color: '#EF4444', opacity: 0.7 }} />
+                <span style={{ fontSize: 11, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                  Riwayat Ditolak
+                </span>
+                <span style={{ fontSize: 11, color: t.textDim }}>
+                  {accrualStats.rejectedCount} transaksi · {shortRupiah(accrualStats.rejectedAmount)}
+                </span>
+                <span style={{ fontSize: 10, color: t.textMuted, fontStyle: 'italic' }}>
+                  · tidak masuk hitungan
+                </span>
+              </div>
+              <span style={{ fontSize: 11, color: '#EF4444', fontWeight: 600 }}>
+                Lihat →
+              </span>
+            </div>
+          </Link>
+        )}
       </div>
 
       {/* Stats Cards */}
@@ -550,32 +759,61 @@ export default function AdminDonationsPage() {
       </div>
 
       {/* Status Tabs */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto' }}>
-        {STATUS_TABS.map(tab => {
+      <div style={{ display: 'flex', gap: 8, marginBottom: 16, overflowX: 'auto', alignItems: 'center' }}>
+        {STATUS_TABS.map((tab, idx) => {
           const active = activeStatus === tab.key;
+          // ⭐ Mission 2N: "Semua" count = valid only (exclude rejected)
           const count = tab.key === 'all'
-            ? Object.values(statusCounts).reduce((sum, n) => sum + n, 0)
+            ? (statusCounts.pending ?? 0) + (statusCounts.verified ?? 0) + (statusCounts.under_audit ?? 0)
             : (statusCounts[tab.key] ?? 0);
+          const isRejected = tab.key === 'rejected';
+          
           return (
-            <button key={tab.key} onClick={() => switchStatus(tab.key)}
-              style={{
-                display: 'inline-flex', alignItems: 'center', gap: 8,
-                padding: '8px 14px', borderRadius: 10,
-                fontSize: 13, fontWeight: 600,
-                color: active ? '#fff' : t.textPrimary,
-                background: active ? '#1F2937' : t.mainBg,
-                border: `1px solid ${active ? '#1F2937' : t.sidebarBorder}`,
-                cursor: 'pointer', whiteSpace: 'nowrap',
-              }}>
-              {tab.label}
-              <span style={{
-                background: active ? 'rgba(255,255,255,0.2)' : (tab.key === 'pending' && count > 0 ? 'rgba(245,158,11,0.15)' : t.navHover),
-                color: active ? '#fff' : (tab.key === 'pending' && count > 0 ? '#F59E0B' : t.textDim),
-                fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
-              }}>
-                {count}
-              </span>
-            </button>
+            <React.Fragment key={tab.key}>
+              {/* ⭐ Mission 2N: Visual separator sebelum Rejected (terpisah dari valid statuses) */}
+              {tab.separated && (
+                <span style={{ 
+                  color: t.textMuted, 
+                  fontSize: 14, 
+                  margin: '0 4px',
+                  userSelect: 'none',
+                }}>·</span>
+              )}
+              <button onClick={() => switchStatus(tab.key)}
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: 8,
+                  padding: '8px 14px', borderRadius: 10,
+                  fontSize: 13, fontWeight: 600,
+                  color: active 
+                    ? '#fff' 
+                    : (isRejected ? t.textDim : t.textPrimary),
+                  background: active 
+                    ? (isRejected ? '#7F1D1D' : '#1F2937')
+                    : (isRejected ? 'rgba(239,68,68,0.04)' : t.mainBg),
+                  border: `1px ${isRejected ? 'dashed' : 'solid'} ${active 
+                    ? (isRejected ? '#7F1D1D' : '#1F2937')
+                    : (isRejected ? 'rgba(239,68,68,0.3)' : t.sidebarBorder)}`,
+                  cursor: 'pointer', whiteSpace: 'nowrap',
+                  opacity: isRejected && !active ? 0.85 : 1,
+                }}>
+                {tab.label}
+                <span style={{
+                  background: active 
+                    ? 'rgba(255,255,255,0.2)' 
+                    : (tab.key === 'pending' && count > 0 
+                        ? 'rgba(245,158,11,0.15)' 
+                        : (isRejected ? 'rgba(239,68,68,0.15)' : t.navHover)),
+                  color: active 
+                    ? '#fff' 
+                    : (tab.key === 'pending' && count > 0 
+                        ? '#F59E0B' 
+                        : (isRejected ? '#EF4444' : t.textDim)),
+                  fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
+                }}>
+                  {count}
+                </span>
+              </button>
+            </React.Fragment>
           );
         })}
       </div>
@@ -740,6 +978,7 @@ export default function AdminDonationsPage() {
                 {modal.type === 'verify' && '✓ Verifikasi Donasi'}
                 {modal.type === 'reject' && '✗ Tolak Donasi'}
                 {modal.type === 'detail' && 'Detail Donasi'}
+                {modal.type === 'addNote' && '📝 Tambah Catatan Admin'}
               </h3>
               <button onClick={() => !submitting && setModal(null)}
                 style={{ background: 'transparent', border: 'none', color: t.textDim, cursor: 'pointer', padding: 4 }}>
@@ -822,8 +1061,22 @@ export default function AdminDonationsPage() {
               {modal.type === 'detail' && (
                 <>
                   <DonationDetail d={modal.donation} t={t} />
+                  
+                  {/* ⭐ Sesi 13 Mission 2G + 2H: Empathic workflow panel untuk under_audit */}
+                  {modal.donation.verification_status === 'under_audit' && (
+                    <UnderAuditActionPanel 
+                      donation={modal.donation as any}
+                      t={t}
+                      onChatDonor={() => handleChatWA('donor', modal.donation as any)}
+                      onChatPartner={() => handleChatWA('partner', modal.donation as any)}
+                      onAddNote={() => setModal({ type: 'addNote', donation: modal.donation })}
+                    />
+                  )}
+                  
+                  {/* ⭐ Mission 2G: Action buttons — sekarang juga muncul untuk under_audit */}
                   <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
-                    {modal.donation.verification_status === 'pending' && (
+                    {(modal.donation.verification_status === 'pending' || 
+                      modal.donation.verification_status === 'under_audit') && (
                       <>
                         <button onClick={() => setModal({ type: 'reject', donation: modal.donation })}
                           style={{
@@ -839,10 +1092,58 @@ export default function AdminDonationsPage() {
                             background: 'rgba(16,185,129,0.1)', color: '#10B981',
                             fontWeight: 600, fontSize: 13, cursor: 'pointer',
                           }}>
-                          ✓ Verify
+                          {modal.donation.verification_status === 'under_audit' ? '✓ Verify Manual' : '✓ Verify'}
                         </button>
                       </>
                     )}
+                  </div>
+                </>
+              )}
+
+              {/* ⭐ Sesi 13 Mission 2H: Add Note modal */}
+              {modal.type === 'addNote' && (
+                <>
+                  <div style={{
+                    background: 'rgba(99,102,241,0.08)', border: '1px solid rgba(99,102,241,0.25)',
+                    borderRadius: 12, padding: 14, marginBottom: 16,
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8, background: '#6366F1', color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      fontSize: 14,
+                    }}>📝</div>
+                    <div style={{ fontSize: 12, color: '#4F46E5', lineHeight: 1.5 }}>
+                      <strong>Catatan visible untuk admin lain.</strong> Bantu tim koordinasi resolusi donasi ini.
+                    </div>
+                  </div>
+                  <DonationSummary d={modal.donation} t={t} />
+                  <div style={{ marginTop: 20 }}>
+                    <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: t.textPrimary, marginBottom: 8 }}>
+                      Catatan <span style={{ color: '#EF4444' }}>*</span>
+                    </label>
+                    <textarea value={adminNote} onChange={e => setAdminNote(e.target.value)}
+                      placeholder="Contoh: Sudah Chat WA donor, bukti transfer asli. Tunggu konfirmasi penggalang Senin depan."
+                      rows={4} maxLength={500} disabled={submitting}
+                      style={{
+                        width: '100%', padding: '12px 14px', borderRadius: 12,
+                        border: `1px solid ${t.sidebarBorder}`, background: t.mainBg,
+                        color: t.textPrimary, fontSize: 13, resize: 'none',
+                        fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box',
+                      }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6 }}>
+                      <p style={{ fontSize: 11, color: t.textMuted }}>Minimal 3 karakter.</p>
+                      <p style={{ fontSize: 11, color: t.textMuted }}>{adminNote.length}/500</p>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
+                    <button onClick={() => { setModal({ type: 'detail', donation: modal.donation }); setAdminNote(''); }} 
+                      disabled={submitting} style={cancelBtnStyle(t)}>Batal</button>
+                    <button onClick={() => handleAddNote(modal.donation)}
+                      disabled={submitting || adminNote.trim().length < 3}
+                      style={primaryBtnStyle('#6366F1', '#4F46E5', submitting || adminNote.trim().length < 3)}>
+                      {submitting ? 'Menyimpan...' : '📝 Simpan'}
+                    </button>
                   </div>
                 </>
               )}
@@ -1196,6 +1497,40 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
         <div style={{ background: t.navHover, borderRadius: 12, padding: 14 }}>
           <Row label="Donasi" value={shortRupiah(d.amount)} t={t} />
           <Row label="Fee Operasional" value={shortRupiah(d.operational_fee)} t={t} />
+          {/* ⭐ Sesi 13 Mission 2K: Tip Penggalang + Kode Unik */}
+          {(() => {
+            const tip = Number((d as any).penggalang_fee) || 0;
+            const kodeUnik = Math.max(0, 
+              (Number(d.total_transfer) || 0) - 
+              (Number(d.amount) || 0) - 
+              (Number(d.operational_fee) || 0) - 
+              tip
+            );
+            return (
+              <>
+                {tip > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: '#8B5CF6', fontWeight: 600 }}>
+                      Tip Penggalang
+                    </span>
+                    <span style={{ fontSize: 12, color: '#8B5CF6', fontWeight: 700 }}>
+                      {shortRupiah(tip)}
+                    </span>
+                  </div>
+                )}
+                {kodeUnik > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 4 }}>
+                    <span style={{ fontSize: 11, color: '#F59E0B', fontWeight: 600 }}>
+                      Kode Unik <span style={{ fontSize: 9, opacity: 0.7 }}>(cross-check)</span>
+                    </span>
+                    <span style={{ fontSize: 12, color: '#F59E0B', fontWeight: 700 }}>
+                      {shortRupiah(kodeUnik)}
+                    </span>
+                  </div>
+                )}
+              </>
+            );
+          })()}
           <div style={{ borderTop: `1px solid ${t.sidebarBorder}`, marginTop: 8, paddingTop: 8 }}>
             <Row label="Total Transfer" value={shortRupiah(d.total_transfer)} t={t} bold />
           </div>
@@ -1236,7 +1571,7 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
         )}
       </div>
 
-      {/* FIX-G-C: Escalation indicator */}
+      {/* FIX-G-C: Escalation indicator + ⭐ Mission 2G: Aging counter */}
       {(d as any).escalated_to_admin_at && (
         <div style={{
           background: 'rgba(245, 158, 11, 0.1)',
@@ -1245,11 +1580,29 @@ function DonationDetail({ d, t }: { d: Donation; t: any }) {
           padding: 10,
           marginTop: 8,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-            <span style={{ fontSize: 14 }}>⚡</span>
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-              Auto-Escalated
-            </p>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6, marginBottom: 4 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 14 }}>⚡</span>
+              <p style={{ fontSize: 11, fontWeight: 700, color: '#B45309', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                Auto-Escalated
+              </p>
+            </div>
+            {/* ⭐ Mission 2G: Aging since escalation */}
+            {(() => {
+              const escalatedAt = new Date((d as any).escalated_to_admin_at).getTime();
+              const days = Math.floor((Date.now() - escalatedAt) / (1000 * 60 * 60 * 24));
+              const color = days > 14 ? '#DC2626' : days > 7 ? '#F59E0B' : '#92400E';
+              return (
+                <span style={{ 
+                  fontSize: 10, fontWeight: 700, color, 
+                  background: 'rgba(255,255,255,0.6)',
+                  padding: '2px 8px', borderRadius: 999,
+                }}>
+                  {days === 0 ? 'hari ini' : `${days} hari lalu`}
+                  {days > 14 && ' ⚠️'}
+                </span>
+              );
+            })()}
           </div>
           {(d as any).escalation_reason && (
             <p style={{ fontSize: 11, color: '#92400E', lineHeight: 1.5 }}>
@@ -1376,5 +1729,249 @@ function RoleBadgeAdmin({ role }: { role: string }) {
       <span style={{ fontSize: 8 }}>{meta.icon}</span>
       {meta.label}
     </span>
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ⭐ Sesi 13 Mission 2G + 2H: UnderAuditActionPanel
+// Empathic workflow guide untuk donasi tahan audit
+// Filosofi: Penggalang mungkin di daerah 3T tanpa sinyal — bukan lalai
+// ═══════════════════════════════════════════════════════════════
+
+interface UnderAuditActionPanelProps {
+  donation: any;
+  t: any;
+  onChatDonor: () => void;
+  onChatPartner: () => void;
+  onAddNote: () => void;
+}
+
+function UnderAuditActionPanel({ 
+  donation, t, onChatDonor, onChatPartner, onAddNote 
+}: UnderAuditActionPanelProps) {
+  const [activityLog, setActivityLog] = useState<any[]>([]);
+  const [loadingLog, setLoadingLog] = useState(false);
+
+  useEffect(() => {
+    const tk = localStorage.getItem('tl_token');
+    if (!tk || !donation?.id) return;
+    setLoadingLog(true);
+    fetch(`${API_URL}/funding/admin/donations/${donation.id}/views`, {
+      headers: { Authorization: `Bearer ${tk}` },
+    })
+      .then(r => r.json())
+      .then(j => { if (j.success) setActivityLog(j.data || []); })
+      .catch(() => {})
+      .finally(() => setLoadingLog(false));
+
+    // Auto-log "view" pas pertama buka panel (fire-and-forget)
+    fetch(`${API_URL}/funding/admin/donations/${donation.id}/view`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action_taken: 'view' }),
+    }).catch(() => {});
+  }, [donation?.id]);
+
+  const hasDonorPhone = !!donation.donor_phone;
+  const hasPartnerPhone = !!donation.partner_phone;
+  const partnerName = donation.campaigns?.partner_name || 'penggalang';
+
+  // SLA countdown — info only, GAK auto-reject
+  const escalatedAt = donation.escalated_to_admin_at 
+    ? new Date(donation.escalated_to_admin_at).getTime() 
+    : null;
+  const daysSinceEscalation = escalatedAt
+    ? Math.floor((Date.now() - escalatedAt) / (1000 * 60 * 60 * 24))
+    : 0;
+  const SLA_DAYS = 30; // info only — gak auto-reject
+  const daysRemaining = SLA_DAYS - daysSinceEscalation;
+  const slaUrgency = daysRemaining <= 0 ? 'expired' 
+    : daysRemaining <= 7 ? 'urgent' 
+    : daysRemaining <= 14 ? 'warning' 
+    : 'normal';
+  const slaColor = slaUrgency === 'expired' ? '#DC2626'
+    : slaUrgency === 'urgent' ? '#EF4444'
+    : slaUrgency === 'warning' ? '#F59E0B'
+    : '#10B981';
+
+  return (
+    <div style={{
+      marginTop: 16,
+      background: 'rgba(139,92,246,0.08)',
+      border: '1px solid rgba(139,92,246,0.3)',
+      borderRadius: 12,
+      padding: 14,
+    }}>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 16 }}>⏳</span>
+        <p style={{ fontSize: 12, fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: 0.5, flex: 1 }}>
+          Donasi Tahan Audit — Butuh Resolusi Admin
+        </p>
+      </div>
+      
+      {/* SLA countdown — info only */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        background: 'rgba(0,0,0,0.06)', borderRadius: 8, padding: '8px 12px',
+        marginBottom: 12,
+      }}>
+        <span style={{ fontSize: 11, color: t.textDim }}>
+          Sudah {daysSinceEscalation} hari sejak auto-escalate
+        </span>
+        <span style={{ 
+          fontSize: 11, fontWeight: 700, color: slaColor,
+          padding: '2px 8px', borderRadius: 999,
+          background: 'rgba(255,255,255,0.6)',
+        }}>
+          {slaUrgency === 'expired' && '⚠️ SLA terlewat'}
+          {slaUrgency === 'urgent' && `🔥 ${daysRemaining} hari lagi`}
+          {slaUrgency === 'warning' && `${daysRemaining} hari lagi`}
+          {slaUrgency === 'normal' && `${daysRemaining} hari tersisa`}
+        </span>
+      </div>
+      
+      {/* Empathic context */}
+      <div style={{ 
+        background: 'rgba(16,185,129,0.06)', 
+        border: '1px solid rgba(16,185,129,0.2)',
+        borderRadius: 8, padding: '10px 12px', marginBottom: 12,
+      }}>
+        <p style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.6, margin: 0 }}>
+          💡 <strong>Sebelum reject:</strong> Penggalang di Maluku Utara sering di daerah 3T tanpa sinyal stabil. 
+          Ini bukan kelalaian — sistem fleksibel terhadap kondisi geografis. 
+          Coba kontak via WA dulu, bantu admin tracking kondisi penggalang di lapangan.
+        </p>
+      </div>
+      
+      {/* Quick Actions */}
+      <p style={{ fontSize: 10, color: t.textDim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
+        Aksi Cepat
+      </p>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, marginBottom: 14 }}>
+        {hasDonorPhone && (
+          <button onClick={onChatDonor} style={{
+            padding: '10px 12px', borderRadius: 10, border: 'none',
+            background: '#25D366', color: '#fff',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}>
+            💬 Chat Donor
+          </button>
+        )}
+        {hasPartnerPhone && (
+          <button onClick={onChatPartner} style={{
+            padding: '10px 12px', borderRadius: 10, border: 'none',
+            background: '#128C7E', color: '#fff',
+            fontSize: 12, fontWeight: 700, cursor: 'pointer',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}>
+            💬 Chat {partnerName.slice(0, 20)}{partnerName.length > 20 ? '…' : ''}
+          </button>
+        )}
+        {!hasPartnerPhone && (
+          <button disabled title="Nomor WA penggalang tidak tersedia" style={{
+            padding: '10px 12px', borderRadius: 10, border: 'none',
+            background: 'rgba(128,128,128,0.2)', color: t.textMuted,
+            fontSize: 11, cursor: 'not-allowed',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          }}>
+            WA penggalang N/A
+          </button>
+        )}
+        <button onClick={onAddNote} style={{
+          padding: '10px 12px', borderRadius: 10, border: 'none',
+          background: 'rgba(99,102,241,0.15)', color: '#6366F1',
+          fontSize: 12, fontWeight: 700, cursor: 'pointer',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          gridColumn: hasDonorPhone && hasPartnerPhone ? 'span 2' : 'auto',
+        }}>
+          📝 Tambah Catatan
+        </button>
+      </div>
+      
+      {/* Decision Tree */}
+      <p style={{ fontSize: 10, color: t.textDim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 6, letterSpacing: 0.5 }}>
+        Panduan Keputusan
+      </p>
+      <ol style={{ 
+        margin: 0, padding: '0 0 0 18px', 
+        fontSize: 11, color: t.textDim, lineHeight: 1.8,
+      }}>
+        <li>
+          <strong style={{ color: t.textPrimary }}>Cek bukti transfer</strong> di card bawah — kalau ada, verify rekening partner manual
+        </li>
+        <li>
+          <strong style={{ color: t.textPrimary }}>Konfirmasi via WA</strong> (donor + penggalang) — beri waktu 3-7 hari sebelum lanjut
+        </li>
+        <li>
+          Kalau bukti sah & terkonfirmasi → <strong style={{ color: '#10B981' }}>✓ Verify Manual</strong>
+        </li>
+        <li>
+          Kalau bukti palsu / kedua pihak gak respon &gt; 14 hari → <strong style={{ color: '#EF4444' }}>✗ Tolak</strong> dgn alasan jelas
+        </li>
+      </ol>
+      
+      {/* Activity Log */}
+      {activityLog.length > 0 && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${t.sidebarBorder}` }}>
+          <p style={{ fontSize: 10, color: t.textDim, fontWeight: 700, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 0.5 }}>
+            Riwayat Aktivitas ({activityLog.length})
+          </p>
+          <div style={{ maxHeight: 180, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {activityLog.map((log, i) => (
+              <ActivityLogRow key={log.id || i} log={log} t={t} />
+            ))}
+          </div>
+        </div>
+      )}
+      {loadingLog && (
+        <p style={{ fontSize: 11, color: t.textMuted, fontStyle: 'italic', marginTop: 10 }}>
+          Memuat riwayat...
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ActivityLogRow({ log, t }: { log: any; t: any }) {
+  const actionMeta: Record<string, { icon: string; label: string; color: string }> = {
+    view: { icon: '👁️', label: 'Lihat detail', color: '#6B7280' },
+    wa_donor: { icon: '💬', label: 'Chat donor', color: '#25D366' },
+    wa_partner: { icon: '💬', label: 'Chat penggalang', color: '#128C7E' },
+    note: { icon: '📝', label: 'Catatan', color: '#6366F1' },
+    verify: { icon: '✓', label: 'Verify', color: '#10B981' },
+    reject: { icon: '✗', label: 'Reject', color: '#EF4444' },
+  };
+  const meta = actionMeta[log.action_taken] || actionMeta.view;
+  const time = log.viewed_at 
+    ? new Date(log.viewed_at).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' })
+    : '';
+
+  return (
+    <div style={{ 
+      display: 'flex', alignItems: 'flex-start', gap: 8, 
+      background: 'rgba(0,0,0,0.04)', padding: '6px 10px', borderRadius: 6,
+    }}>
+      <span style={{ fontSize: 12 }}>{meta.icon}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 11, fontWeight: 700, color: meta.color }}>
+            {meta.label}
+          </span>
+          <span style={{ fontSize: 10, color: t.textMuted }}>
+            oleh {log.admin_name || 'Admin'}
+          </span>
+          <span style={{ fontSize: 10, color: t.textMuted, marginLeft: 'auto' }}>
+            {time}
+          </span>
+        </div>
+        {log.notes && (
+          <p style={{ fontSize: 11, color: t.textPrimary, marginTop: 4, lineHeight: 1.5 }}>
+            {log.notes}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }
