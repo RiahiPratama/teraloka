@@ -64,7 +64,7 @@ function BadonasiInlinePromo() {
             BADONASI · Layanan TeraLoka
           </p>
           <h3 className="text-[18px] md:text-[22px] font-extrabold leading-tight mb-1"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}>
+            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
             Galang Donasi untuk Sesama Warga MalUt
           </h3>
           <p className="text-[12px] opacity-90">
@@ -172,7 +172,6 @@ function BakabarPageContent() {
   return (
     <div className="min-h-screen bg-white">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }

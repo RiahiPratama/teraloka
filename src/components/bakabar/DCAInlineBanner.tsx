@@ -172,7 +172,7 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
         <h3
           key={`inline-${currentIdx}`}
           className="text-[24px] font-bold leading-[1.15] tracking-[-0.4px] mb-1.5 animate-inline-fade"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {displayTitle}
         </h3>

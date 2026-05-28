@@ -105,9 +105,8 @@ export default async function SponsoredPage({ params }: Props) {
   return (
     <div className="min-h-screen bg-white">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
         .sponsored-body {
-          font-family: 'Lora', Georgia, serif;
+          font-family: var(--font-lora), Georgia, serif;
           font-size: 17px;
           line-height: 1.85;
           color: #1a1a1a;
@@ -223,7 +222,7 @@ export default async function SponsoredPage({ params }: Props) {
             </div>
 
             {/* Title */}
-            <h1 style={{ fontFamily: 'Lora, Georgia, serif' }}
+            <h1 style={{ fontFamily: 'var(--font-lora), Georgia, serif' }}
               className="text-3xl font-bold text-gray-900 leading-snug tracking-tight mb-6">
               {ad.title}
             </h1>

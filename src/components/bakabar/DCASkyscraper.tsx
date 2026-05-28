@@ -221,7 +221,7 @@ function SkyscraperInner({
           <h3
             key={`sky-title-${currentIdx}`}
             className="text-[17px] font-bold leading-[1.2] mb-2.5 animate-sky-fade"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}
+            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
           >
             {displayTitle}
           </h3>

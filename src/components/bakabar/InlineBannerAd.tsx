@@ -57,7 +57,7 @@ export default function InlineBannerAd({ ad }: Props) {
         </p>
         <h3
           className="text-[24px] font-bold leading-[1.15] tracking-[-0.4px] mb-1.5"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {ad.title}
         </h3>

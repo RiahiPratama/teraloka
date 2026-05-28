@@ -101,7 +101,7 @@ export default function StackLayananTeraLoka({ variant, body }: Props) {
         </p>
         <h3
           className="text-[24px] font-extrabold leading-[1.05] tracking-[-0.7px] mb-2"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {meta.label}
         </h3>

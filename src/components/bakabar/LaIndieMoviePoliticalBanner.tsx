@@ -166,7 +166,7 @@ export default function LaIndieMoviePoliticalBanner() {
           />
           <h3
             className="text-[16px] md:text-[18px] font-extrabold uppercase tracking-[-0.3px] text-gray-900"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}
+            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
           >
             {labels.title}
           </h3>
@@ -190,7 +190,7 @@ export default function LaIndieMoviePoliticalBanner() {
         <p
           key={focusedAd.id}
           className="text-[15px] md:text-[17px] font-bold text-gray-900 leading-snug animate-fadeIn px-4"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {focusedAd.title}
         </p>

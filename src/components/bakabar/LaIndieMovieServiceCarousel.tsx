@@ -128,14 +128,14 @@ export default function LaIndieMovieServiceCarousel() {
           />
           <h3
             className="text-[16px] md:text-[18px] font-extrabold uppercase tracking-[-0.3px] text-gray-900"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}
+            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
           >
             Layanan TeraLoka
           </h3>
         </div>
         <span
           className="text-[11px] text-gray-500 italic hidden md:inline"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           Semua yang kamu butuhkan di MalUt, ADA di sini
         </span>
@@ -146,7 +146,7 @@ export default function LaIndieMovieServiceCarousel() {
         <p
           key={focusedService.slug}
           className="text-[18px] md:text-[22px] font-extrabold leading-tight animate-fadeIn"
-          style={{ fontFamily: "'Lora', Georgia, serif", color: '#1F2937' }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif", color: '#1F2937' }}
         >
           {focusedService.label}
         </p>
@@ -279,7 +279,7 @@ function ServicePoster({ service, isFocused, onHover, onLeave }: ServicePosterPr
           className="font-extrabold leading-tight"
           style={{
             fontSize: '17px',
-            fontFamily: "'Lora', Georgia, serif",
+            fontFamily: "var(--font-lora), Georgia, serif",
             textShadow: '0 1px 3px rgba(0,0,0,0.5)',
           }}
         >

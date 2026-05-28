@@ -106,7 +106,7 @@ export default function DCABanner({ frames }: Props) {
         <h4
           key={`dca-h-${currentIdx}`}
           className="text-[11.5px] font-semibold leading-[1.3] text-gray-900 line-clamp-2 animate-dca-fade"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {currentFrame.headline}
         </h4>

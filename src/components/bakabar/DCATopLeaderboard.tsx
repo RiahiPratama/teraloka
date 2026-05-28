@@ -178,7 +178,7 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
         <h2
           key={`tl-${currentIdx}`}
           className="text-[32px] font-bold leading-[1.1] tracking-[-0.6px] mb-2.5 animate-tl-fade"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {displayTitle}
         </h2>
@@ -199,7 +199,7 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
           border: '1px solid rgba(255,255,255,0.15)',
         }}>
         <span className="text-[80px] font-bold text-white opacity-90"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}>
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
           {visualSymbol}
         </span>
       </div>

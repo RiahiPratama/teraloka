@@ -436,8 +436,7 @@ export default async function ArticlePage({ params }: Props) {
   return (
     <div className="min-h-screen bg-white">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap');
-        .article-body { font-family: 'Lora', Georgia, serif; font-size: 17px; line-height: 1.85; color: #1a1a1a; }
+        .article-body { font-family: var(--font-lora), Georgia, serif; font-size: 17px; line-height: 1.85; color: #1a1a1a; }
         .article-body p { margin-bottom: 1.3em; }
         .article-body h1 { font-size: 1.5em; font-weight: 700; color: #111; margin: 2em 0 0.7em; }
         .article-body h2 { font-size: 1.3em; font-weight: 700; color: #111; margin: 2em 0 0.6em; }
@@ -463,7 +462,7 @@ export default async function ArticlePage({ params }: Props) {
           background: #f3f4f6; display: block; margin: 0 auto;
         }
         .article-body figure.bk-fig figcaption {
-          font-family: 'Inter', system-ui, sans-serif;
+          font-family: var(--font-inter), system-ui, sans-serif;
           font-size: 13px; color: #6b7280; margin-top: 10px;
           font-style: italic; line-height: 1.5;
         }
@@ -501,7 +500,7 @@ export default async function ArticlePage({ params }: Props) {
               )}
             </div>
 
-            <h1 style={{ fontFamily: 'Lora, Georgia, serif' }}
+            <h1 style={{ fontFamily: 'var(--font-lora), Georgia, serif' }}
               className="text-3xl font-bold text-gray-900 leading-snug tracking-tight mb-4">
               {article.title}
             </h1>
@@ -534,7 +533,7 @@ export default async function ArticlePage({ params }: Props) {
 
             {article.excerpt && (
               <div className="mb-6 border-l-4 border-[#003526] pl-5 bg-[#003526]/3 py-3 pr-4 rounded-r-xl">
-                <p style={{ fontFamily: 'Lora, Georgia, serif' }} className="text-lg text-gray-700 leading-relaxed italic">
+                <p style={{ fontFamily: 'var(--font-lora), Georgia, serif' }} className="text-lg text-gray-700 leading-relaxed italic">
                   {article.excerpt}
                 </p>
               </div>

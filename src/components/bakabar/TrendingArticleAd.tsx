@@ -95,7 +95,7 @@ export default function TrendingArticleAd({ ad, regionSlug, short_label }: Props
               <div className="flex items-start gap-1.5">
                 <h4
                   className="text-[11.5px] font-semibold leading-[1.3] text-gray-900 line-clamp-2 flex-1"
-                  style={{ fontFamily: "'Lora', Georgia, serif" }}
+                  style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
                 >
                   {ad.title ?? 'Iklan'}
                 </h4>

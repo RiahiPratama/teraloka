@@ -199,7 +199,7 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
         <h4
           key={`stack-h-${currentIdx}`}
           className="text-[13px] font-bold leading-[1.15] mb-1 line-clamp-2 animate-stack-fade"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {displayTitle}
         </h4>

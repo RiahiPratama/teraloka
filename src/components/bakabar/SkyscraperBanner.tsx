@@ -56,7 +56,7 @@ export default function SkyscraperBanner({ ad, side, visual_symbol = 'M' }: Prop
         </p>
         <h3
           className="text-[17px] font-bold leading-[1.2] tracking-[-0.3px] mb-3"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
         >
           {ad.title}
         </h3>
@@ -66,7 +66,7 @@ export default function SkyscraperBanner({ ad, side, visual_symbol = 'M' }: Prop
           style={{
             fontSize: 56,
             letterSpacing: '-2px',
-            fontFamily: "'Lora', Georgia, serif",
+            fontFamily: "var(--font-lora), Georgia, serif",
           }}
         >
           {visual_symbol}

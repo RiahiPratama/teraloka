@@ -4,26 +4,32 @@ import Link from 'next/link'
 import Logo from '@/components/ui/Logo'
 
 // 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
+// 29 Mei 2026 — PERF: prefetch={false} untuk perusahaan + legal section.
+//   Sebelumnya: <Link> default prefetch=true bikin RSC prefetch ke 4-5 page
+//   yang belum dibuat → 404 di Network tab tiap page load (noise + retry
+//   overhead). Layanan KEEP prefetch karena 5 route core sudah live.
+//   Track: Legal page (Privasi, Syarat, Lisensi, Pedoman) WAJIB ada
+//   pre-launch — bukan optional buat platform komersial.
 const FOOTER_LINKS = {
   layanan: [
-    { label: 'BAKABAR Berita', href: '/bakabar' },
-    { label: 'BALAPOR Publik', href: '/reports' },
+    { label: 'BAKABAR Berita',     href: '/bakabar' },
+    { label: 'BALAPOR Publik',     href: '/reports' },
     { label: 'BAPASIAR Transport', href: '/speed' },
-    { label: 'BAKOS Kos-Kosan', href: '/kos' },
-    { label: 'BADONASI Donasi', href: '/fundraising' },
+    { label: 'BAKOS Kos-Kosan',    href: '/kos' },
+    { label: 'BADONASI Donasi',    href: '/fundraising' },
   ],
   perusahaan: [
     { label: 'Tentang Kami', href: '/tentang' },
-    { label: 'Karir', href: '/karir' },
-    { label: 'Kontak Kami', href: '/kontak' },
-    { label: 'Media Kit', href: '/media-kit' },
-    { label: 'Blog', href: '/blog' },
+    { label: 'Karir',        href: '/karir' },
+    { label: 'Kontak Kami',  href: '/kontak' },
+    { label: 'Media Kit',    href: '/media-kit' },
+    { label: 'Blog',         href: '/blog' },
   ],
   legal: [
-    { label: 'Kebijakan Privasi', href: '/privasi' },
+    { label: 'Kebijakan Privasi',  href: '/privasi' },
     { label: 'Syarat & Ketentuan', href: '/syarat' },
-    { label: 'Lisensi Data', href: '/lisensi' },
-    { label: 'Pedoman Komunitas', href: '/pedoman' },
+    { label: 'Lisensi Data',       href: '/lisensi' },
+    { label: 'Pedoman Komunitas',  href: '/pedoman' },
   ],
 }
 
@@ -110,7 +116,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Layanan */}
+          {/* Layanan — KEEP prefetch (5 route core live) */}
           <div>
             <h4 style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text)', marginBottom: 14 }}>
               Layanan
@@ -128,7 +134,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Perusahaan */}
+          {/* Perusahaan — prefetch=false (route belum live) */}
           <div>
             <h4 style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text)', marginBottom: 14 }}>
               Perusahaan
@@ -136,7 +142,7 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {FOOTER_LINKS.perusahaan.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
+                  <Link href={l.href} prefetch={false} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
                     {l.label}
@@ -146,7 +152,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Legal */}
+          {/* Legal — prefetch=false (page belum dibuat, WAJIB ada pre-launch) */}
           <div>
             <h4 style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text)', marginBottom: 14 }}>
               Legal
@@ -154,7 +160,7 @@ export default function Footer() {
             <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
               {FOOTER_LINKS.legal.map(l => (
                 <li key={l.href}>
-                  <Link href={l.href} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
+                  <Link href={l.href} prefetch={false} style={{ fontSize: 13, color: 'var(--text-muted)', textDecoration: 'none', transition: 'color 0.15s' }}
                     onMouseEnter={e => (e.currentTarget.style.color = 'var(--primary)')}
                     onMouseLeave={e => (e.currentTarget.style.color = 'var(--text-muted)')}>
                     {l.label}

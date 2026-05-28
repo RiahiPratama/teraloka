@@ -98,11 +98,11 @@ function HeroSlideContent({ slide, slideIdx }: { slide: HeroSlide; slideIdx: num
 
         {/* Title + Excerpt + Meta */}
         <h1 className="font-bold tracking-[-0.7px] text-gray-900 mb-3 group-hover:text-[#003526] transition-colors"
-          style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 30, lineHeight: 1.2 }}>
+          style={{ fontFamily: "var(--font-lora), Georgia, serif", fontSize: 30, lineHeight: 1.2 }}>
           {hero.title}
         </h1>
         {hero.excerpt && (
-          <p className="text-[15px] leading-[1.6] text-gray-600 mb-3.5" style={{ fontFamily: "'Lora', Georgia, serif" }}>
+          <p className="text-[15px] leading-[1.6] text-gray-600 mb-3.5" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
             {hero.excerpt}
           </p>
         )}
@@ -133,7 +133,7 @@ function HeroSlideContent({ slide, slideIdx }: { slide: HeroSlide; slideIdx: num
                 </span>
               </div>
               <h4 className="text-[14px] font-bold leading-[1.3] tracking-[-0.2px] text-gray-900 mb-1.5 line-clamp-3 group-hover:text-[#003526] transition-colors"
-                style={{ fontFamily: "'Lora', Georgia, serif" }}>
+                style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
                 {a.title}
               </h4>
               <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
@@ -261,7 +261,7 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
             <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-2" style={{ color: '#F59E0B' }}>
               {sidebar_mrec.overline}
             </p>
-            <p className="text-[18px] font-bold leading-[1.2]" style={{ fontFamily: "'Lora', Georgia, serif" }}>
+            <p className="text-[18px] font-bold leading-[1.2]" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
               {sidebar_mrec.title}
             </p>
             <p className="text-[11px] opacity-75 mt-2">{sidebar_mrec.body}</p>
@@ -284,11 +284,11 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
               className="flex items-start gap-2.5 py-2.5 last:border-0 group"
               style={{ borderBottom: '1px solid #D6E4F2' }}>
               <span className="font-bold leading-none shrink-0"
-                style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 22, color: '#378ADD', width: 22 }}>
+                style={{ fontFamily: "var(--font-lora), Georgia, serif", fontSize: 22, color: '#378ADD', width: 22 }}>
                 {i + 1}
               </span>
               <p className="text-[13px] font-medium leading-[1.35] group-hover:underline"
-                style={{ fontFamily: "'Lora', Georgia, serif", color: '#042C53' }}>
+                style={{ fontFamily: "var(--font-lora), Georgia, serif", color: '#042C53' }}>
                 {a.title}
               </p>
             </Link>
@@ -297,7 +297,7 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
 
         {/* BALAPOR CTA */}
         <div className="rounded-xl p-4 text-center text-white" style={{ background: '#003526' }}>
-          <p className="font-bold text-[15px] mb-1" style={{ fontFamily: "'Lora', Georgia, serif" }}>
+          <p className="font-bold text-[15px] mb-1" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
             Ada berita di sekitarmu?
           </p>
           <p className="text-[11px] mb-2.5" style={{ color: '#95d3ba' }}>
