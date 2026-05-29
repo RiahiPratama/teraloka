@@ -32,6 +32,7 @@ import { FiturUtamaSection } from '@/components/balapor/fitur-utama-section';
 import { TantanganManifestoSlide } from '@/components/balapor/tantangan-manifesto-slide';
 import { KomunitasAwalSection } from '@/components/balapor/komunitas-awal-section';
 import { EkosistemSection } from '@/components/balapor/ekosistem-section';
+import { TransparansiSection } from '@/components/balapor/transparansi-section';
 
 // ─── Form path constant ─────────────────────────────────────────
 const FORM_PATH = '/balapor/buat-laporan';
@@ -357,6 +358,11 @@ export default function BalaporLandingPage() {
           ════════════════════════════════════════════════════════ */}
       <FiturUtamaSection />
 
+      {/* ════════════════════════════════════════════════════════
+          5. TRANSPARANSI PUBLIK — agregat laporan + status SOS
+          ════════════════════════════════════════════════════════ */}
+      <TransparansiSection />
+
 
       {/* ════════════════════════════════════════════════════════
           6. EKOSISTEM TERALOKA — ALIVE 3-COL
@@ -488,9 +494,9 @@ export default function BalaporLandingPage() {
               <div style={{ background: 'white', borderRadius: 12, padding: 14, marginBottom: 12 }}>
                 <p style={{ fontSize: 10, fontWeight: 700, color: '#6b7280', letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 8 }}>Yang dilihat publik</p>
                 {[
-                  { icon: 'check_circle', color: '#10B981', text: 'Foto kejadian (jika perlu blur)', strong: true },
+                  { icon: 'check_circle', color: '#10B981', text: 'Judul & kategori laporan', strong: true },
                   { icon: 'check_circle', color: '#10B981', text: 'Lokasi umum & status',             strong: true },
-                  { icon: 'cancel',       color: 'var(--color-balapor)', text: 'Nama, WA, alamat lengkap', strong: false },
+                  { icon: 'cancel',       color: 'var(--color-balapor)', text: 'Nama, WA, foto, alamat lengkap', strong: false },
                 ].map((item, i) => (
                   <div key={i} style={{ display: 'flex', alignItems: 'start', gap: 6, padding: '3px 0' }}>
                     <span className="material-symbols-outlined" style={{ color: item.color, fontSize: 14, flexShrink: 0, marginTop: 1, fontVariationSettings: "'FILL' 1" }}>{item.icon}</span>
