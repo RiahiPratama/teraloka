@@ -158,7 +158,7 @@ export function BalaporLiveMapSection() {
         }
 
         // 3. Fetch reports
-        const reportsRes = await fetch(`${API_URL}/balapor/peta?limit=200`, {
+        const reportsRes = await fetch(`${API_URL}/balapor/peta?limit=1000`, {
           signal: controller.signal,
         });
         if (!reportsRes.ok) throw new Error('Gagal memuat laporan');

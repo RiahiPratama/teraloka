@@ -142,7 +142,7 @@ export function HeroSection() {
         }
 
         // Phase 1+: fetch reports untuk map
-        const reportsRes = await fetch(`${API_URL}/balapor/peta?limit=200`, {
+        const reportsRes = await fetch(`${API_URL}/balapor/peta?limit=1000`, {
           signal: controller.signal,
         });
 
