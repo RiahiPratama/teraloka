@@ -102,6 +102,30 @@ interface ReportsSummary {
   computed_at: string;
 }
 
+/* ─── Geo shape (mirror backend GET /admin/balapor/geo) ─── */
+// Sumber Overview map (full-set, global, resolved coords GPS-else-centroid).
+// GeoPoint conform ke MapPoint → bisa langsung disuapin ke <BalaporMap>.
+
+interface GeoPoint {
+  id: string;
+  display_id: string | null;
+  title: string;
+  category: string | null;
+  priority: ReportPriority;
+  status: string;
+  map_latitude: number;
+  map_longitude: number;
+  coord_source: string; // 'gps' | location type
+}
+
+interface ReportsGeo {
+  points: GeoPoint[];
+  total: number;
+  gps_count: number;
+  centroid_count: number;
+  computed_at: string;
+}
+
 /* ─── Tab state ─── */
 
 type TabKey =
@@ -195,6 +219,7 @@ export default function AdminReportsPage() {
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
   const [summary, setSummary] = useState<ReportsSummary | null>(null);
+  const [geo, setGeo] = useState<ReportsGeo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -308,6 +333,26 @@ export default function AdminReportsPage() {
         // Non-blocking: kalau summary gagal, widget fallback ke compute client
         if (err instanceof DOMException && err.name === 'AbortError') return;
         console.warn('[BALAPOR] summary fetch failed:', err);
+      });
+
+    return () => controller.abort();
+  }, [api, retryNonce]);
+
+  /* ── Fetch GLOBAL geo — Overview map (full-set, lepas dari cap list) ── */
+  // Overview map ("Peta Laporan MalUt") baca dari sini → SEMUA laporan
+  // ke-plot (resolved coords GPS-else-centroid), gak ke-cap window list.
+  // Live Map (di tab Live) tetep list-fed. Refetch ikut retryNonce (60s).
+  useEffect(() => {
+    if (!api.token) return;
+    const controller = new AbortController();
+
+    api
+      .get<ReportsGeo>('/admin/balapor/geo', { signal: controller.signal })
+      .then((data) => setGeo(data))
+      .catch((err) => {
+        // Non-blocking: kalau geo gagal, Overview map fallback ke list reports
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn('[BALAPOR] geo fetch failed:', err);
       });
 
     return () => controller.abort();
@@ -1478,15 +1523,16 @@ export default function AdminReportsPage() {
                   </span>
                 </div>
                 <span className="text-[11px] text-text-muted tabular-nums">
-                  {reports.filter((r) => r.latitude && r.longitude).length} dari{' '}
-                  {reports.length} berkoordinat
+                  {geo
+                    ? `${geo.total} laporan · ${geo.gps_count} GPS · ${geo.centroid_count} perkiraan`
+                    : `${reports.filter((r) => r.latitude && r.longitude).length} dari ${reports.length} berkoordinat`}
                 </span>
               </div>
               <div className="p-3">
                 <BalaporMap
-                  reports={reports}
+                  reports={geo ? geo.points : reports}
                   height={380}
-                  loading={loading && reports.length === 0}
+                  loading={!geo && loading && reports.length === 0}
                 />
               </div>
             </div>
