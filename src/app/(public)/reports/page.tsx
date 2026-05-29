@@ -24,7 +24,7 @@
 //                  antara Hero & Empathy (Hybrid B+C live map + Phase 0 demo)
 // ════════════════════════════════════════════════════════════════
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { HeroSection } from '@/components/balapor/hero-section';
 import { CaraKerjaSection } from '@/components/balapor/cara-kerja-section';
@@ -97,6 +97,103 @@ const BADONASI_CAMPAIGNS = [
   { title: 'Pengobatan Anak Difabel',       meta: '48 donatur · Tercapai', raised: 'Rp 15 jt ✓', target: '100%',           pct: 100, icon: 'favorite',   bgGrad: 'linear-gradient(135deg, #dcfce7, #86efac)', iconColor: '#15803D', complete: true },
 ];
 
+// ─── Ekosistem LIVE data (29 Mei 2026) ──────────────────────────
+// Card BAKABAR & BADONASI fetch data asli dari endpoint public.
+// Mock di atas = FALLBACK (LP gak pernah blank kalau fetch gagal).
+// Transform API → shape card yang SAMA → JSX nyaris gak berubah.
+//   - BAKABAR  ← GET /content/articles (badge=category, link=slug, view_count)
+//   - BADONASI ← GET /funding/campaigns (collected/target → pct, donor_count)
+
+const ECO_API_BASE =
+  process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
+
+interface ArticleCard {
+  source: string; title: string; meta: string;
+  icon: string; bgGrad: string; iconColor: string; href?: string;
+}
+interface CampaignCard {
+  title: string; meta: string; raised: string; target: string; pct: number;
+  icon: string; bgGrad: string; iconColor: string; complete: boolean; href?: string;
+}
+
+// Visual presets dicycle by index → identitas visual card tetap konsisten
+const ART_PRESETS = [
+  { icon: 'article',     bgGrad: 'linear-gradient(135deg, #fef2f2, #fecaca)', iconColor: 'var(--color-balapor)' },
+  { icon: 'description', bgGrad: 'linear-gradient(135deg, #fef3c7, #fcd34d)', iconColor: '#92400E' },
+  { icon: 'newspaper',   bgGrad: 'linear-gradient(135deg, #dbeafe, #93c5fd)', iconColor: '#1D4ED8' },
+];
+const CAMP_PRESETS = [
+  { icon: 'volunteer_activism', bgGrad: 'linear-gradient(135deg, #fce7f3, #f9a8d4)', iconColor: '#BE185D' },
+  { icon: 'favorite',           bgGrad: 'linear-gradient(135deg, #fef3c7, #fcd34d)', iconColor: '#92400E' },
+  { icon: 'diversity_3',        bgGrad: 'linear-gradient(135deg, #dbeafe, #93c5fd)', iconColor: '#1D4ED8' },
+];
+
+function ecoRelTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (isNaN(m)) return '';
+  if (m < 1) return 'baru saja';
+  if (m < 60) return `${m} menit lalu`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} jam lalu`;
+  const d = Math.floor(h / 24);
+  if (d < 7) return `${d} hari lalu`;
+  return `${Math.floor(d / 7)} minggu lalu`;
+}
+function ecoReads(n: number): string {
+  const v = Number(n) || 0;
+  if (v >= 1000) return `${(v / 1000).toFixed(1).replace('.0', '')}rb`;
+  return String(v);
+}
+function ecoRupiah(n: number): string {
+  const v = Number(n) || 0;
+  if (v >= 1_000_000_000) return `Rp ${(v / 1_000_000_000).toFixed(1).replace('.0', '')} M`;
+  if (v >= 1_000_000) return `Rp ${(v / 1_000_000).toFixed(1).replace('.0', '')} jt`;
+  if (v >= 1_000) return `Rp ${Math.round(v / 1_000)} rb`;
+  return `Rp ${v}`;
+}
+function ecoCapitalize(s: string): string {
+  if (!s) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1).replace(/_/g, ' ');
+}
+
+interface RawArticle {
+  title: string; slug?: string | null; category?: string | null;
+  view_count?: number; published_at?: string;
+}
+interface RawCampaign {
+  title: string; slug?: string | null; status?: string;
+  target_amount?: number; collected_amount?: number; donor_count?: number;
+}
+
+function mapArticlesToCards(items: RawArticle[]): ArticleCard[] {
+  return items.slice(0, 3).map((a, i) => ({
+    source: a.category ? ecoCapitalize(a.category) : 'BAKABAR',
+    title: a.title,
+    meta: `${ecoReads(a.view_count ?? 0)} dibaca · ${ecoRelTime(a.published_at ?? '')}`,
+    href: a.slug ? `/bakabar/${a.slug}` : '/bakabar',
+    ...ART_PRESETS[i % ART_PRESETS.length],
+  }));
+}
+function mapCampaignsToCards(items: RawCampaign[]): CampaignCard[] {
+  return items.slice(0, 3).map((c, i) => {
+    const target = Number(c.target_amount) || 0;
+    const collected = Number(c.collected_amount) || 0;
+    const pct = target > 0 ? Math.min(100, Math.round((collected / target) * 100)) : 0;
+    const complete = (Boolean(c.status) && c.status !== 'active') || pct >= 100;
+    return {
+      title: c.title,
+      meta: `${c.donor_count ?? 0} donatur · ${complete ? 'Tercapai' : 'Aktif'}`,
+      raised: ecoRupiah(collected) + (complete ? ' ✓' : ''),
+      target: complete ? '100%' : `dari ${ecoRupiah(target)}`,
+      pct,
+      complete,
+      href: c.slug ? `/fundraising/${c.slug}` : '/fundraising',
+      ...CAMP_PRESETS[i % CAMP_PRESETS.length],
+    };
+  });
+}
+
 // ════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
 // ════════════════════════════════════════════════════════════════
@@ -104,6 +201,37 @@ export default function BalaporLandingPage() {
   // FAQ state
   const [activeFaqTab, setActiveFaqTab] = useState(0);
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+
+  // Ekosistem live data — init = mock (fallback), fetch real on mount.
+  // Kalau fetch gagal → state tetap mock → card gak pernah blank.
+  const [articles, setArticles] = useState<ArticleCard[]>(BAKABAR_ARTICLES);
+  const [campaigns, setCampaigns] = useState<CampaignCard[]>(BADONASI_CAMPAIGNS);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    (async () => {
+      try {
+        const res = await fetch(`${ECO_API_BASE}/content/articles?limit=3`, { signal: controller.signal });
+        if (!res.ok) return;
+        const json = await res.json();
+        const items = (json?.data ?? json) as RawArticle[];
+        if (Array.isArray(items) && items.length > 0) setArticles(mapArticlesToCards(items));
+      } catch { /* keep mock fallback */ }
+    })();
+
+    (async () => {
+      try {
+        const res = await fetch(`${ECO_API_BASE}/funding/campaigns?limit=3`, { signal: controller.signal });
+        if (!res.ok) return;
+        const json = await res.json();
+        const items = (json?.data ?? json) as RawCampaign[];
+        if (Array.isArray(items) && items.length > 0) setCampaigns(mapCampaignsToCards(items));
+      } catch { /* keep mock fallback */ }
+    })();
+
+    return () => controller.abort();
+  }, []);
 
   const handleFaqToggle = (id: string) => {
     setOpenFaqId(openFaqId === id ? null : id);
@@ -279,8 +407,8 @@ export default function BalaporLandingPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                {BAKABAR_ARTICLES.map((article, i) => (
-                  <Link key={i} href="/bakabar" style={{
+                {articles.map((article, i) => (
+                  <Link key={i} href={article.href ?? '/bakabar'} style={{
                     background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 10,
                     textDecoration: 'none', display: 'flex', gap: 10, alignItems: 'start',
                     transition: 'border-color 0.2s',
@@ -295,8 +423,8 @@ export default function BalaporLandingPage() {
                       <span className="material-symbols-outlined" style={{ color: article.iconColor, fontSize: 22, opacity: 0.7 }}>{article.icon}</span>
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <p style={{ fontSize: 9, color: article.source === 'BALAPOR' ? 'var(--color-balapor)' : '#6b7280', fontWeight: 700, letterSpacing: 0.5, marginBottom: 2 }}>
-                        {article.source === 'BALAPOR' ? 'DARI BALAPOR' : 'EDITORIAL'}
+                      <p style={{ fontSize: 9, color: '#6b7280', fontWeight: 700, letterSpacing: 0.5, marginBottom: 2, textTransform: 'uppercase' }}>
+                        {article.source}
                       </p>
                       <p style={{ fontSize: 12, fontWeight: 600, color: '#1f2937', lineHeight: 1.4, marginBottom: 4 }}>{article.title}</p>
                       <p style={{ fontSize: 10, color: '#9ca3af' }}>{article.meta}</p>
@@ -422,8 +550,8 @@ export default function BalaporLandingPage() {
               </div>
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 16 }}>
-                {BADONASI_CAMPAIGNS.map((camp, i) => (
-                  <Link key={i} href="/fundraising" style={{
+                {campaigns.map((camp, i) => (
+                  <Link key={i} href={camp.href ?? '/fundraising'} style={{
                     background: 'white', border: '1px solid #e5e7eb', borderRadius: 10, padding: 12,
                     textDecoration: 'none', transition: 'border-color 0.2s', display: 'block',
                   }}

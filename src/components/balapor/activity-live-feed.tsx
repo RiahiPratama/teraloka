@@ -402,13 +402,17 @@ function transformReportsToActivities(reports: MapReport[]): ActivityEntry[] {
 
   const activities: ActivityEntry[] = [];
 
+  // FIX 29 Mei 2026: 1 laporan = 1 entry (sebelumnya 1 laporan bisa
+  // jadi 2-3 entry → lokasi sama muncul dobel di feed). Pilih tipe
+  // paling signifikan per laporan: BAKABAR > verified > baru.
   for (const report of sorted) {
-    // Activity 1: Naik ke BAKABAR (priority highest)
-    if (report.has_bakabar_article && activities.length < MAX_ACTIVITIES * 2) {
+    if (activities.length >= MAX_ACTIVITIES) break;
+
+    if (report.has_bakabar_article) {
       activities.push({
         id: `${report.id}-bakabar`,
         type: 'bakabar',
-        title: `Naik ke BAKABAR`,
+        title: 'Naik ke BAKABAR',
         subtitle: report.location_name ?? 'Maluku Utara',
         iconName: 'newspaper',
         iconBg: 'rgba(168, 85, 247, 0.15)',
@@ -416,14 +420,11 @@ function transformReportsToActivities(reports: MapReport[]): ActivityEntry[] {
         timestamp: report.created_at,
         relativeTime: getRelativeTime(report.created_at),
       });
-    }
-
-    // Activity 2: Verified (kalau status verified)
-    if (report.status === 'verified' && activities.length < MAX_ACTIVITIES * 2) {
+    } else if (report.status === 'verified') {
       activities.push({
         id: `${report.id}-verified`,
         type: 'verified',
-        title: `Laporan diverifikasi tim`,
+        title: 'Laporan diverifikasi tim',
         subtitle: report.location_name ?? 'Maluku Utara',
         iconName: 'verified',
         iconBg: 'rgba(16, 185, 129, 0.15)',
@@ -431,10 +432,8 @@ function transformReportsToActivities(reports: MapReport[]): ActivityEntry[] {
         timestamp: report.created_at,
         relativeTime: getRelativeTime(report.created_at),
       });
-    }
-
-    // Activity 3: New report (default)
-    if (activities.length < MAX_ACTIVITIES * 2) {
+    } else {
+      // status 'published' tanpa artikel BAKABAR
       activities.push({
         id: `${report.id}-new`,
         type: 'new_report',
@@ -449,8 +448,7 @@ function transformReportsToActivities(reports: MapReport[]): ActivityEntry[] {
     }
   }
 
-  // Take top MAX_ACTIVITIES, dedup similar
-  return activities.slice(0, MAX_ACTIVITIES);
+  return activities;
 }
 
 function getRelativeTime(iso: string): string {
