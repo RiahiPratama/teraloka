@@ -19,6 +19,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+// SESI 11 Phase 1B (29 Mei 2026): conditional class for banner vs text mode
+import { cn } from '@/lib/utils';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -147,6 +149,11 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
   // Solid neutral background fallback — image overlay on top
   const fallbackBg = 'linear-gradient(135deg, #1F2937 0%, #111827 100%)';
 
+  // SESI 11 Phase 1B (29 Mei 2026): kalau ada image, render full opacity +
+  // hide overlay text (advertiser bertanggung jawab design lengkap di image).
+  // Empty image = fallback text mode dengan gradient.
+  const hasFullBannerImage = !!displayImage;
+
   return (
     <div
       onMouseEnter={() => {
@@ -158,23 +165,28 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
         graceRef.current = setTimeout(() => setIsPaused(false), HOVER_GRACE_MS);
       }}
       className="w-full h-full relative flex flex-col"
-      style={{ background: fallbackBg }}
+      style={{ background: hasFullBannerImage ? '#000' : fallbackBg }}
     >
-      {/* Background image with fade */}
+      {/* Background image with fade — full opacity kalau banner mode */}
       {displayImage && (
         <img
           key={`stack-img-${currentIdx}`}
           src={displayImage}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-50 animate-stack-fade"
+          className={cn(
+            'absolute inset-0 w-full h-full object-cover animate-stack-fade',
+            hasFullBannerImage ? 'opacity-100' : 'opacity-50'
+          )}
           loading="lazy"
         />
       )}
 
-      {/* Radial overlay */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse at 15% 100%, rgba(0,0,0,0.4) 0%, transparent 60%)',
-      }} />
+      {/* Radial overlay — only text mode */}
+      {!hasFullBannerImage && (
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at 15% 100%, rgba(0,0,0,0.4) 0%, transparent 60%)',
+        }} />
+      )}
 
       {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
       {(() => {
@@ -191,29 +203,31 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
         );
       })()}
 
-      {/* Content */}
-      <div className="relative z-[2] flex-1 flex flex-col min-h-0 p-1">
-        <p className="text-[8px] font-extrabold tracking-[1.2px] uppercase mb-1 opacity-85 truncate">
-          {overline}
-        </p>
-        <h4
-          key={`stack-h-${currentIdx}`}
-          className="text-[13px] font-bold leading-[1.15] mb-1 line-clamp-2 animate-stack-fade"
-          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
-        >
-          {displayTitle}
-        </h4>
-        {!isDCA && ad.body && (
-          <p className="text-[9px] leading-[1.35] opacity-85 line-clamp-2 mb-auto">
-            {ad.body}
+      {/* Content overlay — only render kalau text mode (no banner image). */}
+      {!hasFullBannerImage && (
+        <div className="relative z-[2] flex-1 flex flex-col min-h-0 p-1">
+          <p className="text-[8px] font-extrabold tracking-[1.2px] uppercase mb-1 opacity-85 truncate">
+            {overline}
           </p>
-        )}
-        <span className="self-start mt-auto px-2.5 py-1 rounded text-[9px] font-extrabold flex items-center gap-1"
-          style={{ background: '#fff', color: '#1F2937' }}>
-          Lihat Detail
-          <ArrowRight size={9} strokeWidth={2.8} />
-        </span>
-      </div>
+          <h4
+            key={`stack-h-${currentIdx}`}
+            className="text-[13px] font-bold leading-[1.15] mb-1 line-clamp-2 animate-stack-fade"
+            style={{ fontFamily: "'Lora', Georgia, serif" }}
+          >
+            {displayTitle}
+          </h4>
+          {!isDCA && ad.body && (
+            <p className="text-[9px] leading-[1.35] opacity-85 line-clamp-2 mb-auto">
+              {ad.body}
+            </p>
+          )}
+          <span className="self-start mt-auto px-2.5 py-1 rounded text-[9px] font-extrabold flex items-center gap-1"
+            style={{ background: '#fff', color: '#1F2937' }}>
+            Lihat Detail
+            <ArrowRight size={9} strokeWidth={2.8} />
+          </span>
+        </div>
+      )}
 
       {/* SESI 5E Phase 3c: DCA pagination dots REMOVED — natural feel. */}
 

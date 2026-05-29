@@ -22,6 +22,8 @@
 import { useEffect, useRef, useState } from 'react';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+// SESI 11 Phase 1B (29 Mei 2026): conditional class for banner vs text mode
+import { cn } from '@/lib/utils';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -73,7 +75,6 @@ function useReducedMotion(): boolean {
 export default function DCASkyscraper({ side }: Props) {
   const [ad, setAd] = useState<SkyscraperAd | null>(null);
   const [loading, setLoading] = useState(true);
-  const [hideNearFooter, setHideNearFooter] = useState(false);
 
   // Fetch ad on mount
   useEffect(() => {
@@ -88,7 +89,7 @@ export default function DCASkyscraper({ side }: Props) {
           setAd(json.data[0] as SkyscraperAd);
         }
       } catch {
-        // Empty state — gak ada ad nongol (fixed aside hides cleanly)
+        // Empty state — gak ada ad nongol (sticky aside hides cleanly)
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -97,45 +98,13 @@ export default function DCASkyscraper({ side }: Props) {
     return () => { cancelled = true; };
   }, [side]);
 
-  // Footer-hide: pantau elemen footer, hide skyscraper saat footer in-viewport
-  useEffect(() => {
-    const footer = document.querySelector('footer');
-    if (!footer) return;
-    const io = new IntersectionObserver(
-      ([entry]) => setHideNearFooter(entry.isIntersecting),
-      { rootMargin: '0px 0px 100px 0px' } // trigger 100px before footer enters
-    );
-    io.observe(footer);
-    return () => io.disconnect();
-  }, []);
-
   // Hide section if loading or empty
   if (loading || !ad) return null;
 
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
 
-  // Posisi horizontal: fixed di dalam container 1400px centered
-  // Container: max-w-[1400px] mx-auto px-4 → real content 1400-32=1368
-  // Skyscraper 160px lebar, gap 20px ke main → ada di edge container
-  const horizontalStyle = side === 'left'
-    ? { left: 'max(16px, calc((100vw - 1400px) / 2 + 16px))' }
-    : { right: 'max(16px, calc((100vw - 1400px) / 2 + 16px))' };
-
   return (
-    <aside
-      className="hidden min-[1400px]:block"
-      style={{
-        position: 'fixed',
-        top: 180,
-        width: 160,
-        height: 600,
-        zIndex: 40,
-        opacity: hideNearFooter ? 0 : 1,
-        pointerEvents: hideNearFooter ? 'none' : 'auto',
-        transition: 'opacity 0.25s ease',
-        ...horizontalStyle,
-      }}
-    >
+    <aside className="hidden xl:block w-[160px] shrink-0">
       <a
         href={ad.link_url ?? '#'}
         target="_blank"
@@ -144,7 +113,6 @@ export default function DCASkyscraper({ side }: Props) {
         data-ad-id={ad.id}
         data-ad-position={side === 'left' ? 'skyscraper_left' : 'skyscraper_right'}
         data-ad-mode={isDCA ? 'dca' : 'static'}
-        style={{ display: 'block', height: '100%' }}
       >
         <SkyscraperInner ad={ad} side={side} isDCA={isDCA} />
       </a>
@@ -206,33 +174,40 @@ function SkyscraperInner({
   const overline = ad.advertiser_name.toUpperCase();
   const ctaLabel = 'Lihat Detail';
 
+  // SESI 11 Phase 1B (29 Mei 2026): kalau ada image, advertiser bertanggung
+  // jawab desain banner lengkap (logo + headline + CTA built into image).
+  // Render image full opacity, HIDE overlay text duplikasi. Sidebar position
+  // gak support advertorial (supportsTextFormat=false di metadata), jadi
+  // image_url existence = banner mode. Empty image_url = fallback text-only.
+  const hasFullBannerImage = !!displayImage;
+
   return (
     <div
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className="rounded-lg overflow-hidden text-white relative cursor-pointer"
-      style={{
-        // 29 Mei sore rev 5: sticky pindah ke OUTER aside (cleaner pattern).
-        // Inner div = plain block, height 600.
-        height: 600,
-        background: SIDE_GRADIENT[side]
-      }}
+      className="sticky rounded-lg overflow-hidden text-white relative cursor-pointer"
+      style={{ top: 228, height: 600, background: hasFullBannerImage ? '#000' : SIDE_GRADIENT[side] }}
     >
-      {/* Background image (if exists, overlay gradient via radial below) */}
+      {/* Background image — full opacity kalau banner mode, faded kalau text mode */}
       {displayImage && (
         <img
           key={`sky-img-${currentIdx}`}
           src={displayImage}
           alt=""
-          className="absolute inset-0 w-full h-full object-cover opacity-40 animate-sky-fade"
+          className={cn(
+            'absolute inset-0 w-full h-full object-cover animate-sky-fade',
+            hasFullBannerImage ? 'opacity-100' : 'opacity-40'
+          )}
           loading="lazy"
         />
       )}
 
-      {/* Radial overlay decoration */}
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background: 'radial-gradient(ellipse at 50% 100%, rgba(255,255,255,0.12) 0%, transparent 60%)',
-      }} />
+      {/* Radial overlay decoration — only show kalau text mode */}
+      {!hasFullBannerImage && (
+        <div className="absolute inset-0 pointer-events-none" style={{
+          background: 'radial-gradient(ellipse at 50% 100%, rgba(255,255,255,0.12) 0%, transparent 60%)',
+        }} />
+      )}
 
       {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure */}
       {(() => {
@@ -251,8 +226,11 @@ function SkyscraperInner({
         );
       })()}
 
-      {/* Content */}
-      <div className="relative z-[2] p-5 flex flex-col h-full justify-between">
+      {/* Content overlay — only render kalau text mode (no banner image).
+          Image mode: advertiser bertanggung jawab semua design (logo, headline,
+          CTA) sudah di dalam image. Click target tetap full container. */}
+      {!hasFullBannerImage && (
+        <div className="relative z-[2] p-5 flex flex-col h-full justify-between">
         <div>
           <p className="text-[9px] font-extrabold uppercase tracking-[1.2px] opacity-85 mb-2 truncate">
             {overline}
@@ -260,7 +238,7 @@ function SkyscraperInner({
           <h3
             key={`sky-title-${currentIdx}`}
             className="text-[17px] font-bold leading-[1.2] mb-2.5 animate-sky-fade"
-            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
+            style={{ fontFamily: "'Lora', Georgia, serif" }}
           >
             {displayTitle}
           </h3>
@@ -281,7 +259,8 @@ function SkyscraperInner({
 
         {/* SESI 5E Phase 3c: DCA pagination dots REMOVED — natural feel.
             Rotation tetap aktif. */}
-      </div>
+        </div>
+      )}
 
       <style jsx>{`
         @keyframes sky-fade {
