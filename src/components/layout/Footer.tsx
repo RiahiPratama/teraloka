@@ -5,11 +5,13 @@ import Logo from '@/components/ui/Logo'
 
 // 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
 // 29 Mei 2026 — PERF: prefetch={false} untuk perusahaan + legal section.
-//   Sebelumnya: <Link> default prefetch=true bikin RSC prefetch ke 4-5 page
-//   yang belum dibuat → 404 di Network tab tiap page load (noise + retry
-//   overhead). Layanan KEEP prefetch karena 5 route core sudah live.
-//   Track: Legal page (Privasi, Syarat, Lisensi, Pedoman) WAJIB ada
-//   pre-launch — bukan optional buat platform komersial.
+// 30 Mei 2026 — Perusahaan diramping 5→2 (Tentang + Kontak). Karir/Media Kit/Blog
+//   dibuang: solo founder belum hiring (Karir), prematur (Media Kit), redundan dgn
+//   BAKABAR (Blog). Link mati = lebih jelek dari tidak ada link.
+//   Legal section: 4 route SUDAH live (privasi/syarat/pedoman/lisensi) — prefetch=false
+//   DIPERTAHANKAN intentional: footer link = low-intent, prefetch halaman legal yang
+//   jarang diklik di tiap page load = buang bandwidth + resource Hobby. Sama untuk
+//   Perusahaan (tentang/kontak live, tapi low-traffic → prefetch=false).
 const FOOTER_LINKS = {
   layanan: [
     { label: 'BAKABAR Berita',     href: '/bakabar' },
@@ -20,10 +22,7 @@ const FOOTER_LINKS = {
   ],
   perusahaan: [
     { label: 'Tentang Kami', href: '/tentang' },
-    { label: 'Karir',        href: '/karir' },
     { label: 'Kontak Kami',  href: '/kontak' },
-    { label: 'Media Kit',    href: '/media-kit' },
-    { label: 'Blog',         href: '/blog' },
   ],
   legal: [
     { label: 'Kebijakan Privasi',  href: '/privasi' },
@@ -134,7 +133,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Perusahaan — prefetch=false (route belum live) */}
+          {/* Perusahaan — prefetch=false (route live tapi low-traffic) */}
           <div>
             <h4 style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text)', marginBottom: 14 }}>
               Perusahaan
@@ -152,7 +151,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Legal — prefetch=false (page belum dibuat, WAJIB ada pre-launch) */}
+          {/* Legal — prefetch=false (route live, low-intent → hindari prefetch boros) */}
           <div>
             <h4 style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: 'var(--text)', marginBottom: 14 }}>
               Legal
