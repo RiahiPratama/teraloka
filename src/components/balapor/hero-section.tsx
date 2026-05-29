@@ -176,7 +176,7 @@ export function HeroSection() {
     <section
       style={{
         background: '#001a13',
-        padding: '60px 32px 80px',
+        padding: '60px 32px 56px',
         position: 'relative',
         overflow: 'hidden',
         minHeight: 720,

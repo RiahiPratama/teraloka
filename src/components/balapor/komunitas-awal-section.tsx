@@ -113,7 +113,7 @@ export function KomunitasAwalSection() {
       ref={sectionRef}
       style={{
         background: 'linear-gradient(135deg, #fef6e8 0%, #fdf2e0 100%)',
-        padding: '80px 0',
+        padding: '56px 0',
         position: 'relative',
         overflow: 'hidden',
       }}

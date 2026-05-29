@@ -131,14 +131,14 @@ export function FiturUtamaSection() {
       ref={sectionRef}
       style={{
         background: 'white',
-        padding: '80px 0',
+        padding: '56px 0',
       }}
     >
       <div style={{ maxWidth: 1280, margin: '0 auto' }}>
         <div
           style={{
             textAlign: 'center',
-            marginBottom: 56,
+            marginBottom: 32,
             padding: '0 24px',
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(20px)',

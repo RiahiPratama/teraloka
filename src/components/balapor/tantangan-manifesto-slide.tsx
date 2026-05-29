@@ -107,7 +107,7 @@ export function TantanganManifestoSlide() {
       style={{
         background:
           'linear-gradient(135deg, #001a13 0%, #003526 50%, #001a13 100%)',
-        padding: '72px 24px',
+        padding: '56px 24px',
         position: 'relative',
         overflow: 'hidden',
       }}
@@ -197,7 +197,7 @@ export function TantanganManifestoSlide() {
         </div>
 
         {/* Slide content */}
-        <div style={{ position: 'relative', minHeight: 380 }}>
+        <div style={{ position: 'relative' }}>
           <div
             style={{
               position: activeSlide === 0 ? 'relative' : 'absolute',

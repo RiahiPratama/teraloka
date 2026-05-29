@@ -182,7 +182,7 @@ export function EkosistemSection() {
       ref={sectionRef}
       style={{
         background: '#f9f9f8',
-        padding: '80px 0 80px',
+        padding: '56px 0 56px',
         position: 'relative',
       }}
     >
@@ -191,7 +191,7 @@ export function EkosistemSection() {
         <div
           style={{
             textAlign: 'center',
-            marginBottom: 48,
+            marginBottom: 32,
             padding: '0 32px',
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(20px)',

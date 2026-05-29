@@ -1,4 +1,5 @@
 import Navbar from '@/components/layout/Navbar'
+import Ticker from '@/components/layout/Ticker'
 import CategoryTabs from '@/components/bakabar/CategoryTabs'
 import Footer from '@/components/layout/Footer'
 import Fab from '@/components/layout/Fab'
@@ -39,8 +40,10 @@ import { RegionPickerModal } from '@/components/public/RegionPicker'
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
     <RegionProvider>
-      {/* <Ticker /> RETIRED 15 Mei Batch B. PrayerBreakingBar di-render INSIDE
-          CategoryTabs (BAKABAR-spec, sticky bareng). */}
+      {/* <Ticker /> RE-ACTIVATED 30 Mei 2026 — single source of truth, fixed top-0,
+          muncul global di semua public pages. (Sebelumnya RETIRED 15 Mei Batch B.)
+          PrayerBreakingBar tetap di-render INSIDE CategoryTabs (BAKABAR-spec). */}
+      <Ticker />
       <Navbar />
       <div style={{ paddingTop: 72 }}>
         <CategoryTabs />

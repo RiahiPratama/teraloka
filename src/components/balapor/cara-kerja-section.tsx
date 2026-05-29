@@ -97,7 +97,7 @@ export function CaraKerjaSection() {
       id="cara-kerja"
       style={{
         background: 'white',
-        padding: '80px 32px',
+        padding: '56px 32px',
       }}
     >
       <div style={{ maxWidth: 1200, margin: '0 auto' }}>
@@ -105,7 +105,7 @@ export function CaraKerjaSection() {
         <div
           style={{
             textAlign: 'center',
-            marginBottom: 56,
+            marginBottom: 32,
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateY(0)' : 'translateY(20px)',
             transition: 'opacity 0.8s ease, transform 0.8s ease',

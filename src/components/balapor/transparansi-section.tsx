@@ -18,7 +18,7 @@ const TS_API_BASE =
   process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 
 // 🛡️ GANTI kalau route halaman lacak laporan (self-track) lo beda.
-const LACAK_HREF = '/reports/me';
+const LACAK_HREF = '/my-reports';
 
 /* ─── Types ─── */
 interface PetaStats {
@@ -47,6 +47,7 @@ interface RecentReport {
   status: 'verified' | 'published';
   location_name: string | null;
   created_at: string;
+  resolution?: 'open' | 'ditangani' | 'selesai';
 }
 
 /* ─── Maps ─── */
@@ -55,9 +56,9 @@ const CAT_LABELS: Record<string, string> = {
   layanan_publik: 'Layanan Publik', kesehatan: 'Kesehatan', pendidikan: 'Pendidikan',
   transportasi: 'Transportasi', lainnya: 'Lainnya',
 };
-const CATEGORY_EMOJI: Record<string, string> = {
-  keamanan: '🛡️', infrastruktur: '🚧', lingkungan: '🌳', layanan_publik: '🏛️',
-  kesehatan: '🏥', pendidikan: '🎓', transportasi: '🚗', lainnya: '⋯',
+const CATEGORY_ICON: Record<string, string> = {
+  keamanan: 'shield', infrastruktur: 'construction', lingkungan: 'forest', layanan_publik: 'account_balance',
+  kesehatan: 'health_and_safety', pendidikan: 'school', transportasi: 'directions_car', lainnya: 'category',
 };
 const CATEGORY_COLOR: Record<string, string> = {
   keamanan: '#7C3AED', infrastruktur: '#D97706', lingkungan: '#059669', layanan_publik: '#0891B2',
@@ -351,9 +352,15 @@ export function TransparansiSection() {
               {reports.map((r) => {
                 const p = prioMeta(r.priority);
                 const catKey = (r.category ?? 'lainnya').toLowerCase();
-                const emoji = CATEGORY_EMOJI[catKey] ?? '⋯';
+                const catIcon = CATEGORY_ICON[catKey] ?? 'category';
                 const catLabel = CAT_LABELS[catKey] ?? 'Lainnya';
                 const cc = catColor(catKey);
+                const res = r.resolution ?? 'open';
+                const steps = [
+                  { label: 'Diverifikasi', done: true },
+                  { label: 'Ditangani', done: res === 'ditangani' || res === 'selesai' },
+                  { label: 'Selesai', done: res === 'selesai' },
+                ];
                 return (
                   <div key={r.id} style={{ ...CARD, borderRadius: 16, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
                     <div style={{ height: 4, background: `linear-gradient(90deg, ${cc}, ${cc}99)` }} />
@@ -361,14 +368,21 @@ export function TransparansiSection() {
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11 }}>
                         <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.3, color: p.color, background: p.bg, padding: '3px 8px', borderRadius: 999 }}>{p.label}</span>
                         {r.display_id && <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.display_id}</span>}
+                        {r.status === 'published' && (
+                          <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 3, fontSize: 9, fontWeight: 800, letterSpacing: 0.3, color: '#0891B2', background: 'rgba(8,145,178,0.1)', padding: '3px 8px', borderRadius: 999 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 11, fontVariationSettings: "'FILL' 1" }}>newspaper</span>
+                            BERITA
+                          </span>
+                        )}
                       </div>
                       <h4 style={{
                         fontSize: 14.5, fontWeight: 700, color: '#1f2937', lineHeight: 1.4, marginBottom: 14,
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       } as CSSProperties}>{r.title}</h4>
                       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, color: '#6b7280' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: cc, background: `${cc}14`, padding: '4px 9px', borderRadius: 999 }}>
-                          {emoji} {catLabel}
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: cc, background: `${cc}14`, padding: '4px 10px 4px 8px', borderRadius: 999 }}>
+                          <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1" }}>{catIcon}</span>
+                          {catLabel}
                         </span>
                         {r.location_name && (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
@@ -380,6 +394,21 @@ export function TransparansiSection() {
                           <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>schedule</span>
                           {tsRelTime(r.created_at)}
                         </span>
+                      </div>
+
+                      {/* Stepper progres resolusi (civic) */}
+                      <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #f1f5f9', display: 'flex' }}>
+                        {steps.map((st, i) => (
+                          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                            {i < steps.length - 1 && (
+                              <div style={{ position: 'absolute', top: 6, left: '50%', width: '100%', height: 2, background: steps[i + 1].done ? '#0891B2' : '#e5e7eb' }} />
+                            )}
+                            <div style={{ width: 14, height: 14, borderRadius: 999, background: st.done ? '#0891B2' : '#ffffff', border: `2px solid ${st.done ? '#0891B2' : '#d1d5db'}`, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              {st.done && <span className="material-symbols-outlined" style={{ fontSize: 9, color: '#ffffff', fontVariationSettings: "'FILL' 1" }}>check</span>}
+                            </div>
+                            <span style={{ fontSize: 9, fontWeight: 700, color: st.done ? '#0f211b' : '#9ca3af', marginTop: 5, textAlign: 'center', lineHeight: 1.15 }}>{st.label}</span>
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
