@@ -109,11 +109,11 @@ const ECO_API_BASE =
 
 interface ArticleCard {
   source: string; title: string; meta: string;
-  icon: string; bgGrad: string; iconColor: string; href?: string;
+  icon: string; bgGrad: string; iconColor: string; href?: string; imageUrl?: string | null;
 }
 interface CampaignCard {
   title: string; meta: string; raised: string; target: string; pct: number;
-  icon: string; bgGrad: string; iconColor: string; complete: boolean; href?: string;
+  icon: string; bgGrad: string; iconColor: string; complete: boolean; href?: string; imageUrl?: string | null;
 }
 
 // Visual presets dicycle by index → identitas visual card tetap konsisten
@@ -159,11 +159,12 @@ function ecoCapitalize(s: string): string {
 
 interface RawArticle {
   title: string; slug?: string | null; category?: string | null;
-  view_count?: number; published_at?: string;
+  view_count?: number; published_at?: string; cover_image_url?: string | null;
 }
 interface RawCampaign {
   title: string; slug?: string | null; status?: string;
   target_amount?: number; collected_amount?: number; donor_count?: number;
+  cover_image_url?: string | null;
 }
 
 function mapArticlesToCards(items: RawArticle[]): ArticleCard[] {
@@ -172,6 +173,7 @@ function mapArticlesToCards(items: RawArticle[]): ArticleCard[] {
     title: a.title,
     meta: `${ecoReads(a.view_count ?? 0)} dibaca · ${ecoRelTime(a.published_at ?? '')}`,
     href: a.slug ? `/bakabar/${a.slug}` : '/bakabar',
+    imageUrl: a.cover_image_url ?? null,
     ...ART_PRESETS[i % ART_PRESETS.length],
   }));
 }
@@ -189,6 +191,7 @@ function mapCampaignsToCards(items: RawCampaign[]): CampaignCard[] {
       pct,
       complete,
       href: c.slug ? `/fundraising/${c.slug}` : '/fundraising',
+      imageUrl: c.cover_image_url ?? null,
       ...CAMP_PRESETS[i % CAMP_PRESETS.length],
     };
   });
@@ -419,8 +422,14 @@ export default function BalaporLandingPage() {
                     <div style={{
                       width: 50, height: 50, borderRadius: 8, background: article.bgGrad,
                       flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      overflow: 'hidden',
                     }}>
-                      <span className="material-symbols-outlined" style={{ color: article.iconColor, fontSize: 22, opacity: 0.7 }}>{article.icon}</span>
+                      {article.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={article.imageUrl} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      ) : (
+                        <span className="material-symbols-outlined" style={{ color: article.iconColor, fontSize: 22, opacity: 0.7 }}>{article.icon}</span>
+                      )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <p style={{ fontSize: 9, color: '#6b7280', fontWeight: 700, letterSpacing: 0.5, marginBottom: 2, textTransform: 'uppercase' }}>
@@ -559,8 +568,13 @@ export default function BalaporLandingPage() {
                     onMouseLeave={e => (e.currentTarget.style.borderColor = '#e5e7eb')}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 8, background: camp.bgGrad, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span className="material-symbols-outlined" style={{ color: camp.iconColor, fontSize: 18 }}>{camp.icon}</span>
+                      <div style={{ width: 36, height: 36, borderRadius: 8, background: camp.bgGrad, flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                        {camp.imageUrl ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={camp.imageUrl} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        ) : (
+                          <span className="material-symbols-outlined" style={{ color: camp.iconColor, fontSize: 18 }}>{camp.icon}</span>
+                        )}
                       </div>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <p style={{ fontSize: 12, fontWeight: 600, color: '#1f2937', lineHeight: 1.3 }}>{camp.title}</p>
