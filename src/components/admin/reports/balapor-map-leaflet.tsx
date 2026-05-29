@@ -41,7 +41,7 @@ import {
   PRIORITY_CONFIG,
   timeAgo,
   getCategoryConfig,
-  type Report,
+  type MapPoint,
   type ReportPriority,
 } from '@/types/reports';
 
@@ -71,34 +71,89 @@ function escapeHtml(s: string): string {
     .replace(/'/g, '&#39;');
 }
 
+/* ─── Resolve koordinat map per point ─── */
+
+/**
+ * Point yang udah ke-resolve koordinatnya, siap plot.
+ * _lat/_lng = koordinat final. _isGps = true kalau GPS exact (presisi penuh).
+ */
+type ResolvedPoint = MapPoint & { _lat: number; _lng: number; _isGps: boolean };
+
+/**
+ * Resolve koordinat 1 point:
+ *   - Utamakan map_latitude/map_longitude (resolved backend: GPS-else-centroid)
+ *   - Fallback ke latitude/longitude (kompat response lama tanpa map_*)
+ *   - _isGps: dari coord_source==='gps', else tebak dari adanya GPS mentah
+ * Return null kalau gak ada koordinat sama sekali (tak ke-plot).
+ */
+function resolvePoint(r: MapPoint): ResolvedPoint | null {
+  const lat = r.map_latitude ?? r.latitude ?? null;
+  const lng = r.map_longitude ?? r.longitude ?? null;
+  if (lat === null || lng === null) return null;
+  const isGps =
+    r.coord_source != null
+      ? r.coord_source === 'gps'
+      : r.latitude != null && r.longitude != null;
+  return { ...r, _lat: lat, _lng: lng, _isGps: isGps };
+}
+
 /* ─── Build individual marker DivIcon (replace CircleMarker) ─── */
 
-function buildMarkerIcon(priority: ReportPriority): L.DivIcon {
+function buildMarkerIcon(priority: ReportPriority, isGps: boolean): L.DivIcon {
   const config = PRIORITY_CONFIG[priority];
   const size = config.mapMarkerRadius * 2;
 
+  if (isGps) {
+    // GPS exact → titik SOLID presisi (isi penuh, border tegas) — setara SOS
+    return L.divIcon({
+      html: `<div style="
+        width:${size}px;
+        height:${size}px;
+        border-radius:50%;
+        background:${config.hex};
+        border:2px solid white;
+        box-shadow:0 1px 3px rgba(0,0,0,0.3);
+        opacity:0.95;
+      "></div>`,
+      className: 'balapor-priority-marker balapor-marker-gps',
+      iconSize: [size, size],
+      iconAnchor: [size / 2, size / 2],
+    });
+  }
+
+  // Centroid (perkiraan kelurahan/induk) → RING dashed, isi semi-transparan.
+  // Sinyal visual jujur: "ini perkiraan area, BUKAN titik GPS persis".
+  const ringSize = size + 2;
   return L.divIcon({
     html: `<div style="
-      width:${size}px;
-      height:${size}px;
+      width:${ringSize}px;
+      height:${ringSize}px;
       border-radius:50%;
-      background:${config.hex};
-      border:2px solid white;
-      box-shadow:0 1px 3px rgba(0,0,0,0.3);
-      opacity:0.9;
+      background:${config.hex}2E;
+      border:2px dashed ${config.hex};
+      box-shadow:0 1px 2px rgba(0,0,0,0.2);
+      opacity:0.85;
     "></div>`,
-    className: 'balapor-priority-marker',
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
+    className: 'balapor-priority-marker balapor-marker-centroid',
+    iconSize: [ringSize, ringSize],
+    iconAnchor: [ringSize / 2, ringSize / 2],
   });
 }
 
 /* ─── Build popup HTML (manual, biar kerja dengan vanilla Leaflet marker) ─── */
 
-function buildPopupHTML(r: Report): string {
+function buildPopupHTML(r: ResolvedPoint): string {
   const config = PRIORITY_CONFIG[r.priority];
   const categoryConfig = getCategoryConfig(r.category);
-  const locationStr = r.location ? ` · 📍 ${escapeHtml(r.location)}` : '';
+  const locName = r.location_name || r.location || null;
+  const locationStr = locName ? ` · 📍 ${escapeHtml(locName)}` : '';
+  const timeStr = r.created_at ? timeAgo(r.created_at) : '';
+
+  // Hint sumber koordinat — jujur soal presisi
+  const coordHint = r._isGps
+    ? '📍 Lokasi GPS tepat'
+    : `🏘️ Perkiraan ${escapeHtml(r.coord_source || 'wilayah')}`;
+  const coordColor = r._isGps ? '#0F766E' : '#94A3B8';
 
   return `
     <div style="min-width:200px;font-family:Outfit,system-ui,sans-serif">
@@ -109,8 +164,9 @@ function buildPopupHTML(r: Report): string {
         <span aria-hidden="true">${categoryConfig.emoji}</span>
         <span style="text-transform:capitalize">${escapeHtml(r.category || 'lainnya')}</span>${locationStr}
       </div>
-      <div style="font-size:11px;color:#94A3B8;margin-bottom:8px">
-        ${timeAgo(r.created_at)}
+      ${timeStr ? `<div style="font-size:11px;color:#94A3B8;margin-bottom:6px">${timeStr}</div>` : ''}
+      <div style="font-size:10px;color:${coordColor};margin-bottom:8px">
+        ${coordHint}
       </div>
       <div style="
         display:inline-flex;align-items:center;gap:4px;
@@ -185,8 +241,8 @@ function buildClusterIcon(cluster: ClusterLike): L.DivIcon {
 /* ─── MarkerClusterLayer — imperative Leaflet via useMap hook ─── */
 
 interface MarkerClusterLayerProps {
-  reports: Array<Report & { latitude: number; longitude: number }>;
-  onMarkerClick?: (report: Report) => void;
+  reports: ResolvedPoint[];
+  onMarkerClick?: (report: MapPoint) => void;
 }
 
 function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps) {
@@ -232,13 +288,13 @@ function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps)
     const bounds =
       reports.length > 0
         ? L.latLngBounds(
-            reports.map((r) => [r.latitude, r.longitude] as [number, number])
+            reports.map((r) => [r._lat, r._lng] as [number, number])
           )
         : null;
 
     for (const r of reports) {
-      const marker = L.marker([r.latitude, r.longitude], {
-        icon: buildMarkerIcon(r.priority),
+      const marker = L.marker([r._lat, r._lng], {
+        icon: buildMarkerIcon(r.priority, r._isGps),
         // Attach priority untuk clusterIcon dominant calc
         _balaporPriority: r.priority,
       } as L.MarkerOptions & { _balaporPriority: ReportPriority });
@@ -272,9 +328,9 @@ function MarkerClusterLayer({ reports, onMarkerClick }: MarkerClusterLayerProps)
 /* ─── Props ─── */
 
 export interface BalaporMapLeafletProps {
-  reports: Report[];
+  reports: MapPoint[];
   height: number;
-  onMarkerClick?: (report: Report) => void;
+  onMarkerClick?: (report: MapPoint) => void;
 }
 
 /* ─── Main component ─── */
@@ -289,17 +345,21 @@ export function BalaporMapLeaflet({
 
   const tileUrl = isDark ? TILE_DARK : TILE_LIGHT;
 
-  // Filter reports yang punya koordinat
-  const reportsWithCoords = useMemo(
+  // Resolve koordinat tiap point: GPS-else-centroid (map_* dulu, fallback latitude/longitude)
+  const reportsWithCoords = useMemo<ResolvedPoint[]>(
     () =>
-      reports.filter(
-        (r): r is Report & { latitude: number; longitude: number } =>
-          r.latitude !== null && r.longitude !== null
-      ),
+      reports
+        .map(resolvePoint)
+        .filter((r): r is ResolvedPoint => r !== null),
     [reports]
   );
 
   const hasCoords = reportsWithCoords.length > 0;
+  const gpsCount = useMemo(
+    () => reportsWithCoords.filter((r) => r._isGps).length,
+    [reportsWithCoords]
+  );
+  const approxCount = reportsWithCoords.length - gpsCount;
 
   return (
     <div
@@ -356,6 +416,27 @@ export function BalaporMapLeaflet({
             </div>
           )
         )}
+
+        {/* Divider + coord-source legend (presisi vs perkiraan) */}
+        <span className="inline-block w-px h-4 bg-border" aria-hidden="true" />
+        <div className="flex items-center gap-1.5" title="GPS exact dari perangkat pelapor">
+          <span
+            className="inline-block rounded-full border border-white"
+            style={{ width: 10, height: 10, background: '#64748B' }}
+          />
+          <span className="text-[10px] font-semibold text-text-muted">
+            GPS{gpsCount > 0 ? ` ${gpsCount}` : ''}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5" title="Perkiraan centroid kelurahan/wilayah (bukan titik persis)">
+          <span
+            className="inline-block rounded-full"
+            style={{ width: 10, height: 10, background: '#64748B2E', border: '1.5px dashed #64748B' }}
+          />
+          <span className="text-[10px] font-semibold text-text-muted">
+            Perkiraan{approxCount > 0 ? ` ${approxCount}` : ''}
+          </span>
+        </div>
       </div>
 
       {/* No coords overlay */}
@@ -367,10 +448,10 @@ export function BalaporMapLeaflet({
           <div className="bg-surface/95 backdrop-blur-sm rounded-xl px-6 py-5 text-center border border-border shadow-lg max-w-xs">
             <div className="text-3xl mb-2" aria-hidden="true">📍</div>
             <p className="text-sm font-bold text-text leading-tight">
-              Belum ada laporan dengan koordinat GPS
+              Belum ada laporan untuk dipetakan
             </p>
             <p className="text-[11px] text-text-muted mt-1.5 leading-relaxed">
-              Pin akan muncul saat user mengizinkan akses lokasi.
+              Pin muncul saat ada laporan berlokasi — GPS persis maupun perkiraan wilayah.
             </p>
           </div>
         </div>

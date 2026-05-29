@@ -64,6 +64,16 @@ export interface Report {
   location_type: string | null;
   latitude: number | null;
   longitude: number | null;
+  /**
+   * Resolved map coords (29 Mei 2026 — backend listReportsAdmin + /geo).
+   * GPS exact kalau ada, else centroid kelurahan/induk terdekat. Dipakai
+   * map admin biar laporan non-GPS tetap ke-plot. Optional (backward compat:
+   * row lama / response lama gak punya → map fallback ke latitude/longitude).
+   */
+  map_latitude?: number | null;
+  map_longitude?: number | null;
+  /** 'gps' = GPS exact device | <location type> (kelurahan/desa/kecamatan/kabupaten/provinsi) = centroid | null */
+  coord_source?: string | null;
   created_at: string;
   priority: ReportPriority;
   is_spam: boolean;
@@ -84,6 +94,34 @@ export interface Report {
    * - nama_terang  → "👤 [real name]"
    */
   reporter_display?: string | null;
+}
+
+/**
+ * MapPoint — input minimal yang dibutuhkan komponen map (29 Mei 2026).
+ *
+ * Kenapa ada: map admin disuapin dua sumber —
+ *   1. list reports (full Report, dari listReportsAdmin) → Live Map
+ *   2. geo points (subset, dari GET /admin/balapor/geo)    → Overview map (global)
+ * Dua-duanya conform ke MapPoint. Map resolve koordinat: map_latitude/longitude
+ * dulu (resolved backend), fallback ke latitude/longitude (kompat lama).
+ * Full Report assignable ke MapPoint (semua field map ada di Report).
+ */
+export interface MapPoint {
+  id: string;
+  display_id?: string | null;
+  title: string;
+  category?: string | null;
+  priority: ReportPriority;
+  status?: string;
+  location?: string | null;
+  location_name?: string | null;
+  created_at?: string;
+  latitude?: number | null;
+  longitude?: number | null;
+  map_latitude?: number | null;
+  map_longitude?: number | null;
+  /** 'gps' = presisi penuh | else = centroid (perkiraan) | null/undefined = tebak dari latitude */
+  coord_source?: string | null;
 }
 
 /* ─── Priority config ─── */

@@ -22,18 +22,18 @@
 
 import dynamic from 'next/dynamic';
 import { cn } from '@/lib/utils';
-import type { Report } from '@/types/reports';
+import type { MapPoint } from '@/types/reports';
 
 /* ─── Props ─── */
 
 export interface BalaporMapProps {
-  reports: Report[];
+  reports: MapPoint[];
   /** Tinggi map (px). Default 380. */
   height?: number;
   /** Loading state — tampilkan skeleton */
   loading?: boolean;
   /** Click handler pada marker */
-  onMarkerClick?: (report: Report) => void;
+  onMarkerClick?: (report: MapPoint) => void;
   /** Optional className untuk wrapper */
   className?: string;
 }
