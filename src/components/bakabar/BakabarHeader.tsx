@@ -209,10 +209,10 @@ export default function BakabarHeader() {
                   className="shrink-0 flex items-center transition-colors hover:opacity-70"
                   style={{
                     color: '#1F2937',
-                    fontWeight: 800,
-                    fontSize: 18,
-                    letterSpacing: 0.6,
-                    fontFamily: 'var(--font-sora), sans-serif',
+                    fontWeight: 700,
+                    fontSize: 19,
+                    letterSpacing: 0.4,
+                    fontFamily: 'var(--font-urbanist), sans-serif',
                   }}
                   aria-label="BAKABAR Home"
                 >
@@ -418,8 +418,8 @@ export default function BakabarHeader() {
               <div className="flex items-center justify-between mb-5 pb-4 border-b border-gray-100">
                 <div className="flex items-center gap-2">
                   <span
-                    className="px-2.5 py-1 rounded-md text-white text-[13px] font-extrabold tracking-wide"
-                    style={{ background: '#8B5CF6', fontFamily: 'var(--font-sora), sans-serif' }}
+                    className="px-2.5 py-1 rounded-md text-white text-[13px] font-bold tracking-wide"
+                    style={{ background: '#8B5CF6', fontFamily: 'var(--font-urbanist), sans-serif', letterSpacing: 0.4 }}
                   >
                     BAKABAR
                   </span>
