@@ -44,13 +44,16 @@ import type { AdRow } from './AdsCommandCenter';
 // SESI 5D-2 (19 Mei 2026): Position render type model
 import {
   POSITION_RENDER_METADATA,
+  ALL_POSITION_KEYS,
   getPositionMetadata,
   computeCapacityStatus,
   formatCapacityDisplay,
   type CapacityStatus,
 } from './position-render-metadata';
 
-const TOTAL_POSITIONS = 13;
+// SESI 11 Phase 1B (29 Mei 2026): derive dari ALL_POSITION_KEYS, bukan hardcode.
+// Sebelumnya hardcode 13 — outdated setelah Phase 1B drop ke 12 posisi.
+const TOTAL_POSITIONS = ALL_POSITION_KEYS.length;
 
 // ─── Action Queue Types (sync dengan backend action-queue-engine.ts) ──
 
@@ -162,7 +165,7 @@ export default function AdsBottomPanels({
 }: AdsBottomPanelsProps) {
   const activeAds = ads.filter((a) => a.status === 'active' && !a.deleted_at);
 
-  // ─── Panel 1 data: Slot Inventory (ALL 13 positions, SESI 5D-2) ─────────────────────
+  // ─── Panel 1 data: Slot Inventory (ALL 12 positions, SESI 11 Phase 1B) ─────────
   const slotInventory = POSITIONS_META.map((pos) => {
     const filledCount = activeAds.filter((a) =>
       a.positions.includes(pos.key)
@@ -170,6 +173,10 @@ export default function AdsBottomPanels({
     return { ...pos, filled: filledCount };
   })
     .sort((a, b) => b.filled - a.filled);
+
+  // SESI 11 Phase 1B (29 Mei 2026): derive filled positions count untuk
+  // Action Queue "Slot Kosong" override (backend masih hitung 13 hardcoded).
+  const filledPositionsCount = slotInventory.filter((s) => s.filled > 0).length;
 
   // ─── Panel 2 data: Ads Pipeline ───────────────────────────────
   const pipelineStages = [
@@ -269,11 +276,16 @@ export default function AdsBottomPanels({
     {
       key:       'slot_empty' as ActionQueueKind,
       label:     'Slot Kosong',
-      sub:       `${actionQueueData?.slot_empty.count ?? 0} dari ${TOTAL_POSITIONS} posisi`,
+      // SESI 11 Phase 1B (29 Mei 2026): override backend count — backend masih
+      // hardcode 13 positions (Phase 1 era), frontend udah migrate ke 12. Pakai
+      // frontend metadata sebagai source of truth, recompute dari activeAds.
+      // TD-ADS-BACKEND-SYNC: backend /admin/ads/action-queue perlu update biar
+      // pakai metadata sync. Defer Phase 2.
+      sub:       `${TOTAL_POSITIONS - filledPositionsCount} dari ${TOTAL_POSITIONS} posisi`,
       icon:      <Circle size={16} />,
       bg:        'bg-status-info/8 hover:bg-status-info/15',
       color:     'text-status-info',
-      count:     actionQueueData?.slot_empty.count ?? 0,
+      count:     TOTAL_POSITIONS - filledPositionsCount,
       urgent:    false,
     },
   ];
