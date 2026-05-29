@@ -69,6 +69,7 @@ import { ReportGroupList } from '@/components/admin/reports/report-group-list';
 import { ReportRow } from '@/components/admin/reports/report-row';
 import { ReportSidebar } from '@/components/admin/reports/report-sidebar';
 import { ReportStats } from '@/components/admin/reports/report-stats';
+import { LifecycleDistribution } from '@/components/admin/reports/lifecycle-distribution';
 import type { DeepDiveResponse } from '@/types/reports-deepdive';
 
 /* ─── API response shape ─── */
@@ -603,6 +604,14 @@ export default function AdminReportsPage() {
         setActiveTab('live');
         break;
     }
+  }, []);
+
+  /* ── Lifecycle Distribution Click → filter list ke state itu ── */
+  const handleLifecycleClick = useCallback((state: string) => {
+    setPriorityFilter('');
+    setCategoryFilter('');
+    setLifecycleFilter(state);
+    setActiveTab('live');
   }, []);
 
   /* ── Top Incident Click Handler (Sub-Sprint 1C-C-8) ── */
@@ -1166,6 +1175,15 @@ export default function AdminReportsPage() {
           stalemateCount={stalemateCount}
           onCardClick={handleStatCardClick}
           loading={loading && reports.length === 0}
+        />
+      )}
+
+      {/* ── Lifecycle Distribution (potret utuh 8-state, sums to total) ── */}
+      {!error && activeTab !== 'sos' && summary && (
+        <LifecycleDistribution
+          lifecycle={summary.lifecycle}
+          total={summary.total}
+          onStateClick={handleLifecycleClick}
         />
       )}
 
