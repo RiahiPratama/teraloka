@@ -50,6 +50,7 @@ import {
   FOLLOW_UP_CONFIG,
   type Report,
   type ReportPriority,
+  type CivicDistribution,
 } from '@/types/reports';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
@@ -77,6 +78,27 @@ interface ReportsListResponse {
   total: number;
   limit?: number;
   offset?: number;
+}
+
+/* ─── Global summary shape (mirror backend GET /admin/balapor/summary) ─── */
+
+interface ReportsSummary {
+  total: number;
+  lifecycle: {
+    pending: number;
+    reviewing: number;
+    verified: number;
+    published: number;
+    stalemate: number;
+    stale: number;
+    resolved: number;
+    rejected: number;
+  };
+  priority: { urgent: number; high: number; normal: number };
+  unhandled: number;
+  civic: CivicDistribution;
+  map_eligible: number;
+  computed_at: string;
 }
 
 /* ─── Tab state ─── */
@@ -171,6 +193,7 @@ export default function AdminReportsPage() {
   // Data state
   const [reports, setReports] = useState<Report[]>([]);
   const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<ReportsSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -234,7 +257,7 @@ export default function AdminReportsPage() {
     setLoading(true);
     setError(null);
 
-    const params: Record<string, string | number> = { limit: 100 };
+    const params: Record<string, string | number> = { limit: 1000 };
     if (priorityFilter) params.priority = priorityFilter;
     if (categoryFilter) params.category = categoryFilter;
     if (lifecycleFilter) params.lifecycle_state = lifecycleFilter;
@@ -269,6 +292,26 @@ export default function AdminReportsPage() {
     return () => controller.abort();
   }, [api, priorityFilter, categoryFilter, lifecycleFilter, searchQuery, civicFilter, geoFilter, reporterFilter, retryNonce]);
 
+  /* ── Fetch GLOBAL summary — filter-independent (fix BUG-01/02/03) ── */
+  // Widget global (Total, stat card, civic) baca dari sini → SELALU
+  // global, gak ikut nyempit saat filter. Refetch hanya saat manual
+  // refresh / auto-refresh 60s (retryNonce), BUKAN saat filter berubah.
+  useEffect(() => {
+    if (!api.token) return;
+    const controller = new AbortController();
+
+    api
+      .get<ReportsSummary>('/admin/balapor/summary', { signal: controller.signal })
+      .then((data) => setSummary(data))
+      .catch((err) => {
+        // Non-blocking: kalau summary gagal, widget fallback ke compute client
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        console.warn('[BALAPOR] summary fetch failed:', err);
+      });
+
+    return () => controller.abort();
+  }, [api, retryNonce]);
+
   /* ── Auto-refresh 60s (only on overview/live, not deepdive) ── */
   useEffect(() => {
     if (activeTab === 'deepdive') return;
@@ -296,15 +339,30 @@ export default function AdminReportsPage() {
   }, []);
 
   /* ── Derivations ── */
-  const stats = computeReportStats(reports, total);
-  const civicDistribution = computeCivicDistribution(reports);
+  // Widget GLOBAL (Total, stat card, civic distribution) baca dari
+  // /summary kalau udah loaded → SELALU global, lepas dari filter
+  // & pagination (fix BUG-01 contamination + BUG-02 cap + BUG-03 drift).
+  // List + map (di bawah) tetep dari fetch ter-filter.
+  // Fallback ke compute client (slice) cuma saat summary belum loaded.
+  const globalTotal = summary?.total ?? total;
+  const stats = summary
+    ? {
+        total: summary.total,
+        urgent: summary.priority.urgent,
+        high: summary.priority.high,
+        normal: summary.priority.normal,
+        unhandled: summary.unhandled ?? 0,
+        pending: summary.lifecycle.pending,
+      }
+    : computeReportStats(reports, total);
+  const civicDistribution = summary ? summary.civic : computeCivicDistribution(reports);
 
-  // Sub-Sprint 1C-C-2: count laporan dengan lifecycle_state='stalemate'
-  // Type assertion karena Report type belum extend dengan lifecycle_state field
-  // (backend admin endpoint Phase 3 already returns lifecycle_state — verified production)
-  const stalemateCount = reports.filter(
-    (r) => (r as Report & { lifecycle_state?: string }).lifecycle_state === 'stalemate'
-  ).length;
+  // count laporan stalemate (global dari summary; fallback slice)
+  const stalemateCount = summary
+    ? summary.lifecycle.stalemate
+    : reports.filter(
+        (r) => (r as Report & { lifecycle_state?: string }).lifecycle_state === 'stalemate'
+      ).length;
   const sortedReports = sortReportsByPriority(reports);
   const topIncidents = sortedReports.slice(0, 5);
 
@@ -1007,7 +1065,7 @@ export default function AdminReportsPage() {
             <span>
               {loading
                 ? 'Memuat data…'
-                : `${total.toLocaleString('id-ID')} total laporan`}
+                : `${globalTotal.toLocaleString('id-ID')} total laporan`}
             </span>
             {stats.unhandled > 0 && !loading && (
               <>
@@ -1431,7 +1489,7 @@ export default function AdminReportsPage() {
                 title="Reset semua filter"
               >
                 <span className="text-3xl font-extrabold text-text tracking-tight">
-                  {total.toLocaleString('id-ID')}
+                  {globalTotal.toLocaleString('id-ID')}
                 </span>
                 <span className="text-[11px] text-text-muted">
                   Total Hari Ini
