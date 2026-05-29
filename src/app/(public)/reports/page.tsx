@@ -264,7 +264,7 @@ export default function BalaporLandingPage() {
       {/* ════════════════════════════════════════════════════════
           3. CATEGORIES — Kamu bisa Laporkan Berbagai Hal (Day 13)
           ════════════════════════════════════════════════════════ */}
-      <section style={{ background: 'linear-gradient(135deg, #001a13 0%, #003526 100%)', padding: '80px 32px', position: 'relative', overflow: 'hidden' }}>
+      <section style={{ background: 'linear-gradient(135deg, #001a13 0%, #003526 100%)', padding: '56px 32px', position: 'relative', overflow: 'hidden' }}>
         {/* Decorative dot pattern */}
         <div style={{
           position: 'absolute', inset: 0,
@@ -367,7 +367,7 @@ export default function BalaporLandingPage() {
       {/* ════════════════════════════════════════════════════════
           6. EKOSISTEM TERALOKA — ALIVE 3-COL
           ════════════════════════════════════════════════════════ */}
-      <section style={{ background: 'white', padding: '80px 32px' }}>
+      <section style={{ background: 'white', padding: '56px 32px' }}>
         <div style={{ maxWidth: 1200, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-balapor)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
@@ -634,7 +634,7 @@ export default function BalaporLandingPage() {
       {/* ════════════════════════════════════════════════════════
           9. FAQ — Hybrid Tab + Accordion
           ════════════════════════════════════════════════════════ */}
-      <section style={{ background: 'white', padding: '80px 32px' }}>
+      <section style={{ background: 'white', padding: '56px 32px' }}>
         <div style={{ maxWidth: 900, margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: 32 }}>
             <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-balapor)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>

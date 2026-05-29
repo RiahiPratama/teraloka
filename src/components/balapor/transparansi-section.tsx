@@ -1,23 +1,14 @@
 'use client';
 
 /**
- * TeraLoka — Transparansi Section (BALAPOR Landing)
- * 30 Mei 2026 — Public transparency block
+ * TeraLoka — Transparansi Section (BALAPOR Landing) — Premium Redesign
+ * 30 Mei 2026
  * ------------------------------------------------------------
- * Self-contained: fetch sendiri + UI sendiri. Mount 1 baris di
- * public landing (setelah FiturUtamaSection).
+ * Arah desain: "civic dashboard premium" (depth + warna + tipografi tegas).
+ * Inspirasi: Stripe (gradient mesh), Linear (hero metric + depth), Arc/Framer (warna).
  *
- * 3 blok:
- *   A. Laporan Warga Terpantau   ← GET /balapor/peta/stats   (no-auth)
- *   B. Status Darurat SOS        ← GET /balapor/sos/public-map (no-auth, admin-curated)
- *   C. CTA Lacak Laporanmu       → flow self-track (auth, Layer 1)
- *
- * Catatan privasi:
- *   - Stats = agregat (verified+published only), nol identitas pelapor.
- *   - SOS = admin opt-in per-laporan (endpoint udah filter expose=TRUE +
- *     note di-truncate). Nampilin emergency_type + GPS = BY DESIGN.
- *   - Tracking personal sengaja lewat login (bukan public-by-number) →
- *     hindari enumerasi status laporan orang lain.
+ * 3 blok: A. Laporan Warga · B. Status SOS · C. CTA Lacak.
+ * Privasi: stats agregat, SOS admin-opt-in, tracking via login (bukan public-by-number).
  */
 
 import { useEffect, useState, type CSSProperties } from 'react';
@@ -29,15 +20,13 @@ const TS_API_BASE =
 // 🛡️ GANTI kalau route halaman lacak laporan (self-track) lo beda.
 const LACAK_HREF = '/reports/me';
 
-/* ─── Types (mirror response) ─── */
-
+/* ─── Types ─── */
 interface PetaStats {
   total: number;
   by_priority: { urgent: number; high: number; normal: number };
   by_category: Record<string, number>;
   by_status: { verified: number; published: number };
 }
-
 interface SosItem {
   id: string;
   display_id: string;
@@ -49,7 +38,6 @@ interface SosItem {
   note_preview?: string | null;
   created_at: string;
 }
-
 interface RecentReport {
   id: string;
   display_id: string | null;
@@ -61,18 +49,21 @@ interface RecentReport {
   created_at: string;
 }
 
-/* ─── Label maps ─── */
-
+/* ─── Maps ─── */
 const CAT_LABELS: Record<string, string> = {
-  keamanan: 'Keamanan',
-  infrastruktur: 'Infrastruktur',
-  lingkungan: 'Lingkungan',
-  layanan_publik: 'Layanan Publik',
-  kesehatan: 'Kesehatan',
-  pendidikan: 'Pendidikan',
-  transportasi: 'Transportasi',
-  lainnya: 'Lainnya',
+  keamanan: 'Keamanan', infrastruktur: 'Infrastruktur', lingkungan: 'Lingkungan',
+  layanan_publik: 'Layanan Publik', kesehatan: 'Kesehatan', pendidikan: 'Pendidikan',
+  transportasi: 'Transportasi', lainnya: 'Lainnya',
 };
+const CATEGORY_EMOJI: Record<string, string> = {
+  keamanan: '🛡️', infrastruktur: '🚧', lingkungan: '🌳', layanan_publik: '🏛️',
+  kesehatan: '🏥', pendidikan: '🎓', transportasi: '🚗', lainnya: '⋯',
+};
+const CATEGORY_COLOR: Record<string, string> = {
+  keamanan: '#7C3AED', infrastruktur: '#D97706', lingkungan: '#059669', layanan_publik: '#0891B2',
+  kesehatan: '#EC4899', pendidikan: '#6366F1', transportasi: '#2563EB', lainnya: '#6b7280',
+};
+function catColor(c: string) { return CATEGORY_COLOR[c] ?? '#6b7280'; }
 
 const EMERGENCY_META: Record<string, { icon: string; label: string; color: string }> = {
   fire: { icon: 'local_fire_department', label: 'Kebakaran', color: '#EF4444' },
@@ -82,29 +73,14 @@ const EMERGENCY_META: Record<string, { icon: string; label: string; color: strin
   flood: { icon: 'flood', label: 'Banjir', color: '#0891B2' },
   other: { icon: 'emergency', label: 'Darurat', color: '#EF4444' },
 };
-function emMeta(t: string) {
-  return EMERGENCY_META[t] ?? EMERGENCY_META.other;
-}
-
-const CATEGORY_EMOJI: Record<string, string> = {
-  keamanan: '🛡️',
-  infrastruktur: '🚧',
-  lingkungan: '🌳',
-  layanan_publik: '🏛️',
-  kesehatan: '🏥',
-  pendidikan: '🎓',
-  transportasi: '🚗',
-  lainnya: '⋯',
-};
+function emMeta(t: string) { return EMERGENCY_META[t] ?? EMERGENCY_META.other; }
 
 const PRIORITY_META: Record<string, { label: string; color: string; bg: string }> = {
-  urgent: { label: 'URGENT', color: '#DC2626', bg: 'rgba(220,38,38,0.12)' },
-  high: { label: 'PENTING', color: '#D97706', bg: 'rgba(217,119,6,0.12)' },
-  normal: { label: 'NORMAL', color: '#047857', bg: 'rgba(16,185,129,0.12)' },
+  urgent: { label: 'URGENT', color: '#DC2626', bg: 'rgba(220,38,38,0.1)' },
+  high: { label: 'PENTING', color: '#D97706', bg: 'rgba(217,119,6,0.1)' },
+  normal: { label: 'NORMAL', color: '#047857', bg: 'rgba(16,185,129,0.1)' },
 };
-function prioMeta(p: string) {
-  return PRIORITY_META[p] ?? PRIORITY_META.normal;
-}
+function prioMeta(p: string) { return PRIORITY_META[p] ?? PRIORITY_META.normal; }
 
 function tsRelTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -119,8 +95,15 @@ function tsRelTime(iso: string): string {
   return `${Math.floor(d / 30)} bulan lalu`;
 }
 
-/* ─── Component ─── */
+/* ─── Shared card style ─── */
+const CARD: CSSProperties = {
+  background: 'linear-gradient(180deg, #ffffff 0%, #fcfdfd 100%)',
+  border: '1px solid rgba(16,24,40,0.06)',
+  borderRadius: 22,
+  boxShadow: '0 1px 2px rgba(16,24,40,0.04), 0 20px 44px -18px rgba(16,24,40,0.16)',
+};
 
+/* ─── Component ─── */
 export function TransparansiSection() {
   const [stats, setStats] = useState<PetaStats | null>(null);
   const [sos, setSos] = useState<SosItem[] | null>(null);
@@ -128,16 +111,14 @@ export function TransparansiSection() {
 
   useEffect(() => {
     const controller = new AbortController();
-
     (async () => {
       try {
         const r = await fetch(`${TS_API_BASE}/balapor/peta/stats`, { signal: controller.signal });
         if (!r.ok) return;
         const j = await r.json();
         setStats((j?.data ?? j) as PetaStats);
-      } catch { /* silent — blok A tampil empty-safe */ }
+      } catch { /* empty-safe */ }
     })();
-
     (async () => {
       try {
         const r = await fetch(`${TS_API_BASE}/balapor/peta?limit=6`, { signal: controller.signal });
@@ -147,7 +128,6 @@ export function TransparansiSection() {
         setReports(Array.isArray(d) ? d.slice(0, 6) : []);
       } catch { setReports([]); }
     })();
-
     (async () => {
       try {
         const r = await fetch(`${TS_API_BASE}/balapor/sos/public-map`, { signal: controller.signal });
@@ -157,170 +137,179 @@ export function TransparansiSection() {
         setSos(Array.isArray(d) ? d : []);
       } catch { setSos([]); }
     })();
-
     return () => controller.abort();
   }, []);
 
   const topCats = stats
-    ? Object.entries(stats.by_category).sort((a, b) => b[1] - a[1]).slice(0, 5)
+    ? Object.entries(stats.by_category)
+        .filter(([cat]) => cat.toLowerCase() !== 'lainnya')
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
     : [];
   const maxCat = topCats.length ? topCats[0][1] : 1;
 
   return (
-    <section style={{ background: 'linear-gradient(180deg, #ffffff 0%, #f6f8f7 100%)', padding: '80px 32px' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto' }}>
+    <section
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        padding: '56px 32px',
+        backgroundColor: '#f7faf9',
+        backgroundImage:
+          'radial-gradient(55% 45% at 12% 0%, rgba(8,145,178,0.10), transparent 70%), radial-gradient(50% 50% at 100% 25%, rgba(0,53,38,0.09), transparent 72%), radial-gradient(40% 40% at 70% 100%, rgba(232,150,58,0.06), transparent 70%)',
+      }}
+    >
+      <div style={{ maxWidth: 1120, margin: '0 auto', position: 'relative' }}>
         {/* Header */}
-        <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-balapor)', letterSpacing: 2, textTransform: 'uppercase', marginBottom: 8 }}>
-            TRANSPARANSI PUBLIK
-          </p>
-          <h2 style={{ fontSize: 'clamp(24px, 3vw, 32px)', fontWeight: 800, color: '#1f2937', letterSpacing: '-0.8px', marginBottom: 8 }}>
-            Dipantau <span style={{ color: 'var(--color-balapor)' }}>bersama</span>, terbuka untuk semua
+        <div style={{ textAlign: 'center', marginBottom: 40 }}>
+          <span style={{
+            display: 'inline-flex', alignItems: 'center', gap: 7,
+            fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: 'uppercase',
+            color: '#0891B2', background: 'rgba(8,145,178,0.1)',
+            padding: '6px 14px', borderRadius: 999, marginBottom: 16,
+          }}>
+            <span style={{ width: 6, height: 6, borderRadius: 999, background: '#0891B2', display: 'inline-block' }} className="ts-pulse" />
+            Transparansi Publik
+          </span>
+          <h2 style={{
+            fontSize: 'clamp(28px, 3.4vw, 40px)', fontWeight: 800, color: '#0f211b',
+            letterSpacing: '-1.2px', lineHeight: 1.1, marginBottom: 12,
+          }}>
+            Dipantau <span style={{
+              background: 'linear-gradient(120deg, #0891B2 0%, #E8963A 100%)',
+              WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            }}>bersama</span>, terbuka untuk semua
           </h2>
-          <p style={{ fontSize: 14, color: '#6b7280' }}>
+          <p style={{ fontSize: 15, color: '#5b6b66', maxWidth: 520, margin: '0 auto' }}>
             Data laporan warga & status darurat — bisa dilihat siapa saja, kapan saja.
           </p>
         </div>
 
-        <div className="transparansi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 24, marginBottom: 24 }}>
+        {/* Grid A | B */}
+        <div className="ts-grid" style={{ display: 'grid', gridTemplateColumns: '1.05fr 0.95fr', gap: 20, marginBottom: 20 }}>
 
-          {/* ─── BLOK A — Laporan Warga ─── */}
-          <div style={{
-            background: 'white', border: '1px solid #e5e7eb', borderRadius: 18, padding: 28,
-            boxShadow: '0 4px 14px rgba(0,0,0,0.04)',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(0,53,38,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="material-symbols-outlined" style={{ color: '#003526', fontSize: 22 }}>verified_user</span>
+          {/* ── BLOK A ── */}
+          <div style={{ ...CARD, padding: 30 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 22 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, rgba(0,53,38,0.12), rgba(8,145,178,0.12))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-outlined" style={{ color: '#003526', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>verified_user</span>
               </div>
               <div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: '#1f2937' }}>Laporan Warga</p>
-                <p style={{ fontSize: 11, color: '#6b7280' }}>Terverifikasi & terpantau publik</p>
+                <p style={{ fontSize: 15, fontWeight: 800, color: '#0f211b' }}>Laporan Warga</p>
+                <p style={{ fontSize: 12, color: '#7a8a85' }}>Terverifikasi & terpantau publik</p>
               </div>
             </div>
 
-            {/* Big number */}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 4 }}>
-              <span style={{ fontSize: 44, fontWeight: 800, color: '#003526', lineHeight: 1, fontVariantNumeric: 'tabular-nums' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, marginBottom: 14 }}>
+              <span style={{
+                fontSize: 54, fontWeight: 800, lineHeight: 0.95, letterSpacing: '-2px',
+                background: 'linear-gradient(125deg, #003526 0%, #0891B2 100%)',
+                WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
                 {stats ? stats.total.toLocaleString('id-ID') : '—'}
               </span>
-              <span style={{ fontSize: 14, color: '#6b7280', fontWeight: 600 }}>laporan</span>
+              <span style={{ fontSize: 15, color: '#7a8a85', fontWeight: 600, paddingBottom: 6 }}>laporan</span>
             </div>
-            <p style={{ fontSize: 12, color: '#6b7280', marginBottom: 20 }}>
-              {stats ? `${stats.by_status.verified.toLocaleString('id-ID')} diverifikasi tim · ${stats.by_status.published.toLocaleString('id-ID')} jadi berita BAKABAR` : 'Memuat data…'}
-            </p>
 
-            {/* Category bars */}
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 24 }}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#047857', background: 'rgba(16,185,129,0.1)', padding: '5px 11px', borderRadius: 999 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1" }}>check_circle</span>
+                {stats ? stats.by_status.verified.toLocaleString('id-ID') : '—'} diverifikasi
+              </span>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 700, color: '#0891B2', background: 'rgba(8,145,178,0.1)', padding: '5px 11px', borderRadius: 999 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1" }}>newspaper</span>
+                {stats ? stats.by_status.published.toLocaleString('id-ID') : '—'} jadi berita
+              </span>
+            </div>
+
             {topCats.length > 0 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-                <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 11, marginBottom: 22 }}>
+                <p style={{ fontSize: 10, fontWeight: 800, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase' }}>
                   Isu paling banyak dilaporkan
                 </p>
-                {topCats.map(([cat, count]) => (
-                  <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <span style={{ fontSize: 11, color: '#4b5563', width: 96, flexShrink: 0 }}>
-                      {CAT_LABELS[cat] ?? cat}
-                    </span>
-                    <div style={{ flex: 1, height: 8, background: '#f1f5f9', borderRadius: 4, overflow: 'hidden' }}>
-                      <div style={{ height: '100%', width: `${Math.max(6, (count / maxCat) * 100)}%`, background: 'linear-gradient(90deg, #0891B2, #003526)', borderRadius: 4 }} />
+                {topCats.map(([cat, count]) => {
+                  const cc = catColor(cat.toLowerCase());
+                  return (
+                    <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <span style={{ fontSize: 12, color: '#4b5563', width: 100, flexShrink: 0, fontWeight: 500 }}>
+                        {CAT_LABELS[cat] ?? cat}
+                      </span>
+                      <div style={{ flex: 1, height: 9, background: '#eef2f1', borderRadius: 999, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.max(8, (count / maxCat) * 100)}%`, background: `linear-gradient(90deg, ${cc}99, ${cc})`, borderRadius: 999 }} />
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 800, color: '#1f2937', width: 30, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                        {count}
+                      </span>
                     </div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: '#1f2937', width: 32, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                      {count}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
-            <Link href="/reports#live-map" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              fontSize: 12, fontWeight: 700, color: '#003526', textDecoration: 'none',
-            }}>
+            <Link href="/reports#live-map" className="ts-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#003526', textDecoration: 'none' }}>
               Lihat peta lengkap
-              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 17 }}>arrow_forward</span>
             </Link>
           </div>
 
-          {/* ─── BLOK B — Status SOS ─── */}
-          <div style={{
-            background: 'white', border: '1px solid #e5e7eb', borderRadius: 18, padding: 28,
-            boxShadow: '0 4px 14px rgba(0,0,0,0.04)', display: 'flex', flexDirection: 'column',
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-              <div style={{ width: 40, height: 40, borderRadius: 11, background: 'rgba(239,68,68,0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <span className="material-symbols-outlined" style={{ color: '#EF4444', fontSize: 22 }}>e911_emergency</span>
+          {/* ── BLOK B ── */}
+          <div style={{ ...CARD, padding: 30, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 22 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 12, background: 'linear-gradient(135deg, rgba(239,68,68,0.14), rgba(239,68,68,0.06))', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <span className="material-symbols-outlined" style={{ color: '#EF4444', fontSize: 22, fontVariationSettings: "'FILL' 1" }}>e911_emergency</span>
               </div>
-              <div>
-                <p style={{ fontSize: 14, fontWeight: 800, color: '#1f2937' }}>Status Darurat SOS</p>
-                <p style={{ fontSize: 11, color: '#6b7280' }}>Dipantau real-time 24/7</p>
+              <div style={{ flex: 1 }}>
+                <p style={{ fontSize: 15, fontWeight: 800, color: '#0f211b' }}>Status Darurat SOS</p>
+                <p style={{ fontSize: 12, color: '#7a8a85', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 999, background: '#EF4444', display: 'inline-block' }} className="ts-pulse" />
+                  Dipantau real-time 24/7
+                </p>
               </div>
             </div>
 
-            {/* Loading */}
             {sos === null && (
-              <p style={{ fontSize: 13, color: '#9ca3af', padding: '24px 0', textAlign: 'center' }}>
-                Memuat status darurat…
-              </p>
+              <p style={{ fontSize: 13, color: '#9ca3af', padding: '24px 0', textAlign: 'center' }}>Memuat status darurat…</p>
             )}
 
-            {/* Empty = aman */}
             {sos !== null && sos.length === 0 && (
               <div style={{
                 flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-                textAlign: 'center', padding: '20px 0',
-                background: 'rgba(16,185,129,0.06)', border: '1px solid rgba(16,185,129,0.2)', borderRadius: 14,
+                textAlign: 'center', padding: '28px 0',
+                background: 'radial-gradient(circle at 50% 30%, rgba(16,185,129,0.12), rgba(16,185,129,0.04))',
+                border: '1px solid rgba(16,185,129,0.22)', borderRadius: 16,
               }}>
-                <span className="material-symbols-outlined" style={{ color: '#10B981', fontSize: 36, marginBottom: 8, fontVariationSettings: "'FILL' 1" }}>
-                  shield_with_heart
-                </span>
-                <p style={{ fontSize: 14, fontWeight: 700, color: '#047857', marginBottom: 2 }}>
-                  Tidak ada darurat aktif
-                </p>
-                <p style={{ fontSize: 12, color: '#059669' }}>Situasi Maluku Utara terpantau aman.</p>
+                <div style={{ width: 56, height: 56, borderRadius: 999, background: 'rgba(16,185,129,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
+                  <span className="material-symbols-outlined" style={{ color: '#10B981', fontSize: 30, fontVariationSettings: "'FILL' 1" }}>shield_with_heart</span>
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 800, color: '#047857', marginBottom: 3 }}>Tidak ada darurat aktif</p>
+                <p style={{ fontSize: 12.5, color: '#059669' }}>Situasi Maluku Utara terpantau aman.</p>
               </div>
             )}
 
-            {/* Ada SOS aktif */}
             {sos !== null && sos.length > 0 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {sos.slice(0, 3).map((s) => {
                   const m = emMeta(s.emergency_type);
                   return (
-                    <div key={s.id} style={{
-                      border: `1px solid ${m.color}33`, background: `${m.color}0A`,
-                      borderRadius: 12, padding: 12,
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 9, background: `${m.color}1A`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <span className="material-symbols-outlined" style={{ color: m.color, fontSize: 18, fontVariationSettings: "'FILL' 1" }}>{m.icon}</span>
+                    <div key={s.id} style={{ border: `1px solid ${m.color}30`, background: `linear-gradient(180deg, ${m.color}0D, ${m.color}05)`, borderRadius: 14, padding: 14 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 7 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: 10, background: `${m.color}1A`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <span className="material-symbols-outlined" style={{ color: m.color, fontSize: 19, fontVariationSettings: "'FILL' 1" }}>{m.icon}</span>
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <p style={{ fontSize: 13, fontWeight: 700, color: '#1f2937' }}>{m.label}</p>
-                          <p style={{ fontSize: 10, color: '#6b7280' }}>{tsRelTime(s.created_at)} · sedang ditangani</p>
+                          <p style={{ fontSize: 13.5, fontWeight: 800, color: '#1f2937' }}>{m.label}</p>
+                          <p style={{ fontSize: 10.5, color: '#6b7280' }}>{tsRelTime(s.created_at)} · sedang ditangani</p>
                         </div>
-                        <span style={{
-                          fontSize: 9, fontWeight: 800, letterSpacing: 0.3, textTransform: 'uppercase',
-                          color: '#047857', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)',
-                          padding: '3px 8px', borderRadius: 999, flexShrink: 0,
-                        }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.3, textTransform: 'uppercase', color: '#047857', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', padding: '3px 8px', borderRadius: 999, flexShrink: 0 }}>
                           Ditangani
                         </span>
                       </div>
                       {s.note_preview && (
-                        <p style={{ fontSize: 11, color: '#4b5563', lineHeight: 1.4, marginBottom: 8 }}>
-                          “{s.note_preview}”
-                        </p>
+                        <p style={{ fontSize: 11.5, color: '#4b5563', lineHeight: 1.4, marginBottom: 8 }}>“{s.note_preview}”</p>
                       )}
-                      <a
-                        href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 4,
-                          fontSize: 11, fontWeight: 700, color: m.color, textDecoration: 'none',
-                        }}
-                      >
-                        <span className="material-symbols-outlined" style={{ fontSize: 14 }}>location_on</span>
+                      <a href={`https://www.google.com/maps?q=${s.latitude},${s.longitude}`} target="_blank" rel="noopener noreferrer" className="ts-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11.5, fontWeight: 700, color: m.color, textDecoration: 'none' }}>
+                        <span className="material-symbols-outlined" style={{ fontSize: 15 }}>location_on</span>
                         Lihat lokasi
                         {s.gps_accuracy_meters ? <span style={{ color: '#9ca3af', fontWeight: 500 }}> · ±{s.gps_accuracy_meters}m</span> : null}
                       </a>
@@ -329,81 +318,69 @@ export function TransparansiSection() {
                 })}
               </div>
             )}
+
+            <div style={{ marginTop: 'auto', paddingTop: 18 }}>
+              <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#9ca3af', flexShrink: 0, marginTop: 1 }}>info</span>
+                <p style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>
+                  Tombol SOS darurat aktif 24/7. Lokasi hanya tampil bila pelapor &amp; tim menyetujui — privasi tetap dijaga.
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* ─── BLOK A2 — Laporan Warga Terbaru ─── */}
-        <div style={{ marginBottom: 24 }}>
+        {/* ── BLOK A2 — Laporan Terbaru ── */}
+        <div style={{ marginBottom: 20 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 8 }}>
             <div>
-              <p style={{ fontSize: 10, fontWeight: 700, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 2 }}>
-                Laporan Terbaru
-              </p>
-              <h3 style={{ fontSize: 18, fontWeight: 800, color: '#1f2937' }}>
-                Apa yang sedang dilaporkan warga
-              </h3>
+              <p style={{ fontSize: 10, fontWeight: 800, color: '#9ca3af', letterSpacing: 1, textTransform: 'uppercase', marginBottom: 3 }}>Laporan Terbaru</p>
+              <h3 style={{ fontSize: 20, fontWeight: 800, color: '#0f211b', letterSpacing: '-0.5px' }}>Apa yang sedang dilaporkan warga</h3>
             </div>
-            <Link href="/reports#live-map" style={{
-              display: 'inline-flex', alignItems: 'center', gap: 5,
-              fontSize: 12, fontWeight: 700, color: '#003526', textDecoration: 'none',
-            }}>
+            <Link href="/reports#live-map" className="ts-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 13, fontWeight: 700, color: '#003526', textDecoration: 'none' }}>
               Lihat di peta
-              <span className="material-symbols-outlined" style={{ fontSize: 15 }}>map</span>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>map</span>
             </Link>
           </div>
 
-          {reports === null && (
-            <p style={{ fontSize: 13, color: '#9ca3af', padding: '20px 0' }}>Memuat laporan terbaru…</p>
-          )}
-
-          {reports !== null && reports.length === 0 && (
-            <p style={{ fontSize: 13, color: '#9ca3af', padding: '20px 0' }}>Belum ada laporan terverifikasi.</p>
-          )}
+          {reports === null && <p style={{ fontSize: 13, color: '#9ca3af', padding: '20px 0' }}>Memuat laporan terbaru…</p>}
+          {reports !== null && reports.length === 0 && <p style={{ fontSize: 13, color: '#9ca3af', padding: '20px 0' }}>Belum ada laporan terverifikasi.</p>}
 
           {reports !== null && reports.length > 0 && (
-            <div className="transparansi-reports-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+            <div className="ts-reports" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {reports.map((r) => {
                 const p = prioMeta(r.priority);
                 const catKey = (r.category ?? 'lainnya').toLowerCase();
                 const emoji = CATEGORY_EMOJI[catKey] ?? '⋯';
                 const catLabel = CAT_LABELS[catKey] ?? 'Lainnya';
+                const cc = catColor(catKey);
                 return (
-                  <div key={r.id} style={{
-                    background: 'white', border: '1px solid #e5e7eb', borderRadius: 14,
-                    padding: 16, boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
-                    display: 'flex', flexDirection: 'column',
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                      <span style={{
-                        fontSize: 9, fontWeight: 800, letterSpacing: 0.3,
-                        color: p.color, background: p.bg, padding: '3px 8px', borderRadius: 999,
-                      }}>
-                        {p.label}
-                      </span>
-                      {r.display_id && (
-                        <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>
-                          {r.display_id}
+                  <div key={r.id} style={{ ...CARD, borderRadius: 16, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ height: 4, background: `linear-gradient(90deg, ${cc}, ${cc}99)` }} />
+                    <div style={{ padding: 18, display: 'flex', flexDirection: 'column', flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 11 }}>
+                        <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.3, color: p.color, background: p.bg, padding: '3px 8px', borderRadius: 999 }}>{p.label}</span>
+                        {r.display_id && <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 600, fontVariantNumeric: 'tabular-nums' }}>{r.display_id}</span>}
+                      </div>
+                      <h4 style={{
+                        fontSize: 14.5, fontWeight: 700, color: '#1f2937', lineHeight: 1.4, marginBottom: 14,
+                        display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                      } as CSSProperties}>{r.title}</h4>
+                      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, color: '#6b7280' }}>
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: cc, background: `${cc}14`, padding: '4px 9px', borderRadius: 999 }}>
+                          {emoji} {catLabel}
                         </span>
-                      )}
-                    </div>
-                    <h4 style={{
-                      fontSize: 14, fontWeight: 700, color: '#1f2937', lineHeight: 1.4, marginBottom: 12,
-                      display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
-                    } as CSSProperties}>
-                      {r.title}
-                    </h4>
-                    <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 11.5, color: '#6b7280' }}>
-                      <span>{emoji} {catLabel}</span>
-                      {r.location_name && (
+                        {r.location_name && (
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>location_on</span>
+                            {r.location_name}
+                          </span>
+                        )}
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>location_on</span>
-                          {r.location_name}
+                          <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>schedule</span>
+                          {tsRelTime(r.created_at)}
                         </span>
-                      )}
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                        <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>schedule</span>
-                        {tsRelTime(r.created_at)}
-                      </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -412,47 +389,50 @@ export function TransparansiSection() {
           )}
         </div>
 
-        {/* ─── BLOK C — CTA Lacak Laporanmu ─── */}
+        {/* ── BLOK C — CTA ── */}
         <div style={{
-          background: 'linear-gradient(135deg, #003526 0%, #0891B2 100%)',
-          borderRadius: 18, padding: '24px 28px',
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20,
-          flexWrap: 'wrap',
+          position: 'relative', overflow: 'hidden',
+          background: 'linear-gradient(120deg, #003526 0%, #0891B2 100%)',
+          borderRadius: 22, padding: '28px 32px',
+          boxShadow: '0 24px 48px -16px rgba(0,53,38,0.45)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20, flexWrap: 'wrap',
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            <div style={{ width: 44, height: 44, borderRadius: 12, background: 'rgba(255,255,255,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 24 }}>track_changes</span>
+          <div style={{ position: 'absolute', inset: 0, background: 'radial-gradient(circle at 88% 12%, rgba(255,255,255,0.18), transparent 45%)', pointerEvents: 'none' }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, position: 'relative' }}>
+            <div style={{ width: 48, height: 48, borderRadius: 14, background: 'rgba(255,255,255,0.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+              <span className="material-symbols-outlined" style={{ color: 'white', fontSize: 26 }}>track_changes</span>
             </div>
             <div>
-              <p style={{ fontSize: 16, fontWeight: 800, color: 'white', marginBottom: 2 }}>
-                Punya laporan? Pantau progresnya.
-              </p>
-              <p style={{ fontSize: 12, color: 'rgba(255,255,255,0.75)' }}>
-                Lacak status laporanmu kapan saja — dari masuk sampai ditindaklanjuti.
-              </p>
+              <p style={{ fontSize: 17, fontWeight: 800, color: 'white', marginBottom: 3, letterSpacing: '-0.3px' }}>Punya laporan? Pantau progresnya.</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)' }}>Lacak status laporanmu kapan saja — dari masuk sampai ditindaklanjuti.</p>
             </div>
           </div>
-          <Link href={LACAK_HREF} style={{
-            display: 'inline-flex', alignItems: 'center', gap: 6,
-            background: 'white', color: '#003526',
-            padding: '12px 20px', borderRadius: 10,
-            fontSize: 13, fontWeight: 700, textDecoration: 'none', flexShrink: 0,
+          <Link href={LACAK_HREF} className="ts-cta-btn" style={{
+            position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 7,
+            background: 'white', color: '#003526', padding: '13px 22px', borderRadius: 12,
+            fontSize: 13.5, fontWeight: 800, textDecoration: 'none', flexShrink: 0,
+            boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
           }}>
             Lacak Laporanmu
-            <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
+            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>arrow_forward</span>
           </Link>
         </div>
       </div>
 
-      {/* Responsive: stack grid di mobile */}
       <style>{`
         @media (max-width: 768px) {
-          .transparansi-grid { grid-template-columns: 1fr !important; }
-          .transparansi-reports-grid { grid-template-columns: 1fr !important; }
+          .ts-grid { grid-template-columns: 1fr !important; }
+          .ts-reports { grid-template-columns: 1fr !important; }
         }
         @media (min-width: 769px) and (max-width: 1024px) {
-          .transparansi-reports-grid { grid-template-columns: repeat(2, 1fr) !important; }
+          .ts-reports { grid-template-columns: repeat(2, 1fr) !important; }
         }
+        .ts-link { transition: gap .2s ease; }
+        .ts-link:hover { gap: 10px; }
+        .ts-cta-btn { transition: transform .2s ease, box-shadow .2s ease; }
+        .ts-cta-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(0,0,0,0.2); }
+        @keyframes tsPulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:.35; transform:scale(.8); } }
+        .ts-pulse { animation: tsPulse 1.8s ease-in-out infinite; }
       `}</style>
     </section>
   );
