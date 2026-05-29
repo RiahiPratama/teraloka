@@ -105,9 +105,11 @@ type Mode = 'static' | 'dca' | 'animated' | 'video';
 
 // SESI 10: Posisi yang boleh pakai video (mirror backend VIDEO_AD_POSITIONS).
 // Tab Video cuma muncul untuk posisi banner-ish.
+// SESI 11 Phase 1B (29 Mei 2026): keep `homepage_hero_banner` (DB key tetap legacy
+// nama, rename serentak di Phase 2). Label admin UI udah "Carousel Pilihan Sponsor".
+// inline_banner & banner = dormant tapi tetep eligible (kalau Phase 2 mount, video ready).
 const VIDEO_ELIGIBLE_POSITIONS = [
   'banner',
-  'homepage',
   'homepage_hero_banner',
   'top_leaderboard',
   'inline_banner',

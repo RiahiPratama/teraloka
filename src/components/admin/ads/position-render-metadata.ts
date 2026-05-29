@@ -1,12 +1,22 @@
 /**
  * TeraLoka ADS — POSITION_RENDER_METADATA
- * SESI 5D-2 (19 Mei 2026)
+ * SESI 11 Phase 1B (29 Mei 2026) — REALITY-VERIFIED REWRITE
  * ────────────────────────────────────────────────────────────────
  * Source-of-truth mapping antara position key (DB) → frontend render reality.
  *
- * Untuk solve gap: "1 AKTIF di dashboard" tidak akurat representasikan
- * kapasitas slot real (e.g., political_banner = carousel multi-slot,
- * top_leaderboard = single pool-pick).
+ * Phase 1B (29 Mei 2026) HONEST REWRITE:
+ *   - DROP `homepage_hero_fallback` — gak ada consumer di frontend (HeroWithSidebar
+ *     selalu render editorial slides, gak ada empty state ke ads).
+ *   - DROP `homepage` — never mounted (sudah didrop Phase 1).
+ *   - KEEP `homepage_hero_banner` key (match DB + frontend fetch existing) tapi
+ *     LABEL diganti "Carousel Pilihan Sponsor" (admin UX clarity). Rename serentak
+ *     di Phase 2 (db UPDATE + frontend fetch + backend route + metadata key).
+ *   - Tambah field `mountStatus`: 'active' | 'dormant' — biar admin tau iklan
+ *     yang upload ke posisi dormant GAK BAKAL TAYANG di frontend sampai mount.
+ *   - Label semua diganti bahasa praktis non-jargon (bukan "Top Leaderboard",
+ *     bukan "Inline 8:1" — admin gak ngerti CSS code).
+ *   - displayLocation diperjelas dengan referensi visual konkret yang admin
+ *     bisa cocokin dengan halaman BAKABAR aktual.
  *
  * Render Type semantics:
  *   - SINGLE_FIXED   : 1 visible slot, frontend pick random 1 ad dari pool aktif
@@ -16,341 +26,343 @@
  *   - LIST_STACKED   : N visual slots tetap, top N ads render
  *                      Konsekuensi: visual capacity = visualSlotCount, sisanya queue
  *
- * Dim source-of-truth: extracted dari grep w-[]/h-[]/aspectRatio di komponen
- * frontend di ~/teraloka/src/components/bakabar/ + ~/teraloka/src/components/ads/.
+ * Mount Status:
+ *   - active   : Ada komponen di-import + di-render di halaman BAKABAR
+ *   - dormant  : Komponen ada di codebase tapi belum di-mount. Upload iklan
+ *                ke posisi dormant = GAK TAYANG sampai mount dieksekusi.
+ *
+ * Total posisi: 10 active + 2 dormant = 12 posisi
+ * Phase 2 tasks (defer):
+ *   - Rename `homepage_hero_banner` → `pilihan_sponsor_carousel` serentak (3 layer)
+ *   - Mount `inline_banner` + `banner` ke frontend kalau mau pakai
  *
  * History:
  *   - 19 Mei 2026: initial NEW file (SESI 5D-2 Phase 1)
+ *   - 29 Mei 2026 (Phase 1): split + add fields (now superseded)
+ *   - 29 Mei 2026 (Phase 1B): reality-verified rewrite (this version)
  */
 
 export type PositionRenderType = 'SINGLE_FIXED' | 'CAROUSEL_MULTI' | 'LIST_STACKED';
+export type PositionMountStatus = 'active' | 'dormant';
 
 export interface PositionRenderMetadata {
   /** DB position key */
   key:                  string;
-  /** UI display label */
+  /** UI display label — bahasa praktis Indonesia, bukan CSS/jargon */
   label:                string;
   /** Render category — drives capacity interpretation */
   renderType:           PositionRenderType;
-  /**
-   * Visual slot count:
-   *   - SINGLE_FIXED   : 1 (always)
-   *   - CAROUSEL_MULTI : N visible simultaneous (typical 3-7)
-   *   - LIST_STACKED   : exact list capacity
-   */
+  /** Visual slot count — see comment above */
   visualSlotCount:      number;
-  /** Recommended max active ads (null = unlimited, soft hint untuk admin) */
+  /** Recommended max active ads (null = unlimited) */
   recommendedMaxActive: number | null;
   /** Frontend component yang render position ini */
   component:            string;
-  /** Real CSS dimension (sumber: grep audit komponen) */
+  /** Rendered size (px), single source of truth (sama dengan recommendedImageDim) */
   realDim:              string;
-  /** Recommended image asset dimension untuk upload (e.g., "888×220px") */
+  /** Recommended image asset dimension untuk upload — = realDim, no multiplier */
   recommendedImageDim:  string;
   /** Aspect ratio hint untuk image upload */
   aspectRatio:          string;
   /**
-   * SESI 8 (24 Mei 2026): Apakah posisi support advertorial (ad_format='text').
-   * Whitelist: in_article, native, trending_native. Lainnya = false.
+   * Bahasa Indonesia praktis untuk admin/advertiser — referensi visual konkret
+   * yang bisa dicocokin dengan halaman BAKABAR aktual.
    */
+  displayLocation:      string;
+  /** Device scope visibility */
+  deviceScope:          'all' | 'desktop' | 'mobile';
+  /**
+   * Phase 1B: status mount di frontend.
+   * dormant = upload iklan ke sini GAK BAKAL TAYANG sampai komponen di-import
+   * di halaman publik (Phase 2 task).
+   */
+  mountStatus:          PositionMountStatus;
+  /** Mount status note (kalau dormant, jelasin kenapa) */
+  mountNote?:           string;
+  /** Support advertorial text format? */
   supportsTextFormat:   boolean;
-  /**
-   * SESI 8 (24 Mei 2026): Recommended image dim khusus advertorial mode.
-   * Optional — kalau undefined, fallback ke recommendedImageDim (banner dim).
-   * Used untuk format-aware UI hint (Option A: switch dim by ad_format).
-   */
+  /** Optional advertorial-specific dim override */
   textFormatDim?:       string;
-  /**
-   * SESI 8 (24 Mei 2026): Aspect ratio hint khusus advertorial mode.
-   * Optional — fallback ke aspectRatio kalau undefined.
-   */
+  /** Optional advertorial-specific aspect ratio override */
   textFormatAspectRatio?: string;
   /** Group semantik untuk Targeting UI */
   pageGroup:            'banner_area' | 'sidebar' | 'in_article_native' | 'hero_special';
-  /** Optional: politisi-only constraint */
+  /** Optional: politisi-only constraint (KPU compliance) */
   politisiOnly?:        boolean;
-  /** Optional: tooltip "muncul di mana di public" */
+  /** Tooltip detail "muncul di mana di public" */
   description:          string;
-  /**
-   * SESI 5D-2: Frontend URL untuk live preview di Bakabar.
-   * Format: path relatif (mis. '/bakabar' atau '/bakabar/sample-article-slug')
-   * Atau '#section-anchor' kalau scroll spesifik.
-   * Render: tombol "Lihat di Bakabar" → window.open(BAKABAR_BASE + frontendUrl)
-   */
+  /** URL untuk live preview di Bakabar */
   frontendUrl:          string;
 }
 
 // ════════════════════════════════════════════════════════════════
-// METADATA MATRIX — 13 Position Keys
-// ────────────────────────────────────────────────────────────────
-// SESI 5D-2 (19 Mei 2026): realDim + recommendedImageDim hasil audit
-// dari komponen frontend (grep w-[]/h-[]/aspectRatio).
-// Sumber: ~/teraloka/src/components/bakabar/*.tsx + components/ads/*.tsx
+// METADATA MATRIX — 12 Position Keys (10 active + 2 dormant)
 // ════════════════════════════════════════════════════════════════
+
 export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = {
-  // ─── Banner Area (horizontal high visibility) ─────────────────
+
+  // ─── HOMEPAGE: TOP AREA (paling atas, premium) ──────────────────
   top_leaderboard: {
     key:                  'top_leaderboard',
-    label:                'Top Billboard',
+    label:                'Banner Utama Atas Homepage',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCATopLeaderboard',
-    realDim:              'w-full h-[220px], inner brand area w-[180px]',
+    realDim:              '888×220px',
     recommendedImageDim:  '888×220px',
-    aspectRatio:          'Horizontal 4:1',
+    aspectRatio:          '4:1 horizontal',
+    displayLocation:      'Homepage BAKABAR, tepat di bawah ticker shalat (paling atas, slot premium #1)',
+    deviceScope:          'all',
+    mountStatus:          'active',
     supportsTextFormat:   false,
     pageGroup:            'banner_area',
-    description:          'Banner paling atas, di bawah header navigasi. Pool rotation per pageview.',
+    description:          'Slot pertama yang dilihat user saat buka BAKABAR. Above-the-fold premium.',
     frontendUrl:          '/bakabar',
   },
+
+  // ─── HOMEPAGE: ANTAR SECTION ────────────────────────────────────
   inline_banner: {
     key:                  'inline_banner',
-    label:                'Inline 8:1',
+    label:                'Banner Antar Section (Belum Aktif)',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
-    component:            'InlineBannerAd',
-    realDim:              'aspectRatio 8:1 (full-width responsive)',
+    component:            'DCAInlineBanner',
+    realDim:              '1600×200px',
     recommendedImageDim:  '1600×200px',
-    aspectRatio:          'Horizontal 8:1',
+    aspectRatio:          '8:1 horizontal panjang',
+    displayLocation:      '(BELUM TAYANG) Rencana: di antara section wilayah di homepage',
+    deviceScope:          'all',
+    mountStatus:          'dormant',
+    mountNote:            'Komponen DCAInlineBanner.tsx ada tapi belum di-import ke homepage. Upload iklan ke sini GAK BAKAL TAYANG sampai mount dieksekusi (Phase 2 TD-ADS-MOUNT-INLINE).',
     supportsTextFormat:   false,
     pageGroup:            'banner_area',
-    description:          'Banner di antar region homepage, ratio 8:1 (panjang horizontal).',
+    description:          'DORMANT. Banner horizontal panjang 8:1, untuk antar section wilayah. Phase 2.',
     frontendUrl:          '/bakabar',
   },
+
+  // ─── HOMEPAGE: NATIVE / FEED (DORMANT) ──────────────────────────
   banner: {
     key:                  'banner',
-    label:                'Banner Generic',
+    label:                'Banner Square Kecil (Belum Aktif)',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCABanner',
-    realDim:              'w-[52px] h-[52px] thumbnail (compact feed item)',
-    recommendedImageDim:  '104×104px',
-    aspectRatio:          'Square 1:1',
+    realDim:              '52×52px',
+    recommendedImageDim:  '52×52px',
+    aspectRatio:          '1:1 square',
+    displayLocation:      '(BELUM TAYANG) Rencana: thumbnail kecil di feed homepage',
+    deviceScope:          'all',
+    mountStatus:          'dormant',
+    mountNote:            'Komponen DCABanner.tsx ada tapi gak ada consumer (grep zero hits). Upload iklan ke sini GAK BAKAL TAYANG sampai mount dieksekusi (Phase 2 TD-ADS-MOUNT-BANNER).',
     supportsTextFormat:   false,
     pageGroup:            'banner_area',
-    description:          'Banner kompak feed item, thumbnail 52×52 dengan side content.',
-    frontendUrl:          '/bakabar',
-  },
-  homepage_hero_banner: {
-    key:                  'homepage_hero_banner',
-    label:                'Hero Fallback + Pilihan Sponsor',
-    renderType:           'CAROUSEL_MULTI',
-    visualSlotCount:      9,
-    recommendedMaxActive: 9,
-    component:            'HeroWithSidebar + LaIndieMoviePoliticalBanner (fallback)',
-    realDim:              'Hero size (variable) ATAU 160×240 carousel base (fallback mode)',
-    recommendedImageDim:  '160×240px',
-    aspectRatio:          'Vertical poster 2:3',
-    supportsTextFormat:   false,
-    pageGroup:            'banner_area',
-    description:          'DUAL USAGE: (1) Backup hero kalau slot utama kosong, (2) Carousel "Pilihan Sponsor" homepage saat tidak ada iklan politik. 1 upload muncul di kedua tempat.',
+    description:          'DORMANT. Thumbnail kecil 52×52 untuk feed item. Phase 2.',
     frontendUrl:          '/bakabar',
   },
 
-  // ─── Sidebar (vertical) ───────────────────────────────────────
+  // ─── HOMEPAGE: CAROUSEL SETELAH BERITA NASIONAL ─────────────────
+  // SESI 11 Phase 1B (29 Mei 2026): KEY tetap `homepage_hero_banner` untuk
+  // match DB + frontend fetch yang aktif. Cuma LABEL yang diganti praktis.
+  // Phase 2 (defer): rename serentak (db UPDATE + LaIndieMoviePoliticalBanner.tsx
+  // fetch + backend route enum + metadata key).
+  homepage_hero_banner: {
+    key:                  'homepage_hero_banner',
+    label:                'Carousel Pilihan Sponsor',
+    renderType:           'CAROUSEL_MULTI',
+    visualSlotCount:      5,
+    recommendedMaxActive: 9,
+    component:            'LaIndieMoviePoliticalBanner (fallback mode)',
+    realDim:              '160×240px',
+    recommendedImageDim:  '160×240px',
+    aspectRatio:          '2:3 poster vertikal',
+    displayLocation:      'Homepage BAKABAR, tepat setelah section "Berita Nasional", sebelum section wilayah berikutnya',
+    deviceScope:          'all',
+    mountStatus:          'active',
+    supportsTextFormat:   false,
+    pageGroup:            'banner_area',
+    description:          'Carousel poster vertikal 2:3 (kayak poster film). Muncul setelah section pertama Berita Nasional kalau gak ada iklan politisi aktif. NOTE: nama internal key masih homepage_hero_banner (legacy), di-rename serentak di Phase 2.',
+    frontendUrl:          '/bakabar',
+  },
+
+  // ─── HOMEPAGE: SKYSCRAPER KIRI-KANAN ────────────────────────────
   skyscraper_left: {
     key:                  'skyscraper_left',
-    label:                'Sidebar Slot Kiri',
+    label:                'Banner Vertikal Kiri (Sidebar)',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
-    component:            'DCASkyscraper / SkyscraperBanner',
-    realDim:              'w-[160px] h-[600px] fixed',
+    component:            'DCASkyscraper (side="left")',
+    realDim:              '160×600px',
     recommendedImageDim:  '160×600px',
-    aspectRatio:          'Vertikal 1:3.75',
+    aspectRatio:          '160:600 vertikal',
+    displayLocation:      'Homepage BAKABAR, sidebar kiri (di luar area konten, hanya tampil di desktop >= 1400px)',
+    deviceScope:          'desktop',
+    mountStatus:          'active',
     supportsTextFormat:   false,
     pageGroup:            'sidebar',
-    description:          'Skyscraper kiri artikel BAKABAR (desktop xl+ only).',
+    description:          'Banner vertikal panjang di kiri konten utama. Fixed position, hide saat scroll mencapai footer.',
     frontendUrl:          '/bakabar',
   },
   skyscraper_right: {
     key:                  'skyscraper_right',
-    label:                'Sidebar Slot Kanan',
+    label:                'Banner Vertikal Kanan (Sidebar)',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
-    component:            'DCASkyscraper / SkyscraperBanner',
-    realDim:              'w-[160px] h-[600px] fixed',
+    component:            'DCASkyscraper (side="right")',
+    realDim:              '160×600px',
     recommendedImageDim:  '160×600px',
-    aspectRatio:          'Vertikal 1:3.75',
+    aspectRatio:          '160:600 vertikal',
+    displayLocation:      'Homepage BAKABAR, sidebar kanan (di luar area konten, hanya tampil di desktop >= 1400px)',
+    deviceScope:          'desktop',
+    mountStatus:          'active',
     supportsTextFormat:   false,
     pageGroup:            'sidebar',
-    description:          'Skyscraper kanan artikel BAKABAR (desktop xl+ only).',
+    description:          'Banner vertikal panjang di kanan konten utama. Fixed position, hide saat scroll mencapai footer.',
     frontendUrl:          '/bakabar',
   },
-  sidebar: {
-    key:                  'sidebar',
-    label:                'Sidebar Generic',
+
+  // ─── HOMEPAGE: TRENDING NATIVE PER WILAYAH ──────────────────────
+  trending_native: {
+    key:                  'trending_native',
+    label:                'Iklan Menyamar di List Trending Wilayah',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
-    component:            'AdSidebarSlug',
-    realDim:              'h-52 w-full (~300×208 container)',
-    recommendedImageDim:  '300×200px',
-    aspectRatio:          'Card landscape 3:2',
+    component:            'TrendingArticleAd',
+    realDim:              '60×60px',
+    recommendedImageDim:  '60×60px',
+    aspectRatio:          '1:1 thumbnail',
+    displayLocation:      'Homepage BAKABAR, diselip di list "Trending di [Wilayah]" — sengaja kelihatan mirip kartu artikel editorial (badge "IKLAN" tetap ditampilkan)',
+    deviceScope:          'all',
+    mountStatus:          'active',
+    supportsTextFormat:   true,
+    textFormatDim:        '60×60px',
+    textFormatAspectRatio:'1:1 thumbnail',
+    pageGroup:            'in_article_native',
+    description:          'Native ad: bentuk iklan mirror artikel editorial (thumbnail 60×60 + judul + author "BAKABAR [Wilayah]"). Tujuan: blend dengan konten supaya user lebih engage. Tetap ada badge "IKLAN" untuk transparansi UU Pers.',
+    frontendUrl:          '/bakabar',
+  },
+
+  // ─── HOMEPAGE: STACK BANNER PER WILAYAH ─────────────────────────
+  region_stack: {
+    key:                  'region_stack',
+    label:                'Sidebar Kanan Vertikal Section Wilayah',
+    renderType:           'SINGLE_FIXED',
+    visualSlotCount:      1,
+    recommendedMaxActive: null,
+    component:            'DCAStackBanner',
+    realDim:              '320×400px',
+    recommendedImageDim:  '320×400px',
+    aspectRatio:          '4:5 vertikal',
+    displayLocation:      'Homepage BAKABAR, kolom ke-3 (paling kanan) dari setiap section wilayah — kartu vertikal dengan background image + teks overlay',
+    deviceScope:          'all',
+    mountStatus:          'active',
     supportsTextFormat:   false,
-    pageGroup:            'sidebar',
-    description:          'Sidebar fleksibel slug artikel, random pick dari pool aktif.',
+    pageGroup:            'banner_area',
+    description:          'Stack card vertikal dengan background image. Per-wilayah targeting. Kolom ke-3 region.',
+    frontendUrl:          '/bakabar',
+  },
+
+  // ─── HOMEPAGE: POLITICAL BANNER (KPU COMPLIANCE) ────────────────
+  political_banner: {
+    key:                  'political_banner',
+    label:                'Banner Politisi (Pemilu)',
+    renderType:           'CAROUSEL_MULTI',
+    visualSlotCount:      5,
+    recommendedMaxActive: 9,
+    component:            'LaIndieMoviePoliticalBanner (primary mode)',
+    realDim:              '160×240px',
+    recommendedImageDim:  '160×240px',
+    aspectRatio:          '2:3 poster vertikal',
+    displayLocation:      'Homepage BAKABAR, posisi sama dengan Carousel Pilihan Sponsor (setelah Berita Nasional). Prioritas tertinggi — kalau ada politisi aktif, slot ini muncul; kalau gak ada, fallback ke Pilihan Sponsor.',
+    deviceScope:          'all',
+    mountStatus:          'active',
+    politisiOnly:         true,
+    supportsTextFormat:   false,
+    pageGroup:            'banner_area',
+    description:          'KPU compliance — wajib disclaimer "Dana kampanye". Format poster 2:3 carousel.',
+    frontendUrl:          '/bakabar',
+  },
+
+  // ─── ARTICLE SLUG: BANNER DI TENGAH ARTIKEL ─────────────────────
+  in_article: {
+    key:                  'in_article',
+    label:                'Banner di Tengah Artikel',
+    renderType:           'SINGLE_FIXED',
+    visualSlotCount:      1,
+    recommendedMaxActive: null,
+    component:            'AdInArticle',
+    realDim:              '640×360px',
+    recommendedImageDim:  '640×360px',
+    aspectRatio:          '16:9 horizontal',
+    displayLocation:      'Halaman detail artikel BAKABAR, diselip di tengah body paragraf (setelah ~50% scroll)',
+    deviceScope:          'all',
+    mountStatus:          'active',
+    supportsTextFormat:   true,
+    textFormatDim:        '640×360px',
+    textFormatAspectRatio:'16:9 horizontal',
+    pageGroup:            'in_article_native',
+    description:          'Banner 16:9 mid-article. High engagement karena user lagi fokus baca. Support advertorial mode (text + image).',
     frontendUrl:          '/bakabar/sample-article',
   },
 
-  // ─── In-Article & Native (inline) ─────────────────────────────
-  in_article: {
-    key:                  'in_article',
-    label:                'In Article',
-    renderType:           'SINGLE_FIXED',
-    visualSlotCount:      1,
-    recommendedMaxActive: null,
-    component:            'AdInArticle (via BodyWithAds)',
-    realDim:              'h-48 w-full (~700×192 responsive)',
-    recommendedImageDim:  '700×192px',
-    aspectRatio:          'Horizontal 4:1',
-    // SESI 8 (24 Mei 2026): advertorial render = LEFT panel 192×192 square crop
-    supportsTextFormat:   true,
-    textFormatDim:        '192×192px',
-    textFormatAspectRatio: 'Square 1:1 (LEFT panel)',
-    pageGroup:            'in_article_native',
-    description:          'Banner di tengah artikel. Auto-inject 1-3x per artikel (BodyWithAds).',
-    frontendUrl:          '/bakabar/sample-article',
-  },
+  // ─── ARTICLE SLUG: NATIVE CARD DI RELATED ARTICLES ──────────────
   native: {
     key:                  'native',
-    label:                'Native In-Article',
+    label:                'Iklan Menyamar di Artikel Terkait',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdNativeSlug',
-    realDim:              'w-14 h-14 icon (56×56) + side text content',
-    recommendedImageDim:  '112×112px',
-    aspectRatio:          'Square 1:1 (icon/logo)',
-    // SESI 8 (24 Mei 2026): advertorial render = 80×80 icon replace logo
+    realDim:              '56×56px',
+    recommendedImageDim:  '56×56px',
+    aspectRatio:          '1:1 icon',
+    displayLocation:      'Halaman detail artikel BAKABAR, di section "Artikel Terkait" di bawah artikel — sengaja kelihatan mirip kartu artikel rekomendasi (badge "IKLAN" tetap ditampilkan)',
+    deviceScope:          'all',
+    mountStatus:          'active',
     supportsTextFormat:   true,
-    textFormatDim:        '112×112px',
-    textFormatAspectRatio: 'Square 1:1 (icon advertorial)',
+    textFormatDim:        '56×56px',
+    textFormatAspectRatio:'1:1 icon',
     pageGroup:            'in_article_native',
-    description:          'Advertorial yang menyatu dengan flow artikel. Icon kiri + headline + CTA.',
+    description:          'Native ad: card iklan di section "Artikel Terkait" footer artikel. Icon advertiser 56×56 + judul + body. Variety untuk artikel yang punya 2+ ad slots. Tetap ada badge "IKLAN" untuk transparansi.',
     frontendUrl:          '/bakabar/sample-article',
   },
-  trending_native: {
-    key:                  'trending_native',
-    label:                'Trending Native',
-    renderType:           'LIST_STACKED',
-    visualSlotCount:      3,
-    recommendedMaxActive: 3,
-    component:            'TrendingArticleAd',
-    realDim:              'w-[52px] h-[52px] thumbnail + side content',
-    recommendedImageDim:  '104×104px',
-    aspectRatio:          'Square 1:1 thumbnail',
-    // SESI 8 (24 Mei 2026): advertorial render = 52×52 thumbnail replace logo
-    supportsTextFormat:   true,
-    textFormatDim:        '104×104px',
-    textFormatAspectRatio: 'Square 1:1 (thumbnail trending)',
-    pageGroup:            'in_article_native',
-    description:          'Sticky di section "Trending Now", 3 visible slot stacked.',
-    frontendUrl:          '/bakabar',
-  },
 
-  // ─── Hero & Special ───────────────────────────────────────────
-  political_banner: {
-    key:                  'political_banner',
-    label:                'Politisi Banner',
-    renderType:           'CAROUSEL_MULTI',
-    visualSlotCount:      9,
-    recommendedMaxActive: 9,
-    component:            'LaIndieMoviePoliticalBanner',
-    realDim:              '160×240 base (POSTER_W × POSTER_H), focused scale 1.30× = 208×312',
-    recommendedImageDim:  '208×312px',
-    aspectRatio:          'Vertikal poster 2:3',
-    supportsTextFormat:   false,
-    pageGroup:            'hero_special',
-    politisiOnly:         true,
-    description:          'Carousel banner politisi KPU compliance. Up to 9 ads visible, fokus rotate auto.',
-    frontendUrl:          '/bakabar',
-  },
-  region_stack: {
-    key:                  'region_stack',
-    label:                'Stack Banner Region',
-    renderType:           'LIST_STACKED',
-    visualSlotCount:      5,
-    recommendedMaxActive: 5,
-    component:            'DCAStackBanner / RegionSection',
-    realDim:              'w-[52px] h-[52px] thumbnail per-region',
-    recommendedImageDim:  '104×104px',
-    aspectRatio:          'Square 1:1 thumbnail',
-    supportsTextFormat:   false,
-    pageGroup:            'hero_special',
-    description:          'Banner di section per-kabupaten homepage, 1 thumbnail per region stack.',
-    frontendUrl:          '/bakabar',
-  },
-  homepage: {
-    key:                  'homepage',
-    label:                'Homepage Generic',
+  // ─── ARTICLE SLUG: SIDEBAR PANEL ────────────────────────────────
+  sidebar: {
+    key:                  'sidebar',
+    label:                'Banner Sidebar Artikel (Halaman Detail)',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
-    component:            'Generic (varies)',
-    realDim:              'Responsive cross-section (no fixed CSS)',
-    recommendedImageDim:  '888×220px',
-    aspectRatio:          'Horizontal responsive',
+    component:            'AdSidebarSlug',
+    realDim:              '300×208px',
+    recommendedImageDim:  '300×208px',
+    aspectRatio:          '~1.44:1 horizontal',
+    displayLocation:      'Halaman detail artikel BAKABAR (saat user baca artikel), kolom sidebar kanan — beda dari "Sidebar Kanan Section Wilayah" yang di homepage',
+    deviceScope:          'desktop',
+    mountStatus:          'active',
     supportsTextFormat:   false,
-    pageGroup:            'hero_special',
-    description:          'Banner fleksibel cross-section homepage, generic fallback.',
-    frontendUrl:          '/bakabar',
+    pageGroup:            'sidebar',
+    description:          'Banner MREC horizontal-ish (300×208) di sidebar artikel. Desktop only (sidebar hide di mobile). Beda lokasi dengan region_stack yang di homepage.',
+    frontendUrl:          '/bakabar/sample-article',
   },
 };
 
 // ════════════════════════════════════════════════════════════════
-// HELPER FUNCTIONS
+// FORMAT-AWARE HELPERS (preserved from Phase 1)
 // ════════════════════════════════════════════════════════════════
 
-/**
- * Get metadata untuk position key. Fallback ke generic safe default.
- */
-export function getPositionMetadata(key: string): PositionRenderMetadata {
-  return POSITION_RENDER_METADATA[key] ?? {
-    key,
-    label:                key,
-    renderType:           'SINGLE_FIXED',
-    visualSlotCount:      1,
-    recommendedMaxActive: null,
-    component:            'Unknown',
-    realDim:              'Unknown',
-    recommendedImageDim:  'Variabel',
-    aspectRatio:          'Responsive',
-    supportsTextFormat:   false,  // SESI 8: safe default
-    pageGroup:            'banner_area',
-    description:          'Metadata belum di-define untuk posisi ini.',
-    frontendUrl:          '/bakabar',
-  };
-}
-
-// ════════════════════════════════════════════════════════════════
-// SESI 8 (24 Mei 2026) — Format-Aware Dim Helpers
-// ────────────────────────────────────────────────────────────────
-// Option A pattern: switch dim by ad_format (image vs text).
-// Used by AdFormSectionTargeting (checkbox card) +
-// PositionCreativeModal (upload header + label).
-// ════════════════════════════════════════════════════════════════
-
-// SESI 8: image|text|animated. SESI 10 (24 Mei 2026): +video.
-// Video pakai dimensi banner sama kayak image (waterfall jatuh ke recommendedImageDim).
 export type AdFormatKind = 'image' | 'text' | 'animated' | 'video';
 
 /**
  * Get recommended image dimension untuk position + ad_format pair.
- *
- * Logic:
- *   - ad_format='text' AND position support text + has textFormatDim
- *     → return textFormatDim (advertorial-specific dim)
- *   - else → return recommendedImageDim (banner dim default)
- *
- * Example:
- *   - in_article + 'image' → "700×192px"
- *   - in_article + 'text'  → "192×192px"
- *   - native     + 'text'  → "112×112px" (same as banner — both square)
+ * - ad_format='text' + position support text + has textFormatDim → textFormatDim
+ * - else → recommendedImageDim
  */
 export function getRecommendedDimForFormat(
   meta: PositionRenderMetadata,
@@ -362,10 +374,6 @@ export function getRecommendedDimForFormat(
   return meta.recommendedImageDim;
 }
 
-/**
- * Get aspect ratio hint untuk position + ad_format pair.
- * Same waterfall pattern sebagai getRecommendedDimForFormat.
- */
 export function getAspectRatioForFormat(
   meta: PositionRenderMetadata,
   ad_format: AdFormatKind,
@@ -376,14 +384,6 @@ export function getAspectRatioForFormat(
   return meta.aspectRatio;
 }
 
-/**
- * Check apakah position support ad_format yang dipilih.
- * Used untuk disable checkbox di Targeting kalau format mismatch.
- *
- * Logic:
- *   - ad_format='text' → cek meta.supportsTextFormat
- *   - else → always true (image/animated support semua position)
- */
 export function isPositionCompatibleWithFormat(
   meta: PositionRenderMetadata,
   ad_format: AdFormatKind,
@@ -392,16 +392,10 @@ export function isPositionCompatibleWithFormat(
   return true;
 }
 
-/**
- * Compute capacity status untuk dashboard display.
- *
- * Returns:
- *   - 'available'     : slot kosong, bisa accept ad baru
- *   - 'optimal'       : fill rate ideal, masih ada room
- *   - 'near_full'     : mendekati recommendedMaxActive
- *   - 'over_capacity' : melebihi recommended (pool/carousel saturated)
- *   - 'unlimited_ok'  : null capacity, always healthy
- */
+// ════════════════════════════════════════════════════════════════
+// CAPACITY STATUS HELPERS (preserved from Phase 1)
+// ════════════════════════════════════════════════════════════════
+
 export type CapacityStatus = 'available' | 'optimal' | 'near_full' | 'over_capacity' | 'unlimited_ok';
 
 export function computeCapacityStatus(
@@ -418,14 +412,6 @@ export function computeCapacityStatus(
   return 'optimal';
 }
 
-/**
- * Format capacity display text untuk dashboard.
- *
- * Examples:
- *   - SINGLE_FIXED with 5 active, unlimited: "5 di pool (rotate)"
- *   - CAROUSEL_MULTI with 3 active, max 7: "3/7 di carousel"
- *   - LIST_STACKED with 2 active, max 3: "2/3 slot terisi"
- */
 export function formatCapacityDisplay(
   metadata: PositionRenderMetadata,
   activeCount: number,
@@ -436,13 +422,15 @@ export function formatCapacityDisplay(
       if (activeCount === 1) return '1 active (no rotation)';
       return `${activeCount} di pool (rotate per view)`;
 
-    case 'CAROUSEL_MULTI':
+    case 'CAROUSEL_MULTI': {
       const carouselMax = metadata.recommendedMaxActive ?? metadata.visualSlotCount;
       return `${activeCount}/${carouselMax} di carousel`;
+    }
 
-    case 'LIST_STACKED':
+    case 'LIST_STACKED': {
       const listMax = metadata.recommendedMaxActive ?? metadata.visualSlotCount;
       return `${activeCount}/${listMax} slot terisi`;
+    }
 
     default:
       return `${activeCount} active`;
@@ -451,21 +439,56 @@ export function formatCapacityDisplay(
 
 /**
  * Get all position keys grouped by page semantic.
+ * SESI 11 Phase 1B (29 Mei 2026): no longer hardcodes group keys —
+ * derive dari Object.values to auto-include any new pageGroup additions.
  */
 export function getPositionsByGroup(): Record<string, PositionRenderMetadata[]> {
-  const groups: Record<string, PositionRenderMetadata[]> = {
-    banner_area:        [],
-    sidebar:            [],
-    in_article_native: [],
-    hero_special:      [],
-  };
+  const groups: Record<string, PositionRenderMetadata[]> = {};
   for (const meta of Object.values(POSITION_RENDER_METADATA)) {
+    if (!groups[meta.pageGroup]) groups[meta.pageGroup] = [];
     groups[meta.pageGroup].push(meta);
   }
   return groups;
 }
 
-/**
- * All position keys (for backend validation list).
- */
+// ════════════════════════════════════════════════════════════════
+// DERIVED CONSTANTS
+// ════════════════════════════════════════════════════════════════
+
 export const ALL_POSITION_KEYS = Object.keys(POSITION_RENDER_METADATA);
+
+export const ACTIVE_POSITION_KEYS = ALL_POSITION_KEYS.filter(
+  (k) => POSITION_RENDER_METADATA[k].mountStatus === 'active'
+);
+
+export const DORMANT_POSITION_KEYS = ALL_POSITION_KEYS.filter(
+  (k) => POSITION_RENDER_METADATA[k].mountStatus === 'dormant'
+);
+
+/** Helper: get metadata for a position key, with fallback to Unknown */
+export function getPositionMetadata(key: string): PositionRenderMetadata {
+  return POSITION_RENDER_METADATA[key] ?? {
+    key,
+    label:                `Unknown (${key})`,
+    renderType:           'SINGLE_FIXED',
+    visualSlotCount:      1,
+    recommendedMaxActive: null,
+    component:            'Unknown',
+    realDim:              'Unknown',
+    recommendedImageDim:  'Unknown',
+    aspectRatio:          'Unknown',
+    displayLocation:      'Posisi tidak dikenali — kemungkinan position lama yang sudah dihapus dari metadata.',
+    deviceScope:          'all',
+    mountStatus:          'dormant',
+    mountNote:            'Position key tidak ditemukan di metadata. Cek DB untuk migrate.',
+    supportsTextFormat:   false,
+    pageGroup:            'banner_area',
+    description:          'Unknown position',
+    frontendUrl:          '/bakabar',
+  };
+}
+
+/** Helper: is position safe untuk advertiser upload (active mount)? */
+export function isPositionActive(key: string): boolean {
+  return POSITION_RENDER_METADATA[key]?.mountStatus === 'active';
+}

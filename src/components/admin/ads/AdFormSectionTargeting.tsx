@@ -46,11 +46,15 @@ import { useAdForm } from './AdFormProvider';
 // SESI 5E Phase 3a (19 Mei 2026): Position-First Creative Modal
 import PositionCreativeModal from './PositionCreativeModal';
 // SESI 8 (24 Mei 2026): Format-aware dim helpers
+// SESI 11 Phase 1B (29 Mei 2026): + POSITION_RENDER_METADATA untuk auto-derive
+// POSITION_GROUPS dari single source of truth.
 import {
+  POSITION_RENDER_METADATA,
   getPositionMetadata,
   getRecommendedDimForFormat,
   getAspectRatioForFormat,
   isPositionCompatibleWithFormat,
+  type PositionRenderMetadata,
 } from './position-render-metadata';
 
 // Page scope label per group (visual hint, semantic only — backend trust positions)
@@ -62,56 +66,66 @@ const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; icon: typeof Home; 
   both:     { label: 'Homepage + Slug',            icon: Globe2,  color: 'text-analytics' },
 };
 
-// 13 positions grouped by visual area + page scope hint
+// Page group → page scope mapping (untuk visual hint)
+const PAGE_GROUP_TO_SCOPE: Record<string, PageScope> = {
+  banner_area:       'both',
+  sidebar:           'slug',
+  in_article_native: 'slug',
+  hero_special:      'homepage',
+};
+
+const PAGE_GROUP_LABEL: Record<string, { group: string; description: string }> = {
+  banner_area:       { group: 'Banner Area',                      description: 'Slot horizontal — high visibility' },
+  sidebar:           { group: 'Skyscraper & Banner Sidebar',      description: 'Banner vertikal di pinggir konten (kiri / kanan)' },
+  in_article_native: { group: 'In-Article & Native',              description: 'Inline di artikel — native blend' },
+  hero_special:      { group: 'Hero & Special',                   description: 'Slot premium / region-targeted' },
+};
+
+// SESI 11 Phase 1B (29 Mei 2026): POSITION_GROUPS AUTO-DERIVED dari
+// POSITION_RENDER_METADATA. Sumber tunggal kebenaran. Hardcoded list udah
+// drop (dulu duplikasi data, drift risk tinggi).
+//
+// Dormant positions (mountStatus='dormant') tetap tampil tapi:
+//   - Checkbox DISABLED (gak bisa centang)
+//   - Badge "BELUM AKTIF" merah
+//   - Tooltip jelasin kenapa gak bisa pakai
+// Tujuan: admin tau slot itu EXIST di sistem (planning Phase 2), tapi gak
+// bisa accidentally upload iklan ke posisi yang gak akan tayang.
 const POSITION_GROUPS: Array<{
   group:       string;
   description: string;
   pageScope:   PageScope;
-  positions:   Array<{ key: string; label: string; size: string; politisiOnly?: boolean }>;
-}> = [
-  {
-    group:       'Banner Area',
-    description: 'Slot horizontal — high visibility',
-    pageScope:   'both',
-    positions: [
-      // SESI 5E Phase 3b: sizes sync ke position-render-metadata.ts (single source of truth)
-      { key: 'top_leaderboard',      label: 'Top Billboard',       size: '888×220' },
-      { key: 'inline_banner',        label: 'Inline 8:1',          size: '1600×200' },
-      { key: 'banner',               label: 'Banner Generic',      size: '104×104' },
-      { key: 'homepage_hero_banner', label: 'Hero Fallback',       size: '160×240' },
-    ],
-  },
-  {
-    group:       'Sidebar',
-    description: 'Slot vertikal kanan/kiri konten',
-    pageScope:   'slug',
-    positions: [
-      { key: 'skyscraper_left',  label: 'Sidebar Slot Kiri',  size: '160×600' },
-      { key: 'skyscraper_right', label: 'Sidebar Slot Kanan', size: '160×600' },
-      { key: 'sidebar',          label: 'Sidebar Generic',    size: '300×200' },
-    ],
-  },
-  {
-    group:       'In-Article & Native',
-    description: 'Inline di artikel — native blend',
-    pageScope:   'slug',
-    positions: [
-      { key: 'in_article',      label: 'In Article',         size: '700×192' },
-      { key: 'native',          label: 'Native In-Article',  size: '112×112' },
-      { key: 'trending_native', label: 'Trending Native',    size: '104×104' },
-    ],
-  },
-  {
-    group:       'Hero & Special',
-    description: 'Slot premium / region-targeted',
-    pageScope:   'homepage',
-    positions: [
-      { key: 'political_banner', label: 'Politisi Banner',    size: '208×312', politisiOnly: true },
-      { key: 'region_stack',     label: 'Stack Banner Region', size: '104×104' },
-      { key: 'homepage',         label: 'Homepage Generic',   size: '888×220'  },
-    ],
-  },
-];
+  positions:   Array<{
+    key:           string;
+    label:         string;
+    size:          string;
+    politisiOnly?: boolean;
+    isDormant:     boolean;
+    dormantNote?:  string;
+  }>;
+}> = (() => {
+  const grouped: Record<string, typeof POSITION_GROUPS[number]['positions']> = {};
+
+  const metaValues = Object.values(POSITION_RENDER_METADATA) as PositionRenderMetadata[];
+  for (const meta of metaValues) {
+    if (!grouped[meta.pageGroup]) grouped[meta.pageGroup] = [];
+    grouped[meta.pageGroup].push({
+      key:          meta.key,
+      label:        meta.label,
+      size:         meta.realDim,
+      politisiOnly: meta.politisiOnly,
+      isDormant:    meta.mountStatus === 'dormant',
+      dormantNote:  meta.mountNote,
+    });
+  }
+
+  return Object.entries(grouped).map(([pageGroup, positions]) => ({
+    group:       PAGE_GROUP_LABEL[pageGroup]?.group       ?? pageGroup,
+    description: PAGE_GROUP_LABEL[pageGroup]?.description ?? '',
+    pageScope:   PAGE_GROUP_TO_SCOPE[pageGroup]           ?? 'both',
+    positions,
+  }));
+})();
 
 // 12 kabupaten/kota Maluku Utara (per memory: GPS backfill done)
 const REGIONS = [
@@ -294,7 +308,7 @@ export default function AdFormSectionTargeting() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                       {group.positions.map((pos) => {
                         const isActive = state.positions.includes(pos.key);
-                        const isDisabled = pos.politisiOnly && !isPolitisi;
+                        const isDisabled = (pos.politisiOnly && !isPolitisi) || pos.isDormant;
                         const isSuggestedTier = tierSuggestedSet.has(pos.key); // SESI 5C-B
 
                         // SESI 5E Phase 3a: Detect creative status untuk badge
@@ -351,6 +365,18 @@ export default function AdFormSectionTargeting() {
                                       {pos.politisiOnly && (
                                         <span className="ml-1 text-[9px] text-status-warning">
                                           🏛️
+                                        </span>
+                                      )}
+                                      {/* SESI 11 Phase 1B (29 Mei 2026): Badge dormant —
+                                          slot ada di metadata tapi belum di-mount di frontend.
+                                          Disable checkbox + tooltip kasih tau admin biar gak
+                                          accidentally upload iklan yang gak akan tayang. */}
+                                      {pos.isDormant && (
+                                        <span
+                                          className="ml-1 px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-critical/12 text-status-critical"
+                                          title={pos.dormantNote ?? 'Posisi ini belum di-mount di frontend. Phase 2.'}
+                                        >
+                                          Belum Aktif
                                         </span>
                                       )}
                                       {isSuggestedTier && !isDisabled && (

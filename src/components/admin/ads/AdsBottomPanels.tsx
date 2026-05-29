@@ -125,14 +125,30 @@ export interface AdsBottomPanelsProps {
 }
 
 // SESI 5D-2 (19 Mei 2026): POSITIONS_META derived dari source-of-truth metadata.
-// realDim + aspectRatio + renderType + capacity awareness sekarang akurat
-// per audit komponen Bakabar (lihat position-render-metadata.ts).
-const POSITIONS_META: Array<{ key: string; label: string; size: string }> = Object.values(
-  POSITION_RENDER_METADATA
-).map((meta) => ({
-  key:   meta.key,
-  label: meta.label,
-  size:  meta.realDim, // dimensi spesifik real, bukan tebakan
+// SESI 11 (29 Mei 2026): tambah aspectRatio + displayLocation untuk
+// konsistensi visual dengan Tab Layout Iklan + Modal Tambah Iklan.
+// SESI 11 Phase 1B (29 Mei 2026): tambah mountStatus + supportsTextFormat —
+// posisi dormant ditampilkan dengan badge "BELUM AKTIF" biar admin tau
+// iklan yang upload ke sini gak akan tayang sampai Phase 2 mount.
+// supportsTextFormat: true = bisa advertorial (text-based), false = banner statis only.
+const POSITIONS_META: Array<{
+  key:                string;
+  label:              string;
+  size:               string;
+  aspectRatio:        string;
+  displayLocation:    string;
+  isDormant:          boolean;
+  mountNote?:         string;
+  supportsAdvertorial: boolean;
+}> = Object.values(POSITION_RENDER_METADATA).map((meta) => ({
+  key:                 meta.key,
+  label:               meta.label,
+  size:                meta.recommendedImageDim, // single source — same as realDim post SESI 11
+  aspectRatio:         meta.aspectRatio,
+  displayLocation:     meta.displayLocation,
+  isDormant:           meta.mountStatus === 'dormant',
+  mountNote:           meta.mountNote,
+  supportsAdvertorial: meta.supportsTextFormat,
 }));
 
 export default function AdsBottomPanels({
@@ -330,11 +346,43 @@ export default function AdsBottomPanels({
                       {isFilled ? <Check size={14} /> : <Circle size={14} />}
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[12px] font-semibold text-text truncate">
+                      <div className="text-[12px] font-semibold text-text truncate flex items-center gap-1 flex-wrap">
                         {slot.label}
+                        {slot.isDormant && (
+                          <span
+                            className="px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-critical/12 text-status-critical shrink-0"
+                            title={slot.mountNote ?? 'Posisi belum di-mount di frontend. Phase 2.'}
+                          >
+                            Belum Aktif
+                          </span>
+                        )}
+                        {/* SESI 11 Phase 1B (29 Mei 2026): Badge format ad —
+                            kasih tau admin posisi ini support advertorial (text-based)
+                            atau cuma banner gambar statis. */}
+                        {slot.supportsAdvertorial ? (
+                          <span
+                            className="px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-info/12 text-status-info shrink-0"
+                            title="Posisi ini bisa pakai format advertorial (judul + body teks + thumbnail) ATAU banner gambar"
+                          >
+                            ✓ Advertorial
+                          </span>
+                        ) : (
+                          <span
+                            className="px-1 py-0.5 rounded text-[8px] font-bold uppercase bg-surface-muted text-text-muted shrink-0"
+                            title="Posisi ini cuma support banner gambar statis (atau animated/video kalau eligible). Tidak support advertorial text-based."
+                          >
+                            Banner Statis
+                          </span>
+                        )}
                       </div>
-                      <div className="text-[10px] text-text-muted">
-                        {slot.size}
+                      {/* SESI 11 (29 Mei 2026): tampilkan ukuran + ratio + lokasi
+                          biar admin paham konteks (sebelumnya cuma CSS w-[]/h-[]
+                          yang bikin bingung). */}
+                      <div className="text-[10px] text-ads font-semibold mt-0.5">
+                        {slot.size} <span className="text-text-muted font-normal">· {slot.aspectRatio}</span>
+                      </div>
+                      <div className="text-[9.5px] text-text-muted leading-snug mt-0.5 line-clamp-1">
+                        📍 {slot.displayLocation}
                       </div>
                     </div>
                   </div>

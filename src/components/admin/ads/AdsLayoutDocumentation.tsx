@@ -7,7 +7,7 @@
  * Static documentation page yang menjelaskan:
  *   - Visual mockup wireframe Bakabar (peta posisi iklan)
  *   - Per-position detail card (dimensi, render type, component file)
- *   - Dual-usage notes (e.g., homepage_hero_banner di 2 tempat)
+ * *   - SESI 11 Phase 1B: drop dual-usage. Now 12 positions clean.
  *   - Recommended image asset per posisi
  *
  * Source-of-truth: POSITION_RENDER_METADATA dari position-render-metadata.ts
@@ -82,7 +82,7 @@ const RENDER_TYPE_INFO: Record<PositionRenderType, {
 
 const PAGE_GROUP_INFO: Record<string, { label: string; description: string }> = {
   banner_area:        { label: 'Banner Area',       description: 'Slot horizontal high visibility (top, inline, hero)' },
-  sidebar:            { label: 'Sidebar',           description: 'Slot vertikal kiri/kanan konten' },
+  sidebar:            { label: 'Skyscraper & Banner Sidebar', description: 'Banner vertikal di pinggir konten (kiri / kanan)' },
   in_article_native:  { label: 'In-Article & Native', description: 'Inline di artikel, native blend' },
   hero_special:       { label: 'Hero & Special',    description: 'Slot premium / region-targeted' },
 };
@@ -150,9 +150,9 @@ export default function AdsLayoutDocumentation({ onJumpToAds }: AdsLayoutDocumen
             <p className="font-bold mb-1">Cara baca halaman ini:</p>
             <ul className="list-disc list-inside space-y-0.5 text-text-muted">
               <li><strong>Render Type</strong>: Single Pool / Carousel Multi / List Stacked — tentukan visual behavior</li>
-              <li><strong>Dimensi Image Recommended</strong>: ukuran image asset untuk upload optimal</li>
-              <li><strong>Page Group</strong>: di halaman/section mana posisi muncul</li>
-              <li><strong>Dual-usage notes</strong>: beberapa posisi muncul di 2+ tempat</li>
+              <li><strong>Ukuran Upload</strong>: dimensi image asset untuk upload (sama persis dengan ukuran render)</li>
+              <li><strong>Lokasi Tampil</strong>: bahasa praktis di mana posisi muncul di halaman BAKABAR</li>
+              <li><strong>Status Mount</strong>: aktif (siap tayang) atau dormant (belum di-mount di frontend — Phase 2)</li>
             </ul>
           </div>
         </div>
@@ -189,7 +189,7 @@ export default function AdsLayoutDocumentation({ onJumpToAds }: AdsLayoutDocumen
 
             {/* Position cards grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-2 p-3">
-              {positions.map((meta) => (
+              {(positions as PositionRenderMetadata[]).map((meta) => (
                 <PositionCard
                   key={meta.key}
                   meta={meta}
@@ -400,7 +400,7 @@ function PositionDetailCard({ meta, activeCount, onClose, onJumpToAds }: Positio
         {/* Dimensi recommended */}
         <div>
           <p className="text-[9px] font-bold uppercase tracking-wide text-text-muted mb-1">
-            Image Dimensi (Upload Asset)
+            Ukuran Upload Gambar
           </p>
           <p className="text-ads font-bold text-[12px]">
             📐 {meta.recommendedImageDim}
@@ -410,13 +410,17 @@ function PositionDetailCard({ meta, activeCount, onClose, onJumpToAds }: Positio
           </p>
         </div>
 
-        {/* Render Dim CSS */}
+        {/* SESI 11 (29 Mei 2026): Drop realDim CSS section, replace dengan
+            "Lokasi Tampil" yang lebih bermakna untuk admin/advertiser. */}
         <div>
           <p className="text-[9px] font-bold uppercase tracking-wide text-text-muted mb-1">
-            Frontend Render Dim (CSS)
+            Lokasi Tampil
           </p>
-          <p className="text-text text-[10px] font-mono leading-snug">
-            {meta.realDim}
+          <p className="text-text text-[11px] leading-snug">
+            {meta.displayLocation}
+          </p>
+          <p className="text-[10px] text-text-muted mt-0.5">
+            Device: {meta.deviceScope === 'desktop' ? 'Desktop only' : meta.deviceScope === 'mobile' ? 'Mobile only' : 'Semua device'}
           </p>
         </div>
 

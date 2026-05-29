@@ -35,8 +35,11 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
+import { ALL_POSITION_KEYS } from './position-render-metadata';
 
-const TOTAL_POSITIONS = 13; // dari VALID_POSITIONS Mission 7-B
+// SESI 11 (29 Mei 2026): derive dari ALL_POSITION_KEYS, bukan hardcode.
+// Sebelumnya hardcode 13 — outdated setelah SESI 11 split jadi 14 posisi.
+const TOTAL_POSITIONS = ALL_POSITION_KEYS.length;
 
 export interface AdsStatsCardsProps {
   ads: AdRow[];
