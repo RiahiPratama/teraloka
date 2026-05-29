@@ -177,12 +177,12 @@ function BakabarPageContent() {
         .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
       `}</style>
 
-      <div className="max-w-[1280px] mx-auto px-4">
-        <div className="flex gap-5 items-stretch justify-center pt-16">
+      <div className="max-w-[1400px] mx-auto px-4">
+        <div className="flex gap-5 items-start justify-center pt-3">
 
           <DCASkyscraper side="left" />
 
-          <main className="flex-1 min-w-0 max-w-4xl">
+          <main className="flex-1 min-w-0" style={{ maxWidth: 1000 }}>
 
             {/* Mission 7-B-2: replace TopLeaderboardAd hardcoded → DCATopLeaderboard fetch */}
             <DCATopLeaderboard />

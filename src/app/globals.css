@@ -318,7 +318,7 @@ body {
   background-color: var(--surface);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
+  overflow-x: clip;
 }
 
 h1, h2, h3, h4, .font-sora { font-family: var(--font-sora), sans-serif; }

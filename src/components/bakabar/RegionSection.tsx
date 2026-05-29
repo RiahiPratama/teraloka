@@ -123,9 +123,9 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
     <section className="my-12">
       <div className="flex justify-between items-center mb-5">
         <div className="flex items-center gap-3">
-          <div className="w-1 h-[30px] rounded-sm" style={{ background: '#EF4444' }} />
+          <div className="w-1 h-[30px] rounded-sm" style={{ background: '#8B5CF6' }} />
           <h2 className="font-extrabold tracking-[-0.6px] text-gray-900"
-            style={{ fontFamily: "var(--font-lora), Georgia, serif", fontSize: 28 }}>
+            style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 28 }}>
             {label}
           </h2>
         </div>
@@ -154,12 +154,12 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
               <div className="absolute inset-0 z-[2] flex flex-col justify-end p-5">
                 <h3 className="text-[20px] font-bold leading-[1.25] tracking-[-0.3px] mb-3 line-clamp-4"
-                  style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
+                  style={{ fontFamily: "'Lora', Georgia, serif" }}>
                   {featured.title}
                 </h3>
                 <div className="flex items-center gap-1.5 text-[11px] opacity-95">
                   <div className="w-[18px] h-[18px] rounded-full flex items-center justify-center text-white text-[10px] font-bold shrink-0"
-                    style={{ background: '#003526', fontFamily: "var(--font-lora), Georgia, serif" }}>
+                    style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif" }}>
                     B
                   </div>
                   <span className="truncate">BAKABAR {short_label}</span>
@@ -186,14 +186,14 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
             <div className="px-3.5 py-2.5 flex items-center justify-between shrink-0"
               style={{ borderBottom: '1px solid #E5E7EB' }}>
               <div className="flex items-center gap-2 min-w-0">
-                <div className="w-[3px] h-[14px] rounded-sm shrink-0" style={{ background: '#EF4444' }} />
-                <div className="text-[12px] font-extrabold text-gray-900 truncate">
+                <div className="w-[3px] h-[16px] rounded-sm shrink-0" style={{ background: '#8B5CF6' }} />
+                <div className="text-[14px] font-extrabold text-gray-900 truncate">
                   Trending di {short_label}
                 </div>
               </div>
               {trending_list.length > 4 && (
-                <div className="text-[9px] text-gray-400 flex items-center gap-0.5 tracking-[0.5px] font-semibold shrink-0">
-                  <ArrowUpDown size={10} strokeWidth={2.4} />
+                <div className="text-[10px] text-gray-400 flex items-center gap-0.5 tracking-[0.5px] font-semibold shrink-0">
+                  <ArrowUpDown size={11} strokeWidth={2.4} />
                   scroll
                 </div>
               )}
@@ -214,26 +214,26 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
                   )}
                   <Link
                     href={`/bakabar/${item.slug}`}
-                    className="flex gap-2 px-3.5 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                    className="flex gap-2.5 px-3.5 py-3 cursor-pointer hover:bg-gray-50 transition-colors"
                     style={{ borderBottom: idx < trending_list.length - 1 ? '1px solid #F3F4F6' : 'none' }}
                   >
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-[11.5px] font-semibold leading-[1.3] text-gray-900 mb-1 line-clamp-2"
-                        style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
+                      <h4 className="text-[14px] font-semibold leading-[1.4] text-gray-900 mb-1.5 line-clamp-2"
+                        style={{ fontFamily: "'Lora', Georgia, serif" }}>
                         {item.title}
                       </h4>
-                      <div className="flex items-center gap-1 text-[9px] text-gray-400">
-                        <div className="w-3 h-3 rounded-full flex items-center justify-center text-white shrink-0"
-                          style={{ background: '#003526', fontFamily: "var(--font-lora), Georgia, serif", fontWeight: 700, fontSize: 7 }}>
+                      <div className="flex items-center gap-1.5 text-[11px] text-gray-500">
+                        <div className="w-4 h-4 rounded-full flex items-center justify-center text-white shrink-0"
+                          style={{ background: '#003526', fontFamily: "'Lora', Georgia, serif", fontWeight: 700, fontSize: 9 }}>
                           B
                         </div>
                         <span className="truncate">BAKABAR {short_label}</span>
                       </div>
-                      <div className="text-[9px] text-gray-400 mt-0.5">
+                      <div className="text-[11px] text-gray-400 mt-0.5">
                         {timeAgo(item.published_at)}
                       </div>
                     </div>
-                    <div className="w-[52px] h-[52px] rounded-md shrink-0"
+                    <div className="w-[60px] h-[60px] rounded-md shrink-0"
                       style={{ background: THUMB_BG[item.thumb_class || 'thumb-1'] || THUMB_BG['thumb-1'] }} />
                   </Link>
                 </Fragment>
@@ -264,7 +264,7 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
                   Layanan TeraLoka
                 </p>
                 <h3 className="text-[17px] font-extrabold leading-[1] mb-1.5 tracking-[-0.4px]"
-                  style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
+                  style={{ fontFamily: "'Lora', Georgia, serif" }}>
                   {layanan.name}
                 </h3>
                 <p className="text-[10px] leading-[1.35] opacity-90 line-clamp-2 mb-auto">

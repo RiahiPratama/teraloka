@@ -34,6 +34,11 @@
 import { useState, useEffect, useRef, Suspense } from 'react';
 import { usePathname, useSearchParams, useRouter } from 'next/navigation';
 import PrayerBreakingBar from '@/components/bakabar/PrayerBreakingBar';
+import {
+  Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
+  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare,
+  Tag, Check, ChevronDown,
+} from 'lucide-react';
 
 // ─── 13 nav items (single row, urutan LOCKED) ─────────────────
 const NAV_ITEMS = [
@@ -54,22 +59,25 @@ const NAV_ITEMS = [
 
 // ─── 12 Topik ─────────────────────────────────────────────────
 const TOPICS = [
-  { key: 'berita',       label: 'Berita',       icon: '📰' },
-  { key: 'politik',      label: 'Politik',      icon: '🏛️' },
-  { key: 'ekonomi',      label: 'Ekonomi',      icon: '💰' },
-  { key: 'sosial',       label: 'Sosial',       icon: '🤝' },
-  { key: 'transportasi', label: 'Transportasi', icon: '🚤' },
-  { key: 'olahraga',     label: 'Olahraga',     icon: '⚽' },
-  { key: 'kesehatan',    label: 'Kesehatan',    icon: '🩺' },
-  { key: 'pendidikan',   label: 'Pendidikan',   icon: '🎓' },
-  { key: 'budaya',       label: 'Budaya',       icon: '🎭' },
-  { key: 'teknologi',    label: 'Teknologi',    icon: '💡' },
-  { key: 'cuaca',        label: 'Cuaca',        icon: '☁️' },
-  { key: 'opini',        label: 'Opini',        icon: '💬' },
+  { key: 'berita',       label: 'Berita',       Icon: Newspaper },
+  { key: 'politik',      label: 'Politik',      Icon: Landmark },
+  { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet },
+  { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake },
+  { key: 'transportasi', label: 'Transportasi', Icon: Ship },
+  { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy },
+  { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope },
+  { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap },
+  { key: 'budaya',       label: 'Budaya',       Icon: Drama },
+  { key: 'teknologi',    label: 'Teknologi',    Icon: Cpu },
+  { key: 'cuaca',        label: 'Cuaca',        Icon: Cloud },
+  { key: 'opini',        label: 'Opini',        Icon: MessageSquare },
 ];
 
-// NAVBAR_OFFSET stay at 100 (Navbar.tsx top-[44px] sm:top-[52px] hardcoded).
-const NAVBAR_OFFSET = 100;
+// NAVBAR_OFFSET = 92 (29 Mei sore rev 3, tight no gap):
+//   - Ticker top: 0-36px (fixed, spacer 36 in flow)
+//   - BakabarHeader fixed top: 36, height 56 → ends at viewport y=92
+//   - CategoryTabs sticky top: 92 (right below header, zero gap)
+const NAVBAR_OFFSET = 92;
 
 // ─── URL state hybrid parser ─────────────────────────────────
 function parseCurrentNav(params: URLSearchParams): string {
@@ -179,10 +187,25 @@ function CategoryTabsInner() {
         transition: 'box-shadow 0.2s ease',
       }}
     >
-      <div className="max-w-4xl mx-auto px-4 py-3">
+      <div className="max-w-[1400px] mx-auto px-4 py-1">
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '160px 20px minmax(0, 1000px) 20px 160px',
+            justifyContent: 'center',
+            alignItems: 'start',
+          }}
+        >
+          {/* COL 1: empty (left sky-space) */}
+          <div />
+          {/* COL 2: gap */}
+          <div />
 
-        {/* ── Row 1: 13 nav items + Topik dropdown ─────────────────────── */}
-        <div className="relative flex items-center">
+          {/* COL 3: main content — sejajar Hero Banner */}
+          <div className="min-w-0">
+
+            {/* ── Row 1: 13 nav items + Topik dropdown ─────────────────────── */}
+            <div className="relative flex items-center">
 
           <div
             ref={scrollRef}
@@ -191,7 +214,7 @@ function CategoryTabsInner() {
               scrollbarWidth: 'none',
               msOverflowStyle: 'none',
               WebkitOverflowScrolling: 'touch',
-              gap: 2,
+              gap: 6,
             }}
           >
             {NAV_ITEMS.map(item => {
@@ -205,26 +228,25 @@ function CategoryTabsInner() {
                     padding: '9px 16px',
                     fontSize: 14,
                     fontWeight: active ? 700 : 600,
-                    color: active ? '#5B21B6' : '#1F2937',
-                    background: active ? 'rgba(139, 92, 246, 0.10)' : 'transparent',
+                    color: active ? '#ffffff' : '#6D28D9',
+                    background: active ? '#8B5CF6' : '#F5F3FF',
                     borderRadius: 999,
-                    boxShadow: active
-                      ? 'inset 0 0 0 1px rgba(139, 92, 246, 0.25)'
-                      : 'none',
+                    boxShadow: 'none',
                     border: 'none',
                     cursor: 'pointer',
                     letterSpacing: 0.1,
+                    transition: 'background 0.15s ease, color 0.15s ease',
                   }}
                   onMouseEnter={e => {
                     if (!active) {
-                      e.currentTarget.style.background = '#F3F4F6';
-                      e.currentTarget.style.color = '#000000';
+                      e.currentTarget.style.background = '#EDE9FE';
+                      e.currentTarget.style.color = '#5B21B6';
                     }
                   }}
                   onMouseLeave={e => {
                     if (!active) {
-                      e.currentTarget.style.background = 'transparent';
-                      e.currentTarget.style.color = '#1F2937';
+                      e.currentTarget.style.background = '#F5F3FF';
+                      e.currentTarget.style.color = '#6D28D9';
                     }
                   }}
                 >
@@ -258,50 +280,55 @@ function CategoryTabsInner() {
               onClick={() => setTopicOpen(o => !o)}
               className="whitespace-nowrap transition-all flex items-center gap-1.5"
               style={{
-                padding: '8px 12px',
+                padding: '9px 14px',
                 fontSize: 14,
                 fontWeight: currentTopic ? 700 : 600,
-                color: currentTopic ? '#ffffff' : '#1F2937',
-                background: currentTopic ? '#8B5CF6' : '#ffffff',
-                border: currentTopic ? 'none' : '0.5px solid #D1D5DB',
-                borderRadius: 8,
+                color: currentTopic ? '#ffffff' : '#6D28D9',
+                background: currentTopic ? '#8B5CF6' : '#F5F3FF',
+                border: 'none',
+                borderRadius: 999,
                 cursor: 'pointer',
                 letterSpacing: 0.1,
+                transition: 'background 0.15s ease, color 0.15s ease',
               }}
               onMouseEnter={e => {
                 if (!currentTopic) {
-                  e.currentTarget.style.background = '#F9FAFB';
-                  e.currentTarget.style.borderColor = '#9CA3AF';
+                  e.currentTarget.style.background = '#EDE9FE';
+                  e.currentTarget.style.color = '#5B21B6';
                 }
               }}
               onMouseLeave={e => {
                 if (!currentTopic) {
-                  e.currentTarget.style.background = '#ffffff';
-                  e.currentTarget.style.borderColor = '#D1D5DB';
+                  e.currentTarget.style.background = '#F5F3FF';
+                  e.currentTarget.style.color = '#6D28D9';
                 }
               }}
             >
               {currentTopic ? (
                 <>
-                  <span>{TOPICS.find(t => t.key === currentTopic)?.icon}</span>
+                  {(() => {
+                    const t = TOPICS.find(x => x.key === currentTopic);
+                    if (!t) return null;
+                    const Icon = t.Icon;
+                    return <Icon size={15} strokeWidth={2} />;
+                  })()}
                   <span>{TOPICS.find(t => t.key === currentTopic)?.label}</span>
                 </>
               ) : (
                 <>
-                  <span style={{ fontSize: 15 }}>🏷️</span>
+                  <Tag size={15} strokeWidth={2} />
                   <span>Topik</span>
                 </>
               )}
-              <span
+              <ChevronDown
+                size={14}
+                strokeWidth={2.25}
                 className="transition-transform"
                 style={{
-                  fontSize: 10,
                   transform: topicOpen ? 'rotate(180deg)' : 'rotate(0deg)',
                   opacity: 0.7,
                 }}
-              >
-                ▼
-              </span>
+              />
             </button>
 
             {topicOpen && (
@@ -335,12 +362,15 @@ function CategoryTabsInner() {
                     if (currentTopic) e.currentTarget.style.background = 'transparent';
                   }}
                 >
-                  <span className="w-4 text-center">{!currentTopic ? '✓' : ''}</span>
+                  <span className="w-4 inline-flex items-center justify-center">
+                    {!currentTopic ? <Check size={14} strokeWidth={2.5} /> : null}
+                  </span>
                   <span>Semua topik</span>
                 </button>
                 <div className="h-px" style={{ background: '#F3F4F6' }} />
                 {TOPICS.map(t => {
                   const active = currentTopic === t.key;
+                  const Icon = t.Icon;
                   return (
                     <button
                       key={t.key}
@@ -362,7 +392,12 @@ function CategoryTabsInner() {
                         if (!active) e.currentTarget.style.background = 'transparent';
                       }}
                     >
-                      <span className="w-4 text-center">{active ? '✓' : t.icon}</span>
+                      <span className="w-4 inline-flex items-center justify-center">
+                        {active
+                          ? <Check size={14} strokeWidth={2.5} />
+                          : <Icon size={14} strokeWidth={2} className="text-gray-500" />
+                        }
+                      </span>
                       <span>{t.label}</span>
                     </button>
                   );
@@ -374,6 +409,13 @@ function CategoryTabsInner() {
 
         {/* ── Row 2: 🔴 Breaking (kiri) | 🕌 Shalat MalUt (kanan) ── */}
         <PrayerBreakingBar />
+
+          </div>
+          {/* COL 4: gap */}
+          <div />
+          {/* COL 5: empty (right sky-space) */}
+          <div />
+        </div>
 
       </div>
     </div>

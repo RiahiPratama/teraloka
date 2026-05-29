@@ -162,11 +162,11 @@ export default function LaIndieMoviePoliticalBanner() {
         <div className="flex items-center gap-2.5">
           <span
             className="inline-block"
-            style={{ width: 4, height: 22, background: '#003526', borderRadius: 2 }}
+            style={{ width: 4, height: 22, background: '#8B5CF6', borderRadius: 2 }}
           />
           <h3
             className="text-[16px] md:text-[18px] font-extrabold uppercase tracking-[-0.3px] text-gray-900"
-            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
+            style={{ fontFamily: "'Lora', Georgia, serif" }}
           >
             {labels.title}
           </h3>
@@ -190,7 +190,7 @@ export default function LaIndieMoviePoliticalBanner() {
         <p
           key={focusedAd.id}
           className="text-[15px] md:text-[17px] font-bold text-gray-900 leading-snug animate-fadeIn px-4"
-          style={{ fontFamily: "var(--font-lora), Georgia, serif" }}
+          style={{ fontFamily: "'Lora', Georgia, serif" }}
         >
           {focusedAd.title}
         </p>
@@ -295,13 +295,6 @@ function HeroPoster({ ad, isFocused, watermark, onHover, onLeave }: HeroPosterPr
           {ad.advertiser_name}
         </div>
       )}
-
-      <div
-        className="absolute top-1.5 left-1.5 text-white text-[7px] font-extrabold tracking-[0.5px] uppercase opacity-80"
-        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}
-      >
-        {watermark}
-      </div>
 
       {isFocused && (
         <>

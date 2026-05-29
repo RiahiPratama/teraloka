@@ -203,14 +203,14 @@ export default function PrayerBreakingBar() {
   }, [prayerTimes]);
 
   if (!nextPrayer) {
-    return <div className="px-1 pt-2.5" style={{ minHeight: 24 }} aria-hidden="true" />;
+    return <div className="px-1 pt-1" style={{ minHeight: 24 }} aria-hidden="true" />;
   }
 
   const hasBreaking = breakingItems.length > 0;
   const breaking    = breakingItems[0];
 
   return (
-    <div className="px-1 pt-2.5 flex items-center gap-3 flex-wrap md:flex-nowrap text-xs min-w-0">
+    <div className="px-1 pt-1 flex items-center gap-3 flex-wrap md:flex-nowrap text-xs min-w-0">
 
       {/* ── BREAKING NEWS (kiri, flex-1) ──────────────────────── */}
       {hasBreaking && (
