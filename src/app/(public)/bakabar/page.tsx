@@ -21,6 +21,7 @@
 import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
 import RegionSection from '@/components/bakabar/RegionSection';
@@ -63,7 +64,7 @@ function BadonasiInlinePromo() {
             BADONASI · Layanan TeraLoka
           </p>
           <h3 className="text-[18px] md:text-[22px] font-extrabold leading-tight mb-1"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}>
+            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
             Galang Donasi untuk Sesama Warga MalUt
           </h3>
           <p className="text-[12px] opacity-90">
@@ -171,18 +172,17 @@ function BakabarPageContent() {
   return (
     <div className="min-h-screen bg-white">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,500;0,600;0,700;0,800;1,400&display=swap');
         .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
         .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
         .line-clamp-4 { display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden; }
       `}</style>
 
-      <div className="max-w-[1280px] mx-auto px-4">
-        <div className="flex gap-5 items-stretch justify-center pt-16">
+      <div className="max-w-[1400px] mx-auto px-4">
+        <div className="flex gap-5 items-start justify-center pt-3">
 
           <DCASkyscraper side="left" />
 
-          <main className="flex-1 min-w-0 max-w-4xl">
+          <main className="flex-1 min-w-0" style={{ maxWidth: 1000 }}>
 
             {/* Mission 7-B-2: replace TopLeaderboardAd hardcoded → DCATopLeaderboard fetch */}
             <DCATopLeaderboard />
@@ -231,10 +231,9 @@ function BakabarPageContent() {
 
               <LaIndieMovieServiceCarousel />
 
-              {/* SESI 11 Phase 1B (29 Mei 2026): WANewsletterWidget DIPINDAH ke
-                  slug artikel saja. Reasoning: di homepage user lagi scanning
-                  multiple sections, signup form lebih kontekstual saat selesai
-                  baca artikel (slug). */}
+              <div className="my-10">
+                <WANewsletterWidget />
+              </div>
 
             </div>
           </main>
