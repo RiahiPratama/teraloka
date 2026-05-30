@@ -2,11 +2,14 @@
 // BAKABAR — Suara Warga Col-3 Card (Phase 4 — Tahap 3, Data Real BALAPOR)
 // PATH: src/components/bakabar/SuaraWargaCol3Card.tsx
 // ────────────────────────────────────────────────────────────────
+// v2 (31 Mei 2026): + excerpt `body` (isi laporan, clamp 2 baris) di
+//    bawah judul. Kolom asli = `body` (BUKAN description). Endpoint
+//    /public/reports/recent sudah include body per 31 Mei.
+//
 // Kartu "Suara Warga MalUt" untuk slot kolom-3 zona atas.
 //   - Mini-list 3 laporan BALAPOR yg sudah verified/published
 //     (GET /public/reports/recent — di-fetch di BakabarShell).
-//   - Field minim (title, category, location, created_at) → desain
-//     teks-driven, bukan visual. Pas konsep "suara warga".
+//   - Field: title, body (excerpt), category, location, created_at.
 //   - Whole card = Link ke /balapor (route report detail belum pasti,
 //     jadi 1 destinasi aman). Brand BALAPOR = ungu (#A21CAF).
 //   - Fallback (reports kosong) di-handle di RegionSection → slot
@@ -19,6 +22,7 @@ import { ArrowRight, MapPin, Megaphone } from 'lucide-react';
 export type BalaporReport = {
   id:         string;
   title:      string;
+  body?:      string | null;
   category?:  string;
   location?:  string | null;
   created_at: string;
@@ -85,10 +89,15 @@ export default function SuaraWargaCol3Card({ reports, className = '' }: Props) {
                 {r.category || 'umum'}
               </span>
             </div>
-            <h4 className="text-[12.5px] font-semibold leading-[1.3] text-gray-900 line-clamp-2"
+            <h4 className="text-[12.5px] font-semibold leading-[1.3] text-gray-900 line-clamp-1"
               style={{ fontFamily: "'Lora', Georgia, serif" }}>
               {r.title}
             </h4>
+            {r.body && (
+              <p className="text-[10.5px] text-gray-500 leading-[1.35] mt-0.5 line-clamp-2">
+                {r.body}
+              </p>
+            )}
             <div className="flex items-center gap-1.5 mt-1 text-[10px] text-gray-400">
               {r.location && (
                 <span className="flex items-center gap-0.5 truncate">
