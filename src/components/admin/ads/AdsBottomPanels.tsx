@@ -49,6 +49,8 @@ import {
   computeCapacityStatus,
   formatCapacityDisplay,
   type CapacityStatus,
+  // SESI 11 Batch 5 (31 Mei 2026): single source video-eligible (badge jujur)
+  supportsVideoFormat,
 } from './position-render-metadata';
 
 // SESI 11 Phase 1B (29 Mei 2026): derive dari ALL_POSITION_KEYS, bukan hardcode.
@@ -143,6 +145,7 @@ const POSITIONS_META: Array<{
   isDormant:          boolean;
   mountNote?:         string;
   supportsAdvertorial: boolean;
+  supportsVideo:       boolean;
 }> = Object.values(POSITION_RENDER_METADATA).map((meta) => ({
   key:                 meta.key,
   label:               meta.label,
@@ -152,6 +155,7 @@ const POSITIONS_META: Array<{
   isDormant:           meta.mountStatus === 'dormant',
   mountNote:           meta.mountNote,
   supportsAdvertorial: meta.supportsTextFormat,
+  supportsVideo:       supportsVideoFormat(meta.key),
 }));
 
 export default function AdsBottomPanels({
@@ -371,19 +375,32 @@ export default function AdsBottomPanels({
                         {/* SESI 11 Phase 1B (29 Mei 2026): Badge format ad —
                             kasih tau admin posisi ini support advertorial (text-based)
                             atau cuma banner gambar statis. */}
-                        {slot.supportsAdvertorial ? (
+                        {/* SESI 11 Batch 5 (31 Mei 2026): badge format JUJUR.
+                            Single source (supportsVideoFormat + supportsTextFormat)
+                            → cerita SAMA dgn flow Buat Iklan. Gak ada lagi
+                            "Banner Statis" nyasar di posisi yang bisa Motion. */}
+                        {slot.supportsAdvertorial && (
                           <span
                             className="px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-info/12 text-status-info shrink-0"
-                            title="Posisi ini bisa pakai format advertorial (judul + body teks + thumbnail) ATAU banner gambar"
+                            title="Bisa Advertorial (artikel bersponsor: judul + body teks + thumbnail) ATAU banner gambar."
                           >
                             ✓ Advertorial
                           </span>
-                        ) : (
+                        )}
+                        {slot.supportsVideo && (
+                          <span
+                            className="px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-cyan-500/12 text-cyan-500 shrink-0"
+                            title="Bisa Banner Motion (video webM/mp4) — selain banner gambar statis/GIF/DCA. Tipe materi final ngikut paket pengiklan."
+                          >
+                            🎬 Motion
+                          </span>
+                        )}
+                        {!slot.supportsAdvertorial && !slot.supportsVideo && (
                           <span
                             className="px-1 py-0.5 rounded text-[8px] font-bold uppercase bg-surface-muted text-text-muted shrink-0"
-                            title="Posisi ini cuma support banner gambar statis (atau animated/video kalau eligible). Tidak support advertorial text-based."
+                            title="Banner gambar (statis / GIF / DCA gonta-ganti)."
                           >
-                            Banner Statis
+                            Banner
                           </span>
                         )}
                       </div>

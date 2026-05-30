@@ -492,3 +492,26 @@ export function getPositionMetadata(key: string): PositionRenderMetadata {
 export function isPositionActive(key: string): boolean {
   return POSITION_RENDER_METADATA[key]?.mountStatus === 'active';
 }
+
+// ════════════════════════════════════════════════════════════════
+// SESI 11 Batch 5 (31 Mei 2026): Banner Motion (video) eligibility —
+// SINGLE SOURCE OF TRUTH. Mirror backend VIDEO_AD_POSITIONS.
+// Dipakai PositionCreativeModal (tab Banner Motion) + AdsBottomPanels
+// (badge Slot Inventory) biar dua tempat CERITA SAMA — gak ada lagi
+// label "Banner Statis" nyasar di posisi yang sebenernya bisa Motion.
+// Native/in-article dikecualikan (kartu kecil, bukan banner video).
+// ════════════════════════════════════════════════════════════════
+export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
+  'banner',
+  'homepage_hero_banner',
+  'top_leaderboard',
+  'inline_banner',
+  'sidebar',
+  'skyscraper_left',
+  'skyscraper_right',
+];
+
+/** True kalau posisi boleh pakai Banner Motion (video webM/mp4). */
+export function supportsVideoFormat(positionKey: string): boolean {
+  return VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
+}

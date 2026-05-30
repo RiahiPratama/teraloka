@@ -66,6 +66,8 @@ import {
   getRecommendedDimForFormat,
   getAspectRatioForFormat,
   type PositionRenderMetadata,
+  // SESI 11 Batch 5 (31 Mei 2026): single source video-eligible
+  VIDEO_ELIGIBLE_POSITIONS,
 } from './position-render-metadata';
 // SESI 5E Phase 3c: Live preview mini-player
 import PositionLivePreview from './PositionLivePreview';
@@ -110,20 +112,8 @@ interface PositionCreativeModalProps {
 // SESI 10 (24 Mei 2026): Mode extended dengan 'video'
 type Mode = 'static' | 'dca' | 'animated' | 'video';
 
-// SESI 10: Posisi yang boleh pakai video (mirror backend VIDEO_AD_POSITIONS).
-// Tab Video cuma muncul untuk posisi banner-ish.
-// SESI 11 Phase 1B (29 Mei 2026): keep `homepage_hero_banner` (DB key tetap legacy
-// nama, rename serentak di Phase 2). Label admin UI udah "Carousel Pilihan Sponsor".
-// inline_banner & banner = dormant tapi tetep eligible (kalau Phase 2 mount, video ready).
-const VIDEO_ELIGIBLE_POSITIONS = [
-  'banner',
-  'homepage_hero_banner',
-  'top_leaderboard',
-  'inline_banner',
-  'sidebar',
-  'skyscraper_left',
-  'skyscraper_right',
-];
+// SESI 11 Batch 5 (31 Mei 2026): VIDEO_ELIGIBLE_POSITIONS dipindah ke
+// position-render-metadata.ts (single source) — dipakai modal + Slot Inventory.
 
 // SESI 5H Phase 5B: Empty animation timeline template (DCA-Aligned)
 const EMPTY_TIMELINE: AnimationTimelineConfig = {
