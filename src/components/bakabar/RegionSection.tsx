@@ -1,21 +1,20 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v10.7 (Phase 4 — Kolom-3 Renderer Murni)
+// BAKABAR — Region Section v10.8 (Phase 4 — Kolom-3 Renderer Murni)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// v10.7 UPDATE (31 Mei 2026, Phase 4 — Tahap 2):
-//   - Rotasi house content kolom-3 DIPINDAH ke BakabarShell (orchestrator
-//     yg pegang index global + data kampanye). RegionSection jadi
-//     RENDERER MURNI: terima `houseSlot` + `houseCampaign`, tinggal render.
-//   - houseSlot: 'layanan' | 'kampanye' | 'zakat'
-//       layanan  → StackLayananTeraLoka (promosi, kontekstual per-region)
-//       kampanye → CampaignCol3Card (data real BADONASI). Fallback ke
-//                  layanan kalau houseCampaign null (slot gak pernah kosong).
+// v10.8 UPDATE (31 Mei 2026, Phase 4 — Tahap 3):
+//   - Tambah houseSlot 'balapor' → SuaraWargaCol3Card (mini-list laporan).
+//   - houseSlot: 'layanan' | 'kampanye' | 'balapor' | 'zakat'
+//       layanan  → StackLayananTeraLoka (promosi kontekstual)
+//       kampanye → CampaignCol3Card (data real BADONASI) | fallback layanan
+//       balapor  → SuaraWargaCol3Card (data real BALAPOR)  | fallback layanan
 //       zakat    → ZakatCol3Card (ajakan)
+//   - Fallback: kampanye/balapor tanpa data → layanan (slot gak pernah kosong).
 //   - Zona BAWAH (DCAStackBanner slot iklan) + layout lain UNCHANGED.
 //
-// v10.6 PRIOR (31 Mei): rotasi internal via sectionIndex (digantikan v10.7).
+// v10.7 PRIOR (31 Mei): renderer murni, houseSlot + houseCampaign.
 // v10.5 PRIOR (31 Mei): single source kartu Layanan via StackLayananTeraLoka.
 // v10.4 PRIOR (15 Mei): <DCAStackBanner /> fetch public.ads (DCA-ready).
 // v10.3 PRIOR (Mission 6): trendingAd inject idx=2 + ResizeObserver sync.
@@ -31,8 +30,9 @@ import DCAStackBanner from './DCAStackBanner';
 import StackLayananTeraLoka from './StackLayananTeraLoka';
 import ZakatCol3Card from './ZakatCol3Card';
 import CampaignCol3Card, { type BadonasiCampaign } from './CampaignCol3Card';
+import SuaraWargaCol3Card, { type BalaporReport } from './SuaraWargaCol3Card';
 
-export type HouseSlot = 'layanan' | 'kampanye' | 'zakat';
+export type HouseSlot = 'layanan' | 'kampanye' | 'balapor' | 'zakat';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -78,10 +78,11 @@ function timeAgo(dateStr: string) {
 }
 
 type Props = {
-  region:        RegionConfig;
-  trendingAd?:   TrendingNativeAd | null;
-  houseSlot?:    HouseSlot;                 // jenis kartu zona atas kolom-3 (dari BakabarShell)
-  houseCampaign?: BadonasiCampaign | null;  // data kampanye (kalau houseSlot='kampanye')
+  region:         RegionConfig;
+  trendingAd?:    TrendingNativeAd | null;
+  houseSlot?:     HouseSlot;                  // jenis kartu zona atas kolom-3 (dari BakabarShell)
+  houseCampaign?: BadonasiCampaign | null;    // data kampanye (kalau houseSlot='kampanye')
+  houseReports?:  BalaporReport[];            // data laporan (kalau houseSlot='balapor')
 };
 
 export default function RegionSection({
@@ -89,6 +90,7 @@ export default function RegionSection({
   trendingAd = null,
   houseSlot = 'layanan',
   houseCampaign = null,
+  houseReports = [],
 }: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
@@ -117,8 +119,9 @@ export default function RegionSection({
 
   const stretchStyle = col1Height ? { height: `${col1Height}px` } : undefined;
 
-  // Zona atas kolom-3: kampanye butuh data; kalau null → fallback layanan
+  // Zona atas kolom-3: data real butuh isi; kalau kosong → fallback layanan
   const showCampaign = houseSlot === 'kampanye' && !!houseCampaign;
+  const showBalapor  = houseSlot === 'balapor' && houseReports.length > 0;
   const showZakat    = houseSlot === 'zakat';
 
   return (
@@ -249,9 +252,11 @@ export default function RegionSection({
           <div className="flex flex-col gap-2.5 h-full">
 
             {/* Zona ATAS = house content (jenis ditentukan BakabarShell).
-                kampanye (data real) → zakat (ajakan) → layanan (fallback). */}
+                kampanye/balapor (data real) → zakat (ajakan) → layanan (fallback). */}
             {showCampaign ? (
               <CampaignCol3Card campaign={houseCampaign!} className="flex-1" />
+            ) : showBalapor ? (
+              <SuaraWargaCol3Card reports={houseReports} className="flex-1" />
             ) : showZakat ? (
               <ZakatCol3Card className="flex-1" />
             ) : (

@@ -1,17 +1,17 @@
 'use client';
 
 // ══════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.2 (Client Interactivity)
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.3 (Client Interactivity)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
 // ──────────────────────────────────────────────────────────────────
-// v14.2 (31 Mei 2026, Tahap 2): orchestrator rotasi house content kolom-3.
-//   - Fetch GET /funding/campaigns (1x, client, non-blocking) → 12 kampanye.
-//   - houseSlotType(idx) pola idx%4: 0=Layanan, 1&2=Kampanye, 3=Zakat
-//     (6 kampanye / 3 layanan / 3 zakat dari 12 section).
-//   - Assign kampanye round-robin ke slot kampanye → pass ke RegionSection.
-//   - RegionSection jadi renderer murni (terima houseSlot + houseCampaign).
+// v14.3 (31 Mei 2026, Tahap 3): tambah Suara Warga BALAPOR ke rotasi.
+//   - Fetch GET /public/reports/recent (1x, client, non-blocking).
+//   - houseSlotType(idx) pola idx%4: 0=Layanan, 1=Kampanye, 2=BALAPOR, 3=Zakat
+//     → rata 3 slot masing-masing dari 12 section.
+//   - BALAPOR slot dapet window 3 laporan (round-robin offset).
+//   - Slot kampanye/balapor fallback ke promosi layanan kalau data kosong.
 //
-// v14.1 (31 Mei): pass sectionIndex (digantikan v14.2 houseSlot).
+// v14.2 (31 Mei): fetch campaigns + orchestrate rotasi house content.
 // v14.0 (31 Mei): Opsi B RSC split — hero render langsung dari server slides.
 // ══════════════════════════════════════════════════════════════════
 
@@ -29,17 +29,28 @@ import { SIDEBAR_MREC, TERPOPULER_LIST, REGIONS } from '@/components/bakabar/reg
 import type { HeroSlide } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
+import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ─── Pola rotasi house content kolom-3 (zona atas) ────────────────
-// idx % 4: 0 = Layanan, 1 & 2 = Kampanye, 3 = Zakat.
-// Ubah di sini kalau mau ganti komposisi (sekarang 6 kampanye/3 layanan/3 zakat).
+// idx % 4: 0 = Layanan, 1 = Kampanye, 2 = BALAPOR, 3 = Zakat.
+// Rata 3 slot masing-masing dari 12 section. Ubah di sini buat ganti komposisi.
 function houseSlotType(idx: number): HouseSlot {
   const mod = idx % 4;
+  if (mod === 1) return 'kampanye';
+  if (mod === 2) return 'balapor';
   if (mod === 3) return 'zakat';
-  if (mod === 1 || mod === 2) return 'kampanye';
   return 'layanan';
+}
+
+// Ambil `count` laporan dari `all` mulai `offset` (wrap), tanpa duplikat dalam 1 kartu.
+function windowReports(all: BalaporReport[], offset: number, count = 3): BalaporReport[] {
+  if (!all.length) return [];
+  const n = Math.min(count, all.length);
+  const out: BalaporReport[] = [];
+  for (let i = 0; i < n; i++) out.push(all[(offset + i) % all.length]);
+  return out;
 }
 
 // ─── BADONASI Strategic Inline Promo (unchanged) ──────────────────
@@ -85,6 +96,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
   const [trendingAdsByRegion, setTrendingAdsByRegion] =
     useState<Record<string, TrendingNativeAd | null>>({});
   const [campaigns, setCampaigns] = useState<BadonasiCampaign[]>([]);
+  const [reports, setReports] = useState<BalaporReport[]>([]);
 
   // Trending ads = client-fetch, NON-BLOCKING. Tidak menahan hero.
   const fetchTrendingAds = useCallback(async () => {
@@ -115,7 +127,6 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
   }, []);
 
   // Kampanye BADONASI = client-fetch sekali, non-blocking (below-fold).
-  // Slot kampanye fallback ke promosi layanan selama belum datang.
   const fetchCampaigns = useCallback(async () => {
     try {
       const res = await fetch(`${API}/funding/campaigns?limit=12`);
@@ -128,22 +139,41 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
     }
   }, []);
 
+  // Laporan BALAPOR verified = client-fetch sekali, non-blocking.
+  const fetchReports = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/public/reports/recent`);
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.data)) {
+        setReports(data.data as BalaporReport[]);
+      }
+    } catch {
+      setReports([]);
+    }
+  }, []);
+
   useEffect(() => { fetchTrendingAds(); }, [fetchTrendingAds]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  useEffect(() => { fetchReports(); }, [fetchReports]);
 
-  // Assign jenis slot + kampanye (round-robin) per section.
+  // Assign jenis slot + data per section (round-robin untuk kampanye & balapor).
   const houseAssignments = useMemo(() => {
-    let k = 0;
+    let k = 0; // counter slot kampanye
+    let b = 0; // counter slot balapor
     return REGIONS.map((_, idx) => {
       const slot = houseSlotType(idx);
       let campaign: BadonasiCampaign | null = null;
+      let slotReports: BalaporReport[] = [];
       if (slot === 'kampanye') {
         campaign = campaigns.length ? campaigns[k % campaigns.length] : null;
         k++;
+      } else if (slot === 'balapor') {
+        slotReports = windowReports(reports, b * 3, 3);
+        b++;
       }
-      return { slot, campaign };
+      return { slot, campaign, reports: slotReports };
     });
-  }, [campaigns]);
+  }, [campaigns, reports]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -172,7 +202,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
               />
 
               {REGIONS.map((region, idx) => {
-                const { slot, campaign } = houseAssignments[idx];
+                const { slot, campaign, reports: slotReports } = houseAssignments[idx];
                 return (
                   <div key={region.slug}>
                     <RegionSection
@@ -180,6 +210,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
                       trendingAd={trendingAdsByRegion[region.slug] ?? null}
                       houseSlot={slot}
                       houseCampaign={campaign}
+                      houseReports={slotReports}
                     />
 
                     {idx === 0 && <LaIndieMoviePoliticalBanner />}
