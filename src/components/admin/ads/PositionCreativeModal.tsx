@@ -53,7 +53,6 @@ import {
   ArrowUp,
   ArrowDown,
   Info,
-  ExternalLink,
   Sparkles,
   Film,
 } from 'lucide-react';
@@ -83,11 +82,8 @@ const DEFAULT_DURATION_MS = 4000;
 const MIN_DURATION_MS = 2000;
 const MAX_DURATION_MS = 15000;
 
-// SESI 5D-2: Base URL Bakabar untuk live preview
-const BAKABAR_BASE_URL =
-  typeof window !== 'undefined' && window.location.hostname === 'localhost'
-    ? 'http://localhost:3000'
-    : (process.env.NEXT_PUBLIC_BAKABAR_URL || 'https://teraloka.vercel.app');
+// SESI 11 L4 (30 Mei 2026): BAKABAR_BASE_URL dihapus — link "Lihat di Bakabar"
+// (404 ke /bakabar/sample-article) diganti preview inline yang diangkat ke atas.
 
 // ─── Helpers ──────────────────────────────────────────────────────
 function createEmptyFrame(order: number): AdFrame {
@@ -410,6 +406,16 @@ export default function PositionCreativeModal({
   ];
   const visibleTabs = TAB_DEFS.filter((t) => visibleModes.includes(t.mode));
 
+  // SESI 11 L4: penjelas kriteria materi per tier (biar admin gak nanya "kenapa DCA")
+  const formatNote =
+    visibleModes.includes('video')
+      ? '🎬 Paket ini dukung Video (.webM) + banner statis.'
+      : visibleModes.includes('animated')
+        ? '✨ Paket ini dukung Animasi GSAP.'
+        : visibleModes.includes('dca')
+          ? 'Paket ini: banner Statis atau gonta-ganti (DCA, 2–5 banner berputar). Video & animasi mulai paket Local Corp ke atas.'
+          : 'Paket ini: banner Statis.';
+
   // ───────────────────────────────────────────────────────────────
   // RENDER
   // ───────────────────────────────────────────────────────────────
@@ -448,15 +454,9 @@ export default function PositionCreativeModal({
                   Advertorial
                 </span>
               )}
-              <a
-                href={`${BAKABAR_BASE_URL}${meta.frontendUrl}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-ads hover:underline"
-              >
-                <ExternalLink size={10} />
-                Lihat di Bakabar
-              </a>
+              <span className="inline-flex items-center gap-1 text-text-subtle">
+                Preview live ada di bawah ↓
+              </span>
             </div>
           </div>
           <button
@@ -498,6 +498,31 @@ export default function PositionCreativeModal({
 
         {/* ── BODY ── */}
         <div className="p-5">
+          {/* SESI 11 L4: PREVIEW-FIRST — diangkat ke atas biar admin langsung lihat
+              hasilnya, gak perlu scroll lewat semua variant dulu. */}
+          {mode !== 'animated' && mode !== 'video' && (
+            <div className="mb-3">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-ads mb-2">
+                Preview — begini tampilnya di BAKABAR
+              </p>
+              <PositionLivePreview
+                positionKey={positionKey}
+                mode={mode}
+                imageUrl={existingImage ?? state.image_url}
+                frames={mode === 'dca' ? dcaFrames : undefined}
+                headline={state.title}
+                advertiserName={state.advertiser_name}
+                advertiserType={state.advertiser_type}
+                adFormat={state.ad_format === 'video' ? 'image' : state.ad_format}
+                body={state.body}
+                slug={state.slug}
+              />
+            </div>
+          )}
+          <p className="mb-4 text-[10px] text-text-muted leading-relaxed px-3 py-2 rounded-md bg-surface-muted/40 border border-border">
+            {formatNote}
+          </p>
+
           {/* ─── STATIC MODE ─── */}
           {/* SESI 10 Sub-Phase B: Support GIF animasi up to 2MB.
               Sebelumnya hardcode maxSizeMB={0.5} → block GIF.
@@ -753,25 +778,7 @@ export default function PositionCreativeModal({
             </div>
           )}
 
-          {/* ═══ SESI 5E Phase 3c: LIVE PREVIEW MINI-PLAYER ═══ */}
-          {/* SESI 5H Phase 5B: Skip saat mode='animated' (AnimationBuilder has own preview) */}
-          {/* SESI 10: Skip juga saat mode='video' (VideoUpload has own preview) */}
-          {mode !== 'animated' && mode !== 'video' && (
-            <div className="mt-4">
-              <PositionLivePreview
-                positionKey={positionKey}
-                mode={mode}
-                imageUrl={existingImage ?? state.image_url}
-                frames={mode === 'dca' ? dcaFrames : undefined}
-                headline={state.title}
-                advertiserName={state.advertiser_name}
-                advertiserType={state.advertiser_type}
-                adFormat={state.ad_format === 'video' ? 'image' : state.ad_format}
-                body={state.body}
-                slug={state.slug}
-              />
-            </div>
-          )}
+          {/* SESI 11 L4: live preview dipindah ke ATAS body (preview-first). */}
         </div>
 
         {/* ── FOOTER ── */}

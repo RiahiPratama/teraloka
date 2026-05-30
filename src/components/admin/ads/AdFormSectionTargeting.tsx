@@ -200,10 +200,12 @@ export default function AdFormSectionTargeting() {
   const extraSlotCount = Math.max(0, totalPositions - tierSlots.length);
 
   // SESI 11 L4: helper hitung creative status per posisi
+  // FIX status bohong: cuma hitung frame DCA yang ADA gambarnya (image_url terisi).
+  // Modal nge-seed 2 frame kosong pas buka DCA — itu JANGAN dihitung "2 banner".
   const statusFor = (key: string): { status: CreativeStatus; dcaCount: number } => {
     const hasVideo       = !!state.position_video_sources[key];
     const hasAnimated    = !!state.position_animation_timelines[key];
-    const dcaCount       = state.position_frames[key]?.length ?? 0;
+    const dcaCount       = (state.position_frames[key] ?? []).filter((f) => f.image_url?.trim()).length;
     const hasDCA         = dcaCount > 0;
     const hasCustomImage = !!state.images[key];
     const status: CreativeStatus =
