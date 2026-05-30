@@ -47,7 +47,7 @@ type SlotMode = 'politisi' | 'fallback' | 'empty';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
-const AUTO_ROTATE_MS = 5500;
+const AUTO_ROTATE_MS = 5000; // SESI 11 Batch 8 (31 Mei): seragam cadence carousel
 const HOVER_GRACE_MS = 1500;
 const POSTER_W       = 160;
 const POSTER_H       = 240;

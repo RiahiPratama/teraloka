@@ -75,7 +75,7 @@ const SERVICES: ServiceMeta[] = [
   },
 ];
 
-const AUTO_ROTATE_MS = 4500;
+const AUTO_ROTATE_MS = 5000; // SESI 11 Batch 8 (31 Mei): seragam cadence carousel
 const HOVER_GRACE_MS = 1500;
 const POSTER_W       = 165;
 const POSTER_H       = 245;
