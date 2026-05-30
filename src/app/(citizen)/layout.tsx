@@ -26,9 +26,9 @@
  * Future: bisa migrate ke server-side check via httpOnly cookie (TD-017).
  *
  * Layout chrome (match public/* pattern):
- *   - <Ticker />            : breaking news strip top (height ~36px, async SC)
- *   - <Navbar />            : 5 layanan TeraLoka (positioned top-[44/52px])
- *   - paddingTop: 72        : push content below Navbar+Ticker
+ *   - <Ticker />            : breaking news strip top (height ~36px, async SC) — mobile + desktop
+ *   - <Navbar />            : 5 layanan TeraLoka (top-[44/52px]) — DESKTOP-ONLY (hidden md:block)
+ *   - pt responsive         : mobile pt-0 (Ticker spacer cukup) · desktop md:pt-[72px] (lewat Navbar)
  *   - <main pb-nav>         : bottom padding mobile (BottomNav floating)
  *   - <AuthGuard>           : client-side auth check + redirect
  *   - SKIP CategoryTabs, Footer, Fab — citizen pages = focused user activity
@@ -54,8 +54,15 @@ export default function CitizenLayout({
   return (
     <>
       <Ticker />
-      <Navbar />
-      <div style={{ paddingTop: 72 }}>
+      {/* Navbar global: DESKTOP-ONLY. Di mobile di-hide — navigasi cukup via
+          BottomNav + header halaman (mis. "Laporan Saya"). Hemat ruang atas. */}
+      <div className="hidden md:block">
+        <Navbar />
+      </div>
+      {/* paddingTop responsive: mobile (tanpa Navbar) cuma perlu lewat Ticker
+          (spacer 36px in-flow udah handle) → pt-0. Desktop (ada Navbar fixed
+          top-[52px]) → pt-[72px] seperti semula. */}
+      <div className="pt-0 md:pt-[72px]">
         {/* pb-nav: padding bawah di mobile agar konten tidak ketutupan BottomNav */}
         <main className="pb-nav">
           <AuthGuard>{children}</AuthGuard>

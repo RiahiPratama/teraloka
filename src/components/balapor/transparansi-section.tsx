@@ -264,7 +264,7 @@ export function TransparansiSection() {
                 <p style={{ fontSize: 15, fontWeight: 800, color: '#0f211b' }}>Status Darurat SOS</p>
                 <p style={{ fontSize: 12, color: '#7a8a85', display: 'inline-flex', alignItems: 'center', gap: 5 }}>
                   <span style={{ width: 6, height: 6, borderRadius: 999, background: '#EF4444', display: 'inline-block' }} className="ts-pulse" />
-                  Dipantau real-time 24/7
+                  Siaran darurat warga, real-time
                 </p>
               </div>
             </div>
@@ -283,8 +283,8 @@ export function TransparansiSection() {
                 <div style={{ width: 56, height: 56, borderRadius: 999, background: 'rgba(16,185,129,0.14)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 12 }}>
                   <span className="material-symbols-outlined" style={{ color: '#10B981', fontSize: 30, fontVariationSettings: "'FILL' 1" }}>shield_with_heart</span>
                 </div>
-                <p style={{ fontSize: 15, fontWeight: 800, color: '#047857', marginBottom: 3 }}>Tidak ada darurat aktif</p>
-                <p style={{ fontSize: 12.5, color: '#059669' }}>Situasi Maluku Utara terpantau aman.</p>
+                <p style={{ fontSize: 15, fontWeight: 800, color: '#047857', marginBottom: 3 }}>Tidak ada siaran darurat aktif</p>
+                <p style={{ fontSize: 12.5, color: '#059669' }}>Belum ada warga yang menyiarkan keadaan darurat saat ini.</p>
               </div>
             )}
 
@@ -300,10 +300,10 @@ export function TransparansiSection() {
                         </div>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <p style={{ fontSize: 13.5, fontWeight: 800, color: '#1f2937' }}>{m.label}</p>
-                          <p style={{ fontSize: 10.5, color: '#6b7280' }}>{tsRelTime(s.created_at)} · sedang ditangani</p>
+                          <p style={{ fontSize: 10.5, color: '#6b7280' }}>{tsRelTime(s.created_at)} · siaran aktif</p>
                         </div>
                         <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 0.3, textTransform: 'uppercase', color: '#047857', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.25)', padding: '3px 8px', borderRadius: 999, flexShrink: 0 }}>
-                          Ditangani
+                          Disiarkan
                         </span>
                       </div>
                       {s.note_preview && (
@@ -321,10 +321,10 @@ export function TransparansiSection() {
             )}
 
             <div style={{ marginTop: 'auto', paddingTop: 18 }}>
-              <div style={{ borderTop: '1px dashed #e5e7eb', paddingTop: 14, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-                <span className="material-symbols-outlined" style={{ fontSize: 16, color: '#9ca3af', flexShrink: 0, marginTop: 1 }}>info</span>
-                <p style={{ fontSize: 11, color: '#9ca3af', lineHeight: 1.5 }}>
-                  Tombol SOS darurat aktif 24/7. Lokasi hanya tampil bila pelapor &amp; tim menyetujui — privasi tetap dijaga.
+              <div style={{ background: 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.22)', borderRadius: 12, padding: 12, display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+                <span className="material-symbols-outlined" style={{ fontSize: 18, color: '#EF4444', flexShrink: 0, marginTop: 1, fontVariationSettings: "'FILL' 1" }}>warning</span>
+                <p style={{ fontSize: 11.5, color: '#7f1d1d', lineHeight: 1.55 }}>
+                  <strong>SOS menyiarkan keadaan darurat ke peta publik</strong> agar warga sekitar dapat melihat — ini bukan pengganti layanan darurat resmi. Untuk pertolongan, hubungi <strong>112</strong> lebih dulu. Lokasi hanya tampil atas persetujuan; privasi tetap dijaga.
                 </p>
               </div>
             </div>
@@ -433,7 +433,7 @@ export function TransparansiSection() {
             </div>
             <div>
               <p style={{ fontSize: 17, fontWeight: 800, color: 'white', marginBottom: 3, letterSpacing: '-0.3px' }}>Punya laporan? Pantau progresnya.</p>
-              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)' }}>Lacak status laporanmu kapan saja — dari masuk sampai ditindaklanjuti.</p>
+              <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.78)' }}>Lacak status laporanmu kapan saja — dari masuk, terverifikasi, sampai kamu perbarui sendiri perkembangannya.</p>
             </div>
           </div>
           <Link href={LACAK_HREF} className="ts-cta-btn" style={{

@@ -49,7 +49,7 @@ export default function SosDirectPage() {
         </div>
         <h1 className="text-2xl font-extrabold text-gray-900">Tombol Darurat</h1>
         <p className="text-sm text-gray-600 mt-2">
-          Kirim laporan SOS ke tim TeraLoka. Akan diteruskan ke instansi terkait.
+          Siaran daruratmu dikirim ke tim TeraLoka &amp; komunitas sekitar. Untuk pertolongan langsung, telepon nomor darurat resmi di bawah.
         </p>
 
         {/* Hotline langsung visible (kalau modal somehow gak buka) */}
@@ -58,7 +58,17 @@ export default function SosDirectPage() {
             <span className="material-symbols-outlined text-amber-700">
               phone_in_talk
             </span>
-            Atau telepon langsung:
+            Darurat? Telepon sekarang:
+          </p>
+          <a
+            href="tel:112"
+            className="mb-2 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-br from-[#EF4444] to-[#DC2626] p-3.5 text-center text-white shadow-lg shadow-red-500/25 active:scale-95 transition"
+          >
+            <span className="material-symbols-outlined text-white" style={{ fontVariationSettings: "'FILL' 1" }}>call</span>
+            <span className="text-base font-extrabold">112 · Panggilan Darurat Nasional</span>
+          </a>
+          <p className="text-[11px] text-amber-700/90 mb-3 leading-snug">
+            Nomor 112 gratis &amp; aktif 24 jam dari seluruh Indonesia — operator akan meneruskan ke instansi terdekat (Damkar, Polisi, Ambulans, Basarnas).
           </p>
           <div className="grid grid-cols-2 gap-2">
             <a

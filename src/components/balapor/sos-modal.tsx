@@ -20,7 +20,7 @@
  *
  *   Screen 3: SUCCESS
  *     - Display ID (SOS-2026-NNNN)
- *     - Status message (Tim TeraLoka akan hubungi instansi)
+ *     - Status message (siaran diterima — bukan janji respons)
  *     - Hotline reminders (115/113/110/118)
  *     - Close button
  *
@@ -36,6 +36,7 @@
  */
 
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { apiPost, ApiError } from '@/lib/api/client';
 import {
   EMERGENCY_TYPE_OPTIONS,
@@ -59,6 +60,12 @@ export function SosModal({ onClose }: SosModalProps) {
   const [websiteHoneypot, setWebsiteHoneypot] = useState('');
   const [result, setResult] = useState<SosCallCreated | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  // Portal mount guard (SSR-safe — document hanya ada di client)
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // Auto-request GPS saat masuk Screen 2
   useEffect(() => {
@@ -159,9 +166,9 @@ export function SosModal({ onClose }: SosModalProps) {
     setScreen('confirm');
   };
 
-  return (
+  const overlay = (
     <div
-      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm"
       onClick={(e) => {
         // Close kalau click backdrop (bukan modal content)
         if (e.target === e.currentTarget && screen !== 'submitting') {
@@ -202,7 +209,7 @@ export function SosModal({ onClose }: SosModalProps) {
               {screen === 'type-select' && 'Pilih jenis darurat'}
               {screen === 'confirm' && 'Periksa lokasi & kirim'}
               {screen === 'submitting' && 'Tim TeraLoka segera diberitahu'}
-              {screen === 'success' && 'Bantuan akan segera datang'}
+              {screen === 'success' && 'Siaranmu sudah dikirim'}
               {screen === 'error' && 'Periksa koneksi atau coba lagi'}
             </p>
           </div>
@@ -258,6 +265,9 @@ export function SosModal({ onClose }: SosModalProps) {
       </div>
     </div>
   );
+
+  if (!mounted) return null;
+  return createPortal(overlay, document.body);
 }
 
 // ─── Screen 1: Type Select ──────────────────────────────────
@@ -265,8 +275,26 @@ export function SosModal({ onClose }: SosModalProps) {
 function ScreenTypeSelect({ onSelect }: { onSelect: (t: EmergencyType) => void }) {
   return (
     <div className="space-y-3">
+      {/* GATE 112 — aksi paling utama di alur panik */}
+      <a
+        href="tel:112"
+        className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-br from-[#EF4444] to-[#DC2626] text-white py-4 shadow-lg shadow-red-500/30 active:scale-[0.98] transition"
+      >
+        <span className="material-symbols-outlined" style={{ fontVariationSettings: "'FILL' 1" }}>call</span>
+        <span className="text-base font-extrabold">Telepon 112 — Darurat Nasional</span>
+      </a>
+      <p className="text-xs text-gray-600 text-center leading-snug">
+        Butuh pertolongan langsung? <strong>112</strong> gratis &amp; aktif 24 jam — operator akan meneruskan ke Damkar, Polisi, Ambulans, atau Basarnas terdekat.
+      </p>
+
+      <div className="flex items-center gap-2 py-1">
+        <div className="h-px flex-1 bg-gray-200" />
+        <span className="text-[11px] text-gray-400 font-medium whitespace-nowrap">atau siarkan ke komunitas</span>
+        <div className="h-px flex-1 bg-gray-200" />
+      </div>
+
       <p className="text-sm text-gray-600 font-medium">
-        Tap satu kategori untuk mengirim SOS. Tim TeraLoka akan teruskan ke instansi terkait.
+        Pilih kategori untuk menyiarkan SOS ke tim TeraLoka &amp; warga sekitar. Ini melengkapi — bukan mengganti — panggilan darurat resmi.
       </p>
       <div className="grid grid-cols-1 gap-2">
         {EMERGENCY_TYPE_OPTIONS.map((meta) => (

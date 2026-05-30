@@ -25,9 +25,9 @@ const PHOTO_REQUIRED = ['infrastruktur', 'lingkungan'];
 // ── TOS yang tidak menakutkan ─────────────────────────────────
 const TOS_ITEMS = [
   { icon: 'fact_check',    text: 'Laporan berisi informasi yang benar sesuai yang saya ketahui.' },
-  { icon: 'shield',        text: 'Data pribadi saya bersifat rahasia dan dilindungi penuh oleh TeraLoka.' },
+  { icon: 'shield',        text: 'Data pribadi saya dijaga kerahasiaannya sesuai Kebijakan Privasi TeraLoka.' },
   { icon: 'edit_note',     text: 'Laporan yang telah diverifikasi bisa dijadikan artikel berita BAKABAR.' },
-  { icon: 'handshake',     text: 'TeraLoka berkomitmen merespons setiap laporan dalam 1×24 jam.' },
+  { icon: 'handshake',     text: 'Setiap laporan ditinjau tim TeraLoka sebelum ditampilkan ke publik.' },
   { icon: 'verified_user', text: 'Identitas saya hanya bisa diakses oleh Super Admin dengan audit log tercatat.' },
   { icon: 'delete',        text: 'Saya bisa mengajukan permintaan hapus laporan kapan saja.' },
 ];
@@ -155,7 +155,7 @@ export default function ReportsPage() {
           <span className="material-symbols-outlined text-white text-4xl" style={{ fontVariationSettings: "'FILL' 1" }}>check_circle</span>
         </div>
         <h2 className="text-xl font-bold text-[#003526]">Laporan Terkirim!</h2>
-        <p className="mt-2 text-sm text-gray-500 leading-relaxed">Terima kasih sudah berkontribusi untuk Maluku Utara yang lebih baik. Tim kami akan meninjau dalam 1×24 jam.</p>
+        <p className="mt-2 text-sm text-gray-500 leading-relaxed">Terima kasih sudah berkontribusi untuk Maluku Utara yang lebih baik. Tim kami akan meninjau laporanmu secepatnya — pantau statusnya kapan saja.</p>
         <div className="mt-3 rounded-xl bg-emerald-50 px-4 py-3 text-left">
           <p className="text-xs text-emerald-700 flex items-start gap-2">
             <span className="material-symbols-outlined text-sm shrink-0">lock</span>
@@ -216,7 +216,7 @@ export default function ReportsPage() {
             </div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10">
               <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>schedule</span>
-              <span className="text-xs text-white font-semibold">Respons 1×24 jam</span>
+              <span className="text-xs text-white font-semibold">Pantau real-time</span>
             </div>
             <div className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1.5 backdrop-blur-sm border border-white/10">
               <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
@@ -421,7 +421,7 @@ export default function ReportsPage() {
 
               <label className="flex cursor-pointer items-start gap-3">
                 <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#EF4444]" />
-                <span className="text-sm text-gray-700">Saya memahami dan menyetujui komitmen di atas.</span>
+                <span className="text-sm text-gray-700">Saya memahami dan menyetujui komitmen di atas serta <a href="/aturan/balapor/ketentuan" target="_blank" rel="noopener noreferrer" className="text-[#EF4444] font-semibold underline">Ketentuan Layanan BALAPOR</a>.</span>
               </label>
 
               <div className="flex gap-2">
