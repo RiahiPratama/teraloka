@@ -43,11 +43,15 @@ interface RecentReport {
   id: string;
   display_id: string | null;
   title: string;
+  body?: string | null;
   category: string | null;
   priority: 'urgent' | 'high' | 'normal';
   status: 'verified' | 'published';
   location_name: string | null;
   created_at: string;
+  verified_at?: string | null;
+  handled_at?: string | null;
+  completed_at?: string | null;
   resolution?: 'open' | 'ditangani' | 'selesai';
 }
 
@@ -95,6 +99,16 @@ function tsRelTime(iso: string): string {
   const d = Math.floor(h / 24);
   if (d < 30) return `${d} hari lalu`;
   return `${Math.floor(d / 30)} bulan lalu`;
+}
+
+/** Tanggal + jam absolut (WIB) — buat tooltip detail tahap resolusi */
+function tsDateTime(iso: string): string {
+  try {
+    return new Date(iso).toLocaleString('id-ID', {
+      day: 'numeric', month: 'short', year: 'numeric',
+      hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jakarta',
+    }) + ' WIB';
+  } catch { return ''; }
 }
 
 /* ─── Shared card style ─── */
@@ -360,9 +374,9 @@ export function TransparansiSection() {
                 const cc = catColor(catKey);
                 const res = r.resolution ?? 'open';
                 const steps = [
-                  { label: 'Diverifikasi', done: true },
-                  { label: 'Ditangani', done: res === 'ditangani' || res === 'selesai' },
-                  { label: 'Selesai', done: res === 'selesai' },
+                  { label: 'Diverifikasi', done: true, at: r.verified_at ?? null },
+                  { label: 'Ditangani', done: res === 'ditangani' || res === 'selesai', at: r.handled_at ?? null },
+                  { label: 'Selesai', done: res === 'selesai', at: r.completed_at ?? null },
                 ];
                 return (
                   <div key={r.id} style={{ ...CARD, borderRadius: 16, padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
@@ -379,30 +393,42 @@ export function TransparansiSection() {
                         )}
                       </div>
                       <h4 style={{
-                        fontSize: 14.5, fontWeight: 700, color: '#1f2937', lineHeight: 1.4, marginBottom: 14,
+                        fontSize: 14.5, fontWeight: 700, color: '#1f2937', lineHeight: 1.4, marginBottom: 8,
                         display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden',
                       } as CSSProperties}>{r.title}</h4>
-                      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 6, fontSize: 11.5, color: '#6b7280' }}>
+                      {r.body && (
+                        <p style={{
+                          fontSize: 12.5, color: '#6b7280', lineHeight: 1.55, margin: '0 0 14px',
+                          display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                        } as CSSProperties}>{r.body}</p>
+                      )}
+                      <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: 8, fontSize: 11.5, color: '#6b7280' }}>
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: cc, background: `${cc}14`, padding: '4px 10px 4px 8px', borderRadius: 999 }}>
                           <span className="material-symbols-outlined" style={{ fontSize: 14, fontVariationSettings: "'FILL' 1" }}>{catIcon}</span>
                           {catLabel}
                         </span>
-                        {r.location_name && (
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                            <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>location_on</span>
-                            {r.location_name}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                          {r.location_name && (
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
+                              <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af', flexShrink: 0 }}>location_on</span>
+                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.location_name}</span>
+                            </span>
+                          )}
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+                            <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>schedule</span>
+                            Dilaporkan {tsRelTime(r.created_at)}
                           </span>
-                        )}
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                          <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#9ca3af' }}>schedule</span>
-                          {tsRelTime(r.created_at)}
-                        </span>
+                        </div>
                       </div>
 
                       {/* Stepper progres resolusi (civic) */}
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #f1f5f9', display: 'flex' }}>
                         {steps.map((st, i) => (
-                          <div key={i} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative' }}>
+                          <div
+                            key={i}
+                            title={st.at ? `${st.label}: ${tsDateTime(st.at)}` : (st.done ? st.label : `Belum ${st.label.toLowerCase()}`)}
+                            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', cursor: 'help' }}
+                          >
                             {i < steps.length - 1 && (
                               <div style={{ position: 'absolute', top: 6, left: '50%', width: '100%', height: 2, background: steps[i + 1].done ? '#0891B2' : '#e5e7eb' }} />
                             )}
