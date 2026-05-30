@@ -62,7 +62,8 @@ export type TierCategory =
   | 'local_corporate'
   | 'premium'
   | 'politik'
-  | 'pemerintah';
+  | 'pemerintah'
+  | 'internal';
 
 export interface PricingTier {
   id:                       string;
@@ -102,6 +103,7 @@ const TIER_CATEGORY_LABEL: Record<TierCategory, string> = {
   premium:         'Premium',
   politik:         'Politik',
   pemerintah:      'Pemerintah',
+  internal:        'Internal',
 };
 
 const TIER_CATEGORY_COLOR: Record<TierCategory, string> = {
@@ -110,6 +112,7 @@ const TIER_CATEGORY_COLOR: Record<TierCategory, string> = {
   premium:         'bg-bakabar/12 text-bakabar border-bakabar/30',
   politik:         'bg-balapor/12 text-balapor border-balapor/30',
   pemerintah:      'bg-status-warning/12 text-status-warning border-status-warning/30',
+  internal:        'bg-text-muted/12 text-text-muted border-text-muted/30',
 };
 
 // ─── Props ──────────────────────────────────────────────────

@@ -56,7 +56,7 @@ interface FormState {
   tier_code:                string;
   tier_name:                string;
   // PHASE 3: extended 3 → 5 kategori symmetric (mirror PricingTier interface)
-  tier_category:            'umkm' | 'local_corporate' | 'premium' | 'politik' | 'pemerintah';
+  tier_category:            'umkm' | 'local_corporate' | 'premium' | 'politik' | 'pemerintah' | 'internal';
   price_starter_min:        number;
   price_starter_max:        number;
   price_growth_min:         number | null;
@@ -380,6 +380,7 @@ function GeneralTab({
             <option value="premium">Premium</option>
             <option value="politik">Politik</option>
             <option value="pemerintah">Pemerintah</option>
+            <option value="internal">Internal (Gratis)</option>
           </select>
         </Field>
 

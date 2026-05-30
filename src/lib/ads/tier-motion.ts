@@ -30,6 +30,7 @@ const CATEGORY_DEFAULT_MOTION: Record<TierCategory, TierMotion> = {
   premium:         'video',
   politik:         'video',
   pemerintah:      'video',
+  internal:        'video', // SESI 11 Batch 7 (31 Mei 2026): iklan rumahan = akses penuh
 };
 
 function isTierMotion(v: unknown): v is TierMotion {

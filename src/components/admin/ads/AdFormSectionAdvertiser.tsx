@@ -70,6 +70,7 @@ function getTierCategoryForAccount(accountType: string): TierCategory | undefine
     premium:         'premium',
     politik:         'politik',
     pemerintah:      'pemerintah',       // ← PHASE 3 FIX (was 'premium')
+    internal:        'internal',         // ← SESI 11 Batch 7: iklan rumahan (gratis, akses penuh)
   };
   return map[accountType];
 }
@@ -98,6 +99,7 @@ function mapAccountTypeToAdvertiserType(accountType: string): AdvertiserType {
     premium:         'premium',    // SESI 5C-B: symmetric (was 'komersial')
     politik:         'politisi',
     pemerintah:      'pemerintah',
+    internal:        'komersial',  // SESI 11 Batch 7: cache denormalized (lolos validTypes backend)
   };
   return map[accountType] ?? 'komersial';
 }
