@@ -5,18 +5,18 @@ export default function WhyTeralokaCard() {
   const pillars = [
     {
       icon: ShieldCheck,
-      title: 'Transparan 100%',
-      desc: 'Semua campaign diverifikasi sebelum tayang',
+      title: 'Diverifikasi',
+      desc: 'Tiap campaign dicek tim sebelum tayang',
     },
     {
       icon: FileText,
-      title: 'Laporan Rinci',
-      desc: 'Aliran dana real-time, publik bisa cek',
+      title: 'Laporan Terbuka',
+      desc: 'Penyaluran dana dilaporkan, publik bisa cek',
     },
     {
       icon: Users,
-      title: 'Partner Komunitas',
-      desc: 'Dana ke rekening komunitas terpercaya',
+      title: 'Langsung ke Kampanye',
+      desc: 'Donasi ke rekening kampanye, tidak ditahan TeraLoka',
     },
   ];
 
