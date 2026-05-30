@@ -1,10 +1,17 @@
 'use client';
 
 /**
- * TeraLoka — AdInArticle (v5)
- * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5B
+ * TeraLoka — AdInArticle (v6)
+ * Mission 8 Sub-Phase 8-D Phase 2 Turn 2 + SESI 5H Phase 5B + SESI 11
  * ────────────────────────────────────────────────────────────────
  * In-article ad banner — inject di tengah artikel BAKABAR via BodyWithAds.
+ *
+ * v6 Changes (30 Mei 2026 SESI 11):
+ *   - Support ad_format='video' (MP4/WebM dinamis — pengganti GIF)
+ *   - Resolve video_sources['in_article'] dari Record shape
+ *   - Render AdVideoBanner (punya IntersectionObserver play/pause + Firewall sendiri)
+ *   - Fallback graceful: kalau gak ada video_sources['in_article'] → lanjut image branch
+ *   - TIDAK mengubah cabang lain (image / text-advertorial / animated): preserve (Pattern BBB)
  *
  * v5 Changes (21 Mei 2026 SESI 5H Phase 5B):
  *   - Support ad_format='animated' (GSAP DCA-Aligned variant carousel)
@@ -16,6 +23,7 @@
  * History:
  *   - v1-v4: see git log
  *   - v5 (21 Mei 2026 SESI 5H Phase 5B): animated DCA-Aligned support
+ *   - v6 (30 Mei 2026 SESI 11): video (MP4/WebM) support
  */
 
 import Link from 'next/link';
@@ -30,6 +38,10 @@ import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 import AdAnimatedBanner, {
   type AnimationTimelineConfig,
 } from '@/components/public/ads/AdAnimatedBanner';
+// SESI 11 (30 Mei 2026): Video banner (MP4/WebM) — dinamis pengganti GIF
+import AdVideoBanner, {
+  type AdVideoSource,
+} from '@/components/public/ads/AdVideoBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -43,8 +55,8 @@ interface Ad {
   body?: string;
   image_url?: string | null;
   link_url: string;
-  // SESI 5H Phase 5B: +animated format
-  ad_format?: 'image' | 'text' | 'animated';
+  // SESI 5H Phase 5B: +animated format. SESI 11: +video (MP4/WebM)
+  ad_format?: 'image' | 'text' | 'animated' | 'video';
   // Advertorial fields
   slug?: string;
   advertiser_name?: string;
@@ -55,6 +67,8 @@ interface Ad {
   creative_frames?: AdFrame[] | null;
   // SESI 5H Phase 5B: Per-position animation timelines (Record shape)
   animation_timeline?: Record<string, AnimationTimelineConfig> | null;
+  // SESI 11 (30 Mei 2026): Per-position video sources (MP4/WebM/poster) — Record shape
+  video_sources?: Record<string, AdVideoSource> | null;
 }
 
 interface Props {
@@ -217,6 +231,34 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
       );
     }
     // Fallback: lanjut ke image branch
+  }
+
+  // ═══ VIDEO BANNER (SESI 11 — MP4/WebM dinamis) ═══
+  if (ad.ad_format === 'video') {
+    const inArticleVideo = ad.video_sources?.['in_article'];
+
+    if (inArticleVideo) {
+      return (
+        <div ref={setRef as any} style={animStyle} className="my-6 flex justify-center">
+          <AdVideoBanner
+            ad={{
+              id:                  ad.id,
+              link_url:            ad.link_url,
+              advertiser_name:     ad.advertiser_name ?? 'Sponsor',
+              advertiser_logo_url: ad.advertiser_logo_url ?? null,
+              disclaimer_text:     ad.disclaimer_text ?? null,
+              video_sources:       ad.video_sources ?? null,
+              image_url:           ad.image_url ?? null,
+            }}
+            positionKey="in_article"
+            width={IN_ARTICLE_WIDTH}
+            height={IN_ARTICLE_HEIGHT}
+            onClick={trackAdClick}
+          />
+        </div>
+      );
+    }
+    // Fallback: gak ada video buat in_article → lanjut ke image branch
   }
 
   // ═══ TEXT ADVERTORIAL — preview card ═══
