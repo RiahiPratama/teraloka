@@ -375,34 +375,37 @@ export default function AdsBottomPanels({
                         {/* SESI 11 Phase 1B (29 Mei 2026): Badge format ad —
                             kasih tau admin posisi ini support advertorial (text-based)
                             atau cuma banner gambar statis. */}
-                        {/* SESI 11 Batch 5 (31 Mei 2026): badge format JUJUR.
-                            Single source (supportsVideoFormat + supportsTextFormat)
-                            → cerita SAMA dgn flow Buat Iklan. Gak ada lagi
-                            "Banner Statis" nyasar di posisi yang bisa Motion. */}
-                        {slot.supportsAdvertorial && (
-                          <span
-                            className="px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-info/12 text-status-info shrink-0"
-                            title="Bisa Advertorial (artikel bersponsor: judul + body teks + thumbnail) ATAU banner gambar."
-                          >
-                            ✓ Advertorial
-                          </span>
-                        )}
-                        {slot.supportsVideo && (
-                          <span
-                            className="px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-cyan-500/12 text-cyan-500 shrink-0"
-                            title="Bisa Banner Motion (video webM/mp4) — selain banner gambar statis/GIF/DCA. Tipe materi final ngikut paket pengiklan."
-                          >
-                            🎬 Motion
-                          </span>
-                        )}
-                        {!slot.supportsAdvertorial && !slot.supportsVideo && (
-                          <span
-                            className="px-1 py-0.5 rounded text-[8px] font-bold uppercase bg-surface-muted text-text-muted shrink-0"
-                            title="Banner gambar (statis / GIF / DCA gonta-ganti)."
-                          >
-                            Banner
-                          </span>
-                        )}
+                        {/* SESI 11 Batch 6 (31 Mei 2026): badge tampilkan SEMUA
+                            format yang didukung posisi — bukan satu doang. Motion
+                            itu NAMBAH opsi (Statis+DCA tetap bisa), jadi posisi
+                            video-eligible = "Statis · DCA · Motion". Single source
+                            (supportsVideoFormat + supportsTextFormat). Catatan:
+                            ini set format DESKTOP — mobile beda dimensi, nyusul. */}
+                        {(() => {
+                          const formats: string[] = [];
+                          if (slot.supportsAdvertorial) formats.push('Advertorial');
+                          formats.push('Statis');
+                          if (!slot.supportsAdvertorial) formats.push('DCA');
+                          if (slot.supportsVideo) formats.push('Motion');
+                          const cls = slot.supportsVideo
+                            ? 'bg-cyan-500/12 text-cyan-500'
+                            : slot.supportsAdvertorial
+                              ? 'bg-status-info/12 text-status-info'
+                              : 'bg-surface-muted text-text-muted';
+                          const tip = slot.supportsVideo
+                            ? 'Posisi ini bisa banner Statis, DCA (gonta-ganti), atau Banner Motion (video webM/mp4). Tipe materi final ngikut paket pengiklan.'
+                            : slot.supportsAdvertorial
+                              ? 'Posisi ini bisa Advertorial (artikel bersponsor) atau banner gambar Statis.'
+                              : 'Posisi ini bisa banner Statis atau DCA (gonta-ganti gambar).';
+                          return (
+                            <span
+                              className={`px-1 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${cls}`}
+                              title={tip}
+                            >
+                              {formats.join(' · ')}
+                            </span>
+                          );
+                        })()}
                       </div>
                       {/* SESI 11 (29 Mei 2026): tampilkan ukuran + ratio + lokasi
                           biar admin paham konteks (sebelumnya cuma CSS w-[]/h-[]
