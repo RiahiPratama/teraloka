@@ -273,7 +273,7 @@ export function TransparansiSection() {
               </div>
             )}
 
-            <Link href="/reports#live-map" className="ts-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#003526', textDecoration: 'none' }}>
+            <Link href="/balapor/peta" className="ts-link" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 700, color: '#003526', textDecoration: 'none' }}>
               Lihat peta lengkap
               <span className="material-symbols-outlined" style={{ fontSize: 17 }}>arrow_forward</span>
             </Link>

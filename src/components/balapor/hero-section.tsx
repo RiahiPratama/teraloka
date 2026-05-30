@@ -552,9 +552,9 @@ export function HeroSection() {
                   </span>
                 </div>
 
-                {/* Floating CTA bottom */}
+                {/* Floating CTA bottom → halaman peta lengkap */}
                 <a
-                  href="#live-map"
+                  href="/balapor/peta"
                   style={{
                     position: 'absolute',
                     bottom: 12,

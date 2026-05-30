@@ -23,7 +23,7 @@ import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { LatLngExpression } from 'leaflet';
 import L from 'leaflet';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
@@ -56,6 +56,12 @@ export interface BalaporPublicMapProps {
   initialZoom?: number;
   /** Disable cluster behavior (default false — cluster aktif) */
   disableCluster?: boolean;
+  /**
+   * Full-page mode (untuk halaman /peta dedicated):
+   * peta interaktif langsung (tanpa overlay kunci), tinggi penuh (gak di-cap mobile),
+   * scroll-wheel zoom aktif. Default false = mode embed (terkunci, compact mobile).
+   */
+  fullView?: boolean;
 }
 
 /* ════════════════════════════════════════════════════════════════
@@ -80,15 +86,15 @@ const PRIORITY_RADIUS: Record<'urgent' | 'high' | 'normal', number> = {
   normal: 7,
 };
 
-const CATEGORY_EMOJI: Record<string, string> = {
-  keamanan: '🛡️',
-  infrastruktur: '🔧',
-  lingkungan: '🌳',
-  layanan_publik: '🏛️',
-  kesehatan: '❤️',
-  pendidikan: '🎓',
-  transportasi: '🚢',
-  lainnya: '⋯',
+const CATEGORY_ICON: Record<string, string> = {
+  keamanan: 'shield',
+  infrastruktur: 'construction',
+  lingkungan: 'forest',
+  layanan_publik: 'account_balance',
+  kesehatan: 'health_and_safety',
+  pendidikan: 'school',
+  transportasi: 'directions_car',
+  lainnya: 'category',
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -177,13 +183,19 @@ function buildMarkerIcon(priority: 'urgent' | 'high' | 'normal'): L.DivIcon {
   });
 }
 
+/* ─── Material Symbols inline (HTML string — popup Leaflet, konsisten w/ landing) ─── */
+
+function msIcon(name: string, size = 14, color = '#6b7280'): string {
+  return `<span class="material-symbols-outlined" style="font-size:${size}px;line-height:1;vertical-align:-3px;color:${color}">${name}</span>`;
+}
+
 /* ─── Build popup HTML — privacy-aware (NO pelapor info) ─── */
 
 function buildPopupHTML(r: PublicReport): string {
   const hex = PRIORITY_HEX[r.priority];
   const priorityLabel = PRIORITY_LABEL[r.priority];
   const categoryKey = (r.category ?? 'lainnya').toLowerCase();
-  const emoji = CATEGORY_EMOJI[categoryKey] ?? '⋯';
+  const catIcon = CATEGORY_ICON[categoryKey] ?? 'category';
   const categoryLabel = CATEGORY_LABEL[categoryKey] ?? 'Lainnya';
 
   return `
@@ -222,7 +234,7 @@ function buildPopupHTML(r: PublicReport): string {
               font-size:9px;
               font-weight:700;
               letter-spacing:0.3px
-            ">📰 BAKABAR</span>`
+            ">${msIcon('newspaper', 11, '#ffffff')} BAKABAR</span>`
             : ''
         }
       </div>
@@ -234,13 +246,13 @@ function buildPopupHTML(r: PublicReport): string {
         line-height:1.4
       ">${escapeHtml(r.title)}</h3>
       <div style="font-size:12px;color:#6b7280;line-height:1.5">
-        <div style="margin-bottom:2px">${emoji} ${escapeHtml(categoryLabel)}</div>
+        <div style="margin-bottom:2px;display:flex;align-items:center;gap:4px">${msIcon(catIcon, 14, '#6b7280')} ${escapeHtml(categoryLabel)}</div>
         ${
           r.location_name
-            ? `<div style="margin-bottom:2px">📍 ${escapeHtml(r.location_name)}</div>`
+            ? `<div style="margin-bottom:2px;display:flex;align-items:center;gap:4px">${msIcon('location_on', 14, '#9ca3af')} ${escapeHtml(r.location_name)}</div>`
             : ''
         }
-        <div>🕐 ${escapeHtml(timeAgoID(r.created_at))}</div>
+        <div style="display:flex;align-items:center;gap:4px">${msIcon('schedule', 14, '#9ca3af')} ${escapeHtml(timeAgoID(r.created_at))}</div>
       </div>
     </div>
   `;
@@ -376,23 +388,48 @@ function MarkerClusterLayer({
    Main Component
    ════════════════════════════════════════════════════════════════ */
 
+/**
+ * Embed (landing) = preview statis: drag/zoom mati + touch-action:pan-y di container
+ * → scroll halaman lewat di atas peta lancar (gak ke-trap), tanpa overlay yang
+ * bisa nutupin tombol section. fullView (/reports/peta) = interaktif penuh.
+ */
 export function BalaporPublicMap({
   reports,
   height = 400,
   initialZoom = DEFAULT_ZOOM,
   disableCluster = false,
+  fullView = false,
 }: BalaporPublicMapProps) {
+  const [compact, setCompact] = useState(false);
+
+  // Mobile = peta lebih pendek biar gak mendominasi layar (skip di fullView)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mq = window.matchMedia('(max-width: 768px)');
+    const apply = () => setCompact(mq.matches);
+    apply();
+    mq.addEventListener?.('change', apply);
+    return () => mq.removeEventListener?.('change', apply);
+  }, []);
+
+  const h = typeof height === 'number' ? (compact && !fullView ? Math.min(height, 300) : height) : height;
+
   return (
     <div
+      className={fullView ? undefined : 'balapor-embed-map'}
       style={{
         width: '100%',
-        height: typeof height === 'number' ? `${height}px` : height,
+        height: typeof h === 'number' ? `${h}px` : h,
         borderRadius: 14,
         overflow: 'hidden',
         border: '1px solid #e5e7eb',
         position: 'relative',
       }}
     >
+      {/* Embed: izinkan scroll vertikal halaman lewat di atas peta (anti scroll-trap, tanpa overlay) */}
+      {!fullView && (
+        <style>{`.balapor-embed-map .leaflet-container { touch-action: pan-y !important; }`}</style>
+      )}
       <MapContainer
         center={MAP_CENTER}
         zoom={initialZoom}
@@ -400,9 +437,12 @@ export function BalaporPublicMap({
         maxZoom={18}
         maxBounds={MALUT_BOUNDS}
         maxBoundsViscosity={1.0}
-        scrollWheelZoom={true}
-        style={{ height: '100%', width: '100%' }}
+        scrollWheelZoom={fullView}
+        dragging={fullView}
+        touchZoom={fullView}
+        doubleClickZoom={fullView}
         zoomControl={true}
+        style={{ height: '100%', width: '100%' }}
       >
         <TileLayer url={TILE_LIGHT} attribution={TILE_ATTRIBUTION} />
         <MarkerClusterLayer reports={reports} disableCluster={disableCluster} />
