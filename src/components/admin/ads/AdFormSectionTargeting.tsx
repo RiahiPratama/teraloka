@@ -5,24 +5,26 @@
  * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
  * SESI 5C-B (18 Mei 2026): Auto-populate positions from pricing_tier_data
  * SESI 11 Batch 2 (30 Mei 2026): Badge status jujur (+video +animated)
+ * SESI 11 Spine Langkah 4 (30 Mei 2026): SLOT-DRIVEN view
  * ------------------------------------------------------------
  * Section 3 form: Targeting (positions + regions).
  *
+ * SESI 11 Spine Langkah 4 — SLOT-DRIVEN (de-confuse):
+ *   Penyakit lama: admin disuruh scan 11 posisi + jargon dimensi buat nyari
+ *   2-3 yang relevan. Itu cara mikir AdOps/inventaris bocor ke alur bikin-iklan.
+ *
+ *   Obat: paket UDAH nentuin slot (positions_allowed). Jadi default cuma tampil
+ *   SLOT PAKET dalam bahasa manusia ("Banner samping artikel", bukan "300×208")
+ *   + tombol Upload → PositionCreativeModal (Statis/Dinamis/DCA gated by tier).
+ *   Inventaris penuh (11 posisi) disimpan di balik "Tambah slot lain (lanjutan)"
+ *   buat diskresi admin — GAK kebuang, cuma gak dipaksa muncul.
+ *
+ *   Fallback: kalau tier gak punya positions_allowed → langsung tampil checklist
+ *   lengkap (behavior lama).
+ *
  * SESI 11 Batch 2 update:
  *   - creativeStatus tambah deteksi 'video' (position_video_sources) +
- *     'animated' (position_animation_timelines). Sebelumnya cuma kenal
- *     default/image/dca → posisi yang udah ada video/animated muncul
- *     "⚪ Pakai default" (NIPU). Sekarang badge jujur.
- *
- * Batch 2 (16 Mei) update:
- *   - Tambah visual hint per group: page scope semantic
- *     "Tayang di: Homepage / Slug Detail / Keduanya"
- *
- * SESI 5C-B update (Q2 SOFT auto-populate):
- *   - useEffect watching state.pricing_tier_data
- *   - Saat tier dipilih → auto-set positions = tier.positions_allowed
- *   - Admin TETAP bisa edit (uncheck/check posisi setelahnya)
- *   - Visual badge "Disarankan tier" per checkbox yang ada di tier.positions_allowed
+ *     'animated' (position_animation_timelines). Badge jujur.
  *
  * Fields:
  *   - positions[] (checkbox grouped, min 1)
@@ -43,6 +45,10 @@ import {
   Sparkles,  // SESI 5C-B — "Disarankan tier" badge
   Ruler,     // SESI 8 — dimensi format-aware icon
   Ban,       // SESI 8 — format incompatibility icon
+  Plus,      // SESI 11 L4 — "tambah slot lain"
+  Upload,    // SESI 11 L4 — slot card upload
+  Pencil,    // SESI 11 L4 — slot card ganti
+  ArrowLeft, // SESI 11 L4 — balik ke slot paket
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAdForm } from './AdFormProvider';
@@ -77,6 +83,13 @@ const PAGE_GROUP_TO_SCOPE: Record<string, PageScope> = {
   hero_special:      'homepage',
 };
 
+// SESI 11 L4: scope dalam bahasa manusia (buat slot card)
+const SCOPE_HUMAN: Record<PageScope, string> = {
+  homepage: 'Muncul di homepage',
+  slug:     'Muncul di halaman artikel',
+  both:     'Muncul di homepage + artikel',
+};
+
 const PAGE_GROUP_LABEL: Record<string, { group: string; description: string }> = {
   banner_area:       { group: 'Banner Area',                      description: 'Slot horizontal — high visibility' },
   sidebar:           { group: 'Skyscraper & Banner Sidebar',      description: 'Banner vertikal di pinggir konten (kiri / kanan)' },
@@ -85,15 +98,7 @@ const PAGE_GROUP_LABEL: Record<string, { group: string; description: string }> =
 };
 
 // SESI 11 Phase 1B (29 Mei 2026): POSITION_GROUPS AUTO-DERIVED dari
-// POSITION_RENDER_METADATA. Sumber tunggal kebenaran. Hardcoded list udah
-// drop (dulu duplikasi data, drift risk tinggi).
-//
-// Dormant positions (mountStatus='dormant') tetap tampil tapi:
-//   - Checkbox DISABLED (gak bisa centang)
-//   - Badge "BELUM AKTIF" merah
-//   - Tooltip jelasin kenapa gak bisa pakai
-// Tujuan: admin tau slot itu EXIST di sistem (planning Phase 2), tapi gak
-// bisa accidentally upload iklan ke posisi yang gak akan tayang.
+// POSITION_RENDER_METADATA. Sumber tunggal kebenaran.
 const POSITION_GROUPS: Array<{
   group:       string;
   description: string;
@@ -146,18 +151,21 @@ const REGIONS = [
   { key: 'maluku_utara',      label: 'Provinsi Maluku Utara' },
 ];
 
+// SESI 11 L4: creative status type (mirror modal priority)
+type CreativeStatus = 'default' | 'image' | 'dca' | 'animated' | 'video';
+
 export default function AdFormSectionTargeting() {
   const { state, setField, errorFor } = useAdForm();
   const [expanded, setExpanded] = useState(true);
   // SESI 5E Phase 3a: Modal state untuk per-position creative editor
   const [editingPositionKey, setEditingPositionKey] = useState<string | null>(null);
+  // SESI 11 L4: toggle slot-driven (default) vs full inventory (lanjutan)
+  const [showAllPositions, setShowAllPositions] = useState(false);
 
   const positionsError = errorFor('positions');
   const isPolitisi = state.advertiser_type === 'politisi';
 
   // SESI 5C-B (Q2 SOFT): Auto-populate positions saat tier dipilih
-  // Re-fire setiap tier ID changes (tier baru = positions baru).
-  // Admin tetap bisa uncheck setelahnya (SOFT, not STRICT).
   useEffect(() => {
     const allowed = state.pricing_tier_data?.positions_allowed;
     if (allowed && allowed.length > 0) {
@@ -170,6 +178,42 @@ export default function AdFormSectionTargeting() {
   const tierSuggestedSet = new Set<string>(
     state.pricing_tier_data?.positions_allowed ?? [],
   );
+
+  // SESI 11 L4: SLOT PAKET — positions_allowed tier, filter non-dormant +
+  // compatible format + (kalau politisiOnly) cuma buat politisi.
+  const tierSlots: PositionRenderMetadata[] = (state.pricing_tier_data?.positions_allowed ?? [])
+    .map((key) => {
+      try {
+        return getPositionMetadata(key);
+      } catch {
+        return null;
+      }
+    })
+    .filter((m): m is PositionRenderMetadata =>
+      !!m &&
+      m.mountStatus !== 'dormant' &&
+      isPositionCompatibleWithFormat(m, state.ad_format) &&
+      !(m.politisiOnly && !isPolitisi),
+    );
+
+  const totalPositions = POSITION_GROUPS.reduce((n, g) => n + g.positions.length, 0);
+  const extraSlotCount = Math.max(0, totalPositions - tierSlots.length);
+
+  // SESI 11 L4: helper hitung creative status per posisi
+  const statusFor = (key: string): { status: CreativeStatus; dcaCount: number } => {
+    const hasVideo       = !!state.position_video_sources[key];
+    const hasAnimated    = !!state.position_animation_timelines[key];
+    const dcaCount       = state.position_frames[key]?.length ?? 0;
+    const hasDCA         = dcaCount > 0;
+    const hasCustomImage = !!state.images[key];
+    const status: CreativeStatus =
+      hasVideo         ? 'video'
+      : hasAnimated    ? 'animated'
+      : hasDCA         ? 'dca'
+      : hasCustomImage ? 'image'
+      : 'default';
+    return { status, dcaCount };
+  };
 
   const togglePosition = (key: string) => {
     const current = state.positions;
@@ -194,6 +238,9 @@ export default function AdFormSectionTargeting() {
 
   const isComplete = state.positions.length > 0;
 
+  // SESI 11 L4: pakai slot-driven kalau ada slot paket + admin belum buka inventaris
+  const useSlotView = tierSlots.length > 0 && !showAllPositions;
+
   return (
     <section className="bg-surface border border-border rounded-xl overflow-hidden">
       <button
@@ -207,10 +254,10 @@ export default function AdFormSectionTargeting() {
           </div>
           <div className="min-w-0 text-left">
             <h3 className="text-[13px] font-bold text-text uppercase tracking-wider">
-              3. Targeting Posisi & Wilayah
+              3. Penempatan & Banner
             </h3>
             <p className="text-[11px] text-text-muted mt-0.5">
-              Di mana iklan tayang + siapa yang lihat
+              Upload banner buat tiap slot paket + atur wilayah
             </p>
           </div>
         </div>
@@ -234,7 +281,8 @@ export default function AdFormSectionTargeting() {
           <div className="pt-4">
             <div className="flex items-center justify-between mb-2">
               <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted">
-                Posisi Tayang <span className="text-status-critical">*</span>
+                {useSlotView ? 'Slot Banner Paket' : 'Posisi Tayang'}{' '}
+                <span className="text-status-critical">*</span>
               </label>
               <span className="text-[10px] text-text-muted">
                 {state.positions.length} dipilih
@@ -247,22 +295,7 @@ export default function AdFormSectionTargeting() {
               </p>
             )}
 
-            {/* SESI 5C-B: Tier hint banner kalau tier dipilih */}
-            {state.pricing_tier_data && (
-              <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-md bg-ads/8 border border-ads/30">
-                <Sparkles size={12} className="text-ads shrink-0 mt-0.5" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] font-bold text-ads">
-                    Posisi disarankan tier: {state.pricing_tier_data.tier_name}
-                  </p>
-                  <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
-                    Posisi dengan badge ⭐ direkomendasi tier. Admin bisa uncheck/check sesuai kebutuhan.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* SESI 8 (24 Mei 2026): Advertorial mode banner — show dim per advertorial format */}
+            {/* SESI 8: Advertorial mode banner — show dim per advertorial format */}
             {state.ad_format === 'text' && (
               <div className="mb-2 flex items-start gap-2 px-3 py-2 rounded-md bg-amber-50 dark:bg-amber-950/20 border border-amber-300 dark:border-amber-700/40">
                 <FileText size={12} className="text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
@@ -278,190 +311,235 @@ export default function AdFormSectionTargeting() {
               </div>
             )}
 
-            <div className="flex flex-col gap-3">
-              {POSITION_GROUPS.map((group) => {
-                const ScopeIcon = PAGE_SCOPE_DISPLAY[group.pageScope].icon;
-                return (
-                  <div
-                    key={group.group}
-                    className="rounded-lg border border-border bg-surface-muted/30 p-3"
+            {/* ════════════════════════════════════════════════════════
+                SESI 11 L4: SLOT-DRIVEN VIEW (default) vs FULL INVENTORY
+                ════════════════════════════════════════════════════════ */}
+            {useSlotView ? (
+              // ─── Slot paket (bahasa manusia + Upload → modal) ───
+              <div className="flex flex-col gap-2">
+                <p className="text-[11px] text-text-muted mb-0.5 flex items-center gap-1.5">
+                  <Sparkles size={12} className="text-ads shrink-0" />
+                  Paket <strong className="text-text">{state.pricing_tier_data?.tier_name}</strong>:
+                  {' '}{tierSlots.length} slot — upload banner buat tiap slot.
+                </p>
+
+                {tierSlots.map((meta) => {
+                  const { status, dcaCount } = statusFor(meta.key);
+                  return (
+                    <SlotCard
+                      key={meta.key}
+                      meta={meta}
+                      status={status}
+                      dcaCount={dcaCount}
+                      onEdit={() => setEditingPositionKey(meta.key)}
+                    />
+                  );
+                })}
+
+                {extraSlotCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllPositions(true)}
+                    className="mt-1 w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-lg border border-dashed border-border text-[11px] font-bold text-text-muted hover:bg-surface-muted hover:text-text transition-colors"
                   >
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-bold text-text">
-                          {group.group}
-                        </p>
-                        <p className="text-[10px] text-text-muted">
-                          {group.description}
-                        </p>
-                      </div>
-                      {/* Page scope badge */}
-                      <span
-                        className={cn(
-                          'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0',
-                          group.pageScope === 'homepage' && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
-                          group.pageScope === 'slug'     && 'bg-baronda/8 border-baronda/30 text-baronda',
-                          group.pageScope === 'both'     && 'bg-analytics/8 border-analytics/30 text-analytics',
-                        )}
-                      >
-                        <ScopeIcon size={9} />
-                        {PAGE_SCOPE_DISPLAY[group.pageScope].label}
-                      </span>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                      {group.positions.map((pos) => {
-                        const isActive = state.positions.includes(pos.key);
-                        const isDisabled = (pos.politisiOnly && !isPolitisi) || pos.isDormant;
-                        const isSuggestedTier = tierSuggestedSet.has(pos.key); // SESI 5C-B
+                    <Plus size={13} />
+                    Tambah slot lain (lanjutan) — {extraSlotCount} posisi inventaris
+                  </button>
+                )}
+              </div>
+            ) : (
+              // ─── Full inventory (checklist lengkap — diskresi/AdOps) ───
+              <div className="flex flex-col gap-3">
+                {tierSlots.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllPositions(false)}
+                    className="self-start inline-flex items-center gap-1 text-[11px] font-bold text-ads hover:text-ads/80 transition-colors"
+                  >
+                    <ArrowLeft size={12} />
+                    Balik ke slot paket
+                  </button>
+                )}
 
-                        // SESI 5E Phase 3a: Detect creative status untuk badge
-                        // SESI 11 Batch 2 (30 Mei 2026): +video +animated (badge jujur).
-                        // Priority: video > animated > dca > image > default (mirror modal).
-                        const hasVideo       = !!state.position_video_sources[pos.key];
-                        const hasAnimated    = !!state.position_animation_timelines[pos.key];
-                        const hasDCA         = (state.position_frames[pos.key]?.length ?? 0) > 0;
-                        const hasCustomImage = !!state.images[pos.key];
-                        const creativeStatus: 'default' | 'image' | 'dca' | 'animated' | 'video' =
-                          hasVideo       ? 'video'
-                          : hasAnimated  ? 'animated'
-                          : hasDCA       ? 'dca'
-                          : hasCustomImage ? 'image'
-                          : 'default';
-                        const dcaCount = state.position_frames[pos.key]?.length ?? 0;
-
-                        return (
-                          <div
-                            key={pos.key}
-                            className={cn(
-                              'rounded border transition-colors overflow-hidden',
-                              isDisabled
-                                ? 'opacity-40 bg-surface border-border'
-                                : isActive
-                                  ? 'bg-baronda/8 border-baronda/40'
-                                  : isSuggestedTier
-                                    ? 'bg-ads/4 border-ads/30 hover:bg-ads/8'
-                                    : 'bg-surface border-border hover:bg-surface-muted'
-                            )}
-                          >
-                            {/* SESI 8 (24 Mei 2026): Format-aware dim resolution
-                                Pull metadata + compute dim string based on state.ad_format.
-                                Show "incompatible" indicator kalau ad_format='text' + position
-                                tidak support advertorial. */}
-                            {(() => {
-                              const meta = getPositionMetadata(pos.key);
-                              const dimForFormat = getRecommendedDimForFormat(meta, state.ad_format);
-                              const aspectForFormat = getAspectRatioForFormat(meta, state.ad_format);
-                              const isCompatible = isPositionCompatibleWithFormat(meta, state.ad_format);
-                              const isAdvertorialMode = state.ad_format === 'text';
-                              return (
-                                <label
-                                  className={cn(
-                                    'flex items-center gap-2 px-2.5 py-1.5 text-[11px]',
-                                    isDisabled || !isCompatible ? 'cursor-not-allowed' : 'cursor-pointer'
-                                  )}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={isActive}
-                                    disabled={isDisabled || !isCompatible}
-                                    onChange={() => togglePosition(pos.key)}
-                                    className="accent-baronda shrink-0"
-                                  />
-                                  <div className="min-w-0 flex-1">
-                                    <div className="font-semibold text-text truncate flex items-center gap-1">
-                                      {pos.label}
-                                      {pos.politisiOnly && (
-                                        <span className="ml-1 text-[9px] text-status-warning">
-                                          🏛️
-                                        </span>
-                                      )}
-                                      {/* SESI 11 Phase 1B (29 Mei 2026): Badge dormant —
-                                          slot ada di metadata tapi belum di-mount di frontend.
-                                          Disable checkbox + tooltip kasih tau admin biar gak
-                                          accidentally upload iklan yang gak akan tayang. */}
-                                      {pos.isDormant && (
-                                        <span
-                                          className="ml-1 px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-critical/12 text-status-critical"
-                                          title={pos.dormantNote ?? 'Posisi ini belum di-mount di frontend. Phase 2.'}
-                                        >
-                                          Belum Aktif
-                                        </span>
-                                      )}
-                                      {isSuggestedTier && !isDisabled && (
-                                        <span
-                                          className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
-                                          title="Direkomendasi tier ini"
-                                        >
-                                          ⭐
-                                        </span>
-                                      )}
-                                      {!isCompatible && (
-                                        <span
-                                          className="inline-flex items-center gap-0.5 text-[8px] font-bold text-status-warning"
-                                          title="Tidak support format advertorial"
-                                        >
-                                          <Ban size={9} />
-                                        </span>
-                                      )}
-                                    </div>
-                                    {/* SESI 8: Format-aware dim hint (Option A — switch by ad_format) */}
-                                    <div className={cn(
-                                      'flex items-center gap-1 text-[10px] mt-0.5',
-                                      isAdvertorialMode && isCompatible
-                                        ? 'text-ads font-semibold'
-                                        : 'text-text-muted'
-                                    )}>
-                                      <Ruler size={9} className="shrink-0" />
-                                      <span className="truncate">
-                                        {!isCompatible
-                                          ? 'Hanya untuk banner image'
-                                          : `${dimForFormat} · ${aspectForFormat}`}
-                                      </span>
-                                    </div>
-                                  </div>
-                                </label>
-                              );
-                            })()}
-
-                            {/* SESI 5E Phase 3a: Status badge + Edit Creative button (only kalau aktif) */}
-                            {/* SESI 11 Batch 2: badge tambah video + animated */}
-                            {isActive && !isDisabled && (
-                              <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 border-t border-border/50 bg-surface/40">
-                                <span className={cn(
-                                  'inline-flex items-center gap-1 text-[9px] font-bold',
-                                  creativeStatus === 'video'    ? 'text-cyan-600 dark:text-cyan-400' :
-                                  creativeStatus === 'animated'  ? 'text-purple-600 dark:text-purple-400' :
-                                  creativeStatus === 'dca'       ? 'text-ads' :
-                                  creativeStatus === 'image'     ? 'text-status-healthy' :
-                                  'text-text-muted'
-                                )}>
-                                  {creativeStatus === 'video'
-                                    ? '🎬 Video'
-                                    : creativeStatus === 'animated'
-                                      ? '✨ Animasi GSAP'
-                                      : creativeStatus === 'dca'
-                                        ? `🔄 DCA · ${dcaCount} variants`
-                                        : creativeStatus === 'image'
-                                          ? '🖼️ Custom image'
-                                          : '⚪ Pakai default'}
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingPositionKey(pos.key)}
-                                  className="text-[9px] font-bold text-ads hover:underline shrink-0"
-                                >
-                                  {creativeStatus === 'default' ? '+ Upload Banner' : '✏️ Edit Banner'}
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      })}
+                {/* SESI 5C-B: Tier hint banner kalau tier dipilih */}
+                {state.pricing_tier_data && (
+                  <div className="flex items-start gap-2 px-3 py-2 rounded-md bg-ads/8 border border-ads/30">
+                    <Sparkles size={12} className="text-ads shrink-0 mt-0.5" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[11px] font-bold text-ads">
+                        Posisi disarankan tier: {state.pricing_tier_data.tier_name}
+                      </p>
+                      <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                        Posisi dengan badge ⭐ direkomendasi tier. Admin bisa uncheck/check sesuai kebutuhan.
+                      </p>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+                )}
+
+                {POSITION_GROUPS.map((group) => {
+                  const ScopeIcon = PAGE_SCOPE_DISPLAY[group.pageScope].icon;
+                  return (
+                    <div
+                      key={group.group}
+                      className="rounded-lg border border-border bg-surface-muted/30 p-3"
+                    >
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-bold text-text">
+                            {group.group}
+                          </p>
+                          <p className="text-[10px] text-text-muted">
+                            {group.description}
+                          </p>
+                        </div>
+                        {/* Page scope badge */}
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0',
+                            group.pageScope === 'homepage' && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
+                            group.pageScope === 'slug'     && 'bg-baronda/8 border-baronda/30 text-baronda',
+                            group.pageScope === 'both'     && 'bg-analytics/8 border-analytics/30 text-analytics',
+                          )}
+                        >
+                          <ScopeIcon size={9} />
+                          {PAGE_SCOPE_DISPLAY[group.pageScope].label}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                        {group.positions.map((pos) => {
+                          const isActive = state.positions.includes(pos.key);
+                          const isDisabled = (pos.politisiOnly && !isPolitisi) || pos.isDormant;
+                          const isSuggestedTier = tierSuggestedSet.has(pos.key); // SESI 5C-B
+
+                          // SESI 11 Batch 2: badge jujur (video > animated > dca > image > default).
+                          const { status: creativeStatus, dcaCount } = statusFor(pos.key);
+
+                          return (
+                            <div
+                              key={pos.key}
+                              className={cn(
+                                'rounded border transition-colors overflow-hidden',
+                                isDisabled
+                                  ? 'opacity-40 bg-surface border-border'
+                                  : isActive
+                                    ? 'bg-baronda/8 border-baronda/40'
+                                    : isSuggestedTier
+                                      ? 'bg-ads/4 border-ads/30 hover:bg-ads/8'
+                                      : 'bg-surface border-border hover:bg-surface-muted'
+                              )}
+                            >
+                              {/* SESI 8: Format-aware dim resolution */}
+                              {(() => {
+                                const meta = getPositionMetadata(pos.key);
+                                const dimForFormat = getRecommendedDimForFormat(meta, state.ad_format);
+                                const aspectForFormat = getAspectRatioForFormat(meta, state.ad_format);
+                                const isCompatible = isPositionCompatibleWithFormat(meta, state.ad_format);
+                                const isAdvertorialMode = state.ad_format === 'text';
+                                return (
+                                  <label
+                                    className={cn(
+                                      'flex items-center gap-2 px-2.5 py-1.5 text-[11px]',
+                                      isDisabled || !isCompatible ? 'cursor-not-allowed' : 'cursor-pointer'
+                                    )}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isActive}
+                                      disabled={isDisabled || !isCompatible}
+                                      onChange={() => togglePosition(pos.key)}
+                                      className="accent-baronda shrink-0"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="font-semibold text-text truncate flex items-center gap-1">
+                                        {pos.label}
+                                        {pos.politisiOnly && (
+                                          <span className="ml-1 text-[9px] text-status-warning">
+                                            🏛️
+                                          </span>
+                                        )}
+                                        {pos.isDormant && (
+                                          <span
+                                            className="ml-1 px-1 py-0.5 rounded text-[8px] font-extrabold uppercase bg-status-critical/12 text-status-critical"
+                                            title={pos.dormantNote ?? 'Posisi ini belum di-mount di frontend. Phase 2.'}
+                                          >
+                                            Belum Aktif
+                                          </span>
+                                        )}
+                                        {isSuggestedTier && !isDisabled && (
+                                          <span
+                                            className="inline-flex items-center gap-0.5 text-[8px] font-bold text-ads"
+                                            title="Direkomendasi tier ini"
+                                          >
+                                            ⭐
+                                          </span>
+                                        )}
+                                        {!isCompatible && (
+                                          <span
+                                            className="inline-flex items-center gap-0.5 text-[8px] font-bold text-status-warning"
+                                            title="Tidak support format advertorial"
+                                          >
+                                            <Ban size={9} />
+                                          </span>
+                                        )}
+                                      </div>
+                                      {/* SESI 8: Format-aware dim hint */}
+                                      <div className={cn(
+                                        'flex items-center gap-1 text-[10px] mt-0.5',
+                                        isAdvertorialMode && isCompatible
+                                          ? 'text-ads font-semibold'
+                                          : 'text-text-muted'
+                                      )}>
+                                        <Ruler size={9} className="shrink-0" />
+                                        <span className="truncate">
+                                          {!isCompatible
+                                            ? 'Hanya untuk banner image'
+                                            : `${dimForFormat} · ${aspectForFormat}`}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </label>
+                                );
+                              })()}
+
+                              {/* Status badge + Edit Creative button (only kalau aktif) */}
+                              {isActive && !isDisabled && (
+                                <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 border-t border-border/50 bg-surface/40">
+                                  <span className={cn(
+                                    'inline-flex items-center gap-1 text-[9px] font-bold',
+                                    creativeStatus === 'video'    ? 'text-cyan-600 dark:text-cyan-400' :
+                                    creativeStatus === 'animated'  ? 'text-purple-600 dark:text-purple-400' :
+                                    creativeStatus === 'dca'       ? 'text-ads' :
+                                    creativeStatus === 'image'     ? 'text-status-healthy' :
+                                    'text-text-muted'
+                                  )}>
+                                    {creativeStatus === 'video'
+                                      ? '🎬 Video'
+                                      : creativeStatus === 'animated'
+                                        ? '✨ Animasi GSAP'
+                                        : creativeStatus === 'dca'
+                                          ? `🔄 DCA · ${dcaCount} variants`
+                                          : creativeStatus === 'image'
+                                            ? '🖼️ Custom image'
+                                            : '⚪ Pakai default'}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setEditingPositionKey(pos.key)}
+                                    className="text-[9px] font-bold text-ads hover:underline shrink-0"
+                                  >
+                                    {creativeStatus === 'default' ? '+ Upload Banner' : '✏️ Edit Banner'}
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Target regions */}
@@ -578,5 +656,75 @@ export default function AdFormSectionTargeting() {
         />
       )}
     </section>
+  );
+}
+
+// ─── SESI 11 L4: Sub-Component SlotCard ────────────────────────────
+// Kartu slot paket — bahasa manusia, dimensi sekunder, tombol Upload/Ganti.
+
+function SlotCard({
+  meta,
+  status,
+  dcaCount,
+  onEdit,
+}: {
+  meta:     PositionRenderMetadata;
+  status:   CreativeStatus;
+  dcaCount: number;
+  onEdit:   () => void;
+}) {
+  const scope = PAGE_GROUP_TO_SCOPE[meta.pageGroup] ?? 'both';
+  const scopeText = SCOPE_HUMAN[scope];
+  const done = status !== 'default';
+
+  const statusText =
+    status === 'video'      ? '🎬 Video siap'
+    : status === 'animated' ? '✨ Animasi siap'
+    : status === 'dca'      ? `🔄 ${dcaCount} banner gonta-ganti`
+    : status === 'image'    ? '🖼️ Banner siap'
+    : 'Belum diisi';
+
+  const statusCls =
+    status === 'video'      ? 'text-cyan-600 dark:text-cyan-400'
+    : status === 'animated' ? 'text-purple-600 dark:text-purple-400'
+    : status === 'dca'      ? 'text-ads'
+    : status === 'image'    ? 'text-status-healthy'
+    : 'text-text-subtle';
+
+  return (
+    <div
+      className={cn(
+        'flex items-center gap-3 px-3 py-3 rounded-lg border bg-surface transition-colors',
+        done ? 'border-status-healthy/40' : 'border-border',
+      )}
+    >
+      <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-baronda/10 text-baronda shrink-0">
+        <Target size={16} />
+      </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-[13px] font-bold text-text truncate">{meta.label}</p>
+        <p className="text-[10px] text-text-muted truncate">
+          {scopeText} · ukuran {meta.realDim}
+        </p>
+      </div>
+
+      <span className={cn('text-[10px] font-bold shrink-0 hidden sm:inline', statusCls)}>
+        {statusText}
+      </span>
+
+      <button
+        type="button"
+        onClick={onEdit}
+        className={cn(
+          'shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-bold border transition-colors',
+          done
+            ? 'border-border text-text-muted hover:bg-surface-muted'
+            : 'border-ads/40 text-ads hover:bg-ads/8',
+        )}
+      >
+        {done ? <><Pencil size={12} /> Ganti</> : <><Upload size={12} /> Upload</>}
+      </button>
+    </div>
   );
 }
