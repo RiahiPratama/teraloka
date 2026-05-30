@@ -167,7 +167,7 @@ export default function PositionCreativeModal({
   isOpen,
   onClose,
 }: PositionCreativeModalProps) {
-  const { state, setField } = useAdForm();
+  const { state, setField, isEditMode } = useAdForm();
   const meta = getPositionMetadata(positionKey);
 
   // SESI 5H Phase 5B: Parse dimensi position untuk live preview AnimationBuilder
@@ -184,6 +184,8 @@ export default function PositionCreativeModal({
   // SESI 10: per-position video detection
   const existingVideo    = state.position_video_sources[positionKey];
   const videoEligible    = VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
+  // SESI 11 Batch 3 (30 Mei 2026): motion paket — sumber kebenaran tab di create mode.
+  const motion           = resolveTierMotion(state.pricing_tier_data);
 
   // SESI 11 Batch 2 (30 Mei 2026): Tab default IKUTIN ad_format (biar admin gak
   // nyasar) — bukan cuma creative yang udah ada. Edit mode tetap aman karena
@@ -195,10 +197,12 @@ export default function PositionCreativeModal({
       case 'text':     return 'static';
       case 'image':
       default:
-        if (existingFrames) return 'dca';   // DCA existing
+        if (existingFrames) return 'dca';    // DCA existing
         if (existingImage)  return 'static'; // static existing
-        // Fresh: Dinamis-DCA (tier motion='dca') → buka tab DCA langsung
-        return resolveTierMotion(state.pricing_tier_data) === 'dca' ? 'dca' : 'static';
+        // Fresh banner: mendarat di Static (paling aman, gak nge-seed frame kosong
+        // yang bikin status "2 banner" palsu). Admin upgrade ke DCA/Video/Animasi
+        // via tab sesuai paket.
+        return 'static';
     }
   };
 
@@ -308,6 +312,7 @@ export default function PositionCreativeModal({
     clearStaticImage();
     clearAnimationTimeline();
     clearVideoSource();
+    if (!isEditMode) setField('ad_format', 'image'); // DCA = keluarga image
     setMode('dca');
   };
 
@@ -318,6 +323,7 @@ export default function PositionCreativeModal({
     // Mode-exclusive cleanup
     clearAnimationTimeline();
     clearVideoSource();
+    if (!isEditMode) setField('ad_format', 'image'); // Static = keluarga image
     setMode('static');
   };
 
@@ -330,6 +336,7 @@ export default function PositionCreativeModal({
     const nextFrames = { ...state.position_frames };
     delete nextFrames[positionKey];
     setField('position_frames', nextFrames);
+    if (!isEditMode) setField('ad_format', 'animated');
     setMode('animated');
   };
 
@@ -342,6 +349,7 @@ export default function PositionCreativeModal({
     delete nextFrames[positionKey];
     setField('position_frames', nextFrames);
     // Video source diisi via VideoUpload (start null/empty)
+    if (!isEditMode) setField('ad_format', 'video');
     setMode('video');
   };
 
@@ -376,20 +384,33 @@ export default function PositionCreativeModal({
   };
 
   // ───────────────────────────────────────────────────────────────
-  // SESI 11 Batch 2: Tab yang RELEVAN sama format aja (admin gak bingung).
-  //   image    → Static + DCA (dua-duanya berbasis gambar)
-  //   video    → Video (kalau posisi eligible; kalau enggak, fallback Static)
-  //   animated → Animated
-  //   text     → Static (advertorial jarang buka modal)
+  // SESI 11 Batch 3 (30 Mei 2026): Tab yang muncul.
+  //   EDIT  → ad_format IMMUTABLE (backend nolak ubah). Tab dikunci ke keluarga
+  //           format existing: image→[static,dca] (boleh swap), video→[video], dst.
+  //   CREATE→ ad_format belum kekunci. Tab ngikut PAKET (resolveTierMotion):
+  //           dca  → [static, dca]
+  //           video→ [static, dca, video(kalau posisi eligible), animated]
+  //           none → [static]
   // ───────────────────────────────────────────────────────────────
   const visibleModes: Mode[] = (() => {
-    switch (state.ad_format) {
-      case 'video':    return videoEligible ? ['video'] : ['static'];
-      case 'animated': return ['animated'];
-      case 'text':     return ['static'];
-      case 'image':
-      default:         return ['static', 'dca'];
+    if (isEditMode) {
+      switch (state.ad_format) {
+        case 'video':    return videoEligible ? ['video'] : ['static'];
+        case 'animated': return ['animated'];
+        case 'text':     return ['static'];
+        case 'image':
+        default:         return ['static', 'dca'];
+      }
     }
+    // CREATE — by paket (motion)
+    if (state.ad_format === 'text') return ['static']; // advertorial jarang buka modal
+    const modes: Mode[] = ['static'];
+    if (motion === 'dca' || motion === 'video') modes.push('dca');
+    if (motion === 'video') {
+      if (videoEligible) modes.push('video');
+      modes.push('animated');
+    }
+    return modes;
   })();
 
   const TAB_DEFS: Array<{
