@@ -98,3 +98,77 @@ Ketentuan ini dapat diperbarui; perubahan material diberitahukan melalui Platfor
 
 *Lampiran atas Syarat & Ketentuan TeraLoka. Bukan nasihat hukum.*`
 }
+
+/* ════════════════════════════════════════════════════════════════
+   KETENTUAN FITUR SOS DARURAT (BALAPOR)
+   Model LOCKED — terverifikasi terhadap mekanisme:
+   - SOS → notifikasi tim TeraLoka (WA admin) + peta darurat publik (lokasi opt-in)
+   - TeraLoka = penyampai/penghubung, BUKAN penolong (tidak ada tim/armada lapangan)
+   - TANPA jaminan respons; 112 = jalur pertolongan utama
+   - Instansi (jika bergabung kelak via SaaS) = personel instansi yang memantau,
+     menggunakan kewenangan mereka — bukan TeraLoka
+   ════════════════════════════════════════════════════════════════ */
+export function sosDoc(c: LegalConfig): string {
+  return `Versi 1.0 — berlaku sejak ${c.tanggalBerlaku}
+
+Ketentuan ini berlaku khusus untuk fitur **SOS Darurat** dan merupakan tambahan atas Syarat & Ketentuan serta Ketentuan Layanan BALAPOR. Bila ada pertentangan, ketentuan ini yang berlaku untuk fitur SOS.
+
+## 1. SOS bukan layanan darurat — hubungi 112 lebih dulu
+
+**SOS TeraLoka BUKAN layanan tanggap darurat dan BUKAN pengganti panggilan darurat resmi.** Untuk keadaan yang mengancam jiwa atau keselamatan, **segera hubungi kanal darurat resmi** lebih dulu:
+
+- **112** — Panggilan darurat nasional (gratis, aktif 24 jam, diteruskan operator ke instansi terdekat)
+- **110** — Kepolisian
+- **113** — Pemadam Kebakaran
+- **115** — Basarnas (SAR / kecelakaan laut)
+- **119** — Gawat darurat medis
+
+Jangan menunda menghubungi nomor di atas demi menunggu tanggapan atas siaran SOS Anda.
+
+## 2. Apa yang sebenarnya dilakukan SOS
+
+Saat Anda mengirim SOS, TeraLoka **menyampaikan siaran darurat Anda** ke dua tujuan:
+
+1. **Tim TeraLoka**, melalui pemberitahuan internal; dan
+2. **Peta darurat publik** TeraLoka, agar warga di sekitar lokasi dapat melihat dan—bila memungkinkan—saling membantu.
+
+SOS adalah **alat penyiaran dan dokumentasi**, bukan pengiriman tim penyelamat. TeraLoka **tidak memiliki armada, petugas lapangan, ambulans, atau unit penyelamat**, dan **tidak memiliki kewenangan** untuk mengerahkan instansi darurat.
+
+## 3. Tidak ada jaminan respons
+
+TeraLoka berupaya menyampaikan siaran Anda secepat mungkin, **tetapi tidak menjamin** siaran akan terbaca, ditanggapi, atau ditindaklanjuti dalam waktu tertentu—atau sama sekali. Pemberitahuan dapat tertunda atau gagal karena keterbatasan jaringan, perangkat, atau operasional.
+
+Karena itu, **panggilan ke 112 atau nomor darurat resmi tetap menjadi jalur pertolongan utama Anda.**
+
+## 4. Lokasi & privasi
+
+SOS dapat menyertakan lokasi GPS Anda **hanya bila Anda mengizinkannya**. Bila ditampilkan di peta publik, titik lokasi dapat dikaburkan demi keamanan Anda. Anda tetap dapat mengirim SOS tanpa lokasi. Pemrosesan Data Pribadi selengkapnya diatur dalam Kebijakan Privasi.
+
+## 5. Gunakan dengan jujur
+
+SOS hanya untuk **keadaan darurat yang nyata**. Siaran SOS palsu, iseng, atau menyesatkan **dilarang keras** — selain membahayakan dan membuang sumber daya warga, hal itu dapat berakibat pemblokiran akun dan implikasi hukum (mis. pemberitahuan keadaan bahaya palsu).
+
+## 6. Rencana keterlibatan instansi
+
+TeraLoka berharap, seiring pertumbuhan platform, instansi terkait (mis. pemadam kebakaran, SAR, kepolisian, layanan medis) bergabung untuk **memantau siaran darurat secara langsung** melalui akun mereka sendiri. Bila itu terjadi:
+
+- yang memantau dan merespons adalah **personel instansi tersebut**, dengan kewenangan mereka — **bukan TeraLoka**;
+- TeraLoka tetap berperan sebagai **penyampai/penghubung** siaran, bukan pihak penolong;
+- perubahan ini akan **diberitahukan secara jelas** dan ketentuan ini diperbarui.
+
+Sampai pemberitahuan resmi tersebut ada, anggaplah **belum ada instansi yang memantau** siaran SOS secara khusus.
+
+## 7. Tanggung jawab & penafian
+
+1. SOS disediakan **"sebagaimana adanya"** tanpa jaminan ketersediaan, kecepatan, atau hasil.
+2. TeraLoka **tidak bertanggung jawab** atas keterlambatan, ketiadaan, atau kegagalan pertolongan, maupun atas tindakan/kelambanan pihak ketiga (termasuk warga lain dan instansi).
+3. Sepanjang diizinkan hukum, Anda menggunakan SOS **atas risiko sendiri**, dengan kesadaran bahwa kanal darurat resmi adalah jalur pertolongan utama.
+
+## 8. Perubahan & kontak
+
+Ketentuan ini dapat diperbarui; perubahan material diberitahukan melalui Platform. Pertanyaan: ${c.emailKontak}.
+
+---
+
+*Lampiran atas Syarat & Ketentuan TeraLoka. Bukan nasihat hukum.*`
+}
