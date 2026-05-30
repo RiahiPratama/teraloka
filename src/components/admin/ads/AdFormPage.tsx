@@ -3,6 +3,7 @@
 /**
  * TeraLoka — AdFormPage
  * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
+ * SESI 11 Spine Batch 1 (30 Mei 2026) — Gated spine flow
  * ------------------------------------------------------------
  * Page container untuk create/edit iklan.
  * Routes:
@@ -11,18 +12,24 @@
  *
  * Layout:
  *   - Header: title + back button
- *   - Body: 5 sections collapsible
- *     1. Advertiser Info
- *     2. Konten Kreatif
- *     3. Targeting Posisi & Wilayah
- *     4. Jadwal Tayang (Batch 2 NEW)
- *     5. DCA Frame Builder (Batch 2 NEW, optional)
+ *   - Body: section spine
+ *     1. Advertiser + Paket  (ANCHOR — wajib dulu)
+ *     2. Konten Kreatif       ┐
+ *     3. Targeting Posisi     ├ ke-LOCK sampai Langkah 1 beres (create mode)
+ *     4. Jadwal Tayang        ┘
  *   - Footer: sticky submit bar
+ *
+ * SESI 11 Spine Batch 1:
+ *   - Create mode: Langkah materi/posisi/jadwal ke-lock sampai advertiser + paket
+ *     dipilih (step1Done). Tujuan: alur jadi spine lurus — anchor dulu, sisanya
+ *     ngalir. Edit mode: TIDAK di-gate (admin tweak bebas, termasuk iklan legacy
+ *     yang belum punya tier).
  *
  * History:
  *   - Batch 1 (16 Mei 2026): 3 section + placeholder Batch 2
- *   - Batch 2 (16 Mei 2026): + Schedule section + DCA section,
- *     replace placeholder dengan actual sections
+ *   - Batch 2 (16 Mei 2026): + Schedule section + DCA section
+ *   - SESI 5E Phase 3b: DCA section eliminated (per-posisi modal di Targeting)
+ *   - SESI 11 Spine Batch 1 (30 Mei 2026): gated spine
  */
 
 import { useState } from 'react';
@@ -33,6 +40,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Loader2,
+  Lock,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -61,6 +69,7 @@ export default function AdFormPage({ editingAdId = null }: AdFormPageProps) {
 function AdFormPageInner() {
   const router = useRouter();
   const {
+    state,
     isEditMode,
     isSubmitting,
     submitError,
@@ -107,6 +116,17 @@ function AdFormPageInner() {
 
   const hasErrors = errors.length > 0;
 
+  // ─── SESI 11 Spine Batch 1: Langkah 1 (anchor) beres? ───
+  // Picker mode: advertiser + paket dipilih.
+  // Mode Cepat: nama + tipe + paket.
+  // Edit mode: SELALU bebas (jangan ngunci tweak iklan lama yang belum punya tier).
+  const step1Done =
+    isEditMode ||
+    (!!state.pricing_tier_id &&
+      (state.use_free_text_mode
+        ? state.advertiser_name.trim() !== '' && Boolean(state.advertiser_type)
+        : state.advertiser_account_id !== null));
+
   return (
     <div className="flex flex-col gap-4 pb-24">
       {/* Toast */}
@@ -147,16 +167,24 @@ function AdFormPageInner() {
           <p className="text-[12px] text-text-muted mt-0.5">
             {isEditMode
               ? 'Ubah detail iklan — perubahan langsung berlaku setelah simpan'
-              : 'Onboarding iklan baru. Status default: active untuk umum/komersial, pending_review untuk politisi/pemerintah'}
+              : 'Mulai dari Langkah 1 (pilih advertiser + paket). Materi, posisi, dan jadwal kebuka setelahnya.'}
           </p>
         </div>
       </div>
 
-      {/* 4 Sections (SESI 5E Phase 3b: DCA section eliminated, integrated per-posisi modal di Targeting) */}
+      {/* ─── Spine: Langkah 1 = anchor (selalu tampil) ─── */}
       <AdFormSectionAdvertiser />
-      <AdFormSectionCreative />
-      <AdFormSectionTargeting />
-      <AdFormSectionSchedule />
+
+      {/* ─── Langkah 2-4: ke-lock sampai Langkah 1 beres (create mode) ─── */}
+      {step1Done ? (
+        <>
+          <AdFormSectionCreative />
+          <AdFormSectionTargeting />
+          <AdFormSectionSchedule />
+        </>
+      ) : (
+        <LockedStepsHint />
+      )}
 
       {/* Validation summary (kalau ada error) */}
       {hasErrors && (
@@ -195,6 +223,10 @@ function AdFormPageInner() {
               <p className="text-[11px] text-status-critical font-semibold">
                 {errors.length} field belum valid
               </p>
+            ) : !step1Done ? (
+              <p className="text-[11px] text-text-muted">
+                Selesaikan Langkah 1 dulu (advertiser + paket)
+              </p>
             ) : isDirty ? (
               <p className="text-[11px] text-status-warning font-semibold">
                 ● Belum disimpan
@@ -218,7 +250,7 @@ function AdFormPageInner() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={hasErrors || isSubmitting}
+              disabled={hasErrors || isSubmitting || !step1Done}
               className={cn(
                 'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-bold text-white',
                 'bg-ads hover:bg-ads-strong transition-colors',
@@ -238,6 +270,52 @@ function AdFormPageInner() {
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SESI 11 Spine Batch 1: placeholder saat langkah lanjutan masih terkunci ───
+function LockedStepsHint() {
+  const steps = [
+    { n: 2, label: 'Konten Kreatif',           desc: 'Materi iklan (gambar / dinamis / advertorial)' },
+    { n: 3, label: 'Targeting Posisi & Wilayah', desc: 'Di mana iklan tayang' },
+    { n: 4, label: 'Jadwal Tayang',            desc: 'Kapan iklan mulai & berhenti' },
+  ];
+
+  return (
+    <div className="bg-surface border border-dashed border-border rounded-xl p-4">
+      <div className="flex items-start gap-2.5 mb-3">
+        <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-surface-muted text-text-muted shrink-0">
+          <Lock size={15} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[13px] font-bold text-text">
+            Langkah berikutnya kebuka otomatis
+          </p>
+          <p className="text-[11px] text-text-muted mt-0.5 leading-relaxed">
+            Pilih <strong>advertiser</strong> + <strong>paket</strong> di Langkah 1 dulu.
+            Tipe, harga, posisi, durasi, sebagian besar ngikut otomatis dari paket.
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2 pl-1">
+        {steps.map((s) => (
+          <div
+            key={s.n}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-surface-muted/40 opacity-60"
+          >
+            <span className="flex items-center justify-center w-6 h-6 rounded-full bg-surface text-text-muted text-[11px] font-bold shrink-0">
+              {s.n}
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-bold text-text-muted truncate">{s.label}</p>
+              <p className="text-[10px] text-text-subtle truncate">{s.desc}</p>
+            </div>
+            <Lock size={12} className="text-text-subtle shrink-0" />
+          </div>
+        ))}
       </div>
     </div>
   );
