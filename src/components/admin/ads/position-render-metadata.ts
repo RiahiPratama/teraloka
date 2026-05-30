@@ -503,14 +503,16 @@ export function isPositionActive(key: string): boolean {
 // ════════════════════════════════════════════════════════════════
 // SESI 11 Batch 8 (31 Mei 2026) — TRUTH-FIX: cuma posisi yang komponen
 // publiknya BENERAN render <video> (verified vs dispatcher).
-//   ✅ sidebar    → AdSidebarSlug (video branch)
-//   ✅ in_article → AdInArticle (video branch)
-// Posisi lain (top_leaderboard, skyscraper, hero/poster carousel, region_stack,
+//   ✅ sidebar      → AdSidebarSlug (video branch)
+//   ✅ in_article   → AdInArticle (video branch)
+//   ✅ region_stack → DCAStackBanner (webM bg, Batch 8)
+// Posisi lain (top_leaderboard, skyscraper, hero/poster carousel,
 // banner, inline_banner) komponennya masih render <img> — BELUM bisa motion.
-// Manjangin ke posisi lain = upgrade komponen per posisi (Step 2), bukan flag.
+// Manjangin ke posisi lain = upgrade komponen per posisi, bukan flag.
 export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
   'sidebar',
   'in_article',
+  'region_stack',
 ];
 
 /** True kalau posisi boleh pakai Banner Motion (video webM/mp4). */

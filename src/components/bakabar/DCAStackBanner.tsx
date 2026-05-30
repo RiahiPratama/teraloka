@@ -19,6 +19,8 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight } from 'lucide-react';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+// SESI 11 Batch 8 (31 Mei 2026): Banner Motion (webM/mp4) sebagai bg kartu region
+import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -38,6 +40,9 @@ export interface StackBannerAd {
   advertiser_name:     string;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
   creative_frames:     StackFrame[] | null;
+  // SESI 11 Batch 8: Banner Motion (webM/mp4 loop sebagai bg kartu)
+  ad_format?:          'image' | 'text' | 'animated' | 'video';
+  video_sources?:      Record<string, AdVideoSource> | null;
 }
 
 type Props = {
@@ -94,6 +99,9 @@ export default function DCAStackBanner({ regionSlug, ad: preFetchedAd }: Props) 
   if (loading || !ad) return null;
 
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
+  // SESI 11 Batch 8: video bg (Banner Motion) untuk region_stack
+  const regionVideo = ad.ad_format === 'video' ? (ad.video_sources?.['region_stack'] ?? null) : null;
+  const hasVideo = !!(regionVideo && (regionVideo.webm || regionVideo.mp4));
 
   return (
     <a
@@ -104,16 +112,16 @@ export default function DCAStackBanner({ regionSlug, ad: preFetchedAd }: Props) 
       data-ad-id={ad.id}
       data-ad-position="region_stack"
       data-region={regionSlug}
-      data-ad-mode={isDCA ? 'dca' : 'static'}
+      data-ad-mode={hasVideo ? 'video' : isDCA ? 'dca' : 'static'}
       className="flex-1 rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer"
       style={{ minHeight: 0 }}
     >
-      <StackInner ad={ad} isDCA={isDCA} />
+      <StackInner ad={ad} isDCA={isDCA} videoSource={hasVideo ? regionVideo : null} />
     </a>
   );
 }
 
-function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
+function StackInner({ ad, isDCA, videoSource }: { ad: StackBannerAd; isDCA: boolean; videoSource: AdVideoSource | null }) {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const rotationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -160,8 +168,32 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
       className="w-full h-full relative flex flex-col"
       style={{ background: fallbackBg }}
     >
-      {/* Background image with fade */}
-      {displayImage && (
+      {/* Background layer: Banner Motion (webM/mp4 loop) > image DCA */}
+      {videoSource && !reducedMotion ? (
+        <video
+          key="stack-video"
+          className="absolute inset-0 w-full h-full object-cover opacity-50"
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={videoSource.poster || undefined}
+        >
+          {/* webM-first (lebih ringan), mp4 fallback universal */}
+          {videoSource.webm && <source src={videoSource.webm} type="video/webm" />}
+          {videoSource.mp4  && <source src={videoSource.mp4}  type="video/mp4" />}
+        </video>
+      ) : videoSource && reducedMotion ? (
+        // Hormati prefers-reduced-motion → poster statis (gak autoplay)
+        videoSource.poster ? (
+          <img
+            src={videoSource.poster}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover opacity-50"
+            loading="lazy"
+          />
+        ) : null
+      ) : displayImage ? (
         <img
           key={`stack-img-${currentIdx}`}
           src={displayImage}
@@ -169,7 +201,7 @@ function StackInner({ ad, isDCA }: { ad: StackBannerAd; isDCA: boolean }) {
           className="absolute inset-0 w-full h-full object-cover opacity-50 animate-stack-fade"
           loading="lazy"
         />
-      )}
+      ) : null}
 
       {/* Radial overlay */}
       <div className="absolute inset-0 pointer-events-none" style={{
