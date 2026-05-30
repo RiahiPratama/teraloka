@@ -125,6 +125,15 @@ export function TransparansiSection() {
   const [sos, setSos] = useState<SosItem[] | null>(null);
   const [reports, setReports] = useState<RecentReport[] | null>(null);
   const tsCarousel = useMobileCarousel<HTMLDivElement>(reports?.length ?? 0);
+  const [openTip, setOpenTip] = useState<string | null>(null);
+
+  // Tutup tooltip stepper saat tap/klik di luar (mobile: tap di mana aja → close)
+  useEffect(() => {
+    if (!openTip) return;
+    const close = () => setOpenTip(null);
+    document.addEventListener('click', close);
+    return () => document.removeEventListener('click', close);
+  }, [openTip]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -423,21 +432,57 @@ export function TransparansiSection() {
 
                       {/* Stepper progres resolusi (civic) */}
                       <div style={{ marginTop: 14, paddingTop: 14, borderTop: '1px solid #f1f5f9', display: 'flex' }}>
-                        {steps.map((st, i) => (
-                          <div
-                            key={i}
-                            title={st.at ? `${st.label}: ${tsDateTime(st.at)}` : (st.done ? st.label : `Belum ${st.label.toLowerCase()}`)}
-                            style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', cursor: 'help' }}
-                          >
-                            {i < steps.length - 1 && (
-                              <div style={{ position: 'absolute', top: 6, left: '50%', width: '100%', height: 2, background: steps[i + 1].done ? '#0891B2' : '#e5e7eb' }} />
-                            )}
-                            <div style={{ width: 14, height: 14, borderRadius: 999, background: st.done ? '#0891B2' : '#ffffff', border: `2px solid ${st.done ? '#0891B2' : '#d1d5db'}`, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              {st.done && <span className="material-symbols-outlined" style={{ fontSize: 9, color: '#ffffff', fontVariationSettings: "'FILL' 1" }}>check</span>}
+                        {steps.map((st, i) => {
+                          const tipKey = `${r.id}-${i}`;
+                          const tipText = st.at
+                            ? `${st.label}: ${tsDateTime(st.at)}`
+                            : (st.done ? st.label : `Belum ${st.label.toLowerCase()}`);
+                          const tipOpen = openTip === tipKey;
+                          return (
+                            <div
+                              key={i}
+                              onClick={(e) => { e.stopPropagation(); setOpenTip((prev) => (prev === tipKey ? null : tipKey)); }}
+                              onMouseEnter={() => setOpenTip(tipKey)}
+                              onMouseLeave={() => setOpenTip((prev) => (prev === tipKey ? null : prev))}
+                              style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', cursor: 'pointer' }}
+                            >
+                              {tipOpen && (
+                                <div
+                                  role="tooltip"
+                                  style={{
+                                    position: 'absolute',
+                                    bottom: 'calc(100% + 6px)',
+                                    ...(i === 0
+                                      ? { left: 0 }
+                                      : i === steps.length - 1
+                                        ? { right: 0 }
+                                        : { left: '50%', transform: 'translateX(-50%)' }),
+                                    zIndex: 20,
+                                    background: '#0f211b',
+                                    color: '#ffffff',
+                                    fontSize: 10.5,
+                                    fontWeight: 600,
+                                    lineHeight: 1.35,
+                                    padding: '6px 9px',
+                                    borderRadius: 8,
+                                    whiteSpace: 'nowrap',
+                                    boxShadow: '0 6px 18px rgba(0,0,0,0.20)',
+                                    pointerEvents: 'none',
+                                  }}
+                                >
+                                  {tipText}
+                                </div>
+                              )}
+                              {i < steps.length - 1 && (
+                                <div style={{ position: 'absolute', top: 6, left: '50%', width: '100%', height: 2, background: steps[i + 1].done ? '#0891B2' : '#e5e7eb' }} />
+                              )}
+                              <div style={{ width: 14, height: 14, borderRadius: 999, background: st.done ? '#0891B2' : '#ffffff', border: `2px solid ${st.done ? '#0891B2' : '#d1d5db'}`, zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                {st.done && <span className="material-symbols-outlined" style={{ fontSize: 9, color: '#ffffff', fontVariationSettings: "'FILL' 1" }}>check</span>}
+                              </div>
+                              <span style={{ fontSize: 9, fontWeight: 700, color: st.done ? '#0f211b' : '#9ca3af', marginTop: 5, textAlign: 'center', lineHeight: 1.15 }}>{st.label}</span>
                             </div>
-                            <span style={{ fontSize: 9, fontWeight: 700, color: st.done ? '#0f211b' : '#9ca3af', marginTop: 5, textAlign: 'center', lineHeight: 1.15 }}>{st.label}</span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
