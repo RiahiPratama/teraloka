@@ -1,27 +1,22 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v10.5 (Phase 4 — Kolom-3 Single Source)
+// BAKABAR — Region Section v10.6 (Phase 4 — Kolom-3 House Rotation)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// v10.5 UPDATE (31 Mei 2026, Phase 4 polish — Tahap 1 konsolidasi):
-//   - Kartu "Layanan TeraLoka" Col-3 yang dulu DI-INLINE di sini
-//     sekarang pakai <StackLayananTeraLoka /> (single source).
-//   - BUANG const LAYANAN_GRADIENT + LAYANAN_BRAND (drift, pindah ke
-//     StackLayananTeraLoka). BUANG import LAYANAN_LIST.
-//   - Tampilan kartu TIDAK berubah (StackLayananTeraLoka v2 di-setel
-//     ke gaya compact yang sama persis). Cuma kode jadi 1 sumber.
-//   - SEMUA layout/struktur lain UNCHANGED (ResizeObserver col1Height,
-//     stretchStyle, trending list, TrendingArticleAd idx 2, weather,
-//     DCAStackBanner). Blast radius: hanya blok kartu Layanan.
+// v10.6 UPDATE (31 Mei 2026, Phase 4 — Tahap 1b):
+//   - Kolom-3 zona ATAS jadi SLOT ROTASI house content.
+//   - Terima prop `sectionIndex` → pilih jenis kartu:
+//       Zakat   = tiap section ke-4 (idx 3, 7, 11)
+//       Layanan = sisanya (promosi layanan kontekstual per-region)
+//   - Pool sekarang: [promosi layanan, ajakan zakat].
+//     Nanti nambah: kampanye BADONASI, suara warga BALAPOR.
+//   - Ganti frekuensi Zakat? Ubah angka `4` di `isZakatSlot`.
+//   - Zona BAWAH (DCAStackBanner slot iklan) + layout lain UNCHANGED.
 //
-// v10.4 PRIOR (15 Mei 2026, Mission 7 Sub-Phase 7-B-3) — preserved:
-//   - <DCAStackBanner regionSlug={slug} /> fetch dari public.ads
-//   - DCA-ready, empty state → return null
-//
-// v10.3 PRIOR (Mission 6 Phase 5) — preserved:
-//   - trendingAd prop, inject TrendingArticleAd di trending_list idx=2
-//   - ResizeObserver v10.2 layout sync
+// v10.5 PRIOR (31 Mei): single source kartu Layanan via StackLayananTeraLoka.
+// v10.4 PRIOR (15 Mei): <DCAStackBanner /> fetch public.ads (DCA-ready).
+// v10.3 PRIOR (Mission 6): trendingAd inject idx=2 + ResizeObserver sync.
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
@@ -32,6 +27,7 @@ import WeatherWidget from '../shared/environment/WeatherWidget';
 import TrendingArticleAd, { type TrendingNativeAd } from './TrendingArticleAd';
 import DCAStackBanner from './DCAStackBanner';
 import StackLayananTeraLoka from './StackLayananTeraLoka';
+import ZakatCol3Card from './ZakatCol3Card';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -77,11 +73,12 @@ function timeAgo(dateStr: string) {
 }
 
 type Props = {
-  region:       RegionConfig;
-  trendingAd?:  TrendingNativeAd | null;
+  region:        RegionConfig;
+  trendingAd?:   TrendingNativeAd | null;
+  sectionIndex?: number;            // posisi section di homepage (untuk rotasi house content)
 };
 
-export default function RegionSection({ region, trendingAd = null }: Props) {
+export default function RegionSection({ region, trendingAd = null, sectionIndex = 0 }: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
     layanan_variant, layanan_body,
@@ -89,6 +86,11 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
     // (replaced with <DCAStackBanner /> fetch DB). Keep destructure
     // for backward compat saat region-data.ts cleanup nanti.
   } = region;
+
+  // ─── Rotasi house content kolom-3 (zona atas) ───
+  // Pola: Zakat tiap section ke-4 (idx 3, 7, 11). Ubah angka 4 untuk
+  // ganti frekuensi. Sisanya = promosi layanan kontekstual per-region.
+  const isZakatSlot = (sectionIndex + 1) % 4 === 0;
 
   const showWeather = slug !== 'nasional';
 
@@ -232,18 +234,21 @@ export default function RegionSection({ region, trendingAd = null }: Props) {
           </div>
         </div>
 
-        {/* Col 3: Stack (Layanan single-source + DCAStackBanner) */}
+        {/* Col 3: Stack (house content rotasi + DCAStackBanner slot iklan) */}
         <div className="relative min-w-0" style={stretchStyle}>
           <div className="flex flex-col gap-2.5 h-full">
 
-            {/* v10.5: single source — kartu Layanan dari StackLayananTeraLoka.
-                Zona ATAS = house content (sekarang promosi layanan).
-                Tampilan compact identik dgn versi inline lama. */}
-            <StackLayananTeraLoka
-              variant={layanan_variant}
-              body={layanan_body}
-              className="flex-1"
-            />
+            {/* Zona ATAS = house content rotasi:
+                Zakat tiap section ke-4, sisanya promosi layanan. */}
+            {isZakatSlot ? (
+              <ZakatCol3Card className="flex-1" />
+            ) : (
+              <StackLayananTeraLoka
+                variant={layanan_variant}
+                body={layanan_body}
+                className="flex-1"
+              />
+            )}
 
             {/* Zona BAWAH = slot iklan (Mission 7-B-3): DCAStackBanner fetch public.ads */}
             <DCAStackBanner regionSlug={slug} />

@@ -1,15 +1,18 @@
 'use client';
 
-// ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.0 (Client Interactivity)
+// ══════════════════════════════════════════════════════════════════
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.1 (Client Interactivity)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
-// ────────────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────────────────────────
+// v14.1 (31 Mei 2026): pass `sectionIndex={idx}` ke RegionSection
+//   → untuk rotasi house content kolom-3 (Zakat tiap section ke-4).
+//
 // v14.0 (31 Mei 2026): di-extract dari page.tsx (Opsi B RSC split).
 //   - Terima `slides` dari Server Component (artikel udah di-fetch server)
 //   - Hero render LANGSUNG (no loading gate) → above-the-fold instan
 //   - Trending ads tetap client-fetch (non-blocking, gak ganggu hero)
 //   - Layout 3-kolom + region map + banner antar-section: UNCHANGED
-// ════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
@@ -27,7 +30,7 @@ import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
-// ─── BADONASI Strategic Inline Promo (unchanged) ────────────────
+// ─── BADONASI Strategic Inline Promo (unchanged) ──────────────────
 function BadonasiInlinePromo() {
   return (
     <Link
@@ -131,6 +134,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
                   <RegionSection
                     region={region}
                     trendingAd={trendingAdsByRegion[region.slug] ?? null}
+                    sectionIndex={idx}
                   />
 
                   {idx === 0 && <LaIndieMoviePoliticalBanner />}
