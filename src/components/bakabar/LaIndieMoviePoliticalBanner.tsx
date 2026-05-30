@@ -31,6 +31,8 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useRef } from 'react';
+// SESI 11 Batch 8 (31 Mei 2026): Banner Motion focused-only (webM poster)
+import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 
 interface HeroAd {
   id:                    string;
@@ -41,6 +43,9 @@ interface HeroAd {
   advertiser_name:       string;
   advertiser_logo_url:   string | null;
   advertiser_type?:      string;
+  // SESI 11 Batch 8: per-position video sources (webM/mp4 loop)
+  ad_format?:            'image' | 'text' | 'animated' | 'video';
+  video_sources?:        Record<string, AdVideoSource> | null;
 }
 
 type SlotMode = 'politisi' | 'fallback' | 'empty';
@@ -62,6 +67,20 @@ function shuffle<T>(arr: T[]): T[] {
   return result;
 }
 
+// SESI 11 Batch 8: hormati prefers-reduced-motion (poster fokus → statis)
+function useReducedMotion(): boolean {
+  const [reduced, setReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+    setReduced(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setReduced(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return reduced;
+}
+
 // Slot label config — adaptive header
 const SLOT_LABELS: Record<SlotMode, { title: string; watermark: string }> = {
   politisi:  { title: 'Kampanye Politik MalUt', watermark: 'TERA POLITIK' },
@@ -78,6 +97,8 @@ export default function LaIndieMoviePoliticalBanner() {
 
   const rotationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const graceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const reducedMotion = useReducedMotion();
 
   // ── Fetch chain: politisi → fallback → empty ──────────────
   useEffect(() => {
@@ -154,6 +175,8 @@ export default function LaIndieMoviePoliticalBanner() {
 
   const focusedAd = ads[focusedIdx];
   const labels = SLOT_LABELS[slotMode];
+  // SESI 11 Batch 8: key buat lookup video_sources sesuai sumber fetch
+  const positionKey = slotMode === 'politisi' ? 'political_banner' : 'homepage_hero_banner';
 
   return (
     <section className="my-8">
@@ -207,6 +230,8 @@ export default function LaIndieMoviePoliticalBanner() {
             ad={ad}
             isFocused={idx === focusedIdx}
             watermark={labels.watermark}
+            positionKey={positionKey}
+            reducedMotion={reducedMotion}
             onHover={() => handleHover(idx)}
             onLeave={handleLeave}
           />
@@ -248,14 +273,20 @@ export default function LaIndieMoviePoliticalBanner() {
 // ────────────────────────────────────────────────────────────────
 
 interface HeroPosterProps {
-  ad:        HeroAd;
-  isFocused: boolean;
-  watermark: string;
-  onHover:   () => void;
-  onLeave:   () => void;
+  ad:            HeroAd;
+  isFocused:     boolean;
+  watermark:     string;
+  positionKey:   string;
+  reducedMotion: boolean;
+  onHover:       () => void;
+  onLeave:       () => void;
 }
 
-function HeroPoster({ ad, isFocused, watermark, onHover, onLeave }: HeroPosterProps) {
+function HeroPoster({ ad, isFocused, watermark, positionKey, reducedMotion, onHover, onLeave }: HeroPosterProps) {
+  // SESI 11 Batch 8: webM focused-only (cuma poster fokus yang play)
+  const v = ad.ad_format === 'video' ? (ad.video_sources?.[positionKey] ?? null) : null;
+  const hasVideo = !!(v && (v.webm || v.mp4));
+
   const handleClick = () => {
     if (!ad.link_url) return;
     fetch(`${API}/public/ads/${ad.id}/click`, { method: 'POST' }).catch(() => {});
@@ -280,7 +311,28 @@ function HeroPoster({ ad, isFocused, watermark, onHover, onLeave }: HeroPosterPr
         flexShrink: 0,
       }}
     >
-      {ad.image_url ? (
+      {isFocused && hasVideo && !reducedMotion ? (
+        <video
+          className="w-full h-full object-cover"
+          autoPlay
+          loop
+          muted
+          playsInline
+          poster={v!.poster || ad.image_url || undefined}
+        >
+          {/* webM-first (ringan), mp4 fallback */}
+          {v!.webm && <source src={v!.webm} type="video/webm" />}
+          {v!.mp4  && <source src={v!.mp4}  type="video/mp4" />}
+        </video>
+      ) : hasVideo && v!.poster ? (
+        // Non-fokus / reduced-motion → poster statis (gak ada N video play bareng)
+        <img
+          src={v!.poster}
+          alt={ad.title || ad.advertiser_name}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+      ) : ad.image_url ? (
         <img
           src={ad.image_url}
           alt={ad.title || ad.advertiser_name}
