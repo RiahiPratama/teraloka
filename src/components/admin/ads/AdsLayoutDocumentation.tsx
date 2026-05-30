@@ -156,6 +156,8 @@ export default function AdsLayoutDocumentation({ onJumpToAds }: AdsLayoutDocumen
               <li><strong>Ukuran Upload</strong>: dimensi image asset untuk upload (sama persis dengan ukuran render)</li>
               <li><strong>Lokasi Tampil</strong>: bahasa praktis di mana posisi muncul di halaman BAKABAR</li>
               <li><strong>Status Mount</strong>: aktif (siap tayang) atau dormant (belum di-mount di frontend — Phase 2)</li>
+              <li><strong>Materi</strong>: tipe iklan yang didukung posisi — Statis / DCA / Motion (banner) atau Advertorial (artikel /sponsored/). Dipisah "/" = pilih salah satu.</li>
+              <li><strong>Perangkat</strong>: ukuran &amp; materi di halaman ini = spec <strong>desktop</strong>. Posisi bertanda 🖥️ Desktop cuma tampil di desktop; sisanya semua perangkat. Spec mobile nyusul (Phase 2).</li>
             </ul>
           </div>
         </div>
@@ -273,6 +275,12 @@ function PositionCard({ meta, isSelected, onClick, activeCount }: PositionCardPr
           {meta.politisiOnly && (
             <span className="ml-1.5 text-[9px] text-status-warning">🏛️</span>
           )}
+          {/* SESI 11 Batch 7 (31 Mei 2026): keterangan device — single source deviceScope */}
+          {meta.deviceScope === 'desktop' && (
+            <span className="ml-1.5 inline-flex items-center px-1 py-0.5 rounded text-[8px] font-bold uppercase bg-surface-muted text-text-muted align-middle">
+              🖥️ Desktop
+            </span>
+          )}
         </span>
         <span className={cn(
           'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase',
@@ -321,7 +329,7 @@ function PositionCard({ meta, isSelected, onClick, activeCount }: PositionCardPr
               : 'bg-surface-muted text-text-muted';
           return (
             <span className={`px-1 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${cls}`}>
-              {formats.join(' · ')}
+              {formats.join(' / ')}
             </span>
           );
         })()}

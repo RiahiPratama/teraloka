@@ -403,7 +403,7 @@ export default function AdsBottomPanels({
                               className={`px-1 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${cls}`}
                               title={tip}
                             >
-                              {formats.join(' · ')}
+                              {formats.join(' / ')}
                             </span>
                           );
                         })()}
