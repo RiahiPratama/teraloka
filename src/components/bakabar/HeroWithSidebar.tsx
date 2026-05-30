@@ -1,18 +1,20 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Hero + Sidebar v3 (Sub-Sprint 5D)
+// BAKABAR — Hero + Sidebar v3.1 (Phase 4 Polish — Hydration-Safe Time)
+// PATH: src/components/bakabar/HeroWithSidebar.tsx
 // ────────────────────────────────────────────────────────────────
-// Full-area carousel (Kumparan-style):
-//   - Each slide = 1 BIG hero (16:9 + title + excerpt + meta) +
-//     2 mini cards di bottom
-//   - 3 slides total (configurable)
-//   - Arrow nav overlay at left/right edges of BIG hero area
-//   - Dots indicator below
-//   - Sidebar (Mrec + Terpopuler + BALAPOR) static, gak ikut slide
+// v3.1 (31 Mei 2026): FIX hydration mismatch.
+//   - Komponen ini sekarang ikut SSR (Opsi B: hero render di server).
+//   - timeAgo() pakai Date.now() → beda nilai server vs client untuk
+//     data dummy (region-data.ts pakai Date.now() di module-load).
+//   - SOLUSI: render waktu relatif HANYA setelah mount (client).
+//     SSR + first paint = tanpa waktu; muncul setelah hydrate. No mismatch.
+//
+// v3 PRIOR (Sub-Sprint 5D): full-area carousel Kumparan-style — UNCHANGED.
 // ════════════════════════════════════════════════════════════════
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
 import type { HeroSlide, StackBannerAd, DummyArticle } from './region-data';
@@ -55,7 +57,8 @@ function timeAgo(dateStr: string) {
 }
 
 // ─── Single Slide (Hero + 2 mini cards) ────────────────────────
-function HeroSlideContent({ slide, slideIdx }: { slide: HeroSlide; slideIdx: number }) {
+// `mounted` di-pass dari parent → waktu relatif cuma render di client.
+function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slideIdx: number; mounted: boolean }) {
   const { hero, secondary } = slide;
   const heroGradient = HERO_BG_GRADIENTS[slideIdx % HERO_BG_GRADIENTS.length];
 
@@ -110,8 +113,12 @@ function HeroSlideContent({ slide, slideIdx }: { slide: HeroSlide; slideIdx: num
           <span className="text-gray-700 font-semibold">
             {hero.source === 'rss' ? (hero.source_name || 'Media Nasional') : 'Redaksi BAKABAR'}
           </span>
-          <span className="text-gray-300">·</span>
-          <span>{timeAgo(hero.published_at)}</span>
+          {mounted && (
+            <>
+              <span className="text-gray-300">·</span>
+              <span>{timeAgo(hero.published_at)}</span>
+            </>
+          )}
         </div>
       </Link>
 
@@ -140,8 +147,12 @@ function HeroSlideContent({ slide, slideIdx }: { slide: HeroSlide; slideIdx: num
                 <span className="text-gray-700 font-semibold">
                   {a.source === 'rss' ? (a.source_name || 'Media Nasional') : 'Redaksi BAKABAR'}
                 </span>
-                <span className="text-gray-300">·</span>
-                <span>{timeAgo(a.published_at)}</span>
+                {mounted && (
+                  <>
+                    <span className="text-gray-300">·</span>
+                    <span>{timeAgo(a.published_at)}</span>
+                  </>
+                )}
               </div>
             </Link>
           ))}
@@ -154,6 +165,10 @@ function HeroSlideContent({ slide, slideIdx }: { slide: HeroSlide; slideIdx: num
 // ─── Main HeroWithSidebar ─────────────────────────────────────
 export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
+  // Hydration-safe time: waktu relatif baru dihitung setelah mount (client).
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
   const totalSlides = slides.length;
 
   const goPrev = () => setCurrentSlide((s) => Math.max(0, s - 1));
@@ -172,20 +187,19 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
           <div className="flex transition-transform duration-400 ease-out"
             style={{ transform: `translateX(-${currentSlide * 100}%)` }}>
             {slides.map((slide, idx) => (
-              <HeroSlideContent key={idx} slide={slide} slideIdx={idx} />
+              <HeroSlideContent key={idx} slide={slide} slideIdx={idx} mounted={mounted} />
             ))}
           </div>
         </div>
 
         {/* Arrow nav overlay — positioned at top-center of slides (within BIG image area) */}
-        {/* Image height = parentWidth * 9/16. For 1fr column with 320px sidebar + 28px gap inside max-w-4xl ~864 content, left col ~516px, image ~290px */}
         <button
           onClick={goPrev}
           disabled={isFirst}
           className="absolute z-20 w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg"
           style={{
             left: 10,
-            top: 145,  // ~half of expected image height (~290px)
+            top: 145,
             transform: 'translateY(-50%)',
             background: isFirst ? 'rgba(255,255,255,0.6)' : 'rgba(255,255,255,0.95)',
             backdropFilter: 'blur(8px)',
@@ -241,9 +255,6 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
         {/* Mrec Ad */}
         <div className="relative w-full rounded-xl p-5 text-white cursor-pointer overflow-hidden flex flex-col justify-between"
           style={{ background: 'linear-gradient(135deg, #065F46 0%, #064E3B 100%)', aspectRatio: '6 / 5' }}>
-          {/* SESI 5E Phase 3c: Kumparan-style conditional disclosure
-              sidebar_mrec adalah commercial promo (Bank Maluku Utara dll) →
-              hide label kecuali advertiser_type = politisi/pemerintah */}
           {(() => {
             const label = getAdLabel({
               advertiser_type: (sidebar_mrec as { advertiser_type?: string }).advertiser_type,
