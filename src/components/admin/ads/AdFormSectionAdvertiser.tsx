@@ -3,40 +3,30 @@
 /**
  * TeraLoka — AdFormSectionAdvertiser
  * Mission 8 Sub-Phase 8-B + SESI 5B STEP 3 (18 Mei 2026)
+ * SESI 11 Spine Batch 2 (30 Mei 2026) — Paket wajib (anchor) + demote Mode Cepat
  * ------------------------------------------------------------
  * Section 1 form: Informasi Advertiser & Pricing Tier.
  *
+ * SESI 11 Spine Batch 2:
+ *   - Pricing Tier jadi WAJIB (anchor). isComplete = advertiser + paket.
+ *     (Gate spine di AdFormPage udah nahan, label di sini sekarang jujur.)
+ *   - "Mode Cepat" (free-text) di-DEMOTE: dari toggle prominent jadi link kecil
+ *     "darurat" — jalur normal selalu Picker (tipe auto dari akun, gak manual).
+ *
  * Modes (Hybrid Q2 C — Mode Cepat toggle):
  *   - Picker Mode (default): AdvertiserPicker + auto-fill metadata
- *   - Mode Cepat (legacy): existing free-text inputs untuk emergency/back-compat
- *
- * Always visible: PricingTierPicker (both modes, optional select untuk SESI 5B MVP)
- *
- * Edit mode handling:
- *   - state.use_free_text_mode derived from ad.advertiser_account_id presence
- *     (handled in AdFormProvider edit bootstrap)
- *   - Section fetches entity by ID for display (cached locally)
+ *   - Mode Cepat (darurat): free-text inputs untuk emergency/back-compat
  *
  * Mapping logic (account_type → tier_category) — PHASE 3 SYMMETRIC:
- *   - umkm            → 'umkm'
- *   - local_corporate → 'local_corporate' (PHASE 3 NEW — no more umkm fallback)
- *   - premium         → 'premium'
- *   - politik         → 'politik'
- *   - pemerintah      → 'pemerintah' (PHASE 3 NEW — no more premium fallback)
- *
- * SESI 5C-B (18 Mei 2026): NEW field "Harga Final Disetujui"
- *   - Optional input saat create-ad (HYBRID Q1 — estimate first)
- *   - SOFT validate vs tier range (Q3 — yellow warning, no reject)
- *   - Confirmed via /record-payment endpoint (SESI 5C-C modal)
- *   - Sync pricing_tier_data ke context (driver auto-populate Targeting+Schedule)
+ *   - umkm → 'umkm' · local_corporate → 'local_corporate' · premium → 'premium'
+ *   - politik → 'politik' · pemerintah → 'pemerintah'
  *
  * History:
  *   - α/Batch 1 (16 Mei 2026): initial
  *   - SESI 5B STEP 3 (18 Mei 2026): wire AdvertiserPicker + PricingTierPicker
- *   - PHASE 3 (18 Mei 2026): symmetric mapping 5×5, hapus fallback stale
+ *   - PHASE 3 (18 Mei 2026): symmetric mapping 5×5
  *   - SESI 5C-B (18 Mei 2026): + Harga Final field + sync pricing_tier_data
- *   - SESI 5C-B HOTFIX (18 Mei 2026): free-text 'komersial' → 'local_corporate'
- *     (was 'umkm') — semantic fix: PT/CV korporasi cocok Local Corp, bukan UMKM
+ *   - SESI 11 Spine Batch 2 (30 Mei 2026): paket wajib + demote Mode Cepat
  */
 
 import { useState, useEffect } from 'react';
@@ -88,7 +78,6 @@ function getTierCategoryForAccount(accountType: string): TierCategory | undefine
 // PHASE 3: pemerintah symmetric fix.
 // SESI 5C-B HOTFIX (18 Mei 2026): komersial → 'local_corporate' (was 'umkm').
 // SESI 5C-B Premium gap (18 Mei 2026): + 'premium' → 'premium' tier (brand nasional besar).
-//   Reasoning: 5 free-text options sekarang symmetric dengan 5 tier kategori.
 function getTierCategoryForFreeText(advertiserType: AdvertiserType): TierCategory | undefined {
   const map: Record<AdvertiserType, TierCategory | undefined> = {
     umum:       'umkm',           // UMKM, individual, organisasi non-formal
@@ -114,16 +103,13 @@ function mapAccountTypeToAdvertiserType(accountType: string): AdvertiserType {
 }
 
 // ─── Free-text TYPE_OPTIONS (5-card radio, semantic 2-row layout) ──
-// SESI 5C-B (18 Mei 2026): + Premium entry. autoReview flag drives layout split.
-//   Row 1 (autoReview=false): Umum + Komersial + Premium = brand commercial, status active
-//   Row 2 (autoReview=true):  Pemerintah + Politisi = auto pending_review (compliance)
 const TYPE_OPTIONS: Array<{
   value: AdvertiserType;
   label: string;
   description: string;
-  icon: LucideIcon;  // SESI 5E Phase 3b: lucide icon (replace emoji string)
+  icon: LucideIcon;
   warning?: string;
-  autoReview: boolean;  // SESI 5C-B: drives semantic 2-row layout
+  autoReview: boolean;
 }> = [
   { value: 'umum',       label: 'Umum',       icon: Users,     autoReview: false, description: 'UMKM, individual, organisasi non-formal' },
   { value: 'komersial',  label: 'Komersial',  icon: Briefcase, autoReview: false, description: 'PT/CV lokal, brand daerah, korporasi menengah' },
@@ -163,11 +149,9 @@ export default function AdFormSectionAdvertiser() {
 
   // Bootstrap: fetch PricingTier entity kalau state punya ID
   // SESI 5C-B: ALSO sync ke context state.pricing_tier_data
-  // (driver auto-populate Targeting positions + Schedule duration lock)
   useEffect(() => {
     if (!state.pricing_tier_id || !token) {
       setPricingTierEntity(null);
-      // Clear context juga (kalau pricing_tier_id cleared)
       if (state.pricing_tier_data !== null) {
         setField('pricing_tier_data', null);
       }
@@ -180,7 +164,6 @@ export default function AdFormSectionAdvertiser() {
       .then((j) => {
         if (j.success && j.data) {
           setPricingTierEntity(j.data);
-          // SESI 5C-B: sync ke context untuk consume di Targeting+Schedule
           setField('pricing_tier_data', j.data);
         }
       })
@@ -195,10 +178,11 @@ export default function AdFormSectionAdvertiser() {
       ? getTierCategoryForAccount(advertiserEntity.account_type)
       : undefined;
 
-  // Completion check (depends on mode)
-  const isComplete = state.use_free_text_mode
+  // SESI 11 Spine Batch 2: paket WAJIB (anchor). Section 1 beres = advertiser + paket.
+  const advertiserDone = state.use_free_text_mode
     ? state.advertiser_name.trim().length > 0 && Boolean(state.advertiser_type)
     : state.advertiser_account_id !== null;
+  const isComplete = advertiserDone && state.pricing_tier_id !== null;
 
   const nameError = errorFor('advertiser_name');
   const advertiserAccountError = errorFor('advertiser_account_id');
@@ -213,19 +197,15 @@ export default function AdFormSectionAdvertiser() {
       setField('advertiser_name', adv.business_name);
       setField('advertiser_type', mapAccountTypeToAdvertiserType(adv.account_type));
       setField('advertiser_phone', adv.pic_phone);
-      // Logo: keep current state (admin upload manual, independent dari entity)
     } else {
       setField('advertiser_account_id', null);
-      // Don't clear other fields — admin might want to keep them as draft
     }
   };
 
   const handlePricingTierSelect = (tier: PricingTier | null) => {
     setPricingTierEntity(tier);
     setField('pricing_tier_id', tier?.id ?? null);
-    // SESI 5C-B: sync ke context untuk auto-populate Targeting+Schedule
     setField('pricing_tier_data', tier);
-    // Reset price_paid kalau tier berubah (admin re-enter sesuai range tier baru)
     if (tier === null) {
       setField('price_paid', null);
     }
@@ -234,8 +214,6 @@ export default function AdFormSectionAdvertiser() {
   const handleToggleMode = () => {
     const newMode = !state.use_free_text_mode;
     setField('use_free_text_mode', newMode);
-    // Switching to picker mode: clear free-text-only data? NO — keep as cache
-    // Switching to free-text mode: clear advertiser_account_id? NO — keep for round-trip
   };
 
   // ─── Render ────────────────────────────────────────────────
@@ -254,10 +232,10 @@ export default function AdFormSectionAdvertiser() {
           </div>
           <div className="min-w-0 text-left">
             <h3 className="text-[13px] font-bold text-text uppercase tracking-wider">
-              1. Informasi Advertiser & Pricing Tier
+              1. Advertiser & Paket
             </h3>
             <p className="text-[11px] text-text-muted mt-0.5">
-              Siapa yang pasang iklan ini + paket harga
+              Anchor: pilih advertiser + paket — tipe, harga, posisi, durasi ngikut
             </p>
           </div>
         </div>
@@ -278,38 +256,10 @@ export default function AdFormSectionAdvertiser() {
       {/* Section body */}
       {expanded && (
         <div className="px-4 pb-4 border-t border-border">
-          {/* ════ Mode Toggle ════ */}
-          <div className="flex items-center justify-between gap-2 pt-3 pb-3 mb-2">
-            <div className="flex items-center gap-2">
-              {state.use_free_text_mode ? (
-                <>
-                  <Zap size={14} className="text-status-warning" />
-                  <span className="text-[11px] font-bold text-status-warning uppercase tracking-wide">
-                    Mode Cepat (Free-Text)
-                  </span>
-                </>
-              ) : (
-                <>
-                  <UserCheck size={14} className="text-ads" />
-                  <span className="text-[11px] font-bold text-ads uppercase tracking-wide">
-                    Mode Picker (Direkomendasikan)
-                  </span>
-                </>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={handleToggleMode}
-              className="text-[10px] font-bold uppercase tracking-wide text-ads hover:text-ads/80 transition-colors px-2 py-1 rounded hover:bg-ads/8"
-            >
-              {state.use_free_text_mode ? '🎯 Beralih ke Picker' : '⚡ Pakai Mode Cepat'}
-            </button>
-          </div>
-
           {/* ════ Advertiser Section ════ */}
           {!state.use_free_text_mode ? (
             // ─── Picker Mode (default) ───
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-col gap-2 pt-4">
               <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted">
                 Pilih Advertiser <span className="text-status-critical">*</span>
               </label>
@@ -320,14 +270,39 @@ export default function AdFormSectionAdvertiser() {
               {advertiserAccountError && (
                 <p className="text-[10px] text-status-critical">{advertiserAccountError}</p>
               )}
-              <p className="text-[10px] text-text-subtle leading-relaxed">
-                💡 Belum ada advertiser? Tambah dulu via Tab "Advertiser" di /admin/ads,
-                atau aktifkan <strong>Mode Cepat</strong> untuk input free-text.
-              </p>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <p className="text-[10px] text-text-subtle leading-relaxed">
+                  💡 Tipe + paket ngikut otomatis dari advertiser. Belum kedaftar? Tambah via Tab "Advertiser".
+                </p>
+                {/* SESI 11 Batch 2: Mode Cepat DEMOTED ke link darurat kecil */}
+                <button
+                  type="button"
+                  onClick={handleToggleMode}
+                  className="inline-flex items-center gap-1 text-[10px] font-bold text-text-subtle hover:text-status-warning transition-colors shrink-0"
+                >
+                  <Zap size={10} />
+                  Mode cepat (darurat)
+                </button>
+              </div>
             </div>
           ) : (
-            // ─── Free-Text Mode (Mode Cepat, legacy) ───
-            <div className="flex flex-col gap-4">
+            // ─── Free-Text Mode (Mode Cepat, darurat) ───
+            <div className="flex flex-col gap-4 pt-4">
+              {/* SESI 11 Batch 2: banner darurat + back-to-picker */}
+              <div className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-status-warning/8 border border-status-warning/30">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-status-warning">
+                  <Zap size={12} />
+                  Mode Cepat (darurat) — disarankan pakai Picker
+                </span>
+                <button
+                  type="button"
+                  onClick={handleToggleMode}
+                  className="text-[10px] font-bold text-ads hover:text-ads/80 transition-colors shrink-0"
+                >
+                  ← Balik ke Picker
+                </button>
+              </div>
+
               {/* Advertiser name */}
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
@@ -484,17 +459,17 @@ export default function AdFormSectionAdvertiser() {
                   Untuk koordinasi pembaruan iklan / billing
                 </p>
               </div>
-
-              {/* SESI 5E Phase 3b: Logo Advertiser field REMOVED.
-                  Advertiser logo udah include di banner image — gak perlu field terpisah. */}
             </div>
           )}
 
           {/* ════ Pricing Tier Section (ALWAYS visible, both modes) ════ */}
-          {/* PHASE 3: Picker default-strict by category, dengan tombol "Lihat Semua" override */}
+          {/* SESI 11 Spine Batch 2: paket WAJIB (anchor). */}
           <div className="mt-5 pt-5 border-t border-border">
             <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
-              Pricing Tier <span className="text-text-subtle">(opsional MVP)</span>
+              Paket Harga <span className="text-status-critical">*</span>
+              <span className="text-text-subtle font-normal normal-case ml-1">
+                — anchor: nentuin posisi, gerak, harga & durasi
+              </span>
             </label>
             <PricingTierPicker
               value={pricingTierEntity}
@@ -502,13 +477,11 @@ export default function AdFormSectionAdvertiser() {
               highlightCategory={highlightCategory}
             />
             <p className="text-[10px] text-text-subtle mt-2 leading-relaxed">
-              💡 Pilih tier untuk reference harga + auto-populate posisi & durasi tayang.
+              💡 Paket nentuin posisi yang boleh, jenis materi (gambar/dinamis), harga, & durasi tayang.
             </p>
           </div>
 
-          {/* ════ SESI 5C-B: HARGA FINAL DISETUJUI (NEW Section) ════ */}
-          {/* Q1 HYBRID: input estimate saat create, confirm via /record-payment modal */}
-          {/* Q3 SOFT: warning kalau out of tier range, NO reject */}
+          {/* ════ SESI 5C-B: HARGA FINAL DISETUJUI ════ */}
           {pricingTierEntity && (
             <PriceFinalField
               tier={pricingTierEntity}
@@ -526,7 +499,6 @@ export default function AdFormSectionAdvertiser() {
 // SESI 5C-B: PriceFinalField — input "Harga Final Disetujui"
 // ════════════════════════════════════════════════════════════════════
 // Q1 HYBRID + Q3 SOFT warning out_of_range
-// Format: thousand-separator visual + raw number storage
 
 function PriceFinalField({
   tier,
@@ -537,13 +509,10 @@ function PriceFinalField({
   value:    number | null;
   onChange: (v: number | null) => void;
 }) {
-  // Local input state untuk control thousand-separator UX
-  // (avoid re-format saat user typing)
   const [inputValue, setInputValue] = useState<string>(
     value === null ? '' : value.toString(),
   );
 
-  // Sync local input ↔ context value (e.g., saat edit mode bootstrap)
   useEffect(() => {
     if (value === null) {
       setInputValue('');
@@ -552,7 +521,6 @@ function PriceFinalField({
     }
   }, [value]);
 
-  // Compute range warning (Q3 SOFT)
   const outOfRange = (() => {
     if (value === null || value <= 0) return null;
     if (value < tier.price_normal_min) return 'below';
@@ -561,10 +529,8 @@ function PriceFinalField({
   })();
 
   const handleInputChange = (raw: string) => {
-    // Strip non-digit (allow user paste comma-separated)
     const digitsOnly = raw.replace(/[^\d]/g, '');
     setInputValue(digitsOnly);
-    // Store as number (or null if empty)
     onChange(digitsOnly === '' ? null : parseInt(digitsOnly, 10));
   };
 
@@ -581,7 +547,6 @@ function PriceFinalField({
         </span>
       </label>
 
-      {/* Input field dengan thousand separator visual */}
       <div className="relative">
         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[12px] font-bold text-text-muted">
           Rp
@@ -602,7 +567,6 @@ function PriceFinalField({
         />
       </div>
 
-      {/* Tier range info */}
       <p className="text-[10px] text-text-subtle mt-1.5 flex items-center gap-1">
         <DollarSign size={10} />
         Range tier <strong className="text-text-muted">{tier.tier_name}</strong>:
@@ -610,7 +574,6 @@ function PriceFinalField({
         {' '}({tier.duration_days} hari)
       </p>
 
-      {/* SOFT warning out_of_range (Q3) */}
       {outOfRange === 'below' && (
         <div className="mt-2 flex items-start gap-2 px-3 py-2 rounded-md bg-status-warning/8 border border-status-warning/30">
           <AlertTriangle size={12} className="text-status-warning shrink-0 mt-0.5" />
