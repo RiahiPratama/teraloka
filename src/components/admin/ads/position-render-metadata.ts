@@ -501,14 +501,16 @@ export function isPositionActive(key: string): boolean {
 // label "Banner Statis" nyasar di posisi yang sebenernya bisa Motion.
 // Native/in-article dikecualikan (kartu kecil, bukan banner video).
 // ════════════════════════════════════════════════════════════════
+// SESI 11 Batch 8 (31 Mei 2026) — TRUTH-FIX: cuma posisi yang komponen
+// publiknya BENERAN render <video> (verified vs dispatcher).
+//   ✅ sidebar    → AdSidebarSlug (video branch)
+//   ✅ in_article → AdInArticle (video branch)
+// Posisi lain (top_leaderboard, skyscraper, hero/poster carousel, region_stack,
+// banner, inline_banner) komponennya masih render <img> — BELUM bisa motion.
+// Manjangin ke posisi lain = upgrade komponen per posisi (Step 2), bukan flag.
 export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
-  'banner',
-  'homepage_hero_banner',
-  'top_leaderboard',
-  'inline_banner',
   'sidebar',
-  'skyscraper_left',
-  'skyscraper_right',
+  'in_article',
 ];
 
 /** True kalau posisi boleh pakai Banner Motion (video webM/mp4). */
