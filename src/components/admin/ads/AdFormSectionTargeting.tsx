@@ -4,16 +4,19 @@
  * TeraLoka — AdFormSectionTargeting
  * Mission 8 Sub-Phase 8-B α (Batch 1) → β (Batch 2)
  * SESI 5C-B (18 Mei 2026): Auto-populate positions from pricing_tier_data
+ * SESI 11 Batch 2 (30 Mei 2026): Badge status jujur (+video +animated)
  * ------------------------------------------------------------
  * Section 3 form: Targeting (positions + regions).
  *
- * Batch 2 update:
+ * SESI 11 Batch 2 update:
+ *   - creativeStatus tambah deteksi 'video' (position_video_sources) +
+ *     'animated' (position_animation_timelines). Sebelumnya cuma kenal
+ *     default/image/dca → posisi yang udah ada video/animated muncul
+ *     "⚪ Pakai default" (NIPU). Sekarang badge jujur.
+ *
+ * Batch 2 (16 Mei) update:
  *   - Tambah visual hint per group: page scope semantic
  *     "Tayang di: Homepage / Slug Detail / Keduanya"
- *   - Reality verified via grep production code:
- *     - top_leaderboard, trending_native, homepage_hero_banner = HOMEPAGE
- *     - in_article, native, skyscraper_*, inline_banner = SLUG detail
- *     - banner, sidebar, homepage = generic (kedua page)
  *
  * SESI 5C-B update (Q2 SOFT auto-populate):
  *   - useEffect watching state.pricing_tier_data
@@ -312,13 +315,18 @@ export default function AdFormSectionTargeting() {
                         const isSuggestedTier = tierSuggestedSet.has(pos.key); // SESI 5C-B
 
                         // SESI 5E Phase 3a: Detect creative status untuk badge
-                        const hasDCA = (state.position_frames[pos.key]?.length ?? 0) > 0;
+                        // SESI 11 Batch 2 (30 Mei 2026): +video +animated (badge jujur).
+                        // Priority: video > animated > dca > image > default (mirror modal).
+                        const hasVideo       = !!state.position_video_sources[pos.key];
+                        const hasAnimated    = !!state.position_animation_timelines[pos.key];
+                        const hasDCA         = (state.position_frames[pos.key]?.length ?? 0) > 0;
                         const hasCustomImage = !!state.images[pos.key];
-                        const creativeStatus: 'default' | 'image' | 'dca' = hasDCA
-                          ? 'dca'
-                          : hasCustomImage
-                            ? 'image'
-                            : 'default';
+                        const creativeStatus: 'default' | 'image' | 'dca' | 'animated' | 'video' =
+                          hasVideo       ? 'video'
+                          : hasAnimated  ? 'animated'
+                          : hasDCA       ? 'dca'
+                          : hasCustomImage ? 'image'
+                          : 'default';
                         const dcaCount = state.position_frames[pos.key]?.length ?? 0;
 
                         return (
@@ -416,19 +424,26 @@ export default function AdFormSectionTargeting() {
                             })()}
 
                             {/* SESI 5E Phase 3a: Status badge + Edit Creative button (only kalau aktif) */}
+                            {/* SESI 11 Batch 2: badge tambah video + animated */}
                             {isActive && !isDisabled && (
                               <div className="flex items-center justify-between gap-2 px-2.5 py-1.5 border-t border-border/50 bg-surface/40">
                                 <span className={cn(
                                   'inline-flex items-center gap-1 text-[9px] font-bold',
-                                  creativeStatus === 'dca'     ? 'text-ads' :
-                                  creativeStatus === 'image'   ? 'text-status-healthy' :
+                                  creativeStatus === 'video'    ? 'text-cyan-600 dark:text-cyan-400' :
+                                  creativeStatus === 'animated'  ? 'text-purple-600 dark:text-purple-400' :
+                                  creativeStatus === 'dca'       ? 'text-ads' :
+                                  creativeStatus === 'image'     ? 'text-status-healthy' :
                                   'text-text-muted'
                                 )}>
-                                  {creativeStatus === 'dca'
-                                    ? `🔄 DCA · ${dcaCount} variants`
-                                    : creativeStatus === 'image'
-                                      ? `🖼️ Custom image`
-                                      : `⚪ Pakai default`}
+                                  {creativeStatus === 'video'
+                                    ? '🎬 Video'
+                                    : creativeStatus === 'animated'
+                                      ? '✨ Animasi GSAP'
+                                      : creativeStatus === 'dca'
+                                        ? `🔄 DCA · ${dcaCount} variants`
+                                        : creativeStatus === 'image'
+                                          ? '🖼️ Custom image'
+                                          : '⚪ Pakai default'}
                                 </span>
                                 <button
                                   type="button"

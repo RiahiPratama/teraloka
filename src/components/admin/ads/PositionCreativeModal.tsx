@@ -4,6 +4,7 @@
  * TeraLoka — PositionCreativeModal
  * SESI 5E Phase 3a (19 Mei 2026) — Position-First DCA Workflow
  * SESI 10 Sub-Phase B (24 Mei 2026) — GIF support di STATIC mode
+ * SESI 11 Batch 2 (30 Mei 2026) — Tab default ikut ad_format + gating tab relevan
  * ────────────────────────────────────────────────────────────────
  * Modal popup untuk edit creative spesifik per-posisi.
  *
@@ -17,6 +18,14 @@
  *               → Static only (rotation animation = JS-driven, GIF redundant)
  *   - ANIMATED: GSAP timeline per posisi (premium tier)
  *               → Static only (GSAP overlay on static, GIF = double animation chaos)
+ *   - VIDEO:    MP4+WebM per posisi (commit ke state.position_video_sources)
+ *
+ * SESI 11 Batch 2 (admin gak nyasar):
+ *   - detectInitialMode IKUTIN state.ad_format (bukan cuma creative existing) →
+ *     iklan Dinamis-video buka tab Video, Dinamis-DCA buka tab DCA, dst.
+ *   - visibleModes: cuma tampil tab yang relevan sama format. Format dengan
+ *     1 mode (video/animated) → switcher disembunyiin, langsung ke editor.
+ *   - Mode fresh yang butuh struktur (DCA/animated) di-seed saat open.
  *
  * Paradigm separation:
  *   STATIC      = quick banner (incl. GIF Kumparan-style)
@@ -64,6 +73,8 @@ import PositionLivePreview from './PositionLivePreview';
 // SESI 5H Phase 5B (21 Mei 2026): GSAP animation builder per-position (DCA-Aligned)
 import AnimationBuilder from './AnimationBuilder';
 import type { AnimationTimelineConfig } from '@/components/public/ads/AdAnimatedBanner';
+// SESI 11 Batch 2 (30 Mei 2026): tier→motion buat default tab Dinamis-DCA
+import { resolveTierMotion } from '@/lib/ads/tier-motion';
 
 // ─── Constants ────────────────────────────────────────────────────
 const DCA_MIN_FRAMES = 2;
@@ -178,20 +189,42 @@ export default function PositionCreativeModal({
   const existingVideo    = state.position_video_sources[positionKey];
   const videoEligible    = VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
 
-  // Priority detection: video > animated > dca > static (fallback default)
+  // SESI 11 Batch 2 (30 Mei 2026): Tab default IKUTIN ad_format (biar admin gak
+  // nyasar) — bukan cuma creative yang udah ada. Edit mode tetap aman karena
+  // creative existing per-posisi konsisten sama ad_format global.
   const detectInitialMode = (): Mode => {
-    if (existingVideo)    return 'video';
-    if (existingTimeline) return 'animated';
-    if (existingFrames)   return 'dca';
-    return 'static';
+    switch (state.ad_format) {
+      case 'video':    return videoEligible ? 'video' : 'static';
+      case 'animated': return 'animated';
+      case 'text':     return 'static';
+      case 'image':
+      default:
+        if (existingFrames) return 'dca';   // DCA existing
+        if (existingImage)  return 'static'; // static existing
+        // Fresh: Dinamis-DCA (tier motion='dca') → buka tab DCA langsung
+        return resolveTierMotion(state.pricing_tier_data) === 'dca' ? 'dca' : 'static';
+    }
   };
 
   const [mode, setMode] = useState<Mode>(detectInitialMode());
 
   // Re-sync mode ketika modal open dengan position berbeda
+  // SESI 11 Batch 2: seed struktur kalau fresh + mode butuh init (biar admin
+  // gak mendarat di tab kosong yang bikin bingung).
   useEffect(() => {
-    if (isOpen) {
-      setMode(detectInitialMode());
+    if (!isOpen) return;
+    const m = detectInitialMode();
+    setMode(m);
+    if (m === 'dca' && !(state.position_frames[positionKey]?.length)) {
+      setField('position_frames', {
+        ...state.position_frames,
+        [positionKey]: [createEmptyFrame(0), createEmptyFrame(1)],
+      });
+    } else if (m === 'animated' && !state.position_animation_timelines[positionKey]) {
+      setField('position_animation_timelines', {
+        ...state.position_animation_timelines,
+        [positionKey]: { ...EMPTY_TIMELINE },
+      });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, positionKey, existingFrames, existingTimeline, existingVideo]);
@@ -347,6 +380,37 @@ export default function PositionCreativeModal({
   };
 
   // ───────────────────────────────────────────────────────────────
+  // SESI 11 Batch 2: Tab yang RELEVAN sama format aja (admin gak bingung).
+  //   image    → Static + DCA (dua-duanya berbasis gambar)
+  //   video    → Video (kalau posisi eligible; kalau enggak, fallback Static)
+  //   animated → Animated
+  //   text     → Static (advertorial jarang buka modal)
+  // ───────────────────────────────────────────────────────────────
+  const visibleModes: Mode[] = (() => {
+    switch (state.ad_format) {
+      case 'video':    return videoEligible ? ['video'] : ['static'];
+      case 'animated': return ['animated'];
+      case 'text':     return ['static'];
+      case 'image':
+      default:         return ['static', 'dca'];
+    }
+  })();
+
+  const TAB_DEFS: Array<{
+    mode:        Mode;
+    label:       string;
+    Icon:        typeof ImageIcon;
+    activeClass: string;
+    onSelect:    () => void;
+  }> = [
+    { mode: 'static',   label: 'Static',           Icon: ImageIcon, activeClass: 'bg-ads text-white shadow',        onSelect: switchToStatic },
+    { mode: 'dca',      label: 'DCA (2-5 rotate)', Icon: Layers,    activeClass: 'bg-ads text-white shadow',        onSelect: switchToDCA },
+    { mode: 'animated', label: 'Animated GSAP',    Icon: Sparkles,  activeClass: 'bg-purple-600 text-white shadow', onSelect: switchToAnimated },
+    { mode: 'video',    label: 'Video',            Icon: Film,      activeClass: 'bg-cyan-600 text-white shadow',   onSelect: switchToVideo },
+  ];
+  const visibleTabs = TAB_DEFS.filter((t) => visibleModes.includes(t.mode));
+
+  // ───────────────────────────────────────────────────────────────
   // RENDER
   // ───────────────────────────────────────────────────────────────
   return (
@@ -406,66 +470,31 @@ export default function PositionCreativeModal({
         </div>
 
         {/* ── MODE SWITCHER ── */}
-        <div className="px-5 py-3 border-b border-border bg-surface-muted/20">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={mode === 'static' ? undefined : switchToStatic}
-              className={cn(
-                'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
-                mode === 'static'
-                  ? 'bg-ads text-white shadow'
-                  : 'bg-surface text-text-muted border border-border hover:bg-surface-muted/40'
-              )}
-            >
-              <ImageIcon size={13} />
-              Static
-            </button>
-            <button
-              type="button"
-              onClick={mode === 'dca' ? undefined : switchToDCA}
-              className={cn(
-                'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
-                mode === 'dca'
-                  ? 'bg-ads text-white shadow'
-                  : 'bg-surface text-text-muted border border-border hover:bg-surface-muted/40'
-              )}
-            >
-              <Layers size={13} />
-              DCA (2-5 rotate)
-            </button>
-            {/* SESI 5H Phase 5B: 3rd mode — Animated GSAP */}
-            <button
-              type="button"
-              onClick={mode === 'animated' ? undefined : switchToAnimated}
-              className={cn(
-                'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
-                mode === 'animated'
-                  ? 'bg-purple-600 text-white shadow'
-                  : 'bg-surface text-text-muted border border-border hover:bg-purple-50 dark:hover:bg-purple-950/30'
-              )}
-            >
-              <Sparkles size={13} />
-              Animated GSAP
-            </button>
-            {/* SESI 10: 4th mode — Video (hanya posisi video-eligible) */}
-            {videoEligible && (
-              <button
-                type="button"
-                onClick={mode === 'video' ? undefined : switchToVideo}
-                className={cn(
-                  'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
-                  mode === 'video'
-                    ? 'bg-cyan-600 text-white shadow'
-                    : 'bg-surface text-text-muted border border-border hover:bg-cyan-50 dark:hover:bg-cyan-950/30'
-                )}
-              >
-                <Film size={13} />
-                Video
-              </button>
-            )}
+        {/* SESI 11 Batch 2: cuma tampil tab yang relevan sama format. Kalau cuma
+            1 mode (video/animated/advertorial), switcher disembunyiin — langsung
+            ke editor biar admin gak bingung. */}
+        {visibleTabs.length > 1 && (
+          <div className="px-5 py-3 border-b border-border bg-surface-muted/20">
+            <div className="flex gap-2">
+              {visibleTabs.map(({ mode: tabMode, label, Icon, activeClass, onSelect }) => (
+                <button
+                  key={tabMode}
+                  type="button"
+                  onClick={mode === tabMode ? undefined : onSelect}
+                  className={cn(
+                    'flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-[12px] font-bold transition-colors',
+                    mode === tabMode
+                      ? activeClass
+                      : 'bg-surface text-text-muted border border-border hover:bg-surface-muted/40'
+                  )}
+                >
+                  <Icon size={13} />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* ── BODY ── */}
         <div className="p-5">
@@ -478,6 +507,16 @@ export default function PositionCreativeModal({
               Per-MIME validation di ImageUpload v3. */}
           {mode === 'static' && (
             <div>
+              {/* SESI 11 Batch 2: catatan kalau format Video tapi posisi belum eligible */}
+              {state.ad_format === 'video' && !videoEligible && (
+                <div className="flex items-start gap-2 mb-3 p-3 rounded-lg bg-status-warning/8 border border-status-warning/30">
+                  <Info size={12} className="text-status-warning shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-status-warning leading-relaxed">
+                    Posisi <strong>{meta.label}</strong> belum dukung video. Pakai banner statis di sini,
+                    atau pilih posisi banner lain (Top Billboard / Sidebar / Skyscraper) untuk video.
+                  </p>
+                </div>
+              )}
               <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 block">
                 {/* SESI 8 (24 Mei 2026): Format-aware dim label */}
                 Upload Image — {getRecommendedDimForFormat(meta, state.ad_format)}
