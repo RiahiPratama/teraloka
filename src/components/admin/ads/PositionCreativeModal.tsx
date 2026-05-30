@@ -423,14 +423,14 @@ export default function PositionCreativeModal({
     { mode: 'static',   label: 'Static',           Icon: ImageIcon, activeClass: 'bg-ads text-white shadow',        onSelect: switchToStatic },
     { mode: 'dca',      label: 'DCA (2-5 rotate)', Icon: Layers,    activeClass: 'bg-ads text-white shadow',        onSelect: switchToDCA },
     { mode: 'animated', label: 'Animated GSAP',    Icon: Sparkles,  activeClass: 'bg-purple-600 text-white shadow', onSelect: switchToAnimated },
-    { mode: 'video',    label: 'Video',            Icon: Film,      activeClass: 'bg-cyan-600 text-white shadow',   onSelect: switchToVideo },
+    { mode: 'video',    label: 'Banner Motion',    Icon: Film,      activeClass: 'bg-cyan-600 text-white shadow',   onSelect: switchToVideo },
   ];
   const visibleTabs = TAB_DEFS.filter((t) => visibleModes.includes(t.mode));
 
   // SESI 11 L4: penjelas kriteria materi per tier (biar admin gak nanya "kenapa DCA")
   const formatNote =
     visibleModes.includes('video')
-      ? '🎬 Paket ini dukung Video (.webM) + banner statis.'
+      ? '🎬 Paket ini dukung Banner Motion (video webM/MP4) + banner statis.'
       : visibleModes.includes('animated')
         ? '✨ Paket ini dukung Animasi GSAP.'
         : visibleModes.includes('dca')
@@ -782,11 +782,11 @@ export default function PositionCreativeModal({
                 <Film size={14} className="text-cyan-600 dark:text-cyan-400 shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-[11px] font-bold text-cyan-900 dark:text-cyan-100">
-                    Video — Posisi {meta.label}
+                    Banner Motion — Posisi {meta.label}
                   </p>
                   <p className="text-[10px] text-cyan-700/80 dark:text-cyan-300/80 mt-0.5 leading-relaxed">
                     Dimensi: {meta.recommendedImageDim} ({meta.aspectRatio}).
-                    Upload MP4 (wajib) + WebM (opsional) + poster (wajib). Autoplay muted, loop otomatis.
+                    Cukup 1 file (webM disarankan, ringan). Autoplay muted, loop otomatis.
                   </p>
                 </div>
               </div>

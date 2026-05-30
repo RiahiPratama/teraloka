@@ -179,9 +179,10 @@ export default function AdVideoBanner({
         {/* SESI 11 (30 Mei 2026): webM DULU. Browser pilih <source> pertama yang
             didukung — Chrome/Firefox/Android (mayoritas pembaca MalUt) ambil webM
             yang jauh lebih ringan (hemat bandwidth). mp4 = fallback universal buat
-            Safari/iOS + device lawas. webm nullable → mp4 selalu ada di bawah. */}
+            Safari/iOS + device lawas. SESI 11 Batch 4: KEDUA source kondisional —
+            Banner Motion bisa webM-only (mp4 kosong) atau mp4-only. */}
         {source.webm && <source src={source.webm} type="video/webm" />}
-        <source src={source.mp4} type="video/mp4" />
+        {source.mp4 && <source src={source.mp4} type="video/mp4" />}
         {/* Fallback teks (browser super lawas tanpa <video>) */}
         Browser Anda tidak mendukung video.
       </video>
