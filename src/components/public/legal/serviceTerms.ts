@@ -172,3 +172,111 @@ Ketentuan ini dapat diperbarui; perubahan material diberitahukan melalui Platfor
 
 *Lampiran atas Syarat & Ketentuan TeraLoka. Bukan nasihat hukum.*`
 }
+
+/* ════════════════════════════════════════════════════════════════
+   KETENTUAN LAYANAN BADONASI
+   Dokumen MITIGASI (jujur) — bukan klaim legalitas/izin.
+   Model terverifikasi terhadap kode:
+   - Dana donasi LANGSUNG Donatur → rekening kampanye (Penggalang). TeraLoka tidak menahan dana.
+   - TeraLoka = fasilitator teknologi + verifikasi awal, BUKAN penyelenggara PUB, BUKAN pemegang/penyalur dana.
+   - Fee + kode unik ikut masuk ke rekening kampanye (pre-yayasan jadi pendapatan penggalang).
+   - Tanggung jawab + kewajiban perizinan digeser ke Penggalang (sejauh diizinkan hukum).
+   Dasar: Permensos 8/2021 (Pasal 1, 3, 4, 5) jo. UU 9/1961 tentang PUB; UU PDP; UU ITE.
+   CATATAN PASCA-YAYASAN: bila fee mulai disetor ke rekening TeraLoka, Section 5 WAJIB di-update
+   (dari "masuk rekening kampanye" → "fee disetor ke entitas TeraLoka") + ranah pajak/pembukuan.
+   ════════════════════════════════════════════════════════════════ */
+export function badonasiDoc(c: LegalConfig): string {
+  return `Versi 1.0 — berlaku sejak ${c.tanggalBerlaku}
+
+Ketentuan ini berlaku khusus untuk layanan BADONASI dan merupakan tambahan atas Syarat & Ketentuan serta Pedoman Komunitas TeraLoka. Bila ada pertentangan, ketentuan ini yang berlaku untuk BADONASI. Dengan menggunakan BADONASI — baik sebagai **Penggalang** maupun **Donatur** — Anda menyetujui ketentuan ini.
+
+## 1. Peran TeraLoka: fasilitator, bukan penyelenggara
+
+BADONASI adalah layanan teknologi yang mempertemukan **Penggalang** (pihak yang mengajukan dan menjalankan penggalangan dana) dengan **Donatur** (pihak yang menyumbang), untuk membantu warga Maluku Utara.
+
+Dalam BADONASI, TeraLoka berperan **semata-mata sebagai penyedia platform teknologi dan verifikasi awal**. TeraLoka **bukan**:
+
+- penyelenggara pengumpulan uang atau barang;
+- pengelola, penampung, atau penyalur dana donasi;
+- pihak yang menjamin keberhasilan, penyaluran, atau penggunaan dana.
+
+**Dana donasi tidak pernah masuk, transit, atau ditahan di rekening TeraLoka.** Donasi ditransfer **langsung dari Donatur ke rekening yang ditetapkan untuk kampanye** dan dikelola oleh Penggalang.
+
+## 2. Tanggung jawab Penggalang
+
+Penggalang adalah **pihak yang bertanggung jawab penuh dan pribadi** atas kampanye yang ia buat, termasuk:
+
+- kebenaran seluruh informasi, cerita, dokumen, dan target dana;
+- penerimaan, pengelolaan, penyaluran, dan pertanggungjawaban dana kepada penerima manfaat;
+- **pemenuhan seluruh perizinan dan kewajiban hukum yang berlaku** atas kegiatan pengumpulan dana yang ia lakukan, termasuk — bila berlaku — ketentuan mengenai Pengumpulan Uang atau Barang (PUB);
+- penyampaian laporan penggunaan dana beserta bukti yang sah.
+
+Dengan membuat kampanye, Penggalang menyatakan bahwa ia berwenang dan memenuhi syarat untuk melakukannya, serta **membebaskan TeraLoka** dari segala tuntutan, kerugian, atau tanggung jawab hukum yang timbul dari kegiatannya.
+
+> **Penting:** Berdasarkan peraturan tentang Pengumpulan Uang atau Barang (UU 9/1961 jo. Permensos 8/2021), penyelenggaraan pengumpulan dana publik tertentu hanya dapat dilakukan oleh organisasi kemasyarakatan berbadan hukum dan/atau memerlukan izin, dengan pengecualian tertentu (mis. zakat, pengumpulan di tempat ibadah, atau gotong royong di lingkungan terbatas). **Penggalang bertanggung jawab menilai dan memenuhi kewajiban perizinan yang berlaku atas kampanyenya.** TeraLoka tidak bertindak sebagai penyelenggara dan tidak mewakili bahwa suatu kampanye telah memenuhi perizinan tersebut.
+
+## 3. Hubungan donasi: langsung Donatur ↔ Penggalang
+
+Donasi merupakan **transaksi langsung antara Donatur dan Penggalang/penerima manfaat**. TeraLoka **bukan pihak** dalam transaksi tersebut, tidak menyalurkan dana, dan tidak menjamin dana akan diterima atau digunakan sesuai tujuan.
+
+Donatur memahami bahwa keputusan menyumbang adalah **keputusan pribadi** berdasarkan informasi yang ditampilkan, dan menanggung sendiri risikonya.
+
+## 4. Verifikasi: artinya & batasnya
+
+TeraLoka melakukan **verifikasi awal** atas kampanye (mis. kelengkapan dokumen, kewajaran cerita, identitas pengaju). Verifikasi ini bertujuan **mengurangi — bukan menghilangkan** — risiko penyalahgunaan.
+
+Label "terverifikasi" **bukan**:
+
+- jaminan bahwa kampanye bebas dari penipuan;
+- jaminan bahwa dana akan disalurkan atau digunakan dengan benar;
+- pengesahan, rekomendasi, atau penjaminan oleh TeraLoka atas Penggalang maupun kampanyenya.
+
+## 5. Biaya & nominal transfer
+
+Donasi yang sampai ke penerima manfaat bersifat **utuh** — nominal donasi **tidak dipotong**. Yang ditambahkan **di atas** nominal donasi (ditanggung Donatur) dan **ikut masuk ke rekening kampanye yang dikelola Penggalang** terdiri atas:
+
+- **Biaya layanan** untuk operasional teknologi BADONASI;
+- **Kode unik** (digit terakhir nominal transfer) untuk pencocokan pembayaran secara otomatis;
+- **Dukungan untuk Penggalang (opsional)** — bersifat sukarela, hanya berlaku bila Donatur memilih menambahkannya.
+
+**Seluruh nominal transfer masuk ke rekening kampanye; tidak ada dana yang ditahan di rekening TeraLoka.** Rincian biaya ditampilkan secara transparan sebelum Donatur menyelesaikan donasi.
+
+## 6. Larangan
+
+Dilarang menggunakan BADONASI untuk:
+
+- kampanye palsu, menyesatkan, atau melebih-lebihkan kebutuhan;
+- pengumpulan dana untuk kegiatan yang melanggar hukum, termasuk radikalisme, terorisme, atau hal lain yang bertentangan dengan hukum;
+- penyalahgunaan identitas atau dokumen orang lain;
+- hal lain yang dilarang dalam Pedoman Komunitas atau peraturan yang berlaku.
+
+Pelanggaran dapat berakibat penurunan kampanye, pemblokiran akun, dan — bila ada indikasi pidana — pelaporan kepada pihak berwenang. **Penyalahgunaan dana donasi dapat berimplikasi pidana (mis. penipuan atau penggelapan) yang menjadi tanggung jawab Penggalang.**
+
+## 7. Hak Donatur & penanganan dugaan penyalahgunaan
+
+- Donatur berhak memperoleh informasi yang jujur dan rincian biaya sebelum menyumbang.
+- Donatur dapat **melaporkan kampanye yang mencurigakan** melalui kanal yang tersedia; laporan ditinjau tim TeraLoka.
+- Bila ditemukan indikasi penyalahgunaan, TeraLoka dapat menurunkan kampanye dan menghentikan akses Penggalang. Namun, karena **dana tidak berada pada TeraLoka**, pemulihan dana berada di luar kendali TeraLoka dan menjadi urusan antara Donatur, Penggalang, dan/atau aparat penegak hukum.
+
+## 8. Batasan tanggung jawab
+
+Sepanjang diizinkan hukum, TeraLoka **tidak bertanggung jawab** atas:
+
+- kebenaran isi kampanye maupun tindakan/kelalaian Penggalang;
+- gagal, terlambat, atau disalahgunakannya penyaluran dana;
+- kerugian yang timbul dari donasi yang Anda berikan.
+
+Layanan BADONASI disediakan **"sebagaimana adanya"** tanpa jaminan hasil.
+
+## 9. Data pribadi
+
+Pemrosesan data pribadi (mis. identitas pengaju, kontak, bukti transfer) diatur dalam Kebijakan Privasi. Dokumen identitas sensitif diakses terbatas oleh tim verifikasi.
+
+## 10. Perubahan & kontak
+
+Ketentuan ini dapat diperbarui; perubahan material diberitahukan melalui Platform. Pertanyaan atau laporan: ${c.emailKontak}.
+
+---
+
+*Lampiran atas Syarat & Ketentuan TeraLoka. Bukan nasihat hukum.*`
+}
