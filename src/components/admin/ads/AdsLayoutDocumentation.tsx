@@ -38,6 +38,9 @@ import {
   getPositionsByGroup,
   computeCapacityStatus,
   formatCapacityDisplay,
+  // SESI 11 Batch 7 (31 Mei 2026): single source materi (shared w/ Slot Inventory)
+  buildMateriFormats,
+  supportsVideoFormat,
   type PositionRenderMetadata,
   type PositionRenderType,
   type CapacityStatus,
@@ -303,6 +306,25 @@ function PositionCard({ meta, isSelected, onClick, activeCount }: PositionCardPr
           <ImageIcon size={10} />
           {meta.recommendedImageDim}
         </div>
+        {/* SESI 11 Batch 7 (31 Mei 2026): chip materi — single source, sama
+            persis dgn badge Slot Inventory (buildMateriFormats). */}
+        {(() => {
+          const isVideo = supportsVideoFormat(meta.key);
+          const formats = buildMateriFormats({
+            supportsAdvertorial: meta.supportsTextFormat,
+            supportsVideo:       isVideo,
+          });
+          const cls = isVideo
+            ? 'bg-cyan-500/12 text-cyan-500'
+            : meta.supportsTextFormat
+              ? 'bg-status-info/12 text-status-info'
+              : 'bg-surface-muted text-text-muted';
+          return (
+            <span className={`px-1 py-0.5 rounded text-[8px] font-extrabold uppercase shrink-0 ${cls}`}>
+              {formats.join(' · ')}
+            </span>
+          );
+        })()}
         <div className="text-[9px] text-text-subtle ml-auto">
           {meta.aspectRatio}
         </div>

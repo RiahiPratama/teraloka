@@ -51,6 +51,8 @@ import {
   type CapacityStatus,
   // SESI 11 Batch 5 (31 Mei 2026): single source video-eligible (badge jujur)
   supportsVideoFormat,
+  // SESI 11 Batch 7 (31 Mei 2026): single source daftar materi (shared w/ Layout Iklan)
+  buildMateriFormats,
 } from './position-render-metadata';
 
 // SESI 11 Phase 1B (29 Mei 2026): derive dari ALL_POSITION_KEYS, bukan hardcode.
@@ -382,11 +384,10 @@ export default function AdsBottomPanels({
                             (supportsVideoFormat + supportsTextFormat). Catatan:
                             ini set format DESKTOP — mobile beda dimensi, nyusul. */}
                         {(() => {
-                          const formats: string[] = [];
-                          if (slot.supportsAdvertorial) formats.push('Advertorial');
-                          formats.push('Statis');
-                          if (!slot.supportsAdvertorial) formats.push('DCA');
-                          if (slot.supportsVideo) formats.push('Motion');
+                          const formats = buildMateriFormats({
+                            supportsAdvertorial: slot.supportsAdvertorial,
+                            supportsVideo:       slot.supportsVideo,
+                          });
                           const cls = slot.supportsVideo
                             ? 'bg-cyan-500/12 text-cyan-500'
                             : slot.supportsAdvertorial

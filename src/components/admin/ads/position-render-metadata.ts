@@ -515,3 +515,25 @@ export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
 export function supportsVideoFormat(positionKey: string): boolean {
   return VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
 }
+
+// ════════════════════════════════════════════════════════════════
+// MATERI CAPABILITY — Single Source (SESI 11 Batch 7, 31 Mei 2026)
+// ────────────────────────────────────────────────────────────────
+// Daftar materi yang didukung satu posisi. SATU sumber kebenaran dipakai
+// badge Slot Inventory (AdsBottomPanels) + chip Layout Iklan
+// (AdsLayoutDocumentation) — biar gak drift antar halaman.
+//
+// Logika: Motion NAMBAH opsi (Statis tetap bisa). Advertorial = text-based,
+// non-advertorial = banner gambar (Statis + DCA). Final materi ngikut paket.
+// ════════════════════════════════════════════════════════════════
+export function buildMateriFormats(opts: {
+  supportsAdvertorial: boolean;
+  supportsVideo:       boolean;
+}): string[] {
+  const formats: string[] = [];
+  if (opts.supportsAdvertorial) formats.push('Advertorial');
+  formats.push('Statis');
+  if (!opts.supportsAdvertorial) formats.push('DCA');
+  if (opts.supportsVideo) formats.push('Motion');
+  return formats;
+}
