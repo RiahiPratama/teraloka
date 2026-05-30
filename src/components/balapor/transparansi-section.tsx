@@ -13,6 +13,7 @@
 
 import { useEffect, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
+import { useMobileCarousel } from '@/hooks/useMobileCarousel';
 
 const TS_API_BASE =
   process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
@@ -109,6 +110,7 @@ export function TransparansiSection() {
   const [stats, setStats] = useState<PetaStats | null>(null);
   const [sos, setSos] = useState<SosItem[] | null>(null);
   const [reports, setReports] = useState<RecentReport[] | null>(null);
+  const tsCarousel = useMobileCarousel<HTMLDivElement>(reports?.length ?? 0);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -348,7 +350,8 @@ export function TransparansiSection() {
           {reports !== null && reports.length === 0 && <p style={{ fontSize: 13, color: '#9ca3af', padding: '20px 0' }}>Belum ada laporan terverifikasi.</p>}
 
           {reports !== null && reports.length > 0 && (
-            <div className="ts-reports" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            <>
+            <div ref={tsCarousel.trackRef} className="ts-reports" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
               {reports.map((r) => {
                 const p = prioMeta(r.priority);
                 const catKey = (r.category ?? 'lainnya').toLowerCase();
@@ -415,6 +418,19 @@ export function TransparansiSection() {
                 );
               })}
             </div>
+            <div className="ts-dots">
+              {reports.map((_, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  className="ts-dot"
+                  data-active={tsCarousel.active === i ? 'true' : 'false'}
+                  aria-label={`Ke laporan ${i + 1}`}
+                  onClick={() => tsCarousel.goTo(i)}
+                />
+              ))}
+            </div>
+            </>
           )}
         </div>
 
@@ -451,11 +467,27 @@ export function TransparansiSection() {
       <style>{`
         @media (max-width: 768px) {
           .ts-grid { grid-template-columns: 1fr !important; }
-          .ts-reports { grid-template-columns: 1fr !important; }
+          /* Laporan Terbaru → carousel mobile (swipe + auto-advance + dots) */
+          .ts-reports {
+            display: flex !important;
+            grid-template-columns: none !important;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            gap: 12px !important;
+            padding-bottom: 2px;
+          }
+          .ts-reports::-webkit-scrollbar { display: none; }
+          .ts-reports > * { flex: 0 0 86% !important; scroll-snap-align: center; }
+          .ts-dots { display: flex !important; }
         }
         @media (min-width: 769px) and (max-width: 1024px) {
           .ts-reports { grid-template-columns: repeat(2, 1fr) !important; }
         }
+        .ts-dots { display: none; justify-content: center; gap: 7px; margin-top: 16px; }
+        .ts-dot { width: 7px; height: 7px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; background: #d1d5db; transition: all .25s ease; }
+        .ts-dot[data-active="true"] { width: 22px; background: #003526; }
         .ts-link { transition: gap .2s ease; }
         .ts-link:hover { gap: 10px; }
         .ts-cta-btn { transition: transform .2s ease, box-shadow .2s ease; }

@@ -26,6 +26,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useMobileCarousel } from '@/hooks/useMobileCarousel';
 import { HeroSection } from '@/components/balapor/hero-section';
 import { CaraKerjaSection } from '@/components/balapor/cara-kerja-section';
 import { FiturUtamaSection } from '@/components/balapor/fitur-utama-section';
@@ -213,6 +214,9 @@ export default function BalaporLandingPage() {
   const [articles, setArticles] = useState<ArticleCard[]>(BAKABAR_ARTICLES);
   const [campaigns, setCampaigns] = useState<CampaignCard[]>(BADONASI_CAMPAIGNS);
 
+  // Ekosistem 3-layanan → carousel di mobile (3 card: BAKABAR/BALAPOR/BADONASI)
+  const ekoCarousel = useMobileCarousel<HTMLDivElement>(3);
+
   useEffect(() => {
     const controller = new AbortController();
 
@@ -381,7 +385,7 @@ export default function BalaporLandingPage() {
             <p style={{ fontSize: 14, color: '#6b7280' }}>Tiga layanan terintegrasi untuk Maluku Utara yang lebih baik.</p>
           </div>
 
-          <div className="ekosistem-grid" style={{
+          <div ref={ekoCarousel.trackRef} className="ekosistem-grid" style={{
             display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20,
           }}>
 
@@ -610,6 +614,18 @@ export default function BalaporLandingPage() {
                 <span className="material-symbols-outlined" style={{ fontSize: 16 }}>arrow_forward</span>
               </Link>
             </div>
+          </div>
+          <div className="ekosistem-dots">
+            {[0, 1, 2].map((i) => (
+              <button
+                key={i}
+                type="button"
+                className="ekosistem-dot"
+                data-active={ekoCarousel.active === i ? 'true' : 'false'}
+                aria-label={`Ke layanan ${i + 1}`}
+                onClick={() => ekoCarousel.goTo(i)}
+              />
+            ))}
           </div>
         </div>
       </section>
@@ -869,6 +885,25 @@ export default function BalaporLandingPage() {
           .synergy-flow        { grid-template-columns: 1fr !important; gap: 24px !important; }
           .synergy-flow svg    { transform: rotate(90deg); margin: 0 auto; }
           .final-cta-grid      { flex-direction: column !important; align-items: flex-start !important; }
+        }
+
+        /* Ekosistem 3-layanan → carousel mobile (swipe + auto-advance + dots) */
+        .ekosistem-dots { display: none; justify-content: center; gap: 7px; margin-top: 18px; }
+        .ekosistem-dot { width: 7px; height: 7px; border-radius: 999px; border: 0; padding: 0; cursor: pointer; background: #d1d5db; transition: all .25s ease; }
+        .ekosistem-dot[data-active="true"] { width: 22px; background: #003526; }
+        @media (max-width: 768px) {
+          .ekosistem-grid {
+            display: flex !important;
+            grid-template-columns: none !important;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+            gap: 14px !important;
+          }
+          .ekosistem-grid::-webkit-scrollbar { display: none; }
+          .ekosistem-grid > * { flex: 0 0 86% !important; scroll-snap-align: center; }
+          .ekosistem-dots { display: flex !important; }
         }
       `}</style>
     </div>
