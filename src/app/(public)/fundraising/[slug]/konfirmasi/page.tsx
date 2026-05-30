@@ -173,7 +173,7 @@ export default function KonfirmasiPage({ params }: { params: Promise<{ slug: str
           </div>
           <h1 className="text-xl font-extrabold text-white leading-tight">Langkah Terakhir</h1>
           <p className="text-sm text-white/80 mt-1">
-            Transfer nominal persis lalu upload bukti. Tim verifikasi dalam 1-3 jam kerja.
+            Transfer nominal persis lalu upload bukti. Penggalang akan mengonfirmasi donasimu, lalu tercatat di sistem TeraLoka.
           </p>
         </div>
       </div>
@@ -204,7 +204,7 @@ export default function KonfirmasiPage({ params }: { params: Promise<{ slug: str
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <h2 className="text-sm font-bold text-gray-800 mb-4 flex items-center gap-2">
             <Building2 size={16} className="text-[#003526]" />
-            Transfer ke Rekening Partner
+            Transfer ke Rekening Kampanye
           </h2>
 
           {campaign ? (
@@ -249,7 +249,7 @@ export default function KonfirmasiPage({ params }: { params: Promise<{ slug: str
                 <div className="flex items-start gap-2 mt-2">
                   <User size={14} className="text-gray-400 mt-0.5 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs text-gray-400">Komunitas Partner</p>
+                    <p className="text-xs text-gray-400">Penggalang Kampanye</p>
                     <p className="text-sm font-semibold text-gray-700">{campaign.partner_name}</p>
                   </div>
                 </div>
@@ -294,7 +294,7 @@ export default function KonfirmasiPage({ params }: { params: Promise<{ slug: str
             Upload Bukti Transfer
           </h2>
           <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-            Wajib. Upload screenshot atau PDF struk transfer agar tim bisa verifikasi donasimu.
+            Wajib. Upload screenshot atau PDF struk transfer agar penggalang bisa mengonfirmasi donasimu.
           </p>
           <ImageUpload
             bucket="donations"
@@ -310,7 +310,7 @@ export default function KonfirmasiPage({ params }: { params: Promise<{ slug: str
         <div className="rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 flex items-start gap-2">
           <ShieldCheck size={14} className="text-emerald-600 shrink-0 mt-0.5" />
           <p className="text-xs text-emerald-800 leading-relaxed">
-            Donasimu langsung masuk ke rekening komunitas partner. TeraLoka tidak menahan dana donasi. Semua transaksi transparan dan bisa ditelusuri.
+            Donasimu langsung masuk ke rekening kampanye penggalang. TeraLoka tidak menahan dana donasi. Semua transaksi transparan dan bisa ditelusuri.
           </p>
         </div>
       </div>

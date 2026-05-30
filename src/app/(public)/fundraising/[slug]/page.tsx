@@ -320,7 +320,7 @@ export default async function CampaignPage({ params }: Props) {
                   Penggalang Sedang Tidak Tersedia
                 </p>
                 <p className="text-sm text-amber-900 leading-relaxed">
-                  <strong>Donasi kamu tetap aman.</strong> Verifikasi mungkin sedikit tertunda hingga penggalang kembali online. Tim TeraLoka memantau semua donasi.
+                  Donasimu tetap tercatat dan langsung masuk ke rekening kampanye penggalang. Verifikasi mungkin sedikit tertunda sampai penggalang kembali online.
                 </p>
                 {creator?.offline_mode_until && (
                   <p className="text-[10px] text-amber-700 mt-2 font-medium">
@@ -576,7 +576,7 @@ export default async function CampaignPage({ params }: Props) {
             Aliran Dana
           </h2>
           <p className="text-xs text-gray-500 mb-4 leading-relaxed">
-            Transparansi perjalanan dana — dari donatur masuk, pencairan ke partner, sampai pengeluaran untuk penerima. Semua dalam angka.
+            Transparansi perjalanan dana — dari donasi masuk ke rekening kampanye, sampai penyaluran ke penerima oleh penggalang. Semua dalam angka.
           </p>
 
           {/* Summary strip: 3 metrics */}
@@ -632,7 +632,7 @@ export default async function CampaignPage({ params }: Props) {
                   {formatRupiah(sisa)}
                 </p>
                 <p className="text-[10px] text-purple-700 text-center leading-relaxed">
-                  Aman tersimpan di rekening penggalang. Akan disalurkan saat campaign mencapai milestone berikutnya atau sesuai kebutuhan beneficiary.
+                  Tersimpan di rekening penggalang. Akan disalurkan oleh penggalang saat campaign mencapai milestone berikutnya atau sesuai kebutuhan penerima.
                 </p>
               </div>
             );
@@ -994,11 +994,11 @@ export default async function CampaignPage({ params }: Props) {
           <ul className="space-y-2 text-sm">
             <li className="flex items-start gap-2">
               <CheckCircle2 size={16} className="text-[#95d3ba] shrink-0 mt-0.5" />
-              <span>100% donasi sampai ke penerima — tidak ada potongan</span>
+              <span>Donasi utuh — biaya layanan ditambah di atas, bukan dipotong dari donasimu</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 size={16} className="text-[#95d3ba] shrink-0 mt-0.5" />
-              <span>Dana masuk ke rekening <strong>{campaign.bank_name}</strong> partner komunitas</span>
+              <span>Dana langsung masuk ke rekening kampanye penggalang — tidak ditahan TeraLoka</span>
             </li>
             <li className="flex items-start gap-2">
               <CheckCircle2 size={16} className="text-[#95d3ba] shrink-0 mt-0.5" />
@@ -1021,7 +1021,7 @@ export default async function CampaignPage({ params }: Props) {
                 <Building2 size={18} className="text-[#BA7517]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Komunitas Partner</p>
+                <p className="text-xs text-gray-400 uppercase tracking-wider font-semibold">Penggalang Kampanye</p>
                 <p className="text-sm font-bold text-gray-900 truncate">{campaign.partner_name}</p>
               </div>
             </div>

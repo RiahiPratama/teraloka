@@ -282,7 +282,7 @@ export default async function FundraisingPage({
                   <div className="pt-2 flex items-start gap-1.5 border-t border-white/10">
                     <Info size={11} className="text-[#95d3ba] shrink-0 mt-0.5" />
                     <p className="text-[10px] text-[#95d3ba] leading-relaxed">
-                      Donasi 100% UTUH ke penerima manfaat. Penggalang menyalurkan dana via rekening kampanye (pribadi atau komunitas terdaftar) sesuai kebutuhan.
+                      Donasi utuh ke penerima manfaat — biaya layanan ditambah di atas, bukan dipotong. Dana langsung masuk ke rekening kampanye yang dikelola penggalang; TeraLoka tidak menahan dana.
                     </p>
                   </div>
                 </div>
@@ -331,8 +331,8 @@ export default async function FundraisingPage({
             <ShieldCheck size={18} className="text-emerald-600" strokeWidth={2.2} />
           </div>
           <div>
-            <p className="text-xs font-bold text-gray-800">100% transparan & terverifikasi</p>
-            <p className="text-xs text-gray-400">Donasi 100% utuh ke Penerima Manfaat, disalurkan oleh Penggalang terverifikasi.</p>
+            <p className="text-xs font-bold text-gray-800">Diverifikasi & transparan</p>
+            <p className="text-xs text-gray-400">Donasi utuh ke penerima — biaya layanan di atas, bukan dipotong. TeraLoka memfasilitasi & verifikasi, tidak menahan dana.</p>
           </div>
         </div>
 

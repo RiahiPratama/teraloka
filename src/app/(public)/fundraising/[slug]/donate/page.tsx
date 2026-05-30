@@ -648,6 +648,14 @@ export default function DonatePage() {
               'Lanjut ke Pembayaran →'
             )}
           </button>
+
+          <p className="text-[11px] text-gray-400 text-center mt-3 leading-relaxed">
+            Dengan melanjutkan, kamu memahami bahwa donasi langsung masuk ke rekening kampanye yang dikelola penggalang dan menyetujui{' '}
+            <Link href="/aturan/badonasi/ketentuan" className="text-[#003526] font-semibold underline">
+              Ketentuan Layanan BADONASI
+            </Link>
+            .
+          </p>
         </div>
       </div>
     </div>
