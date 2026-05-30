@@ -15,6 +15,7 @@
  * Tone: formal-tidak-kaku, target audiens pelapor Maluku Utara.
  */
 
+import { useState } from 'react';
 import Link from 'next/link';
 
 interface PhotoPolicyNoticeProps {
@@ -23,6 +24,10 @@ interface PhotoPolicyNoticeProps {
 }
 
 export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeProps) {
+  // Default: "Dilarang" terbuka (penting untuk persetujuan), "Diizinkan" tertutup.
+  const [showAllowed, setShowAllowed] = useState(false);
+  const [showProhibited, setShowProhibited] = useState(true);
+
   if (agreed) {
     return (
       <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 flex items-start gap-3">
@@ -71,66 +76,92 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
         </div>
       </div>
 
-      {/* Allowed */}
-      <div className="rounded-xl bg-white/70 border border-emerald-200 p-3">
-        <div className="flex items-center gap-1.5 mb-2">
+      {/* Allowed (collapsible) */}
+      <div className="rounded-xl bg-white/70 border border-emerald-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowAllowed((v) => !v)}
+          className="w-full flex items-center gap-1.5 p-3"
+          aria-expanded={showAllowed}
+        >
           <span
             className="material-symbols-outlined text-emerald-600 text-base"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
             check_circle
           </span>
-          <span className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider">
+          <span className="text-xs font-extrabold text-emerald-700 uppercase tracking-wider flex-1 text-left">
             Yang Diizinkan
           </span>
-        </div>
-        <ul className="space-y-1 text-xs text-gray-700 ml-1">
-          <li className="flex gap-1.5">
-            <span className="text-emerald-500 shrink-0">•</span>
-            <span>Infrastruktur fisik (jalan, jembatan, got, lampu)</span>
-          </li>
-          <li className="flex gap-1.5">
-            <span className="text-emerald-500 shrink-0">•</span>
-            <span>Lingkungan (sampah, banjir, kerusakan alam)</span>
-          </li>
-          <li className="flex gap-1.5">
-            <span className="text-emerald-500 shrink-0">•</span>
-            <span>Bangunan dan area umum</span>
-          </li>
-        </ul>
+          <span
+            className="material-symbols-outlined text-emerald-600 text-base transition-transform"
+            style={{ transform: showAllowed ? 'rotate(180deg)' : 'none' }}
+          >
+            expand_more
+          </span>
+        </button>
+        {showAllowed && (
+          <ul className="space-y-1 text-xs text-gray-700 ml-1 px-3 pb-3">
+            <li className="flex gap-1.5">
+              <span className="text-emerald-500 shrink-0">•</span>
+              <span>Infrastruktur fisik (jalan, jembatan, got, lampu)</span>
+            </li>
+            <li className="flex gap-1.5">
+              <span className="text-emerald-500 shrink-0">•</span>
+              <span>Lingkungan (sampah, banjir, kerusakan alam)</span>
+            </li>
+            <li className="flex gap-1.5">
+              <span className="text-emerald-500 shrink-0">•</span>
+              <span>Bangunan dan area umum</span>
+            </li>
+          </ul>
+        )}
       </div>
 
-      {/* Prohibited */}
-      <div className="rounded-xl bg-white/70 border border-red-200 p-3">
-        <div className="flex items-center gap-1.5 mb-2">
+      {/* Prohibited (collapsible) */}
+      <div className="rounded-xl bg-white/70 border border-red-200 overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowProhibited((v) => !v)}
+          className="w-full flex items-center gap-1.5 p-3"
+          aria-expanded={showProhibited}
+        >
           <span
             className="material-symbols-outlined text-[#DC2626] text-base"
             style={{ fontVariationSettings: "'FILL' 1" }}
           >
             block
           </span>
-          <span className="text-xs font-extrabold text-[#DC2626] uppercase tracking-wider">
+          <span className="text-xs font-extrabold text-[#DC2626] uppercase tracking-wider flex-1 text-left">
             Yang Dilarang
           </span>
-        </div>
-        <ul className="space-y-1 text-xs text-gray-700 ml-1">
-          <li className="flex gap-1.5">
-            <span className="text-[#EF4444] shrink-0">•</span>
-            <span>Wajah orang tanpa persetujuan tertulis</span>
-          </li>
-          <li className="flex gap-1.5">
-            <span className="text-[#EF4444] shrink-0">•</span>
-            <span>Plat kendaraan (kecuali pelanggaran lalu lintas)</span>
-          </li>
-          <li className="flex gap-1.5">
-            <span className="text-[#EF4444] shrink-0">•</span>
-            <span>Anak di bawah umur</span>
-          </li>
-          <li className="flex gap-1.5">
-            <span className="text-[#EF4444] shrink-0">•</span>
-            <span>Dokumen pribadi (KTP, KK, dan sejenisnya)</span>
-          </li>
-        </ul>
+          <span
+            className="material-symbols-outlined text-[#DC2626] text-base transition-transform"
+            style={{ transform: showProhibited ? 'rotate(180deg)' : 'none' }}
+          >
+            expand_more
+          </span>
+        </button>
+        {showProhibited && (
+          <ul className="space-y-1.5 text-xs text-gray-700 ml-1 px-3 pb-3">
+            <li className="flex gap-1.5">
+              <span className="text-[#EF4444] shrink-0">•</span>
+              <span>Wajah orang yang tidak terlibat <span className="text-gray-500 italic">— boleh bila wajahnya diburamkan, atau wajah pejabat publik yang sedang bertugas</span></span>
+            </li>
+            <li className="flex gap-1.5">
+              <span className="text-[#EF4444] shrink-0">•</span>
+              <span>Plat kendaraan <span className="text-gray-500 italic">— boleh bila terkait pelanggaran lalu lintas</span></span>
+            </li>
+            <li className="flex gap-1.5">
+              <span className="text-[#EF4444] shrink-0">•</span>
+              <span>Wajah anak di bawah umur <span className="text-gray-500 italic">— selalu buramkan, demi melindungi mereka</span></span>
+            </li>
+            <li className="flex gap-1.5">
+              <span className="text-[#EF4444] shrink-0">•</span>
+              <span>Dokumen pribadi (KTP, KK, dsb.) <span className="text-gray-500 italic">— boleh bila NIK/data sensitif disensor</span></span>
+            </li>
+          </ul>
+        )}
       </div>
 
       {/* Warning */}
@@ -143,6 +174,19 @@ export function PhotoPolicyNotice({ agreed, onAgreedChange }: PhotoPolicyNoticeP
         </span>
         <p className="text-xs text-amber-700 font-medium leading-relaxed">
           Foto yang melanggar aturan akan menyebabkan laporan ditolak oleh admin.
+        </p>
+      </div>
+
+      {/* Reassurance — biar warga berani lapor */}
+      <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2.5 flex items-start gap-2">
+        <span
+          className="material-symbols-outlined text-emerald-600 text-sm shrink-0 mt-0.5"
+          style={{ fontVariationSettings: "'FILL' 1" }}
+        >
+          volunteer_activism
+        </span>
+        <p className="text-xs text-emerald-800 leading-relaxed">
+          <span className="font-bold">Jangan ragu melapor.</span> Aturan ini untuk melindungi privasi orang lain — bukan untuk menghambat laporanmu. Selama kamu fokus pada masalahnya (jalan rusak, sampah, dan sejenisnya) dan menyamarkan wajah, plat, atau data pribadi orang yang tidak terlibat, laporanmu aman.
         </p>
       </div>
 

@@ -66,6 +66,20 @@ export default function ReportsPage() {
   const selectedAnonimity = ANONYMITY.find(a => a.key === anonymity)!;
   const needsIdentityInput = anonymity !== 'anonim';
 
+  // Auto-isi / bersihkan nama akun mengikuti pilihan identitas.
+  // - Pilih "Nama Lengkap": isi dari akun (kalau field masih kosong).
+  // - Pindah ke Anonim / Nama Samaran: kosongkan HANYA bila isinya = nama akun
+  //   (hasil auto-fill), supaya ketikan manual user tidak ikut terhapus.
+  useEffect(() => {
+    if (anonymity === 'nama_terang') {
+      if (user?.name && !identityName.trim()) {
+        setIdentityName(user.name);
+      }
+    } else if (user?.name && identityName === user.name) {
+      setIdentityName('');
+    }
+  }, [anonymity, user]);
+
   const handleSubmit = async (authToken: string) => {
     setStep('submitting');
     setSubmitError('');
