@@ -22,6 +22,10 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useState } from 'react';
+import {
+  Handshake, SquarePen, History, AlertTriangle, Wrench, CheckCircle2, HelpCircle,
+  type LucideIcon,
+} from 'lucide-react';
 import CivicFeedbackModal from './CivicFeedbackModal';
 import CivicFeedbackTimelineModal from './CivicFeedbackTimelineModal';
 
@@ -45,35 +49,40 @@ interface CivicFeedbackSectionProps {
 // ─── Status display config ──────────────────────────────────────
 
 const FOLLOW_UP_STATUS_CONFIG: Record<FollowUpStatus, {
-  icon: string;
+  Icon: LucideIcon;
+  iconColor: string;
   label: string;
   color: string;
   bg: string;
   border: string;
 }> = {
   belum_ditangani: {
-    icon: '⚠️',
+    Icon: AlertTriangle,
+    iconColor: '#d97706',
     label: 'Belum ditangani',
     color: 'text-amber-700',
     bg: 'bg-amber-50',
     border: 'border-amber-200',
   },
   sedang_ditangani: {
-    icon: '🔧',
+    Icon: Wrench,
+    iconColor: '#2563eb',
     label: 'Sedang ditangani',
     color: 'text-blue-700',
     bg: 'bg-blue-50',
     border: 'border-blue-200',
   },
   sudah_selesai: {
-    icon: '✅',
+    Icon: CheckCircle2,
+    iconColor: '#16a34a',
     label: 'Sudah selesai',
     color: 'text-green-700',
     bg: 'bg-green-50',
     border: 'border-green-200',
   },
   tidak_jelas: {
-    icon: '❓',
+    Icon: HelpCircle,
+    iconColor: '#6b7280',
     label: 'Tidak jelas',
     color: 'text-gray-700',
     bg: 'bg-gray-50',
@@ -120,7 +129,7 @@ export default function CivicFeedbackSection({
     <>
       <div className="mt-3 bg-gradient-to-br from-red-50/50 to-orange-50/50 border border-red-100 rounded-lg p-3">
         <div className="flex items-start gap-2 mb-2">
-          <span className="text-base shrink-0">🤝</span>
+          <Handshake className="w-5 h-5 shrink-0 text-red-500" />
           <div className="flex-1 min-w-0">
             <p className="font-semibold text-sm text-gray-900">Bantu Pantau</p>
             <p className="text-xs text-gray-600 leading-relaxed">
@@ -132,27 +141,25 @@ export default function CivicFeedbackSection({
         </div>
 
         {/* Active state — display last follow-up */}
-        {hasFollowUp && followUpCurrentStatus && (
-          <div
-            className={`${FOLLOW_UP_STATUS_CONFIG[followUpCurrentStatus].bg} ${FOLLOW_UP_STATUS_CONFIG[followUpCurrentStatus].border} border rounded-lg p-2.5 mb-2.5`}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-sm shrink-0">
-                {FOLLOW_UP_STATUS_CONFIG[followUpCurrentStatus].icon}
-              </span>
-              <p
-                className={`text-xs font-semibold ${FOLLOW_UP_STATUS_CONFIG[followUpCurrentStatus].color} flex-1`}
-              >
-                {FOLLOW_UP_STATUS_CONFIG[followUpCurrentStatus].label}
-              </p>
-              {followUpUpdatedAt && (
-                <span className="text-xs text-gray-500">
-                  {formatRelativeTime(followUpUpdatedAt)}
-                </span>
-              )}
+        {hasFollowUp && followUpCurrentStatus && (() => {
+          const cfg = FOLLOW_UP_STATUS_CONFIG[followUpCurrentStatus];
+          const FuIcon = cfg.Icon;
+          return (
+            <div className={`${cfg.bg} ${cfg.border} border rounded-lg p-2.5 mb-2.5`}>
+              <div className="flex items-center gap-2">
+                <FuIcon className="w-4 h-4 shrink-0" style={{ color: cfg.iconColor }} />
+                <p className={`text-xs font-semibold ${cfg.color} flex-1`}>
+                  {cfg.label}
+                </p>
+                {followUpUpdatedAt && (
+                  <span className="text-xs text-gray-500">
+                    {formatRelativeTime(followUpUpdatedAt)}
+                  </span>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* CTA buttons — 1 button (empty) atau 2 button (active) */}
         {hasFollowUp ? (
@@ -161,28 +168,14 @@ export default function CivicFeedbackSection({
               onClick={() => setUpdateModalOpen(true)}
               className="flex-1 bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                />
-              </svg>
+              <SquarePen className="w-4 h-4" />
               Perbarui
             </button>
             <button
               onClick={() => setTimelineModalOpen(true)}
               className="flex-1 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 text-sm font-medium px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+              <History className="w-4 h-4" />
               Lihat Riwayat
             </button>
           </div>
@@ -191,14 +184,7 @@ export default function CivicFeedbackSection({
             onClick={() => setUpdateModalOpen(true)}
             className="w-full bg-red-500 hover:bg-red-600 text-white text-sm font-medium px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-              />
-            </svg>
+            <SquarePen className="w-4 h-4" />
             Update Status
           </button>
         )}

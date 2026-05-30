@@ -28,7 +28,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
-import { X, Loader2 } from 'lucide-react';
+import { X, Loader2, AlertTriangle, Wrench, CheckCircle2, HelpCircle, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
 import ImageUpload from '@/components/ui/ImageUpload';
@@ -56,7 +56,8 @@ interface CivicFeedbackModalProps {
 
 const STATUS_OPTIONS: {
   value: FollowUpStatus;
-  icon: string;
+  Icon: LucideIcon;
+  iconColor: string;
   label: string;
   description: string;
   activeBg: string;
@@ -65,7 +66,8 @@ const STATUS_OPTIONS: {
 }[] = [
   {
     value: 'belum_ditangani',
-    icon: '⚠️',
+    Icon: AlertTriangle,
+    iconColor: '#d97706',
     label: 'Belum ditangani',
     description: 'Belum ada perbaikan terlihat',
     activeBg: 'bg-amber-50',
@@ -74,7 +76,8 @@ const STATUS_OPTIONS: {
   },
   {
     value: 'sedang_ditangani',
-    icon: '🔧',
+    Icon: Wrench,
+    iconColor: '#2563eb',
     label: 'Sedang ditangani',
     description: 'Ada tindakan terlihat, belum selesai',
     activeBg: 'bg-blue-50',
@@ -83,7 +86,8 @@ const STATUS_OPTIONS: {
   },
   {
     value: 'sudah_selesai',
-    icon: '✅',
+    Icon: CheckCircle2,
+    iconColor: '#16a34a',
     label: 'Sudah selesai',
     description: 'Masalah teratasi sepenuhnya',
     activeBg: 'bg-green-50',
@@ -92,7 +96,8 @@ const STATUS_OPTIONS: {
   },
   {
     value: 'tidak_jelas',
-    icon: '❓',
+    Icon: HelpCircle,
+    iconColor: '#6b7280',
     label: 'Tidak jelas',
     description: 'Kondisi sama, status ambigu',
     activeBg: 'bg-gray-50',
@@ -254,7 +259,7 @@ export default function CivicFeedbackModal({
                     }`}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-base">{opt.icon}</span>
+                      <opt.Icon className="w-5 h-5 shrink-0" style={{ color: opt.iconColor }} />
                       <span
                         className={`text-sm font-semibold ${
                           isActive ? opt.activeText : 'text-gray-900'
@@ -322,7 +327,9 @@ export default function CivicFeedbackModal({
           {/* Error message inline */}
           {errorMsg && (
             <div className="bg-rose-50 border border-rose-200 rounded-lg p-3">
-              <p className="text-sm text-rose-700 font-medium">⚠️ {errorMsg}</p>
+              <p className="text-sm text-rose-700 font-medium flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4 shrink-0" /> {errorMsg}
+              </p>
             </div>
           )}
         </div>

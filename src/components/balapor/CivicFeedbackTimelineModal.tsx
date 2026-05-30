@@ -24,7 +24,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
-import { X, Loader2, RefreshCw } from 'lucide-react';
+import { X, RefreshCw, AlertTriangle, Wrench, CheckCircle2, HelpCircle, Inbox, type LucideIcon } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL!;
@@ -57,31 +57,36 @@ interface CivicFeedbackTimelineModalProps {
 // ─── Status display config ──────────────────────────────────────
 
 const FOLLOW_UP_STATUS_CONFIG: Record<FollowUpStatus, {
-  icon: string;
+  Icon: LucideIcon;
+  iconColor: string;
   label: string;
   dotColor: string;
   textColor: string;
 }> = {
   belum_ditangani: {
-    icon: '⚠️',
+    Icon: AlertTriangle,
+    iconColor: '#d97706',
     label: 'Belum ditangani',
     dotColor: 'bg-amber-400',
     textColor: 'text-amber-700',
   },
   sedang_ditangani: {
-    icon: '🔧',
+    Icon: Wrench,
+    iconColor: '#2563eb',
     label: 'Sedang ditangani',
     dotColor: 'bg-blue-400',
     textColor: 'text-blue-700',
   },
   sudah_selesai: {
-    icon: '✅',
+    Icon: CheckCircle2,
+    iconColor: '#16a34a',
     label: 'Sudah selesai',
     dotColor: 'bg-green-400',
     textColor: 'text-green-700',
   },
   tidak_jelas: {
-    icon: '❓',
+    Icon: HelpCircle,
+    iconColor: '#6b7280',
     label: 'Tidak jelas',
     dotColor: 'bg-gray-400',
     textColor: 'text-gray-700',
@@ -270,7 +275,7 @@ function ErrorState({
 }) {
   return (
     <div className="text-center py-8 px-4">
-      <div className="text-4xl mb-3">⚠️</div>
+      <AlertTriangle className="w-10 h-10 mx-auto text-amber-400 mb-3" />
       <p className="text-sm text-gray-700 font-medium mb-2">Gagal memuat riwayat</p>
       <p className="text-xs text-gray-500 mb-4">{message}</p>
       <button
@@ -287,7 +292,7 @@ function ErrorState({
 function EmptyState() {
   return (
     <div className="text-center py-8 px-4">
-      <div className="text-4xl mb-3">📋</div>
+      <Inbox className="w-10 h-10 mx-auto text-gray-300 mb-3" />
       <p className="text-sm text-gray-700 font-medium mb-1">Belum ada riwayat</p>
       <p className="text-xs text-gray-500">
         Submit update status terlebih dulu untuk lihat riwayat di sini.
@@ -326,6 +331,7 @@ function TimelineEntry({
   isLast: boolean;
 }) {
   const photoCount = followUp.photos?.length ?? 0;
+  const StatusIcon = cfg.Icon;
 
   return (
     <div className="flex gap-3 relative pb-5">
@@ -341,7 +347,7 @@ function TimelineEntry({
       <div className="flex-1 min-w-0 pb-2">
         {/* Status header */}
         <div className="flex items-center gap-1.5 mb-1">
-          <span className="text-base">{cfg.icon}</span>
+          <StatusIcon className="w-4 h-4 shrink-0" style={{ color: cfg.iconColor }} />
           <p className={`text-sm font-semibold ${cfg.textColor}`}>
             {cfg.label}
           </p>
