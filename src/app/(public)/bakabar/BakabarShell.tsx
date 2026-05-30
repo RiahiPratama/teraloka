@@ -1,25 +1,26 @@
 'use client';
 
 // ══════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.1 (Client Interactivity)
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.2 (Client Interactivity)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
 // ──────────────────────────────────────────────────────────────────
-// v14.1 (31 Mei 2026): pass `sectionIndex={idx}` ke RegionSection
-//   → untuk rotasi house content kolom-3 (Zakat tiap section ke-4).
+// v14.2 (31 Mei 2026, Tahap 2): orchestrator rotasi house content kolom-3.
+//   - Fetch GET /funding/campaigns (1x, client, non-blocking) → 12 kampanye.
+//   - houseSlotType(idx) pola idx%4: 0=Layanan, 1&2=Kampanye, 3=Zakat
+//     (6 kampanye / 3 layanan / 3 zakat dari 12 section).
+//   - Assign kampanye round-robin ke slot kampanye → pass ke RegionSection.
+//   - RegionSection jadi renderer murni (terima houseSlot + houseCampaign).
 //
-// v14.0 (31 Mei 2026): di-extract dari page.tsx (Opsi B RSC split).
-//   - Terima `slides` dari Server Component (artikel udah di-fetch server)
-//   - Hero render LANGSUNG (no loading gate) → above-the-fold instan
-//   - Trending ads tetap client-fetch (non-blocking, gak ganggu hero)
-//   - Layout 3-kolom + region map + banner antar-section: UNCHANGED
+// v14.1 (31 Mei): pass sectionIndex (digantikan v14.2 houseSlot).
+// v14.0 (31 Mei): Opsi B RSC split — hero render langsung dari server slides.
 // ══════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
-import RegionSection from '@/components/bakabar/RegionSection';
+import RegionSection, { type HouseSlot } from '@/components/bakabar/RegionSection';
 import LaIndieMoviePoliticalBanner from '@/components/bakabar/LaIndieMoviePoliticalBanner';
 import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServiceCarousel';
 import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
@@ -27,8 +28,19 @@ import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 import { SIDEBAR_MREC, TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
 import type { HeroSlide } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
+import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
+
+// ─── Pola rotasi house content kolom-3 (zona atas) ────────────────
+// idx % 4: 0 = Layanan, 1 & 2 = Kampanye, 3 = Zakat.
+// Ubah di sini kalau mau ganti komposisi (sekarang 6 kampanye/3 layanan/3 zakat).
+function houseSlotType(idx: number): HouseSlot {
+  const mod = idx % 4;
+  if (mod === 3) return 'zakat';
+  if (mod === 1 || mod === 2) return 'kampanye';
+  return 'layanan';
+}
 
 // ─── BADONASI Strategic Inline Promo (unchanged) ──────────────────
 function BadonasiInlinePromo() {
@@ -72,6 +84,7 @@ function BadonasiInlinePromo() {
 export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
   const [trendingAdsByRegion, setTrendingAdsByRegion] =
     useState<Record<string, TrendingNativeAd | null>>({});
+  const [campaigns, setCampaigns] = useState<BadonasiCampaign[]>([]);
 
   // Trending ads = client-fetch, NON-BLOCKING. Tidak menahan hero.
   const fetchTrendingAds = useCallback(async () => {
@@ -101,7 +114,36 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
     }
   }, []);
 
+  // Kampanye BADONASI = client-fetch sekali, non-blocking (below-fold).
+  // Slot kampanye fallback ke promosi layanan selama belum datang.
+  const fetchCampaigns = useCallback(async () => {
+    try {
+      const res = await fetch(`${API}/funding/campaigns?limit=12`);
+      const data = await res.json();
+      if (data?.success && Array.isArray(data.data)) {
+        setCampaigns(data.data as BadonasiCampaign[]);
+      }
+    } catch {
+      setCampaigns([]);
+    }
+  }, []);
+
   useEffect(() => { fetchTrendingAds(); }, [fetchTrendingAds]);
+  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+
+  // Assign jenis slot + kampanye (round-robin) per section.
+  const houseAssignments = useMemo(() => {
+    let k = 0;
+    return REGIONS.map((_, idx) => {
+      const slot = houseSlotType(idx);
+      let campaign: BadonasiCampaign | null = null;
+      if (slot === 'kampanye') {
+        campaign = campaigns.length ? campaigns[k % campaigns.length] : null;
+        k++;
+      }
+      return { slot, campaign };
+    });
+  }, [campaigns]);
 
   return (
     <div className="min-h-screen bg-white">
@@ -129,18 +171,22 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
                 terpopuler={TERPOPULER_LIST}
               />
 
-              {REGIONS.map((region, idx) => (
-                <div key={region.slug}>
-                  <RegionSection
-                    region={region}
-                    trendingAd={trendingAdsByRegion[region.slug] ?? null}
-                    sectionIndex={idx}
-                  />
+              {REGIONS.map((region, idx) => {
+                const { slot, campaign } = houseAssignments[idx];
+                return (
+                  <div key={region.slug}>
+                    <RegionSection
+                      region={region}
+                      trendingAd={trendingAdsByRegion[region.slug] ?? null}
+                      houseSlot={slot}
+                      houseCampaign={campaign}
+                    />
 
-                  {idx === 0 && <LaIndieMoviePoliticalBanner />}
-                  {idx === 1 && <BadonasiInlinePromo />}
-                </div>
-              ))}
+                    {idx === 0 && <LaIndieMoviePoliticalBanner />}
+                    {idx === 1 && <BadonasiInlinePromo />}
+                  </div>
+                );
+              })}
 
               <LaIndieMovieServiceCarousel />
 

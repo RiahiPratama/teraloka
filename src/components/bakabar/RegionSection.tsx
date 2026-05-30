@@ -1,19 +1,21 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v10.6 (Phase 4 — Kolom-3 House Rotation)
+// BAKABAR — Region Section v10.7 (Phase 4 — Kolom-3 Renderer Murni)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// v10.6 UPDATE (31 Mei 2026, Phase 4 — Tahap 1b):
-//   - Kolom-3 zona ATAS jadi SLOT ROTASI house content.
-//   - Terima prop `sectionIndex` → pilih jenis kartu:
-//       Zakat   = tiap section ke-4 (idx 3, 7, 11)
-//       Layanan = sisanya (promosi layanan kontekstual per-region)
-//   - Pool sekarang: [promosi layanan, ajakan zakat].
-//     Nanti nambah: kampanye BADONASI, suara warga BALAPOR.
-//   - Ganti frekuensi Zakat? Ubah angka `4` di `isZakatSlot`.
+// v10.7 UPDATE (31 Mei 2026, Phase 4 — Tahap 2):
+//   - Rotasi house content kolom-3 DIPINDAH ke BakabarShell (orchestrator
+//     yg pegang index global + data kampanye). RegionSection jadi
+//     RENDERER MURNI: terima `houseSlot` + `houseCampaign`, tinggal render.
+//   - houseSlot: 'layanan' | 'kampanye' | 'zakat'
+//       layanan  → StackLayananTeraLoka (promosi, kontekstual per-region)
+//       kampanye → CampaignCol3Card (data real BADONASI). Fallback ke
+//                  layanan kalau houseCampaign null (slot gak pernah kosong).
+//       zakat    → ZakatCol3Card (ajakan)
 //   - Zona BAWAH (DCAStackBanner slot iklan) + layout lain UNCHANGED.
 //
+// v10.6 PRIOR (31 Mei): rotasi internal via sectionIndex (digantikan v10.7).
 // v10.5 PRIOR (31 Mei): single source kartu Layanan via StackLayananTeraLoka.
 // v10.4 PRIOR (15 Mei): <DCAStackBanner /> fetch public.ads (DCA-ready).
 // v10.3 PRIOR (Mission 6): trendingAd inject idx=2 + ResizeObserver sync.
@@ -28,6 +30,9 @@ import TrendingArticleAd, { type TrendingNativeAd } from './TrendingArticleAd';
 import DCAStackBanner from './DCAStackBanner';
 import StackLayananTeraLoka from './StackLayananTeraLoka';
 import ZakatCol3Card from './ZakatCol3Card';
+import CampaignCol3Card, { type BadonasiCampaign } from './CampaignCol3Card';
+
+export type HouseSlot = 'layanan' | 'kampanye' | 'zakat';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -75,10 +80,16 @@ function timeAgo(dateStr: string) {
 type Props = {
   region:        RegionConfig;
   trendingAd?:   TrendingNativeAd | null;
-  sectionIndex?: number;            // posisi section di homepage (untuk rotasi house content)
+  houseSlot?:    HouseSlot;                 // jenis kartu zona atas kolom-3 (dari BakabarShell)
+  houseCampaign?: BadonasiCampaign | null;  // data kampanye (kalau houseSlot='kampanye')
 };
 
-export default function RegionSection({ region, trendingAd = null, sectionIndex = 0 }: Props) {
+export default function RegionSection({
+  region,
+  trendingAd = null,
+  houseSlot = 'layanan',
+  houseCampaign = null,
+}: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
     layanan_variant, layanan_body,
@@ -86,11 +97,6 @@ export default function RegionSection({ region, trendingAd = null, sectionIndex 
     // (replaced with <DCAStackBanner /> fetch DB). Keep destructure
     // for backward compat saat region-data.ts cleanup nanti.
   } = region;
-
-  // ─── Rotasi house content kolom-3 (zona atas) ───
-  // Pola: Zakat tiap section ke-4 (idx 3, 7, 11). Ubah angka 4 untuk
-  // ganti frekuensi. Sisanya = promosi layanan kontekstual per-region.
-  const isZakatSlot = (sectionIndex + 1) % 4 === 0;
 
   const showWeather = slug !== 'nasional';
 
@@ -110,6 +116,10 @@ export default function RegionSection({ region, trendingAd = null, sectionIndex 
   }, [showWeather]);
 
   const stretchStyle = col1Height ? { height: `${col1Height}px` } : undefined;
+
+  // Zona atas kolom-3: kampanye butuh data; kalau null → fallback layanan
+  const showCampaign = houseSlot === 'kampanye' && !!houseCampaign;
+  const showZakat    = houseSlot === 'zakat';
 
   return (
     <section className="my-12">
@@ -238,9 +248,11 @@ export default function RegionSection({ region, trendingAd = null, sectionIndex 
         <div className="relative min-w-0" style={stretchStyle}>
           <div className="flex flex-col gap-2.5 h-full">
 
-            {/* Zona ATAS = house content rotasi:
-                Zakat tiap section ke-4, sisanya promosi layanan. */}
-            {isZakatSlot ? (
+            {/* Zona ATAS = house content (jenis ditentukan BakabarShell).
+                kampanye (data real) → zakat (ajakan) → layanan (fallback). */}
+            {showCampaign ? (
+              <CampaignCol3Card campaign={houseCampaign!} className="flex-1" />
+            ) : showZakat ? (
               <ZakatCol3Card className="flex-1" />
             ) : (
               <StackLayananTeraLoka
