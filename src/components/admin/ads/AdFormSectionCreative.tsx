@@ -2,20 +2,32 @@
 
 /**
  * TeraLoka — AdFormSectionCreative
- * Mission 8 Sub-Phase 8-B (α / Batch 1)
+ * Mission 8 Sub-Phase 8-B (α / Batch 1) + SESI 11 (30 Mei 2026)
  * ------------------------------------------------------------
  * Section 2 form: Konten Kreatif.
- * Fields:
- *   - ad_format (radio: image / text / animated)
- *   - title (required)
- *   - body (textarea, required kalau ad_format=text)
- *   - image_url (ImageUpload, required kalau ad_format=image)
- *   - link_url (required)
- *   - disclaimer_text (required kalau advertiser_type=politisi & ad_format=text)
- *   - slug (auto-generate dari title, editable manual)
  *
- * SESI 10 (24 Mei 2026) — Sub-Phase B GIF Support:
- *   Banner info card update — disebut GIF support untuk format image.
+ * SESI 11 (30 Mei 2026) — FORMAT 3-EMBER (admin gak bingung):
+ *   - Pemilih format diciutkan dari 4 radio teknis (image/text/animated/video)
+ *     jadi 3 EMBER ramah-founder:
+ *       🖼️ Gambar     → ad_format='image'  (statis/GIF)
+ *       🎬 Dinamis    → ad_format by tier:  'video' (motion=video) / 'image' (motion=dca, DCA)
+ *       📄 Advertorial → ad_format='text'
+ *   - Ember "Dinamis" DIKUNCI oleh pricing tier (resolveTierMotion):
+ *       motion='none' → terkunci ("Pilih paket dulu" / "Paket ini cuma Gambar")
+ *   - GSAP TIDAK dihapus — turun jadi "Opsi lanjutan" (checkbox di bawah ember Dinamis).
+ *   - Mapping ember→ad_format via setField (TIDAK menyentuh AdFormProvider).
+ *   - `bucket` = state lokal section (intent), karena Gambar & Dinamis-DCA dua-duanya
+ *     ad_format='image' → ad_format saja gak cukup bedain.
+ *
+ * Fields (tidak berubah dari sebelumnya):
+ *   - title (required)
+ *   - body (MarkdownEditor, required kalau Advertorial)
+ *   - cover image + caption (Advertorial only)
+ *   - slug (auto-generate dari title)
+ *   - link_url (required)
+ *   - disclaimer_text (required kalau politisi & Advertorial)
+ *
+ * Catatan: upload creative tetap PER-POSISI di modal Targeting (beda dimensi tiap posisi).
  */
 
 import { useState, useEffect } from 'react';
@@ -30,6 +42,8 @@ import {
   Sparkles,
   Film,
   Info,
+  Lock,
+  Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 // SESI 5E Phase 3b: ImageUpload removed — Default upload UI hidden, per-posisi via Modal
@@ -38,9 +52,12 @@ import ImageUpload from '@/components/ui/ImageUpload';
 // SESI 7 — Rich text editor untuk Advertorial body (BAKABAR-style markdown)
 import MarkdownEditor from '@/components/admin/ads/MarkdownEditor';
 import { useAdForm } from './AdFormProvider';
-// SESI 5E Phase 3b: getPositionMetadata removed — MultiImageSection eliminated
-// SESI 5H Phase 5A.7 (21 Mei 2026): AdFormSectionAnimation DEPRECATED.
-// Animation config moved to PositionCreativeModal (per-position tab "Animated").
+// SESI 11 (30 Mei 2026): Gerbang Dinamis by pricing tier
+import { resolveTierMotion } from '@/lib/ads/tier-motion';
+
+// SESI 11: Ember UI (intent). Gambar & Dinamis-DCA dua-duanya ad_format='image',
+// jadi butuh state intent terpisah dari ad_format.
+type CreativeBucket = 'gambar' | 'dinamis' | 'advertorial';
 
 // Simple slugify (mirror slugifyTitle backend pattern)
 function slugify(text: string): string {
@@ -57,6 +74,19 @@ export default function AdFormSectionCreative() {
   const { state, setField, errorFor } = useAdForm();
   const [expanded, setExpanded] = useState(true);
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+
+  // ─── SESI 11: motion yang diizinkan tier + state ember (intent) ───
+  const motion = resolveTierMotion(state.pricing_tier_data);
+
+  const [bucket, setBucket] = useState<CreativeBucket>(() => {
+    if (state.ad_format === 'text') return 'advertorial';
+    if (state.ad_format === 'video' || state.ad_format === 'animated') return 'dinamis';
+    const hasFrames =
+      (state.creative_frames?.length ?? 0) > 0 ||
+      Object.keys(state.position_frames ?? {}).length > 0;
+    return hasFrames ? 'dinamis' : 'gambar';
+  });
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   // Auto-generate slug dari title (kalau slug belum di-edit manual)
   useEffect(() => {
@@ -85,6 +115,42 @@ export default function AdFormSectionCreative() {
 
   const isPolitisi = state.advertiser_type === 'politisi';
   const needsDisclaimer = isPolitisi && state.ad_format === 'text';
+
+  // ─── SESI 11: handler ember ──────────────────────────────────────
+  function pickGambar() {
+    setBucket('gambar');
+    setAdvancedOpen(false);
+    setField('ad_format', 'image');
+  }
+  function pickAdvertorial() {
+    setBucket('advertorial');
+    setAdvancedOpen(false);
+    setField('ad_format', 'text');
+  }
+  function pickDinamis() {
+    if (motion === 'none') {
+      // Edge edit: ad dinamis lama di tier yang sekarang 'none' → biarkan apa adanya
+      if (bucket !== 'dinamis') return;
+      setBucket('dinamis');
+      return;
+    }
+    setBucket('dinamis');
+    // Pertahankan GSAP kalau lagi animated; selain itu set ke mekanisme tier
+    if (state.ad_format !== 'animated') {
+      setField('ad_format', motion === 'video' ? 'video' : 'image');
+    }
+  }
+  function toggleGsap(on: boolean) {
+    setField('ad_format', on ? 'animated' : (motion === 'video' ? 'video' : 'image'));
+  }
+
+  const dinamisLocked = motion === 'none' && bucket !== 'dinamis';
+  const dinamisSub =
+    motion === 'none'
+      ? (state.pricing_tier_data ? 'Paket ini cuma Gambar' : 'Pilih paket dulu')
+      : state.ad_format === 'animated'
+        ? 'Animasi GSAP (lanjutan)'
+        : motion === 'video' ? 'Video .webM / .mp4' : 'Banner gonta-ganti';
 
   return (
     <section className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -124,118 +190,111 @@ export default function AdFormSectionCreative() {
       {/* Body */}
       {expanded && (
         <div className="px-4 pb-4 flex flex-col gap-4 border-t border-border">
-          {/* Ad format picker */}
+          {/* ════════════════════════════════════════════════════════
+              SESI 11 — Pemilih format 3 EMBER (Gambar / Dinamis / Advertorial)
+              ════════════════════════════════════════════════════════ */}
           <div className="pt-4">
             <label className="block text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2">
               Format Iklan <span className="text-status-critical">*</span>
             </label>
-            <div className="grid grid-cols-2 gap-2">
-              <label
+            <div className="grid grid-cols-3 gap-2">
+              {/* 🖼️ GAMBAR */}
+              <button
+                type="button"
+                onClick={pickGambar}
                 className={cn(
-                  'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
-                  state.ad_format === 'image'
+                  'flex flex-col items-start gap-1 px-3 py-3 rounded-lg border text-left transition-colors',
+                  bucket === 'gambar'
                     ? 'bg-bakabar/8 border-bakabar/40'
                     : 'bg-surface border-border hover:bg-surface-muted'
                 )}
               >
-                <input
-                  type="radio"
-                  name="ad_format"
-                  checked={state.ad_format === 'image'}
-                  onChange={() => setField('ad_format', 'image')}
-                  className="accent-bakabar mt-0.5 shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <ImageIcon size={12} className="text-bakabar" />
-                    <span className="text-[12px] font-bold text-text">Image</span>
-                  </div>
-                  <p className="text-[10px] text-text-muted mt-0.5">
-                    Banner/native — static (JPG/PNG/WebP) atau GIF animasi
-                  </p>
-                </div>
-              </label>
+                <ImageIcon size={16} className="text-bakabar" />
+                <span className="text-[12px] font-bold text-text">Gambar</span>
+                <span className="text-[10px] text-text-muted leading-tight">
+                  Foto statis atau GIF
+                </span>
+              </button>
 
-              <label
+              {/* 🎬 DINAMIS — gerbang tier */}
+              <button
+                type="button"
+                onClick={pickDinamis}
+                disabled={dinamisLocked}
                 className={cn(
-                  'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
-                  state.ad_format === 'text'
+                  'relative flex flex-col items-start gap-1 px-3 py-3 rounded-lg border text-left transition-colors',
+                  dinamisLocked
+                    ? 'bg-surface border-border opacity-60 cursor-not-allowed'
+                    : bucket === 'dinamis'
+                      ? 'bg-cyan-100 border-cyan-400 dark:bg-cyan-900/30 dark:border-cyan-700'
+                      : 'bg-surface border-border hover:bg-surface-muted'
+                )}
+              >
+                {dinamisLocked && (
+                  <Lock size={11} className="absolute top-2 right-2 text-text-subtle" />
+                )}
+                <Film
+                  size={16}
+                  className={dinamisLocked ? 'text-text-subtle' : 'text-cyan-600 dark:text-cyan-400'}
+                />
+                <span className="text-[12px] font-bold text-text">Dinamis</span>
+                <span className="text-[10px] text-text-muted leading-tight">
+                  {dinamisSub}
+                </span>
+              </button>
+
+              {/* 📄 ADVERTORIAL */}
+              <button
+                type="button"
+                onClick={pickAdvertorial}
+                className={cn(
+                  'flex flex-col items-start gap-1 px-3 py-3 rounded-lg border text-left transition-colors',
+                  bucket === 'advertorial'
                     ? 'bg-bakabar/8 border-bakabar/40'
                     : 'bg-surface border-border hover:bg-surface-muted'
                 )}
               >
-                <input
-                  type="radio"
-                  name="ad_format"
-                  checked={state.ad_format === 'text'}
-                  onChange={() => setField('ad_format', 'text')}
-                  className="accent-bakabar mt-0.5 shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <FileText size={12} className="text-bakabar" />
-                    <span className="text-[12px] font-bold text-text">Advertorial</span>
-                  </div>
-                  <p className="text-[10px] text-text-muted mt-0.5">
-                    Artikel sponsored 100-5000 karakter
-                  </p>
-                </div>
-              </label>
-
-              {/* SESI 5H Phase 5A.7: 3rd radio — Animated Banner (GSAP per-position) */}
-              <label
-                className={cn(
-                  'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
-                  state.ad_format === 'animated'
-                    ? 'bg-purple-100 border-purple-400 dark:bg-purple-900/30 dark:border-purple-700'
-                    : 'bg-surface border-border hover:bg-surface-muted'
-                )}
-              >
-                <input
-                  type="radio"
-                  name="ad_format"
-                  checked={state.ad_format === 'animated'}
-                  onChange={() => setField('ad_format', 'animated')}
-                  className="accent-purple-600 mt-0.5 shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Sparkles size={12} className="text-purple-600 dark:text-purple-400" />
-                    <span className="text-[12px] font-bold text-text">Animated</span>
-                  </div>
-                  <p className="text-[10px] text-text-muted mt-0.5">
-                    GSAP per-posisi — premium tier
-                  </p>
-                </div>
-              </label>
-
-              {/* SESI 10 (24 Mei 2026): 4th radio — Video (MP4+WebM per-position) */}
-              <label
-                className={cn(
-                  'flex items-start gap-2.5 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors',
-                  state.ad_format === 'video'
-                    ? 'bg-cyan-100 border-cyan-400 dark:bg-cyan-900/30 dark:border-cyan-700'
-                    : 'bg-surface border-border hover:bg-surface-muted'
-                )}
-              >
-                <input
-                  type="radio"
-                  name="ad_format"
-                  checked={state.ad_format === 'video'}
-                  onChange={() => setField('ad_format', 'video')}
-                  className="accent-cyan-600 mt-0.5 shrink-0"
-                />
-                <div className="min-w-0">
-                  <div className="flex items-center gap-1.5">
-                    <Film size={12} className="text-cyan-600 dark:text-cyan-400" />
-                    <span className="text-[12px] font-bold text-text">Video</span>
-                  </div>
-                  <p className="text-[10px] text-text-muted mt-0.5">
-                    MP4+WebM per-posisi — managed tier
-                  </p>
-                </div>
-              </label>
+                <FileText size={16} className="text-bakabar" />
+                <span className="text-[12px] font-bold text-text">Advertorial</span>
+                <span className="text-[10px] text-text-muted leading-tight">
+                  Artikel bersponsor
+                </span>
+              </button>
             </div>
+
+            {/* Opsi lanjutan — GSAP escape (cuma saat Dinamis kebuka) */}
+            {bucket === 'dinamis' && motion !== 'none' && (
+              <div className="mt-2">
+                <button
+                  type="button"
+                  onClick={() => setAdvancedOpen((v) => !v)}
+                  className="flex items-center gap-1.5 text-[10px] font-bold text-text-subtle hover:text-text-muted transition-colors"
+                >
+                  <Settings size={11} />
+                  Opsi lanjutan
+                  {advancedOpen ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                </button>
+                {advancedOpen && (
+                  <label className="mt-2 flex items-start gap-2 px-3 py-2.5 rounded-lg bg-purple-50/60 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={state.ad_format === 'animated'}
+                      onChange={(e) => toggleGsap(e.target.checked)}
+                      className="accent-purple-600 mt-0.5 shrink-0"
+                    />
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <Sparkles size={11} className="text-purple-600 dark:text-purple-400" />
+                        <span className="text-[11px] font-bold text-text">Animasi GSAP (lanjutan)</span>
+                      </div>
+                      <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                        Animasi script per-posisi. Cuma kalau butuh efek khusus — biasanya cukup Dinamis biasa.
+                      </p>
+                    </div>
+                  </label>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Title */}
@@ -368,34 +427,47 @@ Konten utama dengan **bold** dan *italic*.
             </div>
           )}
 
-          {/* SESI 5E Phase 3b: Default Image Upload UI HIDDEN.
-              Per-position upload udah dihandle di Modal Targeting cards.
-              state.image_url tetap ada di state untuk backward compat (legacy ads).
-              Info banner inform admin untuk upload via Targeting modal.
-              
-              SESI 10 Sub-Phase B (24 Mei 2026): GIF support info ditambahkan. */}
+          {/* ════════════════════════════════════════════════════════
+              Info upload per-posisi (ad_format='image' = Gambar ATAU Dinamis-DCA)
+              SESI 11: teks ber-cabang sesuai ember (bucket).
+              Upload sebenarnya di modal Targeting (beda dimensi tiap posisi).
+              ════════════════════════════════════════════════════════ */}
           {state.ad_format === 'image' && (
             <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-ads/5 border border-ads/30">
               <ImageIcon size={14} className="text-ads shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-[11px] font-bold text-text">
-                  Banner Iklan di-upload per posisi
-                </p>
-                <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
-                  Centang posisi tayang di section <strong>Targeting</strong> di bawah,
-                  lalu klik <strong>+ Upload Banner</strong> di posisi yang dipilih.
-                  Setiap posisi bisa punya banner sendiri.
-                </p>
-                {/* SESI 10 Sub-Phase B — GIF support hint */}
-                <div className="mt-2 pt-2 border-t border-ads/20 flex items-start gap-1.5">
-                  <Sparkles size={11} className="text-ads shrink-0 mt-0.5" />
-                  <p className="text-[10px] text-text-muted leading-relaxed">
-                    <strong className="text-text">Static</strong> (JPG/PNG/WebP, maks 500KB) untuk banner standar.
-                    <br />
-                    <strong className="text-text">GIF animasi</strong> (maks 2MB) untuk banner dinamis ala Kumparan —
-                    upload langsung, animasi auto-render di public.
-                  </p>
-                </div>
+                {bucket === 'dinamis' ? (
+                  <>
+                    <p className="text-[11px] font-bold text-text">
+                      Banner gonta-ganti (DCA) di-upload per posisi
+                    </p>
+                    <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                      Di section <strong>Targeting</strong>, tiap posisi upload <strong>2-5 banner</strong> yang
+                      berganti otomatis. Judul/headline off — yang muncul cuma banner-nya.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-[11px] font-bold text-text">
+                      Banner iklan di-upload per posisi
+                    </p>
+                    <p className="text-[10px] text-text-muted mt-0.5 leading-relaxed">
+                      Centang posisi tayang di section <strong>Targeting</strong> di bawah,
+                      lalu klik <strong>+ Upload Banner</strong> di posisi yang dipilih.
+                      Setiap posisi bisa punya banner sendiri.
+                    </p>
+                    {/* GIF support hint (SESI 10 Sub-Phase B) */}
+                    <div className="mt-2 pt-2 border-t border-ads/20 flex items-start gap-1.5">
+                      <Sparkles size={11} className="text-ads shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-text-muted leading-relaxed">
+                        <strong className="text-text">Statis</strong> (JPG/PNG/WebP, maks 500KB) untuk banner standar.
+                        <br />
+                        <strong className="text-text">GIF animasi</strong> (maks 2MB) untuk banner gerak sederhana —
+                        upload langsung, animasi auto-render di public.
+                      </p>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           )}
@@ -471,7 +543,8 @@ Konten utama dengan **bold** dan *italic*.
             </div>
           )}
 
-          {/* SESI 5H Phase 5A.7: Animation builder moved ke PositionCreativeModal */}
+          {/* SESI 5H Phase 5A.7: Animation builder moved ke PositionCreativeModal.
+              SESI 11: muncul kalau GSAP dipilih via Opsi lanjutan (ad_format='animated'). */}
           {state.ad_format === 'animated' && (
             <div className="rounded-xl border-2 border-purple-300 bg-purple-50/40 dark:border-purple-800 dark:bg-purple-950/20 p-4">
               <div className="flex items-start gap-3">
@@ -546,12 +619,3 @@ Konten utama dengan **bold** dan *italic*.
     </section>
   );
 }
-
-// ════════════════════════════════════════════════════════════════
-// SESI 5E Phase 3b (19 Mei 2026): MultiImageSection ELIMINATED.
-// ────────────────────────────────────────────────────────────────
-// Per-position image upload moved ke PositionCreativeModal di section
-// Targeting. Default image_url tetap berfungsi sebagai fallback global.
-// Klik posisi di section Targeting → modal popup untuk upload per posisi
-// + DCA variants per posisi.
-// ════════════════════════════════════════════════════════════════
