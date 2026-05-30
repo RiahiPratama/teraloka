@@ -19,6 +19,8 @@
 import { useEffect, useRef, useState } from 'react';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+// SESI 11 Batch 8 (31 Mei 2026): Banner Motion (webM fill)
+import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -38,6 +40,9 @@ interface TopLeaderboardAd {
   advertiser_name:     string;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
   creative_frames:     TopLeaderboardFrame[] | null;
+  // SESI 11 Batch 8: Banner Motion (webM/mp4 fill)
+  ad_format?:          'image' | 'text' | 'animated' | 'video';
+  video_sources?:      Record<string, AdVideoSource> | null;
 }
 
 const HOVER_GRACE_MS = 1500;
@@ -136,6 +141,31 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
   const displayTitle = isDCA && currentFrame ? currentFrame.headline : (ad.title ?? '');
   const overline = ad.advertiser_name.toUpperCase();
   const visualSymbol = ad.advertiser_name.charAt(0).toUpperCase();
+
+  // SESI 11 Batch 8: Banner Motion — video fill (ganti gradient card)
+  const video = ad.ad_format === 'video' ? (ad.video_sources?.['top_leaderboard'] ?? null) : null;
+  const hasVideo = !!(video && (video.webm || video.mp4));
+  if (hasVideo) {
+    const vLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+    return (
+      <div className="relative w-full h-[220px] rounded-xl overflow-hidden bg-black">
+        {!reducedMotion ? (
+          <video className="w-full h-full object-cover" autoPlay loop muted playsInline poster={video!.poster || undefined}>
+            {video!.webm && <source src={video!.webm} type="video/webm" />}
+            {video!.mp4  && <source src={video!.mp4}  type="video/mp4" />}
+          </video>
+        ) : video!.poster ? (
+          <img src={video!.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : null}
+        {vLabel && (
+          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}>
+            {vLabel}
+          </span>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

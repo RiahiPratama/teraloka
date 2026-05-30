@@ -503,12 +503,16 @@ export function isPositionActive(key: string): boolean {
 // ════════════════════════════════════════════════════════════════
 // SESI 11 Batch 8 (31 Mei 2026) — TRUTH-FIX: cuma posisi yang komponen
 // publiknya BENERAN render <video> (verified vs dispatcher).
-//   ✅ sidebar              → AdSidebarSlug (video branch)
-//   ✅ in_article           → AdInArticle (video branch)
+//   ✅ sidebar              → AdSidebarSlug
+//   ✅ in_article           → AdInArticle
 //   ✅ region_stack         → DCAStackBanner (webM bg)
-//   ✅ homepage_hero_banner → LaIndieMoviePoliticalBanner (poster fokus, focused-only)
-//   ✅ political_banner     → LaIndieMoviePoliticalBanner (poster fokus, focused-only)
-// Belum: top_leaderboard, skyscraper_left/right, banner, inline_banner (masih <img>).
+//   ✅ homepage_hero_banner → LaIndieMoviePoliticalBanner (focused-only)
+//   ✅ political_banner     → LaIndieMoviePoliticalBanner (focused-only)
+//   ✅ top_leaderboard      → DCATopLeaderboard (webM fill)
+//   ✅ skyscraper_left      → DCASkyscraper (webM fill)
+//   ✅ skyscraper_right     → DCASkyscraper (webM fill)
+//   ✅ inline_banner        → DCAInlineBanner (webM fill, dormant—belum di-mount)
+//   ⛔ banner 52×52         → skip (helper thumbnail, kekecilan buat video)
 // ⚠️ political_banner = slot KPU — video iklan kampanye = keputusan compliance founder.
 export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
   'sidebar',
@@ -516,6 +520,10 @@ export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
   'region_stack',
   'homepage_hero_banner',
   'political_banner',
+  'top_leaderboard',
+  'skyscraper_left',
+  'skyscraper_right',
+  'inline_banner',
 ];
 
 /** True kalau posisi boleh pakai Banner Motion (video webM/mp4). */

@@ -22,6 +22,8 @@
 import { useEffect, useRef, useState } from 'react';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+// SESI 11 Batch 8 (31 Mei 2026): Banner Motion (webM fill)
+import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -43,6 +45,9 @@ interface SkyscraperAd {
   disclaimer_text:     string | null;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
   creative_frames:     SkyscraperFrame[] | null;
+  // SESI 11 Batch 8: Banner Motion (webM/mp4 fill)
+  ad_format?:          'image' | 'text' | 'animated' | 'video';
+  video_sources?:      Record<string, AdVideoSource> | null;
 }
 
 type Props = {
@@ -205,6 +210,37 @@ function SkyscraperInner({
   const displayImage = isDCA && currentFrame ? currentFrame.image_url : ad.image_url;
   const overline = ad.advertiser_name.toUpperCase();
   const ctaLabel = 'Lihat Detail';
+
+  // SESI 11 Batch 8: Banner Motion — video fill (ganti gradient card)
+  const posKey = side === 'left' ? 'skyscraper_left' : 'skyscraper_right';
+  const video = ad.ad_format === 'video' ? (ad.video_sources?.[posKey] ?? null) : null;
+  const hasVideo = !!(video && (video.webm || video.mp4));
+  if (hasVideo) {
+    const vLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+    return (
+      <div className="relative rounded-lg overflow-hidden bg-black" style={{ height: 600 }}>
+        {!reducedMotion ? (
+          <video className="w-full h-full object-cover" autoPlay loop muted playsInline poster={video!.poster || undefined}>
+            {video!.webm && <source src={video!.webm} type="video/webm" />}
+            {video!.mp4  && <source src={video!.mp4}  type="video/mp4" />}
+          </video>
+        ) : video!.poster ? (
+          <img src={video!.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : null}
+        {vLabel && (
+          <span className="absolute z-10 px-1.5 py-0.5 rounded text-[8px] font-extrabold tracking-[0.6px] uppercase"
+            style={{ top: 8, right: 8, background: '#F59E0B', color: '#fff' }}>
+            {vLabel}
+          </span>
+        )}
+        {ad.disclaimer_text && (
+          <div className="absolute bottom-0 left-0 right-0 bg-amber-100/95 px-2 py-1 text-[8px] leading-tight text-amber-900 z-10">
+            {ad.disclaimer_text}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div
