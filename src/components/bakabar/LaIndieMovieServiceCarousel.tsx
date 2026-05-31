@@ -1,102 +1,95 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — La Indie Movie Service Carousel v1.1 (Sprint 2A Batch D2)
+// BAKABAR — Service Carousel v2.0 (Phase 4 — ADS-driven service_carousel)
 // PATH: src/components/bakabar/LaIndieMovieServiceCarousel.tsx
 // ────────────────────────────────────────────────────────────────
-// LEAN v1.1 (15 Mei 2026):
-//   - Remove cream gradient container (boros space)
-//   - Match Political Banner v2.1 lean header style
-//   - Vertical accent bar + label + tagline inline
+// v2.0 (31 Mei 2026): SUMBER DATA dari ADS (posisi `service_carousel`),
+//   bukan lagi array hardcoded.
+//   - Fetch /public/ads/by-position/service_carousel?limit=6 (client).
+//   - Banner portrait 3:4 (Canva 810×1080). Statis (image) ATAU motion
+//     (.webM/.mp4 via video_sources['service_carousel']).
+//   - Optimal 5 banner, cap 6 (constraint animasi).
+//   - Fallback = HIDDEN: kalau 0 ad → return null (gak balik ke gradient).
+//   - Banner = full-bleed (gak ditimpa overlay teks; banner Canva udah
+//     punya teks sendiri). Disclosure "Iklan" + corner bracket dipertahanin.
+//   - Animasi (rotate/hover/scale/dots/CTA) UNCHANGED dari v1.1.
+//   - Link per banner = link_url dari ADS.
 //
-// History:
-//   - v1.0: Initial with cream container
-//   - v1.1: LEAN — minimal wrapper, match LA Indie reference
+// v1.1 PRIOR (15 Mei): lean header, 5 service hardcoded gradient+emoji.
 // ════════════════════════════════════════════════════════════════
 
-import Link from 'next/link';
 import { useEffect, useState, useRef } from 'react';
+import { getAdLabel } from '@/lib/ads/getAdLabel';
+import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 
-interface ServiceMeta {
-  slug:     string;
-  label:    string;
-  tagline:  string;
-  cta:      string;
-  href:     string;
-  gradient: string;
-  emoji:    string;
+const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
+
+interface CarouselAd {
+  id:               string;
+  title:            string | null;
+  body:             string | null;
+  link_url:         string | null;
+  image_url:        string | null;
+  advertiser_name:  string;
+  advertiser_type:  'umum' | 'politisi' | 'pemerintah' | 'komersial';
+  ad_format?:       'image' | 'text' | 'animated' | 'video';
+  video_sources?:   Record<string, AdVideoSource> | null;
 }
 
-const SERVICES: ServiceMeta[] = [
-  {
-    slug:     'bakabar',
-    label:    'BAKABAR',
-    tagline:  'Berita Maluku Utara · Civic Journalism',
-    cta:      'Baca Berita',
-    href:     '/bakabar',
-    gradient: 'linear-gradient(135deg, #003526 0%, #001a13 100%)',
-    emoji:    '📰',
-  },
-  {
-    slug:     'balapor',
-    label:    'BALAPOR',
-    tagline:  'Lapor Masalah Sekitarmu · Suara Warga',
-    cta:      'Lapor Sekarang',
-    href:     '/lapor',
-    gradient: 'linear-gradient(135deg, #A21CAF 0%, #701a75 100%)',
-    emoji:    '📢',
-  },
-  {
-    slug:     'bapasiar',
-    label:    'BAPASIAR',
-    tagline:  'Pasar Online Maluku Utara · Jual & Beli',
-    cta:      'Belanja',
-    href:     '/speed',
-    gradient: 'linear-gradient(135deg, #0EA5E9 0%, #075985 100%)',
-    emoji:    '🛒',
-  },
-  {
-    slug:     'bakos',
-    label:    'BAKOS',
-    tagline:  'Komunitas Warga · Diskusi & Info Terkini',
-    cta:      'Gabung',
-    href:     '/kos',
-    gradient: 'linear-gradient(135deg, #8B5CF6 0%, #5b21b6 100%)',
-    emoji:    '💬',
-  },
-  {
-    slug:     'badonasi',
-    label:    'BADONASI',
-    tagline:  'Galang Dana · Bantu Sesama Warga MalUt',
-    cta:      'Berdonasi',
-    href:     '/fundraising',
-    gradient: 'linear-gradient(135deg, #EC4899 0%, #9d174d 100%)',
-    emoji:    '🤲',
-  },
-];
-
-const AUTO_ROTATE_MS = 5000; // SESI 11 Batch 8 (31 Mei): seragam cadence carousel
-const HOVER_GRACE_MS = 1500;
-const POSTER_W       = 165;
-const POSTER_H       = 245;
-const FOCUSED_SCALE  = 1.28;
+const MAX_CARDS       = 6;     // hard cap (constraint animasi); optimal 5
+const AUTO_ROTATE_MS  = 5000;
+const HOVER_GRACE_MS  = 1500;
+const POSTER_W        = 165;
+const POSTER_H        = 220;   // 3:4 match banner Canva 810×1080
+const FOCUSED_SCALE   = 1.28;
 
 export default function LaIndieMovieServiceCarousel() {
-  const [focusedIdx, setFocusedIdx] = useState(1); // BALAPOR start
+  const [ads, setAds] = useState<CarouselAd[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [focusedIdx, setFocusedIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   const rotationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const graceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Fetch ADS service_carousel (client, non-blocking). Fallback = hidden.
   useEffect(() => {
-    if (isPaused) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`${API}/public/ads/by-position/service_carousel?limit=${MAX_CARDS}`);
+        const json = await res.json();
+        if (!cancelled && json?.success && Array.isArray(json.data)) {
+          const list = (json.data as CarouselAd[]).slice(0, MAX_CARDS);
+          setAds(list);
+          setFocusedIdx(list.length > 0 ? Math.floor((list.length - 1) / 2) : 0);
+        }
+      } catch {
+        // empty → hidden
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Auto-rotate (skip kalau <2 ad atau paused)
+  useEffect(() => {
+    if (isPaused || ads.length < 2) return;
     rotationRef.current = setInterval(() => {
-      setFocusedIdx(prev => (prev + 1) % SERVICES.length);
+      setFocusedIdx(prev => (prev + 1) % ads.length);
     }, AUTO_ROTATE_MS);
     return () => {
       if (rotationRef.current) clearInterval(rotationRef.current);
     };
-  }, [isPaused]);
+  }, [isPaused, ads.length]);
+
+  useEffect(() => {
+    return () => {
+      if (graceRef.current) clearTimeout(graceRef.current);
+    };
+  }, []);
 
   const handleHover = (idx: number) => {
     if (graceRef.current) clearTimeout(graceRef.current);
@@ -109,64 +102,48 @@ export default function LaIndieMovieServiceCarousel() {
     graceRef.current = setTimeout(() => setIsPaused(false), HOVER_GRACE_MS);
   };
 
-  useEffect(() => {
-    return () => {
-      if (graceRef.current) clearTimeout(graceRef.current);
-    };
-  }, []);
+  // Fallback HIDDEN — belum ada banner = carousel ilang (sesuai keputusan).
+  if (loading || ads.length === 0) return null;
 
-  const focusedService = SERVICES[focusedIdx];
+  const focused = ads[Math.min(focusedIdx, ads.length - 1)];
+  const focusedTitle = focused.title || focused.advertiser_name;
+  const focusedTagline = focused.body || focused.advertiser_name;
 
   return (
     <section className="my-8">
       {/* Lean header — vertical bar + label + tagline */}
       <div className="flex items-center justify-between mb-4 px-1">
         <div className="flex items-center gap-2.5">
-          <span
-            className="inline-block"
-            style={{ width: 4, height: 22, background: '#8B5CF6', borderRadius: 2 }}
-          />
-          <h3
-            className="text-[16px] md:text-[18px] font-extrabold uppercase tracking-[-0.3px] text-gray-900"
-            style={{ fontFamily: "'Lora', Georgia, serif" }}
-          >
+          <span className="inline-block" style={{ width: 4, height: 22, background: '#8B5CF6', borderRadius: 2 }} />
+          <h3 className="text-[16px] md:text-[18px] font-extrabold uppercase tracking-[-0.3px] text-gray-900"
+            style={{ fontFamily: "'Lora', Georgia, serif" }}>
             Layanan TeraLoka
           </h3>
         </div>
-        <span
-          className="text-[11px] text-gray-500 italic hidden md:inline"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
-        >
+        <span className="text-[11px] text-gray-500 italic hidden md:inline"
+          style={{ fontFamily: "'Lora', Georgia, serif" }}>
           Semua yang kamu butuhkan di MalUt, ADA di sini
         </span>
       </div>
 
-      {/* Focused service info */}
+      {/* Focused info (dari data ADS) */}
       <div className="text-center mb-4 min-h-[60px]">
-        <p
-          key={focusedService.slug}
-          className="text-[18px] md:text-[22px] font-extrabold leading-tight animate-fadeIn"
-          style={{ fontFamily: "'Lora', Georgia, serif", color: '#1F2937' }}
-        >
-          {focusedService.label}
+        <p key={focused.id} className="text-[18px] md:text-[22px] font-extrabold leading-tight animate-fadeIn"
+          style={{ fontFamily: "'Lora', Georgia, serif", color: '#1F2937' }}>
+          {focusedTitle}
         </p>
-        <p
-          key={`${focusedService.slug}-tag`}
-          className="text-[12px] md:text-[13px] text-gray-600 mt-1 animate-fadeIn px-4"
-        >
-          {focusedService.tagline}
+        <p key={`${focused.id}-tag`} className="text-[12px] md:text-[13px] text-gray-600 mt-1 animate-fadeIn px-4">
+          {focusedTagline}
         </p>
       </div>
 
       {/* Poster gallery */}
-      <div
-        className="flex items-center justify-center gap-3 md:gap-5 py-8 overflow-x-auto md:overflow-visible"
-        style={{ minHeight: POSTER_H * FOCUSED_SCALE + 20 }}
-      >
-        {SERVICES.map((service, idx) => (
+      <div className="flex items-center justify-center gap-3 md:gap-5 py-8 overflow-x-auto md:overflow-visible"
+        style={{ minHeight: POSTER_H * FOCUSED_SCALE + 20 }}>
+        {ads.map((ad, idx) => (
           <ServicePoster
-            key={service.slug}
-            service={service}
+            key={ad.id}
+            ad={ad}
             isFocused={idx === focusedIdx}
             onHover={() => handleHover(idx)}
             onLeave={handleLeave}
@@ -174,16 +151,16 @@ export default function LaIndieMovieServiceCarousel() {
         ))}
       </div>
 
-      {/* Dots + CTA compact */}
+      {/* Dots + CTA */}
       <div className="flex flex-col items-center gap-4 mt-1">
         <div className="flex justify-center gap-1.5">
-          {SERVICES.map((_, idx) => (
+          {ads.map((ad, idx) => (
             <button
-              key={idx}
+              key={ad.id}
               onClick={() => handleHover(idx)}
               onMouseLeave={handleLeave}
               className="transition-all duration-300"
-              aria-label={`Pilih service ${SERVICES[idx].label}`}
+              aria-label={`Pilih banner ${idx + 1}`}
               style={{
                 width: idx === focusedIdx ? 22 : 6,
                 height: 5,
@@ -194,14 +171,16 @@ export default function LaIndieMovieServiceCarousel() {
           ))}
         </div>
 
-        <Link
-          key={focusedService.slug + '-cta'}
-          href={focusedService.href}
+        <a
+          key={focused.id + '-cta'}
+          href={focused.link_url ?? '#'}
+          target="_blank"
+          rel="sponsored noopener noreferrer"
           className="inline-flex items-center gap-2 px-5 py-2 rounded-md text-white text-[12px] font-extrabold uppercase tracking-[0.6px] transition-all duration-300 hover:scale-105 animate-fadeIn"
-          style={{ background: focusedService.gradient }}
+          style={{ background: '#003526' }}
         >
-          {focusedService.cta} →
-        </Link>
+          Lihat Detail →
+        </a>
       </div>
 
       <style jsx>{`
@@ -218,20 +197,28 @@ export default function LaIndieMovieServiceCarousel() {
 // ────────────────────────────────────────────────────────────────
 
 interface ServicePosterProps {
-  service:   ServiceMeta;
+  ad:        CarouselAd;
   isFocused: boolean;
   onHover:   () => void;
   onLeave:   () => void;
 }
 
-function ServicePoster({ service, isFocused, onHover, onLeave }: ServicePosterProps) {
+function ServicePoster({ ad, isFocused, onHover, onLeave }: ServicePosterProps) {
+  const vs = ad.ad_format === 'video' ? (ad.video_sources?.['service_carousel'] ?? null) : null;
+  const hasVideo = !!(vs && (vs.webm || vs.mp4));
+  const label = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+
   return (
-    <Link
-      href={service.href}
+    <a
+      href={ad.link_url ?? '#'}
+      target="_blank"
+      rel="sponsored noopener noreferrer"
       onMouseEnter={onHover}
       onMouseLeave={onLeave}
-      aria-label={`Buka ${service.label}`}
-      className="block relative rounded-sm overflow-hidden cursor-pointer"
+      data-ad-id={ad.id}
+      data-ad-position="service_carousel"
+      aria-label={`Iklan ${ad.advertiser_name}${ad.title ? `: ${ad.title}` : ''}`}
+      className="block relative rounded-sm overflow-hidden cursor-pointer bg-gray-200"
       style={{
         width: `${POSTER_W}px`,
         height: `${POSTER_H}px`,
@@ -242,63 +229,45 @@ function ServicePoster({ service, isFocused, onHover, onLeave }: ServicePosterPr
         boxShadow: isFocused
           ? '0 20px 40px rgba(0,0,0,0.25), 0 8px 16px rgba(0,0,0,0.15)'
           : '0 3px 10px rgba(0,0,0,0.12)',
-        background: service.gradient,
         flexShrink: 0,
       }}
     >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.18) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(245,158,11,0.12) 0%, transparent 50%)',
-        }}
-      />
-
-      <div
-        className="absolute pointer-events-none"
-        style={{
-          bottom: -18,
-          right: -14,
-          fontSize: 130,
-          opacity: 0.14,
-          lineHeight: 1,
-        }}
-      >
-        {service.emoji}
-      </div>
-
-      <div
-        className="absolute top-2 left-2 text-white text-[7px] font-extrabold tracking-[0.6px] uppercase opacity-80"
-        style={{ textShadow: '0 1px 2px rgba(0,0,0,0.4)' }}
-      >
-        TeraLoka
-      </div>
-
-      <div className="absolute bottom-3 left-3 right-3 text-white">
-        <p
-          className="font-extrabold leading-tight"
-          style={{
-            fontSize: '17px',
-            fontFamily: "'Lora', Georgia, serif",
-            textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-          }}
+      {/* Banner full-bleed: video (motion) > image (statis) */}
+      {hasVideo ? (
+        <video
+          className="absolute inset-0 w-full h-full object-cover"
+          autoPlay loop muted playsInline
+          poster={vs!.poster || ad.image_url || undefined}
         >
-          {service.label}
-        </p>
-      </div>
+          {vs!.webm && <source src={vs!.webm} type="video/webm" />}
+          {vs!.mp4  && <source src={vs!.mp4}  type="video/mp4" />}
+        </video>
+      ) : ad.image_url ? (
+        <img src={ad.image_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="lazy" />
+      ) : (
+        <div className="absolute inset-0 flex items-center justify-center text-gray-400 text-[10px]"
+          style={{ background: 'linear-gradient(135deg, #374151, #1F2937)' }}>
+          {ad.advertiser_name}
+        </div>
+      )}
 
+      {/* Disclosure label (firewall) — conditional dari advertiser_type */}
+      {label && (
+        <span className="absolute top-2 right-2 px-1.5 py-0.5 rounded text-[7px] font-extrabold tracking-[0.8px] uppercase z-[2]"
+          style={{ background: '#F59E0B', color: '#fff' }}>
+          {label}
+        </span>
+      )}
+
+      {/* Corner bracket (focused) */}
       {isFocused && (
         <>
-          <div className="absolute top-[-6px] left-[-6px] pointer-events-none"
-            style={{ width: 16, height: 16, borderTop: '2.5px solid #F59E0B', borderLeft: '2.5px solid #F59E0B' }} />
-          <div className="absolute top-[-6px] right-[-6px] pointer-events-none"
-            style={{ width: 16, height: 16, borderTop: '2.5px solid #F59E0B', borderRight: '2.5px solid #F59E0B' }} />
-          <div className="absolute bottom-[-6px] left-[-6px] pointer-events-none"
-            style={{ width: 16, height: 16, borderBottom: '2.5px solid #F59E0B', borderLeft: '2.5px solid #F59E0B' }} />
-          <div className="absolute bottom-[-6px] right-[-6px] pointer-events-none"
-            style={{ width: 16, height: 16, borderBottom: '2.5px solid #F59E0B', borderRight: '2.5px solid #F59E0B' }} />
+          <div className="absolute top-[-6px] left-[-6px] pointer-events-none" style={{ width: 16, height: 16, borderTop: '2.5px solid #F59E0B', borderLeft: '2.5px solid #F59E0B' }} />
+          <div className="absolute top-[-6px] right-[-6px] pointer-events-none" style={{ width: 16, height: 16, borderTop: '2.5px solid #F59E0B', borderRight: '2.5px solid #F59E0B' }} />
+          <div className="absolute bottom-[-6px] left-[-6px] pointer-events-none" style={{ width: 16, height: 16, borderBottom: '2.5px solid #F59E0B', borderLeft: '2.5px solid #F59E0B' }} />
+          <div className="absolute bottom-[-6px] right-[-6px] pointer-events-none" style={{ width: 16, height: 16, borderBottom: '2.5px solid #F59E0B', borderRight: '2.5px solid #F59E0B' }} />
         </>
       )}
-    </Link>
+    </a>
   );
 }
