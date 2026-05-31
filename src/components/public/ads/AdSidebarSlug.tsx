@@ -182,7 +182,9 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
   // ═══ VIDEO BANNER (SESI 10) ═══
   // Branch SEBELUM animated/text/image. Resolve video_sources['sidebar'].
   // Fallback ke image branch kalau source absent (graceful).
-  if (ad.ad_format === 'video') {
+  // SESI 11 (31 Mei): ad_format = HINT. Masuk branch kalau posisi sidebar PUNYA
+  // video_sources, apa pun global ad_format-nya (dukung iklan mixed).
+  if (ad.video_sources?.['sidebar']) {
     const sidebarVideo = ad.video_sources?.['sidebar'];
 
     if (sidebarVideo && sidebarVideo.mp4) {

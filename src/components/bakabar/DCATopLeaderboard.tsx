@@ -143,7 +143,8 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
   const visualSymbol = ad.advertiser_name.charAt(0).toUpperCase();
 
   // SESI 11 Batch 8: Banner Motion — video fill (ganti gradient card)
-  const video = ad.ad_format === 'video' ? (ad.video_sources?.['top_leaderboard'] ?? null) : null;
+  // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
+  const video = ad.video_sources?.['top_leaderboard'] ?? null;
   const hasVideo = !!(video && (video.webm || video.mp4));
   if (hasVideo) {
     const vLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });

@@ -284,7 +284,8 @@ interface HeroPosterProps {
 
 function HeroPoster({ ad, isFocused, watermark, positionKey, reducedMotion, onHover, onLeave }: HeroPosterProps) {
   // SESI 11 Batch 8: webM focused-only (cuma poster fokus yang play)
-  const v = ad.ad_format === 'video' ? (ad.video_sources?.[positionKey] ?? null) : null;
+  // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
+  const v = ad.video_sources?.[positionKey] ?? null;
   const hasVideo = !!(v && (v.webm || v.mp4));
 
   const handleClick = () => {

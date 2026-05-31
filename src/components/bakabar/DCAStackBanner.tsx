@@ -106,7 +106,8 @@ export default function DCAStackBanner({ regionSlug, maxAds = 1 }: Props) {
 // ─── Single banner card (rasio paten 8:5) ───────────────────────
 function StackAdCard({ ad, regionSlug }: { ad: StackBannerAd; regionSlug: string }) {
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
-  const regionVideo = ad.ad_format === 'video' ? (ad.video_sources?.['region_stack'] ?? null) : null;
+  // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
+  const regionVideo = ad.video_sources?.['region_stack'] ?? null;
   const hasVideo = !!(regionVideo && (regionVideo.webm || regionVideo.mp4));
 
   return (

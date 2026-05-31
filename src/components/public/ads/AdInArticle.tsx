@@ -234,7 +234,10 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
   }
 
   // ═══ VIDEO BANNER (SESI 11 — MP4/WebM dinamis) ═══
-  if (ad.ad_format === 'video') {
+  // SESI 11 (31 Mei): ad_format = HINT. Masuk branch kalau posisi in_article PUNYA
+  // video_sources, apa pun global ad_format-nya (dukung iklan mixed). Inner check
+  // tetap fallback ke image branch kalau source absent.
+  if (ad.video_sources?.['in_article']) {
     const inArticleVideo = ad.video_sources?.['in_article'];
 
     if (inArticleVideo) {
