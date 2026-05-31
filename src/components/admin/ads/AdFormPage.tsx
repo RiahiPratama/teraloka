@@ -37,6 +37,7 @@ import { useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Save,
+  FileText,
   AlertCircle,
   CheckCircle2,
   Loader2,
@@ -71,12 +72,14 @@ function AdFormPageInner() {
   const {
     state,
     isEditMode,
+    isDraftAd,
     isSubmitting,
     submitError,
     errors,
     isDirty,
     loadingExisting,
     submit,
+    submitDraft,
   } = useAdForm();
 
   const [toast, setToast] = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
@@ -95,9 +98,22 @@ function AdFormPageInner() {
     const result = await submit();
     if (result.ok) {
       showToast(
-        isEditMode ? '✓ Iklan berhasil di-update' : '✓ Iklan berhasil ditambahkan',
+        isEditMode
+          ? (isDraftAd ? '✓ Draft difinalisasi & tayang' : '✓ Iklan berhasil di-update')
+          : '✓ Iklan berhasil ditambahkan',
         'ok'
       );
+      setTimeout(() => router.push('/admin/ads'), 800);
+    } else {
+      showToast(result.error, 'err');
+    }
+  };
+
+  // SESI 11 (31 Mei 2026): Simpan sebagai draft (loket santai — skip validasi).
+  const handleSaveDraft = async () => {
+    const result = await submitDraft();
+    if (result.ok) {
+      showToast('✓ Tersimpan sebagai draft', 'ok');
       setTimeout(() => router.push('/admin/ads'), 800);
     } else {
       showToast(result.error, 'err');
@@ -247,6 +263,28 @@ function AdFormPageInner() {
             >
               Batal
             </button>
+            {/* SESI 11: Simpan Draft — tampil saat create ATAU edit iklan draft.
+                Iklan yg udah tayang/pending TIDAK bisa diturunkan jadi draft. */}
+            {(!isEditMode || isDraftAd) && (
+              <button
+                type="button"
+                onClick={handleSaveDraft}
+                disabled={isSubmitting || !state.title.trim()}
+                title={
+                  !state.title.trim()
+                    ? 'Isi judul dulu untuk simpan draft'
+                    : 'Simpan tanpa validasi penuh — lanjut kapan aja'
+                }
+                className={cn(
+                  'inline-flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-bold',
+                  'bg-surface border border-border text-text-muted hover:text-text hover:bg-surface-muted transition-colors',
+                  'disabled:opacity-50 disabled:cursor-not-allowed'
+                )}
+              >
+                <FileText size={14} />
+                Simpan Draft
+              </button>
+            )}
             <button
               type="button"
               onClick={handleSubmit}
@@ -265,7 +303,7 @@ function AdFormPageInner() {
               {isSubmitting
                 ? 'Menyimpan...'
                 : isEditMode
-                  ? 'Simpan Perubahan'
+                  ? (isDraftAd ? 'Finalisasi & Tayang' : 'Simpan Perubahan')
                   : 'Simpan Iklan'}
             </button>
           </div>

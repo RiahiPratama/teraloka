@@ -583,9 +583,11 @@ export interface AdFormContextType {
   isSubmitting:   boolean;
   submitError:    string | null;
   isEditMode:     boolean;
+  isDraftAd:      boolean;   // SESI 11: iklan yg di-edit berstatus draft?
   editingAdId:    string | null;
   loadingExisting: boolean;
   submit:         () => Promise<{ ok: true; ad_id?: string } | { ok: false; error: string }>;
+  submitDraft:    () => Promise<{ ok: true; ad_id?: string } | { ok: false; error: string }>;
   reset:          () => void;
 }
 
@@ -612,8 +614,12 @@ export function AdFormProvider({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [loadingExisting, setLoadingExisting] = useState(false);
+  // SESI 11 (31 Mei 2026): status iklan yg lagi di-edit (buat deteksi draft → finalize).
+  const [loadedStatus, setLoadedStatus] = useState<string | null>(null);
 
   const isEditMode = Boolean(editingAdId);
+  // Iklan yg lagi di-edit berstatus draft? → "Simpan Iklan" jadi finalize.
+  const isDraftAd = loadedStatus === 'draft';
 
   // Bootstrap edit mode — fetch existing ad
   useEffect(() => {
@@ -630,6 +636,9 @@ export function AdFormProvider({
           return;
         }
         const ad = json.data.ad;
+
+        // SESI 11 (31 Mei 2026): simpan status → tau apakah draft (finalize flow).
+        setLoadedStatus(ad.status ?? null);
 
         // SESI 5B: Detect mode dari ad.advertiser_account_id presence
         // - Present → picker mode (use_free_text_mode = false)
@@ -702,141 +711,101 @@ export function AdFormProvider({
     [errors]
   );
 
+  // SESI 11 (31 Mei 2026): commit pending uploads + build payload object.
+  // SATU sumber payload — dipakai submit (publish/finalize) DAN submitDraft (loket santai).
+  const buildSubmitPayload = useCallback(async () => {
+    // Commit pending object file uploads (.gif/.png/.webp) → public URL
+    let committedAnimationTimelines = state.position_animation_timelines;
+    if (Object.keys(state.position_animation_timelines).length > 0) {
+      const advertiserId = state.advertiser_account_id ?? null;
+      const nextTimelines: Record<string, AnimationTimelineConfig> = {};
+      for (const [positionKey, timeline] of Object.entries(state.position_animation_timelines)) {
+        if (!timeline || !Array.isArray(timeline.variants) || timeline.variants.length === 0) {
+          nextTimelines[positionKey] = timeline;
+          continue;
+        }
+        const updatedVariants = await commitPendingObjectUploads(timeline.variants, advertiserId);
+        nextTimelines[positionKey] = { ...timeline, variants: updatedVariants };
+      }
+      committedAnimationTimelines = nextTimelines;
+      setState((prev) => ({ ...prev, position_animation_timelines: nextTimelines }));
+    }
+
+    // ad_format = HINT deterministik (derive dari isi posisi). Edit = immutable.
+    const derivedAdFormat: AdFormat = isEditMode
+      ? state.ad_format
+      : state.ad_format === 'text'
+        ? 'text'
+        : Object.keys(state.position_video_sources).length > 0
+          ? 'video'
+          : Object.keys(committedAnimationTimelines).length > 0
+            ? 'animated'
+            : 'image';
+
+    const payload: Record<string, any> = {
+      advertiser_account_id: state.advertiser_account_id,
+      pricing_tier_id:       state.pricing_tier_id,
+      price_paid:            state.price_paid,
+      advertiser_name:       state.advertiser_name.trim(),
+      advertiser_type:       state.advertiser_type,
+      advertiser_phone:      state.advertiser_phone.trim() || null,
+      advertiser_logo_url:   state.advertiser_logo_url.trim() || null,
+      ad_format:             derivedAdFormat,
+      title:                 state.title.trim(),
+      body:                  state.body.trim() || null,
+      image_url:             state.image_url.trim() || null,
+      cover_image_caption:   state.cover_image_caption.trim() || null,
+      images:                Object.keys(state.images).length > 0 ? state.images : null,
+      link_url:              state.link_url.trim(),
+      disclaimer_text:       state.disclaimer_text.trim() || null,
+      slug:                  state.slug.trim() || null,
+      positions:             state.positions,
+      target_regions:        state.target_regions,
+      creative_frames:       Object.keys(state.position_frames).length > 0
+        ? state.position_frames
+        : state.creative_frames,
+      animation_timeline:    Object.keys(committedAnimationTimelines).length > 0
+        ? committedAnimationTimelines
+        : null,
+      video_sources:         Object.keys(state.position_video_sources).length > 0
+        ? state.position_video_sources
+        : null,
+      starts_at:             state.starts_at,
+      ends_at:               state.ends_at,
+    };
+    return payload;
+  }, [state, isEditMode]);
+
+  // PUBLISH / FINALIZE — validasi penuh. Edit iklan draft → finalize (draft→tayang).
   const submit = useCallback(async () => {
     if (errors.length > 0) {
       return { ok: false as const, error: 'Form belum valid — periksa field yang merah' };
     }
-
     if (!token) {
       return { ok: false as const, error: 'Token auth hilang — login ulang' };
     }
-
     setIsSubmitting(true);
     setSubmitError(null);
-
     try {
-      // ════════════════════════════════════════════════════════════════
-      // SESI 6 Sub-Phase 6H — Commit pending object file uploads
-      // ────────────────────────────────────────────────────────────────
-      // Object file (.gif/.png/.webp) belum di-upload ke Storage saat
-      // admin tambah Object di builder. Sekarang (sebelum kirim payload)
-      // upload semua pending file → replace blob: URL dengan public URL.
-      // Kalau upload gagal → throw → user lihat error message.
-      // ════════════════════════════════════════════════════════════════
-      let committedAnimationTimelines = state.position_animation_timelines;
-      if (Object.keys(state.position_animation_timelines).length > 0) {
-        const advertiserId = state.advertiser_account_id ?? null;
-        const nextTimelines: Record<string, AnimationTimelineConfig> = {};
-        for (const [positionKey, timeline] of Object.entries(state.position_animation_timelines)) {
-          if (!timeline || !Array.isArray(timeline.variants) || timeline.variants.length === 0) {
-            nextTimelines[positionKey] = timeline;
-            continue;
-          }
-          const updatedVariants = await commitPendingObjectUploads(timeline.variants, advertiserId);
-          nextTimelines[positionKey] = { ...timeline, variants: updatedVariants };
-        }
-        committedAnimationTimelines = nextTimelines;
-        // Sync state supaya UI gak refer ke blob: URL stale post-save
-        setState((prev) => ({ ...prev, position_animation_timelines: nextTimelines }));
-      }
-
+      const payload = await buildSubmitPayload();
       const url = isEditMode
         ? `${API}/admin/ads/admin-update/${editingAdId}`
         : `${API}/admin/ads/admin-create`;
       const method = isEditMode ? 'PUT' : 'POST';
-
-      // SESI 11 (31 Mei 2026): ad_format = HINT deterministik, DI-DERIVE dari isi
-      // posisi (bukan dari urutan pilih materi di modal). Advertorial → 'text'.
-      // Banner: ada video → 'video'; else ada animasi → 'animated'; else 'image'.
-      // EDIT mode: ad_format IMMUTABLE (backend nolak ubah) → pakai state apa adanya.
-      const derivedAdFormat: AdFormat = isEditMode
-        ? state.ad_format
-        : state.ad_format === 'text'
-          ? 'text'
-          : Object.keys(state.position_video_sources).length > 0
-            ? 'video'
-            : Object.keys(committedAnimationTimelines).length > 0
-              ? 'animated'
-              : 'image';
-
-      // Build payload — sanitize empty strings ke null
-      // SESI 5B: include advertiser_account_id + pricing_tier_id
-      // SESI 5C-B: include price_paid (optional estimate)
-      // Backend resolves: kalau advertiser_account_id given, derive denormalized
-      // fields dari entity (single source of truth).
-      // NOTE: pricing_tier_data is TRANSIENT (UX hints), NOT submitted.
-      const payload = {
-        // SESI 5B NEW
-        advertiser_account_id: state.advertiser_account_id,
-        pricing_tier_id:       state.pricing_tier_id,
-
-        // SESI 5C-B NEW
-        price_paid:            state.price_paid, // null OK — backend default 0
-
-        // Advertiser (legacy fields kept — backend uses sebagai cache/fallback)
-        advertiser_name:     state.advertiser_name.trim(),
-        advertiser_type:     state.advertiser_type,
-        advertiser_phone:    state.advertiser_phone.trim() || null,
-        advertiser_logo_url: state.advertiser_logo_url.trim() || null,
-
-        // Creative
-        ad_format:           derivedAdFormat,
-        title:               state.title.trim(),
-        body:                state.body.trim() || null,
-        image_url:           state.image_url.trim() || null,
-        cover_image_caption: state.cover_image_caption.trim() || null,  // SESI 7
-        images:              Object.keys(state.images).length > 0 ? state.images : null,  // SESI 5D
-        link_url:            state.link_url.trim(),
-        disclaimer_text:     state.disclaimer_text.trim() || null,
-        slug:                state.slug.trim() || null,
-
-        // Targeting
-        positions:           state.positions,
-        target_regions:      state.target_regions,
-
-        // DCA (SESI 5E Phase 3a Hybrid C):
-        // - position_frames non-empty → use Record shape (per-position)
-        // - position_frames empty + creative_frames non-null → legacy flat array
-        // - both empty/null → static ad (null)
-        creative_frames:     Object.keys(state.position_frames).length > 0
-          ? state.position_frames
-          : state.creative_frames,
-
-        // SESI 5H Phase 5B: per-position animation timelines (DCA-Aligned)
-        // SESI 11 (31 Mei): decoupled dari ad_format — kirim kapan pun map non-empty
-        // (biar 1 iklan bisa campur animasi + statis/video per posisi).
-        animation_timeline:  Object.keys(committedAnimationTimelines).length > 0
-          ? committedAnimationTimelines
-          : null,
-
-        // SESI 10 (24 Mei 2026): per-position video sources
-        // SESI 11 (31 Mei): decoupled dari ad_format — kirim kapan pun map non-empty
-        // (biar banner statis kiri + video kanan ke-kirim dua-duanya).
-        video_sources:       Object.keys(state.position_video_sources).length > 0
-          ? state.position_video_sources
-          : null,
-
-        // Schedule
-        starts_at:           state.starts_at,
-        ends_at:             state.ends_at,
-      };
+      // Edit iklan berstatus draft → FINALIZE (backend validasi penuh + set status tayang).
+      const body = isEditMode && isDraftAd ? { ...payload, finalize: true } : payload;
 
       const res = await fetch(url, {
         method,
-        headers: {
-          'Content-Type':  'application/json',
-          Authorization:   `Bearer ${token}`,
-        },
-        body: JSON.stringify(payload),
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
       });
       const json = await res.json();
-
       if (!json.success) {
         const msg = json.error?.message ?? 'Submit gagal';
         setSubmitError(msg);
         return { ok: false as const, error: msg };
       }
-
       setIsDirty(false);
       return { ok: true as const, ad_id: json.data?.ad_id };
     } catch (err: any) {
@@ -846,7 +815,54 @@ export function AdFormProvider({
     } finally {
       setIsSubmitting(false);
     }
-  }, [errors.length, token, isEditMode, editingAdId, state]);
+  }, [errors.length, token, isEditMode, editingAdId, isDraftAd, buildSubmitPayload]);
+
+  // SIMPAN DRAFT — loket santai, SKIP validasi (cuma butuh judul).
+  // New → POST /admin-draft ; edit draft existing → PUT /admin-update {is_draft:true}.
+  const submitDraft = useCallback(async () => {
+    if (!token) {
+      return { ok: false as const, error: 'Token auth hilang — login ulang' };
+    }
+    if (!state.title.trim()) {
+      return { ok: false as const, error: 'Draft minimal wajib punya judul' };
+    }
+    setIsSubmitting(true);
+    setSubmitError(null);
+    try {
+      const payload = await buildSubmitPayload();
+      let url: string;
+      let method: 'POST' | 'PUT';
+      let body: Record<string, any>;
+      if (isEditMode) {
+        url = `${API}/admin/ads/admin-update/${editingAdId}`;
+        method = 'PUT';
+        body = { ...payload, is_draft: true };
+      } else {
+        url = `${API}/admin/ads/admin-draft`;
+        method = 'POST';
+        body = payload;
+      }
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!json.success) {
+        const msg = json.error?.message ?? 'Simpan draft gagal';
+        setSubmitError(msg);
+        return { ok: false as const, error: msg };
+      }
+      setIsDirty(false);
+      return { ok: true as const, ad_id: json.data?.ad_id };
+    } catch (err: any) {
+      const msg = err?.message ?? 'Network error';
+      setSubmitError(msg);
+      return { ok: false as const, error: msg };
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [token, isEditMode, editingAdId, state.title, buildSubmitPayload]);
 
   const reset = useCallback(() => {
     setState(EMPTY_STATE);
@@ -865,9 +881,11 @@ export function AdFormProvider({
         isSubmitting,
         submitError,
         isEditMode,
+        isDraftAd,
         editingAdId: editingAdId ?? null,
         loadingExisting,
         submit,
+        submitDraft,
         reset,
       }}
     >
