@@ -42,6 +42,7 @@ export interface StackBannerAd {
   image_url:           string | null;
   advertiser_name:     string;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
+  disclaimer_text?:    string | null;
   creative_frames:     StackFrame[] | null;
   // SESI 11 Batch 8: Banner Motion (webM/mp4 loop sebagai bg kartu)
   ad_format?:          'image' | 'text' | 'animated' | 'video';
@@ -160,6 +161,51 @@ function StackInner({ ad, isDCA, videoSource }: { ad: StackBannerAd; isDCA: bool
 
   // Solid neutral background fallback — image overlay on top
   const fallbackBg = 'linear-gradient(135deg, #1F2937 0%, #111827 100%)';
+
+  // SESI 11 (31 Mei 2026): creative penuh — video/gambar tampil FULL (opacity 100),
+  // tanpa overlay teks/CTA. Kartu gradient teks cuma fallback kalau gak ada keduanya.
+  const sLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+  if (videoSource && (videoSource.webm || videoSource.mp4)) {
+    return (
+      <div className="w-full h-full relative overflow-hidden bg-black">
+        {!reducedMotion ? (
+          <video className="w-full h-full object-cover" autoPlay loop muted playsInline poster={videoSource.poster || undefined}>
+            {videoSource.webm && <source src={videoSource.webm} type="video/webm" />}
+            {videoSource.mp4  && <source src={videoSource.mp4}  type="video/mp4" />}
+          </video>
+        ) : videoSource.poster ? (
+          <img src={videoSource.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
+        ) : null}
+        {sLabel && (
+          <span className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[8px] font-extrabold tracking-[0.6px] uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}>{sLabel}</span>
+        )}
+        {ad.disclaimer_text && (
+          <div className="absolute bottom-0 left-0 right-0 bg-amber-100/95 px-2 py-1 text-[8px] leading-tight text-amber-900 z-10">{ad.disclaimer_text}</div>
+        )}
+      </div>
+    );
+  }
+  if (displayImage) {
+    return (
+      <div className="w-full h-full relative overflow-hidden bg-black">
+        <img
+          key={`stack-full-${currentIdx}`}
+          src={displayImage}
+          alt={ad.title ?? ''}
+          className="w-full h-full object-cover animate-stack-fade"
+          loading="lazy"
+        />
+        {sLabel && (
+          <span className="absolute top-2 right-2 z-10 px-1.5 py-0.5 rounded text-[8px] font-extrabold tracking-[0.6px] uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}>{sLabel}</span>
+        )}
+        {ad.disclaimer_text && (
+          <div className="absolute bottom-0 left-0 right-0 bg-amber-100/95 px-2 py-1 text-[8px] leading-tight text-amber-900 z-10">{ad.disclaimer_text}</div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div

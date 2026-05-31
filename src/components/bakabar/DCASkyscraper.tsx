@@ -245,6 +245,36 @@ function SkyscraperInner({
     );
   }
 
+  // SESI 11 (31 Mei 2026): Banner statis/DCA = creative penuh. Gambar tampil FULL
+  // (opacity 100), tanpa overlay overline/judul/body/CTA — judul + action udah ada
+  // di gambar. Kartu gradient teks cuma fallback kalau gak ada gambar sama sekali.
+  const hasImage = !!displayImage;
+  if (hasImage) {
+    const iLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+    return (
+      <div className="relative rounded-lg overflow-hidden bg-black" style={{ height: 600 }}>
+        <img
+          key={`sky-full-${currentIdx}`}
+          src={displayImage!}
+          alt={ad.title ?? ''}
+          className="w-full h-full object-cover animate-sky-fade"
+          loading="lazy"
+        />
+        {iLabel && (
+          <span className="absolute z-10 px-1.5 py-0.5 rounded text-[8px] font-extrabold tracking-[0.6px] uppercase"
+            style={{ top: 8, right: 8, background: '#F59E0B', color: '#fff' }}>
+            {iLabel}
+          </span>
+        )}
+        {ad.disclaimer_text && (
+          <div className="absolute bottom-0 left-0 right-0 bg-amber-100/95 px-2 py-1 text-[8px] leading-tight text-amber-900 z-10">
+            {ad.disclaimer_text}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div
       onMouseEnter={handleMouseEnter}

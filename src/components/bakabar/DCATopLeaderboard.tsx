@@ -39,6 +39,7 @@ interface TopLeaderboardAd {
   image_url:           string | null;
   advertiser_name:     string;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
+  disclaimer_text?:    string | null;
   creative_frames:     TopLeaderboardFrame[] | null;
   // SESI 11 Batch 8: Banner Motion (webM/mp4 fill)
   ad_format?:          'image' | 'text' | 'animated' | 'video';
@@ -163,6 +164,35 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
             style={{ background: '#F59E0B', color: '#fff' }}>
             {vLabel}
           </span>
+        )}
+      </div>
+    );
+  }
+
+  // SESI 11 (31 Mei 2026): Banner statis/DCA = creative penuh, tampil FULL tanpa overlay.
+  const displayImage = isDCA && currentFrame ? currentFrame.image_url : ad.image_url;
+  const hasImage = !!displayImage;
+  if (hasImage) {
+    const iLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+    return (
+      <div className="relative w-full h-[220px] rounded-xl overflow-hidden bg-black">
+        <img
+          key={`tl-full-${currentIdx}`}
+          src={displayImage!}
+          alt={ad.title ?? ''}
+          className="w-full h-full object-cover"
+          loading="lazy"
+        />
+        {iLabel && (
+          <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
+            style={{ background: '#F59E0B', color: '#fff' }}>
+            {iLabel}
+          </span>
+        )}
+        {ad.disclaimer_text && (
+          <div className="absolute bottom-0 left-0 right-0 bg-amber-100/95 px-3 py-1.5 text-[10px] leading-tight text-amber-900 z-10">
+            {ad.disclaimer_text}
+          </div>
         )}
       </div>
     );
