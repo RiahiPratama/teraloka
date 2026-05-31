@@ -96,7 +96,7 @@ export default function DCATopLeaderboard() {
       data-ad-id={ad.id}
       data-ad-position="top_leaderboard"
       data-ad-mode={isDCA ? 'dca' : 'static'}
-      className="block"
+      className="block mb-8"
     >
       <LeaderboardInner ad={ad} isDCA={isDCA} />
     </a>

@@ -159,7 +159,10 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
             <DCATopLeaderboard />
 
-            <div className="mt-8">
+            {/* v14.7 (31 Mei): mt-8 DIBUANG → hero sejajar atas skyscraper saat
+                top_leaderboard kosong. Jarak ke hero (saat banner ADA) dipindah
+                ke DCATopLeaderboard (mb-8). */}
+            <div>
 
               {/* Hero render LANGSUNG — slides selalu terisi (server / fallback statis) */}
               <HeroWithSidebar
