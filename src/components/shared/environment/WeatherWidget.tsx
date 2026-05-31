@@ -1,5 +1,3 @@
-'use client';
-
 // ════════════════════════════════════════════════════════════════
 // SHARED — Environment / Weather Widget
 // PATH: src/components/shared/environment/WeatherWidget.tsx
@@ -35,6 +33,8 @@
 // History:
 //   - 15 Mei 2026: Created (Sprint 2A Batch C v3 FINAL)
 //     Refactored 3x: bakabar/ → shared/locations/ → shared/environment/
+//   - 31 Mei 2026: + footnote sumber ambang (standar kapal feri BMKG) —
+//     transparansi anti-misleading. Status laut sekarang ikut weather_code.
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from 'react';
@@ -153,10 +153,15 @@ export default function WeatherWidget({ regionSlug, regionName }: Props) {
               {weather.sea_status_label}
             </span>
           </div>
+
+          {/* Line 3: Footnote sumber ambang (transparansi anti-misleading) */}
+          <p className="text-[8px] text-gray-400 mt-0.5 truncate">
+            Status: standar kapal feri (BMKG)
+          </p>
         </div>
 
         {/* BMKG attribution */}
-        <span className="text-[8px] text-gray-400 shrink-0 tracking-wider uppercase font-bold">
+        <span className="text-[8px] text-gray-400 shrink-0 tracking-wider uppercase font-bold self-start">
           BMKG
         </span>
       </div>
