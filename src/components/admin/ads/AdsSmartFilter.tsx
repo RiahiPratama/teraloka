@@ -29,7 +29,7 @@ import { cn } from '@/lib/utils';
 
 // ─── Filter type exports ─────────────────────────────────────────
 
-export type AdStatusFilter = 'all' | 'pending_payment' | 'pending_review' | 'active' | 'paused' | 'expired' | 'rejected' | 'deleted';
+export type AdStatusFilter = 'all' | 'draft' | 'pending_payment' | 'pending_review' | 'active' | 'paused' | 'expired' | 'rejected' | 'deleted';
 export type AdvertiserTypeFilter = 'all' | 'umum' | 'politisi' | 'pemerintah' | 'komersial';
 
 // Sub-Phase 8-E-5: 10 kabupaten/kota Maluku Utara (Permendagri 72/2019)
@@ -129,6 +129,7 @@ const STATUS_FILTERS: Array<{
   classes: string;
 }> = [
   { key: 'all',             label: 'Semua',          classes: 'data-active:bg-ads/12 data-active:text-ads data-active:border-ads/30' },
+  { key: 'draft',           label: 'Draft',          classes: 'data-active:bg-surface-muted data-active:text-text-muted data-active:border-dashed data-active:border-border' },
   { key: 'active',          label: 'Active',         classes: 'data-active:bg-status-healthy/12 data-active:text-status-healthy data-active:border-status-healthy/30' },
   { key: 'pending_review',  label: 'Review',         classes: 'data-active:bg-status-critical/12 data-active:text-status-critical data-active:border-status-critical/30' },
   { key: 'pending_payment', label: 'Pending Pay',    classes: 'data-active:bg-status-warning/12 data-active:text-status-warning data-active:border-status-warning/30' },
