@@ -24,7 +24,7 @@ import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServic
 import DCAInlineBanner from '@/components/bakabar/DCAInlineBanner';
 import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
 import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
-import { SIDEBAR_MREC, TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
+import { TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
 import { VIRAL_MALUT } from '@/components/bakabar/viral-malut-data';
 import type { HeroSlide } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
@@ -167,7 +167,6 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
               {/* Hero render LANGSUNG — slides selalu terisi (server / fallback statis) */}
               <HeroWithSidebar
                 slides={slides}
-                sidebar_mrec={SIDEBAR_MREC}
                 terpopuler={TERPOPULER_LIST}
               />
 

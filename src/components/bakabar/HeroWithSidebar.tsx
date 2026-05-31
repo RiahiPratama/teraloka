@@ -17,13 +17,12 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { TrendingUp, ChevronLeft, ChevronRight } from 'lucide-react';
-import type { HeroSlide, StackBannerAd, DummyArticle } from './region-data';
-// SESI 5E Phase 3c: Kumparan-style disclosure label
-import { getAdLabel } from '@/lib/ads/getAdLabel';
+import type { HeroSlide, DummyArticle } from './region-data';
+// SESI 11 (31 Mei 2026): MREC homepage = iklan ASLI dari ADS (posisi sidebar)
+import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
 
 type Props = {
   slides: HeroSlide[];
-  sidebar_mrec: StackBannerAd;
   terpopuler: DummyArticle[];
 };
 
@@ -163,7 +162,7 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
 }
 
 // ─── Main HeroWithSidebar ─────────────────────────────────────
-export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Props) {
+export default function HeroWithSidebar({ slides, terpopuler }: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
   // Hydration-safe time: waktu relatif baru dihitung setelah mount (client).
   const [mounted, setMounted] = useState(false);
@@ -252,35 +251,10 @@ export default function HeroWithSidebar({ slides, sidebar_mrec, terpopuler }: Pr
       {/* ─── RIGHT: Sidebar 320px (STATIC, gak ikut slide) ──── */}
       <div className="flex flex-col gap-4">
 
-        {/* Mrec Ad */}
-        <div className="relative w-full rounded-xl p-5 text-white cursor-pointer overflow-hidden flex flex-col justify-between"
-          style={{ background: 'linear-gradient(135deg, #065F46 0%, #064E3B 100%)', aspectRatio: '6 / 5' }}>
-          {(() => {
-            const label = getAdLabel({
-              advertiser_type: (sidebar_mrec as { advertiser_type?: string }).advertiser_type,
-              ad_format: 'image',
-            });
-            if (!label) return null;
-            return (
-              <span className="absolute top-2 right-2 z-10 px-2 py-1 rounded-sm text-[9px] font-extrabold tracking-widest uppercase"
-                style={{ background: '#F59E0B', color: '#fff' }}>
-                {label}
-              </span>
-            );
-          })()}
-          <div>
-            <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-2" style={{ color: '#F59E0B' }}>
-              {sidebar_mrec.overline}
-            </p>
-            <p className="text-[18px] font-bold leading-[1.2]" style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
-              {sidebar_mrec.title}
-            </p>
-            <p className="text-[11px] opacity-75 mt-2">{sidebar_mrec.body}</p>
-          </div>
-          <button className="self-start text-white px-3 py-1.5 rounded-md text-[11px] font-bold" style={{ background: '#F59E0B' }}>
-            {sidebar_mrec.cta_label} →
-          </button>
-        </div>
+        {/* MREC Ad — SESI 11 (31 Mei): dummy "Tabungan Dana Bahari" diganti
+            iklan ASLI dari ADS (posisi `sidebar`). Kosong → fallback placeholder
+            netral. Iklan FREE "Pasang Iklan" / berbayar muncul di sini. */}
+        <AdSidebarSlug />
 
         {/* Terpopuler list */}
         <div className="rounded-xl p-4"
