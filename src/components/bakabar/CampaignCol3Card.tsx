@@ -1,18 +1,30 @@
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Campaign Col-3 Card (Phase 4 — Tahap 2, Data Real BADONASI)
+// BAKABAR — Campaign Col-3 Card (Phase 4 — Tahap 2 + 3-B, Data Real BADONASI)
 // PATH: src/components/bakabar/CampaignCol3Card.tsx
 // ────────────────────────────────────────────────────────────────
+// v2 (31 Mei 2026, Tahap 3-B): + strip "doa terbaru" di bawah meta.
+//   - Konsumsi field `latest_doa` dari GET /funding/campaigns
+//     (backend attachLatestDoa: verified + message + masking Hamba Allah).
+//   - Muncul HANYA kalau latest_doa != null (kampanye sudah ada donasi
+//     verified ber-message). Kalau null → strip disembunyikan, layout
+//     lama persis (no regresi).
+//
 // Kartu KAMPANYE BADONASI (data real) untuk slot kolom-3 zona atas.
-//   - Konsumsi GET /funding/campaigns (di-fetch di BakabarShell, 1x).
-//   - White card + cover image + progress bar + donatur → "berisi",
-//     ngisi tinggi kolom (beda dari kartu gradient promosi/zakat).
+//   - White card + cover image + progress bar + donatur → "berisi".
 //   - Brand BADONASI = pink. CTA → /fundraising/[slug].
-//   - Editorial-safe: ini house content (layanan sendiri), bukan iklan
+//   - Editorial-safe: house content (layanan sendiri), bukan iklan
 //     pihak ketiga → no IKLAN badge.
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
-import { ArrowRight, Users } from 'lucide-react';
+import { ArrowRight, Users, Heart } from 'lucide-react';
+
+export type LatestDoa = {
+  donor_name: string;
+  message:    string;
+  amount:     number;
+  created_at: string;
+};
 
 export type BadonasiCampaign = {
   id:               string;
@@ -25,10 +37,15 @@ export type BadonasiCampaign = {
   donor_count:      number;
   cover_image_url?: string | null;
   is_urgent?:       boolean;
+  latest_doa?:      LatestDoa | null;   // Tahap 3-B
 };
 
 function rupiah(n: number) {
   return 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
+}
+
+function initial(name: string) {
+  return (name?.trim()?.[0] || 'H').toUpperCase();
 }
 
 type Props = { campaign: BadonasiCampaign; className?: string };
@@ -37,6 +54,8 @@ export default function CampaignCol3Card({ campaign, className = '' }: Props) {
   const pct = campaign.target_amount > 0
     ? Math.min(100, Math.round((campaign.collected_amount / campaign.target_amount) * 100))
     : 0;
+
+  const doa = campaign.latest_doa ?? null;
 
   return (
     <Link
@@ -92,6 +111,25 @@ export default function CampaignCol3Card({ campaign, className = '' }: Props) {
               <ArrowRight size={10} strokeWidth={2.8} />
             </span>
           </div>
+
+          {/* Strip doa terbaru (Tahap 3-B) — muncul hanya kalau ada */}
+          {doa && (
+            <div className="flex items-start gap-2 mt-2.5 pt-2.5" style={{ borderTop: '1px solid #F3F4F6' }}>
+              <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold mt-0.5"
+                style={{ background: 'linear-gradient(135deg, #EC4899, #BE185D)' }}>
+                {initial(doa.donor_name)}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1 mb-0.5">
+                  <Heart size={9} strokeWidth={2.6} style={{ color: '#BE185D' }} className="shrink-0" />
+                  <span className="text-[10px] font-bold text-gray-700 truncate">{doa.donor_name}</span>
+                </div>
+                <p className="text-[10px] text-gray-500 italic leading-[1.3] line-clamp-1">
+                  &ldquo;{doa.message}&rdquo;
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </Link>
