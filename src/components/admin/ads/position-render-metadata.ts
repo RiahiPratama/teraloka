@@ -31,7 +31,7 @@
  *   - dormant  : Komponen ada di codebase tapi belum di-mount. Upload iklan
  *                ke posisi dormant = GAK TAYANG sampai mount dieksekusi.
  *
- * Total posisi: 10 active + 2 dormant = 12 posisi
+ * Total posisi: 11 active + 2 dormant = 13 posisi (31 Mei: +service_carousel)
  * Phase 2 tasks (defer):
  *   - Rename `homepage_hero_banner` → `pilihan_sponsor_carousel` serentak (3 layer)
  *   - Mount `inline_banner` + `banner` ke frontend kalau mau pakai
@@ -187,6 +187,29 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     frontendUrl:          '/bakabar',
   },
 
+  // ─── HOMEPAGE: CAROUSEL LAYANAN TERALOKA (PALING BAWAH) ─────────
+  // 31 Mei 2026 — eks komponen LaIndieMovieServiceCarousel (dulu hardcoded
+  // 5 layanan gradient+emoji) jadi ADS-driven. Optimal 5, maks 6 (animasi).
+  // Fallback hidden: belum ada banner = carousel disembunyikan.
+  service_carousel: {
+    key:                  'service_carousel',
+    label:                'Carousel Layanan TeraLoka',
+    renderType:           'CAROUSEL_MULTI',
+    visualSlotCount:      5,
+    recommendedMaxActive: 5,
+    component:            'LaIndieMovieServiceCarousel',
+    realDim:              '165×220px',
+    recommendedImageDim:  '165×220px',
+    aspectRatio:          '3:4 poster vertikal',
+    displayLocation:      'Homepage BAKABAR, paling bawah — setelah semua section wilayah + section Viral, sebelum widget langganan WhatsApp. Carousel 5 poster yang berputar otomatis.',
+    deviceScope:          'all',
+    mountStatus:          'active',
+    supportsTextFormat:   false,
+    pageGroup:            'banner_area',
+    description:          'Carousel "Layanan TeraLoka" — poster vertikal 3:4 berputar otomatis (optimal 5, maks 6). Banner statis ATAU motion (.webM). Tiap banner punya link tujuan sendiri. Kalau belum ada banner aktif, carousel disembunyikan.',
+    frontendUrl:          '/bakabar',
+  },
+
   // ─── HOMEPAGE: SKYSCRAPER KIRI-KANAN ────────────────────────────
   skyscraper_left: {
     key:                  'skyscraper_left',
@@ -250,20 +273,20 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
   // ─── HOMEPAGE: STACK BANNER PER WILAYAH ─────────────────────────
   region_stack: {
     key:                  'region_stack',
-    label:                'Sidebar Kanan Vertikal Section Wilayah',
+    label:                'Banner Kolom Kanan Section Wilayah',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCAStackBanner',
-    realDim:              '320×400px',
-    recommendedImageDim:  '320×400px',
-    aspectRatio:          '4:5 vertikal',
-    displayLocation:      'Homepage BAKABAR, kolom ke-3 (paling kanan) dari setiap section wilayah — kartu vertikal dengan background image + teks overlay',
+    realDim:              '320×200px',
+    recommendedImageDim:  '320×200px',
+    aspectRatio:          '8:5 horizontal',
+    displayLocation:      'Homepage BAKABAR, kolom ke-3 (paling kanan) dari setiap section wilayah — banner landscape, bisa tampil 1–2 banner ditumpuk per section',
     deviceScope:          'all',
     mountStatus:          'active',
     supportsTextFormat:   false,
     pageGroup:            'banner_area',
-    description:          'Stack card vertikal dengan background image. Per-wilayah targeting. Kolom ke-3 region.',
+    description:          'Banner landscape 8:5 di kolom ke-3 section wilayah. Bisa 1–2 banner stack per section (2 banner di section tanpa kartu data, 1 banner di bawah kartu Kampanye/Suara Warga). Per-wilayah targeting.',
     frontendUrl:          '/bakabar',
   },
 
@@ -524,6 +547,7 @@ export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
   'skyscraper_left',
   'skyscraper_right',
   'inline_banner',
+  'service_carousel',
 ];
 
 /** True kalau posisi boleh pakai Banner Motion (video webM/mp4). */
