@@ -15,13 +15,13 @@
 // ══════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import Link from 'next/link';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
 import RegionSection, { type HouseSlot } from '@/components/bakabar/RegionSection';
 import LaIndieMoviePoliticalBanner from '@/components/bakabar/LaIndieMoviePoliticalBanner';
 import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServiceCarousel';
+import DCAInlineBanner from '@/components/bakabar/DCAInlineBanner';
 import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
 import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 import { SIDEBAR_MREC, TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
@@ -54,44 +54,10 @@ function windowReports(all: BalaporReport[], offset: number, count = 3): Balapor
   return out;
 }
 
-// ─── BADONASI Strategic Inline Promo (unchanged) ──────────────────
-function BadonasiInlinePromo() {
-  return (
-    <Link
-      href="/fundraising"
-      className="relative block my-8 rounded-lg overflow-hidden text-white cursor-pointer transition-all duration-300 hover:scale-[1.01]"
-      style={{
-        background: 'linear-gradient(135deg, #EC4899 0%, #9d174d 100%)',
-        boxShadow: '0 6px 20px rgba(157, 23, 77, 0.25)',
-      }}
-    >
-      <div className="absolute inset-0 pointer-events-none" style={{
-        background:
-          'radial-gradient(circle at 80% 20%, rgba(255,255,255,0.15) 0%, transparent 50%), radial-gradient(circle at 20% 80%, rgba(245,158,11,0.12) 0%, transparent 50%)',
-      }} />
-      <div className="absolute pointer-events-none" style={{
-        right: -10, bottom: -20, fontSize: 110, opacity: 0.16, lineHeight: 1,
-      }}>🤲</div>
-      <div className="relative z-[2] p-5 md:p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-        <div className="flex-1 min-w-0">
-          <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase opacity-85 mb-1.5">
-            BADONASI · Layanan TeraLoka
-          </p>
-          <h3 className="text-[18px] md:text-[22px] font-extrabold leading-tight mb-1"
-            style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
-            Galang Donasi untuk Sesama Warga MalUt
-          </h3>
-          <p className="text-[12px] opacity-90">
-            Bantu kebutuhan mendesak warga di kampungmu — donasi mudah, transparan, langsung sampai.
-          </p>
-        </div>
-        <span className="inline-block bg-white text-pink-700 px-4 py-2 rounded-md text-[11px] font-extrabold uppercase tracking-[0.5px] whitespace-nowrap self-start md:self-auto">
-          Berdonasi →
-        </span>
-      </div>
-    </Link>
-  );
-}
+// ─── BADONASI Strategic Inline Promo (DICABUT 31 Mei) ─────────────
+// v14.6: slot idx===1 sekarang pakai <DCAInlineBanner /> (posisi ADS
+// `inline_banner`, money-first). Banner pink statis di-pensiun — donasi
+// tetap hadir via kartu Kampanye kolom-3 + ticker BASUMBANG + /fundraising.
 
 export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
   const [trendingAdsByRegion, setTrendingAdsByRegion] =
@@ -215,7 +181,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
                     />
 
                     {idx === 0 && <LaIndieMoviePoliticalBanner />}
-                    {idx === 1 && <BadonasiInlinePromo />}
+                    {idx === 1 && <DCAInlineBanner />}
                   </div>
                 );
               })}

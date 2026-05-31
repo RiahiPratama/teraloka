@@ -31,7 +31,7 @@
  *   - dormant  : Komponen ada di codebase tapi belum di-mount. Upload iklan
  *                ke posisi dormant = GAK TAYANG sampai mount dieksekusi.
  *
- * Total posisi: 11 active + 2 dormant = 13 posisi (31 Mei: +service_carousel)
+ * Total posisi: 12 active + 1 dormant = 13 posisi (31 Mei: +service_carousel, inline_banner mounted)
  * Phase 2 tasks (defer):
  *   - Rename `homepage_hero_banner` → `pilihan_sponsor_carousel` serentak (3 layer)
  *   - Mount `inline_banner` + `banner` ke frontend kalau mau pakai
@@ -96,7 +96,7 @@ export interface PositionRenderMetadata {
 }
 
 // ════════════════════════════════════════════════════════════════
-// METADATA MATRIX — 12 Position Keys (10 active + 2 dormant)
+// METADATA MATRIX — 13 Position Keys (12 active + 1 dormant)
 // ════════════════════════════════════════════════════════════════
 
 export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = {
@@ -121,10 +121,10 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     frontendUrl:          '/bakabar',
   },
 
-  // ─── HOMEPAGE: ANTAR SECTION ────────────────────────────────────
+  // ─── HOMEPAGE: ANTAR SECTION (banner full-width horizontal) ─────
   inline_banner: {
     key:                  'inline_banner',
-    label:                'Banner Antar Section (Belum Aktif)',
+    label:                'Banner Lebar Antar Section',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
     recommendedMaxActive: null,
@@ -132,13 +132,12 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              '1600×200px',
     recommendedImageDim:  '1600×200px',
     aspectRatio:          '8:1 horizontal panjang',
-    displayLocation:      '(BELUM TAYANG) Rencana: di antara section wilayah di homepage',
+    displayLocation:      'Homepage BAKABAR, banner lebar mendatar setelah section wilayah ke-2 (Tidore). Slot full-width — kalau ada iklan bayar, tampil di sini; kalau kosong, slot disembunyikan.',
     deviceScope:          'all',
-    mountStatus:          'dormant',
-    mountNote:            'Komponen DCAInlineBanner.tsx ada tapi belum di-import ke homepage. Upload iklan ke sini GAK BAKAL TAYANG sampai mount dieksekusi (Phase 2 TD-ADS-MOUNT-INLINE).',
+    mountStatus:          'active',
     supportsTextFormat:   false,
     pageGroup:            'banner_area',
-    description:          'DORMANT. Banner horizontal panjang 8:1, untuk antar section wilayah. Phase 2.',
+    description:          'Banner lebar mendatar 8:1 di antara section wilayah. Money-first: kalau ada advertiser bayar, iklannya tayang; kalau gak ada, slot kosong (hidden). Statis / DCA / Motion.',
     frontendUrl:          '/bakabar',
   },
 
