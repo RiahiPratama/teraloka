@@ -1,18 +1,17 @@
 'use client';
 
 // ══════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.3 (Client Interactivity)
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.4 (Client Interactivity)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
 // ──────────────────────────────────────────────────────────────────
-// v14.3 (31 Mei 2026, Tahap 3): tambah Suara Warga BALAPOR ke rotasi.
-//   - Fetch GET /public/reports/recent (1x, client, non-blocking).
-//   - houseSlotType(idx) pola idx%4: 0=Layanan, 1=Kampanye, 2=BALAPOR, 3=Zakat
-//     → rata 3 slot masing-masing dari 12 section.
-//   - BALAPOR slot dapet window 3 laporan (round-robin offset).
-//   - Slot kampanye/balapor fallback ke promosi layanan kalau data kosong.
+// v14.4 (31 Mei 2026): Layanan + Zakat dicabut dari kolom-3 (→ jalur ADS).
+//   - houseSlotType: 'kampanye' | 'balapor' | 'ads'.
+//   - Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10) = data real house card.
+//   - Sisanya (6 section) = ADS murni (2 banner stack via RegionSection).
 //
-// v14.2 (31 Mei): fetch campaigns + orchestrate rotasi house content.
-// v14.0 (31 Mei): Opsi B RSC split — hero render langsung dari server slides.
+// v14.3 (31 Mei): + Suara Warga BALAPOR ke rotasi.
+// v14.2 (31 Mei): fetch campaigns + orchestrate house content.
+// v14.0 (31 Mei): Opsi B RSC split — hero render dari server slides.
 // ══════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
@@ -33,15 +32,16 @@ import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
-// ─── Pola rotasi house content kolom-3 (zona atas) ────────────────
-// idx % 4: 0 = Layanan, 1 = Kampanye, 2 = BALAPOR, 3 = Zakat.
-// Rata 3 slot masing-masing dari 12 section. Ubah di sini buat ganti komposisi.
+// ─── Pola slot house content kolom-3 (zona atas) ──────────────────
+// v14.4 (31 Mei): Layanan + Zakat DICABUT (→ jalur ADS banner Canva).
+// House card = HANYA data real: Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10).
+// Sisanya (idx 0,3,4,7,8,11) = 'ads' → 2 banner ADS stack di kolom-3.
+// Ubah di sini buat ganti komposisi.
 function houseSlotType(idx: number): HouseSlot {
   const mod = idx % 4;
   if (mod === 1) return 'kampanye';
   if (mod === 2) return 'balapor';
-  if (mod === 3) return 'zakat';
-  return 'layanan';
+  return 'ads'; // mod 0 & 3 (eks Layanan + eks Zakat) → ADS murni
 }
 
 // Ambil `count` laporan dari `all` mulai `offset` (wrap), tanpa duplikat dalam 1 kartu.

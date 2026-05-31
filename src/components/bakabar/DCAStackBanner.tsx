@@ -1,18 +1,21 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — DCA Stack Banner v1.0 (Mission 7 Sub-Phase 7-B-3)
+// BAKABAR — DCA Stack Banner v2.0 (Phase 4 — Multi-Ad region_stack)
 // PATH: src/components/bakabar/DCAStackBanner.tsx
 // ────────────────────────────────────────────────────────────────
-// Block banner di Col 3 RegionSection (bawah Layanan TeraLoka card).
-// Replace hardcoded stack_banner inline → fetch public.ads
-// /by-position/region_stack?region=<slug>. DCA-ready.
+// v2.0 (31 Mei 2026): support 1–2 banner ADS per slot (revenue inventory).
+//   - prop `maxAds` (default 1) → fetch limit=maxAds, render up to N banner.
+//   - Tiap banner = rasio PATEN 8:5 (aspect-[8/5]) biar foto Canva tampil
+//     sesuai desain (gak ke-crop). Canva size rekomendasi: 1080×675.
+//   - Backward compat: tanpa maxAds = 1 banner (perilaku lama).
+//   - Logic DCA / video (Banner Motion) / Editorial-ADS Firewall:
+//     StackInner UNCHANGED (di-reuse per banner).
 //
-// Target_regions logic (carry-over Mission 6 Phase 6 hotfix):
-//   - target_regions specific match (e.g., ['ternate']) → prioritas
-//   - target_regions NULL → fallback all-region
+// v1.0 PRIOR (Mission 7-B-3): single banner region_stack, flex-1.
 //
-// PRD: 02-PRD-DCA-v1.1
+// Slot zona-bawah Col 3 RegionSection. Fetch public.ads
+// /by-position/region_stack?region=<slug>. DCA + video ready.
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react';
@@ -47,7 +50,7 @@ export interface StackBannerAd {
 
 type Props = {
   regionSlug: string;
-  ad?:        StackBannerAd | null;  // optional pre-fetched (parent fetcher pattern)
+  maxAds?:    number;   // v2.0: 1 (default) atau 2 (ADS-murni stack)
 };
 
 const HOVER_GRACE_MS = 1500;
@@ -65,27 +68,20 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export default function DCAStackBanner({ regionSlug, ad: preFetchedAd }: Props) {
-  const [ad, setAd] = useState<StackBannerAd | null>(preFetchedAd ?? null);
-  const [loading, setLoading] = useState(!preFetchedAd);
+export default function DCAStackBanner({ regionSlug, maxAds = 1 }: Props) {
+  const [ads, setAds] = useState<StackBannerAd[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Self-fetch only if no pre-fetched ad provided (defensive)
   useEffect(() => {
-    if (preFetchedAd !== undefined) {
-      setAd(preFetchedAd);
-      setLoading(false);
-      return;
-    }
-
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch(
-          `${API}/public/ads/by-position/region_stack?region=${encodeURIComponent(regionSlug)}&limit=1`
+          `${API}/public/ads/by-position/region_stack?region=${encodeURIComponent(regionSlug)}&limit=${maxAds}`
         );
         const json = await res.json();
-        if (!cancelled && json?.success && Array.isArray(json.data) && json.data[0]) {
-          setAd(json.data[0] as StackBannerAd);
+        if (!cancelled && json?.success && Array.isArray(json.data)) {
+          setAds((json.data as StackBannerAd[]).slice(0, maxAds));
         }
       } catch {
         // Empty state — gracefully hide
@@ -94,12 +90,22 @@ export default function DCAStackBanner({ regionSlug, ad: preFetchedAd }: Props) 
       }
     })();
     return () => { cancelled = true; };
-  }, [regionSlug, preFetchedAd]);
+  }, [regionSlug, maxAds]);
 
-  if (loading || !ad) return null;
+  if (loading || ads.length === 0) return null;
 
+  return (
+    <>
+      {ads.map((ad) => (
+        <StackAdCard key={ad.id} ad={ad} regionSlug={regionSlug} />
+      ))}
+    </>
+  );
+}
+
+// ─── Single banner card (rasio paten 8:5) ───────────────────────
+function StackAdCard({ ad, regionSlug }: { ad: StackBannerAd; regionSlug: string }) {
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
-  // SESI 11 Batch 8: video bg (Banner Motion) untuk region_stack
   const regionVideo = ad.ad_format === 'video' ? (ad.video_sources?.['region_stack'] ?? null) : null;
   const hasVideo = !!(regionVideo && (regionVideo.webm || regionVideo.mp4));
 
@@ -113,8 +119,7 @@ export default function DCAStackBanner({ regionSlug, ad: preFetchedAd }: Props) 
       data-ad-position="region_stack"
       data-region={regionSlug}
       data-ad-mode={hasVideo ? 'video' : isDCA ? 'dca' : 'static'}
-      className="flex-1 rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer"
-      style={{ minHeight: 0 }}
+      className="w-full shrink-0 aspect-[8/5] rounded-lg p-3.5 text-white relative overflow-hidden flex flex-col cursor-pointer"
     >
       <StackInner ad={ad} isDCA={isDCA} videoSource={hasVideo ? regionVideo : null} />
     </a>

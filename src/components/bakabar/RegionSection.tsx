@@ -1,22 +1,23 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKABAR — Region Section v10.8 (Phase 4 — Kolom-3 Renderer Murni)
+// BAKABAR — Region Section v11.0 (Phase 4 — House Data-Only + ADS)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
-// v10.8 UPDATE (31 Mei 2026, Phase 4 — Tahap 3):
-//   - Tambah houseSlot 'balapor' → SuaraWargaCol3Card (mini-list laporan).
-//   - houseSlot: 'layanan' | 'kampanye' | 'balapor' | 'zakat'
-//       layanan  → StackLayananTeraLoka (promosi kontekstual)
-//       kampanye → CampaignCol3Card (data real BADONASI) | fallback layanan
-//       balapor  → SuaraWargaCol3Card (data real BALAPOR)  | fallback layanan
-//       zakat    → ZakatCol3Card (ajakan)
-//   - Fallback: kampanye/balapor tanpa data → layanan (slot gak pernah kosong).
-//   - Zona BAWAH (DCAStackBanner slot iklan) + layout lain UNCHANGED.
+// v11.0 UPDATE (31 Mei 2026):
+//   - CABUT slot Layanan + Zakat dari kolom-3. Filosofi: kartu house =
+//     HANYA yang punya DATA REAL (Kampanye BADONASI + Suara Warga BALAPOR).
+//     Promo/ajakan (Layanan, Zakat) → pindah ke jalur ADS (banner Canva).
+//   - houseSlot: 'kampanye' | 'balapor' | 'ads'
+//       kampanye → CampaignCol3Card (data real) + 1 banner ADS bawah
+//       balapor  → SuaraWargaCol3Card (data real) + 1 banner ADS bawah
+//       ads      → 2 banner ADS stack (inventory revenue, full slot)
+//   - Kampanye/balapor tanpa data → otomatis jatuh ke 'ads' (no kartu kosong).
+//   - StackLayananTeraLoka + ZakatCol3Card TIDAK lagi dipakai di sini
+//     (komponennya dibiarkan ada — nganggur, cleanup terpisah).
 //
-// v10.7 PRIOR (31 Mei): renderer murni, houseSlot + houseCampaign.
-// v10.5 PRIOR (31 Mei): single source kartu Layanan via StackLayananTeraLoka.
-// v10.4 PRIOR (15 Mei): <DCAStackBanner /> fetch public.ads (DCA-ready).
+// v10.8 PRIOR (31 Mei): +houseSlot 'balapor' (Suara Warga).
+// v10.4 PRIOR (15 Mei): <DCAStackBanner /> fetch public.ads.
 // v10.3 PRIOR (Mission 6): trendingAd inject idx=2 + ResizeObserver sync.
 // ════════════════════════════════════════════════════════════════
 
@@ -27,12 +28,10 @@ import type { RegionConfig } from './region-data';
 import WeatherWidget from '../shared/environment/WeatherWidget';
 import TrendingArticleAd, { type TrendingNativeAd } from './TrendingArticleAd';
 import DCAStackBanner from './DCAStackBanner';
-import StackLayananTeraLoka from './StackLayananTeraLoka';
-import ZakatCol3Card from './ZakatCol3Card';
 import CampaignCol3Card, { type BadonasiCampaign } from './CampaignCol3Card';
 import SuaraWargaCol3Card, { type BalaporReport } from './SuaraWargaCol3Card';
 
-export type HouseSlot = 'layanan' | 'kampanye' | 'balapor' | 'zakat';
+export type HouseSlot = 'kampanye' | 'balapor' | 'ads';
 
 const REGION_BG: Record<string, string> = {
   't-nasional': 'linear-gradient(180deg, #003526 30%, #001a13 100%)',
@@ -80,7 +79,7 @@ function timeAgo(dateStr: string) {
 type Props = {
   region:         RegionConfig;
   trendingAd?:    TrendingNativeAd | null;
-  houseSlot?:     HouseSlot;                  // jenis kartu zona atas kolom-3 (dari BakabarShell)
+  houseSlot?:     HouseSlot;                  // jenis zona atas kolom-3 (dari BakabarShell)
   houseCampaign?: BadonasiCampaign | null;    // data kampanye (kalau houseSlot='kampanye')
   houseReports?:  BalaporReport[];            // data laporan (kalau houseSlot='balapor')
 };
@@ -88,16 +87,12 @@ type Props = {
 export default function RegionSection({
   region,
   trendingAd = null,
-  houseSlot = 'layanan',
+  houseSlot = 'ads',
   houseCampaign = null,
   houseReports = [],
 }: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
-    layanan_variant, layanan_body,
-    // Note v10.4: stack_banner dari RegionConfig NO LONGER USED
-    // (replaced with <DCAStackBanner /> fetch DB). Keep destructure
-    // for backward compat saat region-data.ts cleanup nanti.
   } = region;
 
   const showWeather = slug !== 'nasional';
@@ -119,10 +114,9 @@ export default function RegionSection({
 
   const stretchStyle = col1Height ? { height: `${col1Height}px` } : undefined;
 
-  // Zona atas kolom-3: data real butuh isi; kalau kosong → fallback layanan
+  // Zona atas kolom-3: data real butuh isi; kalau kosong → ADS murni (no kartu kosong)
   const showCampaign = houseSlot === 'kampanye' && !!houseCampaign;
   const showBalapor  = houseSlot === 'balapor' && houseReports.length > 0;
-  const showZakat    = houseSlot === 'zakat';
 
   return (
     <section className="my-12">
@@ -247,28 +241,25 @@ export default function RegionSection({
           </div>
         </div>
 
-        {/* Col 3: Stack (house content rotasi + DCAStackBanner slot iklan) */}
+        {/* Col 3: house data card (kalau ada) + slot ADS region_stack */}
         <div className="relative min-w-0" style={stretchStyle}>
           <div className="flex flex-col gap-2.5 h-full">
 
-            {/* Zona ATAS = house content (jenis ditentukan BakabarShell).
-                kampanye/balapor (data real) → zakat (ajakan) → layanan (fallback). */}
             {showCampaign ? (
-              <CampaignCol3Card campaign={houseCampaign!} className="flex-1" />
+              <>
+                <CampaignCol3Card campaign={houseCampaign!} className="flex-1" />
+                {/* 1 banner ADS di bawah kartu data */}
+                <DCAStackBanner regionSlug={slug} maxAds={1} />
+              </>
             ) : showBalapor ? (
-              <SuaraWargaCol3Card reports={houseReports} className="flex-1" />
-            ) : showZakat ? (
-              <ZakatCol3Card className="flex-1" />
+              <>
+                <SuaraWargaCol3Card reports={houseReports} className="flex-1" />
+                <DCAStackBanner regionSlug={slug} maxAds={1} />
+              </>
             ) : (
-              <StackLayananTeraLoka
-                variant={layanan_variant}
-                body={layanan_body}
-                className="flex-1"
-              />
+              /* ADS murni: 2 banner stack (eks slot Layanan/Zakat) */
+              <DCAStackBanner regionSlug={slug} maxAds={2} />
             )}
-
-            {/* Zona BAWAH = slot iklan (Mission 7-B-3): DCAStackBanner fetch public.ads */}
-            <DCAStackBanner regionSlug={slug} />
 
           </div>
         </div>
