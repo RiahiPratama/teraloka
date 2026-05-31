@@ -23,6 +23,9 @@ import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
+// SESI 11 (31 Mei 2026): viewability impression + click beacon
+import { useAdView } from '@/hooks/useAdView';
+import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -63,8 +66,9 @@ async function fetchActiveAd(
   }
 }
 
+// SESI 11: klik lewat beacon batch (bukan fetch /click langsung)
 function trackAdClick(adId: string) {
-  fetch(`${API}/public/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
+  queueClick(adId);
 }
 
 const ADVERTISER_TYPE_LABEL: Record<string, string> = {
@@ -84,6 +88,8 @@ export default function AdNativeSlug({ formatFilter }: Props = {}) {
   const { region } = useRegion();
 
   const [ad, setAd] = useState<Ad | null>(null);
+  // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x)
+  const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
   const [loaded, setLoaded] = useState(false);
 
   // Re-fetch saat region atau formatFilter berubah
@@ -129,7 +135,7 @@ export default function AdNativeSlug({ formatFilter }: Props = {}) {
     const preview = truncate(ad.body || '', 140);
 
     return (
-      <Link href={`/bakabar/sponsored/${ad.slug}`}
+      <Link ref={viewRef as any} href={`/bakabar/sponsored/${ad.slug}`}
         onClick={() => trackAdClick(ad.id)}
         className="block mt-5 rounded-2xl border p-4 hover:shadow-md transition-all"
         style={{
@@ -179,7 +185,7 @@ export default function AdNativeSlug({ formatFilter }: Props = {}) {
   const displayBody  = isDCA ? null : ad.body;
 
   return (
-    <a href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
+    <a ref={viewRef as any} href={ad.link_url} target="_blank" rel="noopener noreferrer sponsored"
       onClick={() => trackAdClick(ad.id)}
       className="block mt-5 rounded-2xl p-4 hover:shadow-sm transition-all"
       style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>

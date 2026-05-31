@@ -23,6 +23,9 @@ import { useState } from 'react';
 import DCABanner, { type AdFrame } from './DCABanner';
 // SESI 5E Phase 3c: Kumparan-style subtle disclosure
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+// SESI 11 (31 Mei 2026): viewability impression + click beacon
+import { useAdView } from '@/hooks/useAdView';
+import { queueClick } from '@/lib/adTracking';
 
 // Match backend response shape — extended Mission 7 dengan creative_frames
 export type TrendingNativeAd = {
@@ -55,6 +58,8 @@ const BG_HOVER          = 'rgba(254, 252, 232, 0.4)';
 
 export default function TrendingArticleAd({ ad, regionSlug, short_label }: Props) {
   const [imgFailed, setImgFailed] = useState(false);
+  // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x). Wajib sebelum early-return.
+  const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
 
   if (!ad) return null;
 
@@ -67,6 +72,8 @@ export default function TrendingArticleAd({ ad, regionSlug, short_label }: Props
 
   return (
     <a
+      ref={viewRef as any}
+      onClick={() => queueClick(ad.id)}
       href={href}
       target="_blank"
       rel="sponsored noopener noreferrer"

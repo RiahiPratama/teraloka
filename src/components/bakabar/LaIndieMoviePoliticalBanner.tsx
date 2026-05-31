@@ -33,6 +33,9 @@
 import { useEffect, useState, useRef } from 'react';
 // SESI 11 Batch 8 (31 Mei 2026): Banner Motion focused-only (webM poster)
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
+// SESI 11 (31 Mei 2026): viewability impression + click beacon
+import { useAdView } from '@/hooks/useAdView';
+import { queueClick } from '@/lib/adTracking';
 
 interface HeroAd {
   id:                    string;
@@ -290,10 +293,12 @@ function HeroPoster({ ad, isFocused, watermark, positionKey, reducedMotion, onHo
   // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
   const v = ad.video_sources?.[positionKey] ?? null;
   const hasVideo = !!(v && (v.webm || v.mp4));
+  // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x) per poster
+  const viewRef = useAdView<HTMLElement>(ad.id);
 
   const handleClick = () => {
     if (!ad.link_url) return;
-    fetch(`${API}/public/ads/${ad.id}/click`, { method: 'POST' }).catch(() => {});
+    queueClick(ad.id); // SESI 11: klik lewat beacon batch
   };
 
   const PosterInner = (
@@ -371,6 +376,7 @@ function HeroPoster({ ad, isFocused, watermark, positionKey, reducedMotion, onHo
 
   return (
     <a
+      ref={viewRef as any}
       href={ad.link_url}
       target="_blank"
       rel="sponsored noopener noreferrer"

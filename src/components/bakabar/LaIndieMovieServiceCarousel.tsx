@@ -22,6 +22,9 @@
 import { useEffect, useState, useRef } from 'react';
 import { getAdLabel } from '@/lib/ads/getAdLabel';
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
+// SESI 11 (31 Mei 2026): viewability impression + click beacon
+import { useAdView } from '@/hooks/useAdView';
+import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -173,6 +176,7 @@ export default function LaIndieMovieServiceCarousel() {
 
         <a
           key={focused.id + '-cta'}
+          onClick={() => queueClick(focused.id)}
           href={focused.link_url ?? '#'}
           target="_blank"
           rel="sponsored noopener noreferrer"
@@ -207,9 +211,13 @@ function ServicePoster({ ad, isFocused, onHover, onLeave }: ServicePosterProps) 
   const vs = ad.ad_format === 'video' ? (ad.video_sources?.['service_carousel'] ?? null) : null;
   const hasVideo = !!(vs && (vs.webm || vs.mp4));
   const label = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
+  // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x) per poster
+  const viewRef = useAdView<HTMLElement>(ad.id);
 
   return (
     <a
+      ref={viewRef as any}
+      onClick={() => queueClick(ad.id)}
       href={ad.link_url ?? '#'}
       target="_blank"
       rel="sponsored noopener noreferrer"

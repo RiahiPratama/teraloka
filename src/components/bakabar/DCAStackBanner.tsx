@@ -24,6 +24,9 @@ import { ArrowRight } from 'lucide-react';
 import { getAdLabel } from '@/lib/ads/getAdLabel';
 // SESI 11 Batch 8 (31 Mei 2026): Banner Motion (webM/mp4) sebagai bg kartu region
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
+// SESI 11 (31 Mei 2026): viewability impression + click beacon
+import { useAdView } from '@/hooks/useAdView';
+import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -110,9 +113,13 @@ function StackAdCard({ ad, regionSlug }: { ad: StackBannerAd; regionSlug: string
   // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
   const regionVideo = ad.video_sources?.['region_stack'] ?? null;
   const hasVideo = !!(regionVideo && (regionVideo.webm || regionVideo.mp4));
+  // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x) per kartu
+  const viewRef = useAdView<HTMLElement>(ad.id);
 
   return (
     <a
+      ref={viewRef as any}
+      onClick={() => queueClick(ad.id)}
       href={ad.link_url ?? '#'}
       target="_blank"
       rel="sponsored noopener noreferrer"

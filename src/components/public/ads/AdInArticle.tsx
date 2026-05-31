@@ -42,6 +42,9 @@ import AdAnimatedBanner, {
 import AdVideoBanner, {
   type AdVideoSource,
 } from '@/components/public/ads/AdVideoBanner';
+// SESI 11 (31 Mei 2026): viewability impression + click beacon
+import { useAdView } from '@/hooks/useAdView';
+import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -93,8 +96,9 @@ async function fetchActiveAd(
   }
 }
 
+// SESI 11: klik lewat beacon batch (bukan fetch /click langsung)
 function trackAdClick(adId: string) {
-  fetch(`${API}/public/ads/${adId}/click`, { method: 'POST' }).catch(() => {});
+  queueClick(adId);
 }
 
 const ADVERTISER_TYPE_LABEL: Record<string, string> = {
@@ -117,6 +121,9 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
   const [loaded,  setLoaded]  = useState(false);
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
+
+  // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x)
+  const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
 
   // Re-fetch saat region atau formatFilter berubah
   useEffect(() => {
@@ -141,7 +148,8 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
 
   const setRef = useCallback((el: HTMLElement | null) => {
     setRefEl(el);
-  }, []);
+    viewRef.current = el; // SESI 11: feed sensor impresi
+  }, [viewRef]);
 
   // DCA rotation (Batch C2 + SESI 5E Phase 2 hybrid)
   // SESI 5E Phase 3c: dots indicator hidden — drop activeIdx & total
