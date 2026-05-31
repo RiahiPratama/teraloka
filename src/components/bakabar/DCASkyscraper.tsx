@@ -212,8 +212,11 @@ function SkyscraperInner({
   const ctaLabel = 'Lihat Detail';
 
   // SESI 11 Batch 8: Banner Motion — video fill (ganti gradient card)
+  // SESI 11 (31 Mei 2026): ad_format = HINT, BUKAN gerbang render. Tampilin video
+  // kalau posisi ini PUNYA video_sources, apa pun global ad_format-nya — bikin
+  // iklan mixed (kiri statis + kanan video) render video di posisi yg tepat.
   const posKey = side === 'left' ? 'skyscraper_left' : 'skyscraper_right';
-  const video = ad.ad_format === 'video' ? (ad.video_sources?.[posKey] ?? null) : null;
+  const video = ad.video_sources?.[posKey] ?? null;
   const hasVideo = !!(video && (video.webm || video.mp4));
   if (hasVideo) {
     const vLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
