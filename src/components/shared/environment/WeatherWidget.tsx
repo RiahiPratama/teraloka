@@ -1,23 +1,18 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// SHARED — Environment / Weather Widget (v2.0 PREMIUM)
+// SHARED — Environment / Weather Widget (v2.1 PREMIUM COMPACT)
 // PATH: src/components/shared/environment/WeatherWidget.tsx
 // ────────────────────────────────────────────────────────────────
-// Kartu cuaca compact, BMKG real-time per region MalUt.
+// v2.1 (31 Mei 2026) — COMPACT: padatin tinggi (col-1 lebih pendek).
+//   - Banner peringatan: 3 baris → 2 baris (label+denyut | event · expires →).
+//   - Konten: ikon 44→36px, padding diciutin, footnote "kapal feri"
+//     dilebur INLINE di sebelah pill (hemat 1 baris).
+//   - Semua info tetap ada (suhu, cuaca, angin, lembap, status laut,
+//     peringatan, atribusi BMKG) — cuma lebih rapat.
+// v2.0 (31 Mei): premium redesign + banner Peringatan Dini BMKG + sea pill.
 //
-// v2.0 (31 Mei 2026) — PREMIUM REDESIGN + Peringatan Dini:
-//   - BANNER PERINGATAN DINI BMKG (field `warning` dari backend v3.4):
-//     strip menonjol saat warning aktif, auto-hilang saat lewat `expires`.
-//     Pembeda dari BMKG: peringatan tampil KONTEKSTUAL di kartu wilayah,
-//     plus status keselamatan laut (BMKG gak punya).
-//   - Visual upgrade: gradient halus, glow di balik ikon, sea-status PILL,
-//     hierarki tipografi rapi, jam diperbarui (WIT).
-//   - sea_status_label baru ("🚨 Bahaya Berlayar") + warna ikut severity.
-//
-// v1 (15 Mei): compact card. (31 Mei: footnote sumber ambang.)
-//
-// Graceful: loading=skeleton · error/no-data=null (hidden).
+// Graceful: loading=skeleton · error/no-data=null.
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from 'react';
@@ -56,7 +51,6 @@ interface Props {
   regionName?: string;
 }
 
-// ── BMKG weather code → emoji ─────────────────────────────────
 function getWeatherEmoji(code: number): string {
   if (code === 0) return '☀️';
   if (code === 1 || code === 2) return '⛅';
@@ -68,14 +62,12 @@ function getWeatherEmoji(code: number): string {
   return '🌤️';
 }
 
-// ── Sea status → token warna pill ─────────────────────────────
 function seaPillStyle(status: WeatherData['sea_status']): { bg: string; text: string; ring: string } {
   if (status === 'berbahaya') return { bg: '#FEF2F2', text: '#B91C1C', ring: '#FECACA' };
   if (status === 'waspada')   return { bg: '#FFFBEB', text: '#B45309', ring: '#FDE68A' };
   return { bg: '#ECFDF5', text: '#047857', ring: '#A7F3D0' };
 }
 
-// ── Format jam → WIT (UTC+9, MalUt) ───────────────────────────
 function formatWIT(iso: string): string {
   try {
     const d = new Date(iso);
@@ -105,12 +97,12 @@ export default function WeatherWidget({ regionSlug, regionName }: Props) {
       .finally(() => setLoading(false));
   }, [regionSlug]);
 
-  // ── Skeleton ───────────────────────────────────────────────
+  // ── Skeleton (compact) ─────────────────────────────────────
   if (loading) {
     return (
-      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3.5 py-3 animate-pulse">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-gray-200 shrink-0" />
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-3 py-2.5 animate-pulse">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-full bg-gray-200 shrink-0" />
           <div className="flex-1 space-y-1.5">
             <div className="h-3 bg-gray-200 rounded w-2/3" />
             <div className="h-2 bg-gray-200 rounded w-1/2" />
@@ -122,7 +114,6 @@ export default function WeatherWidget({ regionSlug, regionName }: Props) {
 
   if (error || !weather) return null;
 
-  // Defensif: jangan tampilkan warning yang sudah lewat expires (belt & suspenders).
   const activeWarning =
     weather.warning && Date.parse(weather.warning.expires) > Date.now()
       ? weather.warning
@@ -139,58 +130,52 @@ export default function WeatherWidget({ regionSlug, regionName }: Props) {
         background: 'linear-gradient(160deg, #FFFFFF 0%, #F0F9FF 100%)',
       }}
     >
-      {/* ── BANNER PERINGATAN DINI BMKG (kontekstual) ───────────── */}
+      {/* ── BANNER PERINGATAN DINI BMKG (compact 2 baris) ───────── */}
       {activeWarning && (
         <a
           href={activeWarning.web ?? '#'}
           target="_blank"
           rel="noopener noreferrer"
-          className="block px-3 py-2 text-white transition-opacity hover:opacity-95"
+          className="block px-3 py-1.5 text-white transition-opacity hover:opacity-95"
           style={{
             background: isDanger
               ? 'linear-gradient(100deg, #DC2626 0%, #E11D48 100%)'
               : 'linear-gradient(100deg, #F59E0B 0%, #F97316 100%)',
           }}
         >
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <span className="relative flex h-2 w-2 shrink-0">
+          <div className="flex items-center gap-1.5">
+            <span className="relative flex h-1.5 w-1.5 shrink-0">
               <span className="absolute inline-flex h-full w-full rounded-full bg-white opacity-75 animate-ping" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-white" />
             </span>
-            <span className="text-[10px] font-extrabold tracking-[1px] uppercase">
-              Peringatan Dini BMKG
-            </span>
+            <span className="text-[9px] font-extrabold tracking-[1px] uppercase">Peringatan Dini BMKG</span>
           </div>
-          <p className="text-[12px] font-bold leading-tight">
-            {activeWarning.event}
-          </p>
-          <p className="text-[10px] opacity-90 leading-snug mt-0.5">
-            Berlaku s/d {formatWIT(activeWarning.expires)} · ketuk untuk detail →
+          <p className="text-[11px] font-bold leading-tight mt-0.5 truncate">
+            {activeWarning.event} · s/d {formatWIT(activeWarning.expires)} →
           </p>
         </a>
       )}
 
-      {/* ── Konten cuaca ────────────────────────────────────────── */}
-      <div className="px-3.5 py-3">
-        {/* Baris atas: ikon glow + suhu + desc + attribution */}
-        <div className="flex items-start gap-3">
+      {/* ── Konten cuaca (compact) ──────────────────────────────── */}
+      <div className="px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
           <span
-            className="relative grid place-items-center w-11 h-11 rounded-full shrink-0"
+            className="relative grid place-items-center w-9 h-9 rounded-full shrink-0"
             style={{ background: 'radial-gradient(circle at 50% 38%, rgba(8,145,178,0.20), rgba(8,145,178,0.03))' }}
             role="img"
             aria-label="Kondisi cuaca"
           >
-            <span className="text-[26px] leading-none">{getWeatherEmoji(weather.weather_code)}</span>
+            <span className="text-[20px] leading-none">{getWeatherEmoji(weather.weather_code)}</span>
           </span>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-1.5">
-              <span className="text-[22px] font-extrabold text-gray-900 leading-none tracking-tight">
+              <span className="text-[19px] font-extrabold text-gray-900 leading-none tracking-tight">
                 {weather.temperature}°C
               </span>
               <span className="text-[11px] text-gray-600 truncate">{weather.weather_desc}</span>
             </div>
-            <div className="text-[10px] text-gray-500 mt-1 flex items-center gap-1.5 flex-wrap">
+            <div className="text-[10px] text-gray-500 mt-0.5 flex items-center gap-1.5 flex-wrap">
               <span>💨 {weather.wind_speed} km/j {weather.wind_direction}</span>
               <span className="text-gray-300">·</span>
               <span>💧 {weather.humidity}%</span>
@@ -205,17 +190,15 @@ export default function WeatherWidget({ regionSlug, regionName }: Props) {
           </div>
         </div>
 
-        {/* Sea-status PILL — pembeda TeraLoka (BMKG gak punya) */}
-        <div className="mt-2.5 flex items-center justify-between gap-2">
+        {/* Sea-status: pill + footnote inline (hemat 1 baris) */}
+        <div className="mt-2 flex items-center gap-1.5 min-w-0">
           <span
-            className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border"
+            className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border shrink-0"
             style={{ background: pill.bg, color: pill.text, borderColor: pill.ring }}
           >
             {weather.sea_status_label}
           </span>
-          <span className="text-[8px] text-gray-400 text-right leading-tight">
-            standar kapal feri
-          </span>
+          <span className="text-[8px] text-gray-400 truncate">· standar kapal feri</span>
         </div>
       </div>
     </div>
