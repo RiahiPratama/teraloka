@@ -180,23 +180,37 @@ export default function PositionCreativeModal({
   // SESI 11 Batch 2 (30 Mei 2026): Tab default IKUTIN ad_format (biar admin gak
   // nyasar) — bukan cuma creative yang udah ada. Edit mode tetap aman karena
   // creative existing per-posisi konsisten sama ad_format global.
+  // SESI 11 (31 Mei 2026): Tab default per-POSISI, BUKAN global ad_format.
+  //   EDIT  → ad_format immutable → ikut keluarga format existing (ad lama konsisten).
+  //   CREATE→ ikut creative POSISI INI (video/animasi/dca/static existing), else static.
+  //           Gak ikut global ad_format lagi → tab gak ketuker antar posisi.
   const detectInitialMode = (): Mode => {
-    switch (state.ad_format) {
-      case 'video':    return videoEligible ? 'video' : 'static';
-      case 'animated': return 'animated';
-      case 'text':     return 'static';
-      case 'image':
-      default:
-        if (existingFrames) return 'dca';    // DCA existing
-        if (existingImage)  return 'static'; // static existing
-        // Fresh banner: mendarat di Static (paling aman, gak nge-seed frame kosong
-        // yang bikin status "2 banner" palsu). Admin upgrade ke DCA/Video/Animasi
-        // via tab sesuai paket.
-        return 'static';
+    if (isEditMode) {
+      switch (state.ad_format) {
+        case 'video':    return videoEligible ? 'video' : 'static';
+        case 'animated': return 'animated';
+        case 'text':     return 'static';
+        case 'image':
+        default:
+          if (existingFrames) return 'dca';
+          return 'static';
+      }
     }
+    // CREATE — per-posisi
+    if (existingVideo && videoEligible) return 'video';
+    if (existingTimeline)               return 'animated';
+    if (existingFrames)                 return 'dca';
+    if (existingImage)                  return 'static';
+    // Fresh banner: mendarat di Static (paling aman, gak nge-seed frame kosong
+    // yang bikin status "2 banner" palsu). Admin upgrade via tab sesuai paket.
+    return 'static';
   };
 
   const [mode, setMode] = useState<Mode>(detectInitialMode());
+
+  // SESI 11 (31 Mei 2026): dim/aspect hint ikut TAB AKTIF (mode), bukan global
+  // ad_format (yg skrg gak di-mutate lagi). 'dca'/'static' → keluarga image.
+  const modeFormat = mode === 'video' ? 'video' : mode === 'animated' ? 'animated' : 'image';
 
   // Re-sync mode ketika modal open dengan position berbeda
   // SESI 11 Batch 2: seed struktur kalau fresh + mode butuh init (biar admin
@@ -302,7 +316,8 @@ export default function PositionCreativeModal({
     clearStaticImage();
     clearAnimationTimeline();
     clearVideoSource();
-    if (!isEditMode) setField('ad_format', 'image'); // DCA = keluarga image
+    // SESI 11 (31 Mei 2026): ad_format TIDAK lagi di-mutate per-pilih materi.
+    // Global ad_format = hint yg di-derive at submit dari isi posisi (lihat AdFormProvider).
     setMode('dca');
   };
 
@@ -313,7 +328,6 @@ export default function PositionCreativeModal({
     // Mode-exclusive cleanup
     clearAnimationTimeline();
     clearVideoSource();
-    if (!isEditMode) setField('ad_format', 'image'); // Static = keluarga image
     setMode('static');
   };
 
@@ -326,7 +340,6 @@ export default function PositionCreativeModal({
     const nextFrames = { ...state.position_frames };
     delete nextFrames[positionKey];
     setField('position_frames', nextFrames);
-    if (!isEditMode) setField('ad_format', 'animated');
     setMode('animated');
   };
 
@@ -339,7 +352,6 @@ export default function PositionCreativeModal({
     delete nextFrames[positionKey];
     setField('position_frames', nextFrames);
     // Video source diisi via VideoUpload (start null/empty)
-    if (!isEditMode) setField('ad_format', 'video');
     setMode('video');
   };
 
@@ -455,10 +467,10 @@ export default function PositionCreativeModal({
             <div className="flex flex-wrap items-center gap-3 mt-2 text-[10px]">
               <span className="inline-flex items-center gap-1 text-ads font-bold">
                 <ImageIcon size={11} />
-                {getRecommendedDimForFormat(meta, state.ad_format)}
+                {getRecommendedDimForFormat(meta, modeFormat)}
               </span>
               <span className="text-text-subtle">
-                {getAspectRatioForFormat(meta, state.ad_format)}
+                {getAspectRatioForFormat(meta, modeFormat)}
               </span>
               {state.ad_format === 'text' && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-amber-100 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/40 text-amber-800 dark:text-amber-300 text-[9px] font-bold uppercase tracking-wide">
@@ -555,7 +567,7 @@ export default function PositionCreativeModal({
               )}
               <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 block">
                 {/* SESI 8 (24 Mei 2026): Format-aware dim label */}
-                Upload Image — {getRecommendedDimForFormat(meta, state.ad_format)}
+                Upload Image — {getRecommendedDimForFormat(meta, modeFormat)}
               </label>
               <ImageUpload
                 bucket="ads"
@@ -565,7 +577,7 @@ export default function PositionCreativeModal({
                   const url = urls[0] ?? '';
                   url ? setStaticImage(url) : clearStaticImage();
                 }}
-                label={`Upload ${meta.label} (${getRecommendedDimForFormat(meta, state.ad_format)})`}
+                label={`Upload ${meta.label} (${getRecommendedDimForFormat(meta, modeFormat)})`}
               />
 
               {/* SESI 10 Sub-Phase B: GIF support hint */}

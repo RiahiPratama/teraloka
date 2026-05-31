@@ -745,6 +745,20 @@ export function AdFormProvider({
         : `${API}/admin/ads/admin-create`;
       const method = isEditMode ? 'PUT' : 'POST';
 
+      // SESI 11 (31 Mei 2026): ad_format = HINT deterministik, DI-DERIVE dari isi
+      // posisi (bukan dari urutan pilih materi di modal). Advertorial → 'text'.
+      // Banner: ada video → 'video'; else ada animasi → 'animated'; else 'image'.
+      // EDIT mode: ad_format IMMUTABLE (backend nolak ubah) → pakai state apa adanya.
+      const derivedAdFormat: AdFormat = isEditMode
+        ? state.ad_format
+        : state.ad_format === 'text'
+          ? 'text'
+          : Object.keys(state.position_video_sources).length > 0
+            ? 'video'
+            : Object.keys(committedAnimationTimelines).length > 0
+              ? 'animated'
+              : 'image';
+
       // Build payload — sanitize empty strings ke null
       // SESI 5B: include advertiser_account_id + pricing_tier_id
       // SESI 5C-B: include price_paid (optional estimate)
@@ -766,7 +780,7 @@ export function AdFormProvider({
         advertiser_logo_url: state.advertiser_logo_url.trim() || null,
 
         // Creative
-        ad_format:           state.ad_format,
+        ad_format:           derivedAdFormat,
         title:               state.title.trim(),
         body:                state.body.trim() || null,
         image_url:           state.image_url.trim() || null,
