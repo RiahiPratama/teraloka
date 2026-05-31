@@ -21,7 +21,7 @@
  */
 
 import Link from 'next/link';
-import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square, Eye, Wallet } from 'lucide-react';
+import { Image as ImageIcon, Play, Pause, Check, X, Trash2, Undo2, Pencil, CheckSquare, Square, Eye, Wallet, ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { AdRow } from './AdsCommandCenter';
 
@@ -46,6 +46,7 @@ const STATUS_CONFIG: Record<
   string,
   { label: string; classes: string }
 > = {
+  draft:           { label: 'Draft',        classes: 'bg-surface-muted text-text-muted border border-dashed border-border' },
   pending_payment: { label: 'Pending Pay',  classes: 'bg-status-warning/12 text-status-warning' },
   pending_review:  { label: 'Review',       classes: 'bg-status-critical/12 text-status-critical' },
   active:          { label: 'Active',       classes: 'bg-status-healthy/12 text-status-healthy' },
@@ -386,16 +387,29 @@ function renderActions(
   }
 
   buttons.push(
-    <Link
-      key="edit"
-      href={`/admin/ads/${ad.id}/edit`}
-      onClick={(e) => e.stopPropagation()}
-      className={cn(btnClass, 'bg-baronda/12 text-baronda hover:bg-baronda/20')}
-      title="Edit detail iklan"
-    >
-      <Pencil size={11} />
-      Edit
-    </Link>
+    ad.status === 'draft' ? (
+      <Link
+        key="edit"
+        href={`/admin/ads/${ad.id}/edit`}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(btnClass, 'bg-ads/12 text-ads hover:bg-ads/20')}
+        title="Lanjutkan & finalisasi draft ini"
+      >
+        Lanjutkan
+        <ArrowRight size={11} />
+      </Link>
+    ) : (
+      <Link
+        key="edit"
+        href={`/admin/ads/${ad.id}/edit`}
+        onClick={(e) => e.stopPropagation()}
+        className={cn(btnClass, 'bg-baronda/12 text-baronda hover:bg-baronda/20')}
+        title="Edit detail iklan"
+      >
+        <Pencil size={11} />
+        Edit
+      </Link>
+    )
   );
 
   buttons.push(
