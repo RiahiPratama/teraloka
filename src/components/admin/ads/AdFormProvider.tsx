@@ -322,23 +322,28 @@ export function validateAdForm(state: AdFormState): FieldError[] {
     errors.push({ field: 'link_url', message: 'Link harus mulai http:// atau https://' });
   }
 
-  if (state.ad_format === 'image') {
-    // SESI 5E Phase 3b: Default image_url no longer strictly required.
-    // New rule: setiap position dicentang WAJIB punya creative —
-    // either state.images[position] OR state.position_frames[position],
-    // ATAU fallback state.image_url (legacy default).
+  // ─── SESI 11 (31 Mei 2026): CREATIVE PRESENCE — PER-POSISI, FORMAT-AGNOSTIC ───
+  // ad_format = HINT/default, BUKAN gerbang. Tiap posisi aktif valid kalau punya
+  // >=1 materi APA AJA: image (images[pos]) / DCA (position_frames[pos]) /
+  // animasi (position_animation_timelines[pos]) / video (position_video_sources[pos]).
+  // Admin BOLEH campur statis + motion dalam 1 iklan. (text/advertorial dikecualikan —
+  // divalidasi body-based di bawah.)
+  if (state.ad_format !== 'text') {
     const hasDefaultImage = state.image_url.trim().length > 0;
     const positionsWithoutCreative = state.positions.filter((posKey) => {
-      const hasCustomImage = !!state.images[posKey];
-      const hasDCA = (state.position_frames[posKey]?.length ?? 0) > 0;
-      return !hasCustomImage && !hasDCA;
+      const hasImage = !!state.images[posKey];
+      const hasDCA   = (state.position_frames[posKey]?.length ?? 0) > 0;
+      const hasAnim  = !!state.position_animation_timelines[posKey];
+      const vid      = state.position_video_sources[posKey];
+      const hasVideo = !!(vid && ((vid.mp4 && vid.mp4.trim()) || (vid.webm && vid.webm.trim())));
+      return !hasImage && !hasDCA && !hasAnim && !hasVideo;
     });
 
-    // Kalau ada position tanpa creative, default image_url wajib jadi fallback
+    // Fallback global image_url masih dihormati (legacy).
     if (positionsWithoutCreative.length > 0 && !hasDefaultImage) {
       errors.push({
         field: 'images',
-        message: `Posisi belum punya banner: ${positionsWithoutCreative.join(', ')}. Klik "Upload Banner" di Targeting untuk set creative.`,
+        message: `Posisi belum punya materi: ${positionsWithoutCreative.join(', ')}. Buka "Edit Creative" per posisi (Statis / DCA / Motion).`,
       });
     }
   }
@@ -361,17 +366,14 @@ export function validateAdForm(state: AdFormState): FieldError[] {
     }
   }
 
-  // SESI 5H Phase 5B: Per-position animation validation (DCA-Aligned)
-  if (state.ad_format === 'animated') {
+  // SESI 5H Phase 5B: Per-position animation INTEGRITY (decoupled SESI 11).
+  // Jalan untuk timeline yang ADA, lepas dari ad_format global. Presence sudah
+  // dicek di blok PER-POSISI di atas.
+  if (Object.keys(state.position_animation_timelines).length > 0) {
     const timelines = state.position_animation_timelines;
     const timelineKeys = Object.keys(timelines);
 
-    if (timelineKeys.length === 0) {
-      errors.push({
-        field:   'position_animation_timelines',
-        message: 'Animasi belum dikonfigurasi. Klik "Edit Creative" di Targeting per posisi, lalu pilih tab "Animated GSAP".',
-      });
-    } else {
+    {
       // Validate setiap timeline yang ada
       for (const posKey of timelineKeys) {
         const tl = timelines[posKey];
@@ -430,41 +432,27 @@ export function validateAdForm(state: AdFormState): FieldError[] {
         });
       }
 
-      // Cross-check: setiap position dicentang dengan ad_format='animated' WAJIB punya timeline
-      const positionsWithoutTimeline = state.positions.filter((p) => !timelines[p]);
-      if (positionsWithoutTimeline.length > 0) {
-        errors.push({
-          field:   'position_animation_timelines',
-          message: `Posisi belum punya animasi: ${positionsWithoutTimeline.join(', ')}. Edit creative per posisi → tab Animated GSAP.`,
-        });
-      }
+      // SESI 11: gate global "tiap posisi WAJIB animasi" DIHAPUS — presence
+      // sekarang per-posisi (boleh campur image/video/dca/animasi).
     }
   }
 
-  // SESI 10 (24 Mei 2026): Per-position video validation
-  if (state.ad_format === 'video') {
+  // SESI 10 Per-position video INTEGRITY (decoupled SESI 11).
+  // Jalan untuk video yang ADA, lepas dari ad_format. Presence dicek per-posisi di atas.
+  if (Object.keys(state.position_video_sources).length > 0) {
     const sources = state.position_video_sources;
     const sourceKeys = Object.keys(sources);
 
-    if (sourceKeys.length === 0) {
-      errors.push({
-        field:   'position_video_sources',
-        message: 'Video belum diupload. Klik "Edit Creative" di Targeting per posisi, lalu pilih tab "Video".',
-      });
-    } else {
-      // Validate setiap source: mp4 + poster wajib
+    {
+      // Validate setiap source: file (mp4 ATAU webm) wajib. Poster OPSIONAL
+      // (SESI 11 Batch 4 backend: auto-capture dari frame pertama kalau kosong).
       for (const posKey of sourceKeys) {
         const src = sources[posKey];
-        if (!src?.mp4?.trim()) {
+        const hasVideoFile = !!((src?.mp4 && src.mp4.trim()) || (src?.webm && src.webm.trim()));
+        if (!hasVideoFile) {
           errors.push({
             field:   'position_video_sources',
-            message: `Posisi "${posKey}": file MP4 wajib diupload.`,
-          });
-        }
-        if (!src?.poster?.trim()) {
-          errors.push({
-            field:   'position_video_sources',
-            message: `Posisi "${posKey}": poster (thumbnail) wajib diupload.`,
+            message: `Posisi "${posKey}": video wajib punya file MP4 atau WebM.`,
           });
         }
       }
@@ -478,14 +466,8 @@ export function validateAdForm(state: AdFormState): FieldError[] {
         });
       }
 
-      // Cross-check: setiap position aktif WAJIB punya video
-      const positionsWithoutVideo = state.positions.filter((p) => !sources[p]);
-      if (positionsWithoutVideo.length > 0) {
-        errors.push({
-          field:   'position_video_sources',
-          message: `Posisi belum punya video: ${positionsWithoutVideo.join(', ')}. Edit creative per posisi → tab Video.`,
-        });
-      }
+      // SESI 11: gate global "tiap posisi WAJIB video" DIHAPUS — presence
+      // sekarang per-posisi (boleh campur statis + motion).
     }
   }
 
@@ -742,7 +724,7 @@ export function AdFormProvider({
       // Kalau upload gagal → throw → user lihat error message.
       // ════════════════════════════════════════════════════════════════
       let committedAnimationTimelines = state.position_animation_timelines;
-      if (state.ad_format === 'animated' && Object.keys(state.position_animation_timelines).length > 0) {
+      if (Object.keys(state.position_animation_timelines).length > 0) {
         const advertiserId = state.advertiser_account_id ?? null;
         const nextTimelines: Record<string, AnimationTimelineConfig> = {};
         for (const [positionKey, timeline] of Object.entries(state.position_animation_timelines)) {
@@ -807,17 +789,16 @@ export function AdFormProvider({
           : state.creative_frames,
 
         // SESI 5H Phase 5B: per-position animation timelines (DCA-Aligned)
-        // - ad_format='animated' + map non-empty → kirim Record shape ke backend
-        // - else → null (clear field di backend update)
-        // SESI 6H: committedAnimationTimelines = pending object files udah ke-upload
-        animation_timeline:  state.ad_format === 'animated' && Object.keys(committedAnimationTimelines).length > 0
+        // SESI 11 (31 Mei): decoupled dari ad_format — kirim kapan pun map non-empty
+        // (biar 1 iklan bisa campur animasi + statis/video per posisi).
+        animation_timeline:  Object.keys(committedAnimationTimelines).length > 0
           ? committedAnimationTimelines
           : null,
 
         // SESI 10 (24 Mei 2026): per-position video sources
-        // - ad_format='video' + map non-empty → kirim Record shape ke backend
-        // - else → null (clear field di backend update)
-        video_sources:       state.ad_format === 'video' && Object.keys(state.position_video_sources).length > 0
+        // SESI 11 (31 Mei): decoupled dari ad_format — kirim kapan pun map non-empty
+        // (biar banner statis kiri + video kanan ke-kirim dua-duanya).
+        video_sources:       Object.keys(state.position_video_sources).length > 0
           ? state.position_video_sources
           : null,
 
