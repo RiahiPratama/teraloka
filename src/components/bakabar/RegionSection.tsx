@@ -46,6 +46,7 @@ const REGION_BG: Record<string, string> = {
   't-morotai':  'linear-gradient(180deg, #1e3a8a 30%, #172554 100%)',
   't-sula':     'linear-gradient(180deg, #7c2d12 30%, #431407 100%)',
   't-taliabu':  'linear-gradient(180deg, #6d28d9 30%, #2e1065 100%)',
+  't-viral':    'linear-gradient(180deg, #dc2626 30%, #7f1d1d 100%)',
 };
 
 const THUMB_BG: Record<string, string> = {
@@ -82,6 +83,7 @@ type Props = {
   houseSlot?:     HouseSlot;                  // jenis zona atas kolom-3 (dari BakabarShell)
   houseCampaign?: BadonasiCampaign | null;    // data kampanye (kalau houseSlot='kampanye')
   houseReports?:  BalaporReport[];            // data laporan (kalau houseSlot='balapor')
+  hideWeather?:   boolean;                    // section non-geografis (mis. Viral) → sembunyiin cuaca
 };
 
 export default function RegionSection({
@@ -90,12 +92,13 @@ export default function RegionSection({
   houseSlot = 'ads',
   houseCampaign = null,
   houseReports = [],
+  hideWeather = false,
 }: Props) {
   const {
     label, slug, short_label, gradient_class, featured, trending_list,
   } = region;
 
-  const showWeather = slug !== 'nasional';
+  const showWeather = slug !== 'nasional' && !hideWeather;
 
   // ResizeObserver Col 1 → Col 2/3 layout sync (v10.2 preserved)
   const col1Ref = useRef<HTMLDivElement>(null);

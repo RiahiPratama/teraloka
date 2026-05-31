@@ -1,7 +1,7 @@
 'use client';
 
 // ══════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.4 (Client Interactivity)
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.5 (Client Interactivity)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
 // ──────────────────────────────────────────────────────────────────
 // v14.4 (31 Mei 2026): Layanan + Zakat dicabut dari kolom-3 (→ jalur ADS).
@@ -25,6 +25,7 @@ import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServic
 import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
 import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 import { SIDEBAR_MREC, TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
+import { VIRAL_MALUT } from '@/components/bakabar/viral-malut-data';
 import type { HeroSlide } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
@@ -220,6 +221,11 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
               })}
 
               <LaIndieMovieServiceCarousel />
+
+              {/* Section Viral Maluku Utara (kategori ke-3) — dummy data, visual-first.
+                  Reuse RegionSection; hideWeather (non-geografis); kol-3 = ADS murni.
+                  🛡️ label editorial manual, BUKAN is_viral engine. */}
+              <RegionSection region={VIRAL_MALUT} houseSlot="ads" hideWeather />
 
               <div className="my-10">
                 <WANewsletterWidget />
