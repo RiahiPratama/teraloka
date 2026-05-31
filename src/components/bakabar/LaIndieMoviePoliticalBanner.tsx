@@ -208,16 +208,19 @@ export default function LaIndieMoviePoliticalBanner() {
         )}
       </div>
 
-      {/* Focused candidate/sponsor title */}
-      <div className="text-center mb-4 min-h-[44px]">
-        <p
-          key={focusedAd.id}
-          className="text-[15px] md:text-[17px] font-bold text-gray-900 leading-snug animate-fadeIn px-4"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
-        >
-          {focusedAd.title}
-        </p>
-      </div>
+      {/* Focused title — POLITISI only (KPU: tampilkan nama kandidat).
+          SPONSOR: caption dibuang, poster = creative lengkap (judul udah di gambar). */}
+      {slotMode === 'politisi' && (
+        <div className="text-center mb-4 min-h-[44px]">
+          <p
+            key={focusedAd.id}
+            className="text-[15px] md:text-[17px] font-bold text-gray-900 leading-snug animate-fadeIn px-4"
+            style={{ fontFamily: "'Lora', Georgia, serif" }}
+          >
+            {focusedAd.title}
+          </p>
+        </div>
+      )}
 
       {/* Poster gallery */}
       <div
