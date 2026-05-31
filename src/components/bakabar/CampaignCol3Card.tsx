@@ -2,14 +2,13 @@
 // BAKABAR — Campaign Col-3 Card (Phase 4 — Tahap 2 + 3-B, Data Real BADONASI)
 // PATH: src/components/bakabar/CampaignCol3Card.tsx
 // ────────────────────────────────────────────────────────────────
-// v3 (31 Mei 2026):
-//   - FIX cover aspect: dari fixed height 110px (banner gepeng, foto real
-//     gak muat) → cover `flex-1` yang TUMBUH isi tinggi kartu. object-cover
-//     muat foto real apa aja, + ruang kosong (akibat stretch nyamain kol-1)
-//     ke-isi foto. Konten pindah ke panel putih bawah (shrink-0), kebaca jelas.
-//   - Strip doa terbaru kini tampilkan NOMINAL donasi (jawab "donasi terbaru").
+// v4 (31 Mei 2026): strip "Donasi terbaru" — nama + nominal SELALU tampil,
+//   doa OPSIONAL (cuma kalau donatur nulis message). Fix: donatur yg transfer
+//   tanpa mendoakan tetap muncul (sebelumnya ke-skip karena filter message).
+//   Konsumsi field `latest_donation` (bukan `latest_doa`).
 //
-// v2 (31 Mei): + strip doa terbaru (latest_doa dari backend attachLatestDoa).
+// v3 (31 Mei): cover flex-1 (foto real fit, ruang kosong ke-isi foto).
+// v2 (31 Mei): + strip doa terbaru.
 //
 // Kartu KAMPANYE BADONASI (data real) untuk slot kolom-3 zona atas.
 //   - Brand BADONASI = pink. CTA → /fundraising/[slug].
@@ -19,10 +18,10 @@
 import Link from 'next/link';
 import { ArrowRight, Users, Heart } from 'lucide-react';
 
-export type LatestDoa = {
+export type LatestDonation = {
   donor_name: string;
-  message:    string;
   amount:     number;
+  message:    string | null;
   created_at: string;
 };
 
@@ -37,7 +36,7 @@ export type BadonasiCampaign = {
   donor_count:      number;
   cover_image_url?: string | null;
   is_urgent?:       boolean;
-  latest_doa?:      LatestDoa | null;
+  latest_donation?: LatestDonation | null;
 };
 
 function rupiah(n: number) {
@@ -55,7 +54,7 @@ export default function CampaignCol3Card({ campaign, className = '' }: Props) {
     ? Math.min(100, Math.round((campaign.collected_amount / campaign.target_amount) * 100))
     : 0;
 
-  const doa = campaign.latest_doa ?? null;
+  const don = campaign.latest_donation ?? null;
 
   return (
     <Link
@@ -114,24 +113,31 @@ export default function CampaignCol3Card({ campaign, className = '' }: Props) {
           </span>
         </div>
 
-        {/* Donasi + doa terbaru (Tahap 3-B) — muncul hanya kalau ada */}
-        {doa && (
-          <div className="flex items-start gap-2 mt-2.5 pt-2.5" style={{ borderTop: '1px solid #F3F4F6' }}>
-            <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold mt-0.5"
-              style={{ background: 'linear-gradient(135deg, #EC4899, #BE185D)' }}>
-              {initial(doa.donor_name)}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between gap-1 mb-0.5">
-                <span className="text-[10px] font-bold text-gray-700 truncate">{doa.donor_name}</span>
-                <span className="text-[10px] font-extrabold shrink-0" style={{ color: '#BE185D' }}>
-                  {rupiah(doa.amount)}
-                </span>
+        {/* Donasi terbaru (Tahap 3-B) — nama + nominal selalu; doa opsional */}
+        {don && (
+          <div className="mt-2.5 pt-2.5" style={{ borderTop: '1px solid #F3F4F6' }}>
+            <p className="text-[8px] font-bold tracking-[1px] uppercase text-gray-400 mb-1.5">
+              Donasi terbaru
+            </p>
+            <div className="flex items-start gap-2">
+              <div className="w-6 h-6 rounded-full shrink-0 flex items-center justify-center text-white text-[10px] font-bold mt-0.5"
+                style={{ background: 'linear-gradient(135deg, #EC4899, #BE185D)' }}>
+                {initial(don.donor_name)}
               </div>
-              <p className="text-[10px] text-gray-500 italic leading-[1.3] line-clamp-1">
-                <Heart size={8} strokeWidth={2.6} className="inline mr-0.5 -mt-0.5" style={{ color: '#BE185D' }} />
-                &ldquo;{doa.message}&rdquo;
-              </p>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-[10px] font-bold text-gray-700 truncate">{don.donor_name}</span>
+                  <span className="text-[10px] font-extrabold shrink-0" style={{ color: '#BE185D' }}>
+                    {rupiah(don.amount)}
+                  </span>
+                </div>
+                {don.message && (
+                  <p className="text-[10px] text-gray-500 italic leading-[1.3] line-clamp-1 mt-0.5">
+                    <Heart size={8} strokeWidth={2.6} className="inline mr-0.5 -mt-0.5" style={{ color: '#BE185D' }} />
+                    &ldquo;{don.message}&rdquo;
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         )}
