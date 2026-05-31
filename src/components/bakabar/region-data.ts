@@ -83,15 +83,6 @@ export const TOP_LEADERBOARD: InlineBannerAdData = {
   cta_href: '#ad-mandiri',
 };
 
-// ─── Hero Sidebar Mrec ────────────────────────────────────────
-export const SIDEBAR_MREC: StackBannerAd = {
-  brand_class: 'b-mrec-bank',
-  overline: 'Bank Maluku Utara',
-  title: 'Tabungan Dana Bahari',
-  body: 'Bunga 5% per tahun, gratis biaya admin selamanya',
-  cta_label: 'Buka Tabungan',
-};
-
 // ─── Hero Carousel Slides (NEW v4) ────────────────────────────
 // 3 slides × 3 articles each = 9 total, FIFO order (newest first).
 // Slide 1 hero akan di-override dengan realArticles[0] dari backend
