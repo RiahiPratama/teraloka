@@ -253,11 +253,6 @@ export default function AdminContentPage() {
         </Link>
       </div>
 
-      {/* Mission Control — Action Queue (Wave 1). Persisten di atas tab. */}
-      <MissionControlBakabar
-        onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
-      />
-
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         {TABS.map((tab) => (
@@ -299,6 +294,11 @@ export default function AdminContentPage() {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* Perlu Tindak Lanjut (Action Queue) — di atas Ringkasan */}
+          <MissionControlBakabar
+            onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
+          />
+
           {/* Period selector */}
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">

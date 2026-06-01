@@ -1,20 +1,18 @@
-'use client';
-
 /**
  * TeraLoka — ArticleStats
  * Phase 2 · Batch 7e1 — Content Panel Migration
+ * Revisi 1 Jun 2026: hapus "Draft Perlu Perhatian" (redundan +
+ *   kontradiksi dgn bucket "Draft Mangkrak" di Action Queue yg global,
+ *   sedang card ini period-based → angka beda bikin bingung).
  * ------------------------------------------------------------
- * Top-level KPI cards untuk BAKABAR dashboard overview.
+ * Top-level KPI cards (period-based) untuk RINGKASAN BAKABAR.
  *
- * 3 stats cards:
+ * 2 stats cards:
  * 1. Artikel Published — total published dalam period
  * 2. Total Views — aggregate views dari published articles
- * 3. Draft Perlu Perhatian — stale drafts (> 3 jam)
  *
- * Design: 3-col grid responsive. Each card = Card component
- * dengan icon + label + big number + context sub-label.
- *
- * Period label di-passing dari parent (misal "Minggu ini").
+ * Catatan: stale drafts kini DIWAKILI bucket "Draft Mangkrak"
+ * (global) di komponen Action Queue, bukan di sini.
  */
 
 import { Card } from '@/components/ui/card';
@@ -61,24 +59,6 @@ const IconEye = () => (
   >
     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
     <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const IconAlert = () => (
-  <svg
-    width="20"
-    height="20"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    aria-hidden="true"
-  >
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-    <line x1="12" y1="9" x2="12" y2="13" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
   </svg>
 );
 
@@ -142,7 +122,7 @@ export function ArticleStats({
   loading = false,
 }: ArticleStatsProps) {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <StatCard
         icon={<IconFileText />}
         label={`Artikel Published ${periodLabel}`}
@@ -158,19 +138,6 @@ export function ArticleStats({
         value={formatNum(stats.totalViews)}
         sub="dari artikel published"
         tone="info"
-        loading={loading}
-      />
-
-      <StatCard
-        icon={<IconAlert />}
-        label="Draft Perlu Perhatian"
-        value={stats.staleDrafts}
-        sub={
-          stats.staleDrafts > 0
-            ? 'belum dipublish > 3 jam'
-            : 'semua draft fresh ✓'
-        }
-        tone={stats.staleDrafts > 0 ? 'warning' : 'healthy'}
         loading={loading}
       />
     </div>
