@@ -211,6 +211,17 @@ export default function AdminCashflowPage() {
   const [activePreset, setActivePreset] = useState<DateRangePreset>('all');
   const [customFrom, setCustomFrom] = useState('');
   const [customTo, setCustomTo] = useState('');
+  const _now = new Date();
+  const [selMonth, setSelMonth] = useState<number>(_now.getMonth() + 1); // 1-12, 0 = semua bulan
+  const [selYear,  setSelYear]  = useState<number>(_now.getFullYear());
+
+  // Pilih Bulan/Tahun → reuse jalur custom (customFrom/customTo + preset 'custom')
+  function applyMonthYear(month: number, year: number) {
+    const from = month === 0 ? `${year}-01-01` : `${year}-${String(month).padStart(2,'0')}-01`;
+    const lastDay = month === 0 ? 31 : new Date(year, month, 0).getDate();
+    const to = month === 0 ? `${year}-12-31` : `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    setCustomFrom(from); setCustomTo(to); setActivePreset('custom'); setPage(1);
+  }
 
   const [sort, setSort] = useState<string>('smart_priority');
   const [page, setPage] = useState(1);
@@ -528,24 +539,33 @@ export default function AdminCashflowPage() {
             );
           })}
 
+          {/* Dropdown Bulan + Tahun — pilih langsung */}
+          <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
+            <select
+              value={selMonth}
+              onChange={e => { const m = Number(e.target.value); setSelMonth(m); applyMonthYear(m, selYear); }}
+              style={dateInputStyle(t)}
+              title="Pilih bulan"
+            >
+              <option value={0}>Semua Bulan</option>
+              {['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'].map((nm, i) => (
+                <option key={i} value={i + 1}>{nm}</option>
+              ))}
+            </select>
+            <select
+              value={selYear}
+              onChange={e => { const y = Number(e.target.value); setSelYear(y); applyMonthYear(selMonth, y); }}
+              style={dateInputStyle(t)}
+              title="Pilih tahun"
+            >
+              {Array.from({ length: 6 }, (_, i) => _now.getFullYear() - i).map(y => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+          </div>
+
           {activePreset === 'custom' && (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 'auto' }}>
-              <input
-                type="month"
-                value={customFrom && customFrom.endsWith('-01') ? customFrom.slice(0, 7) : ''}
-                onChange={e => {
-                  const v = e.target.value;                 // "2026-05"
-                  if (!v) return;
-                  const [yy, mm] = v.split('-').map(Number);
-                  const last = new Date(yy, mm, 0).getDate(); // hari terakhir bulan
-                  setCustomFrom(`${v}-01`);
-                  setCustomTo(`${v}-${String(last).padStart(2, '0')}`);
-                  setPage(1);
-                }}
-                style={dateInputStyle(t)}
-                title="Pilih 1 bulan penuh (tgl 1 s/d akhir bulan)"
-              />
-              <span style={{ fontSize: 11, color: t.textDim }}>atau</span>
               <input
                 type="date"
                 value={customFrom}
