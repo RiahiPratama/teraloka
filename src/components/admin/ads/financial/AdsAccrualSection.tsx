@@ -86,6 +86,7 @@ export default function AdsAccrualSection({ token }: AdsAccrualSectionProps) {
   const [data, setData]       = useState<RecognitionSummary | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError]     = useState<string | null>(null);
+  const [filter, setFilter]   = useState<'all' | 'earned' | 'unearned'>('all');
 
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -116,6 +117,13 @@ export default function AdsAccrualSection({ token }: AdsAccrualSectionProps) {
   const earnedPct = data && data.total_amount > 0
     ? Math.round((data.total_earned / data.total_amount) * 100)
     : 0;
+
+  // Filter tabel sesuai kartu yang diklik
+  const displayRows = (data?.rows ?? []).filter((r) =>
+    filter === 'earned'   ? r.earned > 0 :
+    filter === 'unearned' ? r.unearned > 0 :
+    true,
+  );
 
   return (
     <div className="bg-surface border border-border rounded-xl overflow-hidden">
@@ -166,35 +174,71 @@ export default function AdsAccrualSection({ token }: AdsAccrualSectionProps) {
       {/* ─── Content ─── */}
       {!loading && data && (
         <>
-          {/* 3 Cards: bridge cash → accrual */}
+          {/* 3 Cards (klik = filter tabel) */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 p-4">
-            {/* Total kas masuk */}
-            <div className="bg-surface-muted/40 border border-border rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Wallet size={13} className="text-text-muted" />
-                <span className="text-[9px] font-bold uppercase tracking-wider text-text-muted">Total Kas Masuk</span>
+            {/* Total kas masuk → semua baris */}
+            <button
+              type="button"
+              onClick={() => setFilter('all')}
+              className={cn(
+                'text-left border rounded-lg p-3 transition-all',
+                filter === 'all'
+                  ? 'bg-surface-muted border-text-muted/40 ring-1 ring-text-muted/30'
+                  : 'bg-surface-muted/40 border-border hover:border-text-muted/30',
+              )}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Wallet size={13} className="text-text-muted" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-text-muted">Total Kas Masuk</span>
+                </div>
+                {filter === 'all' && <span className="text-[8px] font-bold uppercase text-text-muted">aktif</span>}
               </div>
               <div className="text-[16px] font-extrabold text-text tabular-nums">{formatRp(data.total_amount)}</div>
-              <p className="text-[9px] text-text-subtle mt-0.5">Prepaid (cash basis)</p>
-            </div>
-            {/* Sudah diakui */}
-            <div className="bg-status-healthy/8 border border-status-healthy/25 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <TrendingUp size={13} className="text-status-healthy" />
-                <span className="text-[9px] font-bold uppercase tracking-wider text-status-healthy">Sudah Diakui</span>
+              <p className="text-[9px] text-text-subtle mt-0.5">Semua iklan ({data.rows.length})</p>
+            </button>
+            {/* Sudah diakui → baris earned > 0 */}
+            <button
+              type="button"
+              onClick={() => setFilter('earned')}
+              className={cn(
+                'text-left border rounded-lg p-3 transition-all',
+                filter === 'earned'
+                  ? 'bg-status-healthy/12 border-status-healthy/50 ring-1 ring-status-healthy/40'
+                  : 'bg-status-healthy/8 border-status-healthy/25 hover:border-status-healthy/40',
+              )}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <TrendingUp size={13} className="text-status-healthy" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-status-healthy">Sudah Diakui</span>
+                </div>
+                {filter === 'earned' && <span className="text-[8px] font-bold uppercase text-status-healthy">aktif</span>}
               </div>
               <div className="text-[16px] font-extrabold text-status-healthy tabular-nums">{formatRp(data.total_earned)}</div>
               <p className="text-[9px] text-text-subtle mt-0.5">Pendapatan Iklan (4301)</p>
-            </div>
-            {/* Diterima dimuka */}
-            <div className="bg-status-warning/8 border border-status-warning/25 rounded-lg p-3">
-              <div className="flex items-center gap-2 mb-1.5">
-                <Clock size={13} className="text-status-warning" />
-                <span className="text-[9px] font-bold uppercase tracking-wider text-status-warning">Diterima Dimuka</span>
+            </button>
+            {/* Diterima dimuka → baris unearned > 0 */}
+            <button
+              type="button"
+              onClick={() => setFilter('unearned')}
+              className={cn(
+                'text-left border rounded-lg p-3 transition-all',
+                filter === 'unearned'
+                  ? 'bg-status-warning/12 border-status-warning/50 ring-1 ring-status-warning/40'
+                  : 'bg-status-warning/8 border-status-warning/25 hover:border-status-warning/40',
+              )}
+            >
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-2">
+                  <Clock size={13} className="text-status-warning" />
+                  <span className="text-[9px] font-bold uppercase tracking-wider text-status-warning">Diterima Dimuka</span>
+                </div>
+                {filter === 'unearned' && <span className="text-[8px] font-bold uppercase text-status-warning">aktif</span>}
               </div>
               <div className="text-[16px] font-extrabold text-status-warning tabular-nums">{formatRp(data.total_unearned)}</div>
               <p className="text-[9px] text-text-subtle mt-0.5">Belum earned (2401)</p>
-            </div>
+            </button>
           </div>
 
           {/* Progress bar earned vs total */}
@@ -211,11 +255,31 @@ export default function AdsAccrualSection({ token }: AdsAccrualSectionProps) {
             </div>
           </div>
 
+          {/* Filter aktif pill */}
+          {filter !== 'all' && (
+            <div className="flex items-center gap-2 px-4 pb-2">
+              <span className="text-[10px] text-text-muted">
+                Menampilkan: <strong className="text-text">{filter === 'earned' ? 'iklan yang sudah ada earned' : 'iklan yang masih diterima dimuka'}</strong> ({displayRows.length})
+              </span>
+              <button
+                type="button"
+                onClick={() => setFilter('all')}
+                className="text-[10px] font-bold uppercase tracking-wide text-ads hover:underline"
+              >
+                Reset
+              </button>
+            </div>
+          )}
+
           {/* Per-ad table */}
-          {data.rows.length === 0 ? (
+          {displayRows.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 px-4">
               <Layers className="text-text-subtle mb-2" size={32} />
-              <p className="text-[12px] text-text-muted">Belum ada iklan berbayar dengan periode tayang.</p>
+              <p className="text-[12px] text-text-muted">
+                {data.rows.length === 0
+                  ? 'Belum ada iklan berbayar dengan periode tayang.'
+                  : 'Tidak ada iklan untuk filter ini.'}
+              </p>
             </div>
           ) : (
             <div className="overflow-x-auto border-t border-border">
@@ -231,7 +295,7 @@ export default function AdsAccrualSection({ token }: AdsAccrualSectionProps) {
                   </tr>
                 </thead>
                 <tbody>
-                  {data.rows.map((r) => {
+                  {displayRows.map((r) => {
                     const meta = STATUS_META[r.status];
                     const pct = r.days_total > 0
                       ? Math.round((r.days_elapsed / r.days_total) * 100)

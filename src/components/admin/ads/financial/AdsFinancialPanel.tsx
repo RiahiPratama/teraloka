@@ -43,6 +43,7 @@ import {
   Loader2, RefreshCw, Calendar, DollarSign, FileText,
   ArrowUpRight, Clock, CheckCircle2, Package, Users, X, Filter,
   ShieldCheck, CheckCircle,
+  LayoutDashboard, Tags, Scale, ChevronRight,
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell,
@@ -56,6 +57,17 @@ import AdsAccrualSection from './AdsAccrualSection';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
+
+// ─── Sub-Tab definition (Ringkasan-first) ───
+const SUB_TABS = [
+  { key: 'ringkasan',  label: 'Ringkasan',  icon: LayoutDashboard },
+  { key: 'tier',       label: 'Tier',       icon: Tags },
+  { key: 'advertiser', label: 'Advertiser', icon: Users },
+  { key: 'accrual',    label: 'Accrual',    icon: Scale },
+  { key: 'aktivitas',  label: 'Aktivitas',  icon: Activity },
+] as const;
+
+type SubTab = typeof SUB_TABS[number]['key'];
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -478,6 +490,9 @@ export default function AdsFinancialPanel() {
 
   // ─── Render ──────────────────────────────────────────────────
 
+  const [subTab, setSubTab] = useState<SubTab>('ringkasan');
+  const bankRef = useRef<HTMLDivElement>(null);
+
   return (
     <div className="flex flex-col gap-4">
 
@@ -545,14 +560,59 @@ export default function AdsFinancialPanel() {
         </div>
       )}
 
+      {/* ─── Sub-Tab Navigation (Ringkasan-first) ─── */}
+      {!loading && (
+        <div className="flex items-center gap-1 p-1 bg-surface-muted border border-border rounded-xl overflow-x-auto">
+          {SUB_TABS.map((t) => {
+            const active = subTab === t.key;
+            const Icon = t.icon;
+            const badge =
+              t.key === 'aktivitas' ? events.length :
+              (t.key === 'ringkasan' && stats.auditPendingCount > 0) ? stats.auditPendingCount :
+              null;
+            return (
+              <button
+                key={t.key}
+                type="button"
+                onClick={() => setSubTab(t.key)}
+                className={cn(
+                  'inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-bold uppercase tracking-wide transition-all whitespace-nowrap shrink-0',
+                  active
+                    ? 'bg-ads text-white shadow-sm'
+                    : 'text-text-muted hover:text-text hover:bg-surface'
+                )}
+              >
+                <Icon size={13} />
+                {t.label}
+                {badge !== null && badge > 0 && (
+                  <span className={cn(
+                    'inline-flex items-center justify-center min-w-[16px] h-4 px-1 rounded-full text-[9px] font-extrabold',
+                    active ? 'bg-white/20 text-white'
+                      : t.key === 'ringkasan' ? 'bg-status-warning/20 text-status-warning'
+                      : 'bg-ads/15 text-ads'
+                  )}>
+                    {badge}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* ═══════════════════════════════════════════════════════
             SECTION 1 — STATS CARDS (4 cards)
             SESI 5G: Card 4 Audit Pending CLICKABLE
           ═══════════════════════════════════════════════════════ */}
-      {!loading && (
+      {!loading && subTab === 'ringkasan' && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {/* Card 1: Total Revenue */}
-          <div className="bg-surface border border-border rounded-xl p-4">
+          {/* Card 1: Total Revenue -> klik ke Bank */}
+          <button
+            type="button"
+            onClick={() => bankRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+            className="group bg-surface border border-border rounded-xl p-4 text-left transition-all hover:border-ads/40 hover:bg-ads/4 cursor-pointer"
+            title="Lihat rincian per bank (di bawah)"
+          >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-ads/12 text-ads">
                 <TrendingUp size={16} />
@@ -564,17 +624,24 @@ export default function AdsFinancialPanel() {
             <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
               Total Revenue ADS
             </p>
-            <p className="text-[20px] font-extrabold text-text tabular-nums mt-1">
+            <p className="text-[20px] font-extrabold text-text tabular-nums mt-1 flex items-center gap-1">
               {formatRp(stats.adsRevenue)}
+              <ChevronRight size={14} className="text-text-subtle group-hover:text-ads transition-colors" />
             </p>
-          </div>
+          </button>
 
-          {/* Card 2: Paid Ads Count */}
-          <div className="bg-surface border border-border rounded-xl p-4">
+          {/* Card 2: Paid Ads Count -> klik ke Advertiser */}
+          <button
+            type="button"
+            onClick={() => setSubTab('advertiser')}
+            className="group bg-surface border border-border rounded-xl p-4 text-left transition-all hover:border-status-info/40 hover:bg-status-info/4 cursor-pointer"
+            title="Lihat advertiser teratas"
+          >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-status-info/12 text-status-info">
                 <FileText size={16} />
               </div>
+              <ChevronRight size={14} className="text-text-subtle group-hover:text-status-info transition-colors" />
             </div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
               Iklan Dibayar
@@ -583,14 +650,20 @@ export default function AdsFinancialPanel() {
               {stats.paidAdsCount}
               <span className="text-[12px] font-semibold text-text-muted ml-1">unik</span>
             </p>
-          </div>
+          </button>
 
-          {/* Card 3: Avg per Ad */}
-          <div className="bg-surface border border-border rounded-xl p-4">
+          {/* Card 3: Avg per Ad -> klik ke Tier */}
+          <button
+            type="button"
+            onClick={() => setSubTab('tier')}
+            className="group bg-surface border border-border rounded-xl p-4 text-left transition-all hover:border-baronda/40 hover:bg-baronda/4 cursor-pointer"
+            title="Lihat revenue per tier"
+          >
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-baronda/12 text-baronda">
                 <DollarSign size={16} />
               </div>
+              <ChevronRight size={14} className="text-text-subtle group-hover:text-baronda transition-colors" />
             </div>
             <p className="text-[10px] font-bold uppercase tracking-wide text-text-muted">
               Rata-rata / Iklan
@@ -598,7 +671,7 @@ export default function AdsFinancialPanel() {
             <p className="text-[20px] font-extrabold text-text tabular-nums mt-1">
               {formatRp(stats.avgPerAd)}
             </p>
-          </div>
+          </button>
 
           {/* Card 4: Audit Pending — SESI 5G CLICKABLE */}
           <button
@@ -643,11 +716,11 @@ export default function AdsFinancialPanel() {
       )}
 
       {/* ═══════════════════════════════════════════════════════
-            SECTION 2 — REVENUE BY BANK ACCOUNT
+            SECTION 2 — REVENUE BY BANK ACCOUNT (tampil di Ringkasan)
             SESI 5G: Bar CLICKABLE untuk drill-down filter
           ═══════════════════════════════════════════════════════ */}
-      {!loading && events.length > 0 && (
-        <div className="bg-surface border border-border rounded-xl overflow-hidden">
+      {!loading && subTab === 'ringkasan' && events.length > 0 && (
+        <div ref={bankRef} className="bg-surface border border-border rounded-xl overflow-hidden scroll-mt-4">
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
               <div className="flex items-center justify-center w-7 h-7 rounded-md bg-status-info/12 text-status-info">
@@ -747,7 +820,7 @@ export default function AdsFinancialPanel() {
             SECTION 3 — REVENUE BY PRICING TIER (NEW SESI 5G)
             Horizontal BarChart, Top 5, color by tier_category
           ═══════════════════════════════════════════════════════ */}
-      {!loading && events.length > 0 && (
+      {!loading && subTab === 'tier' && events.length > 0 && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -845,7 +918,7 @@ export default function AdsFinancialPanel() {
             Compact table, Top 5, REPEAT/FIRST-TIME badge
             Row CLICKABLE untuk drill-down filter
           ═══════════════════════════════════════════════════════ */}
-      {!loading && events.length > 0 && (
+      {!loading && subTab === 'advertiser' && events.length > 0 && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
             <div className="flex items-center gap-2">
@@ -955,7 +1028,7 @@ export default function AdsFinancialPanel() {
             SECTION 5 — AUDIT PENDING ALERT
             SESI 5G: ref untuk scroll target
           ═══════════════════════════════════════════════════════ */}
-      {!loading && stats.auditPendingCount > 0 && (
+      {!loading && subTab === 'ringkasan' && stats.auditPendingCount > 0 && (
         <div
           ref={auditPendingRef}
           className="bg-surface border border-status-warning/30 rounded-xl overflow-hidden scroll-mt-4"
@@ -1030,7 +1103,7 @@ export default function AdsFinancialPanel() {
             SECTION 6 — RECENT ACTIVITY
             SESI 5G: ActiveFilterPill di header kalau drill-down active
           ═══════════════════════════════════════════════════════ */}
-      {!loading && events.length > 0 && (
+      {!loading && subTab === 'aktivitas' && events.length > 0 && (
         <div className="bg-surface border border-border rounded-xl overflow-hidden">
           <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border flex-wrap">
             <div className="flex items-center gap-2">
@@ -1177,7 +1250,7 @@ export default function AdsFinancialPanel() {
       )}
 
       {/* ─── Section Accrual (PT revenue recognition) ─── */}
-      {!loading && <AdsAccrualSection token={token ?? null} />}
+      {!loading && subTab === 'accrual' && <AdsAccrualSection token={token ?? null} />}
 
       {/* ─── Footer info ─── */}
       <div className="flex items-start gap-2 p-3 rounded-lg bg-status-info/4 border border-status-info/20">

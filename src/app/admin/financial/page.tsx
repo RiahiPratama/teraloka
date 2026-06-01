@@ -32,6 +32,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import PtTrialBalanceSection from '@/components/admin/financial/PtTrialBalanceSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import {
@@ -275,7 +276,6 @@ export default function AdminFinancialPage() {
 
           {tab === 'pt' && (
             <PTTab
-              t={t}
               router={router}
               total={ptTotal}
               sources={byEntity?.pt_digital?.sources}
@@ -513,7 +513,7 @@ function OverviewTab({
 // Honest Phase 1: semua Rp 0 + 1 card interactive (Ads → /admin/ads)
 // ═══════════════════════════════════════════════════════════════
 
-function PTTab({ t, router, total, sources }: any) {
+function PTTab({ router, total, sources }: any) {
   const ads        = sources?.ads        ?? 0;
   const bakos      = sources?.bakos      ?? 0;
   const commission = sources?.commission ?? 0;
@@ -521,120 +521,85 @@ function PTTab({ t, router, total, sources }: any) {
   return (
     <>
       {/* Header Total Card */}
-      <div style={{
-        background: 'linear-gradient(135deg, #1B6B4A, #0F4A34)',
-        border: '1px solid #1B6B4A', borderRadius: 14, padding: '20px 22px',
-        marginBottom: 16,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 22 }}>🏢</span>
+      <div className="bg-gradient-to-br from-[#1B6B4A] to-[#0F4A34] border border-[#1B6B4A] rounded-xl px-[22px] py-5 mb-4">
+        <div className="flex items-center gap-2.5 mb-2">
+          <span className="text-[22px]">🏢</span>
           <div>
-            <p style={{ margin: 0, fontSize: 13, color: '#fff', fontWeight: 700 }}>
-              PT TeraLoka Digital Maluku
-            </p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: 'rgba(255,255,255,0.7)' }}>
-              Commercial revenue · Ads, Bakos, Komisi BAPASIAR
-            </p>
+            <p className="text-[13px] font-bold text-white">PT TeraLoka Digital Maluku</p>
+            <p className="text-[11px] text-white/70 mt-0.5">Commercial revenue · Ads, Bakos, Komisi BAPASIAR</p>
           </div>
         </div>
-        <p style={{
-          margin: '12px 0 4px', fontSize: 11, fontWeight: 600,
-          color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase',
-        }}>
-          Total Revenue (30 Hari)
-        </p>
-        <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: '#fff' }}>
-          {formatRp(total)}
-        </p>
+        <p className="text-[11px] font-semibold text-white/70 uppercase mt-3 mb-1">Total Revenue (30 Hari)</p>
+        <p className="text-[32px] font-extrabold text-white leading-none">{formatRp(total)}</p>
       </div>
 
-      {/* 3 Sub-Source Cards */}
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)',
-        gap: 12, marginBottom: 20,
-      }}>
-        {/* Ads — CLICKABLE → /admin/ads */}
-        <SourceCard
-          t={t}
-          icon="📢"
-          label="Ads (Iklan)"
-          value={ads}
-          color="#1B6B4A"
-          badge="Coming Phase 2"
-          note="Auto-track saat ad.paid emit live"
+      {/* 3 Sub-Source Cards (Tailwind) */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+        {/* Ads — CLICKABLE -> /admin/ads */}
+        <button
+          type="button"
           onClick={() => router.push('/admin/ads')}
-          actionHint="Lihat dashboard Ads →"
-        />
-        {/* Bakos — static */}
-        <SourceCard
-          t={t}
-          icon="🏠"
-          label="Bakos (Klasified)"
-          value={bakos}
-          color="#0891B2"
-          badge="Coming Phase 2"
-          note="Auto-track saat Bakos emit live"
-        />
-        {/* BAPASIAR — static */}
-        <SourceCard
-          t={t}
-          icon="🚢"
-          label="Komisi BAPASIAR"
-          value={commission}
-          color="#7C3AED"
-          badge="Coming Phase 2"
-          note="Auto-track saat BAPASIAR emit live"
-        />
-      </div>
-
-      {/* Mini Tren Chart (PT only) */}
-      <div style={{
-        background: t.card, border: `1px solid ${t.cardBorder}`,
-        borderRadius: 14, padding: '18px 22px', marginBottom: 20,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-          <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📈 Tren Pendapatan PT</p>
-            <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
-              7 hari terakhir · Commercial revenue only
-            </p>
+          className="group bg-surface border border-border rounded-xl p-4 text-left transition-all hover:border-ads/40 hover:bg-ads/4 cursor-pointer"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[18px]">📢</span>
+            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-ads/12 text-ads">Coming Phase 2</span>
           </div>
+          <p className="text-[11px] font-bold text-text-muted">Ads (Iklan)</p>
+          <p className="text-[18px] font-extrabold text-text tabular-nums mt-0.5">{formatRp(ads)}</p>
+          <p className="text-[9px] text-text-subtle mt-1">Auto-track saat ad.paid emit live</p>
+          <p className="text-[10px] font-bold text-ads mt-2 group-hover:underline">Lihat dashboard Ads →</p>
+        </button>
+        {/* Bakos */}
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[18px]">🏠</span>
+            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#0891B2]/12 text-[#0891B2]">Coming Phase 2</span>
+          </div>
+          <p className="text-[11px] font-bold text-text-muted">Bakos (Klasified)</p>
+          <p className="text-[18px] font-extrabold text-text tabular-nums mt-0.5">{formatRp(bakos)}</p>
+          <p className="text-[9px] text-text-subtle mt-1">Auto-track saat Bakos emit live</p>
         </div>
+        {/* BAPASIAR */}
+        <div className="bg-surface border border-border rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[18px]">🚢</span>
+            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#7C3AED]/12 text-[#7C3AED]">Coming Phase 2</span>
+          </div>
+          <p className="text-[11px] font-bold text-text-muted">Komisi BAPASIAR</p>
+          <p className="text-[18px] font-extrabold text-text tabular-nums mt-0.5">{formatRp(commission)}</p>
+          <p className="text-[9px] text-text-subtle mt-1">Auto-track saat BAPASIAR emit live</p>
+        </div>
+      </div>
 
-        <div style={{
-          height: 180, display: 'flex', alignItems: 'center', justifyContent: 'center',
-          flexDirection: 'column', gap: 6,
-        }}>
-          <p style={{ color: t.textDim, fontSize: 13 }}>Belum ada transaksi komersial</p>
-          <p style={{ color: t.textMuted, fontSize: 11, textAlign: 'center', maxWidth: 360 }}>
-            Chart akan otomatis terisi saat Ads, Bakos, atau Komisi BAPASIAR
-            mulai emit ke Money Domain (Phase 2)
+      {/* Neraca Saldo (Trial Balance) — laporan akuntansi dari ledger */}
+      <PtTrialBalanceSection />
+
+      {/* Mini Tren Chart (PT only) — empty */}
+      <div className="bg-surface border border-border rounded-xl px-[22px] py-[18px] mb-5">
+        <div className="mb-3">
+          <p className="text-[14px] font-bold text-text">📈 Tren Pendapatan PT</p>
+          <p className="text-[11px] text-text-muted mt-0.5">7 hari terakhir · Commercial revenue only</p>
+        </div>
+        <div className="h-[180px] flex flex-col items-center justify-center gap-1.5">
+          <p className="text-[13px] text-text-subtle">Belum ada transaksi komersial</p>
+          <p className="text-[11px] text-text-muted text-center max-w-[360px]">
+            Chart akan otomatis terisi saat Ads, Bakos, atau Komisi BAPASIAR mulai emit ke Money Domain (Phase 2)
           </p>
         </div>
       </div>
 
-      {/* Recent Transactions PT (Empty State) */}
-      <div style={{
-        background: t.card, border: `1px solid ${t.cardBorder}`,
-        borderRadius: 14, overflow: 'hidden',
-      }}>
-        <div style={{
-          padding: '14px 18px', borderBottom: `1px solid ${t.cardBorder}`,
-        }}>
-          <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📋 Transaksi Komersial Terbaru</p>
-          <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
-            Filter: Ads, Bakos, Komisi BAPASIAR
-          </p>
+      {/* Recent Transactions PT — empty */}
+      <div className="bg-surface border border-border rounded-xl overflow-hidden">
+        <div className="px-[18px] py-3.5 border-b border-border">
+          <p className="text-[14px] font-bold text-text">📋 Transaksi Komersial Terbaru</p>
+          <p className="text-[11px] text-text-muted mt-0.5">Filter: Ads, Bakos, Komisi BAPASIAR</p>
         </div>
-        <div style={{
-          padding: '40px 20px', textAlign: 'center',
-          color: t.textMuted, fontSize: 13,
-        }}>
-          <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-          <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada transaksi komersial</p>
-          <p style={{ margin: 0, fontSize: 11, color: t.textDim, maxWidth: 400, marginInline: 'auto', lineHeight: 1.5 }}>
-            Transaksi PT TeraLoka akan muncul di sini setelah Ads / Bakos / BAPASIAR
-            terintegrasi ke Money Domain (Mission #5, target Phase 2)
+        <div className="px-5 py-10 text-center">
+          <div className="text-[32px] mb-2">📭</div>
+          <p className="text-[13px] font-semibold text-text mb-1">Belum ada transaksi komersial</p>
+          <p className="text-[11px] text-text-subtle max-w-[400px] mx-auto leading-relaxed">
+            Transaksi PT TeraLoka akan muncul di sini setelah Ads / Bakos / BAPASIAR terintegrasi ke Money Domain (Mission #5, target Phase 2)
           </p>
         </div>
       </div>
