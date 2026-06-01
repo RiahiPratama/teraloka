@@ -44,6 +44,7 @@ import { ArticleRow } from '@/components/admin/content/article-row';
 import { DeleteArticleModal } from '@/components/admin/content/delete-article-modal';
 import { NewsroomAnalyticsView } from '@/components/admin/content/newsroom-analytics-view';
 import { DistributionMetricsView } from '@/components/admin/content/distribution-metrics-view';
+import { MissionControlBakabar } from '@/components/admin/content/mission-control-bakabar';
 import {
   computeArticleStats,
   filterByPeriod,
@@ -251,6 +252,11 @@ export default function AdminContentPage() {
           Editorial Hub →
         </Link>
       </div>
+
+      {/* Mission Control — Action Queue (Wave 1). Persisten di atas tab. */}
+      <MissionControlBakabar
+        onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
+      />
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
