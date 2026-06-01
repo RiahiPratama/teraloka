@@ -52,6 +52,7 @@ import { cn } from '@/lib/utils';
 import AuditPendingResolveModal, {
   type AuditPendingEventForModal,
 } from './AuditPendingResolveModal';
+import AdsAccrualSection from './AdsAccrualSection';
 
 const API =
   process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -63,52 +64,52 @@ type Period = '7d' | '30d' | '90d' | 'ytd';
 interface ByEntityResponse {
   success: boolean;
   data?: {
-    period:         { from: string; to: string };
+    period: { from: string; to: string };
     combined_total: number;
-    pt_digital:     { total: number; sources: { ads: number; bakos: number; commission: number } };
-    yayasan:        { total: number; sources: Record<string, number> };
-    meta:           { event_count: number };
+    pt_digital: { total: number; sources: { ads: number; bakos: number; commission: number } };
+    yayasan: { total: number; sources: Record<string, number> };
+    meta: { event_count: number };
   };
   error?: { code: string; message: string };
 }
 
 interface FinancialEvent {
-  id:               string;
-  event_type:       string;
-  source_domain:    string;
+  id: string;
+  event_type: string;
+  source_domain: string;
   source_entity_id: string;
-  amount:           number;
-  fee_amount:       number;
+  amount: number;
+  fee_amount: number;
   metadata: {
-    ad_display_id?:         string;
+    ad_display_id?: string;
     advertiser_account_id?: string;
-    advertiser_name?:       string;
-    pricing_tier_id?:       string;
-    tier_code?:             string;
-    tier_category?:         string;
-    tier_name?:             string;
-    bank_account_id?:       string;
-    bank_account_alias?:    string;
-    bank_account_bank?:     string;
-    audit_pending?:         boolean | string;
-    payment_method?:        string;
-    revenue_source_tag?:    string;
+    advertiser_name?: string;
+    pricing_tier_id?: string;
+    tier_code?: string;
+    tier_category?: string;
+    tier_name?: string;
+    bank_account_id?: string;
+    bank_account_alias?: string;
+    bank_account_bank?: string;
+    audit_pending?: boolean | string;
+    payment_method?: string;
+    revenue_source_tag?: string;
     [key: string]: any;
   };
-  recorded_at:      string;
+  recorded_at: string;
 }
 
 interface EventsResponse {
   success: boolean;
-  data?:   FinancialEvent[];
-  error?:  { code: string; message: string };
+  data?: FinancialEvent[];
+  error?: { code: string; message: string };
 }
 
 // Drill-down filter state
 type ActivityFilterType = 'bank' | 'advertiser' | null;
 
 interface ActivityFilter {
-  type:  ActivityFilterType;
+  type: ActivityFilterType;
   value: string | null;   // bank: alias, advertiser: account_id
   label: string | null;   // display label
 }
@@ -118,8 +119,8 @@ interface ActivityFilter {
 const formatRp = (n: number) => `Rp ${(n || 0).toLocaleString('id-ID')}`;
 const formatRpShort = (n: number) => {
   if (n >= 1_000_000_000) return `${(n / 1_000_000_000).toFixed(1)}M`;
-  if (n >= 1_000_000)     return `${(n / 1_000_000).toFixed(1)}jt`;
-  if (n >= 1_000)         return `${(n / 1_000).toFixed(0)}rb`;
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}jt`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(0)}rb`;
   return String(n);
 };
 const formatDate = (d: string) =>
@@ -138,10 +139,10 @@ const BANK_COLORS = [
 
 // Tier category color mapping (PRD spec)
 const TIER_CATEGORY_COLOR: Record<string, { hex: string; bg: string; text: string; label: string }> = {
-  premium:    { hex: '#1B6B4A', bg: 'bg-status-healthy/12', text: 'text-status-healthy', label: 'Premium' },
-  standard:   { hex: '#0891B2', bg: 'bg-status-info/12',    text: 'text-status-info',    label: 'Standard' },
-  basic:      { hex: '#E8963A', bg: 'bg-ads/12',            text: 'text-ads',            label: 'Basic' },
-  compliance: { hex: '#7C3AED', bg: 'bg-balapor/12',        text: 'text-balapor',        label: 'Compliance' },
+  premium: { hex: '#1B6B4A', bg: 'bg-status-healthy/12', text: 'text-status-healthy', label: 'Premium' },
+  standard: { hex: '#0891B2', bg: 'bg-status-info/12', text: 'text-status-info', label: 'Standard' },
+  basic: { hex: '#E8963A', bg: 'bg-ads/12', text: 'text-ads', label: 'Basic' },
+  compliance: { hex: '#7C3AED', bg: 'bg-balapor/12', text: 'text-balapor', label: 'Compliance' },
 };
 const TIER_FALLBACK_COLOR = { hex: '#6B7280', bg: 'bg-surface-muted', text: 'text-text-muted', label: 'Other' };
 
@@ -153,11 +154,11 @@ const getTierColor = (category?: string) =>
 export default function AdsFinancialPanel() {
   const { token, isLoading: authLoading } = useAuth();
 
-  const [period, setPeriod]               = useState<Period>('30d');
-  const [byEntity, setByEntity]           = useState<ByEntityResponse['data'] | null>(null);
-  const [events, setEvents]               = useState<FinancialEvent[]>([]);
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState<string | null>(null);
+  const [period, setPeriod] = useState<Period>('30d');
+  const [byEntity, setByEntity] = useState<ByEntityResponse['data'] | null>(null);
+  const [events, setEvents] = useState<FinancialEvent[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   // SESI 5G — drill-down filter state
   const [activityFilter, setActivityFilter] = useState<ActivityFilter>({
@@ -264,8 +265,8 @@ export default function AdsFinancialPanel() {
 
     for (const ev of events) {
       const alias = ev.metadata?.bank_account_alias ?? '(tanpa rekening)';
-      const bank  = ev.metadata?.bank_account_bank ?? '—';
-      const key   = `${bank}|${alias}`;
+      const bank = ev.metadata?.bank_account_bank ?? '—';
+      const key = `${bank}|${alias}`;
 
       if (!groups.has(key)) {
         groups.set(key, { alias, bank, total: 0, count: 0 });
@@ -283,12 +284,12 @@ export default function AdsFinancialPanel() {
   // SESI 5G — Revenue by Pricing Tier (Top 5)
   const revenueByTier = useMemo(() => {
     const groups = new Map<string, {
-      tier_id:       string;
-      tier_code:     string;
+      tier_id: string;
+      tier_code: string;
       tier_category: string;
-      tier_name:     string;
-      total:         number;
-      count:         number;
+      tier_name: string;
+      total: number;
+      count: number;
     }>();
 
     for (const ev of events) {
@@ -297,12 +298,12 @@ export default function AdsFinancialPanel() {
 
       if (!groups.has(tierId)) {
         groups.set(tierId, {
-          tier_id:       tierId,
-          tier_code:     ev.metadata?.tier_code ?? '—',
+          tier_id: tierId,
+          tier_code: ev.metadata?.tier_code ?? '—',
           tier_category: (ev.metadata?.tier_category ?? 'other').toLowerCase(),
-          tier_name:     ev.metadata?.tier_name ?? ev.metadata?.tier_code ?? '—',
-          total:         0,
-          count:         0,
+          tier_name: ev.metadata?.tier_name ?? ev.metadata?.tier_code ?? '—',
+          total: 0,
+          count: 0,
         });
       }
       const g = groups.get(tierId)!;
@@ -318,10 +319,10 @@ export default function AdsFinancialPanel() {
   // SESI 5G — Top Advertiser (Top 5)
   const topAdvertisers = useMemo(() => {
     const groups = new Map<string, {
-      advertiser_id:   string;
+      advertiser_id: string;
       advertiser_name: string;
-      total:           number;
-      count:           number;
+      total: number;
+      count: number;
     }>();
 
     for (const ev of events) {
@@ -331,10 +332,10 @@ export default function AdsFinancialPanel() {
 
       if (!groups.has(advId)) {
         groups.set(advId, {
-          advertiser_id:   advId,
+          advertiser_id: advId,
           advertiser_name: advName,
-          total:           0,
-          count:           0,
+          total: 0,
+          count: 0,
         });
       }
       const g = groups.get(advId)!;
@@ -392,8 +393,8 @@ export default function AdsFinancialPanel() {
   // Chart data for Recharts (Bank)
   const chartData = useMemo(() => {
     return revenueByBank.map((b, i) => ({
-      name:  b.alias,
-      bank:  b.bank,
+      name: b.alias,
+      bank: b.bank,
       total: b.total,
       count: b.count,
       color: BANK_COLORS[i % BANK_COLORS.length],
@@ -405,13 +406,13 @@ export default function AdsFinancialPanel() {
     return revenueByTier.map((t) => {
       const colorMeta = getTierColor(t.tier_category);
       return {
-        name:          t.tier_code,
-        tier_id:       t.tier_id,
+        name: t.tier_code,
+        tier_id: t.tier_id,
         tier_category: t.tier_category,
-        tier_name:     t.tier_name,
-        total:         t.total,
-        count:         t.count,
-        color:         colorMeta.hex,
+        tier_name: t.tier_name,
+        total: t.total,
+        count: t.count,
+        color: colorMeta.hex,
       };
     });
   }, [revenueByTier]);
@@ -430,7 +431,7 @@ export default function AdsFinancialPanel() {
     const bank = payload?.bank;
     if (!alias) return;
     setActivityFilter({
-      type:  'bank',
+      type: 'bank',
       value: alias,
       label: `${alias}${bank && bank !== '—' ? ' · ' + bank : ''}`,
     });
@@ -438,7 +439,7 @@ export default function AdsFinancialPanel() {
 
   const handleAdvertiserRowClick = useCallback((adv: typeof topAdvertisers[number]) => {
     setActivityFilter({
-      type:  'advertiser',
+      type: 'advertiser',
       value: adv.advertiser_id,
       label: adv.advertiser_name,
     });
@@ -451,11 +452,11 @@ export default function AdsFinancialPanel() {
   // SESI 5G Phase 3 — Audit resolve handlers
   const handleOpenResolveModal = useCallback((ev: FinancialEvent) => {
     setResolveModalEvent({
-      id:               ev.id,
+      id: ev.id,
       source_entity_id: ev.source_entity_id,
-      amount:           ev.amount,
-      recorded_at:      ev.recorded_at,
-      metadata:         ev.metadata,
+      amount: ev.amount,
+      recorded_at: ev.recorded_at,
+      metadata: ev.metadata,
     });
   }, []);
 
@@ -912,9 +913,9 @@ export default function AdsFinancialPanel() {
                           <span className={cn(
                             'inline-flex items-center justify-center w-6 h-6 rounded-md text-[10px] font-bold',
                             i === 0 ? 'bg-ads/15 text-ads' :
-                            i === 1 ? 'bg-status-info/12 text-status-info' :
-                            i === 2 ? 'bg-baronda/12 text-baronda' :
-                            'bg-surface-muted text-text-muted'
+                              i === 1 ? 'bg-status-info/12 text-status-info' :
+                                i === 2 ? 'bg-baronda/12 text-baronda' :
+                                  'bg-surface-muted text-text-muted'
                           )}>
                             {i + 1}
                           </span>
@@ -1174,6 +1175,9 @@ export default function AdsFinancialPanel() {
           </p>
         </div>
       )}
+
+      {/* ─── Section Accrual (PT revenue recognition) ─── */}
+      {!loading && <AdsAccrualSection token={token ?? null} />}
 
       {/* ─── Footer info ─── */}
       <div className="flex items-start gap-2 p-3 rounded-lg bg-status-info/4 border border-status-info/20">
