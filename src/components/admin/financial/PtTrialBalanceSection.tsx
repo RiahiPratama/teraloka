@@ -15,6 +15,7 @@
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
+import { BookText, Inbox } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -94,7 +95,7 @@ export default function PtTrialBalanceSection() {
       {/* Header */}
       <div className="flex items-center justify-between gap-3 px-[18px] py-3.5 border-b border-border flex-wrap">
         <div>
-          <p className="text-[14px] font-bold text-text">📒 Neraca Saldo (Trial Balance)</p>
+          <p className="text-[14px] font-bold text-text flex items-center gap-1.5"><BookText className="w-4 h-4 text-ads" /> Neraca Saldo (Trial Balance)</p>
           <p className="text-[11px] text-text-muted mt-0.5">
             Dari ledger double-entry · PT TeraLoka · saldo kumulatif
           </p>
@@ -124,7 +125,7 @@ export default function PtTrialBalanceSection() {
       {/* Empty */}
       {!loading && data && data.rows.length === 0 && (
         <div className="py-10 px-5 text-center text-[12px] text-text-muted">
-          <div className="text-[30px] mb-2">📭</div>
+          <Inbox className="w-7 h-7 mx-auto mb-2 text-text-muted" />
           Belum ada akun PT atau jurnal yang tercatat.
         </div>
       )}

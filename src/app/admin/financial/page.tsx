@@ -35,6 +35,7 @@ import { useAuth } from '@/hooks/useAuth';
 import PtTrialBalanceSection from '@/components/admin/financial/PtTrialBalanceSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
+import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -83,13 +84,34 @@ const EVENT_TYPE_CONFIG: Record<string, { icon: string; label: string; color: st
   'donation.verified':     { icon: '✅', label: 'Donasi Terverifikasi',  color: '#059669' },
   'donation.rejected':     { icon: '❌', label: 'Donasi Ditolak',         color: '#7F1D1D' },
   'donation.fee_remitted': { icon: '💰', label: 'Fee Disetor (Yayasan)',  color: '#E8963A' },
+  'ad.payment_recorded':   { icon: '📣', label: 'Pembayaran Iklan (Ads)', color: '#1B6B4A' },
 };
 
-const SOURCE_CONFIG: Record<string, { label: string; icon: string; color: string }> = {
-  ads:        { label: 'Ads (Iklan)',       icon: '📢', color: '#1B6B4A' },
-  mitra:      { label: 'Bakos (Klasified)', icon: '🏠', color: '#0891B2' },
-  commission: { label: 'Komisi BAPASIAR',   icon: '🚢', color: '#7C3AED' },
-};
+// Kategori beban PT (akun 6xxx) + sumber kas (1110/1111/1120)
+const EXPENSE_CATEGORIES: { code: string; label: string; icon: string }[] = [
+  { code: '6101', label: 'Server & Infrastruktur', icon: '🖥️' },
+  { code: '6102', label: 'Gaji & Honor Tim',        icon: '👥' },
+  { code: '6103', label: 'Marketing & Promosi',     icon: '📣' },
+  { code: '6104', label: 'Operasional Lapangan',    icon: '🚐' },
+  { code: '6105', label: 'Administrasi & Umum',     icon: '🗂️' },
+  { code: '6106', label: 'Legal & Notaris',         icon: '⚖️' },
+  { code: '6107', label: 'Bank & Transfer',         icon: '🏦' },
+  { code: '6199', label: 'Lain-lain',               icon: '📦' },
+];
+const CASH_SOURCES: { code: string; label: string }[] = [
+  { code: '1110', label: 'Rekening Amar Radjab (BNI)' },
+  { code: '1111', label: 'Rekening Risnawati Yunus' },
+  { code: '1120', label: 'Kas Kecil (Petty Cash)' },
+];
+
+type PeriodKey = '7d' | '30d' | '90d' | 'ytd' | 'all' | 'custom';
+const PERIOD_PRESETS: { key: PeriodKey; label: string }[] = [
+  { key: '7d',  label: '7 Hari'    },
+  { key: '30d', label: '30 Hari'   },
+  { key: '90d', label: '90 Hari'   },
+  { key: 'ytd', label: 'Tahun Ini' },
+  { key: 'all', label: 'Semua'     },
+];
 
 // ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
@@ -107,13 +129,32 @@ export default function AdminFinancialPage() {
   const [byEntity,       setByEntity]       = useState<RevenueByEntityData | null>(null);
   const [timeseries,     setTimeseries]     = useState<TimeseriesPoint[]>([]);
   const [events,         setEvents]         = useState<FinancialEvent[]>([]);
-  const [yayasanEvents,  setYayasanEvents]  = useState<FinancialEvent[]>([]);
+  const [remittances,    setRemittances]    = useState<any[]>([]);
   const [loading,        setLoading]        = useState(true);
 
-  // Manual entry form (LEGACY KEEP)
+  // Catat Pengeluaran form
   const [showForm, setShowForm] = useState(false);
-  const [form,     setForm]     = useState({ type: 'ads', amount: '', description: '' });
+  const [form,     setForm]     = useState({ expense_account_code: '6101', source_account_code: '1110', amount: '', description: '' });
   const [toast,    setToast]    = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
+
+  // Filter periode (fleksibel — tidak dikunci 30 hari)
+  const [period,      setPeriod]      = useState<PeriodKey>('30d');
+  const [customFrom,  setCustomFrom]  = useState('');
+  const [customTo,    setCustomTo]    = useState('');
+  const [appliedFrom, setAppliedFrom] = useState('');
+  const [appliedTo,   setAppliedTo]   = useState('');
+  const [showCustom,  setShowCustom]  = useState(false);
+  const _now = new Date();
+  const [selMonth, setSelMonth] = useState<number>(_now.getMonth() + 1); // 1-12, 0 = semua bulan
+  const [selYear,  setSelYear]  = useState<number>(_now.getFullYear());
+
+  // Apply pilihan Bulan/Tahun → reuse jalur custom (appliedFrom/To)
+  function applyMonthYear(month: number, year: number) {
+    const from = month === 0 ? `${year}-01-01` : `${year}-${String(month).padStart(2,'0')}-01`;
+    const lastDay = month === 0 ? 31 : new Date(year, month, 0).getDate();
+    const to = month === 0 ? `${year}-12-31` : `${year}-${String(month).padStart(2,'0')}-${String(lastDay).padStart(2,'0')}`;
+    setAppliedFrom(from); setAppliedTo(to); setPeriod('custom'); setShowCustom(false);
+  }
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type });
@@ -128,40 +169,52 @@ export default function AdminFinancialPage() {
     if (!token) return;
     setLoading(true);
 
+    const periodQuery =
+      period === 'custom' && appliedFrom && appliedTo
+        ? `from=${encodeURIComponent(new Date(appliedFrom).toISOString())}&to=${encodeURIComponent(new Date(appliedTo + 'T23:59:59').toISOString())}`
+        : `period=${period}`;
+    const tsQuery = period === 'all' ? 'period=90d' : periodQuery;
+
     Promise.all([
-      fetch(`${API}/money/revenue/by-entity?period=30d`,                                { headers: h }).then(r => r.json()),
-      fetch(`${API}/money/revenue/timeseries?period=7d`,                                 { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/by-entity?${periodQuery}`,                            { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/timeseries?${tsQuery}`,                               { headers: h }).then(r => r.json()),
       fetch(`${API}/money/admin/events?limit=10`,                                        { headers: h }).then(r => r.json()),
-      fetch(`${API}/money/admin/events?limit=10&event_type=donation.fee_remitted`,      { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/badonasi-remittances?${periodQuery}&limit=10`,         { headers: h }).then(r => r.json()),
     ])
       .then(([be, ts, ev, yEv]) => {
         if (be?.success)  setByEntity(be.data);
         if (ts?.success)  setTimeseries(ts.data?.data ?? []);
         if (ev?.success)  setEvents(ev.data ?? []);
-        if (yEv?.success) setYayasanEvents(yEv.data ?? []);
+        if (yEv?.success) setRemittances(yEv.data ?? []);
       })
       .catch(err => console.error('[financial fetch fail]', err))
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [token, period, appliedFrom, appliedTo]);
 
-  // ─── Manual entry handler (LEGACY KEEP) ───────────────────────
+  // ─── Catat Pengeluaran handler (posting ledger) ───────────────
 
-  const handleAddRevenue = async () => {
+  const handleAddExpense = async () => {
     if (!form.amount || !form.description) {
-      showToast('Lengkapi semua field', 'err');
+      showToast('Lengkapi nominal & deskripsi', 'err');
       return;
     }
     try {
-      const res  = await fetch(`${API}/admin/ads/revenue`, {
+      const res  = await fetch(`${API}/money/expense`, {
         method:  'POST',
         headers: { ...h, 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...form, amount: Number(form.amount) }),
+        body:    JSON.stringify({
+          expense_account_code: form.expense_account_code,
+          source_account_code:  form.source_account_code,
+          amount:               Number(form.amount),
+          description:          form.description,
+          category_label:       EXPENSE_CATEGORIES.find(c => c.code === form.expense_account_code)?.label ?? null,
+        }),
       });
       const json = await res.json();
       if (!json.success) throw new Error(json.error?.message);
-      showToast('✅ Revenue tercatat (legacy table, migrasi Money Phase 2)');
+      showToast('✅ Pengeluaran tercatat ke ledger. Refresh untuk lihat di Neraca Saldo.');
       setShowForm(false);
-      setForm({ type: 'ads', amount: '', description: '' });
+      setForm({ expense_account_code: '6101', source_account_code: '1110', amount: '', description: '' });
     } catch (err: any) {
       showToast(err.message || 'Gagal simpan', 'err');
     }
@@ -174,6 +227,11 @@ export default function AdminFinancialPage() {
   const yayasanTotal  = byEntity?.yayasan?.total       ?? 0;
   const eventCount    = byEntity?.meta?.event_count    ?? 0;
 
+  const periodLabel =
+    period === 'custom' && appliedFrom && appliedTo
+      ? `${appliedFrom} – ${appliedTo}`
+      : (PERIOD_PRESETS.find((p) => p.key === period)?.label ?? period);
+
   const chartDataCombined = timeseries.map(p => ({
     date:    new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
     total:   p.total,
@@ -185,6 +243,11 @@ export default function AdminFinancialPage() {
     date:         new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
     badonasi_fee: p.badonasi_fee,
     total:        p.yayasan,
+  }));
+
+  const chartDataPt = timeseries.map(p => ({
+    date: new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    pt:   p.pt_digital,
   }));
 
   // ─── Render ────────────────────────────────────────────────────
@@ -211,7 +274,7 @@ export default function AdminFinancialPage() {
         marginBottom: 20, flexWrap: 'wrap', gap: 12,
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>💰 Financial Dashboard</h1>
+          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}><Wallet size={22} /> Financial Dashboard</h1>
           <p style={{ margin: '4px 0 0', fontSize: 13, color: t.textMuted }}>
             Ringkasan keuangan TeraLoka — terpisah per legal entity (PT vs Yayasan)
           </p>
@@ -219,12 +282,78 @@ export default function AdminFinancialPage() {
         <button
           onClick={() => setShowForm(!showForm)}
           style={{
-            padding: '8px 18px', background: '#1B6B4A', border: 'none',
+            padding: '8px 18px', background: '#B45309', border: 'none',
             borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
           }}
         >
-          + Catat Revenue
+          + Catat Pengeluaran
         </button>
+      </div>
+
+      {/* Filter Periode (fleksibel) */}
+      <div className="flex flex-wrap items-center gap-2 mb-5">
+        <span className="text-[11px] font-bold text-text-subtle uppercase tracking-wide mr-1">Periode</span>
+        {PERIOD_PRESETS.map((p) => (
+          <button
+            key={p.key}
+            onClick={() => { setPeriod(p.key); setShowCustom(false); }}
+            className={
+              'px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ' +
+              (period === p.key ? 'bg-ads text-white' : 'bg-surface-muted text-text-muted hover:text-text')
+            }
+          >
+            {p.label}
+          </button>
+        ))}
+        <button
+          onClick={() => setShowCustom((v) => !v)}
+          className={
+            'px-3 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ' +
+            (period === 'custom' ? 'bg-ads text-white' : 'bg-surface-muted text-text-muted hover:text-text')
+          }
+        >
+          Custom
+        </button>
+
+        {/* Dropdown Bulan + Tahun — pilih langsung */}
+        <div className="flex items-center gap-1.5 ml-1">
+          <select
+            value={selMonth}
+            onChange={(e) => { const m = Number(e.target.value); setSelMonth(m); applyMonthYear(m, selYear); }}
+            className="px-2 py-1.5 rounded-lg text-[12px] bg-surface-muted border border-border text-text outline-none cursor-pointer"
+            title="Pilih bulan"
+          >
+            <option value={0}>Semua Bulan</option>
+            {['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'].map((nm, i) => (
+              <option key={i} value={i + 1}>{nm}</option>
+            ))}
+          </select>
+          <select
+            value={selYear}
+            onChange={(e) => { const y = Number(e.target.value); setSelYear(y); applyMonthYear(selMonth, y); }}
+            className="px-2 py-1.5 rounded-lg text-[12px] bg-surface-muted border border-border text-text outline-none cursor-pointer"
+            title="Pilih tahun"
+          >
+            {Array.from({ length: 6 }, (_, i) => _now.getFullYear() - i).map((y) => (
+              <option key={y} value={y}>{y}</option>
+            ))}
+          </select>
+        </div>
+        {showCustom && (
+          <div className="flex flex-wrap items-center gap-2 ml-1">
+            <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
+              className="px-2 py-1.5 rounded-lg text-[12px] bg-surface-muted border border-border text-text outline-none" />
+            <span className="text-text-subtle text-[12px]">–</span>
+            <input type="date" value={customTo} onChange={(e) => setCustomTo(e.target.value)}
+              className="px-2 py-1.5 rounded-lg text-[12px] bg-surface-muted border border-border text-text outline-none" />
+            <button
+              onClick={() => { if (customFrom && customTo) { setAppliedFrom(customFrom); setAppliedTo(customTo); setPeriod('custom'); } }}
+              className="px-3 py-1.5 rounded-lg text-[12px] font-bold bg-[#B45309] text-white hover:bg-[#92400E] transition-colors"
+            >
+              Terapkan
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Tab Navigator */}
@@ -233,11 +362,11 @@ export default function AdminFinancialPage() {
         borderBottom: `1px solid ${t.cardBorder}`,
       }}>
         {[
-          { key: 'overview'      as Tab, label: '📊 Overview'         },
-          { key: 'pt'            as Tab, label: '🏢 PT TeraLoka'       },
-          { key: 'yayasan'       as Tab, label: '🤝 Yayasan TeraLoka'  },
-          { key: 'bank-accounts' as Tab, label: '🏦 Bank Accounts'     },  // SESI 5F (19 Mei 2026)
-        ].map(({ key, label }) => (
+          { key: 'overview'      as Tab, label: 'Overview',         Icon: LayoutDashboard },
+          { key: 'pt'            as Tab, label: 'PT TeraLoka',       Icon: Building2       },
+          { key: 'yayasan'       as Tab, label: 'Yayasan TeraLoka',  Icon: HeartHandshake  },
+          { key: 'bank-accounts' as Tab, label: 'Bank Accounts',     Icon: Landmark        },  // SESI 5F (19 Mei 2026)
+        ].map(({ key, label, Icon }) => (
           <button
             key={key}
             onClick={() => setTab(key)}
@@ -250,6 +379,7 @@ export default function AdminFinancialPage() {
               display: 'flex', alignItems: 'center', gap: 6,
             }}
           >
+            <Icon size={15} />
             {label}
           </button>
         ))}
@@ -271,24 +401,31 @@ export default function AdminFinancialPage() {
               eventCount={eventCount}
               chartData={chartDataCombined}
               events={events}
+              periodLabel={periodLabel}
             />
           )}
 
           {tab === 'pt' && (
             <PTTab
+              t={t}
               router={router}
               total={ptTotal}
               sources={byEntity?.pt_digital?.sources}
+              chartData={chartDataPt}
+              events={events}
+              periodLabel={periodLabel}
             />
           )}
 
           {tab === 'yayasan' && (
             <YayasanTab
               t={t}
+              router={router}
               total={yayasanTotal}
               sources={byEntity?.yayasan?.sources}
               chartData={chartDataYayasan}
-              events={yayasanEvents}
+              remittances={remittances}
+              periodLabel={periodLabel}
             />
           )}
 
@@ -297,14 +434,13 @@ export default function AdminFinancialPage() {
         </>
       )}
 
-      {/* Manual Entry Form (Sidebar, Global) */}
+      {/* Catat Pengeluaran Form (Sidebar, Global) */}
       {showForm && (
-        <ManualEntryForm
-          t={t}
+        <ExpenseEntryForm
           form={form}
           setForm={setForm}
           onClose={() => setShowForm(false)}
-          onSubmit={handleAddRevenue}
+          onSubmit={handleAddExpense}
         />
       )}
     </div>
@@ -316,7 +452,7 @@ export default function AdminFinancialPage() {
 // ═══════════════════════════════════════════════════════════════
 
 function OverviewTab({
-  t, combinedTotal, ptTotal, yayasanTotal, eventCount, chartData, events,
+  t, combinedTotal, ptTotal, yayasanTotal, eventCount, chartData, events, periodLabel,
 }: any) {
   const isEmpty = combinedTotal === 0 && eventCount === 0;
 
@@ -336,7 +472,7 @@ function OverviewTab({
             margin: '0 0 6px', fontSize: 11,
             color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase',
           }}>
-            💰 Combined Revenue (30 Hari)
+            💰 Combined Revenue ({periodLabel})
           </p>
           <p style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 800, color: '#fff' }}>
             {formatRp(combinedTotal)}
@@ -394,7 +530,7 @@ function OverviewTab({
           <div>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📈 Tren Pendapatan</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
-              Perbandingan PT vs Yayasan · 7 hari terakhir
+              Perbandingan PT vs Yayasan · {periodLabel}
             </p>
           </div>
           <span style={{
@@ -513,7 +649,7 @@ function OverviewTab({
 // Honest Phase 1: semua Rp 0 + 1 card interactive (Ads → /admin/ads)
 // ═══════════════════════════════════════════════════════════════
 
-function PTTab({ router, total, sources }: any) {
+function PTTab({ t, router, total, sources, chartData, events, periodLabel }: any) {
   const ads        = sources?.ads        ?? 0;
   const bakos      = sources?.bakos      ?? 0;
   const commission = sources?.commission ?? 0;
@@ -523,13 +659,13 @@ function PTTab({ router, total, sources }: any) {
       {/* Header Total Card */}
       <div className="bg-gradient-to-br from-[#1B6B4A] to-[#0F4A34] border border-[#1B6B4A] rounded-xl px-[22px] py-5 mb-4">
         <div className="flex items-center gap-2.5 mb-2">
-          <span className="text-[22px]">🏢</span>
+          <Building2 className="w-[22px] h-[22px] text-white" strokeWidth={2} />
           <div>
             <p className="text-[13px] font-bold text-white">PT TeraLoka Digital Maluku</p>
             <p className="text-[11px] text-white/70 mt-0.5">Commercial revenue · Ads, Bakos, Komisi BAPASIAR</p>
           </div>
         </div>
-        <p className="text-[11px] font-semibold text-white/70 uppercase mt-3 mb-1">Total Revenue (30 Hari)</p>
+        <p className="text-[11px] font-semibold text-white/70 uppercase mt-3 mb-1">Total Revenue ({periodLabel})</p>
         <p className="text-[32px] font-extrabold text-white leading-none">{formatRp(total)}</p>
       </div>
 
@@ -542,8 +678,8 @@ function PTTab({ router, total, sources }: any) {
           className="group bg-surface border border-border rounded-xl p-4 text-left transition-all hover:border-ads/40 hover:bg-ads/4 cursor-pointer"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[18px]">📢</span>
-            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-ads/12 text-ads">Coming Phase 2</span>
+            <Megaphone className="w-[18px] h-[18px] text-ads" strokeWidth={2} />
+            <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#059669]/15 text-[#059669]">Live</span>
           </div>
           <p className="text-[11px] font-bold text-text-muted">Ads (Iklan)</p>
           <p className="text-[18px] font-extrabold text-text tabular-nums mt-0.5">{formatRp(ads)}</p>
@@ -553,7 +689,7 @@ function PTTab({ router, total, sources }: any) {
         {/* Bakos */}
         <div className="bg-surface border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[18px]">🏠</span>
+            <Home className="w-[18px] h-[18px] text-[#0891B2]" strokeWidth={2} />
             <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#0891B2]/12 text-[#0891B2]">Coming Phase 2</span>
           </div>
           <p className="text-[11px] font-bold text-text-muted">Bakos (Klasified)</p>
@@ -563,7 +699,7 @@ function PTTab({ router, total, sources }: any) {
         {/* BAPASIAR */}
         <div className="bg-surface border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-[18px]">🚢</span>
+            <Ship className="w-[18px] h-[18px] text-[#7C3AED]" strokeWidth={2} />
             <span className="text-[8px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-[#7C3AED]/12 text-[#7C3AED]">Coming Phase 2</span>
           </div>
           <p className="text-[11px] font-bold text-text-muted">Komisi BAPASIAR</p>
@@ -578,30 +714,50 @@ function PTTab({ router, total, sources }: any) {
       {/* Mini Tren Chart (PT only) — empty */}
       <div className="bg-surface border border-border rounded-xl px-[22px] py-[18px] mb-5">
         <div className="mb-3">
-          <p className="text-[14px] font-bold text-text">📈 Tren Pendapatan PT</p>
-          <p className="text-[11px] text-text-muted mt-0.5">7 hari terakhir · Commercial revenue only</p>
+          <p className="text-[14px] font-bold text-text flex items-center gap-1.5"><TrendingUp className="w-4 h-4 text-text-muted" /> Tren Pendapatan PT</p>
+          <p className="text-[11px] text-text-muted mt-0.5">Commercial revenue · Ads, Bakos, BAPASIAR</p>
         </div>
-        <div className="h-[180px] flex flex-col items-center justify-center gap-1.5">
-          <p className="text-[13px] text-text-subtle">Belum ada transaksi komersial</p>
-          <p className="text-[11px] text-text-muted text-center max-w-[360px]">
-            Chart akan otomatis terisi saat Ads, Bakos, atau Komisi BAPASIAR mulai emit ke Money Domain (Phase 2)
-          </p>
-        </div>
+        {(!chartData || !chartData.some((d: any) => d.pt > 0)) ? (
+          <div className="h-[180px] flex flex-col items-center justify-center gap-1.5">
+            <p className="text-[13px] text-text-subtle">Belum ada transaksi komersial pada periode ini</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <LineChart data={chartData}>
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: t.textMuted }} axisLine={false} tickLine={false} />
+              <YAxis
+                tick={{ fontSize: 10, fill: t.textMuted }} axisLine={false} tickLine={false} width={50}
+                tickFormatter={(v: any) => v >= 1000000 ? `${(v/1000000).toFixed(1)}jt` : v >= 1000 ? `${(v/1000).toFixed(0)}k` : v}
+              />
+              <Tooltip
+                contentStyle={{ background: t.card, border: `1px solid ${t.cardBorder}`, borderRadius: 8, fontSize: 11, color: t.textPrimary }}
+                formatter={(v: any) => formatRp(v)}
+              />
+              <Line type="monotone" dataKey="pt" stroke="#1B6B4A" strokeWidth={2.5} dot={false} name="PT TeraLoka" />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       {/* Recent Transactions PT — empty */}
       <div className="bg-surface border border-border rounded-xl overflow-hidden">
         <div className="px-[18px] py-3.5 border-b border-border">
-          <p className="text-[14px] font-bold text-text">📋 Transaksi Komersial Terbaru</p>
+          <p className="text-[14px] font-bold text-text flex items-center gap-1.5"><Receipt className="w-4 h-4 text-text-muted" /> Transaksi Komersial Terbaru</p>
           <p className="text-[11px] text-text-muted mt-0.5">Filter: Ads, Bakos, Komisi BAPASIAR</p>
         </div>
-        <div className="px-5 py-10 text-center">
-          <div className="text-[32px] mb-2">📭</div>
-          <p className="text-[13px] font-semibold text-text mb-1">Belum ada transaksi komersial</p>
-          <p className="text-[11px] text-text-subtle max-w-[400px] mx-auto leading-relaxed">
-            Transaksi PT TeraLoka akan muncul di sini setelah Ads / Bakos / BAPASIAR terintegrasi ke Money Domain (Mission #5, target Phase 2)
-          </p>
-        </div>
+        {(() => {
+          const ptEvents = (events ?? []).filter((ev: any) => ['ads', 'bakos', 'bapasiar'].includes(ev.source_domain));
+          if (ptEvents.length === 0) return (
+            <div className="px-5 py-10 text-center">
+              <Inbox className="w-8 h-8 mx-auto mb-2 text-text-subtle" />
+              <p className="text-[13px] font-semibold text-text mb-1">Belum ada transaksi komersial terbaru</p>
+            </div>
+          );
+          return ptEvents.map((ev: any, i: number) => {
+            const cfg = EVENT_TYPE_CONFIG[ev.event_type] || { icon: '💰', label: ev.event_type, color: '#9CA3AF' };
+            return <EventRow key={ev.id} ev={ev} cfg={cfg} isLast={i === ptEvents.length - 1} t={t} />;
+          });
+        })()}
       </div>
     </>
   );
@@ -612,7 +768,7 @@ function PTTab({ router, total, sources }: any) {
 // Honest Phase 1: semua static (admin BADONASI page defer)
 // ═══════════════════════════════════════════════════════════════
 
-function YayasanTab({ t, total, sources, chartData, events }: any) {
+function YayasanTab({ t, router, total, sources, chartData, remittances, periodLabel }: any) {
   const badonasiFee = sources?.badonasi_fee ?? 0;
   const grant       = sources?.grant        ?? 0;
   const csr         = sources?.csr          ?? 0;
@@ -662,7 +818,7 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
           margin: '12px 0 4px', fontSize: 11, fontWeight: 600,
           color: 'rgba(255,255,255,0.75)', textTransform: 'uppercase',
         }}>
-          Total Revenue (30 Hari)
+          Total Revenue ({periodLabel})
         </p>
         <p style={{ margin: 0, fontSize: 32, fontWeight: 800, color: '#fff' }}>
           {formatRp(total)}
@@ -680,8 +836,10 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
           label="Badonasi Fee (Setor)"
           value={badonasiFee}
           color="#E8963A"
-          note="Auto-track saat partner setor fee ke Yayasan"
+          note="Fee yang sudah DISETOR partner · cash basis (diakui saat uang masuk)"
           active
+          onClick={() => router.push('/admin/funding/cashflow')}
+          actionHint="Lihat detail cashflow →"
         />
         <SourceCard
           t={t}
@@ -770,33 +928,52 @@ function YayasanTab({ t, total, sources, chartData, events }: any) {
           <div>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>💰 Transaksi Fee Disetor</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
-              Filter: <code style={{ color: '#E8963A' }}>donation.fee_remitted</code> · Real Yayasan revenue
+              Setoran fee dari partner · <span style={{ color: '#E8963A' }}>aliran uang nyata</span> (by remitted_at)
             </p>
           </div>
           <span style={{ fontSize: 12, color: t.textMuted }}>
-            {events.length} event{events.length !== 1 ? 's' : ''}
+            {remittances.length} setoran
           </span>
         </div>
 
-        {events.length === 0 ? (
+        {remittances.length === 0 ? (
           <div style={{
             padding: '40px 20px', textAlign: 'center',
             color: t.textMuted, fontSize: 13,
           }}>
             <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
-            <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada fee setor</p>
+            <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada setoran fee pada periode ini</p>
             <p style={{ margin: 0, fontSize: 11, color: t.textDim, maxWidth: 420, marginInline: 'auto', lineHeight: 1.5 }}>
-              Transaksi muncul setelah admin verify fee_remittance dari partner Penggalang
-              (donasi pass-through TIDAK tampil — bukan revenue Yayasan)
+              Setoran muncul saat partner Penggalang menyetor fee operasional ke rekening Yayasan
             </p>
           </div>
-        ) : events.map((ev: FinancialEvent, i: number) => {
-          const cfg = EVENT_TYPE_CONFIG[ev.event_type] || {
-            icon: '💰', label: ev.event_type, color: '#9CA3AF',
-          };
-          const isLast = i === events.length - 1;
+        ) : remittances.map((r: any, i: number) => {
+          const isLast = i === remittances.length - 1;
+          const d = new Date(r.remitted_at);
+          const tgl = d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
           return (
-            <EventRow key={ev.id} ev={ev} cfg={cfg} isLast={isLast} t={t} />
+            <div key={r.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12,
+              padding: '12px 18px',
+              borderBottom: !isLast ? `1px solid ${t.cardBorder}` : 'none',
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, background: 'rgba(232,150,58,0.13)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0,
+              }}>💰</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  margin: 0, fontSize: 13, fontWeight: 600, color: t.textPrimary,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{r.partner_name}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+                  {tgl} · {r.donation_count} donasi{r.reference_code ? ` · ${r.reference_code}` : ''}
+                </p>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#E8963A', flexShrink: 0 }}>
+                {formatRp(r.amount)}
+              </p>
+            </div>
           );
         })}
       </div>
@@ -949,6 +1126,10 @@ function EventRow({ ev, cfg, isLast, t }: any) {
               Fee: {formatRp(ev.fee_amount)}
             </p>
           </>
+        ) : ev.event_type === 'ad.payment_recorded' ? (
+          <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color: '#1B6B4A' }}>
+            {formatRp(ev.amount)}
+          </p>
         ) : (
           <p style={{ margin: 0, fontSize: 13, fontWeight: 600, color: t.textDim }}>—</p>
         )}
@@ -961,113 +1142,74 @@ function EventRow({ ev, cfg, isLast, t }: any) {
 // MANUAL ENTRY FORM (Sidebar Sticky)
 // ═══════════════════════════════════════════════════════════════
 
-function ManualEntryForm({ t, form, setForm, onClose, onSubmit }: any) {
+function ExpenseEntryForm({ form, setForm, onClose, onSubmit }: any) {
   return (
-    <div style={{
-      position: 'fixed', top: 80, right: 24, width: 340,
-      background: t.card, border: `1px solid ${t.cardBorder}`,
-      borderRadius: 14, padding: 18, zIndex: 100,
-      boxShadow: '0 10px 40px rgba(0,0,0,0.3)',
-    }}>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        marginBottom: 16,
-      }}>
-        <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>
-          + Catat Revenue Manual
-        </p>
-        <button
-          onClick={onClose}
-          style={{
-            background: 'none', border: 'none', color: t.textMuted,
-            cursor: 'pointer', fontSize: 18,
-          }}
-        >×</button>
+    <div className="fixed top-20 right-6 w-[360px] bg-surface border border-border rounded-xl p-[18px] z-[100] shadow-2xl">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[14px] font-bold text-text">+ Catat Pengeluaran PT</p>
+        <button onClick={onClose} className="text-text-muted hover:text-text text-[18px] leading-none">×</button>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          Sumber Revenue (PT TeraLoka)
-        </label>
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Kategori Beban *</label>
         <select
-          value={form.type}
-          onChange={e => setForm((p: any) => ({ ...p, type: e.target.value }))}
-          style={{
-            width: '100%', padding: '8px 12px',
-            background: t.inputBg, border: `1px solid ${t.inputBorder}`,
-            borderRadius: 8, color: t.textPrimary, fontSize: 13,
-            outline: 'none', boxSizing: 'border-box' as const,
-          }}
+          value={form.expense_account_code}
+          onChange={(e) => setForm((p: any) => ({ ...p, expense_account_code: e.target.value }))}
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
         >
-          {Object.entries(SOURCE_CONFIG).map(([k, v]) => (
-            <option key={k} value={k}>{v.icon} {v.label}</option>
+          {EXPENSE_CATEGORIES.map((c) => (
+            <option key={c.code} value={c.code}>{c.icon} {c.label} ({c.code})</option>
           ))}
         </select>
       </div>
 
-      <div style={{ marginBottom: 12 }}>
-        <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          Nominal (Rp) *
-        </label>
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Bayar Dari *</label>
+        <select
+          value={form.source_account_code}
+          onChange={(e) => setForm((p: any) => ({ ...p, source_account_code: e.target.value }))}
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        >
+          {CASH_SOURCES.map((s) => (
+            <option key={s.code} value={s.code}>{s.label} ({s.code})</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Nominal (Rp) *</label>
         <input
           type="number"
           value={form.amount}
-          onChange={e => setForm((p: any) => ({ ...p, amount: e.target.value }))}
+          onChange={(e) => setForm((p: any) => ({ ...p, amount: e.target.value }))}
           placeholder="150000"
-          style={{
-            width: '100%', padding: '8px 12px',
-            background: t.inputBg, border: `1px solid ${t.inputBorder}`,
-            borderRadius: 8, color: t.textPrimary, fontSize: 13,
-            outline: 'none', boxSizing: 'border-box' as const,
-          }}
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
         />
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <label style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, display: 'block', marginBottom: 4 }}>
-          Deskripsi *
-        </label>
+      <div className="mb-4">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Deskripsi *</label>
         <input
           value={form.description}
-          onChange={e => setForm((p: any) => ({ ...p, description: e.target.value }))}
-          placeholder='Iklan "Toko Rempah" paket Starter'
-          style={{
-            width: '100%', padding: '8px 12px',
-            background: t.inputBg, border: `1px solid ${t.inputBorder}`,
-            borderRadius: 8, color: t.textPrimary, fontSize: 13,
-            outline: 'none', boxSizing: 'border-box' as const,
-          }}
+          onChange={(e) => setForm((p: any) => ({ ...p, description: e.target.value }))}
+          placeholder="Bayar VPS Dalang bulan Juni"
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
         />
       </div>
 
-      <div style={{
-        background: t.deepBg, borderRadius: 8,
-        padding: '10px 12px', marginBottom: 16,
-      }}>
-        <p style={{ margin: 0, fontSize: 11, color: t.textMuted, lineHeight: 1.5 }}>
-          💡 Manual entry untuk Mitra/Komisi (sources yang belum auto-emit ke Money Domain).
-          Donasi BADONASI auto-tracked, tidak perlu manual.
+      <div className="bg-surface-muted/60 rounded-lg px-3 py-2.5 mb-4 flex gap-2">
+        <Lightbulb className="w-3.5 h-3.5 text-text-muted shrink-0 mt-0.5" />
+        <p className="text-[11px] text-text-muted leading-relaxed">
+          Posting ke ledger: <span className="font-bold text-text">Db Beban / Cr Kas</span>.
+          Langsung muncul di Neraca Saldo (refresh).
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 8 }}>
-        <button
-          onClick={onSubmit}
-          style={{
-            flex: 1, padding: 9, background: '#1B6B4A', border: 'none',
-            borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
-          }}
-        >
-          Simpan
+      <div className="flex gap-2">
+        <button onClick={onSubmit} className="flex-1 py-2.5 bg-[#B45309] hover:bg-[#92400E] rounded-lg text-[13px] font-bold text-white transition-colors">
+          Simpan Pengeluaran
         </button>
-        <button
-          onClick={onClose}
-          style={{
-            padding: '9px 16px', background: 'transparent',
-            border: `1px solid ${t.inputBorder}`,
-            borderRadius: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted,
-          }}
-        >
+        <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
           Batal
         </button>
       </div>

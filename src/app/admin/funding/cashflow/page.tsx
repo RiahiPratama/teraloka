@@ -531,6 +531,22 @@ export default function AdminCashflowPage() {
           {activePreset === 'custom' && (
             <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 'auto' }}>
               <input
+                type="month"
+                value={customFrom && customFrom.endsWith('-01') ? customFrom.slice(0, 7) : ''}
+                onChange={e => {
+                  const v = e.target.value;                 // "2026-05"
+                  if (!v) return;
+                  const [yy, mm] = v.split('-').map(Number);
+                  const last = new Date(yy, mm, 0).getDate(); // hari terakhir bulan
+                  setCustomFrom(`${v}-01`);
+                  setCustomTo(`${v}-${String(last).padStart(2, '0')}`);
+                  setPage(1);
+                }}
+                style={dateInputStyle(t)}
+                title="Pilih 1 bulan penuh (tgl 1 s/d akhir bulan)"
+              />
+              <span style={{ fontSize: 11, color: t.textDim }}>atau</span>
+              <input
                 type="date"
                 value={customFrom}
                 onChange={e => { setCustomFrom(e.target.value); setPage(1); }}
