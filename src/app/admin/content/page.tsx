@@ -45,6 +45,7 @@ import { DeleteArticleModal } from '@/components/admin/content/delete-article-mo
 import { NewsroomAnalyticsView } from '@/components/admin/content/newsroom-analytics-view';
 import { DistributionMetricsView } from '@/components/admin/content/distribution-metrics-view';
 import { MissionControlBakabar } from '@/components/admin/content/mission-control-bakabar';
+import { EditorialView } from '@/components/admin/content/editorial-view';
 import {
   computeArticleStats,
   filterByPeriod,
@@ -55,10 +56,11 @@ import {
   STATS_PERIOD_LABELS,
 } from '@/types/articles';
 
-type Tab = 'overview' | 'newsroom' | 'distribution';
+type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution';
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'overview',     label: 'Overview',             icon: '📊' },
+  { key: 'editorial',    label: 'Editorial Hub',        icon: '📝' },
   { key: 'newsroom',     label: 'Newsroom Analytics',   icon: '📰' },
   { key: 'distribution', label: 'Distribution Metrics', icon: '📈' },
 ];
@@ -470,6 +472,8 @@ export default function AdminContentPage() {
           )}
         </div>
       )}
+
+      {activeTab === 'editorial' && <EditorialView />}
 
       {activeTab === 'newsroom' && <NewsroomAnalyticsView />}
 
