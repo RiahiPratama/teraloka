@@ -164,6 +164,7 @@ export default function EditArticlePage() {
   const [sourcePlatform, setSourcePlatform] = useState('');
   const [isBreaking, setIsBreaking]         = useState(false);
   const [isTrending, setIsTrending]         = useState(false);
+  const [isViralMedsos, setIsViralMedsos]   = useState(false);
   const [locationId, setLocationId]         = useState('');
   const [adPosition, setAdPosition]         = useState<number | null>(null);
   // Phase 2 v3 Turn 3b: per-article ad settings (preset+count+format)
@@ -223,6 +224,7 @@ export default function EditArticlePage() {
         setSourcePlatform(a.source_platform ?? '');
         setIsBreaking(!!a.is_breaking);
         setIsTrending(!!a.is_viral);
+        setIsViralMedsos(a.source === 'social');
         setLocationId(a.location_id ?? '');
         setAdPosition(a.ad_position ?? null);
         // Phase 2 v3 Turn 3b: populate ad_settings dari article (NULL → DEFAULT 'lots' backward compat)
@@ -413,6 +415,7 @@ export default function EditArticlePage() {
           source_platform: sourcePlatform || null,
           is_breaking: isBreaking,
           is_viral: isTrending,
+          source: isViralMedsos ? 'social' : 'original',
           location_id: locationId || null,
           ad_position: adPosition,
           ad_settings: adSettings,
@@ -590,7 +593,7 @@ export default function EditArticlePage() {
   const wordCount  = body.trim() ? body.trim().split(/\s+/).filter(Boolean).length : 0;
   const readTime   = Math.max(1, Math.ceil(wordCount / 200));
   const charCount  = body.length;
-  const isViral    = category === 'viral';
+  const isViral    = isViralMedsos; // source='social' → kanal Viral Medsos (eks category==='viral')
   const canSubmit  = title.trim() && body.trim() && !loading;
   const categoryMeta = CATEGORIES.find(c => c.key === category);
 
@@ -929,6 +932,18 @@ export default function EditArticlePage() {
                   <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
                     Otomatis di-set kalau artikel banyak dibaca. Centang manual untuk promote artikel strategis
                     (breaking news penting, artikel investigasi, konten prioritas).
+                  </span>
+                </span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+                <input type="checkbox" checked={isViralMedsos} onChange={(e) => setIsViralMedsos(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#DC2626', marginTop: 2 }} />
+                <span style={{ flex: 1 }}>
+                  📱 Konten <span style={{ color: '#DC2626', fontWeight: 700 }}>Viral Medsos</span>
+                  <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
+                    Postingan medsos MalUt yang diangkat redaksi jadi berita. Masuk kanal Viral (source=social).
+                    Idealnya isi Link Postingan Asli di bawah untuk kredit sumber.
                   </span>
                 </span>
               </label>

@@ -139,6 +139,7 @@ export default function NewArticlePage() {
   const [sourcePlatform, setSourcePlatform] = useState('');
   const [isBreaking, setIsBreaking]         = useState(false);
   const [isTrending, setIsTrending]         = useState(false);
+  const [isViralMedsos, setIsViralMedsos]   = useState(false);
   const [locationId, setLocationId]         = useState('');
   const [adPosition, setAdPosition]         = useState<number | null>(null);
   // Phase 2 v3 (Turn 3b): per-article ad settings (preset+count+format)
@@ -185,7 +186,7 @@ export default function NewArticlePage() {
     saveTimer.current = setTimeout(() => {
       try {
         localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
-          title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId,
+          title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, isViralMedsos, locationId,
           savedAt: new Date().toISOString(),
         }));
         setLastSaved(new Date());
@@ -193,7 +194,7 @@ export default function NewArticlePage() {
     }, AUTO_SAVE_DELAY);
 
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, locationId, draftLoaded]);
+  }, [title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, isViralMedsos, locationId, draftLoaded]);
 
   useEffect(() => {
     if (!lastSaved) return;
@@ -220,6 +221,7 @@ export default function NewArticlePage() {
     setSourcePlatform(restorePrompt.sourcePlatform || '');
     setIsBreaking(!!restorePrompt.isBreaking);
     setIsTrending(!!restorePrompt.isTrending);
+    setIsViralMedsos(!!restorePrompt.isViralMedsos);
     setLocationId(restorePrompt.locationId || '');
     setRestorePrompt(null);
   };
@@ -379,6 +381,7 @@ export default function NewArticlePage() {
           source_platform: sourcePlatform || null,
           is_breaking: isBreaking,
           is_viral: isTrending,
+          source: isViralMedsos ? 'social' : 'original',
           location_id: locationId || null,
           ad_position: adPosition,
           ad_settings: adSettings,
@@ -476,7 +479,7 @@ export default function NewArticlePage() {
                   setSubmitted(false); setNewArticleId(null);
                   setTitle(''); setBody(''); setCategory(''); setCoverImageUrl('');
                   setSourceUrl(''); setSourcePlatform('');
-                  setIsBreaking(false); setIsTrending(false);
+                  setIsBreaking(false); setIsTrending(false); setIsViralMedsos(false);
                   setLocationId('');
                   setPublishNow(false); setLastSaved(null);
                   setAdSettings(NEW_ARTICLE_DEFAULT_AD_SETTINGS);
@@ -499,7 +502,7 @@ export default function NewArticlePage() {
   const wordCount  = body.trim() ? body.trim().split(/\s+/).filter(Boolean).length : 0;
   const readTime   = Math.max(1, Math.ceil(wordCount / 200));
   const charCount  = body.length;
-  const isViral    = category === 'viral';
+  const isViral    = isViralMedsos; // source='social' → kanal Viral Medsos (eks category==='viral')
   const canSubmit  = title.trim() && body.trim() && !loading;
   const categoryMeta = CATEGORIES.find(c => c.key === category);
 
@@ -767,6 +770,18 @@ export default function NewArticlePage() {
                   <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
                     Otomatis di-set kalau artikel banyak dibaca. Centang manual untuk promote artikel strategis
                     (breaking news penting, artikel investigasi, konten prioritas).
+                  </span>
+                </span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+                <input type="checkbox" checked={isViralMedsos} onChange={(e) => setIsViralMedsos(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#DC2626', marginTop: 2 }} />
+                <span style={{ flex: 1 }}>
+                  📱 Konten <span style={{ color: '#DC2626', fontWeight: 700 }}>Viral Medsos</span>
+                  <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
+                    Postingan medsos MalUt yang diangkat redaksi jadi berita. Masuk kanal Viral (source=social).
+                    Idealnya isi Link Postingan Asli di bawah untuk kredit sumber.
                   </span>
                 </span>
               </label>
