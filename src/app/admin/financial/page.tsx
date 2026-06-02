@@ -171,10 +171,6 @@ export default function AdminFinancialPage() {
   // Catat Prive form (pengeluaran modal owner)
   const [showPriveForm, setShowPriveForm] = useState(false);
   const [priveForm,     setPriveForm]     = useState({ source_account_code: '1110', amount: '', description: '' });
-
-  // Catat Saldo Awal form (modal awal → Db Kas / Cr Modal 3101)
-  const [showOpeningForm, setShowOpeningForm] = useState(false);
-  const [openingForm,     setOpeningForm]     = useState({ cash_account_code: '1110', amount: '', description: '', transaction_date: '' });
   const [submitting,    setSubmitting]    = useState(false);
   const [toast,    setToast]    = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
@@ -312,39 +308,6 @@ export default function AdminFinancialPage() {
     }
   };
 
-  // ─── Catat Saldo Awal handler (modal awal → Db Kas / Cr Modal 3101) ──
-  const handleAddOpeningBalance = async () => {
-    if (submitting) return;
-    if (!openingForm.amount || !openingForm.description) {
-      showToast('Lengkapi nominal & deskripsi', 'err');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      const perspective = openingForm.cash_account_code === '1102' ? 'yayasan' : 'pt';
-      const res = await fetch(`${API}/money/opening-balance`, {
-        method: 'POST',
-        headers: { ...h, 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          cash_account_code: openingForm.cash_account_code,
-          amount:            Number(openingForm.amount),
-          description:       openingForm.description,
-          transaction_date:  openingForm.transaction_date || undefined,
-          perspective,
-        }),
-      });
-      const json = await res.json();
-      if (!json.success) throw new Error(json.error?.message);
-      showToast('✅ Saldo awal tercatat ke ledger. Refresh untuk lihat di Neraca.');
-      setShowOpeningForm(false);
-      setOpeningForm({ cash_account_code: '1110', amount: '', description: '', transaction_date: '' });
-    } catch (err: any) {
-      showToast(err.message || 'Gagal simpan', 'err');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   // ─── Derived data ─────────────────────────────────────────────
 
   const combinedTotal = byEntity?.combined_total       ?? 0;
@@ -447,15 +410,6 @@ export default function AdminFinancialPage() {
             }}
           >
             + Catat Prive
-          </button>
-          <button
-            onClick={() => setShowOpeningForm(!showOpeningForm)}
-            style={{
-              padding: '8px 18px', background: '#1B6B4A', border: 'none',
-              borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
-            }}
-          >
-            + Catat Saldo Awal
           </button>
         </div>
       </div>
@@ -651,17 +605,6 @@ export default function AdminFinancialPage() {
           setForm={setPriveForm}
           onClose={() => setShowPriveForm(false)}
           onSubmit={handleAddPrive}
-          submitting={submitting}
-        />
-      )}
-
-      {/* Catat Saldo Awal Form (Sidebar, Global) */}
-      {showOpeningForm && (
-        <OpeningBalanceForm
-          form={openingForm}
-          setForm={setOpeningForm}
-          onClose={() => setShowOpeningForm(false)}
-          onSubmit={handleAddOpeningBalance}
           submitting={submitting}
         />
       )}
