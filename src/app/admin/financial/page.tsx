@@ -40,6 +40,7 @@ import YayasanActivitySection from '@/components/admin/financial/YayasanActivity
 import YayasanCashFlowSection from '@/components/admin/financial/YayasanCashFlowSection';
 import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBalanceSheetSection';
 import YayasanFeeOutstandingCard from '@/components/admin/financial/YayasanFeeOutstandingCard';
+import FinancialHealthBanner from '@/components/admin/financial/FinancialHealthBanner';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, Download, Loader2, type LucideIcon } from 'lucide-react';
@@ -525,6 +526,9 @@ export default function AdminFinancialPage() {
           {tab === 'overview' && (
             <OverviewTab
               t={t}
+              period={period}
+              appliedFrom={appliedFrom}
+              appliedTo={appliedTo}
               combinedTotal={combinedTotal}
               ptTotal={ptTotal}
               yayasanTotal={yayasanTotal}
@@ -600,12 +604,15 @@ export default function AdminFinancialPage() {
 // ═══════════════════════════════════════════════════════════════
 
 function OverviewTab({
-  t, combinedTotal, ptTotal, yayasanTotal, eventCount, chartData, activityFeed, periodLabel,
+  t, period, appliedFrom, appliedTo, combinedTotal, ptTotal, yayasanTotal, eventCount, chartData, activityFeed, periodLabel,
 }: any) {
   const isEmpty = combinedTotal === 0 && eventCount === 0;
 
   return (
     <>
+      {/* Health Alerts banner (otak: /money/revenue/health) */}
+      <FinancialHealthBanner period={period} appliedFrom={appliedFrom} appliedTo={appliedTo} />
+
       {/* 3 Summary Cards */}
       <div style={{
         display: 'grid', gridTemplateColumns: '2fr 1fr 1fr',
