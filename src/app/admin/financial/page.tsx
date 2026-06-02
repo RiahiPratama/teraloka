@@ -335,24 +335,26 @@ export default function AdminFinancialPage() {
             Ringkasan keuangan TeraLoka — terpisah per legal entity (PT vs Yayasan)
           </p>
         </div>
-        <button
-          onClick={() => setShowForm(!showForm)}
-          style={{
-            padding: '8px 18px', background: '#B45309', border: 'none',
-            borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
-          }}
-        >
-          + Catat Pengeluaran
-        </button>
-        <button
-          onClick={() => setShowPriveForm(!showPriveForm)}
-          style={{
-            padding: '8px 18px', background: '#7C3AED', border: 'none',
-            borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
-          }}
-        >
-          + Catat Prive
-        </button>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={() => setShowForm(!showForm)}
+            style={{
+              padding: '8px 18px', background: '#B45309', border: 'none',
+              borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
+            }}
+          >
+            + Catat Pengeluaran
+          </button>
+          <button
+            onClick={() => setShowPriveForm(!showPriveForm)}
+            style={{
+              padding: '8px 18px', background: '#7C3AED', border: 'none',
+              borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
+            }}
+          >
+            + Catat Prive
+          </button>
+        </div>
       </div>
 
       {/* Filter Periode (fleksibel) */}
