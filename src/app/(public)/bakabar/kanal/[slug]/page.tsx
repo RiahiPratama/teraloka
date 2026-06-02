@@ -19,7 +19,7 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 
 // Kanal asal non-geografis (di luar REGIONS daerah)
 const SPECIAL: Record<string, { label: string; query: string }> = {
-  nasional: { label: 'Berita Nasional',       query: 'source=rss' },
+  nasional: { label: 'Berita Nasional',       query: 'type=nasional' },
   viral:    { label: 'Viral Maluku Utara',    query: 'source=social' },
 };
 

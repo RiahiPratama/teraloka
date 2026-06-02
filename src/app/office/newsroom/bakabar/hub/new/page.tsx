@@ -139,7 +139,7 @@ export default function NewArticlePage() {
   const [sourcePlatform, setSourcePlatform] = useState('');
   const [isBreaking, setIsBreaking]         = useState(false);
   const [isTrending, setIsTrending]         = useState(false);
-  const [isViralMedsos, setIsViralMedsos]   = useState(false);
+  const [source, setSource]                 = useState<string>('original');
   const [locationId, setLocationId]         = useState('');
   const [adPosition, setAdPosition]         = useState<number | null>(null);
   // Phase 2 v3 (Turn 3b): per-article ad settings (preset+count+format)
@@ -186,7 +186,7 @@ export default function NewArticlePage() {
     saveTimer.current = setTimeout(() => {
       try {
         localStorage.setItem(LOCAL_DRAFT_KEY, JSON.stringify({
-          title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, isViralMedsos, locationId,
+          title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, source, locationId,
           savedAt: new Date().toISOString(),
         }));
         setLastSaved(new Date());
@@ -194,7 +194,7 @@ export default function NewArticlePage() {
     }, AUTO_SAVE_DELAY);
 
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
-  }, [title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, isViralMedsos, locationId, draftLoaded]);
+  }, [title, body, category, coverImageUrl, coverImageCaption, sourceUrl, sourcePlatform, isBreaking, isTrending, source, locationId, draftLoaded]);
 
   useEffect(() => {
     if (!lastSaved) return;
@@ -203,12 +203,12 @@ export default function NewArticlePage() {
   }, [lastSaved]);
 
   useEffect(() => {
-    if (category !== 'viral') {
+    if (source !== 'social') {
       if (sourceUrl)      setSourceUrl('');
       if (sourcePlatform) setSourcePlatform('');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [category]);
+  }, [source]);
 
   const handleRestoreDraft = () => {
     if (!restorePrompt) return;
@@ -221,7 +221,7 @@ export default function NewArticlePage() {
     setSourcePlatform(restorePrompt.sourcePlatform || '');
     setIsBreaking(!!restorePrompt.isBreaking);
     setIsTrending(!!restorePrompt.isTrending);
-    setIsViralMedsos(!!restorePrompt.isViralMedsos);
+    setSource(restorePrompt.source || 'original');
     setLocationId(restorePrompt.locationId || '');
     setRestorePrompt(null);
   };
@@ -381,7 +381,7 @@ export default function NewArticlePage() {
           source_platform: sourcePlatform || null,
           is_breaking: isBreaking,
           is_viral: isTrending,
-          source: isViralMedsos ? 'social' : 'original',
+          source,
           location_id: locationId || null,
           ad_position: adPosition,
           ad_settings: adSettings,
@@ -479,7 +479,7 @@ export default function NewArticlePage() {
                   setSubmitted(false); setNewArticleId(null);
                   setTitle(''); setBody(''); setCategory(''); setCoverImageUrl('');
                   setSourceUrl(''); setSourcePlatform('');
-                  setIsBreaking(false); setIsTrending(false); setIsViralMedsos(false);
+                  setIsBreaking(false); setIsTrending(false); setSource('original');
                   setLocationId('');
                   setPublishNow(false); setLastSaved(null);
                   setAdSettings(NEW_ARTICLE_DEFAULT_AD_SETTINGS);
@@ -502,7 +502,7 @@ export default function NewArticlePage() {
   const wordCount  = body.trim() ? body.trim().split(/\s+/).filter(Boolean).length : 0;
   const readTime   = Math.max(1, Math.ceil(wordCount / 200));
   const charCount  = body.length;
-  const isViral    = isViralMedsos; // source='social' → kanal Viral Medsos (eks category==='viral')
+  const isViral    = source === 'social'; // Link Postingan utk Viral Medsos (eks category==='viral')
   const canSubmit  = title.trim() && body.trim() && !loading;
   const categoryMeta = CATEGORIES.find(c => c.key === category);
 
@@ -773,18 +773,30 @@ export default function NewArticlePage() {
                   </span>
                 </span>
               </label>
+            </div>
 
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
-                <input type="checkbox" checked={isViralMedsos} onChange={(e) => setIsViralMedsos(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: '#DC2626', marginTop: 2 }} />
-                <span style={{ flex: 1 }}>
-                  📱 Konten <span style={{ color: '#DC2626', fontWeight: 700 }}>Viral Medsos</span>
-                  <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
-                    Postingan medsos MalUt yang diangkat redaksi jadi berita. Masuk kanal Viral (source=social).
-                    Idealnya isi Link Postingan Asli di bawah untuk kredit sumber.
-                  </span>
-                </span>
-              </label>
+            {/* Asal Berita — kanal (source) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 10, background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}` }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>📍 Asal Berita</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([
+                  { key: 'original', label: 'Lokal / Daerah',  color: '#0891B2' },
+                  { key: 'nasional', label: 'Nasional',         color: '#1B6B4A' },
+                  { key: 'social',   label: '📱 Viral Medsos',  color: '#DC2626' },
+                ] as const).map(opt => {
+                  const active = source === opt.key;
+                  return (
+                    <button key={opt.key} type="button" onClick={() => setSource(opt.key)}
+                      style={{ padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, border: `1.5px solid ${active ? opt.color : editorTokens.inputBorder}`, background: active ? opt.color : editorTokens.cardBg, color: active ? '#fff' : t.textMuted, transition: 'all 0.15s' }}>
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic', lineHeight: 1.5 }}>
+                Lokal = berita daerah MalUt (pilih DAERAH di atas). Nasional = berita nasional. Viral Medsos = postingan medsos yang diangkat redaksi.
+                {!['original', 'nasional', 'social'].includes(source) && ` · Saat ini: ${source} (dikelola sistem)`}
+              </p>
             </div>
 
             {/* Iklan dalam artikel — Phase 2 v3 γ Hybrid (preset+count+format) */}
