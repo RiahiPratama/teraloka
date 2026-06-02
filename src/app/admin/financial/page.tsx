@@ -140,6 +140,7 @@ export default function AdminFinancialPage() {
   // Catat Prive form (pengeluaran modal owner)
   const [showPriveForm, setShowPriveForm] = useState(false);
   const [priveForm,     setPriveForm]     = useState({ source_account_code: '1110', amount: '', description: '' });
+  const [submitting,    setSubmitting]    = useState(false);
   const [toast,    setToast]    = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
   // Filter periode (fleksibel — tidak dikunci 30 hari)
@@ -216,10 +217,12 @@ export default function AdminFinancialPage() {
   // ─── Catat Pengeluaran handler (posting ledger) ───────────────
 
   const handleAddExpense = async () => {
+    if (submitting) return;
     if (!form.amount || !form.description) {
       showToast('Lengkapi nominal & deskripsi', 'err');
       return;
     }
+    setSubmitting(true);
     try {
       const res  = await fetch(`${API}/money/expense`, {
         method:  'POST',
@@ -239,15 +242,19 @@ export default function AdminFinancialPage() {
       setForm({ expense_account_code: '6101', source_account_code: '1110', amount: '', description: '' });
     } catch (err: any) {
       showToast(err.message || 'Gagal simpan', 'err');
+    } finally {
+      setSubmitting(false);
     }
   };
 
   // ─── Catat Prive handler (pengambilan pribadi owner → ekuitas) ──
   const handleAddPrive = async () => {
+    if (submitting) return;
     if (!priveForm.amount || !priveForm.description) {
       showToast('Lengkapi nominal & deskripsi', 'err');
       return;
     }
+    setSubmitting(true);
     try {
       const res  = await fetch(`${API}/money/prive`, {
         method:  'POST',
@@ -265,6 +272,8 @@ export default function AdminFinancialPage() {
       setPriveForm({ source_account_code: '1110', amount: '', description: '' });
     } catch (err: any) {
       showToast(err.message || 'Gagal simpan', 'err');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -528,6 +537,7 @@ export default function AdminFinancialPage() {
           setForm={setForm}
           onClose={() => setShowForm(false)}
           onSubmit={handleAddExpense}
+          submitting={submitting}
         />
       )}
 
@@ -538,6 +548,7 @@ export default function AdminFinancialPage() {
           setForm={setPriveForm}
           onClose={() => setShowPriveForm(false)}
           onSubmit={handleAddPrive}
+          submitting={submitting}
         />
       )}
     </div>
@@ -1272,7 +1283,7 @@ function EventRow({ ev, cfg, isLast, t }: any) {
 // MANUAL ENTRY FORM (Sidebar Sticky)
 // ═══════════════════════════════════════════════════════════════
 
-function ExpenseEntryForm({ form, setForm, onClose, onSubmit }: any) {
+function ExpenseEntryForm({ form, setForm, onClose, onSubmit, submitting }: any) {
   return (
     <div className="fixed top-20 right-6 w-[360px] bg-surface border border-border rounded-xl p-[18px] z-[100] shadow-2xl">
       <div className="flex items-center justify-between mb-4">
@@ -1336,8 +1347,8 @@ function ExpenseEntryForm({ form, setForm, onClose, onSubmit }: any) {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={onSubmit} className="flex-1 py-2.5 bg-[#B45309] hover:bg-[#92400E] rounded-lg text-[13px] font-bold text-white transition-colors">
-          Simpan Pengeluaran
+        <button onClick={onSubmit} disabled={submitting} className="flex-1 py-2.5 bg-[#B45309] hover:bg-[#92400E] rounded-lg text-[13px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {submitting ? 'Menyimpan…' : 'Simpan Pengeluaran'}
         </button>
         <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
           Batal
@@ -1347,7 +1358,7 @@ function ExpenseEntryForm({ form, setForm, onClose, onSubmit }: any) {
   );
 }
 
-function PriveEntryForm({ form, setForm, onClose, onSubmit }: any) {
+function PriveEntryForm({ form, setForm, onClose, onSubmit, submitting }: any) {
   return (
     <div className="fixed top-20 right-6 w-[360px] bg-surface border border-border rounded-xl p-[18px] z-[100] shadow-2xl">
       <div className="flex items-center justify-between mb-4">
@@ -1398,8 +1409,8 @@ function PriveEntryForm({ form, setForm, onClose, onSubmit }: any) {
       </div>
 
       <div className="flex gap-2">
-        <button onClick={onSubmit} className="flex-1 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg text-[13px] font-bold text-white transition-colors">
-          Simpan Prive
+        <button onClick={onSubmit} disabled={submitting} className="flex-1 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg text-[13px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {submitting ? 'Menyimpan…' : 'Simpan Prive'}
         </button>
         <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
           Batal
