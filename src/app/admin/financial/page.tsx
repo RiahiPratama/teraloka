@@ -937,25 +937,6 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
 
   return (
     <>
-      {/* Laporan Aktivitas Yayasan (ISAK 35, accrual) */}
-      <YayasanActivitySection
-        period={period}
-        appliedFrom={appliedFrom}
-        appliedTo={appliedTo}
-        periodLabel={periodLabel}
-      />
-
-      {/* Laporan Arus Kas Yayasan (cash basis, fee_remittances) */}
-      <YayasanCashFlowSection
-        period={period}
-        appliedFrom={appliedFrom}
-        appliedTo={appliedTo}
-        periodLabel={periodLabel}
-      />
-
-      {/* Laporan Posisi Keuangan Yayasan (ISAK 35, accrual) */}
-      <YayasanBalanceSheetSection />
-
       {/* Disclaimer Banner */}
       <div style={{
         padding: '14px 18px',
@@ -1039,6 +1020,25 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
           note="Manual entry (perusahaan sponsor) — Mission #6"
         />
       </div>
+
+      {/* Laporan Aktivitas Yayasan (ISAK 35, accrual) */}
+      <YayasanActivitySection
+        period={period}
+        appliedFrom={appliedFrom}
+        appliedTo={appliedTo}
+        periodLabel={periodLabel}
+      />
+
+      {/* Laporan Arus Kas Yayasan (cash basis, fee_remittances) */}
+      <YayasanCashFlowSection
+        period={period}
+        appliedFrom={appliedFrom}
+        appliedTo={appliedTo}
+        periodLabel={periodLabel}
+      />
+
+      {/* Laporan Posisi Keuangan Yayasan (ISAK 35, accrual) */}
+      <YayasanBalanceSheetSection />
 
       {/* Mini Tren Chart Yayasan */}
       <div style={{
