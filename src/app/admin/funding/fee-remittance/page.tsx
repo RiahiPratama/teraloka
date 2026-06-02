@@ -8,6 +8,7 @@ import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import FeeSettlementPanel from '@/components/admin/funding/FeeSettlementPanel';
+import { Inbox, Receipt, AlertCircle, Clock, CheckCircle2, XCircle, Package} from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -37,12 +38,12 @@ const Icons = {
 // ── Smart Views ─────────────────────────────────────────
 type SmartView = 'perlu_review' | 'hampir_telat' | 'verified_today' | 'rejected_week' | 'legacy';
 
-const SMART_VIEWS: Array<{ value: SmartView; label: string; emoji: string; color: string }> = [
-  { value: 'perlu_review',    label: 'Perlu Review',       emoji: '🔴', color: '#DC2626' },
-  { value: 'hampir_telat',    label: 'Hampir Telat',       emoji: '⏰', color: '#EA580C' },
-  { value: 'verified_today',  label: 'Verified Hari Ini',  emoji: '✅', color: '#16A34A' },
-  { value: 'rejected_week',   label: 'Ditolak Minggu Ini', emoji: '❌', color: '#B91C1C' },
-  { value: 'legacy',          label: 'Legacy',             emoji: '📦', color: '#6B7280' },
+const SMART_VIEWS: Array<{ value: SmartView; label: string; Icon: typeof Clock; color: string }> = [
+  { value: 'perlu_review',    label: 'Perlu Review',       Icon: AlertCircle,  color: '#DC2626' },
+  { value: 'hampir_telat',    label: 'Hampir Telat',       Icon: Clock,        color: '#EA580C' },
+  { value: 'verified_today',  label: 'Verified Hari Ini',  Icon: CheckCircle2, color: '#16A34A' },
+  { value: 'rejected_week',   label: 'Ditolak Minggu Ini', Icon: XCircle,      color: '#B91C1C' },
+  { value: 'legacy',          label: 'Legacy',             Icon: Package,      color: '#6B7280' },
 ];
 
 // ── Types ─────────────────────────────────────────
@@ -255,8 +256,8 @@ export default function AdminFundingFeeRemittancePage() {
       {/* Mode switcher: Setoran Owner vs Catat Manual */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto' }}>
         {([
-          { key: 'owner',  label: 'Setoran Owner',            emoji: '📥' },
-          { key: 'manual', label: 'Catat Manual & Settlement', emoji: '🧾' },
+          { key: 'owner',  label: 'Setoran Owner',            Icon: Inbox },
+          { key: 'manual', label: 'Catat Manual & Settlement', Icon: Receipt },
         ] as const).map(m => {
           const active = feeMode === m.key;
           return (
@@ -269,7 +270,7 @@ export default function AdminFundingFeeRemittancePage() {
                 border: `1px solid ${active ? '#EC4899' : t.sidebarBorder}`,
                 cursor: 'pointer', whiteSpace: 'nowrap',
               }}>
-              <span>{m.emoji}</span><span>{m.label}</span>
+              <m.Icon size={15} /><span>{m.label}</span>
             </button>
           );
         })}
@@ -311,7 +312,7 @@ export default function AdminFundingFeeRemittancePage() {
                 transition: 'all 150ms',
               }}
             >
-              <span>{view.emoji}</span>
+              <view.Icon size={14} />
               <span>{view.label}</span>
               {count > 0 && (
                 <span style={{

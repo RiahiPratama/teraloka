@@ -19,6 +19,7 @@
 
 import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import { Users, Clock, History, AlertTriangle, Receipt } from 'lucide-react';
 
 import PartnerFeeCards, { type PartnerFeeSummary } from '@/components/admin/funding/PartnerFeeCards';
 import PendingFeesTable, { type PendingFeeDonation } from '@/components/admin/funding/PendingFeesTable';
@@ -26,12 +27,6 @@ import RecordRemittanceModal from '@/components/admin/funding/RecordRemittanceMo
 import Pagination from '@/components/admin/funding/Pagination';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
-
-// ── Icons ─────────────────────────────────────────
-const Icons = {
-  Alert:   () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
-  Receipt: () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="15" x2="15" y2="15"/><line x1="9" y1="11" x2="15" y2="11"/></svg>,
-};
 
 // ── Types ─────────────────────────────────────────
 interface FeeSummary {
@@ -56,10 +51,10 @@ interface RemittanceRecord {
 }
 
 type TabKey = 'partners' | 'pending' | 'history';
-const TABS: { key: TabKey; label: string; emoji: string }[] = [
-  { key: 'partners', label: 'Per Partner',     emoji: '👥' },
-  { key: 'pending',  label: 'Pending Donasi',  emoji: '⏳' },
-  { key: 'history',  label: 'Riwayat',         emoji: '📜' },
+const TABS: { key: TabKey; label: string; Icon: typeof Users }[] = [
+  { key: 'partners', label: 'Per Partner',    Icon: Users },
+  { key: 'pending',  label: 'Pending Donasi', Icon: Clock },
+  { key: 'history',  label: 'Riwayat',        Icon: History },
 ];
 
 function formatRupiah(n: number): string { return 'Rp ' + n.toLocaleString('id-ID'); }
@@ -212,20 +207,20 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12, marginBottom: 16 }}>
           <StatCard label="Total Expected" value={formatRupiah(summary.total_expected)} subtext={`${summary.pending_count + summary.remitted_count} donasi verified`} color="#6366F1" t={t} />
           <StatCard label="Sudah Remitted" value={formatRupiah(summary.total_remitted)} subtext={`${summary.remitted_count} donasi · ${summary.total_expected > 0 ? Math.round((summary.total_remitted / summary.total_expected) * 100) : 0}%`} color="#10B981" t={t} />
-          <StatCard label="⚠️ Pending Settle" value={formatRupiah(summary.total_pending)} subtext={`${summary.pending_count} donasi · ${summary.partner_count} partner`} color="#EC4899" t={t} alert={summary.total_pending > 0} />
-          <StatCard label="⏱️ Oldest Pending" value={summary.oldest_pending_days > 0 ? `${summary.oldest_pending_days} hari` : '-'} subtext={summary.oldest_pending_days > 30 ? 'PERLU PERHATIAN' : 'Dalam batas normal'} color={summary.oldest_pending_days > 60 ? '#DC2626' : summary.oldest_pending_days > 30 ? '#EA580C' : summary.oldest_pending_days > 7 ? '#F59E0B' : '#10B981'} t={t} alert={summary.oldest_pending_days > 30} />
+          <StatCard label="Pending Settle" value={formatRupiah(summary.total_pending)} subtext={`${summary.pending_count} donasi · ${summary.partner_count} partner`} color="#EC4899" t={t} alert={summary.total_pending > 0} />
+          <StatCard label="Oldest Pending" value={summary.oldest_pending_days > 0 ? `${summary.oldest_pending_days} hari` : '-'} subtext={summary.oldest_pending_days > 30 ? 'PERLU PERHATIAN' : 'Dalam batas normal'} color={summary.oldest_pending_days > 60 ? '#DC2626' : summary.oldest_pending_days > 30 ? '#EA580C' : summary.oldest_pending_days > 7 ? '#F59E0B' : '#10B981'} t={t} alert={summary.oldest_pending_days > 30} />
         </div>
       )}
 
       {/* Aging Banner */}
       {hasCritical && aging && (
         <div style={{ background: 'rgba(220,38,38,0.08)', border: '1px solid rgba(220,38,38,0.3)', borderRadius: 12, padding: 14, marginBottom: 20, display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#DC2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><Icons.Alert /></div>
+          <div style={{ width: 32, height: 32, borderRadius: 8, background: '#DC2626', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><AlertTriangle size={16} /></div>
           <div style={{ flex: 1 }}>
             <p style={{ fontSize: 13, fontWeight: 700, color: '#DC2626', marginBottom: 4 }}>Ada {aging.buckets.overdue.count + aging.buckets.critical.count} donasi overdue!</p>
             <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', fontSize: 11, color: t.textDim }}>
-              {aging.buckets.overdue.count > 0 && (<span>🟠 <strong style={{ color: '#EA580C' }}>{aging.buckets.overdue.count}</strong> overdue (30-60 hari): {shortRupiah(aging.buckets.overdue.amount)}</span>)}
-              {aging.buckets.critical.count > 0 && (<span>🔴 <strong style={{ color: '#DC2626' }}>{aging.buckets.critical.count}</strong> KRITIS (&gt;60 hari): {shortRupiah(aging.buckets.critical.amount)}</span>)}
+              {aging.buckets.overdue.count > 0 && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: '#EA580C', display: 'inline-block' }} /><strong style={{ color: '#EA580C' }}>{aging.buckets.overdue.count}</strong> overdue (30-60 hari): {shortRupiah(aging.buckets.overdue.amount)}</span>)}
+              {aging.buckets.critical.count > 0 && (<span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><span style={{ width: 8, height: 8, borderRadius: 999, background: '#DC2626', display: 'inline-block' }} /><strong style={{ color: '#DC2626' }}>{aging.buckets.critical.count}</strong> KRITIS (&gt;60 hari): {shortRupiah(aging.buckets.critical.amount)}</span>)}
             </div>
           </div>
         </div>
@@ -238,7 +233,7 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
           return (
             <button key={tab.key} onClick={() => { setActiveTab(tab.key); setSelectedIds(new Set()); }}
               style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '10px 16px', borderRadius: 10, fontSize: 13, fontWeight: 600, color: active ? '#fff' : t.textPrimary, background: active ? '#1F2937' : t.mainBg, border: `1px solid ${active ? '#1F2937' : t.sidebarBorder}`, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-              <span>{tab.emoji}</span><span>{tab.label}</span>
+              <tab.Icon size={15} /><span>{tab.label}</span>
             </button>
           );
         })}
@@ -255,7 +250,7 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
             <>
               {multiPartnerWarning && (
                 <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: 12, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <Icons.Alert />
+                  <AlertTriangle size={14} color="#B45309" />
                   <div style={{ fontSize: 12, color: '#B45309' }}><strong>Pilih donasi dari 1 partner yang sama.</strong>{' '}Saat ini: <strong>{selectedPartners.length} partner</strong> ter-select ({selectedPartners.join(', ')}).</div>
                 </div>
               )}
@@ -268,7 +263,7 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
                     {selectedPartners.length === 1 && (<span style={{ fontSize: 11, opacity: 0.9 }}>· Partner: <strong>{selectedPartners[0]}</strong></span>)}
                   </div>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <button onClick={openRemittanceFromSelection} disabled={!canRecordFromSelection} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: canRecordFromSelection ? 'pointer' : 'not-allowed', opacity: canRecordFromSelection ? 1 : 0.6 }}><Icons.Receipt /> Catat Remittance</button>
+                    <button onClick={openRemittanceFromSelection} disabled={!canRecordFromSelection} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 14px', borderRadius: 9, border: 'none', background: 'rgba(255,255,255,0.2)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: canRecordFromSelection ? 'pointer' : 'not-allowed', opacity: canRecordFromSelection ? 1 : 0.6 }}><Receipt size={13} /> Catat Remittance</button>
                     <button onClick={() => setSelectedIds(new Set())} style={{ padding: '8px 12px', borderRadius: 9, border: '1px solid rgba(255,255,255,0.35)', background: 'transparent', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>Clear</button>
                   </div>
                 </div>
