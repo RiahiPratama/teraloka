@@ -41,6 +41,7 @@ import YayasanCashFlowSection from '@/components/admin/financial/YayasanCashFlow
 import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBalanceSheetSection';
 import YayasanFeeOutstandingCard from '@/components/admin/financial/YayasanFeeOutstandingCard';
 import FinancialHealthBanner from '@/components/admin/financial/FinancialHealthBanner';
+import EarmarkTrackerCard from '@/components/admin/financial/EarmarkTrackerCard';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, Download, Loader2, type LucideIcon } from 'lucide-react';
@@ -612,6 +613,9 @@ function OverviewTab({
     <>
       {/* Health Alerts banner (otak: /money/revenue/health) */}
       <FinancialHealthBanner period={period} appliedFrom={appliedFrom} appliedTo={appliedTo} />
+
+      {/* Earmark Tracker — dana bisnis di rekening owner (otak: /earmark) */}
+      <EarmarkTrackerCard />
 
       {/* 3 Summary Cards */}
       <div style={{
