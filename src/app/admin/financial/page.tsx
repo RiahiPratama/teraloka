@@ -130,6 +130,7 @@ export default function AdminFinancialPage() {
   const [timeseries,     setTimeseries]     = useState<TimeseriesPoint[]>([]);
   const [events,         setEvents]         = useState<FinancialEvent[]>([]);
   const [remittances,    setRemittances]    = useState<any[]>([]);
+  const [activityFeed,   setActivityFeed]   = useState<any[]>([]);
   const [loading,        setLoading]        = useState(true);
 
   // Catat Pengeluaran form
@@ -139,6 +140,7 @@ export default function AdminFinancialPage() {
 
   // Filter periode (fleksibel — tidak dikunci 30 hari)
   const [period,      setPeriod]      = useState<PeriodKey>('30d');
+  const [chartGroup,  setChartGroup]  = useState<'day' | 'month'>('day');
   const [customFrom,  setCustomFrom]  = useState('');
   const [customTo,    setCustomTo]    = useState('');
   const [appliedFrom, setAppliedFrom] = useState('');
@@ -163,6 +165,19 @@ export default function AdminFinancialPage() {
 
   const h = { Authorization: `Bearer ${token}` };
 
+  // Default pinter grafik: range panjang → Bulan, pendek → Hari (bisa di-override toggle)
+  useEffect(() => {
+    const smart: 'day' | 'month' = (() => {
+      if (period === 'all' || period === 'ytd' || period === '90d') return 'month';
+      if (period === 'custom' && appliedFrom && appliedTo) {
+        const days = (new Date(appliedTo).getTime() - new Date(appliedFrom).getTime()) / 86400000;
+        return days >= 60 ? 'month' : 'day';
+      }
+      return 'day';
+    })();
+    setChartGroup(smart);
+  }, [period, appliedFrom, appliedTo]);
+
   // ─── Data fetching ────────────────────────────────────────────
 
   useEffect(() => {
@@ -173,15 +188,18 @@ export default function AdminFinancialPage() {
       period === 'custom' && appliedFrom && appliedTo
         ? `from=${encodeURIComponent(new Date(appliedFrom).toISOString())}&to=${encodeURIComponent(new Date(appliedTo + 'T23:59:59').toISOString())}`
         : `period=${period}`;
-    const tsQuery = period === 'all' ? 'period=90d' : periodQuery;
+    const tsBase  = (period === 'all' && chartGroup === 'day') ? 'period=90d' : periodQuery;
+    const tsQuery = `${tsBase}&group_by=${chartGroup}`;
 
     Promise.all([
       fetch(`${API}/money/revenue/by-entity?${periodQuery}`,                            { headers: h }).then(r => r.json()),
       fetch(`${API}/money/revenue/timeseries?${tsQuery}`,                               { headers: h }).then(r => r.json()),
       fetch(`${API}/money/admin/events?limit=10`,                                        { headers: h }).then(r => r.json()),
       fetch(`${API}/money/revenue/badonasi-remittances?${periodQuery}&limit=10`,         { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/activity-feed?${periodQuery}&limit=12`,                 { headers: h }).then(r => r.json()),
     ])
-      .then(([be, ts, ev, yEv]) => {
+      .then(([be, ts, ev, yEv, af]) => {
+        if (af?.success) setActivityFeed(af.data ?? []);
         if (be?.success)  setByEntity(be.data);
         if (ts?.success)  setTimeseries(ts.data?.data ?? []);
         if (ev?.success)  setEvents(ev.data ?? []);
@@ -189,7 +207,7 @@ export default function AdminFinancialPage() {
       })
       .catch(err => console.error('[financial fetch fail]', err))
       .finally(() => setLoading(false));
-  }, [token, period, appliedFrom, appliedTo]);
+  }, [token, period, appliedFrom, appliedTo, chartGroup]);
 
   // ─── Catat Pengeluaran handler (posting ledger) ───────────────
 
@@ -232,21 +250,29 @@ export default function AdminFinancialPage() {
       ? `${appliedFrom} – ${appliedTo}`
       : (PERIOD_PRESETS.find((p) => p.key === period)?.label ?? period);
 
+  const fmtChartDate = (d: string): string => {
+    if (/^\d{4}-\d{2}$/.test(d)) {                       // "2026-05" → bulan
+      const [y, m] = d.split('-').map(Number);
+      return new Date(y, m - 1, 1).toLocaleDateString('id-ID', { month: 'short', year: '2-digit' });
+    }
+    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+  };
+
   const chartDataCombined = timeseries.map(p => ({
-    date:    new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    date:    fmtChartDate(p.date),
     total:   p.total,
     pt:      p.pt_digital,
     yayasan: p.yayasan,
   }));
 
   const chartDataYayasan = timeseries.map(p => ({
-    date:         new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    date:         fmtChartDate(p.date),
     badonasi_fee: p.badonasi_fee,
     total:        p.yayasan,
   }));
 
   const chartDataPt = timeseries.map(p => ({
-    date: new Date(p.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }),
+    date: fmtChartDate(p.date),
     pt:   p.pt_digital,
   }));
 
@@ -339,6 +365,23 @@ export default function AdminFinancialPage() {
             ))}
           </select>
         </div>
+
+        {/* Toggle granularitas grafik */}
+        <div className="flex items-center gap-1 ml-2 pl-2 border-l border-border">
+          <span className="text-[10px] font-bold text-text-subtle uppercase tracking-wide mr-0.5">Grafik</span>
+          {(['day', 'month'] as const).map((g) => (
+            <button
+              key={g}
+              onClick={() => setChartGroup(g)}
+              className={
+                'px-2.5 py-1.5 rounded-lg text-[12px] font-semibold transition-colors ' +
+                (chartGroup === g ? 'bg-ads text-white' : 'bg-surface-muted text-text-muted hover:text-text')
+              }
+            >
+              {g === 'day' ? 'Hari' : 'Bulan'}
+            </button>
+          ))}
+        </div>
         {showCustom && (
           <div className="flex flex-wrap items-center gap-2 ml-1">
             <input type="date" value={customFrom} onChange={(e) => setCustomFrom(e.target.value)}
@@ -400,7 +443,7 @@ export default function AdminFinancialPage() {
               yayasanTotal={yayasanTotal}
               eventCount={eventCount}
               chartData={chartDataCombined}
-              events={events}
+              activityFeed={activityFeed}
               periodLabel={periodLabel}
             />
           )}
@@ -452,7 +495,7 @@ export default function AdminFinancialPage() {
 // ═══════════════════════════════════════════════════════════════
 
 function OverviewTab({
-  t, combinedTotal, ptTotal, yayasanTotal, eventCount, chartData, events, periodLabel,
+  t, combinedTotal, ptTotal, yayasanTotal, eventCount, chartData, activityFeed, periodLabel,
 }: any) {
   const isEmpty = combinedTotal === 0 && eventCount === 0;
 
@@ -618,25 +661,50 @@ function OverviewTab({
           <div>
             <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>🔴 Live Activity Feed</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
-              Transaksi terbaru dari Money Domain (real-time event log)
+              Penerimaan PT + Yayasan · fee & iklan masuk (bukan donasi pass-through)
             </p>
           </div>
           <span style={{ fontSize: 12, color: t.textMuted }}>
-            {events.length} event{events.length !== 1 ? 's' : ''}
+            {activityFeed.length} transaksi
           </span>
         </div>
 
-        {events.length === 0 ? (
+        {activityFeed.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: t.textMuted, fontSize: 13 }}>
-            Belum ada transaksi. Activity feed akan otomatis terisi saat ada donasi terverifikasi.
+            Belum ada penerimaan pada periode ini. Feed terisi saat ada pembayaran iklan (PT) atau fee disetor (Yayasan).
           </div>
-        ) : events.map((ev: FinancialEvent, i: number) => {
-          const cfg = EVENT_TYPE_CONFIG[ev.event_type] || {
-            icon: '💰', label: ev.event_type, color: '#9CA3AF',
-          };
-          const isLast = i === events.length - 1;
+        ) : activityFeed.map((it: any, i: number) => {
+          const isLast = i === activityFeed.length - 1;
+          const isPt = it.entity === 'pt_digital';
+          const color = isPt ? '#1B6B4A' : '#E8963A';
+          const icon  = isPt ? '📣' : '💰';
+          const dt = new Date(it.date);
+          const tgl = dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
+          const jam = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+          const sub = it.meta?.donation_count ? `${it.meta.donation_count} donasi` : null;
           return (
-            <EventRow key={ev.id} ev={ev} cfg={cfg} isLast={isLast} t={t} />
+            <div key={it.id} style={{
+              display: 'flex', alignItems: 'center', gap: 12, padding: '12px 18px',
+              borderBottom: !isLast ? `1px solid ${t.cardBorder}` : 'none',
+            }}>
+              <div style={{
+                width: 36, height: 36, borderRadius: 10, background: `${color}22`,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0,
+              }}>{icon}</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{
+                  margin: 0, fontSize: 13, fontWeight: 600, color: t.textPrimary,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>{it.label}</p>
+                <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
+                  <span style={{ color, fontWeight: 600 }}>{it.source}</span>
+                  {' · '}{tgl} {jam}{sub ? ` · ${sub}` : ''}
+                </p>
+              </div>
+              <p style={{ margin: 0, fontSize: 14, fontWeight: 800, color, flexShrink: 0 }}>
+                {formatRp(it.amount)}
+              </p>
+            </div>
           );
         })}
       </div>
