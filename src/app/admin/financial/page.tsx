@@ -42,6 +42,7 @@ import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBala
 import YayasanFeeOutstandingCard from '@/components/admin/financial/YayasanFeeOutstandingCard';
 import FinancialHealthBanner from '@/components/admin/financial/FinancialHealthBanner';
 import EarmarkTrackerCard from '@/components/admin/financial/EarmarkTrackerCard';
+import OpeningBalanceBuilder from '@/components/admin/financial/OpeningBalanceBuilder';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, Download, Loader2, type LucideIcon } from 'lucide-react';
@@ -56,7 +57,7 @@ const formatRp   = (n: number) => `Rp ${(n || 0).toLocaleString('id-ID')}`;
 const formatDate = (d: string) => new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 const formatTime = (d: string) => new Date(d).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
 
-type Tab = 'overview' | 'pt' | 'yayasan' | 'bank-accounts';  // SESI 5F (19 Mei 2026)
+type Tab = 'overview' | 'pt' | 'yayasan' | 'opening-balance' | 'bank-accounts';  // SESI 5F (19 Mei 2026)
 
 // ─── Type definitions (mirror backend types.ts) ────────────────
 
@@ -107,6 +108,14 @@ const EXPENSE_CATEGORIES: { code: string; label: string; icon: string }[] = [
   { code: '6106', label: 'Legal & Notaris',         icon: '⚖️' },
   { code: '6107', label: 'Bank & Transfer',         icon: '🏦' },
   { code: '6199', label: 'Lain-lain',               icon: '📦' },
+];
+const OPENING_CASH_ACCOUNTS: { code: string; label: string }[] = [
+  { code: '1110', label: 'Kas Rekening Owner (Amar Radjab) — PT' },
+  { code: '1111', label: 'Kas Rekening Istri (Risnawati Yunus) — PT' },
+  { code: '1120', label: 'Kas Kecil (Petty Cash) — PT' },
+  { code: '1112', label: 'Kas PT — Bank Utama (saat formasi)' },
+  { code: '1113', label: 'Kas PT — Bank Sekunder (saat formasi)' },
+  { code: '1102', label: 'Kas Rekening Yayasan' },
 ];
 const CASH_SOURCES: { code: string; label: string }[] = [
   { code: '1110', label: 'Rekening Amar Radjab (BNI)' },
@@ -162,6 +171,10 @@ export default function AdminFinancialPage() {
   // Catat Prive form (pengeluaran modal owner)
   const [showPriveForm, setShowPriveForm] = useState(false);
   const [priveForm,     setPriveForm]     = useState({ source_account_code: '1110', amount: '', description: '' });
+
+  // Catat Saldo Awal form (modal awal → Db Kas / Cr Modal 3101)
+  const [showOpeningForm, setShowOpeningForm] = useState(false);
+  const [openingForm,     setOpeningForm]     = useState({ cash_account_code: '1110', amount: '', description: '', transaction_date: '' });
   const [submitting,    setSubmitting]    = useState(false);
   const [toast,    setToast]    = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
@@ -299,6 +312,39 @@ export default function AdminFinancialPage() {
     }
   };
 
+  // ─── Catat Saldo Awal handler (modal awal → Db Kas / Cr Modal 3101) ──
+  const handleAddOpeningBalance = async () => {
+    if (submitting) return;
+    if (!openingForm.amount || !openingForm.description) {
+      showToast('Lengkapi nominal & deskripsi', 'err');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const perspective = openingForm.cash_account_code === '1102' ? 'yayasan' : 'pt';
+      const res = await fetch(`${API}/money/opening-balance`, {
+        method: 'POST',
+        headers: { ...h, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          cash_account_code: openingForm.cash_account_code,
+          amount:            Number(openingForm.amount),
+          description:       openingForm.description,
+          transaction_date:  openingForm.transaction_date || undefined,
+          perspective,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message);
+      showToast('✅ Saldo awal tercatat ke ledger. Refresh untuk lihat di Neraca.');
+      setShowOpeningForm(false);
+      setOpeningForm({ cash_account_code: '1110', amount: '', description: '', transaction_date: '' });
+    } catch (err: any) {
+      showToast(err.message || 'Gagal simpan', 'err');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   // ─── Derived data ─────────────────────────────────────────────
 
   const combinedTotal = byEntity?.combined_total       ?? 0;
@@ -402,6 +448,15 @@ export default function AdminFinancialPage() {
           >
             + Catat Prive
           </button>
+          <button
+            onClick={() => setShowOpeningForm(!showOpeningForm)}
+            style={{
+              padding: '8px 18px', background: '#1B6B4A', border: 'none',
+              borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
+            }}
+          >
+            + Catat Saldo Awal
+          </button>
         </div>
       </div>
 
@@ -497,6 +552,7 @@ export default function AdminFinancialPage() {
           { key: 'overview'      as Tab, label: 'Overview',         Icon: LayoutDashboard },
           { key: 'pt'            as Tab, label: 'PT TeraLoka',       Icon: Building2       },
           { key: 'yayasan'       as Tab, label: 'Yayasan TeraLoka',  Icon: HeartHandshake  },
+          { key: 'opening-balance' as Tab, label: 'Saldo Awal',       Icon: Landmark        },
           { key: 'bank-accounts' as Tab, label: 'Bank Accounts',     Icon: Landmark        },  // SESI 5F (19 Mei 2026)
         ].map(({ key, label, Icon }) => (
           <button
@@ -555,6 +611,8 @@ export default function AdminFinancialPage() {
             />
           )}
 
+          {tab === 'opening-balance' && <OpeningBalanceBuilder />}
+
           {tab === 'yayasan' && (
             <YayasanTab
               t={t}
@@ -593,6 +651,17 @@ export default function AdminFinancialPage() {
           setForm={setPriveForm}
           onClose={() => setShowPriveForm(false)}
           onSubmit={handleAddPrive}
+          submitting={submitting}
+        />
+      )}
+
+      {/* Catat Saldo Awal Form (Sidebar, Global) */}
+      {showOpeningForm && (
+        <OpeningBalanceForm
+          form={openingForm}
+          setForm={setOpeningForm}
+          onClose={() => setShowOpeningForm(false)}
+          onSubmit={handleAddOpeningBalance}
           submitting={submitting}
         />
       )}
@@ -1495,6 +1564,77 @@ function PriveEntryForm({ form, setForm, onClose, onSubmit, submitting }: any) {
       <div className="flex gap-2">
         <button onClick={onSubmit} disabled={submitting} className="flex-1 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg text-[13px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
           {submitting ? 'Menyimpan…' : 'Simpan Prive'}
+        </button>
+        <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
+          Batal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function OpeningBalanceForm({ form, setForm, onClose, onSubmit, submitting }: any) {
+  return (
+    <div className="fixed top-20 right-6 w-[380px] bg-surface border border-border rounded-xl p-[18px] z-[100] shadow-2xl">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[14px] font-bold text-text">+ Catat Saldo Awal</p>
+        <button onClick={onClose} className="text-text-muted hover:text-text text-[18px] leading-none">&times;</button>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Kas Tujuan *</label>
+        <select
+          value={form.cash_account_code}
+          onChange={(e) => setForm((p: any) => ({ ...p, cash_account_code: e.target.value }))}
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        >
+          {OPENING_CASH_ACCOUNTS.map((s) => (
+            <option key={s.code} value={s.code}>{s.label} ({s.code})</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Nominal Saldo Awal (Rp) *</label>
+        <input
+          type="number"
+          value={form.amount}
+          onChange={(e) => setForm((p: any) => ({ ...p, amount: e.target.value }))}
+          placeholder="10000000"
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        />
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Tanggal (opsional)</label>
+        <input
+          type="date"
+          value={form.transaction_date}
+          onChange={(e) => setForm((p: any) => ({ ...p, transaction_date: e.target.value }))}
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Deskripsi *</label>
+        <input
+          value={form.description}
+          onChange={(e) => setForm((p: any) => ({ ...p, description: e.target.value }))}
+          placeholder="Modal awal disetor saat buka rekening"
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        />
+      </div>
+
+      <div className="bg-ads/8 border border-ads/25 rounded-lg px-3 py-2.5 mb-4 flex gap-2">
+        <Lightbulb className="w-3.5 h-3.5 text-ads shrink-0 mt-0.5" />
+        <p className="text-[11px] text-text-muted leading-relaxed">
+          Posting: <span className="font-bold text-text">Db Kas / Cr Modal Disetor (3101)</span>. Saldo awal = modal masuk, <span className="font-bold text-text">sekali catat permanen</span>. Isi angka REAL saat buka rekening resmi — jangan asal (kecuali test).
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={onSubmit} disabled={submitting} className="flex-1 py-2.5 bg-[#1B6B4A] hover:bg-[#155539] rounded-lg text-[13px] font-bold text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
+          {submitting ? 'Menyimpan…' : 'Simpan Saldo Awal'}
         </button>
         <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
           Batal
