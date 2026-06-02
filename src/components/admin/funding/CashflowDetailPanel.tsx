@@ -466,7 +466,7 @@ export default function CashflowDetailPanel({ category, onClose, dateFrom, dateT
       });
     } else if (category === 'fee_teraloka' && feeTeralokaTab === 'partners') {
       filename = `fee-teraloka-per-partner-${new Date().toISOString().slice(0, 10)}.csv`;
-      csv += 'No,Partner,Total Fee,Sudah Setor,Setor Terakhir,Jumlah Batch,Belum Setor,Aging 0-7,Aging 8-14,Aging 15-30,Aging >30,Tanggal Tertua Belum Setor,Status\n';
+      csv += 'No,Partner,Total Fee,Sudah Setor,Setor Terakhir,Jumlah Batch,Belum Setor,Aging 0-7,Aging 8-14,Aging 15-30,Aging >30,Tanggal Terlama Belum Setor,Status\n';
       feePartnerAggregate.forEach((p, i) => {
         csv += [
           i + 1,
@@ -976,7 +976,7 @@ function FeeTeralokaPerPartner({
               <th style={{ ...th(t), textAlign: 'right' }}>Sudah Setor</th>
               <th style={{ ...th(t), textAlign: 'right' }}>Belum Setor</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Aging (Belum Setor)</th>
-              <th style={{ ...th(t), textAlign: 'center' }}>Tertua</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Terlama</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Status</th>
               <th style={{ ...th(t), textAlign: 'center', minWidth: 110 }}>Aksi</th>
             </tr>
@@ -1670,7 +1670,7 @@ function FeeReminderModal({
                   </div>
                 </div>
                 <div style={{ padding: 8, background: t.navHover, borderRadius: 4 }}>
-                  <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 2 }}>Tertua</div>
+                  <div style={{ fontSize: 9, color: t.textMuted, marginBottom: 2 }}>Terlama</div>
                   <div style={{ fontSize: 11, fontWeight: 700, color: t.textPrimary }}>
                     {preview.oldest_pending_at ? formatDate(preview.oldest_pending_at) : '—'}
                   </div>
@@ -2210,7 +2210,7 @@ function BeneficiaryPerPartner({
               <th style={{ ...th(t), textAlign: 'right' }}>Disbursed</th>
               <th style={{ ...th(t), textAlign: 'right' }}>Sisa</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Rate</th>
-              <th style={{ ...th(t), textAlign: 'center' }}>Tertua</th>
+              <th style={{ ...th(t), textAlign: 'center' }}>Terlama</th>
               <th style={{ ...th(t), textAlign: 'center' }}>Status</th>
             </tr>
           </thead>

@@ -39,6 +39,7 @@ import PtCashFlowSection from '@/components/admin/financial/PtCashFlowSection';
 import YayasanActivitySection from '@/components/admin/financial/YayasanActivitySection';
 import YayasanCashFlowSection from '@/components/admin/financial/YayasanCashFlowSection';
 import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBalanceSheetSection';
+import YayasanFeeOutstandingCard from '@/components/admin/financial/YayasanFeeOutstandingCard';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, Download, Loader2, type LucideIcon } from 'lucide-react';
@@ -1051,6 +1052,9 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
           note="Manual entry (perusahaan sponsor) — Mission #6"
         />
       </div>
+
+      {/* Fee Belum Disetor — ringkas, link ke panel BADONASI */}
+      <YayasanFeeOutstandingCard />
 
       {/* Laporan Aktivitas Yayasan (ISAK 35, accrual) */}
       <YayasanActivitySection
