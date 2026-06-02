@@ -1407,7 +1407,7 @@ function PriveEntryForm({ form, setForm, onClose, onSubmit, submitting }: any) {
       <div className="bg-surface-muted/60 rounded-lg px-3 py-2.5 mb-4 flex gap-2">
         <Lightbulb className="w-3.5 h-3.5 text-text-muted shrink-0 mt-0.5" />
         <p className="text-[11px] text-text-muted leading-relaxed">
-          Posting ke ledger: <span className="font-bold text-text">Db Prive (3120) / Cr Kas</span>.
+          Posting ke ledger: <span className="font-bold text-text">Db Prive (3501) / Cr Kas</span>.
           Mengurangi ekuitas owner — <span className="font-bold text-text">bukan beban</span>, tidak masuk Laba/Rugi.
         </p>
       </div>
