@@ -129,7 +129,9 @@ export default function AdminFundingFeeRemittancePage() {
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [subNavRefresh, setSubNavRefresh] = useState(0);
-  const [feeMode, setFeeMode] = useState<'owner' | 'manual'>('owner');
+  const [feeMode, setFeeMode] = useState<'owner' | 'manual'>(
+    searchParams.get('mode') === 'manual' ? 'manual' : 'owner'
+  );
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // ═══════ URL helper ═══════
@@ -241,10 +243,12 @@ export default function AdminFundingFeeRemittancePage() {
       {/* Header */}
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ fontSize: 24, fontWeight: 800, color: t.textPrimary, marginBottom: 4 }}>
-          Setor Fee — Owner Submissions
+          {feeMode === 'manual' ? 'Catat Fee Manual & Settlement' : 'Setor Fee — Owner Submissions'}
         </h1>
         <p style={{ fontSize: 13, color: t.textDim }}>
-          Review setoran fee dari penggalang. Verify untuk match donations via FIFO + mark remitted.
+          {feeMode === 'manual'
+            ? 'Catat setoran fee partner secara manual + pantau pelunasan (settlement) ke ledger.'
+            : 'Review setoran fee dari penggalang. Verify untuk match donations via FIFO + mark remitted.'}
         </p>
       </div>
 
