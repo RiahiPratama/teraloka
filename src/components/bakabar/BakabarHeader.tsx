@@ -442,7 +442,7 @@ export default function BakabarHeader() {
                   {WILAYAH_ITEMS.map(({ key, label, Icon }) => (
                     <button
                       key={key}
-                      onClick={() => navigateBakabar(key)}
+                      onClick={() => { router.push(`/bakabar/kanal/${key}`); setMobileMenuOpen(false); }}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] text-gray-700 font-medium hover:bg-[#EDE9FE] hover:text-[#5B21B6] transition-colors text-left group"
                     >
                       <Icon size={16} strokeWidth={2} className="shrink-0 text-gray-500 group-hover:text-[#8B5CF6]" />
@@ -462,7 +462,7 @@ export default function BakabarHeader() {
                   {TOPIK_ITEMS.map(({ key, label, Icon }) => (
                     <button
                       key={key}
-                      onClick={() => navigateBakabar(undefined, key)}
+                      onClick={() => { router.push(`/bakabar/kategori/${key}`); setMobileMenuOpen(false); }}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-[13px] text-gray-700 font-medium hover:bg-[#EDE9FE] hover:text-[#5B21B6] transition-colors text-left group"
                     >
                       <Icon size={16} strokeWidth={2} className="shrink-0 text-gray-500 group-hover:text-[#8B5CF6]" />

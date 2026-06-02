@@ -131,7 +131,7 @@ export default function RegionSection({
             {label}
           </h2>
         </div>
-        <Link href={`/bakabar?nav=${slug}`}
+        <Link href={`/bakabar/kanal/${slug}`}
           className="text-[14px] font-bold flex items-center gap-1 hover:underline" style={{ color: '#378ADD' }}>
           Lihat semua
           <ArrowRight size={14} strokeWidth={2.5} />
