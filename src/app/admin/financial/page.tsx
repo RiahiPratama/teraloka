@@ -41,7 +41,7 @@ import YayasanCashFlowSection from '@/components/admin/financial/YayasanCashFlow
 import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBalanceSheetSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
-import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb } from 'lucide-react';
+import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -86,11 +86,11 @@ interface FinancialEvent {
 
 // ─── Event type display helper ─────────────────────────────────
 
-const EVENT_TYPE_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
-  'donation.verified':     { icon: '✅', label: 'Donasi Terverifikasi',  color: '#059669' },
-  'donation.rejected':     { icon: '❌', label: 'Donasi Ditolak',         color: '#7F1D1D' },
-  'donation.fee_remitted': { icon: '💰', label: 'Fee Disetor (Yayasan)',  color: '#E8963A' },
-  'ad.payment_recorded':   { icon: '📣', label: 'Pembayaran Iklan (Ads)', color: '#1B6B4A' },
+const EVENT_TYPE_CONFIG: Record<string, { icon: LucideIcon; label: string; color: string }> = {
+  'donation.verified':     { icon: CheckCircle2, label: 'Donasi Terverifikasi',  color: '#059669' },
+  'donation.rejected':     { icon: XCircle,      label: 'Donasi Ditolak',         color: '#7F1D1D' },
+  'donation.fee_remitted': { icon: Banknote,     label: 'Fee Disetor (Yayasan)',  color: '#E8963A' },
+  'ad.payment_recorded':   { icon: Megaphone,    label: 'Pembayaran Iklan (Ads)', color: '#1B6B4A' },
 };
 
 // Kategori beban PT (akun 6xxx) + sumber kas (1110/1111/1120)
@@ -588,7 +588,7 @@ function OverviewTab({
             margin: '0 0 6px', fontSize: 11,
             color: 'rgba(255,255,255,0.7)', fontWeight: 600, textTransform: 'uppercase',
           }}>
-            💰 Combined Revenue ({periodLabel})
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Wallet size={16} /> Combined Revenue ({periodLabel})</span>
           </p>
           <p style={{ margin: '0 0 8px', fontSize: 28, fontWeight: 800, color: '#fff' }}>
             {formatRp(combinedTotal)}
@@ -605,9 +605,9 @@ function OverviewTab({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <p style={{ margin: 0, fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
-              🏢 PT TeraLoka
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><Building2 size={16} /> PT TeraLoka</span>
             </p>
-            <span style={{ fontSize: 16 }}>📊</span>
+            <BarChart3 size={15} />
           </div>
           <p style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#1B6B4A' }}>
             {formatRp(ptTotal)}
@@ -624,9 +624,9 @@ function OverviewTab({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
             <p style={{ margin: 0, fontSize: 11, color: t.textMuted, fontWeight: 600 }}>
-              🤝 Yayasan TeraLoka
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><HeartHandshake size={16} /> Yayasan TeraLoka</span>
             </p>
-            <span style={{ fontSize: 16 }}>📊</span>
+            <BarChart3 size={15} />
           </div>
           <p style={{ margin: '0 0 4px', fontSize: 20, fontWeight: 800, color: '#E8963A' }}>
             {formatRp(yayasanTotal)}
@@ -644,7 +644,7 @@ function OverviewTab({
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📈 Tren Pendapatan</p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={16} /> Tren Pendapatan</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
               Perbandingan PT vs Yayasan · {periodLabel}
             </p>
@@ -701,12 +701,12 @@ function OverviewTab({
       }}>
         {combinedTotal >= 10000000 ? (
           <p style={{ margin: 0, fontSize: 13, color: t.codeText, fontWeight: 600 }}>
-            🎉 Revenue 30 hari sudah &gt; Rp 10jt — saatnya aktifkan payment gateway!
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><PartyPopper size={15} /> Revenue 30 hari sudah</span> &gt; Rp 10jt — saatnya aktifkan payment gateway!
           </p>
         ) : (
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
             <p style={{ margin: 0, fontSize: 13, color: '#FCD34D', fontWeight: 600 }}>
-              📊 Progress ke milestone Rp 10jt: {formatRp(combinedTotal)} / Rp 10.000.000 ({Math.round((combinedTotal / 10000000) * 100)}%)
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}><BarChart3 size={14} /> Progress ke milestone</span> Rp 10jt: {formatRp(combinedTotal)} / Rp 10.000.000 ({Math.round((combinedTotal / 10000000) * 100)}%)
             </p>
             <div style={{
               height: 6, background: t.cardInner, borderRadius: 3,
@@ -732,7 +732,7 @@ function OverviewTab({
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>🔴 Live Activity Feed</p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><Activity size={16} color="#EF4444" /> Live Activity Feed</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
               Penerimaan PT + Yayasan · fee & iklan masuk (bukan donasi pass-through)
             </p>
@@ -750,7 +750,7 @@ function OverviewTab({
           const isLast = i === activityFeed.length - 1;
           const isPt = it.entity === 'pt_digital';
           const color = isPt ? '#1B6B4A' : '#E8963A';
-          const icon  = isPt ? '📣' : '💰';
+          const FeedIcon = isPt ? Megaphone : Banknote;
           const dt = new Date(it.date);
           const tgl = dt.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' });
           const jam = dt.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
@@ -762,8 +762,8 @@ function OverviewTab({
             }}>
               <div style={{
                 width: 36, height: 36, borderRadius: 10, background: `${color}22`,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0,
-              }}>{icon}</div>
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+              }}><FeedIcon size={18} color={color} /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{
                   margin: 0, fontSize: 13, fontWeight: 600, color: t.textPrimary,
@@ -914,7 +914,7 @@ function PTTab({ t, router, total, sources, chartData, events, period, appliedFr
             </div>
           );
           return ptEvents.map((ev: any, i: number) => {
-            const cfg = EVENT_TYPE_CONFIG[ev.event_type] || { icon: '💰', label: ev.event_type, color: '#9CA3AF' };
+            const cfg = EVENT_TYPE_CONFIG[ev.event_type] || { icon: Banknote, label: ev.event_type, color: '#9CA3AF' };
             return <EventRow key={ev.id} ev={ev} cfg={cfg} isLast={i === ptEvents.length - 1} t={t} />;
           });
         })()}
@@ -945,7 +945,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
         borderRadius: 12, marginBottom: 16,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-          <span style={{ fontSize: 18 }}>⚖️</span>
+          <Scale size={18} color="#E8963A" />
           <span style={{ fontSize: 13, fontWeight: 700, color: '#E8963A' }}>
             Pemisahan Legal Entity
           </span>
@@ -964,7 +964,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
         marginBottom: 16,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
-          <span style={{ fontSize: 22 }}>🤝</span>
+          <HeartHandshake size={22} color="#fff" />
           <div>
             <p style={{ margin: 0, fontSize: 13, color: '#fff', fontWeight: 700 }}>
               Yayasan TeraLoka Berdaya
@@ -992,7 +992,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
       }}>
         <SourceCard
           t={t}
-          icon="❤️"
+          icon={<HeartHandshake size={20} color="#E8963A" />}
           label="Badonasi Fee (Setor)"
           value={badonasiFee}
           color="#E8963A"
@@ -1003,7 +1003,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
         />
         <SourceCard
           t={t}
-          icon="🎓"
+          icon={<GraduationCap size={20} color="#7C3AED" />}
           label="Grant"
           value={grant}
           color="#7C3AED"
@@ -1012,7 +1012,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
         />
         <SourceCard
           t={t}
-          icon="🤲"
+          icon={<HandCoins size={20} color="#0891B2" />}
           label="CSR Program"
           value={csr}
           color="#0891B2"
@@ -1047,7 +1047,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
           <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>📈 Tren Pendapatan Yayasan</p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><TrendingUp size={16} /> Tren Pendapatan Yayasan</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
               7 hari terakhir · Fee setor (Yayasan revenue)
             </p>
@@ -1105,7 +1105,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
           <div>
-            <p style={{ margin: 0, fontSize: 14, fontWeight: 700 }}>💰 Transaksi Fee Disetor</p>
+            <p style={{ margin: 0, fontSize: 14, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}><Banknote size={16} /> Transaksi Fee Disetor</p>
             <p style={{ margin: '2px 0 0', fontSize: 11, color: t.textMuted }}>
               Setoran fee dari partner · <span style={{ color: '#E8963A' }}>aliran uang nyata</span> (by remitted_at)
             </p>
@@ -1120,7 +1120,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
             padding: '40px 20px', textAlign: 'center',
             color: t.textMuted, fontSize: 13,
           }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>📭</div>
+            <Inbox size={30} style={{ margin: '0 auto 8px', display: 'block', opacity: 0.5 }} />
             <p style={{ margin: '0 0 4px', fontWeight: 600 }}>Belum ada setoran fee pada periode ini</p>
             <p style={{ margin: 0, fontSize: 11, color: t.textDim, maxWidth: 420, marginInline: 'auto', lineHeight: 1.5 }}>
               Setoran muncul saat partner Penggalang menyetor fee operasional ke rekening Yayasan
@@ -1139,7 +1139,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
               <div style={{
                 width: 36, height: 36, borderRadius: 10, background: 'rgba(232,150,58,0.13)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, flexShrink: 0,
-              }}>💰</div>
+              }}><Banknote size={18} color="#E8963A" /></div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{
                   margin: 0, fontSize: 13, fontWeight: 600, color: t.textPrimary,
@@ -1272,9 +1272,9 @@ function EventRow({ ev, cfg, isLast, t }: any) {
         width: 36, height: 36, borderRadius: 10,
         background: `${cfg.color}22`,
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        fontSize: 16, flexShrink: 0,
+        flexShrink: 0,
       }}>
-        {cfg.icon}
+        <cfg.icon size={18} color={cfg.color} />
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <p style={{
@@ -1337,7 +1337,7 @@ function ExpenseEntryForm({ form, setForm, onClose, onSubmit, submitting }: any)
           className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
         >
           {EXPENSE_CATEGORIES.map((c) => (
-            <option key={c.code} value={c.code}>{c.icon} {c.label} ({c.code})</option>
+            <option key={c.code} value={c.code}>{c.label} ({c.code})</option>
           ))}
         </select>
       </div>
