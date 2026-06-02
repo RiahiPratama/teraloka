@@ -9,6 +9,7 @@ import CashflowFlowDiagram, { type FlowData } from '@/components/admin/funding/C
 import CashflowDetailPanel, { type DetailCategory } from '@/components/admin/funding/CashflowDetailPanel';
 import CampaignCashflowTable, { type CampaignCashflow } from '@/components/admin/funding/CampaignCashflowTable';
 import ReconciliationPanel from '@/components/admin/funding/ReconciliationPanel';
+import DisbursementAgingPanel from '@/components/admin/funding/DisbursementAgingPanel';
 import Pagination from '@/components/admin/funding/Pagination';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
@@ -597,6 +598,9 @@ export default function AdminCashflowPage() {
 
       {/* Reconciliation — auditor otomatis (donations vs ledger) */}
       <ReconciliationPanel />
+
+      {/* Dana belum disalurkan + umur mengendap (transparansi misi sosial) */}
+      <DisbursementAgingPanel />
 
       {/* Stats Grid */}
       {summary && (
