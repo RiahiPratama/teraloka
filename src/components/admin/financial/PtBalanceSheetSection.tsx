@@ -2,14 +2,12 @@
 
 /**
  * TeraLoka — PtBalanceSheetSection (Neraca / Balance Sheet PT) — TAILWIND
- * Sesi Financial PT (2 Jun 2026)
+ * Sesi Financial PT (2 Jun 2026) · bentuk SKONTRO (Debet | Kredit)
  * ────────────────────────────────────────────────────────────────
  * Posisi keuangan: Aset = Kewajiban + Ekuitas. Snapshot kumulatif.
- * Pendapatan & Beban melebur jadi "Laba Ditahan" di sisi Ekuitas.
+ * Layout 2-kolom: AKTIVA (Aset, sisi Debet) kiri | PASIVA (Kewajiban +
+ * Ekuitas, sisi Kredit) kanan. Responsif → numpuk di mobile.
  * Endpoint: GET /money/revenue/balance-sheet?perspective=pt
- *
- * Snapshot (bukan per-periode) — sama seperti Neraca Saldo, NOL prop periode.
- * Style & pola konsisten dgn PtTrialBalanceSection.
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -38,6 +36,37 @@ interface BalanceSheet {
 
 const formatRp = (n: number) =>
   n === 0 ? '—' : `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+
+function AccountRow({ row }: { row: BSRow }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-[14px] py-2.5 border-t border-border">
+      <span className="text-[12px] text-text min-w-0">
+        {row.account_code !== '—' && (
+          <span className="font-mono font-bold text-[11px] text-text-muted mr-2">{row.account_code}</span>
+        )}
+        {row.account_name}
+      </span>
+      <span className="text-[12px] text-text tabular-nums shrink-0">{formatRp(row.amount)}</span>
+    </div>
+  );
+}
+
+function GroupHeader({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="px-[14px] py-2 text-[10px] font-extrabold uppercase tracking-wider text-ads bg-surface-muted/60 border-t border-border">
+      {children}
+    </div>
+  );
+}
+
+function SubtotalRow({ label, amount, color }: { label: string; amount: number; color?: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 px-[14px] py-2.5 border-t border-border">
+      <span className="text-[12px] font-bold text-text-muted">{label}</span>
+      <span className={cn('text-[12px] font-bold tabular-nums shrink-0', color ?? 'text-text-muted')}>{formatRp(amount)}</span>
+    </div>
+  );
+}
 
 export default function PtBalanceSheetSection() {
   const { token } = useAuth();
@@ -71,31 +100,7 @@ export default function PtBalanceSheetSection() {
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const hasRows = !!data && (data.assets.length > 0 || data.liabilities.length > 0 || data.equity.length > 0);
-
-  const renderGroup = (title: string, rows: BSRow[], total: number, totalColor: string) => (
-    <>
-      <tr>
-        <td colSpan={2} className="px-[14px] py-2 text-[10px] font-extrabold uppercase tracking-wider text-ads bg-surface-muted/60 border-t border-border">
-          {title}
-        </td>
-      </tr>
-      {rows.map((r) => (
-        <tr key={`${title}-${r.account_code}-${r.account_name}`} className="border-t border-border">
-          <td className="px-[14px] py-2.5 text-left text-[12px] text-text">
-            {r.account_code !== '—' && (
-              <span className="font-mono font-bold text-[11px] text-text-muted mr-2">{r.account_code}</span>
-            )}
-            {r.account_name}
-          </td>
-          <td className="px-[14px] py-2.5 text-right text-[12px] text-text tabular-nums">{formatRp(r.amount)}</td>
-        </tr>
-      ))}
-      <tr className="border-t border-border">
-        <td className="px-[14px] py-2.5 text-left text-[12px] font-bold text-text-muted">Total {title}</td>
-        <td className={cn('px-[14px] py-2.5 text-right text-[12px] font-bold tabular-nums', totalColor)}>{formatRp(total)}</td>
-      </tr>
-    </>
-  );
+  const totalPasiva = (data?.total_liabilities ?? 0) + (data?.total_equity ?? 0);
 
   return (
     <div className="bg-surface border border-border rounded-xl overflow-hidden mb-5">
@@ -104,7 +109,7 @@ export default function PtBalanceSheetSection() {
         <div>
           <p className="text-[14px] font-bold text-text flex items-center gap-1.5"><Landmark className="w-4 h-4 text-ads" /> Neraca (Balance Sheet)</p>
           <p className="text-[11px] text-text-muted mt-0.5">
-            Posisi keuangan · PT TeraLoka · Aset = Kewajiban + Ekuitas
+            Bentuk skontro · PT TeraLoka · Aktiva (Debet) = Pasiva (Kredit)
           </p>
         </div>
         {!loading && data && hasRows && (
@@ -133,30 +138,51 @@ export default function PtBalanceSheetSection() {
       )}
 
       {!loading && data && hasRows && (
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
-            <tbody>
-              {renderGroup('Aset', data.assets, data.total_assets, 'text-text')}
-              {renderGroup('Kewajiban', data.liabilities, data.total_liabilities, 'text-status-critical')}
-              {renderGroup('Ekuitas', data.equity, data.total_equity, 'text-status-healthy')}
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-2">
+            {/* DEBET — AKTIVA (ASET) */}
+            <div className="md:border-r border-border">
+              <div className="px-[14px] py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-text-muted bg-surface-muted/40 border-b border-border flex justify-between">
+                <span>Debet · Aktiva</span>
+                <span className="text-text-subtle font-semibold normal-case tracking-normal">Aset</span>
+              </div>
+              {data.assets.map((r) => <AccountRow key={`a-${r.account_code}`} row={r} />)}
+            </div>
 
-              {/* GRAND: Kewajiban + Ekuitas vs Aset */}
-              <tr className="border-t-2 border-ads bg-surface-muted/60">
-                <td className="px-[14px] py-3 text-left text-[13px] font-extrabold text-text">Kewajiban + Ekuitas</td>
-                <td className="px-[14px] py-3 text-right text-[14px] font-extrabold text-text tabular-nums">
-                  {formatRp(data.total_liabilities + data.total_equity)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      )}
+            {/* KREDIT — PASIVA (KEWAJIBAN + EKUITAS) */}
+            <div>
+              <div className="px-[14px] py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-text-muted bg-surface-muted/40 border-b border-border flex justify-between">
+                <span>Kredit · Pasiva</span>
+                <span className="text-text-subtle font-semibold normal-case tracking-normal">Kewajiban + Ekuitas</span>
+              </div>
+              <GroupHeader>Kewajiban</GroupHeader>
+              {data.liabilities.map((r) => <AccountRow key={`l-${r.account_code}`} row={r} />)}
+              <SubtotalRow label="Total Kewajiban" amount={data.total_liabilities} color="text-status-critical" />
 
-      {!loading && data && hasRows && (
-        <div className="px-[14px] py-2.5 text-[10px] text-text-subtle border-t border-border leading-relaxed">
-          Total Aset harus sama dengan Total Kewajiban + Ekuitas. Pendapatan & Beban
-          tidak tampil terpisah — melebur jadi Laba Ditahan di Ekuitas. Posisi kumulatif (snapshot).
-        </div>
+              <GroupHeader>Ekuitas</GroupHeader>
+              {data.equity.map((r) => <AccountRow key={`e-${r.account_code}-${r.account_name}`} row={r} />)}
+              <SubtotalRow label="Total Ekuitas" amount={data.total_equity} color="text-status-healthy" />
+            </div>
+          </div>
+
+          {/* GRAND TOTAL: Total Aktiva | Total Pasiva (harus sama) */}
+          <div className="grid grid-cols-1 md:grid-cols-2 border-t-2 border-ads bg-surface-muted/60">
+            <div className="md:border-r border-border flex items-center justify-between gap-3 px-[14px] py-3">
+              <span className="text-[13px] font-extrabold text-text">Total Aktiva</span>
+              <span className="text-[14px] font-extrabold text-text tabular-nums shrink-0">{formatRp(data.total_assets)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3 px-[14px] py-3 border-t border-border md:border-t-0">
+              <span className="text-[13px] font-extrabold text-text">Total Pasiva</span>
+              <span className="text-[14px] font-extrabold text-text tabular-nums shrink-0">{formatRp(totalPasiva)}</span>
+            </div>
+          </div>
+
+          {/* Footer note */}
+          <div className="px-[14px] py-2.5 text-[10px] text-text-subtle border-t border-border leading-relaxed">
+            Bentuk skontro: Aktiva (sisi Debet) di kiri, Pasiva = Kewajiban + Ekuitas (sisi Kredit) di kanan.
+            Total Aktiva harus sama dengan Total Pasiva. Pendapatan &amp; Beban melebur jadi Laba Ditahan di Ekuitas. Posisi kumulatif (snapshot).
+          </div>
+        </>
       )}
     </div>
   );
