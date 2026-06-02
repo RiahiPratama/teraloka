@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import Link from 'next/link';
+import { CATEGORIES } from '@/lib/categories';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -34,10 +35,6 @@ const STATUS_TABS = [
   { value: 'archived',  label: 'Arsip',     color: '#9CA3AF' },
 ];
 
-const CATEGORIES = [
-  'berita', 'transportasi', 'sosial', 'kesehatan',
-  'pendidikan', 'ekonomi', 'lingkungan', 'olahraga',
-];
 
 const STATUS_STYLE: Record<string, { bg: string; color: string; label: string }> = {
   published: { bg: 'rgba(16,185,129,0.12)',  color: '#059669', label: 'Published' },
@@ -302,7 +299,7 @@ function HubContent() {
         {/* Category */}
         <select value={categoryFilter} onChange={e => { setCategory(e.target.value); setPage(1); }} style={{ padding: '6px 10px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, fontSize: 11, color: t.textPrimary, background: t.sidebar, cursor: 'pointer', outline: 'none' }}>
           <option value="">Semua Kategori</option>
-          {CATEGORIES.map(c => <option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>)}
+          {CATEGORIES.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}
         </select>
       </div>
 

@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useContext } from 'react';
-import {
-  Newspaper, Flame, Landmark, DollarSign, Handshake, Ship, Trophy, Stethoscope,
-  GraduationCap, Theater, Cpu, Cloud, MessageCircle, Building2, Mountain,
-  type LucideIcon,
-} from 'lucide-react';
+import { Building2, Mountain, type LucideIcon } from 'lucide-react';
+import { CATEGORIES } from '@/lib/categories';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,22 +15,6 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 const LOCAL_DRAFT_KEY = 'bakabar_draft_v1';
 const AUTO_SAVE_DELAY = 2000;
 
-// ICON-001: Lucide React replace emoji untuk premium modern look
-const CATEGORIES: { key: string; label: string; Icon: LucideIcon; color: string }[] = [
-  { key: 'berita',       label: 'Berita',       Icon: Newspaper,      color: '#1B6B4A' },
-  { key: 'viral',        label: 'Viral',        Icon: Flame,          color: '#F97316' },
-  { key: 'politik',      label: 'Politik',      Icon: Landmark,       color: '#7C3AED' },
-  { key: 'ekonomi',      label: 'Ekonomi',      Icon: DollarSign,     color: '#059669' },
-  { key: 'sosial',       label: 'Sosial',       Icon: Handshake,      color: '#0891B2' },
-  { key: 'transportasi', label: 'Transportasi', Icon: Ship,           color: '#0284C7' },
-  { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy,         color: '#DC2626' },
-  { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope,    color: '#E11D48' },
-  { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap,  color: '#CA8A04' },
-  { key: 'budaya',       label: 'Budaya',       Icon: Theater,        color: '#DB2777' },
-  { key: 'teknologi',    label: 'Teknologi',    Icon: Cpu,            color: '#2563EB' },
-  { key: 'cuaca',        label: 'Cuaca',        Icon: Cloud,          color: '#0EA5E9' },
-  { key: 'opini',        label: 'Opini',        Icon: MessageCircle,  color: '#6B7280' },
-];
 
 const PLATFORMS = [
   { key: 'instagram', label: 'Instagram' },

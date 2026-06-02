@@ -1,11 +1,8 @@
 'use client';
 
 import { useState, useRef, useEffect, useContext, useCallback } from 'react';
-import {
-  Newspaper, Flame, Landmark, DollarSign, Handshake, Ship, Trophy, Stethoscope,
-  GraduationCap, Theater, Cpu, Cloud, MessageCircle, Building2, Mountain,
-  type LucideIcon,
-} from 'lucide-react';
+import { Building2, Mountain, type LucideIcon } from 'lucide-react';
+import { CATEGORIES } from '@/lib/categories';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,22 +41,6 @@ const STATUS_STYLE: Record<string, { label: string; bg: string; color: string; i
   archived:  { label: 'Archived',  bg: 'rgba(107,114,128,0.12)',color: '#6B7280', icon: '🗂️' },
 };
 
-// ICON-001: Lucide React replace emoji
-const CATEGORIES: { key: string; label: string; Icon: LucideIcon; color: string }[] = [
-  { key: 'berita',       label: 'Berita',       Icon: Newspaper,      color: '#1B6B4A' },
-  { key: 'viral',        label: 'Viral',        Icon: Flame,          color: '#F97316' },
-  { key: 'politik',      label: 'Politik',      Icon: Landmark,       color: '#7C3AED' },
-  { key: 'ekonomi',      label: 'Ekonomi',      Icon: DollarSign,     color: '#059669' },
-  { key: 'sosial',       label: 'Sosial',       Icon: Handshake,      color: '#0891B2' },
-  { key: 'transportasi', label: 'Transportasi', Icon: Ship,           color: '#0284C7' },
-  { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy,         color: '#DC2626' },
-  { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope,    color: '#E11D48' },
-  { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap,  color: '#CA8A04' },
-  { key: 'budaya',       label: 'Budaya',       Icon: Theater,        color: '#DB2777' },
-  { key: 'teknologi',    label: 'Teknologi',    Icon: Cpu,            color: '#2563EB' },
-  { key: 'cuaca',        label: 'Cuaca',        Icon: Cloud,          color: '#0EA5E9' },
-  { key: 'opini',        label: 'Opini',        Icon: MessageCircle,  color: '#6B7280' },
-];
 
 const PLATFORMS = [
   { key: 'instagram', label: 'Instagram' },
