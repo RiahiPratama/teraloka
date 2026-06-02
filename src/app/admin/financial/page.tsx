@@ -35,6 +35,7 @@ import { useAuth } from '@/hooks/useAuth';
 import PtTrialBalanceSection from '@/components/admin/financial/PtTrialBalanceSection';
 import PtIncomeStatementSection from '@/components/admin/financial/PtIncomeStatementSection';
 import PtBalanceSheetSection from '@/components/admin/financial/PtBalanceSheetSection';
+import PtCashFlowSection from '@/components/admin/financial/PtCashFlowSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb } from 'lucide-react';
@@ -855,6 +856,14 @@ function PTTab({ t, router, total, sources, chartData, events, period, appliedFr
 
       {/* Neraca (Balance Sheet) — snapshot, Aset = Kewajiban + Ekuitas */}
       <PtBalanceSheetSection />
+
+      {/* Laporan Arus Kas (direct, ikut periode) */}
+      <PtCashFlowSection
+        period={period}
+        appliedFrom={appliedFrom}
+        appliedTo={appliedTo}
+        periodLabel={periodLabel}
+      />
 
       {/* Mini Tren Chart (PT only) — empty */}
       <div className="bg-surface border border-border rounded-xl px-[22px] py-[18px] mb-5">
