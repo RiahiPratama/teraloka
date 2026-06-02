@@ -1,52 +1,34 @@
 'use client';
 
 /**
- * TeraLoka — PtTrialBalanceSection (Neraca Saldo PT) — TAILWIND
- * Sesi Financial PT (1 Jun 2026) · migrasi Tailwind
- * ────────────────────────────────────────────────────────────────
- * Laporan akuntansi di tab PT TeraLoka. Baca LEDGER double-entry → tax-ready.
+ * TeraLoka — PtTrialBalanceSection (Neraca Saldo PT) — TAILWIND + collapsible
  * Endpoint: GET /money/revenue/trial-balance?perspective=pt
- *
- * Style: Tailwind token (bg-surface / border-border / text-text / bg-ads),
- * theme-aware otomatis (light/dark) — konsisten dgn AdsFinancialPanel.
- * Self-contained: fetch sendiri (useAuth), NOL prop.
  */
 
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { cn } from '@/lib/utils';
 import { BookText, Inbox } from 'lucide-react';
+import ReportCard from './ReportCard';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 interface TBRow {
-  account_code:    string;
-  account_name:    string;
-  account_type:    string;
-  account_subtype: string | null;
-  normal_balance:  string;
-  debit:           number;
-  credit:          number;
-  balance:         number;
+  account_code: string; account_name: string; account_type: string;
+  account_subtype: string | null; normal_balance: string;
+  debit: number; credit: number; balance: number;
 }
 interface TrialBalance {
-  perspective: string;
-  as_of:       string;
-  rows:        TBRow[];
-  totals:      { debit: number; credit: number; balanced: boolean };
+  perspective: string; as_of: string; rows: TBRow[];
+  totals: { debit: number; credit: number; balanced: boolean };
 }
 
 const TYPE_LABEL: Record<string, string> = {
-  asset:     'ASET',
-  liability: 'KEWAJIBAN',
-  equity:    'EKUITAS',
-  revenue:   'PENDAPATAN',
-  expense:   'BEBAN',
+  asset: 'ASET', liability: 'KEWAJIBAN', equity: 'EKUITAS', revenue: 'PENDAPATAN', expense: 'BEBAN',
 };
 const TYPE_ORDER = ['asset', 'liability', 'equity', 'revenue', 'expense'];
-
-const formatRp = (n: number) =>
-  n === 0 ? '—' : `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+const formatRp = (n: number) => (n === 0 ? '—' : `Rp ${Math.round(n).toLocaleString('id-ID')}`);
+const BADGE = 'text-[10px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-full';
 
 export default function PtTrialBalanceSection() {
   const { token } = useAuth();
@@ -56,82 +38,52 @@ export default function PtTrialBalanceSection() {
 
   const fetchData = useCallback(async () => {
     if (!token) return;
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     try {
       const res = await fetch(`${API}/money/revenue/trial-balance?perspective=pt`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const json = await res.json();
-      if (!json.success || !json.data) {
-        setError(json.error?.message ?? 'Gagal memuat Neraca Saldo');
-        setData(null);
-      } else {
-        setData(json.data);
-      }
-    } catch (e: any) {
-      setError(e?.message ?? 'Network error');
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
+      if (!json.success || !json.data) { setError(json.error?.message ?? 'Gagal memuat Neraca Saldo'); setData(null); }
+      else setData(json.data);
+    } catch (e: any) { setError(e?.message ?? 'Network error'); setData(null); }
+    finally { setLoading(false); }
   }, [token]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   const colDebit  = (r: TBRow) => (r.balance > 0 ? r.balance : 0);
   const colCredit = (r: TBRow) => (r.balance < 0 ? -r.balance : 0);
-
   const grouped = TYPE_ORDER
     .map((type) => ({ type, rows: (data?.rows ?? []).filter((r) => r.account_type === type) }))
     .filter((g) => g.rows.length > 0);
-
   const sumDebitCol  = (data?.rows ?? []).reduce((x, r) => x + colDebit(r), 0);
   const sumCreditCol = (data?.rows ?? []).reduce((x, r) => x + colCredit(r), 0);
   const balanced     = Math.abs(sumDebitCol - sumCreditCol) < 0.01;
+  const hasRows = !!data && data.rows.length > 0;
 
   return (
-    <div className="bg-surface border border-border rounded-xl overflow-hidden mb-5">
-      {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-[18px] py-3.5 border-b border-border flex-wrap">
-        <div>
-          <p className="text-[14px] font-bold text-text flex items-center gap-1.5"><BookText className="w-4 h-4 text-ads" /> Neraca Saldo (Trial Balance)</p>
-          <p className="text-[11px] text-text-muted mt-0.5">
-            Dari ledger double-entry · PT TeraLoka · saldo kumulatif
-          </p>
-        </div>
-        {!loading && data && (
-          <span className={cn(
-            'text-[10px] font-extrabold uppercase tracking-wide px-2.5 py-1 rounded-full',
-            balanced
-              ? 'bg-status-healthy/12 text-status-healthy'
-              : 'bg-status-critical/12 text-status-critical',
-          )}>
-            {balanced ? '✓ Seimbang' : '✕ Tidak seimbang'}
+    <ReportCard
+      icon={<BookText className="w-4 h-4 text-ads" />}
+      title="Neraca Saldo (Trial Balance)"
+      subtitle="Dari ledger double-entry · PT TeraLoka · saldo kumulatif"
+      summary={!loading && hasRows ? (
+        <>
+          <span className="text-[13px] font-extrabold text-text tabular-nums">{formatRp(sumDebitCol)}</span>
+          <span className={cn(BADGE, balanced ? 'bg-status-healthy/12 text-status-healthy' : 'bg-status-critical/12 text-status-critical')}>
+            {balanced ? '✓ Seimbang' : '✕ Timpang'}
           </span>
-        )}
-      </div>
-
-      {/* Loading */}
-      {loading && (
-        <div className="py-8 px-5 text-center text-[12px] text-text-muted">Memuat neraca saldo…</div>
-      )}
-
-      {/* Error */}
-      {!loading && error && (
-        <div className="p-5 text-[12px] text-status-critical">{error}</div>
-      )}
-
-      {/* Empty */}
+        </>
+      ) : null}
+    >
+      {loading && <div className="py-8 px-5 text-center text-[12px] text-text-muted">Memuat neraca saldo…</div>}
+      {!loading && error && <div className="p-5 text-[12px] text-status-critical">{error}</div>}
       {!loading && data && data.rows.length === 0 && (
         <div className="py-10 px-5 text-center text-[12px] text-text-muted">
-          <Inbox className="w-7 h-7 mx-auto mb-2 text-text-muted" />
-          Belum ada akun PT atau jurnal yang tercatat.
+          <Inbox className="w-7 h-7 mx-auto mb-2 text-text-muted" /> Belum ada akun PT atau jurnal yang tercatat.
         </div>
       )}
-
-      {/* Table */}
-      {!loading && data && data.rows.length > 0 && (
+      {!loading && hasRows && (
         <div className="overflow-x-auto">
           <table className="w-full border-collapse">
             <thead>
@@ -162,9 +114,7 @@ export default function PtTrialBalanceSection() {
                       </tr>
                     ))}
                     <tr className="border-t border-border">
-                      <td colSpan={2} className="px-[14px] py-2.5 text-left text-[12px] font-bold text-text-muted">
-                        Subtotal {TYPE_LABEL[g.type] ?? g.type}
-                      </td>
+                      <td colSpan={2} className="px-[14px] py-2.5 text-left text-[12px] font-bold text-text-muted">Subtotal {TYPE_LABEL[g.type] ?? g.type}</td>
                       <td className="px-[14px] py-2.5 text-right text-[12px] font-bold text-text-muted tabular-nums">{formatRp(gDebit)}</td>
                       <td className="px-[14px] py-2.5 text-right text-[12px] font-bold text-text-muted tabular-nums">{formatRp(gCredit)}</td>
                     </tr>
@@ -180,14 +130,11 @@ export default function PtTrialBalanceSection() {
           </table>
         </div>
       )}
-
-      {/* Footer note */}
-      {!loading && data && data.rows.length > 0 && (
+      {!loading && hasRows && (
         <div className="px-[14px] py-2.5 text-[10px] text-text-subtle border-t border-border leading-relaxed">
-          Total debit harus sama dengan total kredit (double-entry). Saldo per akun
-          = debit − kredit dari seluruh jurnal PT. Basis laporan pajak PT.
+          Total debit harus sama dengan total kredit (double-entry). Saldo per akun = debit − kredit dari seluruh jurnal PT. Basis laporan pajak PT.
         </div>
       )}
-    </div>
+    </ReportCard>
   );
 }
