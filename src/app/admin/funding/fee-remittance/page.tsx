@@ -7,6 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
+import FeeSettlementPanel from '@/components/admin/funding/FeeSettlementPanel';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -128,6 +129,7 @@ export default function AdminFundingFeeRemittancePage() {
   const [loading, setLoading] = useState(true);
   const [searchInput, setSearchInput] = useState(urlSearch);
   const [subNavRefresh, setSubNavRefresh] = useState(0);
+  const [feeMode, setFeeMode] = useState<'owner' | 'manual'>('owner');
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
   // ═══════ URL helper ═══════
@@ -246,6 +248,34 @@ export default function AdminFundingFeeRemittancePage() {
         </p>
       </div>
 
+      {/* Mode switcher: Setoran Owner vs Catat Manual */}
+      <div style={{ display: 'flex', gap: 8, marginBottom: 20, overflowX: 'auto' }}>
+        {([
+          { key: 'owner',  label: 'Setoran Owner',            emoji: '📥' },
+          { key: 'manual', label: 'Catat Manual & Settlement', emoji: '🧾' },
+        ] as const).map(m => {
+          const active = feeMode === m.key;
+          return (
+            <button key={m.key} onClick={() => setFeeMode(m.key)}
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 700,
+                color: active ? '#fff' : t.textPrimary,
+                background: active ? '#EC4899' : t.mainBg,
+                border: `1px solid ${active ? '#EC4899' : t.sidebarBorder}`,
+                cursor: 'pointer', whiteSpace: 'nowrap',
+              }}>
+              <span>{m.emoji}</span><span>{m.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {feeMode === 'manual' && (
+        <FeeSettlementPanel onSubNavRefresh={() => setSubNavRefresh(r => r + 1)} />
+      )}
+
+      {feeMode === 'owner' && (<>
       {/* Smart Views Pills */}
       <div style={{
         display: 'flex',
@@ -537,6 +567,8 @@ export default function AdminFundingFeeRemittancePage() {
           </button>
         </div>
       )}
+
+      </>)}
 
       {/* Toast */}
       {toast && (
