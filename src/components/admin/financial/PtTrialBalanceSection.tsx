@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, Fragment } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { exportSingleReport } from '@/lib/financial/exportAccountantPackage';
 import { cn } from '@/lib/utils';
 import { BookText, Inbox } from 'lucide-react';
 import ReportCard from './ReportCard';
@@ -64,6 +65,7 @@ export default function PtTrialBalanceSection() {
 
   return (
     <ReportCard
+      onDownload={(fmt) => exportSingleReport({ token: token!, reportType: 'trial-balance', perspective: 'pt', format: fmt, period: 'all', appliedFrom: '', appliedTo: '', periodLabel: 'Kumulatif' })}
       icon={<BookText className="w-4 h-4 text-ads" />}
       title="Neraca Saldo (Trial Balance)"
       subtitle="Dari ledger double-entry · PT TeraLoka · saldo kumulatif"

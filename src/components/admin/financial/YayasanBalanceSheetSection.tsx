@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { exportSingleReport } from '@/lib/financial/exportAccountantPackage';
 import { cn } from '@/lib/utils';
 import { Landmark, Inbox } from 'lucide-react';
 import ReportCard from './ReportCard';
@@ -83,6 +84,7 @@ export default function YayasanBalanceSheetSection() {
 
   return (
     <ReportCard
+      onDownload={(fmt) => exportSingleReport({ token: token!, reportType: 'balance-sheet', perspective: 'yayasan', format: fmt, period: 'all', appliedFrom: '', appliedTo: '', periodLabel: 'Kumulatif' })}
       icon={<Landmark className="w-4 h-4 text-ads" />}
       title="Laporan Posisi Keuangan"
       subtitle="Nonlaba ISAK 35 · Yayasan TeraLoka · Aset = Liabilitas + Aset Neto"

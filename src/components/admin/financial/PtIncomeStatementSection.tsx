@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { exportSingleReport } from '@/lib/financial/exportAccountantPackage';
 import { cn } from '@/lib/utils';
 import { Scale, Inbox } from 'lucide-react';
 import ReportCard from './ReportCard';
@@ -55,6 +56,7 @@ export default function PtIncomeStatementSection({ period, appliedFrom, appliedT
 
   return (
     <ReportCard
+      onDownload={(fmt) => exportSingleReport({ token: token!, reportType: 'income-statement', perspective: 'pt', format: fmt, period, appliedFrom, appliedTo, periodLabel })}
       icon={<Scale className="w-4 h-4 text-ads" />}
       title="Laporan Laba/Rugi"
       subtitle={`Accrual dari ledger · PT TeraLoka · ${periodLabel}`}

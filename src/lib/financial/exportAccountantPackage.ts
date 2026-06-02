@@ -111,10 +111,98 @@ function buildTrialBalance(d: any, entity: string, periodLabel: string): AOA {
   return rows;
 }
 
+const RP_FMT = '#,##0;[Red]-#,##0';   // ribuan + merah kalau negatif
+
 function aoaToSheet(rows: AOA): XLSX.WorkSheet {
   const ws = XLSX.utils.aoa_to_sheet(rows);
-  ws['!cols'] = [{ wch: 10 }, { wch: 40 }, { wch: 18 }, { wch: 18 }];
+  ws['!cols'] = [{ wch: 12 }, { wch: 42 }, { wch: 20 }, { wch: 20 }];
+  // Apply format Rupiah ke semua cell numerik di kolom C (2) & D (3)
+  const range = XLSX.utils.decode_range(ws['!ref'] as string);
+  for (let R = range.s.r; R <= range.e.r; R++) {
+    for (const C of [2, 3]) {
+      const ref = XLSX.utils.encode_cell({ r: R, c: C });
+      const cell = ws[ref];
+      if (cell && typeof cell.v === 'number') {
+        cell.t = 'n';
+        cell.z = RP_FMT;
+      }
+    }
+  }
   return ws;
+}
+
+// ── Download helper (Blob, konsisten pola funding) ──
+function downloadBlob(data: BlobPart, mime: string, filename: string) {
+  const blob = new Blob([data], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+export type ReportType = 'trial-balance' | 'income-statement' | 'balance-sheet' | 'cash-flow';
+
+interface SingleReportParams extends ExportParams {
+  reportType: ReportType;
+  perspective: 'pt' | 'yayasan';
+  format: 'xlsx' | 'csv';
+}
+
+const ENTITY_NAME = { pt: 'PT TeraLoka Digital Maluku', yayasan: 'Yayasan TeraLoka Berdaya' } as const;
+
+// Fetch + build 1 laporan → AOA (reuse builder yg sama dgn paket)
+async function buildSingleAOA(rp: SingleReportParams): Promise<{ aoa: AOA; label: string }> {
+  const q = periodQuery(rp);
+  const base = `${API}/money/revenue`;
+  const entity = ENTITY_NAME[rp.perspective];
+  const noPeriod = rp.reportType === 'trial-balance' || rp.reportType === 'balance-sheet';
+  const url = noPeriod
+    ? `${base}/${rp.reportType}?perspective=${rp.perspective}`
+    : `${base}/${rp.reportType}?perspective=${rp.perspective}&${q}`;
+  const d = await fetchJson(url, rp.token);
+
+  switch (rp.reportType) {
+    case 'trial-balance':
+      return { aoa: buildTrialBalance(d, entity, rp.periodLabel), label: 'Neraca Saldo' };
+    case 'income-statement': {
+      const isYay = rp.perspective === 'yayasan';
+      return {
+        aoa: buildIncomeStatement(d, entity, isYay ? 'Penerimaan' : 'Pendapatan', isYay ? 'Surplus/Defisit' : 'Laba/Rugi Bersih', rp.periodLabel),
+        label: isYay ? 'Laporan Aktivitas' : 'Laba Rugi',
+      };
+    }
+    case 'balance-sheet': {
+      const isYay = rp.perspective === 'yayasan';
+      return {
+        aoa: buildBalanceSheet(d, entity, isYay ? 'Aset Neto' : 'Ekuitas', rp.periodLabel),
+        label: isYay ? 'Posisi Keuangan' : 'Neraca',
+      };
+    }
+    case 'cash-flow':
+      return { aoa: buildCashFlow(d, entity, rp.periodLabel), label: 'Arus Kas' };
+  }
+}
+
+export async function exportSingleReport(rp: SingleReportParams): Promise<void> {
+  const { aoa, label } = await buildSingleAOA(rp);
+  const ws = aoaToSheet(aoa);
+  const prefix = rp.perspective === 'pt' ? 'PT' : 'Yayasan';
+  const stamp = new Date().toISOString().slice(0, 10);
+  const fnameBase = `TeraLoka-${prefix}-${label.replace(/[\\/\s]+/g, '-')}-${stamp}`;
+
+  if (rp.format === 'csv') {
+    const csv = XLSX.utils.sheet_to_csv(ws);
+    downloadBlob('\uFEFF' + csv, 'text/csv;charset=utf-8;', `${fnameBase}.csv`);
+  } else {
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, label.slice(0, 31));
+    const out = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+    downloadBlob(out, 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', `${fnameBase}.xlsx`);
+  }
 }
 
 export async function exportAccountantPackage(p: ExportParams): Promise<void> {
@@ -140,7 +228,10 @@ export async function exportAccountantPackage(p: ExportParams): Promise<void> {
     [`Periode: ${p.periodLabel}`],
     [`Digenerate: ${GENERATED()}`],
     [],
-    [PRA_FORMASI],
+    ['CATATAN PRA-FORMASI:'],
+    ['PT & Yayasan belum berbadan hukum.'],
+    ['Dana dikelola sementara di rekening owner, di-earmark per entitas.'],
+    ['NPWP, rekening & laporan pajak terpisah menyusul saat formasi (Q4 2026/Q1 2027).'],
     [],
     ['Entitas', 'Laporan', 'Angka Kunci (Rp)'],
     ['PT TeraLoka Digital Maluku', 'Laba/Rugi (Laba Bersih)', fmt(ptIS.net_income)],

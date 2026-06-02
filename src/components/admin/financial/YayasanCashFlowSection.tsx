@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { exportSingleReport } from '@/lib/financial/exportAccountantPackage';
 import { cn } from '@/lib/utils';
 import { ArrowLeftRight, Inbox } from 'lucide-react';
 import ReportCard from './ReportCard';
@@ -82,6 +83,7 @@ export default function YayasanCashFlowSection({ period, appliedFrom, appliedTo,
 
   return (
     <ReportCard
+      onDownload={(fmt) => exportSingleReport({ token: token!, reportType: 'cash-flow', perspective: 'yayasan', format: fmt, period, appliedFrom, appliedTo, periodLabel })}
       icon={<ArrowLeftRight className="w-4 h-4 text-ads" />}
       title="Laporan Arus Kas"
       subtitle={`Cash basis · setoran fee partner · Yayasan TeraLoka · ${periodLabel}`}

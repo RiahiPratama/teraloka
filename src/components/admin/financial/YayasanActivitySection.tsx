@@ -12,6 +12,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { exportSingleReport } from '@/lib/financial/exportAccountantPackage';
 import { cn } from '@/lib/utils';
 import { HeartHandshake, Inbox } from 'lucide-react';
 import ReportCard from './ReportCard';
@@ -60,6 +61,7 @@ export default function YayasanActivitySection({ period, appliedFrom, appliedTo,
 
   return (
     <ReportCard
+      onDownload={(fmt) => exportSingleReport({ token: token!, reportType: 'income-statement', perspective: 'yayasan', format: fmt, period, appliedFrom, appliedTo, periodLabel })}
       icon={<HeartHandshake className="w-4 h-4 text-ads" />}
       title="Laporan Aktivitas"
       subtitle={`Nonlaba ISAK 35 · Yayasan TeraLoka · ${periodLabel}`}
