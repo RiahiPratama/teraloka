@@ -8,6 +8,7 @@ import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import CashflowFlowDiagram, { type FlowData } from '@/components/admin/funding/CashflowFlowDiagram';
 import CashflowDetailPanel, { type DetailCategory } from '@/components/admin/funding/CashflowDetailPanel';
 import CampaignCashflowTable, { type CampaignCashflow } from '@/components/admin/funding/CampaignCashflowTable';
+import ReconciliationPanel from '@/components/admin/funding/ReconciliationPanel';
 import Pagination from '@/components/admin/funding/Pagination';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
@@ -593,6 +594,9 @@ export default function AdminCashflowPage() {
           />
         )}
       </div>
+
+      {/* Reconciliation — auditor otomatis (donations vs ledger) */}
+      <ReconciliationPanel />
 
       {/* Stats Grid */}
       {summary && (
