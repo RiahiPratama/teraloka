@@ -108,7 +108,7 @@ export default function YayasanBalanceSheetSection() {
               <div className="px-[14px] py-2.5 text-[11px] font-extrabold uppercase tracking-wider text-text-muted bg-surface-muted/40 border-b border-border flex justify-between">
                 <span>Debet · Aktiva</span><span className="text-text-subtle font-semibold normal-case tracking-normal">Aset</span>
               </div>
-              {data!.assets.map((r) => <AccountRow key={`a-${r.account_code}`} code={r.account_code} name={r.account_name} amount={r.amount} />)}
+              {data!.assets.map((r) => <AccountRow key={`a-${r.account_code}`} code={r.account_code} name={r.account_code === '1102' ? `${r.account_name} (rek. owner — pra-formasi)` : r.account_name} amount={r.amount} />)}
             </div>
             {/* LIABILITAS + ASET NETO */}
             <div>
@@ -140,7 +140,7 @@ export default function YayasanBalanceSheetSection() {
             </div>
           </div>
           <div className="px-[14px] py-2.5 text-[10px] text-text-subtle border-t border-border leading-relaxed">
-            ISAK 35 (nonlaba): Aset = Liabilitas + Aset Neto. Surplus aktivitas melebur jadi Aset Neto. Aset saat ini = Piutang Fee Partner (fee diakui tapi belum disetor); akan bergeser ke Kas saat partner setor. Posisi kumulatif (snapshot, accrual).
+            ISAK 35 (nonlaba): Aset = Liabilitas + Aset Neto. Surplus aktivitas melebur jadi Aset Neto. Catatan pra-formasi: Yayasan belum berbadan hukum — saldo Kas saat ini fisik berada di rekening pribadi owner, di-earmark untuk misi Yayasan, dan akan dimigrasikan ke rekening Yayasan saat formasi (Q4 2026/Q1 2027). Posisi kumulatif (snapshot, accrual).
           </div>
         </>
       )}

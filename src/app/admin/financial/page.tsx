@@ -952,7 +952,7 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
         </div>
         <p style={{ margin: 0, fontSize: 12, color: t.textMuted, lineHeight: 1.5 }}>
           Fee operasional Badonasi disetor ke <strong style={{ color: t.textPrimary }}>Yayasan TeraLoka Berdaya</strong>,
-          BUKAN PT TeraLoka Digital Maluku. Yayasan dan PT punya NPWP, rekening, dan laporan pajak terpisah.
+          BUKAN PT TeraLoka Digital Maluku. Catatan pra-formasi: Yayasan & PT belum berbadan hukum — dana saat ini dikelola sementara di rekening owner dan di-earmark per entitas. NPWP, rekening, dan laporan pajak terpisah menyusul setelah formasi (Q4 2026/Q1 2027).
           Donasi yang lewat ke Penggalang TIDAK dihitung sebagai revenue Yayasan.
         </p>
       </div>
