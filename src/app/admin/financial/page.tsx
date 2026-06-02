@@ -41,7 +41,8 @@ import YayasanCashFlowSection from '@/components/admin/financial/YayasanCashFlow
 import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBalanceSheetSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
-import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, type LucideIcon } from 'lucide-react';
+import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb, Banknote, BarChart3, Activity, Scale, GraduationCap, HandCoins, PartyPopper, CheckCircle2, XCircle, Download, Loader2, type LucideIcon } from 'lucide-react';
+import { exportAccountantPackage } from '@/lib/financial/exportAccountantPackage';
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend,
 } from 'recharts';
@@ -125,6 +126,19 @@ const PERIOD_PRESETS: { key: PeriodKey; label: string }[] = [
 
 export default function AdminFinancialPage() {
   const { token } = useAuth();
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExportPackage() {
+    if (!token || exporting) return;
+    setExporting(true);
+    try {
+      await exportAccountantPackage({ token, period, appliedFrom, appliedTo, periodLabel });
+    } catch (e: any) {
+      showToast(`Gagal export: ${e?.message ?? 'error'}`);
+    } finally {
+      setExporting(false);
+    }
+  }
   const { t }     = useAdminTheme();
   const router    = useRouter();
 
@@ -350,6 +364,23 @@ export default function AdminFinancialPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button
+            onClick={handleExportPackage}
+            disabled={exporting}
+            title="Download semua laporan PT + Yayasan jadi 1 file Excel (untuk akuntan/grant)"
+            style={{
+              padding: '8px 18px', background: 'transparent',
+              border: `1px solid ${t.cardBorder}`,
+              borderRadius: 10, cursor: exporting ? 'wait' : 'pointer',
+              fontSize: 13, fontWeight: 700, color: t.textPrimary,
+              display: 'inline-flex', alignItems: 'center', gap: 8,
+              opacity: exporting ? 0.6 : 1,
+            }}
+          >
+            {exporting
+              ? <><Loader2 size={15} className="animate-spin" /> Menyiapkan…</>
+              : <><Download size={15} /> Export Paket Akuntan</>}
+          </button>
           <button
             onClick={() => setShowForm(!showForm)}
             style={{
