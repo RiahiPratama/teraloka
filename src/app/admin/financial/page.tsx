@@ -38,6 +38,7 @@ import PtBalanceSheetSection from '@/components/admin/financial/PtBalanceSheetSe
 import PtCashFlowSection from '@/components/admin/financial/PtCashFlowSection';
 import YayasanActivitySection from '@/components/admin/financial/YayasanActivitySection';
 import YayasanCashFlowSection from '@/components/admin/financial/YayasanCashFlowSection';
+import YayasanBalanceSheetSection from '@/components/admin/financial/YayasanBalanceSheetSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb } from 'lucide-react';
@@ -951,6 +952,9 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, period,
         appliedTo={appliedTo}
         periodLabel={periodLabel}
       />
+
+      {/* Laporan Posisi Keuangan Yayasan (ISAK 35, accrual) */}
+      <YayasanBalanceSheetSection />
 
       {/* Disclaimer Banner */}
       <div style={{
