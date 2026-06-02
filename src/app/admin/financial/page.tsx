@@ -33,6 +33,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import PtTrialBalanceSection from '@/components/admin/financial/PtTrialBalanceSection';
+import PtIncomeStatementSection from '@/components/admin/financial/PtIncomeStatementSection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb } from 'lucide-react';
@@ -136,6 +137,9 @@ export default function AdminFinancialPage() {
   // Catat Pengeluaran form
   const [showForm, setShowForm] = useState(false);
   const [form,     setForm]     = useState({ expense_account_code: '6101', source_account_code: '1110', amount: '', description: '' });
+  // Catat Prive form (pengeluaran modal owner)
+  const [showPriveForm, setShowPriveForm] = useState(false);
+  const [priveForm,     setPriveForm]     = useState({ source_account_code: '1110', amount: '', description: '' });
   const [toast,    setToast]    = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
 
   // Filter periode (fleksibel — tidak dikunci 30 hari)
@@ -238,6 +242,32 @@ export default function AdminFinancialPage() {
     }
   };
 
+  // ─── Catat Prive handler (pengambilan pribadi owner → ekuitas) ──
+  const handleAddPrive = async () => {
+    if (!priveForm.amount || !priveForm.description) {
+      showToast('Lengkapi nominal & deskripsi', 'err');
+      return;
+    }
+    try {
+      const res  = await fetch(`${API}/money/prive`, {
+        method:  'POST',
+        headers: { ...h, 'Content-Type': 'application/json' },
+        body:    JSON.stringify({
+          source_account_code: priveForm.source_account_code,
+          amount:              Number(priveForm.amount),
+          description:         priveForm.description,
+        }),
+      });
+      const json = await res.json();
+      if (!json.success) throw new Error(json.error?.message);
+      showToast('✅ Prive tercatat ke ledger (ekuitas). Refresh untuk lihat di Neraca Saldo.');
+      setShowPriveForm(false);
+      setPriveForm({ source_account_code: '1110', amount: '', description: '' });
+    } catch (err: any) {
+      showToast(err.message || 'Gagal simpan', 'err');
+    }
+  };
+
   // ─── Derived data ─────────────────────────────────────────────
 
   const combinedTotal = byEntity?.combined_total       ?? 0;
@@ -313,6 +343,15 @@ export default function AdminFinancialPage() {
           }}
         >
           + Catat Pengeluaran
+        </button>
+        <button
+          onClick={() => setShowPriveForm(!showPriveForm)}
+          style={{
+            padding: '8px 18px', background: '#7C3AED', border: 'none',
+            borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, color: '#fff',
+          }}
+        >
+          + Catat Prive
         </button>
       </div>
 
@@ -456,6 +495,9 @@ export default function AdminFinancialPage() {
               sources={byEntity?.pt_digital?.sources}
               chartData={chartDataPt}
               events={events}
+              period={period}
+              appliedFrom={appliedFrom}
+              appliedTo={appliedTo}
               periodLabel={periodLabel}
             />
           )}
@@ -484,6 +526,16 @@ export default function AdminFinancialPage() {
           setForm={setForm}
           onClose={() => setShowForm(false)}
           onSubmit={handleAddExpense}
+        />
+      )}
+
+      {/* Catat Prive Form (Sidebar, Global) */}
+      {showPriveForm && (
+        <PriveEntryForm
+          form={priveForm}
+          setForm={setPriveForm}
+          onClose={() => setShowPriveForm(false)}
+          onSubmit={handleAddPrive}
         />
       )}
     </div>
@@ -717,7 +769,7 @@ function OverviewTab({
 // Honest Phase 1: semua Rp 0 + 1 card interactive (Ads → /admin/ads)
 // ═══════════════════════════════════════════════════════════════
 
-function PTTab({ t, router, total, sources, chartData, events, periodLabel }: any) {
+function PTTab({ t, router, total, sources, chartData, events, period, appliedFrom, appliedTo, periodLabel }: any) {
   const ads        = sources?.ads        ?? 0;
   const bakos      = sources?.bakos      ?? 0;
   const commission = sources?.commission ?? 0;
@@ -778,6 +830,14 @@ function PTTab({ t, router, total, sources, chartData, events, periodLabel }: an
 
       {/* Neraca Saldo (Trial Balance) — laporan akuntansi dari ledger */}
       <PtTrialBalanceSection />
+
+      {/* Laporan Laba/Rugi (accrual, ikut periode) */}
+      <PtIncomeStatementSection
+        period={period}
+        appliedFrom={appliedFrom}
+        appliedTo={appliedTo}
+        periodLabel={periodLabel}
+      />
 
       {/* Mini Tren Chart (PT only) — empty */}
       <div className="bg-surface border border-border rounded-xl px-[22px] py-[18px] mb-5">
@@ -1276,6 +1336,68 @@ function ExpenseEntryForm({ form, setForm, onClose, onSubmit }: any) {
       <div className="flex gap-2">
         <button onClick={onSubmit} className="flex-1 py-2.5 bg-[#B45309] hover:bg-[#92400E] rounded-lg text-[13px] font-bold text-white transition-colors">
           Simpan Pengeluaran
+        </button>
+        <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
+          Batal
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function PriveEntryForm({ form, setForm, onClose, onSubmit }: any) {
+  return (
+    <div className="fixed top-20 right-6 w-[360px] bg-surface border border-border rounded-xl p-[18px] z-[100] shadow-2xl">
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-[14px] font-bold text-text">+ Catat Prive PT</p>
+        <button onClick={onClose} className="text-text-muted hover:text-text text-[18px] leading-none">×</button>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Tarik Dari *</label>
+        <select
+          value={form.source_account_code}
+          onChange={(e) => setForm((p: any) => ({ ...p, source_account_code: e.target.value }))}
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        >
+          {CASH_SOURCES.map((s) => (
+            <option key={s.code} value={s.code}>{s.label} ({s.code})</option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mb-3">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Nominal (Rp) *</label>
+        <input
+          type="number"
+          value={form.amount}
+          onChange={(e) => setForm((p: any) => ({ ...p, amount: e.target.value }))}
+          placeholder="500000"
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="block text-[11px] font-semibold text-text-muted mb-1">Deskripsi *</label>
+        <input
+          value={form.description}
+          onChange={(e) => setForm((p: any) => ({ ...p, description: e.target.value }))}
+          placeholder="Pengambilan pribadi owner"
+          className="w-full px-3 py-2 bg-surface-muted border border-border rounded-lg text-text text-[13px] outline-none"
+        />
+      </div>
+
+      <div className="bg-surface-muted/60 rounded-lg px-3 py-2.5 mb-4 flex gap-2">
+        <Lightbulb className="w-3.5 h-3.5 text-text-muted shrink-0 mt-0.5" />
+        <p className="text-[11px] text-text-muted leading-relaxed">
+          Posting ke ledger: <span className="font-bold text-text">Db Prive (3120) / Cr Kas</span>.
+          Mengurangi ekuitas owner — <span className="font-bold text-text">bukan beban</span>, tidak masuk Laba/Rugi.
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <button onClick={onSubmit} className="flex-1 py-2.5 bg-[#7C3AED] hover:bg-[#6D28D9] rounded-lg text-[13px] font-bold text-white transition-colors">
+          Simpan Prive
         </button>
         <button onClick={onClose} className="px-4 py-2.5 bg-transparent border border-border rounded-lg text-[13px] text-text-muted hover:text-text transition-colors">
           Batal
