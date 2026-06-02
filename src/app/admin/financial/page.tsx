@@ -36,6 +36,7 @@ import PtTrialBalanceSection from '@/components/admin/financial/PtTrialBalanceSe
 import PtIncomeStatementSection from '@/components/admin/financial/PtIncomeStatementSection';
 import PtBalanceSheetSection from '@/components/admin/financial/PtBalanceSheetSection';
 import PtCashFlowSection from '@/components/admin/financial/PtCashFlowSection';
+import YayasanActivitySection from '@/components/admin/financial/YayasanActivitySection';
 import { useAdminTheme } from '@/components/admin/AdminThemeContext';
 import BankAccountsTabPanel from '@/components/admin/financial/bank-accounts/BankAccountsTabPanel'; // SESI 5F (19 Mei 2026)
 import { Wallet, LayoutDashboard, Building2, HeartHandshake, Landmark, Megaphone, Home, Ship, TrendingUp, Receipt, Inbox, Lightbulb } from 'lucide-react';
@@ -523,6 +524,9 @@ export default function AdminFinancialPage() {
               sources={byEntity?.yayasan?.sources}
               chartData={chartDataYayasan}
               remittances={remittances}
+              period={period}
+              appliedFrom={appliedFrom}
+              appliedTo={appliedTo}
               periodLabel={periodLabel}
             />
           )}
@@ -922,7 +926,7 @@ function PTTab({ t, router, total, sources, chartData, events, period, appliedFr
 // Honest Phase 1: semua static (admin BADONASI page defer)
 // ═══════════════════════════════════════════════════════════════
 
-function YayasanTab({ t, router, total, sources, chartData, remittances, periodLabel }: any) {
+function YayasanTab({ t, router, total, sources, chartData, remittances, period, appliedFrom, appliedTo, periodLabel }: any) {
   const badonasiFee = sources?.badonasi_fee ?? 0;
   const grant       = sources?.grant        ?? 0;
   const csr         = sources?.csr          ?? 0;
@@ -931,6 +935,14 @@ function YayasanTab({ t, router, total, sources, chartData, remittances, periodL
 
   return (
     <>
+      {/* Laporan Aktivitas Yayasan (ISAK 35, accrual) */}
+      <YayasanActivitySection
+        period={period}
+        appliedFrom={appliedFrom}
+        appliedTo={appliedTo}
+        periodLabel={periodLabel}
+      />
+
       {/* Disclaimer Banner */}
       <div style={{
         padding: '14px 18px',
