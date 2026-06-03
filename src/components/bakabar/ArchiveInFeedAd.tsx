@@ -15,7 +15,7 @@
 //   - `slot` prop = rotasi iklan kalau ada >1 (tiap titik inject beda iklan).
 // ════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getAdLabel } from '@/lib/ads/getAdLabel';
 import { useAdView } from '@/hooks/useAdView';
 import { queueClick } from '@/lib/adTracking';
@@ -57,6 +57,29 @@ export default function ArchiveInFeedAd({ slot = 0 }: { slot?: number }) {
     return () => { alive = false; };
   }, [slot]);
 
+  // R2 video: putar di cover sbg isi kartu. IntersectionObserver = hemat
+  // (play pas kelihatan, pause pas keluar layar). muted+loop = autoplay policy.
+  // TANPA klik sendiri → <a> kartu yang nangkap klik (1 pintu).
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const videoSource = ad?.video_sources?.['kanal_infeed'] ?? null;
+  useEffect(() => {
+    const el = videoRef.current;
+    if (!el || !videoSource) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      el.play().catch(() => { /* autoplay blocked — poster tetap */ });
+      return;
+    }
+    const obs = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) el.play().catch(() => { /* graceful */ });
+        else el.pause();
+      },
+      { threshold: 0.5, rootMargin: '0px 0px -50px 0px' },
+    );
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, [videoSource]);
+
   if (!ad) return null;
 
   const label = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: ad.ad_format }) ?? 'Iklan';
@@ -78,14 +101,28 @@ export default function ArchiveInFeedAd({ slot = 0 }: { slot?: number }) {
     >
       {/* Cover 16:9 — identik ArticleCard */}
       <div className="relative w-full overflow-hidden" style={{ aspectRatio: '16 / 9', background: THUMB_FALLBACK }}>
-        {ad.image_url && (
+        {videoSource && (videoSource.mp4 || videoSource.webm) ? (
+          // webM dulu (ringan, mayoritas pembaca MalUt) → mp4 fallback universal.
+          <video
+            ref={videoRef}
+            muted
+            playsInline
+            loop
+            preload="metadata"
+            poster={videoSource.poster || ad.image_url || undefined}
+            className="w-full h-full object-cover"
+          >
+            {videoSource.webm && <source src={videoSource.webm} type="video/webm" />}
+            {videoSource.mp4 && <source src={videoSource.mp4} type="video/mp4" />}
+          </video>
+        ) : ad.image_url ? (
           <img
             src={ad.image_url}
             alt=""
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
-        )}
+        ) : null}
         {/* Firewall: badge label per tipe advertiser (politisi → Iklan Kampanye, dst) */}
         <span
           className="absolute top-2 left-2 px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wide"

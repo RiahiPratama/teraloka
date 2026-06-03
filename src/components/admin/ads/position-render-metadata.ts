@@ -576,6 +576,7 @@ export const VIDEO_ELIGIBLE_POSITIONS: readonly string[] = [
   'skyscraper_right',
   'inline_banner',
   'service_carousel',
+  'kanal_infeed',
 ];
 
 /** True kalau posisi boleh pakai Banner Motion (video webM/mp4). */

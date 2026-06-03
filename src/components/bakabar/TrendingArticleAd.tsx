@@ -43,6 +43,8 @@ export type TrendingNativeAd = {
   advertiser_logo_url: string | null;
   disclaimer_text:     string | null;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
+  // SESI 11 (2 Jun 2026): per-position video sources (kanal_infeed dst). Dikirim API.
+  video_sources?:      Record<string, { mp4: string; webm: string | null; poster: string }> | null;
 };
 
 type Props = {
