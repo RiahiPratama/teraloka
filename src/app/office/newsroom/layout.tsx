@@ -5,12 +5,30 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { AdminThemeContext, DARK_THEME, LIGHT_THEME } from '@/components/admin/AdminThemeContext';
+import {
+  BarChart3, FileText, Search, CheckCircle2, Archive, Rss, Siren,
+  ClipboardList, Clock, Settings, Flame, TrendingUp, Bell, MessageCircle,
+  MonitorPlay, Newspaper, ChevronDown, type LucideIcon,
+} from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 interface Stats {
   articles: { total: number; draft: number };
   reports:  { total: number; pending: number };
+}
+
+// Premium nav icons (Lucide). Map by emoji → fallback emoji kalau gak ada.
+const NAV_ICON: Record<string, LucideIcon> = {
+  '📰': Newspaper, '📊': BarChart3, '📝': FileText, '🔍': Search,
+  '✅': CheckCircle2, '🗂️': Archive, '📡': Rss, '🚨': Siren,
+  '📋': ClipboardList, '⏳': Clock, '⚙️': Settings, '🔥': Flame,
+  '📈': TrendingUp, '🔔': Bell, '💬': MessageCircle, '📺': MonitorPlay,
+};
+function NavIcon({ emoji, size = 15, strokeWidth = 2, color }: { emoji: string; size?: number; strokeWidth?: number; color?: string }) {
+  const Ico = NAV_ICON[emoji];
+  if (!Ico) return <span style={{ fontSize: size - 1 }}>{emoji}</span>;
+  return <Ico size={size} strokeWidth={strokeWidth} color={color} />;
 }
 
 const NAV = [
@@ -174,11 +192,11 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
                     className="bk-item"
                     style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 8px', borderRadius: 8, cursor: 'pointer', marginBottom: 2 }}
                   >
-                    <span style={{ fontSize: 12 }}>{section.sectionIcon}</span>
+                    <NavIcon emoji={section.sectionIcon} size={13} color={t.textDim} />
                     <span style={{ color: t.textDim, fontSize: 9.5, fontWeight: 700, letterSpacing: '1px', textTransform: 'uppercase', flex: 1 }}>
                       {section.section}
                     </span>
-                    <span style={{ fontSize: 9, color: t.textDim, transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>▼</span>
+                    <ChevronDown size={12} color={t.textDim} style={{ transform: isExpanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s', flexShrink: 0 }} />
                   </div>
 
                   {isExpanded && (
@@ -193,7 +211,7 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
                             <div key={item.href}>
                               <Link href={item.href} style={{ textDecoration: 'none' }}>
                                 <div className="bk-item" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, marginBottom: 1, background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s', cursor: 'pointer' }}>
-                                  <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{item.icon}</span>
+                                  <span style={{ width: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><NavIcon emoji={item.icon} size={15} /></span>
                                   <span style={{ flex: 1, fontSize: 12.5, fontWeight: active ? 700 : 500 }}>{item.label}</span>
                                   {badge !== null && <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>{badge}</span>}
                                 </div>
@@ -205,7 +223,7 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
                                   return (
                                     <Link key={child.href + child.label} href={child.href} style={{ textDecoration: 'none' }}>
                                       <div className="bk-item" style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '5px 10px', borderRadius: 7, marginBottom: 1, background: ca ? t.navActive : 'transparent', color: ca ? t.accent : t.textDim, fontSize: 12, fontWeight: ca ? 600 : 400, transition: 'all 0.15s', cursor: 'pointer' }}>
-                                        <span style={{ fontSize: 11 }}>{child.icon}</span>
+                                        <NavIcon emoji={child.icon} size={13} />
                                         <span style={{ flex: 1 }}>{child.label}</span>
                                         {cb !== null && <span style={{ fontSize: 9, fontWeight: 800, padding: '1px 5px', borderRadius: 99, background: '#EF4444', color: '#fff' }}>{cb}</span>}
                                       </div>
@@ -220,7 +238,7 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
                         return (
                           <Link key={item.href + item.label} href={item.href} style={{ textDecoration: 'none' }}>
                             <div className="bk-item" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, marginBottom: 1, background: active ? t.navActive : 'transparent', borderLeft: `2px solid ${active ? t.accentDim : 'transparent'}`, color: active ? t.accent : t.textMuted, transition: 'all 0.15s', cursor: 'pointer' }}>
-                              <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{item.icon}</span>
+                              <span style={{ width: 18, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><NavIcon emoji={item.icon} size={15} /></span>
                               <span style={{ flex: 1, fontSize: 12.5, fontWeight: active ? 600 : 400 }}>{item.label}</span>
                               {badge !== null && <span style={{ fontSize: 10, fontWeight: 800, padding: '1px 6px', borderRadius: 99, background: '#F59E0B', color: '#fff' }}>{badge}</span>}
                             </div>
