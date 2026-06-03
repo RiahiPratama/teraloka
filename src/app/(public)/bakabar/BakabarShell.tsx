@@ -26,7 +26,7 @@ import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
 import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 import { TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
 import { VIRAL_MALUT } from '@/components/bakabar/viral-malut-data';
-import type { HeroSlide } from '@/components/bakabar/region-data';
+import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
 import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
@@ -64,6 +64,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
     useState<Record<string, TrendingNativeAd | null>>({});
   const [campaigns, setCampaigns] = useState<BadonasiCampaign[]>([]);
   const [reports, setReports] = useState<BalaporReport[]>([]);
+  const [regionArticles, setRegionArticles] = useState<Record<string, DummyArticle[]>>({});
 
   // Trending ads = client-fetch, NON-BLOCKING. Tidak menahan hero.
   const fetchTrendingAds = useCallback(async () => {
@@ -121,7 +122,43 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
   useEffect(() => { fetchTrendingAds(); }, [fetchTrendingAds]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
+  // Artikel REAL per section (geo→location, nasional→type, viral→source). Non-blocking.
+  const fetchRegionArticles = useCallback(async () => {
+    const toDummy = (a: any, i: number): DummyArticle => ({
+      id: a.id,
+      title: a.title,
+      slug: a.slug,
+      category: a.category || '',
+      published_at: a.published_at || a.created_at || new Date().toISOString(),
+      source_name: a.source_name,
+      cover_image_url: a.cover_image_url ?? null,
+      thumb_class: `thumb-${(i % 9) + 1}`,
+    });
+    const fetchOne = async (query: string): Promise<DummyArticle[]> => {
+      try {
+        const res = await fetch(`${API}/content/articles?${query}&limit=8`);
+        const data = await res.json();
+        if (data?.success && Array.isArray(data.data)) return data.data.map(toDummy);
+      } catch { /* non-blocking */ }
+      return [];
+    };
+    const targets: Array<[string, string]> = [
+      ...REGIONS.map((r) => [
+        r.slug,
+        r.slug === 'nasional' ? 'type=nasional' : `location=${encodeURIComponent(r.slug)}`,
+      ] as [string, string]),
+      [VIRAL_MALUT.slug, 'source=social'],
+    ];
+    const entries = await Promise.all(
+      targets.map(async ([slug, query]) => [slug, await fetchOne(query)] as const),
+    );
+    const map: Record<string, DummyArticle[]> = {};
+    entries.forEach(([slug, arts]) => { if (arts.length) map[slug] = arts; });
+    setRegionArticles(map);
+  }, []);
+
   useEffect(() => { fetchReports(); }, [fetchReports]);
+  useEffect(() => { fetchRegionArticles(); }, [fetchRegionArticles]);
 
   // Assign jenis slot + data per section (round-robin untuk kampanye & balapor).
   const houseAssignments = useMemo(() => {
@@ -172,10 +209,14 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
               {REGIONS.map((region, idx) => {
                 const { slot, campaign, reports: slotReports } = houseAssignments[idx];
+                const _real = regionArticles[region.slug];
+                const liveRegion = _real && _real.length
+                  ? { ...region, featured: _real[0], trending_list: _real.slice(1) }
+                  : region;
                 return (
                   <div key={region.slug}>
                     <RegionSection
-                      region={region}
+                      region={liveRegion}
                       trendingAd={trendingAdsByRegion[region.slug] ?? null}
                       houseSlot={slot}
                       houseCampaign={campaign}
@@ -193,7 +234,13 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
               {/* Section Viral Maluku Utara (kategori ke-3) — dummy data, visual-first.
                   Reuse RegionSection; hideWeather (non-geografis); kol-3 = ADS murni.
                   🛡️ label editorial manual, BUKAN is_viral engine. */}
-              <RegionSection region={VIRAL_MALUT} houseSlot="ads" hideWeather />
+              {(() => {
+                const _vr = regionArticles[VIRAL_MALUT.slug];
+                const _liveViral = _vr && _vr.length
+                  ? { ...VIRAL_MALUT, featured: _vr[0], trending_list: _vr.slice(1) }
+                  : VIRAL_MALUT;
+                return <RegionSection region={_liveViral} houseSlot="ads" hideWeather />;
+              })()}
 
               <div className="my-10">
                 <WANewsletterWidget />
