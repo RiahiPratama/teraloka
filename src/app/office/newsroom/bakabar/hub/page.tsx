@@ -71,11 +71,20 @@ function AuthorAvatar({ name }: { name: string }) {
   );
 }
 
-function TrendingWidget({ articles, t }: { articles: Article[]; t: any }) {
-  const trending = articles
-    .filter(a => a.status === 'published')
-    .sort((a, b) => b.viral_score - a.viral_score)
-    .slice(0, 2);
+function TrendingWidget({ t }: { t: any }) {
+  // F1: top viral GLOBAL (bukan top dari 20 artikel halaman aktif).
+  const [trending, setTrending] = useState<Article[]>([]);
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/content/articles?type=viral&limit=3`);
+        const json = await res.json();
+        if (alive && json?.success && Array.isArray(json.data)) setTrending((json.data as Article[]).slice(0, 2));
+      } catch { /* gagal → sembunyikan */ }
+    })();
+    return () => { alive = false; };
+  }, []);
   if (!trending.length) return null;
   return (
     <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '16px 20px', flex: 1 }}>
@@ -94,7 +103,7 @@ function TrendingWidget({ articles, t }: { articles: Article[]; t: any }) {
                 {a.view_count.toLocaleString('id-ID')} views · score {a.viral_score}
               </p>
             </div>
-            <a href={`/news/${a.slug}`} target="_blank" rel="noopener noreferrer" style={{
+            <a href={`/bakabar/${a.slug}`} target="_blank" rel="noopener noreferrer" style={{
               padding: '5px 10px', borderRadius: 8, background: '#1B6B4A',
               color: '#fff', fontSize: 11, fontWeight: 700, textDecoration: 'none', flexShrink: 0,
             }}>Lihat →</a>
@@ -105,9 +114,22 @@ function TrendingWidget({ articles, t }: { articles: Article[]; t: any }) {
   );
 }
 
-function PerluPerhatianWidget({ articles, t }: { articles: Article[]; t: any }) {
-  const now = Date.now();
-  const stale = articles.filter(a => a.status === 'draft' && now - new Date(a.created_at).getTime() > 24 * 3600 * 1000);
+function PerluPerhatianWidget({ t, token }: { t: any; token: string | null }) {
+  // F1: jumlah draft GLOBAL via pagination total (bukan dari 20 artikel halaman).
+  const [draftCount, setDraftCount] = useState(0);
+  useEffect(() => {
+    if (!token) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(`${API_URL}/admin/articles?status=draft&limit=1`, { headers: { Authorization: `Bearer ${token}` } });
+        const json = await res.json();
+        if (alive && json?.success) setDraftCount(json.data?.total ?? 0);
+      } catch { /* gagal → 0 */ }
+    })();
+    return () => { alive = false; };
+  }, [token]);
+  const stale = { length: draftCount };  // jaga JSX di bawah tetap pakai stale.length
   return (
     <div style={{
       background: stale.length > 0 ? (t.sidebar) : t.sidebar,
@@ -125,7 +147,7 @@ function PerluPerhatianWidget({ articles, t }: { articles: Article[]; t: any }) 
         <ul style={{ listStyle: 'none', padding: 0, margin: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
           <li style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, color: '#92400E' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#F59E0B', flexShrink: 0 }} />
-            {stale.length} draft belum dipublish {'>'} 24 jam
+            {stale.length} draft menunggu publikasi
           </li>
         </ul>
       )}
@@ -222,7 +244,7 @@ function HubContent() {
 
   const totalPages    = Math.ceil(total / limit);
   const isSuperAdmin  = user?.role === 'super_admin';
-  const showWidgets   = !loading && articles.length > 0 && WIDGET_VISIBLE_STATUSES.includes(statusFilter);
+  const showWidgets   = WIDGET_VISIBLE_STATUSES.includes(statusFilter);
 
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
@@ -261,8 +283,8 @@ function HubContent() {
       {/* Widgets — hanya di view Semua & Publikasi (auto-hide di Draft/Review/Arsip) */}
       {showWidgets && (
         <div style={{ display: 'flex', gap: 14, marginBottom: 20 }}>
-          <TrendingWidget articles={articles} t={t} />
-          <PerluPerhatianWidget articles={articles} t={t} />
+          <TrendingWidget t={t} />
+          <PerluPerhatianWidget t={t} token={token} />
         </div>
       )}
 
