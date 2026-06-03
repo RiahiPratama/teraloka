@@ -1,8 +1,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { Siren, Users, ArrowRight, Check } from 'lucide-react';
+import { Users } from 'lucide-react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
+import LaIndieMovieServiceCarousel from '@/components/bakabar/LaIndieMovieServiceCarousel';
 import AdInArticle from '@/components/public/ads/AdInArticle';
 import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
 import AdNativeSlug from '@/components/public/ads/AdNativeSlug';
@@ -43,26 +44,18 @@ async function getStats() {
   } catch { return null; }
 }
 
-async function getRecentReports() {
+// Stats BADONASI lifetime — sumber SAMA dgn halaman /fundraising
+// (/funding/stats/public). null = gagal → UI fallback 'Segera'.
+async function getDonationSummary(): Promise<{ total: number | null; donors: number | null }> {
   try {
-    const res = await fetch(`${API}/public/reports/recent`, { next: { revalidate: 120 } });
+    const res = await fetch(`${API}/funding/stats/public`, { next: { revalidate: 120 } });
     const data = await res.json();
-    return data.data ?? [];
-  } catch { return []; }
-}
-
-// Total dana terkumpul dari kampanye BADONASI yang sedang berjalan.
-// (Y) frontend agregat — null = gagal/kosong → UI fallback 'Segera'.
-async function getDonationSummary(): Promise<{ total: number | null }> {
-  try {
-    const res = await fetch(`${API}/funding/campaigns?limit=100`, { next: { revalidate: 120 } });
-    const data = await res.json();
-    if (!data.success || !Array.isArray(data.data)) return { total: null };
-    const total = data.data
-      .filter((c: any) => c.status === 'active')
-      .reduce((sum: number, c: any) => sum + (Number(c.collected_amount) || 0), 0);
-    return { total };
-  } catch { return { total: null }; }
+    if (!data.success || !data.data) return { total: null, donors: null };
+    return {
+      total:  typeof data.data.total_collected === 'number' ? data.data.total_collected : null,
+      donors: typeof data.data.total_donors === 'number' ? data.data.total_donors : null,
+    };
+  } catch { return { total: null, donors: null }; }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -189,175 +182,6 @@ function renderBody(raw: string): string {
   return sanitizeHtml(html, SANITIZE_OPTS);
 }
 
-const CATEGORY_ICON: Record<string, string> = {
-  infrastruktur: '🏗️', keamanan: '🚨', lingkungan: '🌿',
-  sosial: '👥', kesehatan: '🏥', pendidikan: '📚',
-  transportasi: '🚗', ekonomi: '💰',
-};
-
-function TrustItem({ text, accent }: { text: string; accent: string }) {
-  return (
-    <div className="flex items-center gap-2">
-      <Check size={13} strokeWidth={3} style={{ color: accent }} />
-      <span className="text-xs text-white/90 font-medium">{text}</span>
-    </div>
-  );
-}
-
-function ServiceCardsCarousel({ recentReports, stats, donationTotal }: { recentReports: any[]; stats: any; donationTotal: number | null }) {
-  const totalReports = stats?.reports?.total;
-  const totalArticles = stats?.articles?.total;
-
-  return (
-    <div className="mt-10 -mx-4">
-      <div className="scrollbar-hide flex gap-4 overflow-x-auto pb-4 px-4 snap-x snap-mandatory">
-
-        <Link href="/balapor/buat-laporan"
-          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
-          style={{ background: 'radial-gradient(circle at 75% 25%, #F87171 0%, #DC2626 35%, #991B1B 70%, #7F1D1D 100%)' }}>
-          <div className="absolute top-5 right-5 text-5xl opacity-90 transition-transform duration-300 group-hover:scale-110 group-hover:rotate-12">🚨</div>
-
-          <div className="relative space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-white/70 mb-2">📢 Ada kejadian di sekitarmu?</p>
-              <h3 className="text-xl font-black text-white leading-tight mb-2">
-                Laporkan via BALAPOR sekarang!
-              </h3>
-              <p className="text-sm text-white/85 leading-relaxed">
-                Identitasmu terlindungi. Laporanmu bisa jadi artikel di BAKABAR.
-              </p>
-            </div>
-
-            <div className="space-y-1.5 pt-1">
-              <TrustItem text="Identitas pelapor 100% anonim" accent="#FCA5A5" />
-              <TrustItem text="Foto & video bisa dilampirkan" accent="#FCA5A5" />
-              <TrustItem text="Status laporan terlacak" accent="#FCA5A5" />
-            </div>
-          </div>
-
-          <div className="inline-flex self-start items-center gap-1.5 bg-white px-4 py-2.5 rounded-xl text-sm font-black shadow-md" style={{ color: '#DC2626' }}>
-            Lapor Sekarang
-            <ArrowRight size={14} strokeWidth={2.5} />
-          </div>
-        </Link>
-
-        <Link href="/balapor"
-          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5"
-          style={{ background: '#003526' }}>
-          <div>
-            <div className="flex items-center gap-2 mb-4 flex-wrap">
-              <Siren size={16} strokeWidth={2.2} className="text-white shrink-0" />
-              <p className="text-sm font-bold text-white">Warga lagi melapor</p>
-              <span className="flex items-center gap-1 text-xs font-semibold" style={{ color: '#34D399' }}>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse inline-block"></span>
-                Live
-              </span>
-            </div>
-
-            {recentReports.length > 0 ? (
-              <div className="space-y-3">
-                {recentReports.slice(0, 3).map((r: any) => (
-                  <div key={r.id} className="flex items-start gap-2.5">
-                    <span className="text-base shrink-0 mt-0.5">{CATEGORY_ICON[r.category] || '📋'}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold leading-snug line-clamp-2 text-white">{r.title}</p>
-                      <p className="text-[10px] mt-0.5" style={{ color: '#95d3ba' }}>{timeAgo(r.created_at)}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-sm text-white/70 italic">Belum ada laporan terbaru</p>
-            )}
-
-            <div className="mt-4 pt-3 border-t border-white/10">
-              <p className="text-[10px] uppercase tracking-wider" style={{ color: '#95d3ba' }}>
-                Update real-time setiap laporan masuk
-              </p>
-            </div>
-          </div>
-
-          <div className="inline-flex self-start items-center gap-1.5 bg-white/15 backdrop-blur-sm text-white px-4 py-2.5 rounded-xl text-sm font-bold border border-white/20">
-            + Laporkan Kejadian
-          </div>
-        </Link>
-
-        <Link href="/bakabar"
-          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
-          style={{ background: 'radial-gradient(circle at 75% 25%, #A78BFA 0%, #8B5CF6 35%, #6D28D9 70%, #4C1D95 100%)' }}>
-          <div className="absolute top-5 right-5 text-5xl opacity-90 transition-transform duration-300 group-hover:scale-110">👥</div>
-
-          <div className="relative">
-            <p className="text-xs font-semibold text-white/70 mb-2">Komunitas TeraLoka</p>
-            <h3 className="text-xl font-black text-white leading-tight mb-5">
-              Torang samua lagi bergerak
-            </h3>
-
-            <div className="space-y-3.5">
-              <div>
-                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Total Terkumpul</p>
-                <p className="text-xl font-black text-white">
-                  {typeof donationTotal === 'number' ? `Rp ${donationTotal.toLocaleString('id-ID')}` : 'Segera'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Total laporan warga</p>
-                <p className="text-xl font-black text-white">
-                  {typeof totalReports === 'number' ? totalReports.toLocaleString('id-ID') : '—'}
-                </p>
-              </div>
-              <div>
-                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Artikel terbit</p>
-                <p className="text-xl font-black text-white">
-                  {typeof totalArticles === 'number' ? totalArticles.toLocaleString('id-ID') : '—'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 pt-3 border-t border-white/15">
-              <p className="text-[10px] uppercase tracking-wider text-white/65">
-                Update otomatis setiap jam
-              </p>
-            </div>
-          </div>
-
-          <p className="text-xs text-white/80 italic mt-4">Bergerak bersama TeraLoka →</p>
-        </Link>
-
-        <Link href="/fundraising"
-          className="snap-start shrink-0 w-[300px] min-h-[360px] rounded-2xl overflow-hidden p-6 flex flex-col justify-between relative transition-all duration-300 ease-out hover:scale-[1.03] hover:-translate-y-1.5 hover:shadow-2xl active:scale-[1.01] active:-translate-y-0.5 group"
-          style={{ background: 'radial-gradient(circle at 75% 25%, #F9A8D4 0%, #EC4899 35%, #BE185D 70%, #831843 100%)' }}>
-          <div className="absolute top-5 right-5 text-5xl opacity-90 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-12">🤲</div>
-
-          <div className="relative space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-white/70 mb-2">🤲 Bantuan lagi dibutuhkan</p>
-              <h3 className="text-xl font-black text-white leading-tight mb-2">
-                Mari bantu, sekecil apapun berarti
-              </h3>
-              <p className="text-sm text-white/85 leading-relaxed">
-                Banyak yang butuh uluran tangan di sekitar torang.
-              </p>
-            </div>
-
-            <div className="space-y-1.5 pt-1">
-              <TrustItem text="Donasi via QRIS atau transfer" accent="#FBCFE8" />
-              <TrustItem text="Update progress real-time" accent="#FBCFE8" />
-              <TrustItem text="Transparansi 100% ke penerima" accent="#FBCFE8" />
-            </div>
-          </div>
-
-          <div className="inline-flex self-start items-center gap-1.5 bg-white px-4 py-2.5 rounded-xl text-sm font-black shadow-md" style={{ color: '#BE185D' }}>
-            Baku Bantu Sekarang
-            <ArrowRight size={14} strokeWidth={2.5} />
-          </div>
-        </Link>
-
-      </div>
-    </div>
-  );
-}
-
 function RelatedArticles({ articles }: { articles: any[] }) {
   if (!articles.length) return null;
   return (
@@ -437,10 +261,9 @@ function SidebarAds({ count, formatFilter, position }: { count: number; formatFi
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const [article, stats, recentReports, donation] = await Promise.all([
+  const [article, stats, donation] = await Promise.all([
     getArticle(slug),
     getStats(),
-    getRecentReports(),
     getDonationSummary(),
   ]);
   if (!article) notFound();
@@ -625,7 +448,7 @@ export default async function ArticlePage({ params }: Props) {
               formatFilter={adSettings.format_filter}
             />
 
-            <ServiceCardsCarousel recentReports={recentReports} stats={stats} donationTotal={donation.total} />
+            <LaIndieMovieServiceCarousel />
 
             <RelatedArticles articles={relatedArticles} />
 
