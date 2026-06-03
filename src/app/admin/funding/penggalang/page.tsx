@@ -75,11 +75,12 @@ export default function AdminPenggalangPage() {
 
   // Modal state
   const [modal, setModal] = useState<{
-    type: 'review' | 'reject';
+    type: 'review' | 'reject' | 'suspend';
     creator: Creator;
   } | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('ktp_not_clear');
   const [rejectNotes, setRejectNotes] = useState('');
+  const [suspendReason, setSuspendReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [kycChecks, setKycChecks] = useState({ ktp_clear: false, name_match: false, nik_valid: false });
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -164,8 +165,14 @@ export default function AdminPenggalangPage() {
     ).then(results => {
       const record: Record<string, { campaigns: number; active: number; total_collected: number }> = {};
       creators.forEach((c, i) => {
-        const data = results[i]?.data ?? [];
-        const total = results[i]?.meta?.total ?? data.length;
+        // Backend: ok(c, { data: [...], total: N }) → nested di raw.data
+        const raw = results[i]?.data;
+        const data: any[] = Array.isArray(raw) ? raw
+          : Array.isArray(raw?.data) ? raw.data
+          : Array.isArray(raw?.campaigns) ? raw.campaigns
+          : Array.isArray(raw?.rows) ? raw.rows
+          : [];
+        const total = raw?.total ?? results[i]?.meta?.total ?? data.length;
         const active = data.filter((cam: any) => cam.status === 'active').length;
         const collected = data.reduce((sum: number, cam: any) => sum + Number(cam.collected_amount ?? 0), 0);
         record[c.id] = { campaigns: total, active, total_collected: collected };
@@ -295,14 +302,19 @@ export default function AdminPenggalangPage() {
       finally { setSubmitting(false); }
       return;
     }
-    const reason = prompt('Alasan suspend penggalang (min 5 karakter):');
-    if (!reason || reason.trim().length < 5) { showToast(false, 'Alasan suspend wajib (min 5 karakter)'); return; }
+    // Belum suspended → buka modal alasan (bukan prompt browser)
+    setSuspendReason('');
+    setModal({ type: 'suspend', creator });
+  }
+
+  async function handleSuspendConfirm(creator: Creator) {
+    if (suspendReason.trim().length < 5) { showToast(false, 'Alasan suspend wajib (min 5 karakter)'); return; }
     setSubmitting(true);
     try {
       const tk = localStorage.getItem('tl_token');
       const res = await fetch(`${API_URL}/admin/creators/${creator.id}/suspend`, {
         method: 'POST', headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason: reason.trim() }),
+        body: JSON.stringify({ reason: suspendReason.trim() }),
       });
       const json = await res.json();
       if (!res.ok || !json.success) throw new Error(json.error?.message ?? 'Gagal suspend');
@@ -512,7 +524,7 @@ export default function AdminPenggalangPage() {
                     )}
                   </td>
                   <td style={tdStyle(t)}>
-                    <StatusBadge status={c.status} rejectedAt={c.creator_kyc_rejected_at} />
+                    <StatusBadge status={c.status} rejectedAt={c.creator_kyc_rejected_at} isSuspended={c.is_suspended} />
                   </td>
                   <td style={{ ...tdStyle(t), textAlign: 'right' }}>
                     {c.status === 'pending_verification' ? (
@@ -588,7 +600,7 @@ export default function AdminPenggalangPage() {
               display: 'flex', justifyContent: 'space-between', alignItems: 'center',
             }}>
               <h2 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
-                {modal.type === 'reject' ? '✗ Tolak Verifikasi' : '🔍 Review Penggalang'}
+                {modal.type === 'reject' ? '✗ Tolak Verifikasi' : modal.type === 'suspend' ? '⊘ Suspend Penggalang' : '🔍 Review Penggalang'}
               </h2>
               <button onClick={() => setModal(null)} disabled={submitting} style={{
                 width: 32, height: 32, borderRadius: 8, border: 'none',
@@ -810,6 +822,69 @@ export default function AdminPenggalangPage() {
                   </div>
                 </>
               )}
+
+              {modal.type === 'suspend' && (
+                <>
+                  <div style={{
+                    background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+                    borderRadius: 12, padding: 14, marginBottom: 16,
+                  }}>
+                    <p style={{ fontSize: 12, color: '#D97706', fontWeight: 600 }}>
+                      Penggalang: {modal.creator.creator_full_name ?? modal.creator.name}
+                    </p>
+                    <p style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>
+                      Akun akan dinonaktifkan (tidak bisa login/buat kampanye). Bisa diaktifkan kembali kapan saja.
+                    </p>
+                  </div>
+
+                  <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: t.textPrimary, marginBottom: 8 }}>
+                    Alasan Suspend <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <textarea
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    disabled={submitting}
+                    placeholder="Min 5 karakter — alasan penggalang disuspend (utk audit log)..."
+                    rows={3}
+                    style={{
+                      width: '100%', padding: '10px 14px', borderRadius: 10,
+                      border: `1px solid ${t.sidebarBorder}`, background: t.mainBg,
+                      color: t.textPrimary, fontSize: 13, marginBottom: 6,
+                      outline: 'none', boxSizing: 'border-box', resize: 'vertical',
+                    }}
+                  />
+                  <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 16 }}>
+                    {suspendReason.trim().length}/5 karakter minimum
+                  </p>
+
+                  <div style={{ display: 'flex', gap: 12 }}>
+                    <button
+                      onClick={() => setModal({ type: 'review', creator: modal.creator })}
+                      disabled={submitting}
+                      style={{
+                        padding: '12px 16px', borderRadius: 12, border: `1px solid ${t.sidebarBorder}`,
+                        background: 'transparent', color: t.textDim, fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                      }}
+                    >
+                      ← Kembali
+                    </button>
+                    <button
+                      onClick={() => handleSuspendConfirm(modal.creator)}
+                      disabled={submitting || suspendReason.trim().length < 5}
+                      style={{
+                        flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                        background: suspendReason.trim().length >= 5 ? 'linear-gradient(135deg, #F59E0B, #D97706)' : t.sidebarBorder,
+                        color: suspendReason.trim().length >= 5 ? '#fff' : t.textMuted,
+                        fontWeight: 700, fontSize: 13,
+                        cursor: (submitting || suspendReason.trim().length < 5) ? 'not-allowed' : 'pointer',
+                        opacity: submitting ? 0.5 : 1,
+                      }}
+                    >
+                      {submitting ? 'Memproses...' : '⊘ Suspend Penggalang'}
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -834,7 +909,15 @@ export default function AdminPenggalangPage() {
 
 // ── Sub Components ────────────────────────────────────────────────
 
-function StatusBadge({ status, rejectedAt }: { status: string; rejectedAt: string | null }) {
+function StatusBadge({ status, rejectedAt, isSuspended }: { status: string; rejectedAt: string | null; isSuspended?: boolean }) {
+  if (isSuspended) {
+    return (
+      <span style={{ display: 'inline-flex', flexDirection: 'column', gap: 3, alignItems: 'flex-start' }}>
+        <span style={badgeStyle('#F59E0B')}>⊘ Disuspend</span>
+        {status === 'verified' && <span style={{ fontSize: 10, color: '#6B7280' }}>(verified)</span>}
+      </span>
+    );
+  }
   if (rejectedAt) {
     return (
       <span style={badgeStyle('#EF4444')}>
