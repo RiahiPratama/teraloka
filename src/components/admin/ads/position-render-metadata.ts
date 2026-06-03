@@ -87,6 +87,8 @@ export interface PositionRenderMetadata {
   textFormatAspectRatio?: string;
   /** Group semantik untuk Targeting UI */
   pageGroup:            'banner_area' | 'sidebar' | 'in_article_native' | 'hero_special';
+  /** Scope tayang AKURAT per-posisi (override hint grup). 'kanal' = halaman Kanal/Kategori. */
+  pageScope?:           'homepage' | 'slug' | 'kanal' | 'both';
   /** Optional: politisi-only constraint (KPU compliance) */
   politisiOnly?:        boolean;
   /** Tooltip detail "muncul di mana di public" */
@@ -250,6 +252,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
   // ─── HOMEPAGE: TRENDING NATIVE PER WILAYAH ──────────────────────
   trending_native: {
     key:                  'trending_native',
+    pageScope:            'homepage',
     label:                'Iklan Menyamar di List Trending Wilayah',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
@@ -376,6 +379,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     textFormatAspectRatio:'16:9 horizontal',
     pageGroup:            'in_article_native',
     description:          'Native ad: kartu iklan di daftar Kanal/Kategori, mirror kartu artikel (cover 16:9 + judul + advertiser). Diselip tiap 6 artikel. Kosong → sel disembunyikan (grid tetap rapi). Statis / advertorial. Motion menyusul (Langkah 2).',
+    pageScope:            'kanal',
     frontendUrl:          '/bakabar/kanal/nasional',
   },
 

@@ -67,12 +67,13 @@ import {
 } from './position-render-metadata';
 
 // Page scope label per group (visual hint, semantic only — backend trust positions)
-type PageScope = 'homepage' | 'slug' | 'both';
+type PageScope = 'homepage' | 'slug' | 'kanal' | 'both';
 
-const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; icon: typeof Home; color: string }> = {
-  homepage: { label: 'Homepage BAKABAR',           icon: Home,    color: 'text-bakabar' },
-  slug:     { label: 'Slug Artikel BAKABAR',       icon: FileText, color: 'text-baronda' },
-  both:     { label: 'Homepage + Slug',            icon: Globe2,  color: 'text-analytics' },
+const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; short: string; icon: typeof Home; color: string }> = {
+  homepage: { label: 'Homepage BAKABAR',       short: 'Homepage',     icon: Home,     color: 'text-bakabar' },
+  slug:     { label: 'Slug Artikel BAKABAR',   short: 'Artikel',      icon: FileText, color: 'text-baronda' },
+  kanal:    { label: 'Halaman Kanal/Kategori', short: 'Kanal',        icon: MapPin,   color: 'text-ads' },
+  both:     { label: 'Homepage + Slug',        short: 'Home+Artikel', icon: Globe2,   color: 'text-analytics' },
 };
 
 // Page group → page scope mapping (untuk visual hint)
@@ -87,6 +88,7 @@ const PAGE_GROUP_TO_SCOPE: Record<string, PageScope> = {
 const SCOPE_HUMAN: Record<PageScope, string> = {
   homepage: 'Muncul di homepage',
   slug:     'Muncul di halaman artikel',
+  kanal:    'Muncul di halaman Kanal/Kategori',
   both:     'Muncul di homepage + artikel',
 };
 
@@ -110,6 +112,7 @@ const POSITION_GROUPS: Array<{
     politisiOnly?: boolean;
     isDormant:     boolean;
     dormantNote?:  string;
+    pageScope?:    PageScope;
   }>;
 }> = (() => {
   const grouped: Record<string, typeof POSITION_GROUPS[number]['positions']> = {};
@@ -124,6 +127,7 @@ const POSITION_GROUPS: Array<{
       politisiOnly: meta.politisiOnly,
       isDormant:    meta.mountStatus === 'dormant',
       dormantNote:  meta.mountNote,
+      pageScope:    meta.pageScope ?? PAGE_GROUP_TO_SCOPE[meta.pageGroup] ?? 'both',
     });
   }
 
@@ -379,33 +383,18 @@ export default function AdFormSectionTargeting() {
                 )}
 
                 {POSITION_GROUPS.map((group) => {
-                  const ScopeIcon = PAGE_SCOPE_DISPLAY[group.pageScope].icon;
                   return (
                     <div
                       key={group.group}
                       className="rounded-lg border border-border bg-surface-muted/30 p-3"
                     >
-                      <div className="flex items-start justify-between gap-2 mb-2">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-bold text-text">
-                            {group.group}
-                          </p>
-                          <p className="text-[10px] text-text-muted">
-                            {group.description}
-                          </p>
-                        </div>
-                        {/* Page scope badge */}
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-semibold border shrink-0',
-                            group.pageScope === 'homepage' && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
-                            group.pageScope === 'slug'     && 'bg-baronda/8 border-baronda/30 text-baronda',
-                            group.pageScope === 'both'     && 'bg-analytics/8 border-analytics/30 text-analytics',
-                          )}
-                        >
-                          <ScopeIcon size={9} />
-                          {PAGE_SCOPE_DISPLAY[group.pageScope].label}
-                        </span>
+                      <div className="mb-2">
+                        <p className="text-[11px] font-bold text-text">
+                          {group.group}
+                        </p>
+                        <p className="text-[10px] text-text-muted">
+                          {group.description}
+                        </p>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {group.positions.map((pos) => {
@@ -481,6 +470,20 @@ export default function AdFormSectionTargeting() {
                                             title="Tidak support format advertorial"
                                           >
                                             <Ban size={9} />
+                                          </span>
+                                        )}
+                                        {pos.pageScope && (
+                                          <span
+                                            className={cn(
+                                              'inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold border shrink-0',
+                                              pos.pageScope === 'homepage' && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
+                                              pos.pageScope === 'slug'     && 'bg-baronda/8 border-baronda/30 text-baronda',
+                                              pos.pageScope === 'kanal'    && 'bg-ads/8 border-ads/30 text-ads',
+                                              pos.pageScope === 'both'     && 'bg-analytics/8 border-analytics/30 text-analytics',
+                                            )}
+                                            title={SCOPE_HUMAN[pos.pageScope]}
+                                          >
+                                            {PAGE_SCOPE_DISPLAY[pos.pageScope].short}
                                           </span>
                                         )}
                                       </div>
