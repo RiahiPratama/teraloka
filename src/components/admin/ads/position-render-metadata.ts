@@ -354,6 +354,31 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     frontendUrl:          '/bakabar/sample-article',
   },
 
+  // ─── KANAL/KATEGORI: NATIVE CARD DI TENGAH DAFTAR ──────────────
+  // 2 Jun 2026 — ArchiveInFeedAd: kartu iklan niru ArticleCard, diselip
+  // tiap 6 artikel di grid arsip Kanal/Kategori. Image + advertorial.
+  // Langkah 2 (defer): +render <video> → baru masuk VIDEO_ELIGIBLE_POSITIONS.
+  kanal_infeed: {
+    key:                  'kanal_infeed',
+    label:                'Iklan di Tengah Daftar Kanal/Kategori',
+    renderType:           'SINGLE_FIXED',
+    visualSlotCount:      1,
+    recommendedMaxActive: null,
+    component:            'ArchiveInFeedAd',
+    realDim:              '300×169px',
+    recommendedImageDim:  '600×338px',
+    aspectRatio:          '16:9 horizontal',
+    displayLocation:      'Halaman Kanal/Kategori BAKABAR (mis. /bakabar/kanal/nasional). Kartu iklan yang sengaja mirip kartu artikel, diselip tiap 6 artikel di daftar. Badge "IKLAN" tetap tampil (transparansi UU Pers).',
+    deviceScope:          'all',
+    mountStatus:          'active',
+    supportsTextFormat:   true,
+    textFormatDim:        '600×338px',
+    textFormatAspectRatio:'16:9 horizontal',
+    pageGroup:            'in_article_native',
+    description:          'Native ad: kartu iklan di daftar Kanal/Kategori, mirror kartu artikel (cover 16:9 + judul + advertiser). Diselip tiap 6 artikel. Kosong → sel disembunyikan (grid tetap rapi). Statis / advertorial. Motion menyusul (Langkah 2).',
+    frontendUrl:          '/bakabar/kanal/nasional',
+  },
+
   // ─── ARTICLE SLUG: SIDEBAR PANEL ────────────────────────────────
   sidebar: {
     key:                  'sidebar',
