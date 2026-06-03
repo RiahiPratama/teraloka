@@ -9,6 +9,7 @@ import AdNativeSlug from '@/components/public/ads/AdNativeSlug';
 import BodyWithAds from '@/components/public/ads/BodyWithAds';
 import ShareInline from '@/components/shared/ShareInline';
 import { resolveAdSettings } from '@/lib/ad-settings';
+import sanitizeHtml from 'sanitize-html';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
@@ -25,8 +26,9 @@ async function getArticle(slug: string) {
 }
 
 async function getRelatedArticles(category: string, currentSlug: string) {
+  if (!category) return [];
   try {
-    const res = await fetch(`${API}/content/articles?category=${category}&limit=4`, { next: { revalidate: 120 } });
+    const res = await fetch(`${API}/content/articles?category=${encodeURIComponent(category)}&limit=4`, { next: { revalidate: 120 } });
     const data = await res.json();
     if (!data.success) return [];
     return (data.data ?? []).filter((a: any) => a.slug !== currentSlug).slice(0, 3);
@@ -56,11 +58,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: `${article.title} | BAKABAR TeraLoka`,
     description: article.excerpt || article.title,
+    alternates: { canonical: `${APP_URL}/bakabar/${slug}` },
     openGraph: {
       title: article.title,
       description: article.excerpt || article.title,
+      url: `${APP_URL}/bakabar/${slug}`,
       images: article.cover_image_url ? [article.cover_image_url] : [],
       type: 'article',
+      publishedTime: article.published_at || article.created_at || undefined,
+      authors: article.author?.name ? [article.author.name] : undefined,
     },
   };
 }
@@ -147,11 +153,26 @@ function renderMarkdown(text: string): string {
   return blocks.join('\n');
 }
 
+// Allowlist tag/atribut sesuai .article-body CSS. Cegah XSS dari body
+// HTML mentah (mis. artikel impor / kontributor non-trusted ke depan).
+const SANITIZE_OPTS = {
+  allowedTags: ['p','br','h1','h2','h3','strong','em','a','ul','ol','li','blockquote','figure','figcaption','img'],
+  allowedAttributes: {
+    a: ['href','target','rel'],
+    img: ['src','alt','class'],
+    figure: ['class'],
+  },
+  allowedSchemes: ['http','https','mailto'],
+};
+
 function renderBody(raw: string): string {
   const body = parseBody(raw);
   if (!body) return '';
-  if (body.includes('<p>') || body.includes('<br') || body.includes('<h')) return body;
-  return renderMarkdown(body);
+  const html =
+    body.includes('<p>') || body.includes('<br') || body.includes('<h')
+      ? body
+      : renderMarkdown(body);
+  return sanitizeHtml(html, SANITIZE_OPTS);
 }
 
 const CATEGORY_ICON: Record<string, string> = {
