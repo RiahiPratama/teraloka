@@ -42,6 +42,13 @@ const PRAYER_NAMES = ['Subuh', 'Dzuhur', 'Ashar', 'Maghrib', 'Isya'] as const;
 const ACTIVE_WINDOW_MIN = 20;
 const SUBUH_WINDOW_MIN   = 60;
 
+// Breaking news: aktif 12 jam sejak terbit, rotasi 6 dtk, poll 3 mnt.
+// (Window di-compute di frontend untuk sekarang — TODO pindah ke backend
+//  endpoint /content/articles/breaking saat volume artikel naik.)
+const BREAKING_WINDOW_MS = 12 * 60 * 60 * 1000;
+const BREAKING_ROTATE_MS = 6000;
+const BREAKING_POLL_MS   = 180000;
+
 interface PrayerTimesData {
   Fajr:    string;
   Dhuhr:   string;
@@ -187,12 +194,17 @@ async function fetchPrayerTimesFromBackend(): Promise<PrayerTimesData | null> {
 
 async function fetchBreakingArticles(): Promise<BreakingItem[]> {
   try {
-    const res  = await fetch(`${API}/content/articles?limit=20`);
+    const res  = await fetch(`${API}/content/articles?limit=40`);
     const data = await res.json();
     if (!data.success || !data.data?.length) return [];
 
+    const now = Date.now();
     return data.data
-      .filter((a: any) => a.is_breaking === true)
+      .filter((a: any) =>
+        a.is_breaking === true &&
+        a.published_at &&
+        now - new Date(a.published_at).getTime() < BREAKING_WINDOW_MS,
+      )
       .slice(0, 5)
       .map((a: any) => ({
         id:   a.id,
@@ -209,6 +221,7 @@ async function fetchBreakingArticles(): Promise<BreakingItem[]> {
 export default function PrayerBreakingBar() {
   const [prayerTimes,   setPrayerTimes]   = useState<PrayerTimesData | null>(null);
   const [breakingItems, setBreakingItems] = useState<BreakingItem[]>([]);
+  const [breakingIdx,   setBreakingIdx]   = useState(0);
   const [prayerStatus,  setPrayerStatus]  = useState<PrayerStatusInfo | null>(null);
 
   useEffect(() => {
@@ -232,12 +245,33 @@ export default function PrayerBreakingBar() {
     return () => clearInterval(interval);
   }, [prayerTimes]);
 
+  // Poll breaking tiap 3 menit → breaking baru muncul tanpa reload.
+  // Tiap poll, reset rotasi ke item terbaru (prioritas yang paling baru).
+  useEffect(() => {
+    const id = setInterval(() => {
+      fetchBreakingArticles().then((items) => {
+        setBreakingItems(items);
+        setBreakingIdx(0);
+      });
+    }, BREAKING_POLL_MS);
+    return () => clearInterval(id);
+  }, []);
+
+  // Rotasi antar breaking tiap 6 detik (hanya kalau lebih dari 1).
+  useEffect(() => {
+    if (breakingItems.length < 2) return;
+    const id = setInterval(() => {
+      setBreakingIdx((i) => (i + 1) % breakingItems.length);
+    }, BREAKING_ROTATE_MS);
+    return () => clearInterval(id);
+  }, [breakingItems.length]);
+
   if (!prayerStatus) {
     return <div className="px-1 pt-1" style={{ minHeight: 24 }} aria-hidden="true" />;
   }
 
   const hasBreaking = breakingItems.length > 0;
-  const breaking    = breakingItems[0];
+  const breaking    = breakingItems[Math.min(breakingIdx, breakingItems.length - 1)];
   const isActive    = prayerStatus.mode === 'active';
 
   return (
