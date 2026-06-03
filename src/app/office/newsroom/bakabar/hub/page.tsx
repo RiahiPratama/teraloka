@@ -6,6 +6,7 @@ import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import Link from 'next/link';
 import { CATEGORIES } from '@/lib/categories';
+import { Flame, AlertTriangle, CheckCircle2, Newspaper, Inbox, Radio } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -89,7 +90,7 @@ function TrendingWidget({ t }: { t: any }) {
   return (
     <div style={{ background: t.sidebar, borderRadius: 14, border: `1px solid ${t.sidebarBorder}`, padding: '16px 20px', flex: 1 }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>🔥 Trending Hari Ini</span>
+        <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, display: 'inline-flex', alignItems: 'center', gap: 6 }}><Flame size={15} color="#F97316" /> Trending Hari Ini</span>
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {trending.map(a => (
@@ -138,8 +139,8 @@ function PerluPerhatianWidget({ t, token }: { t: any; token: string | null }) {
       padding: '16px 20px', flex: 1,
     }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-        <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary }}>⚠️ Perlu Perhatian</span>
-        {stale.length === 0 && <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>✓ Semua oke</span>}
+        <span style={{ fontSize: 13, fontWeight: 800, color: t.textPrimary, display: 'inline-flex', alignItems: 'center', gap: 6 }}><AlertTriangle size={15} color="#F59E0B" /> Perlu Perhatian</span>
+        {stale.length === 0 && <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 4 }}><CheckCircle2 size={13} /> Semua oke</span>}
       </div>
       {stale.length === 0 ? (
         <p style={{ fontSize: 12, color: t.textDim }}>Tidak ada draft yang terlalu lama.</p>
@@ -264,7 +265,7 @@ function HubContent() {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary, letterSpacing: '-0.4px' }}>
-            📰 Editorial Command Center
+            <Newspaper size={20} color={t.accent} style={{ display: 'inline', verticalAlign: '-3px', marginRight: 8 }} />Editorial Command Center
           </h1>
           <p style={{ color: t.textDim, fontSize: 13, marginTop: 3 }}>
             {total} artikel · halaman {page} dari {totalPages || 1}
@@ -348,7 +349,7 @@ function HubContent() {
 
         {!loading && articles.length === 0 && (
           <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 36, marginBottom: 8 }}>📭</div>
+            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Inbox size={36} color={t.textDim} strokeWidth={1.5} /></div>
             <p style={{ color: t.textDim, fontSize: 13 }}>{search ? `Tidak ada hasil untuk "${search}"` : 'Tidak ada artikel'}</p>
           </div>
         )}
@@ -363,8 +364,8 @@ function HubContent() {
               {/* Status */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 <span style={{ background: st.bg, color: st.color, fontSize: 10, fontWeight: 800, padding: '2px 8px', borderRadius: 20, display: 'inline-block', width: 'fit-content' }}>{st.label}</span>
-                {a.is_viral    && <span style={{ fontSize: 10, fontWeight: 700, color: '#F97316' }}>🔥 Viral</span>}
-                {a.is_breaking && <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444' }}>🔴 Breaking</span>}
+                {a.is_viral    && <span style={{ fontSize: 10, fontWeight: 700, color: '#F97316', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Flame size={11} /> Viral</span>}
+                {a.is_breaking && <span style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', display: 'inline-flex', alignItems: 'center', gap: 3 }}><Radio size={11} /> Breaking</span>}
               </div>
 
               {/* Judul */}
