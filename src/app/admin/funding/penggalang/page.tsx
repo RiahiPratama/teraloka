@@ -34,6 +34,8 @@ interface Creator {
   creator_kyc_rejection_reason: string | null;
   created_at: string | null;
   status: 'pending_verification' | 'verified' | 'incomplete';
+  is_suspended?: boolean;
+  suspended_reason?: string | null;
 }
 
 type StatusFilter = 'pending' | 'verified' | 'rejected' | 'all';
@@ -274,6 +276,57 @@ export default function AdminPenggalangPage() {
 
   function openReview(creator: Creator) {
     setModal({ type: 'review', creator });
+  }
+
+  async function handleSuspend(creator: Creator) {
+    if (creator.is_suspended) {
+      // Unsuspend
+      setSubmitting(true);
+      try {
+        const tk = localStorage.getItem('tl_token');
+        const res = await fetch(`${API_URL}/admin/creators/${creator.id}/unsuspend`, {
+          method: 'POST', headers: { Authorization: `Bearer ${tk}` },
+        });
+        const json = await res.json();
+        if (!res.ok || !json.success) throw new Error(json.error?.message ?? 'Gagal unsuspend');
+        showToast(true, `✓ ${creator.creator_full_name ?? creator.name} diaktifkan kembali`);
+        setModal(null); setRefreshKey(k => k + 1);
+      } catch (err: any) { showToast(false, `Error: ${err.message}`); }
+      finally { setSubmitting(false); }
+      return;
+    }
+    const reason = prompt('Alasan suspend penggalang (min 5 karakter):');
+    if (!reason || reason.trim().length < 5) { showToast(false, 'Alasan suspend wajib (min 5 karakter)'); return; }
+    setSubmitting(true);
+    try {
+      const tk = localStorage.getItem('tl_token');
+      const res = await fetch(`${API_URL}/admin/creators/${creator.id}/suspend`, {
+        method: 'POST', headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: reason.trim() }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message ?? 'Gagal suspend');
+      showToast(true, `✓ ${creator.creator_full_name ?? creator.name} disuspend`);
+      setModal(null); setRefreshKey(k => k + 1);
+    } catch (err: any) { showToast(false, `Error: ${err.message}`); }
+    finally { setSubmitting(false); }
+  }
+
+  async function handleDelete(creator: Creator) {
+    const ok = confirm(`Hapus penggalang "${creator.creator_full_name ?? creator.name}"?\n\nHanya bisa kalau belum punya kampanye & saldo. Aksi ini permanen.`);
+    if (!ok) return;
+    setSubmitting(true);
+    try {
+      const tk = localStorage.getItem('tl_token');
+      const res = await fetch(`${API_URL}/admin/creators/${creator.id}`, {
+        method: 'DELETE', headers: { Authorization: `Bearer ${tk}` },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json.error?.message ?? 'Gagal hapus');
+      showToast(true, `✓ ${creator.creator_full_name ?? creator.name} dihapus`);
+      setModal(null); setRefreshKey(k => k + 1);
+    } catch (err: any) { showToast(false, `${err.message}`); }
+    finally { setSubmitting(false); }
     setRejectReason('ktp_not_clear');
     setRejectNotes('');
   }
@@ -629,6 +682,47 @@ export default function AdminPenggalangPage() {
                       <p style={{ fontSize: 11 }}>
                         Reason: {modal.creator.creator_kyc_rejection_reason}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Footer aksi administratif: Suspend/Unsuspend + Hapus */}
+                  <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${t.sidebarBorder}`, display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                    <button
+                      onClick={() => handleSuspend(modal.creator)}
+                      disabled={submitting}
+                      style={{
+                        flex: 1, minWidth: 160, padding: '10px 14px', borderRadius: 10,
+                        border: `1px solid ${modal.creator.is_suspended ? '#10B981' : '#F59E0B'}`,
+                        background: 'transparent',
+                        color: modal.creator.is_suspended ? '#10B981' : '#D97706',
+                        fontWeight: 700, fontSize: 12, cursor: submitting ? 'not-allowed' : 'pointer',
+                      }}
+                    >
+                      {modal.creator.is_suspended ? '↺ Aktifkan Kembali' : '⊘ Suspend Penggalang'}
+                    </button>
+
+                    {!modal.creator.creator_verified && (
+                      <button
+                        onClick={() => handleDelete(modal.creator)}
+                        disabled={submitting}
+                        style={{
+                          minWidth: 120, padding: '10px 14px', borderRadius: 10,
+                          border: '1px solid rgba(239,68,68,0.4)', background: 'transparent',
+                          color: '#DC2626', fontWeight: 700, fontSize: 12,
+                          cursor: submitting ? 'not-allowed' : 'pointer',
+                        }}
+                      >
+                        🗑 Hapus
+                      </button>
+                    )}
+                  </div>
+
+                  {modal.creator.is_suspended && (
+                    <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)' }}>
+                      <p style={{ fontSize: 12, fontWeight: 700, color: '#D97706' }}>⊘ Penggalang ini sedang disuspend</p>
+                      {modal.creator.suspended_reason && (
+                        <p style={{ fontSize: 11, color: '#B45309', marginTop: 2 }}>Alasan: {modal.creator.suspended_reason}</p>
+                      )}
                     </div>
                   )}
                 </>
