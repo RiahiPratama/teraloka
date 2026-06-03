@@ -133,6 +133,7 @@ export default function NewArticlePage() {
   const [title, setTitle]                   = useState('');
   const [body, setBody]                     = useState('');
   const [category, setCategory]             = useState('');
+  const [excerpt, setExcerpt]               = useState('');
   const [coverImageUrl, setCoverImageUrl]   = useState('');
   const [coverImageCaption, setCoverImageCaption] = useState('');
   const [sourceUrl, setSourceUrl]           = useState('');
@@ -375,6 +376,7 @@ export default function NewArticlePage() {
           title,
           body,
           category: category || null,
+          excerpt: excerpt.trim() || null,
           cover_image_url: coverImageUrl || null,
           cover_image_caption: coverImageCaption.trim() || null,
           source_url: sourceUrl || null,
@@ -477,7 +479,7 @@ export default function NewArticlePage() {
               <button
                 onClick={() => {
                   setSubmitted(false); setNewArticleId(null);
-                  setTitle(''); setBody(''); setCategory(''); setCoverImageUrl('');
+                  setTitle(''); setBody(''); setCategory(''); setExcerpt(''); setCoverImageUrl('');
                   setSourceUrl(''); setSourcePlatform('');
                   setIsBreaking(false); setIsTrending(false); setSource('original');
                   setLocationId('');
@@ -872,6 +874,31 @@ export default function NewArticlePage() {
               />
               <p style={{ fontSize: 11, color: t.textDim, marginTop: 4, textAlign: 'right' }}>
                 {title.length} / 150
+              </p>
+            </div>
+
+            {/* Ringkasan / Teaser */}
+            <div style={{ marginTop: 18 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Ringkasan / Teaser
+              </label>
+              <textarea
+                value={excerpt}
+                onChange={e => setExcerpt(e.target.value)}
+                placeholder="Opsional — kosongkan kalau mau otomatis dari paragraf pembuka."
+                maxLength={200}
+                rows={2}
+                style={{
+                  width: '100%', marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                  border: `1px solid ${editorTokens.inputBorder}`, fontSize: 13, lineHeight: 1.5,
+                  outline: 'none', resize: 'vertical', color: t.textPrimary,
+                  background: editorTokens.inputBg, fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
+                onFocus={e => e.target.style.borderColor = '#1B6B4A'}
+                onBlur={e => e.target.style.borderColor = editorTokens.inputBorder}
+              />
+              <p style={{ fontSize: 11, color: t.textDim, marginTop: 4, textAlign: 'right' }}>
+                {excerpt.length} / 200
               </p>
             </div>
 

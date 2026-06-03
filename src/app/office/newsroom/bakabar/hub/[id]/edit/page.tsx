@@ -158,6 +158,7 @@ export default function EditArticlePage() {
   const [title, setTitle]                   = useState('');
   const [body, setBody]                     = useState('');
   const [category, setCategory]             = useState('');
+  const [excerpt, setExcerpt]               = useState('');
   const [coverImageUrl, setCoverImageUrl]   = useState('');
   const [coverImageCaption, setCoverImageCaption] = useState('');
   const [sourceUrl, setSourceUrl]           = useState('');
@@ -218,6 +219,7 @@ export default function EditArticlePage() {
         setTitle(a.title || '');
         setBody(a.body || '');
         setCategory(a.category ?? '');
+        setExcerpt(a.excerpt ?? '');
         setCoverImageUrl(a.cover_image_url ?? '');
         setCoverImageCaption(a.cover_image_caption ?? '');
         setSourceUrl(a.source_url ?? '');
@@ -409,6 +411,7 @@ export default function EditArticlePage() {
           title,
           body,
           category: category || null,
+          excerpt: excerpt.trim() || null,
           cover_image_url: coverImageUrl || null,
           cover_image_caption: coverImageCaption.trim() || null,
           source_url: sourceUrl || null,
@@ -1056,6 +1059,31 @@ export default function EditArticlePage() {
               />
               <p style={{ fontSize: 11, color: t.textDim, marginTop: 4, textAlign: 'right' }}>
                 {title.length} / 150
+              </p>
+            </div>
+
+            {/* Ringkasan / Teaser */}
+            <div style={{ marginTop: 18 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Ringkasan / Teaser
+              </label>
+              <textarea
+                value={excerpt}
+                onChange={e => setExcerpt(e.target.value)}
+                placeholder="Opsional — kosongkan kalau mau otomatis dari paragraf pembuka."
+                maxLength={200}
+                rows={2}
+                style={{
+                  width: '100%', marginTop: 6, padding: '10px 12px', borderRadius: 8,
+                  border: `1px solid ${editorTokens.inputBorder}`, fontSize: 13, lineHeight: 1.5,
+                  outline: 'none', resize: 'vertical', color: t.textPrimary,
+                  background: editorTokens.inputBg, fontFamily: 'inherit', boxSizing: 'border-box',
+                }}
+                onFocus={e => e.target.style.borderColor = '#1B6B4A'}
+                onBlur={e => e.target.style.borderColor = editorTokens.inputBorder}
+              />
+              <p style={{ fontSize: 11, color: t.textDim, marginTop: 4, textAlign: 'right' }}>
+                {excerpt.length} / 200
               </p>
             </div>
 
