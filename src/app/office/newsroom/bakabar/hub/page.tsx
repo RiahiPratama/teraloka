@@ -334,7 +334,7 @@ function HubContent() {
           <span>Judul</span>
           <span style={{ textAlign: 'right' }}>Score</span>
           <span style={{ textAlign: 'right' }}>Views</span>
-          <span>Updated</span>
+          <span>Terbit</span>
           <span>Editor</span>
           <span>Aksi</span>
         </div>
@@ -389,7 +389,7 @@ function HubContent() {
                 </span>
               </div>
 
-              {/* Updated */}
+              {/* Terbit */}
               <div><p style={{ fontSize: 11, color: t.textDim }}>{timeAgo(a.published_at || a.created_at)}</p></div>
 
               {/* Editor */}
