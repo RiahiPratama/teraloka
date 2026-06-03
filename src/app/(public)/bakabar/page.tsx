@@ -34,7 +34,7 @@ function toCarouselArticle(a: any): DummyArticle {
     title: a.title,
     slug: a.slug,
     excerpt: a.excerpt,
-    category: a.category || 'umum',
+    category: a.category || '',
     published_at: a.published_at || a.created_at,
     source: a.source,
     source_name: a.source_name,
