@@ -147,23 +147,30 @@ export default function BakabarArchive({ kicker, title, articles }: Props) {
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
               >
                 {(() => {
+                  const COLS = 3; // grid desktop (main max 1000px / minmax 280px)
+                  const nodes: any[] = [];
+                  let cells = 0;
                   let nativeSlot = 0;
-                  return articles.flatMap((a, i) => {
-                    const out = [<ArticleCard key={a.id} a={a} />];
-                    const n = i + 1; // berapa artikel sudah tampil
-                    if (n === 12) {
-                      // Band melebar (inline_banner) sekali di tengah, full 3 kolom
-                      out.push(
+                  let bandPlaced = false;
+                  articles.forEach((a, i) => {
+                    nodes.push(<ArticleCard key={a.id} a={a} />);
+                    cells++;
+                    // Native (kanal_infeed) tiap 6 kartu — 1 sel, gak ngegap
+                    if ((i + 1) % 6 === 0) {
+                      nodes.push(<ArchiveInFeedAd key={`infeed-${i + 1}`} slot={nativeSlot++} />);
+                      cells++;
+                    }
+                    // Band melebar (inline_banner) sekali, HANYA di batas baris penuh → no gap
+                    if (!bandPlaced && i + 1 >= 12 && cells % COLS === 0) {
+                      nodes.push(
                         <div key="inline-band" style={{ gridColumn: '1 / -1' }}>
                           <DCAInlineBanner />
                         </div>,
                       );
-                    } else if (n % 6 === 0) {
-                      // Kartu native (kanal_infeed) tiap 6 kartu, 1 sel
-                      out.push(<ArchiveInFeedAd key={`infeed-${n}`} slot={nativeSlot++} />);
+                      bandPlaced = true;
                     }
-                    return out;
                   });
+                  return nodes;
                 })()}
               </div>
             )}
