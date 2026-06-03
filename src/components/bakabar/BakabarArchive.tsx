@@ -162,8 +162,8 @@ export default function BakabarArchive({ kicker, title, articles }: Props) {
               </div>
             ) : (
               <div
-                className="grid gap-5 pb-12"
-                style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
+                className="grid gap-5 pb-12 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch"
+                style={{ gridAutoFlow: 'row dense' }}
               >
                 {(() => {
                   const COLS = 3; // grid desktop (main max 1000px / minmax 280px)
