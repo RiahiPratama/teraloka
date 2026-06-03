@@ -14,6 +14,8 @@
 import Link from 'next/link';
 import DCASkyscraper from './DCASkyscraper';
 import DCATopLeaderboard from './DCATopLeaderboard';
+import ArchiveInFeedAd from './ArchiveInFeedAd';
+import DCAInlineBanner from './DCAInlineBanner';
 import { getCategory } from '@/lib/categories';
 
 export type ArchiveArticle = {
@@ -144,7 +146,25 @@ export default function BakabarArchive({ kicker, title, articles }: Props) {
                 className="grid gap-5 pb-12"
                 style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}
               >
-                {articles.map((a) => <ArticleCard key={a.id} a={a} />)}
+                {(() => {
+                  let nativeSlot = 0;
+                  return articles.flatMap((a, i) => {
+                    const out = [<ArticleCard key={a.id} a={a} />];
+                    const n = i + 1; // berapa artikel sudah tampil
+                    if (n === 12) {
+                      // Band melebar (inline_banner) sekali di tengah, full 3 kolom
+                      out.push(
+                        <div key="inline-band" style={{ gridColumn: '1 / -1' }}>
+                          <DCAInlineBanner />
+                        </div>,
+                      );
+                    } else if (n % 6 === 0) {
+                      // Kartu native (kanal_infeed) tiap 6 kartu, 1 sel
+                      out.push(<ArchiveInFeedAd key={`infeed-${n}`} slot={nativeSlot++} />);
+                    }
+                    return out;
+                  });
+                })()}
               </div>
             )}
           </main>
