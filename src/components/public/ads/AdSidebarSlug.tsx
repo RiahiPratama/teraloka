@@ -19,7 +19,7 @@
 
 import Link from 'next/link';
 import { useEffect, useState, useCallback } from 'react';
-import { Newspaper } from 'lucide-react';
+import { Newspaper, Megaphone } from 'lucide-react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
@@ -43,6 +43,9 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 // Sidebar position dimensions (MPU square-ish)
 const SIDEBAR_WIDTH  = 300;
 const SIDEBAR_HEIGHT = 250;
+
+// ⚠️ GANTI ke link tujuan lo: halaman /iklan ATAU WhatsApp (https://wa.me/628xxxx)
+const PASANG_IKLAN_HREF = '/iklan';
 
 interface Ad {
   id: string;
@@ -177,16 +180,30 @@ export default function AdSidebarSlug({ formatFilter }: Props = {}) {
     );
   }
 
-  // ═══ Fallback placeholder ═══
+  // ═══ Empty state → CTA "Pasang Iklan" (corong pengiklan, bukan kotak kosong) ═══
   if (!ad) {
     return (
-      <div ref={setRef} className="bg-gray-50 border border-dashed border-gray-200 rounded-xl h-52 flex items-center justify-center"
-        style={animStyle}>
-        <div className="text-center">
-          <p className="text-xs text-gray-400 font-bold uppercase">IKLAN MITRA</p>
-          <p className="text-xs text-gray-300 mt-1">300 × 200</p>
+      <Link
+        ref={setRef as any}
+        href={PASANG_IKLAN_HREF}
+        className="block rounded-xl h-52 border border-dashed flex flex-col items-center justify-center text-center px-5 transition-all hover:shadow-md"
+        style={{ ...animStyle, borderColor: '#9DD3C0', background: 'linear-gradient(to bottom right, #F0FAF6, #E6F4EF)' }}
+      >
+        <div className="w-11 h-11 rounded-full flex items-center justify-center mb-2.5" style={{ background: '#003526' }}>
+          <Megaphone size={20} strokeWidth={2} color="#fff" />
         </div>
-      </div>
+        <p className="text-[14px] font-extrabold text-[#003526] leading-tight"
+          style={{ fontFamily: 'var(--font-lora), Georgia, serif' }}>
+          Pasang Iklan di BAKABAR
+        </p>
+        <p className="text-[11px] text-gray-500 mt-1 leading-snug">
+          Jangkau pembaca se-Maluku Utara
+        </p>
+        <span className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-extrabold text-white px-3 py-1.5 rounded-md"
+          style={{ background: '#003526' }}>
+          Pasang Sekarang →
+        </span>
+      </Link>
     );
   }
 

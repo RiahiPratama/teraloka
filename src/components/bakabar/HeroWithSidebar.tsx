@@ -132,6 +132,9 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
             <Link key={a.id} href={`/bakabar/${a.slug}`} className="block group cursor-pointer">
               <div className="w-full rounded-md overflow-hidden mb-2.5 relative"
                 style={{ aspectRatio: '16 / 9', background: THUMB_BG[a.thumb_class || 'thumb-3'] || THUMB_BG['thumb-3'] }}>
+                {a.cover_image_url && (
+                  <img src={a.cover_image_url} alt={a.title} className="absolute inset-0 w-full h-full object-cover" />
+                )}
                 <div className="absolute inset-0 pointer-events-none" style={{
                   background: 'radial-gradient(ellipse at 70% 30%, rgba(255,255,255,0.12) 0%, transparent 50%)',
                 }} />

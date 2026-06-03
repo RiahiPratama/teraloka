@@ -100,11 +100,19 @@ export default async function BakabarPage({
 
   // Hero slide[idx] di-override dgn artikel asli kalau ada; sisanya
   // fallback ke HERO_CAROUSEL_SLIDES (statis) → hero TIDAK PERNAH kosong.
-  const slides: HeroSlide[] = HERO_CAROUSEL_SLIDES.map((slide, idx) =>
-    realArticles[idx]
-      ? { ...slide, hero: toCarouselArticle(realArticles[idx]) }
-      : slide
-  );
+  // Hero per-slide: hero = artikel real ke-idx; secondary = 2 artikel real
+  // berikutnya (setelah blok hero). Fallback ke dummy slide kalau real kurang.
+  const HERO_COUNT = HERO_CAROUSEL_SLIDES.length;
+  const slides: HeroSlide[] = HERO_CAROUSEL_SLIDES.map((slide, idx) => {
+    const heroReal = realArticles[idx];
+    const secStart = HERO_COUNT + idx * 2;
+    const secReal  = realArticles.slice(secStart, secStart + 2).map(toCarouselArticle);
+    return {
+      ...slide,
+      hero:      heroReal ? toCarouselArticle(heroReal) : slide.hero,
+      secondary: secReal.length === 2 ? (secReal as [DummyArticle, DummyArticle]) : slide.secondary,
+    };
+  });
 
   // Suspense = safety net kalau ada child pakai useSearchParams.
   // Fallback bg putih: tidak akan terlihat kecuali ada yang suspend.
