@@ -51,6 +51,20 @@ async function getRecentReports() {
   } catch { return []; }
 }
 
+// Total dana terkumpul dari kampanye BADONASI yang sedang berjalan.
+// (Y) frontend agregat — null = gagal/kosong → UI fallback 'Segera'.
+async function getDonationSummary(): Promise<{ total: number | null }> {
+  try {
+    const res = await fetch(`${API}/funding/campaigns?limit=100`, { next: { revalidate: 120 } });
+    const data = await res.json();
+    if (!data.success || !Array.isArray(data.data)) return { total: null };
+    const total = data.data
+      .filter((c: any) => c.status === 'active')
+      .reduce((sum: number, c: any) => sum + (Number(c.collected_amount) || 0), 0);
+    return { total };
+  } catch { return { total: null }; }
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const article = await getArticle(slug);
@@ -190,7 +204,7 @@ function TrustItem({ text, accent }: { text: string; accent: string }) {
   );
 }
 
-function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; stats: any }) {
+function ServiceCardsCarousel({ recentReports, stats, donationTotal }: { recentReports: any[]; stats: any; donationTotal: number | null }) {
   const totalReports = stats?.reports?.total;
   const totalArticles = stats?.articles?.total;
 
@@ -281,8 +295,10 @@ function ServiceCardsCarousel({ recentReports, stats }: { recentReports: any[]; 
 
             <div className="space-y-3.5">
               <div>
-                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Donasi hari ini</p>
-                <p className="text-xl font-black text-white">Segera</p>
+                <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Total Terkumpul</p>
+                <p className="text-xl font-black text-white">
+                  {typeof donationTotal === 'number' ? `Rp ${donationTotal.toLocaleString('id-ID')}` : 'Segera'}
+                </p>
               </div>
               <div>
                 <p className="text-[11px] text-white/65 uppercase tracking-wider mb-0.5">Total laporan warga</p>
@@ -421,10 +437,11 @@ function SidebarAds({ count, formatFilter, position }: { count: number; formatFi
 
 export default async function ArticlePage({ params }: Props) {
   const { slug } = await params;
-  const [article, stats, recentReports] = await Promise.all([
+  const [article, stats, recentReports, donation] = await Promise.all([
     getArticle(slug),
     getStats(),
     getRecentReports(),
+    getDonationSummary(),
   ]);
   if (!article) notFound();
 
@@ -608,7 +625,7 @@ export default async function ArticlePage({ params }: Props) {
               formatFilter={adSettings.format_filter}
             />
 
-            <ServiceCardsCarousel recentReports={recentReports} stats={stats} />
+            <ServiceCardsCarousel recentReports={recentReports} stats={stats} donationTotal={donation.total} />
 
             <RelatedArticles articles={relatedArticles} />
 
@@ -653,8 +670,10 @@ export default async function ArticlePage({ params }: Props) {
                   </p>
                   <div className="space-y-2.5">
                     <div className="flex justify-between items-center">
-                      <span className="text-xs" style={{ color: '#5B21B6' }}>Donasi hari ini</span>
-                      <span className="text-xs font-bold" style={{ color: '#1F2937' }}>Segera</span>
+                      <span className="text-xs" style={{ color: '#5B21B6' }}>Total terkumpul</span>
+                      <span className="text-xs font-bold" style={{ color: '#1F2937' }}>
+                        {typeof donation.total === 'number' ? `Rp ${donation.total.toLocaleString('id-ID')}` : 'Segera'}
+                      </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span className="text-xs" style={{ color: '#5B21B6' }}>Total laporan</span>
