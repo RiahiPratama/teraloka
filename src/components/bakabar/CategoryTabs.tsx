@@ -32,7 +32,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useRef, Suspense } from 'react';
-import { usePathname, useSearchParams, useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import PrayerBreakingBar from '@/components/bakabar/PrayerBreakingBar';
 import {
   Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
@@ -79,20 +79,8 @@ const TOPICS = [
 //   - CategoryTabs sticky top: 92 (right below header, zero gap)
 const NAVBAR_OFFSET = 92;
 
-// ─── URL state hybrid parser ─────────────────────────────────
-function parseCurrentNav(params: URLSearchParams): string {
-  const nav = params.get('nav');
-  if (nav) return nav;
-  const type = params.get('type');
-  if (type && type !== 'terbaru') return type;
-  const location = params.get('location');
-  if (location && location !== 'all') return location;
-  return 'terbaru';
-}
-
 function CategoryTabsInner() {
   const pathname     = usePathname();
-  const searchParams = useSearchParams();
   const router       = useRouter();
 
   const [atTop,         setAtTop]         = useState(true);
@@ -101,11 +89,14 @@ function CategoryTabsInner() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const isNewsPage = pathname === '/bakabar';
-  const showTabs   = isNewsPage;
+  const isHome     = pathname === '/bakabar';
+  const isKanal    = pathname.startsWith('/bakabar/kanal/');
+  const isKategori = pathname.startsWith('/bakabar/kategori/');
+  const showTabs   = isHome || isKanal || isKategori;
 
-  const currentNav   = parseCurrentNav(searchParams);
-  const currentTopic = searchParams.get('topic') || '';
+  // Active state diturunkan dari URL path (bukan query lagi)
+  const currentNav   = isKanal    ? (pathname.split('/')[3] || '') : '';
+  const currentTopic = isKategori ? (pathname.split('/')[3] || '') : '';
 
   // ── Detect horizontal scroll position untuk fade indicator ──
   useEffect(() => {
@@ -160,18 +151,10 @@ function CategoryTabsInner() {
 
   if (!showTabs) return null;
 
-  function navigate(nav: string, topic: string = currentTopic) {
-    const p = new URLSearchParams();
-    if (nav !== 'terbaru') p.set('nav', nav);
-    if (topic)              p.set('topic', topic);
-    const qs = p.toString();
-    router.push(qs ? `/bakabar?${qs}` : '/bakabar');
-  }
-
-  const setNav   = (n: string) => navigate(n, currentTopic);
+  const setNav   = (n: string) => router.push(`/bakabar/kanal/${n}`);
   const setTopic = (tp: string) => {
-    navigate(currentNav, tp);
     setTopicOpen(false);
+    router.push(tp ? `/bakabar/kategori/${tp}` : '/bakabar');
   };
 
   return (
