@@ -17,7 +17,7 @@ import FraudFlagDetailModal from '@/components/admin/funding/FraudFlagDetailModa
 import Pagination from '@/components/admin/funding/Pagination';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://teraloka-api.vercel.app/api/v1';
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ⭐ Mission 2P: Filosofi LOCKED - Fraud Detection = OBSERVATIONAL, bukan ENFORCEMENT
 // Flag aktif TIDAK block donasi/kampanye dari money flow
