@@ -23,6 +23,7 @@ export type ArchiveArticle = {
   title:            string;
   slug:             string;
   excerpt?:         string | null;
+  body?:            string | null;
   category?:        string | null;
   published_at?:    string | null;
   created_at?:      string | null;
@@ -47,9 +48,24 @@ function timeAgo(dateStr?: string | null): string {
     : new Date(dateStr).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Ringkasan Level 1: excerpt asli (kalau beda dari judul) → paragraf pembuka body → ''.
+// Bikin kartu selalu punya teaser tanpa nunggu editor isi excerpt manual.
+function resolveTeaser(a: ArchiveArticle): string {
+  const title = (a.title || '').trim();
+  const ex = (a.excerpt || '').trim();
+  if (ex && ex !== title) return ex;
+  const body = (a.body || '').trim();
+  if (body) {
+    const firstPara = (body.split(/\n\n+/)[0] || body).replace(/\s+/g, ' ').trim();
+    if (firstPara && firstPara !== title) return firstPara;
+  }
+  return '';
+}
+
 function ArticleCard({ a }: { a: ArchiveArticle }) {
   const cat = getCategory(a.category);
   const meta = timeAgo(a.published_at || a.created_at);
+  const teaser = resolveTeaser(a);
   return (
     <Link
       href={`/bakabar/${a.slug}`}
@@ -75,12 +91,15 @@ function ArticleCard({ a }: { a: ArchiveArticle }) {
       </div>
       <div className="flex flex-col flex-1 p-3.5">
         <h3
-          className="text-[15px] font-bold leading-snug text-gray-900 line-clamp-3 mb-2"
-          style={{ fontFamily: "'Lora', Georgia, serif" }}
+          className="text-[15px] font-bold leading-snug text-gray-900 line-clamp-2 mb-2"
+          style={{ fontFamily: "'Lora', Georgia, serif", minHeight: '2.7em' }}
         >
           {a.title}
         </h3>
-        {a.excerpt && <p className="text-[12.5px] text-gray-500 line-clamp-2 mb-2.5">{a.excerpt}</p>}
+        {/* teaser SELALU dirender (tinggi tetap) biar tinggi kartu seragam — no belang */}
+        <p className="text-[12.5px] text-gray-500 line-clamp-2 mb-2.5" style={{ minHeight: '2.5em' }}>
+          {teaser}
+        </p>
         <div className="mt-auto flex items-center gap-1.5 text-[11px] text-gray-400">
           <span className="font-semibold text-gray-500">{a.source_name || 'BAKABAR'}</span>
           {meta && (<><span>·</span><span>{meta}</span></>)}
@@ -161,7 +180,7 @@ export default function BakabarArchive({ kicker, title, articles }: Props) {
                       cells++;
                     }
                     // Band melebar (inline_banner) sekali, HANYA di batas baris penuh → no gap
-                    if (!bandPlaced && i + 1 >= 12 && cells % COLS === 0) {
+                    if (!bandPlaced && i + 1 >= 6 && cells % COLS === 0) {
                       nodes.push(
                         <div key="inline-band" style={{ gridColumn: '1 / -1' }}>
                           <DCAInlineBanner />
