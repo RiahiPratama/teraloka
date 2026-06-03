@@ -79,9 +79,17 @@ export default function AdminPenggalangPage() {
   const [rejectReason, setRejectReason] = useState<string>('ktp_not_clear');
   const [rejectNotes, setRejectNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [kycChecks, setKycChecks] = useState({ ktp_clear: false, name_match: false, nik_valid: false });
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
   const LIMIT = 20;
+
+  // Batch D: reset anti-error checklist tiap modal review dibuka (jgn kebawa antar penggalang)
+  useEffect(() => {
+    if (modal?.type === 'review') {
+      setKycChecks({ ktp_clear: false, name_match: false, nik_valid: false });
+    }
+  }, [modal?.type, modal?.creator?.id]);
 
   // ─── Debounced search ─────────────────────────────────
   useEffect(() => {
@@ -295,8 +303,10 @@ export default function AdminPenggalangPage() {
         </p>
       </div>
 
-      {/* Status Pills */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 20, flexWrap: 'wrap' }}>
+      {/* Filter bar: Status Pills (kiri) + Search (kanan) sejajar */}
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* Status Pills */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
         {(['pending', 'verified', 'rejected', 'all'] as StatusFilter[]).map(s => {
           const active = status === s;
           const count = statusCounts[s];
@@ -328,17 +338,16 @@ export default function AdminPenggalangPage() {
             </button>
           );
         })}
-      </div>
+        </div>
 
-      {/* Search */}
-      <div style={{ marginBottom: 16 }}>
+        {/* Search (kanan, sejajar pills) */}
         <input
           type="text"
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           placeholder="Cari nama atau nomor HP..."
           style={{
-            width: '100%', maxWidth: 400, padding: '10px 14px',
+            flex: '1 1 240px', maxWidth: 400, minWidth: 200, padding: '10px 14px',
             borderRadius: 10, border: `1px solid ${t.sidebarBorder}`,
             background: t.mainBg, color: t.textPrimary,
             fontSize: 13, outline: 'none', boxSizing: 'border-box',
@@ -542,34 +551,62 @@ export default function AdminPenggalangPage() {
                 <>
                   <CreatorReviewBody creator={modal.creator} t={t} />
 
-                  {modal.creator.status === 'pending_verification' && (
-                    <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
-                      <button
-                        onClick={() => setModal({ type: 'reject', creator: modal.creator })}
-                        disabled={submitting}
-                        style={{
-                          flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
-                          background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-                          fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                        }}
-                      >
-                        ✗ Tolak
-                      </button>
-                      <button
-                        onClick={() => handleApprove(modal.creator)}
-                        disabled={submitting}
-                        style={{
-                          flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
-                          background: 'linear-gradient(135deg, #10B981, #059669)',
-                          color: '#fff', fontWeight: 700, fontSize: 13,
-                          cursor: submitting ? 'not-allowed' : 'pointer',
-                          opacity: submitting ? 0.5 : 1,
-                        }}
-                      >
-                        {submitting ? 'Memproses...' : '✓ Approve'}
-                      </button>
-                    </div>
-                  )}
+                  {modal.creator.status === 'pending_verification' && (() => {
+                    const checkItems: { key: keyof typeof kycChecks; label: string }[] = [
+                      { key: 'ktp_clear',  label: 'Foto KTP jelas & terbaca' },
+                      { key: 'name_match', label: 'Nama di KTP cocok dengan nama penggalang' },
+                      { key: 'nik_valid',  label: 'NIK di KTP terbaca & 16 digit' },
+                    ];
+                    const allChecked = checkItems.every(i => kycChecks[i.key]);
+                    return (
+                    <>
+                      {/* Batch D: anti-error checklist — wajib sebelum approve */}
+                      <div style={{ marginTop: 20, padding: 14, borderRadius: 12, background: t.navHover + '55', border: `1px solid ${t.sidebarBorder}` }}>
+                        <p style={{ fontSize: 12, fontWeight: 700, color: t.textPrimary, marginBottom: 10 }}>
+                          Konfirmasi pemeriksaan sebelum verifikasi:
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          {checkItems.map(item => (
+                            <label key={item.key} style={{ display: 'flex', alignItems: 'center', gap: 9, fontSize: 12, color: t.textPrimary, cursor: 'pointer' }}>
+                              <input type="checkbox" checked={kycChecks[item.key]} disabled={submitting}
+                                onChange={(e) => setKycChecks(prev => ({ ...prev, [item.key]: e.target.checked }))}
+                                style={{ width: 16, height: 16, cursor: 'pointer', accentColor: '#10B981' }} />
+                              {item.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 16, display: 'flex', gap: 12 }}>
+                        <button
+                          onClick={() => setModal({ type: 'reject', creator: modal.creator })}
+                          disabled={submitting}
+                          style={{
+                            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                            background: 'rgba(239,68,68,0.1)', color: '#EF4444',
+                            fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                          }}
+                        >
+                          ✗ Tolak
+                        </button>
+                        <button
+                          onClick={() => handleApprove(modal.creator)}
+                          disabled={submitting || !allChecked}
+                          title={!allChecked ? 'Centang semua konfirmasi dulu' : ''}
+                          style={{
+                            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                            background: allChecked ? 'linear-gradient(135deg, #10B981, #059669)' : t.sidebarBorder,
+                            color: allChecked ? '#fff' : t.textMuted, fontWeight: 700, fontSize: 13,
+                            cursor: (submitting || !allChecked) ? 'not-allowed' : 'pointer',
+                            opacity: submitting ? 0.5 : 1,
+                          }}
+                        >
+                          {submitting ? 'Memproses...' : allChecked ? '✓ Approve' : 'Centang dulu'}
+                        </button>
+                      </div>
+                    </>
+                    );
+                  })()}
 
                   {modal.creator.status === 'verified' && (
                     <div style={{
