@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useContext, useCallback, useMemo } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import CreatorAuditLogPanel from '@/components/admin/funding/CreatorAuditLogPanel';
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
@@ -580,6 +581,9 @@ export default function AdminPenggalangPage() {
           </button>
         </div>
       )}
+
+      {/* Riwayat aksi penggalang (audit akuntabilitas) */}
+      <CreatorAuditLogPanel />
 
       {/* Review Modal (basic version — Batch D will enhance with anti-error checklist) */}
       {modal && (
