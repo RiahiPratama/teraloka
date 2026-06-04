@@ -34,6 +34,24 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 // → cache shared global, hemat invocation Dalang VPS + Vercel.
 const FETCH_OPTS: RequestInit = { next: { revalidate: 60 } };
 
+// ── Timeout guard (WS-5c, 5 Jun 2026) ───────────────────────────
+// page.tsx fetch ~28 endpoint Dalang di server (await Promise.all). Tanpa
+// timeout, SATU endpoint hang = SELURUH render block → Vercel limit ~10s →
+// halaman gagal tampil total. AbortController batasi tiap fetch 3.5s;
+// timeout → abort → throw → ke-catch di tiap fetcher → fallback ([] / null).
+// Halaman tetap tampil walau sebagian data telat (degradasi anggun).
+const FETCH_TIMEOUT_MS = 3500;
+
+async function fetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...opts, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // ── Mappers ─────────────────────────────────────────────────────
 // CATATAN: TIDAK set `source` (tipe DummyArticle.source union sempit
 // 'editorial'|'rss'|'balapor'; backend balikin 'social'/'original'/dst).
@@ -97,7 +115,7 @@ function resolveNav(sp: SearchParams) {
 // ── Generic list fetch (resilient: gagal → []) ──────────────────
 async function fetchList(query: string, limit: number): Promise<any[]> {
   try {
-    const res = await fetch(`${API}/content/articles?${query}&limit=${limit}`, FETCH_OPTS);
+    const res = await fetchWithTimeout(`${API}/content/articles?${query}&limit=${limit}`, FETCH_OPTS);
     const data = await res.json();
     return data?.success ? (data.data ?? []) : [];
   } catch {
@@ -126,7 +144,7 @@ async function fetchTrendingByRegion(): Promise<Record<string, TrendingNativeAd 
   const entries = await Promise.all(
     REGIONS.map(async (r) => {
       try {
-        const res = await fetch(
+        const res = await fetchWithTimeout(
           `${API}/public/ads/by-position/trending_native?region=${encodeURIComponent(r.slug)}&limit=1`,
           FETCH_OPTS,
         );
@@ -148,7 +166,7 @@ async function fetchTrendingByRegion(): Promise<Record<string, TrendingNativeAd 
 
 async function fetchCampaigns(): Promise<BadonasiCampaign[]> {
   try {
-    const res = await fetch(`${API}/funding/campaigns?limit=12`, FETCH_OPTS);
+    const res = await fetchWithTimeout(`${API}/funding/campaigns?limit=12`, FETCH_OPTS);
     const data = await res.json();
     return data?.success && Array.isArray(data.data) ? (data.data as BadonasiCampaign[]) : [];
   } catch {
@@ -158,7 +176,7 @@ async function fetchCampaigns(): Promise<BadonasiCampaign[]> {
 
 async function fetchReports(): Promise<BalaporReport[]> {
   try {
-    const res = await fetch(`${API}/public/reports/recent`, FETCH_OPTS);
+    const res = await fetchWithTimeout(`${API}/public/reports/recent`, FETCH_OPTS);
     const data = await res.json();
     return data?.success && Array.isArray(data.data) ? (data.data as BalaporReport[]) : [];
   } catch {
