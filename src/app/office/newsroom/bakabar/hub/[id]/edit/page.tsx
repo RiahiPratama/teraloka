@@ -193,9 +193,21 @@ export default function EditArticlePage() {
   const [, forceRerender]                   = useState(0);
 
   const [uploadingInline, setUploadingInline] = useState(false);
+  const [previewHeight, setPreviewHeight] = useState<number>(555);
   const [inlineError, setInlineError]       = useState('');
 
   const bodyRef   = useRef<HTMLTextAreaElement>(null);
+
+  // Sinkronkan tinggi Live Preview dengan tinggi kotak Body (textarea)
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const sync = () => setPreviewHeight(el.offsetHeight);
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Fetch article dari DB saat mount
@@ -831,214 +843,17 @@ export default function EditArticlePage() {
       {/* MAIN CONTENT */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: showPreview && !focusMode ? '1fr 1fr' : '1fr',
+        gridTemplateColumns: focusMode ? '1fr' : '1fr 1fr',
         gap: 0, minHeight: 'calc(100vh - 60px)',
       }}>
 
         {/* ── EDITOR ── */}
         <div style={{
-          padding: '20px 28px', borderRight: showPreview && !focusMode ? `1px solid ${editorTokens.borderSubtle}` : 'none',
-          maxWidth: showPreview && !focusMode ? 'none' : 820,
-          margin: showPreview && !focusMode ? 0 : '0 auto', width: '100%',
+          padding: '20px 28px', borderRight: !focusMode ? `1px solid ${editorTokens.borderSubtle}` : 'none',
+          maxWidth: !focusMode ? 'none' : 820,
+          margin: !focusMode ? 0 : '0 auto', width: '100%',
         }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-            {/* Kategori */}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
-                Kategori {category && <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>{CATEGORIES.find(c => c.key === category)?.label}</span></span>}
-              </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {CATEGORIES.map(cat => {
-                  const active = category === cat.key;
-                  const CatIcon = cat.Icon;
-                  return (
-                    <button
-                      key={cat.key}
-                      onClick={() => setCategory(active ? '' : cat.key)}
-                      title={active ? 'Klik lagi untuk un-pilih' : `Pilih kategori ${cat.label}`}
-                      style={{
-                        padding: '6px 12px', borderRadius: 8, border: 'none',
-                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                        background: active ? cat.color : editorTokens.chipBg,
-                        color: active ? '#fff' : editorTokens.chipText,
-                        transition: 'all 0.15s',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                      }}>
-                      <CatIcon size={14} strokeWidth={2.2} />
-                      {cat.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
-                💡 Kategori opsional — klik ulang kategori yang sama untuk un-pilih. Artikel tanpa kategori tetap muncul di feed "Terbaru".
-              </p>
-            </div>
-
-            {/* Daerah */}
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
-                📍 Daerah {locationId && (
-                  <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
-                    · terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>
-                      {LOCATIONS.find(l => l.id === locationId)?.name}
-                    </span>
-                  </span>
-                )}
-              </label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                {LOCATIONS.map(loc => {
-                  const active = locationId === loc.id;
-                  const LocIcon = loc.Icon;
-                  return (
-                    <button
-                      key={loc.id}
-                      onClick={() => setLocationId(active ? '' : loc.id)}
-                      title={active ? 'Klik lagi untuk un-pilih' : `Pilih daerah ${loc.name}`}
-                      style={{
-                        padding: '6px 12px', borderRadius: 8, border: 'none',
-                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
-                        background: active ? '#0891B2' : editorTokens.chipBg,
-                        color: active ? '#fff' : editorTokens.chipText,
-                        transition: 'all 0.15s',
-                        display: 'flex', alignItems: 'center', gap: 6,
-                      }}>
-                      <LocIcon size={14} strokeWidth={2.2} />
-                      {loc.name}
-                    </button>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
-                📌 Daerah opsional & independen dari kategori — artikel bisa punya keduanya (misal: Politik + Ternate), salah satu, atau tidak keduanya.
-              </p>
-            </div>
-
-            {/* Breaking & Trending */}
-            <div style={{
-              display: 'flex', flexDirection: 'column', gap: 10,
-              padding: 12, borderRadius: 10,
-              background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`,
-            }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
-                <input type="checkbox" checked={isBreaking} onChange={(e) => setIsBreaking(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: '#EF4444' }} />
-                <span>🔴 Tandai sebagai <span style={{ color: '#EF4444', fontWeight: 700 }}>Breaking News</span></span>
-              </label>
-
-              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
-                <input type="checkbox" checked={isTrending} onChange={(e) => setIsTrending(e.target.checked)}
-                  style={{ width: 16, height: 16, accentColor: '#F97316', marginTop: 2 }} />
-                <span style={{ flex: 1 }}>
-                  🔥 Promote sebagai <span style={{ color: '#F97316', fontWeight: 700 }}>Trending</span>
-                  <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
-                    Otomatis di-set kalau artikel banyak dibaca. Centang manual untuk promote artikel strategis
-                    (breaking news penting, artikel investigasi, konten prioritas).
-                  </span>
-                </span>
-              </label>
-            </div>
-
-            {/* Asal Berita — kanal (source) */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 10, background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}` }}>
-              <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>📍 Asal Berita</span>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {([
-                  { key: 'original', label: 'Lokal / Daerah',  color: '#0891B2' },
-                  { key: 'nasional', label: 'Nasional',         color: '#1B6B4A' },
-                  { key: 'social',   label: '📱 Viral Medsos',  color: '#DC2626' },
-                ] as const).map(opt => {
-                  const active = source === opt.key;
-                  return (
-                    <button key={opt.key} type="button" onClick={() => setSource(opt.key)}
-                      style={{ padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, border: `1.5px solid ${active ? opt.color : editorTokens.inputBorder}`, background: active ? opt.color : editorTokens.cardBg, color: active ? '#fff' : t.textMuted, transition: 'all 0.15s' }}>
-                      {opt.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic', lineHeight: 1.5 }}>
-                Lokal = berita daerah MalUt (pilih DAERAH di atas). Nasional = berita nasional. Viral Medsos = postingan medsos yang diangkat redaksi.
-                {!['original', 'nasional', 'social'].includes(source) && ` · Saat ini: ${source} (dikelola sistem)`}
-              </p>
-            </div>
-
-            {/* Iklan dalam artikel — Phase 2 v3 γ Hybrid (preset+count+format) */}
-            <AdSettingsControl
-              value={adSettings}
-              onChange={setAdSettings}
-              adPosition={adPosition}
-              onAdPositionChange={setAdPosition}
-              t={t}
-              editorTokens={editorTokens}
-              dark={dark}
-            />
-
-            {/* Catatan Perubahan */}
-            <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.inputBorder}`, background: editorTokens.cardBg, marginBottom: 12 }}>
-              <label style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                📝 Catatan Perubahan <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none' }}>(opsional)</span>
-              </label>
-              <input
-                type="text"
-                value={changeNote}
-                onChange={e => setChangeNote(e.target.value)}
-                placeholder="Contoh: Perbaiki typo, update data, koreksi kutipan..."
-                style={{
-                  width: '100%', padding: '8px 10px', borderRadius: 8,
-                  border: `1px solid ${editorTokens.inputBorder}`,
-                  background: editorTokens.inputBg, color: t.textPrimary,
-                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
-                }}
-              />
-              <p style={{ fontSize: 10, color: t.textDim, marginTop: 4, fontStyle: 'italic' }}>
-                Catatan ini tercatat di version history untuk trace perubahan ke depan.
-              </p>
-            </div>
-
-            {/* Viral source */}
-            {isViral && (
-              <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.viralBorder}`, background: editorTokens.viralBg }}>
-                <p style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, marginBottom: 4 }}>
-                  🔥 Kategori Viral — Angkat kejadian medsos ke BAKABAR secara cepat
-                </p>
-                <p style={{ fontSize: 10, color: editorTokens.viralText, opacity: 0.85, marginBottom: 10, lineHeight: 1.5 }}>
-                  Sumber medsos <span style={{ fontWeight: 700 }}>sangat disarankan</span> untuk akuntabilitas jurnalistik.
-                  Bisa di-skip kalau memang urgent, tapi idealnya diisi sebelum publish.
-                </p>
-
-                <label style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, display: 'block', marginBottom: 6 }}>
-                  Platform <span style={{ color: '#DC2626', fontWeight: 700 }} title="Disarankan untuk artikel viral">*</span>
-                </label>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
-                  {PLATFORMS.map(p => (
-                    <button key={p.key} onClick={() => setSourcePlatform(p.key)}
-                      style={{
-                        padding: '4px 10px', borderRadius: 6,
-                        border: `1px solid ${editorTokens.viralBorder}`,
-                        cursor: 'pointer', fontSize: 11, fontWeight: 600,
-                        background: sourcePlatform === p.key ? '#F97316' : editorTokens.cardBg,
-                        color: sourcePlatform === p.key ? '#fff' : editorTokens.viralText,
-                      }}>
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
-
-                <label style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, display: 'block', marginBottom: 6 }}>
-                  Link Postingan Asli <span style={{ color: '#DC2626', fontWeight: 700 }} title="Disarankan untuk artikel viral">*</span>
-                </label>
-                <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
-                  placeholder="https://www.instagram.com/p/... atau link TikTok/Twitter/dll"
-                  style={{
-                    width: '100%', padding: '8px 12px', borderRadius: 8,
-                    border: `1px solid ${editorTokens.viralBorder}`,
-                    fontSize: 12, outline: 'none', boxSizing: 'border-box',
-                    background: editorTokens.inputBg, color: t.textPrimary,
-                  }} />
-              </div>
-            )}
 
             {/* Title */}
             <div>
@@ -1202,16 +1017,218 @@ export default function EditArticlePage() {
               onFocus={e => e.target.style.borderColor = '#1B6B4A'}
               onBlur={e => e.target.style.borderColor = editorTokens.inputBorder}
             />
+
+            {/* Breaking & Trending */}
+            <div style={{
+              display: 'flex', flexDirection: 'column', gap: 10,
+              padding: 12, borderRadius: 10,
+              background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`,
+            }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+                <input type="checkbox" checked={isBreaking} onChange={(e) => setIsBreaking(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#EF4444' }} />
+                <span>🔴 Tandai sebagai <span style={{ color: '#EF4444', fontWeight: 700 }}>Breaking News</span></span>
+              </label>
+
+              <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, cursor: 'pointer', fontSize: 13, color: t.textMuted, fontWeight: 600 }}>
+                <input type="checkbox" checked={isTrending} onChange={(e) => setIsTrending(e.target.checked)}
+                  style={{ width: 16, height: 16, accentColor: '#F97316', marginTop: 2 }} />
+                <span style={{ flex: 1 }}>
+                  🔥 Promote sebagai <span style={{ color: '#F97316', fontWeight: 700 }}>Trending</span>
+                  <span style={{ display: 'block', fontSize: 10, color: t.textDim, fontWeight: 400, marginTop: 2, fontStyle: 'italic' }}>
+                    Otomatis di-set kalau artikel banyak dibaca. Centang manual untuk promote artikel strategis
+                    (breaking news penting, artikel investigasi, konten prioritas).
+                  </span>
+                </span>
+              </label>
+            </div>
+
+            {/* Asal Berita — kanal (source) */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: 12, borderRadius: 10, background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}` }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.04em' }}>📍 Asal Berita</span>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {([
+                  { key: 'original', label: 'Lokal / Daerah',  color: '#0891B2' },
+                  { key: 'nasional', label: 'Nasional',         color: '#1B6B4A' },
+                  { key: 'social',   label: '📱 Viral Medsos',  color: '#DC2626' },
+                ] as const).map(opt => {
+                  const active = source === opt.key;
+                  return (
+                    <button key={opt.key} type="button" onClick={() => setSource(opt.key)}
+                      style={{ padding: '7px 14px', borderRadius: 8, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, border: `1.5px solid ${active ? opt.color : editorTokens.inputBorder}`, background: active ? opt.color : editorTokens.cardBg, color: active ? '#fff' : t.textMuted, transition: 'all 0.15s' }}>
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 10, color: t.textDim, fontStyle: 'italic', lineHeight: 1.5 }}>
+                Lokal = berita daerah MalUt (pilih DAERAH di atas). Nasional = berita nasional. Viral Medsos = postingan medsos yang diangkat redaksi.
+                {!['original', 'nasional', 'social'].includes(source) && ` · Saat ini: ${source} (dikelola sistem)`}
+              </p>
+            </div>
+
+            {/* Iklan dalam artikel — Phase 2 v3 γ Hybrid (preset+count+format) */}
+            <AdSettingsControl
+              value={adSettings}
+              onChange={setAdSettings}
+              adPosition={adPosition}
+              onAdPositionChange={setAdPosition}
+              t={t}
+              editorTokens={editorTokens}
+              dark={dark}
+            />
+
+            {/* Catatan Perubahan */}
+            <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.inputBorder}`, background: editorTokens.cardBg, marginBottom: 12 }}>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                📝 Catatan Perubahan <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none' }}>(opsional)</span>
+              </label>
+              <input
+                type="text"
+                value={changeNote}
+                onChange={e => setChangeNote(e.target.value)}
+                placeholder="Contoh: Perbaiki typo, update data, koreksi kutipan..."
+                style={{
+                  width: '100%', padding: '8px 10px', borderRadius: 8,
+                  border: `1px solid ${editorTokens.inputBorder}`,
+                  background: editorTokens.inputBg, color: t.textPrimary,
+                  fontSize: 12, outline: 'none', boxSizing: 'border-box',
+                }}
+              />
+              <p style={{ fontSize: 10, color: t.textDim, marginTop: 4, fontStyle: 'italic' }}>
+                Catatan ini tercatat di version history untuk trace perubahan ke depan.
+              </p>
+            </div>
+
+            {/* Viral source */}
+            {isViral && (
+              <div style={{ padding: 14, borderRadius: 10, border: `1px solid ${editorTokens.viralBorder}`, background: editorTokens.viralBg }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, marginBottom: 4 }}>
+                  🔥 Kategori Viral — Angkat kejadian medsos ke BAKABAR secara cepat
+                </p>
+                <p style={{ fontSize: 10, color: editorTokens.viralText, opacity: 0.85, marginBottom: 10, lineHeight: 1.5 }}>
+                  Sumber medsos <span style={{ fontWeight: 700 }}>sangat disarankan</span> untuk akuntabilitas jurnalistik.
+                  Bisa di-skip kalau memang urgent, tapi idealnya diisi sebelum publish.
+                </p>
+
+                <label style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, display: 'block', marginBottom: 6 }}>
+                  Platform <span style={{ color: '#DC2626', fontWeight: 700 }} title="Disarankan untuk artikel viral">*</span>
+                </label>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+                  {PLATFORMS.map(p => (
+                    <button key={p.key} onClick={() => setSourcePlatform(p.key)}
+                      style={{
+                        padding: '4px 10px', borderRadius: 6,
+                        border: `1px solid ${editorTokens.viralBorder}`,
+                        cursor: 'pointer', fontSize: 11, fontWeight: 600,
+                        background: sourcePlatform === p.key ? '#F97316' : editorTokens.cardBg,
+                        color: sourcePlatform === p.key ? '#fff' : editorTokens.viralText,
+                      }}>
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                <label style={{ fontSize: 11, fontWeight: 700, color: editorTokens.viralText, display: 'block', marginBottom: 6 }}>
+                  Link Postingan Asli <span style={{ color: '#DC2626', fontWeight: 700 }} title="Disarankan untuk artikel viral">*</span>
+                </label>
+                <input type="url" value={sourceUrl} onChange={e => setSourceUrl(e.target.value)}
+                  placeholder="https://www.instagram.com/p/... atau link TikTok/Twitter/dll"
+                  style={{
+                    width: '100%', padding: '8px 12px', borderRadius: 8,
+                    border: `1px solid ${editorTokens.viralBorder}`,
+                    fontSize: 12, outline: 'none', boxSizing: 'border-box',
+                    background: editorTokens.inputBg, color: t.textPrimary,
+                  }} />
+              </div>
+            )}
           </div>
         </div>
 
-        {/* ── PREVIEW ── */}
-        {showPreview && !focusMode && (
+        {/* ── PANEL KANAN: Kategori, Daerah, Live Preview ── */}
+        {!focusMode && (
           <div style={{
             padding: '20px 28px', background: editorTokens.previewBg,
             borderLeft: `1px solid ${editorTokens.borderSubtle}`,
-            maxHeight: 'calc(100vh - 60px)', overflowY: 'auto',
+            alignSelf: 'start',
+            display: 'flex', flexDirection: 'column', gap: 16,
           }}>
+            <div style={{ background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`, borderRadius: 14, padding: 16 }}>
+            {/* Kategori */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
+                Kategori {category && <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>· terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>{CATEGORIES.find(c => c.key === category)?.label}</span></span>}
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {CATEGORIES.map(cat => {
+                  const active = category === cat.key;
+                  const CatIcon = cat.Icon;
+                  return (
+                    <button
+                      key={cat.key}
+                      onClick={() => setCategory(active ? '' : cat.key)}
+                      title={active ? 'Klik lagi untuk un-pilih' : `Pilih kategori ${cat.label}`}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, border: 'none',
+                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        background: active ? cat.color : editorTokens.chipBg,
+                        color: active ? '#fff' : editorTokens.chipText,
+                        transition: 'all 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}>
+                      <CatIcon size={14} strokeWidth={2.2} />
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
+                💡 Kategori opsional — klik ulang kategori yang sama untuk un-pilih. Artikel tanpa kategori tetap muncul di feed "Terbaru".
+              </p>
+            </div>
+            </div>
+            <div style={{ background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`, borderRadius: 14, padding: 16 }}>
+            {/* Daerah */}
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', display: 'block', marginBottom: 8 }}>
+                📍 Daerah {locationId && (
+                  <span style={{ color: t.textDim, fontWeight: 400, textTransform: 'none', letterSpacing: 0 }}>
+                    · terpilih: <span style={{ color: t.textMuted, fontWeight: 600 }}>
+                      {LOCATIONS.find(l => l.id === locationId)?.name}
+                    </span>
+                  </span>
+                )}
+              </label>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                {LOCATIONS.map(loc => {
+                  const active = locationId === loc.id;
+                  const LocIcon = loc.Icon;
+                  return (
+                    <button
+                      key={loc.id}
+                      onClick={() => setLocationId(active ? '' : loc.id)}
+                      title={active ? 'Klik lagi untuk un-pilih' : `Pilih daerah ${loc.name}`}
+                      style={{
+                        padding: '6px 12px', borderRadius: 8, border: 'none',
+                        cursor: 'pointer', fontSize: 12, fontWeight: 600,
+                        background: active ? '#0891B2' : editorTokens.chipBg,
+                        color: active ? '#fff' : editorTokens.chipText,
+                        transition: 'all 0.15s',
+                        display: 'flex', alignItems: 'center', gap: 6,
+                      }}>
+                      <LocIcon size={14} strokeWidth={2.2} />
+                      {loc.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p style={{ fontSize: 10, color: t.textDim, marginTop: 6, fontStyle: 'italic' }}>
+                📌 Daerah opsional & independen dari kategori — artikel bisa punya keduanya (misal: Politik + Ternate), salah satu, atau tidak keduanya.
+              </p>
+            </div>
+            </div>
+            {showPreview && (
+            <div style={{ background: editorTokens.cardBg, border: `1px solid ${editorTokens.inputBorder}`, borderRadius: 14, padding: 16 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: t.textDim,
               textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 14,
               display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -1220,7 +1237,7 @@ export default function EditArticlePage() {
 
             <article style={{
               background: editorTokens.previewCard,
-              borderRadius: 14, padding: 28,
+              borderRadius: 14, padding: 28, height: previewHeight + 140, overflowY: 'auto', boxSizing: 'border-box',
               border: `1px solid ${editorTokens.borderSubtle}`,
               boxShadow: dark ? '0 1px 3px rgba(0,0,0,0.3)' : '0 1px 3px rgba(0,0,0,0.04)',
             }}>
@@ -1316,6 +1333,8 @@ export default function EditArticlePage() {
                 </div>
               )}
             </article>
+            </div>
+            )}
           </div>
         )}
       </div>
