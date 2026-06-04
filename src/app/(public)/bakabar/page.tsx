@@ -1,42 +1,41 @@
 // ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE — Phase 4 Polish v15.0 (RSC Split — Server Shell)
+// BAKABAR HOMEPAGE — Phase 4 Polish v16.0 (RSC Split — Server Shell)
 // PATH: src/app/(public)/bakabar/page.tsx
 // ────────────────────────────────────────────────────────────────
-// v15.0 UPDATE (4 Juni 2026, WS-3 — Region Wire-Up Server-Side):
-//   - PINDAH fetch artikel REGION (12 region MalUt + viral) dari client
-//     (BakabarShell useEffect) ke SERVER (await Promise.all). Hilangkan
-//     "content flash" dummy→real di latency Ternate + cegah klik dummy 404.
-//   - Region articles dikirim ke BakabarShell via prop `regionArticles`
-//     (Record<slug, DummyArticle[]>) + `viralArticles` (DummyArticle[]).
-//   - Empty/gagal fetch = array kosong → BakabarShell render EMPTY-STATE
-//     jujur (BUKAN fallback dummy palsu). Editorial integrity > visual.
-//   - FIX mismatch hero fetch: viral/nasional sekarang pakai ?type=
-//     (kontrak backend listArticles), bukan ?viral=true / ?source=rss.
-//   - Aktifkan revalidate:60 (Risk-1 Vercel quota) — region fetch tak
-//     bergantung searchParams → data-cache shared antar pengunjung.
+// v16.0 UPDATE (4 Juni 2026, WS-3+ — Below-Fold Fetch → Server):
+//   - PINDAH 3 fetch below-fold dari client (BakabarShell useEffect) ke
+//     SERVER (await Promise.all): trending_native per-region (12 call),
+//     campaigns BADONASI, reports BALAPOR.
+//   - MOTIVASI: hilangkan per-visitor explosion. Sebelumnya tiap
+//     pengunjung = ±14 call ke Dalang (12 trending + 1 campaign + 1
+//     report). Sekarang di-cache 60s → Dalang load KONSTAN berapapun
+//     jumlah pengunjung concurrent (anti-fragile pre-launch).
+//   - Homepage kini 100% server-rendered + data-cached. BakabarShell
+//     jadi murni presentational (zero client fetch).
 //
-// History:
-//   - v14.0 (31 Mei): Opsi B RSC split — hero fetch server, region client.
-//   - v13.12: full client fetch + loading gate (DEPRECATED).
+// v15.0 (4 Juni): WS-3 region wire-up server-side + revalidate60.
+// v14.0 (31 Mei): Opsi B RSC split — hero fetch server, region client.
 // ════════════════════════════════════════════════════════════════
 
 import { Suspense } from 'react';
 import BakabarShell from './BakabarShell';
 import { HERO_CAROUSEL_SLIDES, REGIONS } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
+import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
+import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
+import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ── Fetch policy ────────────────────────────────────────────────
 // revalidate:60 → hasil fetch di-cache 60 detik (data cache Next.js).
-// Region fetch tidak bergantung searchParams → cache shared global,
-// hemat invocation Dalang VPS + Vercel (Risk-1 quota).
+// Region/trending/campaign/report fetch TIDAK bergantung searchParams
+// → cache shared global, hemat invocation Dalang VPS + Vercel.
 const FETCH_OPTS: RequestInit = { next: { revalidate: 60 } };
 
 // ── Mappers ─────────────────────────────────────────────────────
 // CATATAN: TIDAK set `source` (tipe DummyArticle.source union sempit
-// 'editorial'|'rss'|'balapor'; backend balikin 'social'/'original'/dst
-// → set bakal error tsc strict). Mirror pola toDummy lama.
+// 'editorial'|'rss'|'balapor'; backend balikin 'social'/'original'/dst).
 
 function toCarouselArticle(a: any): DummyArticle {
   return {
@@ -105,7 +104,7 @@ async function fetchList(query: string, limit: number): Promise<any[]> {
   }
 }
 
-// Hero/nav fetch — FIX: viral/nasional via ?type= (kontrak backend).
+// Hero/nav fetch — viral/nasional via ?type= (kontrak backend).
 async function fetchHeroArticles(type: string, location: string, q: string): Promise<any[]> {
   const params = new URLSearchParams();
   if (type === 'viral') params.set('type', 'viral');
@@ -120,6 +119,52 @@ function regionQuery(slug: string): string {
   return slug === 'nasional' ? 'type=nasional' : `location=${encodeURIComponent(slug)}`;
 }
 
+// ── Below-fold fetch (v16.0: dipindah dari client BakabarShell) ──
+// Trending native ads per region — 12 call paralel, di-cache 60s.
+async function fetchTrendingByRegion(): Promise<Record<string, TrendingNativeAd | null>> {
+  const entries = await Promise.all(
+    REGIONS.map(async (r) => {
+      try {
+        const res = await fetch(
+          `${API}/public/ads/by-position/trending_native?region=${encodeURIComponent(r.slug)}&limit=1`,
+          FETCH_OPTS,
+        );
+        const data = await res.json();
+        const ad =
+          data?.success && Array.isArray(data.data) && data.data[0]
+            ? (data.data[0] as TrendingNativeAd)
+            : null;
+        return [r.slug, ad] as const;
+      } catch {
+        return [r.slug, null] as const;
+      }
+    }),
+  );
+  const map: Record<string, TrendingNativeAd | null> = {};
+  entries.forEach(([slug, ad]) => { map[slug] = ad; });
+  return map;
+}
+
+async function fetchCampaigns(): Promise<BadonasiCampaign[]> {
+  try {
+    const res = await fetch(`${API}/funding/campaigns?limit=12`, FETCH_OPTS);
+    const data = await res.json();
+    return data?.success && Array.isArray(data.data) ? (data.data as BadonasiCampaign[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+async function fetchReports(): Promise<BalaporReport[]> {
+  try {
+    const res = await fetch(`${API}/public/reports/recent`, FETCH_OPTS);
+    const data = await res.json();
+    return data?.success && Array.isArray(data.data) ? (data.data as BalaporReport[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export default async function BakabarPage({
   searchParams,
 }: {
@@ -128,10 +173,10 @@ export default async function BakabarPage({
   const sp = await searchParams;
   const { type, location, q } = resolveNav(sp);
 
-  // Fetch hero + semua region + viral PARALEL di server.
+  // Fetch hero + region + viral + trending + campaign + report PARALEL di server.
   const regionTargets = REGIONS.map((r) => [r.slug, regionQuery(r.slug)] as const);
 
-  const [heroRaw, regionRaw, viralRaw] = await Promise.all([
+  const [heroRaw, regionRaw, viralRaw, trendingByRegion, campaigns, reports] = await Promise.all([
     fetchHeroArticles(type, location, q),
     Promise.all(
       regionTargets.map(async ([slug, query]) => {
@@ -140,6 +185,9 @@ export default async function BakabarPage({
       }),
     ),
     fetchList('source=social', 8),
+    fetchTrendingByRegion(),
+    fetchCampaigns(),
+    fetchReports(),
   ]);
 
   const regionArticles: Record<string, DummyArticle[]> = {};
@@ -160,13 +208,15 @@ export default async function BakabarPage({
     };
   });
 
-  // Suspense = safety net kalau ada child pakai useSearchParams.
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>
       <BakabarShell
         slides={slides}
         regionArticles={regionArticles}
         viralArticles={viralArticles}
+        trendingByRegion={trendingByRegion}
+        campaigns={campaigns}
+        reports={reports}
       />
     </Suspense>
   );

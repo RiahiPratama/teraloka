@@ -1,26 +1,24 @@
 'use client';
 
 // ══════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v15.0 (Client Interactivity)
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v16.0 (Presentational Shell)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
 // ──────────────────────────────────────────────────────────────────
-// v15.0 (4 Juni 2026, WS-3 — Region Wire-Up Server-Side):
-//   - Artikel REGION + VIRAL sekarang DITERIMA dari server (props
-//     `regionArticles` + `viralArticles`), BUKAN client-fetch lagi.
-//     → Hilangkan flash dummy→real + cegah klik dummy 404 di Ternate.
-//   - Region tanpa artikel = EMPTY-STATE jujur (<EmptyRegion/>), BUKAN
-//     fallback dummy palsu. Editorial integrity > visual lengkap.
-//   - Viral tanpa artikel = section di-skip (null), bukan dummy.
-//   - PRESERVED (tetap client, non-blocking, below-fold): trendingAds,
-//     campaigns (BADONASI), reports (BALAPOR), houseAssignments.
+// v16.0 (4 Juni 2026, WS-3+ — Below-Fold Fetch → Server):
+//   - SEMUA data sekarang DITERIMA dari server via props: slides,
+//     regionArticles, viralArticles, trendingByRegion, campaigns, reports.
+//   - HAPUS semua client fetch (trending/campaign/report) + useState +
+//     useEffect + useCallback. Shell jadi MURNI presentational.
+//     → Beban Dalang KONSTAN berapapun pengunjung concurrent (cache 60s
+//        di server), bukan ±14 call per visitor lagi.
+//   - House card (kampanye/balapor) kini terisi dari first paint (server),
+//     tanpa pop-in setelah hydrate.
 //
-// v14.4 (31 Mei): Layanan + Zakat dicabut dari kolom-3 (→ jalur ADS).
-//   - houseSlotType: 'kampanye' | 'balapor' | 'ads'.
-//   - Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10) = data real house card.
+// v15.0 (4 Juni): WS-3 region wire-up server-side + empty-state.
 // v14.0 (31 Mei): Opsi B RSC split — hero render dari server slides.
 // ══════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import WANewsletterWidget from '@/components/WANewsletterWidget';
 
 import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
@@ -36,8 +34,6 @@ import type { HeroSlide, DummyArticle, RegionConfig } from '@/components/bakabar
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
 import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
-
-const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ─── Pola slot house content kolom-3 (zona atas) ──────────────────
 // House card = HANYA data real: Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10).
@@ -59,8 +55,8 @@ function windowReports(all: BalaporReport[], offset: number, count = 3): Balapor
 }
 
 // ─── Empty-state region (no dummy) ────────────────────────────────
-// v15.0: pengganti fallback dummy. Region tanpa artikel real → tampil
-// jujur, BUKAN headline palsu yang 404 pas diklik (editorial integrity).
+// Region tanpa artikel real → tampil jujur, BUKAN headline palsu yang
+// 404 pas diklik (editorial integrity).
 function EmptyRegion({ region }: { region: RegionConfig }) {
   return (
     <section className="my-12">
@@ -91,74 +87,17 @@ export default function BakabarShell({
   slides,
   regionArticles,
   viralArticles,
+  trendingByRegion,
+  campaigns,
+  reports,
 }: {
   slides: HeroSlide[];
   regionArticles: Record<string, DummyArticle[]>;
   viralArticles: DummyArticle[];
+  trendingByRegion: Record<string, TrendingNativeAd | null>;
+  campaigns: BadonasiCampaign[];
+  reports: BalaporReport[];
 }) {
-  const [trendingAdsByRegion, setTrendingAdsByRegion] =
-    useState<Record<string, TrendingNativeAd | null>>({});
-  const [campaigns, setCampaigns] = useState<BadonasiCampaign[]>([]);
-  const [reports, setReports] = useState<BalaporReport[]>([]);
-
-  // Trending ads = client-fetch, NON-BLOCKING. Tidak menahan hero.
-  const fetchTrendingAds = useCallback(async () => {
-    try {
-      const results = await Promise.all(
-        REGIONS.map(async (r) => {
-          try {
-            const res = await fetch(
-              `${API}/public/ads/by-position/trending_native?region=${encodeURIComponent(r.slug)}&limit=1`
-            );
-            const data = await res.json();
-            const ad =
-              data?.success && Array.isArray(data.data) && data.data[0]
-                ? (data.data[0] as TrendingNativeAd)
-                : null;
-            return [r.slug, ad] as const;
-          } catch {
-            return [r.slug, null] as const;
-          }
-        })
-      );
-      const map: Record<string, TrendingNativeAd | null> = {};
-      results.forEach(([slug, ad]) => { map[slug] = ad; });
-      setTrendingAdsByRegion(map);
-    } catch {
-      setTrendingAdsByRegion({});
-    }
-  }, []);
-
-  // Kampanye BADONASI = client-fetch sekali, non-blocking (below-fold).
-  const fetchCampaigns = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/funding/campaigns?limit=12`);
-      const data = await res.json();
-      if (data?.success && Array.isArray(data.data)) {
-        setCampaigns(data.data as BadonasiCampaign[]);
-      }
-    } catch {
-      setCampaigns([]);
-    }
-  }, []);
-
-  // Laporan BALAPOR verified = client-fetch sekali, non-blocking.
-  const fetchReports = useCallback(async () => {
-    try {
-      const res = await fetch(`${API}/public/reports/recent`);
-      const data = await res.json();
-      if (data?.success && Array.isArray(data.data)) {
-        setReports(data.data as BalaporReport[]);
-      }
-    } catch {
-      setReports([]);
-    }
-  }, []);
-
-  useEffect(() => { fetchTrendingAds(); }, [fetchTrendingAds]);
-  useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
-  useEffect(() => { fetchReports(); }, [fetchReports]);
-
   // Assign jenis slot + data per section (round-robin untuk kampanye & balapor).
   const houseAssignments = useMemo(() => {
     let k = 0; // counter slot kampanye
@@ -217,7 +156,7 @@ export default function BakabarShell({
                     {real && real.length ? (
                       <RegionSection
                         region={{ ...region, featured: real[0], trending_list: real.slice(1) }}
-                        trendingAd={trendingAdsByRegion[region.slug] ?? null}
+                        trendingAd={trendingByRegion[region.slug] ?? null}
                         houseSlot={slot}
                         houseCampaign={campaign}
                         houseReports={slotReports}
