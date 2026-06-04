@@ -1,16 +1,22 @@
 'use client';
 
 // ══════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v14.5 (Client Interactivity)
+// BAKABAR HOMEPAGE SHELL — Phase 4 Polish v15.0 (Client Interactivity)
 // PATH: src/app/(public)/bakabar/BakabarShell.tsx
 // ──────────────────────────────────────────────────────────────────
-// v14.4 (31 Mei 2026): Layanan + Zakat dicabut dari kolom-3 (→ jalur ADS).
+// v15.0 (4 Juni 2026, WS-3 — Region Wire-Up Server-Side):
+//   - Artikel REGION + VIRAL sekarang DITERIMA dari server (props
+//     `regionArticles` + `viralArticles`), BUKAN client-fetch lagi.
+//     → Hilangkan flash dummy→real + cegah klik dummy 404 di Ternate.
+//   - Region tanpa artikel = EMPTY-STATE jujur (<EmptyRegion/>), BUKAN
+//     fallback dummy palsu. Editorial integrity > visual lengkap.
+//   - Viral tanpa artikel = section di-skip (null), bukan dummy.
+//   - PRESERVED (tetap client, non-blocking, below-fold): trendingAds,
+//     campaigns (BADONASI), reports (BALAPOR), houseAssignments.
+//
+// v14.4 (31 Mei): Layanan + Zakat dicabut dari kolom-3 (→ jalur ADS).
 //   - houseSlotType: 'kampanye' | 'balapor' | 'ads'.
 //   - Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10) = data real house card.
-//   - Sisanya (6 section) = ADS murni (2 banner stack via RegionSection).
-//
-// v14.3 (31 Mei): + Suara Warga BALAPOR ke rotasi.
-// v14.2 (31 Mei): fetch campaigns + orchestrate house content.
 // v14.0 (31 Mei): Opsi B RSC split — hero render dari server slides.
 // ══════════════════════════════════════════════════════════════════
 
@@ -26,7 +32,7 @@ import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
 import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 import { TERPOPULER_LIST, REGIONS } from '@/components/bakabar/region-data';
 import { VIRAL_MALUT } from '@/components/bakabar/viral-malut-data';
-import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
+import type { HeroSlide, DummyArticle, RegionConfig } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
 import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
@@ -34,15 +40,13 @@ import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ─── Pola slot house content kolom-3 (zona atas) ──────────────────
-// v14.4 (31 Mei): Layanan + Zakat DICABUT (→ jalur ADS banner Canva).
 // House card = HANYA data real: Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10).
 // Sisanya (idx 0,3,4,7,8,11) = 'ads' → 2 banner ADS stack di kolom-3.
-// Ubah di sini buat ganti komposisi.
 function houseSlotType(idx: number): HouseSlot {
   const mod = idx % 4;
   if (mod === 1) return 'kampanye';
   if (mod === 2) return 'balapor';
-  return 'ads'; // mod 0 & 3 (eks Layanan + eks Zakat) → ADS murni
+  return 'ads'; // mod 0 & 3 → ADS murni
 }
 
 // Ambil `count` laporan dari `all` mulai `offset` (wrap), tanpa duplikat dalam 1 kartu.
@@ -54,17 +58,48 @@ function windowReports(all: BalaporReport[], offset: number, count = 3): Balapor
   return out;
 }
 
-// ─── BADONASI Strategic Inline Promo (DICABUT 31 Mei) ─────────────
-// v14.6: slot idx===1 sekarang pakai <DCAInlineBanner /> (posisi ADS
-// `inline_banner`, money-first). Banner pink statis di-pensiun — donasi
-// tetap hadir via kartu Kampanye kolom-3 + ticker BASUMBANG + /fundraising.
+// ─── Empty-state region (no dummy) ────────────────────────────────
+// v15.0: pengganti fallback dummy. Region tanpa artikel real → tampil
+// jujur, BUKAN headline palsu yang 404 pas diklik (editorial integrity).
+function EmptyRegion({ region }: { region: RegionConfig }) {
+  return (
+    <section className="my-12">
+      <div className="flex justify-between items-center mb-5">
+        <div className="flex items-center gap-3">
+          <div className="w-1 h-[30px] rounded-sm" style={{ background: '#8B5CF6' }} />
+          <h2
+            className="font-extrabold tracking-[-0.6px] text-gray-900"
+            style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 28 }}
+          >
+            {region.label}
+          </h2>
+        </div>
+      </div>
+      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-12 px-6 text-center">
+        <p className="text-[15px] font-semibold text-gray-600">
+          Belum ada berita untuk wilayah {region.short_label}.
+        </p>
+        <p className="text-[13px] text-gray-400 mt-1">
+          Tim redaksi sedang menyiapkan liputan. Cek lagi nanti, ya.
+        </p>
+      </div>
+    </section>
+  );
+}
 
-export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
+export default function BakabarShell({
+  slides,
+  regionArticles,
+  viralArticles,
+}: {
+  slides: HeroSlide[];
+  regionArticles: Record<string, DummyArticle[]>;
+  viralArticles: DummyArticle[];
+}) {
   const [trendingAdsByRegion, setTrendingAdsByRegion] =
     useState<Record<string, TrendingNativeAd | null>>({});
   const [campaigns, setCampaigns] = useState<BadonasiCampaign[]>([]);
   const [reports, setReports] = useState<BalaporReport[]>([]);
-  const [regionArticles, setRegionArticles] = useState<Record<string, DummyArticle[]>>({});
 
   // Trending ads = client-fetch, NON-BLOCKING. Tidak menahan hero.
   const fetchTrendingAds = useCallback(async () => {
@@ -122,43 +157,7 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
   useEffect(() => { fetchTrendingAds(); }, [fetchTrendingAds]);
   useEffect(() => { fetchCampaigns(); }, [fetchCampaigns]);
-  // Artikel REAL per section (geo→location, nasional→type, viral→source). Non-blocking.
-  const fetchRegionArticles = useCallback(async () => {
-    const toDummy = (a: any, i: number): DummyArticle => ({
-      id: a.id,
-      title: a.title,
-      slug: a.slug,
-      category: a.category || '',
-      published_at: a.published_at || a.created_at || new Date().toISOString(),
-      source_name: a.source_name,
-      cover_image_url: a.cover_image_url ?? null,
-      thumb_class: `thumb-${(i % 9) + 1}`,
-    });
-    const fetchOne = async (query: string): Promise<DummyArticle[]> => {
-      try {
-        const res = await fetch(`${API}/content/articles?${query}&limit=8`);
-        const data = await res.json();
-        if (data?.success && Array.isArray(data.data)) return data.data.map(toDummy);
-      } catch { /* non-blocking */ }
-      return [];
-    };
-    const targets: Array<[string, string]> = [
-      ...REGIONS.map((r) => [
-        r.slug,
-        r.slug === 'nasional' ? 'type=nasional' : `location=${encodeURIComponent(r.slug)}`,
-      ] as [string, string]),
-      [VIRAL_MALUT.slug, 'source=social'],
-    ];
-    const entries = await Promise.all(
-      targets.map(async ([slug, query]) => [slug, await fetchOne(query)] as const),
-    );
-    const map: Record<string, DummyArticle[]> = {};
-    entries.forEach(([slug, arts]) => { if (arts.length) map[slug] = arts; });
-    setRegionArticles(map);
-  }, []);
-
   useEffect(() => { fetchReports(); }, [fetchReports]);
-  useEffect(() => { fetchRegionArticles(); }, [fetchRegionArticles]);
 
   // Assign jenis slot + data per section (round-robin untuk kampanye & balapor).
   const houseAssignments = useMemo(() => {
@@ -179,6 +178,12 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
     });
   }, [campaigns, reports]);
 
+  // Section viral: pakai artikel server; skip kalau kosong (no dummy).
+  const liveViral: RegionConfig | null =
+    viralArticles && viralArticles.length
+      ? { ...VIRAL_MALUT, featured: viralArticles[0], trending_list: viralArticles.slice(1) }
+      : null;
+
   return (
     <div className="min-h-screen bg-white">
       <style>{`
@@ -196,9 +201,6 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
             <DCATopLeaderboard />
 
-            {/* v14.7 (31 Mei): mt-8 DIBUANG → hero sejajar atas skyscraper saat
-                top_leaderboard kosong. Jarak ke hero (saat banner ADA) dipindah
-                ke DCATopLeaderboard (mb-8). */}
             <div>
 
               {/* Hero render LANGSUNG — slides selalu terisi (server / fallback statis) */}
@@ -209,19 +211,20 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
               {REGIONS.map((region, idx) => {
                 const { slot, campaign, reports: slotReports } = houseAssignments[idx];
-                const _real = regionArticles[region.slug];
-                const liveRegion = _real && _real.length
-                  ? { ...region, featured: _real[0], trending_list: _real.slice(1) }
-                  : region;
+                const real = regionArticles[region.slug];
                 return (
                   <div key={region.slug}>
-                    <RegionSection
-                      region={liveRegion}
-                      trendingAd={trendingAdsByRegion[region.slug] ?? null}
-                      houseSlot={slot}
-                      houseCampaign={campaign}
-                      houseReports={slotReports}
-                    />
+                    {real && real.length ? (
+                      <RegionSection
+                        region={{ ...region, featured: real[0], trending_list: real.slice(1) }}
+                        trendingAd={trendingAdsByRegion[region.slug] ?? null}
+                        houseSlot={slot}
+                        houseCampaign={campaign}
+                        houseReports={slotReports}
+                      />
+                    ) : (
+                      <EmptyRegion region={region} />
+                    )}
 
                     {idx === 0 && <LaIndieMoviePoliticalBanner />}
                     {idx === 1 && <DCAInlineBanner />}
@@ -231,16 +234,12 @@ export default function BakabarShell({ slides }: { slides: HeroSlide[] }) {
 
               <LaIndieMovieServiceCarousel />
 
-              {/* Section Viral Maluku Utara (kategori ke-3) — dummy data, visual-first.
+              {/* Section Viral Maluku Utara — artikel real dari server (source=social).
                   Reuse RegionSection; hideWeather (non-geografis); kol-3 = ADS murni.
-                  🛡️ label editorial manual, BUKAN is_viral engine. */}
-              {(() => {
-                const _vr = regionArticles[VIRAL_MALUT.slug];
-                const _liveViral = _vr && _vr.length
-                  ? { ...VIRAL_MALUT, featured: _vr[0], trending_list: _vr.slice(1) }
-                  : VIRAL_MALUT;
-                return <RegionSection region={_liveViral} houseSlot="ads" hideWeather />;
-              })()}
+                  🛡️ label editorial manual, BUKAN is_viral engine. Skip kalau kosong. */}
+              {liveViral && (
+                <RegionSection region={liveViral} houseSlot="ads" hideWeather />
+              )}
 
               <div className="my-10">
                 <WANewsletterWidget />

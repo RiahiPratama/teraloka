@@ -1,32 +1,42 @@
 // ════════════════════════════════════════════════════════════════
-// BAKABAR HOMEPAGE — Phase 4 Polish v14.0 (RSC Split — Server Shell)
+// BAKABAR HOMEPAGE — Phase 4 Polish v15.0 (RSC Split — Server Shell)
 // PATH: src/app/(public)/bakabar/page.tsx
 // ────────────────────────────────────────────────────────────────
-// v14.0 UPDATE (31 Mei 2026, Phase 4 Desktop Polish — Opsi B):
-//   - CONVERT jadi Server Component (HAPUS 'use client')
-//   - Fetch artikel hero/region di SERVER (await) → hilangkan client
-//     loading-gate yang bikin hero (above-the-fold) telat render
-//   - searchParams jadi async server prop (Next 16)
-//   - Render <BakabarShell slides={...} /> (client) untuk interaktivitas
-//   - Hero sekarang ada di initial HTML → first paint instan
+// v15.0 UPDATE (4 Juni 2026, WS-3 — Region Wire-Up Server-Side):
+//   - PINDAH fetch artikel REGION (12 region MalUt + viral) dari client
+//     (BakabarShell useEffect) ke SERVER (await Promise.all). Hilangkan
+//     "content flash" dummy→real di latency Ternate + cegah klik dummy 404.
+//   - Region articles dikirim ke BakabarShell via prop `regionArticles`
+//     (Record<slug, DummyArticle[]>) + `viralArticles` (DummyArticle[]).
+//   - Empty/gagal fetch = array kosong → BakabarShell render EMPTY-STATE
+//     jujur (BUKAN fallback dummy palsu). Editorial integrity > visual.
+//   - FIX mismatch hero fetch: viral/nasional sekarang pakai ?type=
+//     (kontrak backend listArticles), bukan ?viral=true / ?source=rss.
+//   - Aktifkan revalidate:60 (Risk-1 Vercel quota) — region fetch tak
+//     bergantung searchParams → data-cache shared antar pengunjung.
 //
 // History:
-//   - v13.12: client fetch + loading gate (DEPRECATED — perceived
-//     perf kebalik: region instan, hero nyangkut skeleton)
+//   - v14.0 (31 Mei): Opsi B RSC split — hero fetch server, region client.
+//   - v13.12: full client fetch + loading gate (DEPRECATED).
 // ════════════════════════════════════════════════════════════════
 
 import { Suspense } from 'react';
 import BakabarShell from './BakabarShell';
-import { HERO_CAROUSEL_SLIDES } from '@/components/bakabar/region-data';
+import { HERO_CAROUSEL_SLIDES, REGIONS } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 // ── Fetch policy ────────────────────────────────────────────────
-// Pre-launch: no-store (selalu fresh, traffic rendah → aman).
-// POST-LAUNCH: ganti ke { next: { revalidate: 60 } } biar hasil render
-// di-cache 60 detik → hemat invocation Vercel (Risk-1 quota).
-const FETCH_OPTS: RequestInit = { cache: 'no-store' };
+// revalidate:60 → hasil fetch di-cache 60 detik (data cache Next.js).
+// Region fetch tidak bergantung searchParams → cache shared global,
+// hemat invocation Dalang VPS + Vercel (Risk-1 quota).
+const FETCH_OPTS: RequestInit = { next: { revalidate: 60 } };
+
+// ── Mappers ─────────────────────────────────────────────────────
+// CATATAN: TIDAK set `source` (tipe DummyArticle.source union sempit
+// 'editorial'|'rss'|'balapor'; backend balikin 'social'/'original'/dst
+// → set bakal error tsc strict). Mirror pola toDummy lama.
 
 function toCarouselArticle(a: any): DummyArticle {
   return {
@@ -36,10 +46,23 @@ function toCarouselArticle(a: any): DummyArticle {
     excerpt: a.excerpt,
     category: a.category || '',
     published_at: a.published_at || a.created_at,
-    source: a.source,
     source_name: a.source_name,
-    cover_image_url: a.cover_image_url,
+    cover_image_url: a.cover_image_url ?? null,
     is_viral: a.is_viral || false,
+  };
+}
+
+function toRegionArticle(a: any, i: number): DummyArticle {
+  return {
+    id: a.id,
+    title: a.title,
+    slug: a.slug,
+    excerpt: a.excerpt,
+    category: a.category || '',
+    published_at: a.published_at || a.created_at || new Date().toISOString(),
+    source_name: a.source_name,
+    cover_image_url: a.cover_image_url ?? null,
+    thumb_class: `thumb-${(i % 9) + 1}`,
   };
 }
 
@@ -71,21 +94,30 @@ function resolveNav(sp: SearchParams) {
   return { type, location, q };
 }
 
-async function fetchArticles(type: string, location: string, q: string): Promise<any[]> {
-  const params = new URLSearchParams();
-  if (type === 'viral') params.set('viral', 'true');
-  if (type === 'nasional') params.set('source', 'rss');
-  if (location !== 'all') params.set('location', location);
-  if (q) params.set('q', q);
-  params.set('limit', '12');
-
+// ── Generic list fetch (resilient: gagal → []) ──────────────────
+async function fetchList(query: string, limit: number): Promise<any[]> {
   try {
-    const res = await fetch(`${API}/content/articles?${params.toString()}`, FETCH_OPTS);
+    const res = await fetch(`${API}/content/articles?${query}&limit=${limit}`, FETCH_OPTS);
     const data = await res.json();
     return data?.success ? (data.data ?? []) : [];
   } catch {
     return [];
   }
+}
+
+// Hero/nav fetch — FIX: viral/nasional via ?type= (kontrak backend).
+async function fetchHeroArticles(type: string, location: string, q: string): Promise<any[]> {
+  const params = new URLSearchParams();
+  if (type === 'viral') params.set('type', 'viral');
+  else if (type === 'nasional') params.set('type', 'nasional');
+  if (location !== 'all') params.set('location', location);
+  if (q) params.set('q', q);
+  return fetchList(params.toString(), 12);
+}
+
+// Query per region: nasional → type, region geografis → location.
+function regionQuery(slug: string): string {
+  return slug === 'nasional' ? 'type=nasional' : `location=${encodeURIComponent(slug)}`;
 }
 
 export default async function BakabarPage({
@@ -96,29 +128,46 @@ export default async function BakabarPage({
   const sp = await searchParams;
   const { type, location, q } = resolveNav(sp);
 
-  const realArticles = await fetchArticles(type, location, q);
+  // Fetch hero + semua region + viral PARALEL di server.
+  const regionTargets = REGIONS.map((r) => [r.slug, regionQuery(r.slug)] as const);
+
+  const [heroRaw, regionRaw, viralRaw] = await Promise.all([
+    fetchHeroArticles(type, location, q),
+    Promise.all(
+      regionTargets.map(async ([slug, query]) => {
+        const arts = await fetchList(query, 8);
+        return [slug, arts.map(toRegionArticle)] as const;
+      }),
+    ),
+    fetchList('source=social', 8),
+  ]);
+
+  const regionArticles: Record<string, DummyArticle[]> = {};
+  regionRaw.forEach(([slug, arts]) => { regionArticles[slug] = arts; });
+  const viralArticles: DummyArticle[] = viralRaw.map(toRegionArticle);
 
   // Hero slide[idx] di-override dgn artikel asli kalau ada; sisanya
   // fallback ke HERO_CAROUSEL_SLIDES (statis) → hero TIDAK PERNAH kosong.
-  // Hero per-slide: hero = artikel real ke-idx; secondary = 2 artikel real
-  // berikutnya (setelah blok hero). Fallback ke dummy slide kalau real kurang.
   const HERO_COUNT = HERO_CAROUSEL_SLIDES.length;
   const slides: HeroSlide[] = HERO_CAROUSEL_SLIDES.map((slide, idx) => {
-    const heroReal = realArticles[idx];
+    const heroReal = heroRaw[idx];
     const secStart = HERO_COUNT + idx * 2;
-    const secReal  = realArticles.slice(secStart, secStart + 2).map(toCarouselArticle);
+    const secReal = heroRaw.slice(secStart, secStart + 2).map(toCarouselArticle);
     return {
       ...slide,
-      hero:      heroReal ? toCarouselArticle(heroReal) : slide.hero,
+      hero: heroReal ? toCarouselArticle(heroReal) : slide.hero,
       secondary: secReal.length === 2 ? (secReal as [DummyArticle, DummyArticle]) : slide.secondary,
     };
   });
 
   // Suspense = safety net kalau ada child pakai useSearchParams.
-  // Fallback bg putih: tidak akan terlihat kecuali ada yang suspend.
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>
-      <BakabarShell slides={slides} />
+      <BakabarShell
+        slides={slides}
+        regionArticles={regionArticles}
+        viralArticles={viralArticles}
+      />
     </Suspense>
   );
 }

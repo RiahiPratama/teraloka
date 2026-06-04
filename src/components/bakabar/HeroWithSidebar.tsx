@@ -94,10 +94,6 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
               </span>
             )}
           </div>
-
-          <p className="absolute bottom-4 left-6 z-[3] text-white text-[11px] italic opacity-85">
-            Foto: BAKABAR / Maluku Utara
-          </p>
         </div>
 
         {/* Title + Excerpt + Meta */}
