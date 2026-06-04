@@ -10,18 +10,37 @@
 
 import { useState, useEffect } from 'react';
 
-// ─── Image Compression (Balanced quality) ───────────────────────
+// ─── Image Compression (Mobile-first + alpha-aware) ──────────────
 //
-// Strategy: max 1920px (long edge), JPEG 85% quality
-// Result: 5MB photo → ~500-700KB, text masih readable
-// PDF & non-image: skip compression, return original
+// v4 (5 Jun 2026, WS-5c B-lite):
+//   - MAX_DIMENSION 1920 → 1280 (cukup buat HP ~380px + desktop ~1000px;
+//     separuh berat dari 1920). Mayoritas trafik BAKABAR = mobile.
+//   - Output JPEG → WebP @ 0.85 (≈25-35% lebih kecil di kualitas setara;
+//     semua browser 2026 support). LCP win.
+//   - ALPHA-AWARE: PNG transparan (objek animasi AnimationBuilder, logo)
+//     TIDAK dipaksa lossy — output PNG (resize only) supaya transparansi +
+//     ketajaman tepi terjaga. Iklan = produk berbayar, kualitas dijaga.
+//     Deteksi alpha cuma untuk source PNG/WebP (JPEG mustahil punya alpha →
+//     skip scan, hemat). Foto (JPEG) langsung WebP.
+//   - Skip threshold 500KB → 150KB (gambar 150-500KB ikut diproses; hero
+//     299KB sebelumnya LOLOS tanpa di-resize — ini yg bikin LCP berat).
+//   - GIF di-skip (animasi mati kalau lewat canvas) — defense in depth,
+//     walau ImageUpload + VideoUpload sudah skip GIF sebelum manggil ini.
+//
+// PDF & non-image: skip, return original.
 //
 export async function compressImage(file: File): Promise<File> {
   // Skip non-image (PDF, dll)
   if (!file.type.startsWith('image/')) return file;
 
-  // Skip if already small (< 500KB) — no need to compress
-  if (file.size < 500 * 1024) return file;
+  // Skip GIF — canvas render = frame pertama saja → animasi hilang.
+  if (file.type === 'image/gif') return file;
+
+  // Skip if already small (< 150KB) — no need to compress
+  if (file.size < 150 * 1024) return file;
+
+  // Source yang MUNGKIN punya alpha = PNG / WebP. JPEG mustahil transparan.
+  const mayHaveAlpha = file.type === 'image/png' || file.type === 'image/webp';
 
   return new Promise((resolve) => {
     const img = new Image();
@@ -32,7 +51,7 @@ export async function compressImage(file: File): Promise<File> {
     };
 
     img.onload = () => {
-      const MAX_DIMENSION = 1920;
+      const MAX_DIMENSION = 1280;
       let { width, height } = img;
 
       // Resize if needed (preserve aspect ratio)
@@ -56,23 +75,49 @@ export async function compressImage(file: File): Promise<File> {
       }
 
       ctx.drawImage(img, 0, 0, width, height);
+
+      // ── Deteksi transparansi (hanya untuk source PNG/WebP) ──────
+      // Scan alpha channel; ketemu pixel < 255 → ada transparansi.
+      // Early-break begitu nemu (cepat untuk gambar yang memang transparan).
+      let hasAlpha = false;
+      if (mayHaveAlpha) {
+        try {
+          const { data } = ctx.getImageData(0, 0, width, height);
+          for (let i = 3; i < data.length; i += 4) {
+            if (data[i] < 255) { hasAlpha = true; break; }
+          }
+        } catch {
+          // getImageData gagal (mis. tainted) → aman-kan: anggap punya alpha
+          // supaya gak ngerusak transparansi yang mungkin ada.
+          hasAlpha = true;
+        }
+      }
+
+      // Transparan → PNG (lossless, jaga alpha + tepi). Selain itu → WebP 85%.
+      const outType = hasAlpha ? 'image/png' : 'image/webp';
+      const outExt  = hasAlpha ? 'png' : 'webp';
+
       canvas.toBlob(
         (blob) => {
           if (!blob) {
             resolve(file);
             return;
           }
-          // Preserve original filename, change extension to .jpg
-          const ext = 'jpg';
+          // Guard: kalau hasil malah LEBIH besar dari asli (jarang, mis.
+          // PNG flat kecil), pakai file asli — jangan rugi.
+          if (blob.size >= file.size) {
+            resolve(file);
+            return;
+          }
           const nameWithoutExt = file.name.replace(/\.[^/.]+$/, '');
-          const newFile = new File([blob], `${nameWithoutExt}.${ext}`, {
-            type: 'image/jpeg',
+          const newFile = new File([blob], `${nameWithoutExt}.${outExt}`, {
+            type: outType,
             lastModified: Date.now(),
           });
           resolve(newFile);
         },
-        'image/jpeg',
-        0.85, // 85% quality
+        outType,
+        hasAlpha ? undefined : 0.85, // quality hanya berlaku untuk WebP
       );
     };
 
