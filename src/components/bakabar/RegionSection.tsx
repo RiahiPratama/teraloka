@@ -162,7 +162,7 @@ export default function RegionSection({
               style={{ background: REGION_BG[gradient_class] || REGION_BG['t-nasional'] }}
             >
               {featured.cover_image_url && (
-                <img src={featured.cover_image_url} alt={featured.title} className="absolute inset-0 w-full h-full object-cover" />
+                <img src={featured.cover_image_url} alt={featured.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
               )}
               <div className="absolute inset-0 pointer-events-none"
                 style={{ background: 'linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.7) 100%)' }} />
@@ -250,7 +250,7 @@ export default function RegionSection({
                     <div className="w-[60px] h-[60px] rounded-md shrink-0 overflow-hidden"
                       style={{ background: THUMB_BG[item.thumb_class || 'thumb-1'] || THUMB_BG['thumb-1'] }}>
                       {item.cover_image_url && (
-                        <img src={item.cover_image_url} alt={item.title} className="w-full h-full object-cover" />
+                        <img src={item.cover_image_url} alt={item.title} loading="lazy" className="w-full h-full object-cover" />
                       )}
                     </div>
                   </Link>

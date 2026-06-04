@@ -143,9 +143,9 @@ function renderMarkdown(text: string): string {
   html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_m, alt, src) => {
     const safeAlt = alt || '';
     if (safeAlt.trim()) {
-      return `<figure class="bk-fig"><img src="${src}" alt="${safeAlt}" /><figcaption>${safeAlt}</figcaption></figure>`;
+      return `<figure class="bk-fig"><img src="${src}" alt="${safeAlt}" loading="lazy" /><figcaption>${safeAlt}</figcaption></figure>`;
     }
-    return `<img class="bk-inline" src="${src}" alt="" />`;
+    return `<img class="bk-inline" src="${src}" alt="" loading="lazy" />`;
   });
 
   html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
@@ -166,7 +166,7 @@ const SANITIZE_OPTS = {
   allowedTags: ['p','br','h1','h2','h3','strong','em','a','ul','ol','li','blockquote','figure','figcaption','img'],
   allowedAttributes: {
     a: ['href','target','rel'],
-    img: ['src','alt','class'],
+    img: ['src','alt','class','loading'],
     figure: ['class'],
   },
   allowedSchemes: ['http','https','mailto'],
@@ -200,7 +200,7 @@ function RelatedArticles({ articles }: { articles: any[] }) {
             className="flex gap-3 items-start group hover:bg-gray-50 rounded-xl p-2 -mx-2 transition-colors">
             <div className="w-20 h-16 rounded-lg overflow-hidden bg-gray-100 shrink-0">
               {a.cover_image_url
-                ? <img src={a.cover_image_url} alt={a.title} className="w-full h-full object-cover" />
+                ? <img src={a.cover_image_url} alt={a.title} loading="lazy" className="w-full h-full object-cover" />
                 : <div className="w-full h-full flex items-center justify-center text-gray-300 text-xl">📰</div>
               }
             </div>
@@ -387,6 +387,7 @@ export default async function ArticlePage({ params }: Props) {
               <div className="mb-6 rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center"
                 style={{ maxHeight: 600 }}>
                 <img src={article.cover_image_url} alt={article.title}
+                  fetchPriority="high"
                   className="w-full h-auto object-contain"
                   style={{ maxHeight: 600 }} />
               </div>
