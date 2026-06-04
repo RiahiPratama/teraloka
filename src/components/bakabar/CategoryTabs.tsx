@@ -86,6 +86,17 @@ function CategoryTabsInner() {
   const [atTop,         setAtTop]         = useState(true);
   const [topicOpen,     setTopicOpen]     = useState(false);
   const [showRightFade, setShowRightFade] = useState(true);
+  // v5a (4 Jun): grid 5-kolom (align skyscraper) HANYA di ≥1400px (breakpoint
+  // sama skyscraper). Di bawah → 1 kolom full-width, biar pill kanal gak
+  // kepencet track skyscraper hantu di mobile/tablet.
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1400px)');
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -174,7 +185,7 @@ function CategoryTabsInner() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: '160px 20px minmax(0, 1000px) 20px 160px',
+            gridTemplateColumns: isWide ? '160px 20px minmax(0, 1000px) 20px 160px' : '1fr',
             justifyContent: 'center',
             alignItems: 'start',
           }}

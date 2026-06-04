@@ -103,6 +103,18 @@ export default function RegionSection({
   // ResizeObserver Col 1 → Col 2/3 layout sync (v10.2 preserved)
   const col1Ref = useRef<HTMLDivElement>(null);
   const [col1Height, setCol1Height] = useState<number | null>(null);
+  // v5a (4 Jun): height-sync col2/col3 → col1 HANYA di desktop (≥1024px).
+  // Di mobile grid stack 1-kolom → sinkron tinggi gak relevan (bikin card
+  // trending/ads kepanjangan ngikut tinggi featured). Mobile-first: default false.
+  const [isWide, setIsWide] = useState(false);
+
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)');
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
 
   useEffect(() => {
     const el = col1Ref.current;
@@ -115,7 +127,7 @@ export default function RegionSection({
     return () => ro.disconnect();
   }, [showWeather]);
 
-  const stretchStyle = col1Height ? { height: `${col1Height}px` } : undefined;
+  const stretchStyle = isWide && col1Height ? { height: `${col1Height}px` } : undefined;
 
   // Zona atas kolom-3: data real butuh isi; kalau kosong → ADS murni (no kartu kosong)
   const showCampaign = houseSlot === 'kampanye' && !!houseCampaign;
@@ -139,10 +151,7 @@ export default function RegionSection({
       </div>
 
       <div
-        className="grid gap-5 items-start"
-        style={{
-          gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr)',
-        }}
+        className="grid gap-5 items-start grid-cols-1 lg:grid-cols-3"
       >
         {/* Col 1: Height reference */}
         <div ref={col1Ref} className="flex flex-col gap-3 min-w-0">

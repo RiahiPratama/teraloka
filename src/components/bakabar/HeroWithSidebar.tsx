@@ -123,7 +123,7 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
       <div className="mt-5 pt-5" style={{ borderTop: '1px solid #E5E7EB' }}>
 
         {/* 2 Mini cards bottom */}
-        <div className="grid gap-4" style={{ gridTemplateColumns: '1fr 1fr' }}>
+        <div className="grid gap-4 grid-cols-2">
           {secondary.map((a) => (
             <Link key={a.id} href={`/bakabar/${a.slug}`} className="block group cursor-pointer">
               <div className="w-full rounded-md overflow-hidden mb-2.5 relative"
@@ -179,7 +179,7 @@ export default function HeroWithSidebar({ slides, terpopuler }: Props) {
   const isLast = currentSlide === totalSlides - 1;
 
   return (
-    <div className="grid gap-7 mb-10" style={{ gridTemplateColumns: '1fr 320px' }}>
+    <div className="grid gap-7 mb-10 grid-cols-1 lg:grid-cols-[1fr_320px]">
 
       {/* ─── LEFT: Carousel (entire Hero area) ──────────────── */}
       <div className="min-w-0 relative">

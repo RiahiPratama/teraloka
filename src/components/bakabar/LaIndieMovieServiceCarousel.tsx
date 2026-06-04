@@ -141,7 +141,7 @@ export default function LaIndieMovieServiceCarousel() {
       </div>
 
       {/* Poster gallery */}
-      <div className="flex items-center justify-center gap-3 md:gap-5 py-8 overflow-x-auto md:overflow-visible"
+      <div className="flex items-center justify-start md:justify-center gap-3 md:gap-5 py-8 overflow-x-auto md:overflow-visible"
         style={{ minHeight: POSTER_H * FOCUSED_SCALE + 20 }}>
         {ads.map((ad, idx) => (
           <ServicePoster

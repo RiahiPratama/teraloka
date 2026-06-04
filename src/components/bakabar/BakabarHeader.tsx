@@ -103,6 +103,17 @@ export default function BakabarHeader() {
   const [avatarOpen, setAvatarOpen]         = useState(false);
   const [searchQuery,    setSearchQuery]    = useState('');
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
+  // v5a (4 Jun): grid header 5-kolom (align skyscraper) HANYA di ≥1400px
+  // (breakpoint sama dgn skyscraper). Di bawah → 1 kolom full-width, biar
+  // konten header gak kepencet track skyscraper hantu di mobile/tablet.
+  const [isWide, setIsWide] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1400px)');
+    const onChange = () => setIsWide(mq.matches);
+    onChange();
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const avatarRef      = useRef<HTMLDivElement>(null);
 
@@ -178,8 +189,9 @@ export default function BakabarHeader() {
             <div
               style={{
                 display: 'grid',
-                gridTemplateColumns: '160px 20px minmax(0, 1000px) 20px 160px',
+                gridTemplateColumns: isWide ? '160px 20px minmax(0, 1000px) 20px 160px' : '1fr',
                 justifyContent: 'center',
+                alignContent: 'center',
                 alignItems: 'center',
                 height: 56,
               }}
@@ -219,11 +231,11 @@ export default function BakabarHeader() {
                   BAKABAR
                 </Link>
 
-                {/* Spacer kiri (push Search ke tengah) */}
-                <div className="flex-1 min-w-0" />
+                {/* Spacer kiri (push Search ke tengah) — desktop only, mobile search full-width */}
+                <div className="hidden md:block flex-1 min-w-0" />
 
                 {/* Search di TENGAH (max 500px) */}
-                <form onSubmit={handleSearch} className="shrink-0" style={{ width: '100%', maxWidth: 500 }}>
+                <form onSubmit={handleSearch} className="flex-1 min-w-0" style={{ maxWidth: 500 }}>
                   <div
                     className="flex items-center gap-2 rounded-full px-4 py-2 transition-all"
                     style={{ background: '#F1F5F9', border: '1.5px solid transparent' }}
@@ -255,8 +267,8 @@ export default function BakabarHeader() {
                   </div>
                 </form>
 
-                {/* Spacer kanan (push Avatar ke right edge main) */}
-                <div className="flex-1 min-w-0" />
+                {/* Spacer kanan (push Avatar ke right edge main) — desktop only */}
+                <div className="hidden md:block flex-1 min-w-0" />
 
                 {/* Avatar / Login + Dropdown popover */}
                 <div className="flex items-center gap-2 shrink-0" ref={avatarRef}>

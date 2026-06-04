@@ -275,11 +275,11 @@ export default function PrayerBreakingBar() {
   const isActive    = prayerStatus.mode === 'active';
 
   return (
-    <div className="px-1 pt-1 flex items-center gap-3 flex-wrap md:flex-nowrap text-xs min-w-0">
+    <div className="px-1 pt-1 flex items-center gap-x-3 gap-y-1 flex-wrap md:flex-nowrap text-xs min-w-0">
 
       {/* ── BREAKING NEWS (kiri, flex-1) ──────────────────────── */}
       {hasBreaking && (
-        <div className="flex items-center gap-1.5 flex-1 min-w-0 order-1">
+        <div className="flex items-center gap-1.5 w-full md:w-auto md:flex-1 min-w-0 order-1">
           <span className="flex items-center gap-1 shrink-0">
             <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             <span className="font-extrabold tracking-wider text-red-500 text-[10px]">

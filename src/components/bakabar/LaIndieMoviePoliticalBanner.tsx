@@ -227,7 +227,7 @@ export default function LaIndieMoviePoliticalBanner() {
 
       {/* Poster gallery */}
       <div
-        className="flex items-center justify-center gap-3 md:gap-4 py-8 overflow-x-auto md:overflow-visible"
+        className="flex items-center justify-start md:justify-center gap-3 md:gap-4 py-8 overflow-x-auto md:overflow-visible"
         style={{ minHeight: POSTER_H * FOCUSED_SCALE + 20 }}
       >
         {ads.map((ad, idx) => (
