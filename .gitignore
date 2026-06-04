@@ -42,3 +42,8 @@ next-env.d.ts
 
 # AI agent skills cache (managed by skills-lock.json)
 .agents/
+
+# scratch patch scripts & backups
+*.py.bak
+*.bak
+editor_*.py
