@@ -28,25 +28,25 @@ import { queueClick } from '@/lib/adTracking';
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 export interface TopLeaderboardFrame {
-  order:       number;
-  headline:    string;
-  image_url:   string;
+  order: number;
+  headline: string;
+  image_url: string;
   duration_ms: number;
 }
 
 interface TopLeaderboardAd {
-  id:                  string;
-  title:               string | null;
-  body:                string | null;
-  link_url:            string | null;
-  image_url:           string | null;
-  advertiser_name:     string;
-  advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
-  disclaimer_text?:    string | null;
-  creative_frames:     TopLeaderboardFrame[] | null;
+  id: string;
+  title: string | null;
+  body: string | null;
+  link_url: string | null;
+  image_url: string | null;
+  advertiser_name: string;
+  advertiser_type: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
+  disclaimer_text?: string | null;
+  creative_frames: TopLeaderboardFrame[] | null;
   // SESI 11 Batch 8: Banner Motion (webM/mp4 fill)
-  ad_format?:          'image' | 'text' | 'animated' | 'video';
-  video_sources?:      Record<string, AdVideoSource> | null;
+  ad_format?: 'image' | 'text' | 'animated' | 'video';
+  video_sources?: Record<string, AdVideoSource> | null;
 }
 
 const HOVER_GRACE_MS = 1500;
@@ -88,7 +88,10 @@ export default function DCATopLeaderboard() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading || !ad) return null;
+  if (loading || !ad) return null; if (loading) {
+    return <div className="block w-full h-[220px] mb-8" aria-hidden="true" />;
+  }
+  if (!ad) return null;
 
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
 
@@ -114,7 +117,7 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const rotationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const graceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const graceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useReducedMotion();
 
   const frames = ad.creative_frames ?? [];
@@ -161,7 +164,7 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
         {!reducedMotion ? (
           <video className="w-full h-full object-cover" autoPlay loop muted playsInline poster={video!.poster || undefined}>
             {video!.webm && <source src={video!.webm} type="video/webm" />}
-            {video!.mp4  && <source src={video!.mp4}  type="video/mp4" />}
+            {video!.mp4 && <source src={video!.mp4} type="video/mp4" />}
           </video>
         ) : video!.poster ? (
           <img src={video!.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
