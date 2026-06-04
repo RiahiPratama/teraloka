@@ -88,10 +88,16 @@ export default function DCATopLeaderboard() {
     return () => { cancelled = true; };
   }, []);
 
-  if (loading || !ad) return null; if (loading) {
+  // PERF (4 Jun 2026, WS-5c v2): reserve tinggi PERMANEN (above-the-fold).
+  // Slot final = h-[220px] + mb-8 (32px) = 252px. Ad top_leaderboard datang
+  // ~4 dtk (kebukti di filmstrip Lighthouse) → tanpa kursi tetap, slot 0px →
+  // ad masuk → push hero turun 252px = CLS 0.227 + paint LCP tertunda.
+  // loading / kosong / ada-ad → SELALU 252px. Zero shift. (Baris lama
+  // `if (loading || !ad) return null` DIHAPUS — dia short-circuit duluan
+  // bikin reserve gak pernah jalan.)
+  if (loading || !ad) {
     return <div className="block w-full h-[220px] mb-8" aria-hidden="true" />;
   }
-  if (!ad) return null;
 
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
 
