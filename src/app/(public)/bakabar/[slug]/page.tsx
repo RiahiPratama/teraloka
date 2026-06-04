@@ -362,7 +362,7 @@ export default async function ArticlePage({ params }: Props) {
             </div>
 
             <h1 style={{ fontFamily: 'var(--font-lora), Georgia, serif' }}
-              className="text-3xl font-bold text-gray-900 leading-snug tracking-tight mb-4">
+              className="text-2xl sm:text-3xl font-bold text-gray-900 leading-snug tracking-tight mb-4">
               {article.title}
             </h1>
 
