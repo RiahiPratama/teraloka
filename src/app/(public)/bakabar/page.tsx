@@ -18,6 +18,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { Suspense } from 'react';
+import { preload } from 'react-dom';
 import BakabarShell from './BakabarShell';
 import { HERO_CAROUSEL_SLIDES, REGIONS } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
@@ -207,6 +208,17 @@ export default async function BakabarPage({
       secondary: secReal.length === 2 ? (secReal as [DummyArticle, DummyArticle]) : slide.secondary,
     };
   });
+
+  // PERF (4 Jun 2026, WS-5c): preload gambar LCP (hero slide-0).
+  // React 19 emit <link rel=preload as=image fetchpriority=high> ke <head>
+  // SEBELUM render carousel → browser fetch gambar hero sejak parse HTML,
+  // bukan nunggu hydrate. Kombinasi dgn preconnect (root layout) memangkas
+  // LCP "resource load delay" 2.1 dtk. Gradient-fallback (cover null) →
+  // lcpImage undefined → skip, gak ada yg di-preload.
+  const lcpImage = slides[0]?.hero?.cover_image_url;
+  if (lcpImage) {
+    preload(lcpImage, { as: 'image', fetchPriority: 'high' });
+  }
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-white" />}>

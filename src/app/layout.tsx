@@ -144,6 +144,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
           rel="stylesheet"
         />
+
+        {/* PERF (4 Jun 2026, WS-5c): preconnect ke Supabase Storage.
+            Gambar artikel di-serve dari domain TERPISAH (lhga...supabase.co),
+            BUKAN vercel.app. Tanpa ini, browser baru buka koneksi DNS+TCP+TLS
+            saat <img> ketemu di body → Lighthouse: LCP "resource load delay"
+            2.1 dtk. preconnect TANPA crossOrigin (match <img> biasa no-cors,
+            cegah double-fetch). Global di root = reader + archive ikut dapet. */}
+        <link rel="preconnect" href="https://lhgabgslspfnnnhpmvmg.supabase.co" />
+        <link rel="dns-prefetch" href="https://lhgabgslspfnnnhpmvmg.supabase.co" />
       </head>
       <body suppressHydrationWarning={true}>
         {/* Provider order (outer to inner):
