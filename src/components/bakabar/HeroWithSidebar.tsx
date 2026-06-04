@@ -69,7 +69,7 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
         {/* BIG image */}
         <div className="w-full relative rounded-md overflow-hidden mb-5" style={{ aspectRatio: '16 / 9' }}>
           {hero.cover_image_url ? (
-            <img src={hero.cover_image_url} alt={hero.title} className="w-full h-full object-cover" />
+            <img src={hero.cover_image_url} alt={hero.title} fetchPriority={slideIdx === 0 ? 'high' : 'auto'} loading={slideIdx === 0 ? 'eager' : 'lazy'} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full relative" style={{ background: heroGradient }}>
               <div className="absolute inset-0 pointer-events-none" style={{
@@ -129,7 +129,7 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
               <div className="w-full rounded-md overflow-hidden mb-2.5 relative"
                 style={{ aspectRatio: '16 / 9', background: THUMB_BG[a.thumb_class || 'thumb-3'] || THUMB_BG['thumb-3'] }}>
                 {a.cover_image_url && (
-                  <img src={a.cover_image_url} alt={a.title} className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={a.cover_image_url} alt={a.title} loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
                 )}
                 <div className="absolute inset-0 pointer-events-none" style={{
                   background: 'radial-gradient(ellipse at 70% 30%, rgba(255,255,255,0.12) 0%, transparent 50%)',
