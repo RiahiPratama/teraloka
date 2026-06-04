@@ -671,9 +671,9 @@ export default function EditArticlePage() {
         </div>
       )}
 
-      {/* Sticky toolbar */}
+      {/* Sticky header + status bar — nempel bareng biar status gak ketelan */}
+      <div style={{ position: 'sticky', top: 0, zIndex: 50 }}>
       <div style={{
-        position: 'sticky', top: 0, zIndex: 50,
         background: editorTokens.toolbarBg,
         backdropFilter: 'blur(8px)',
         borderBottom: `1px solid ${editorTokens.toolbarBorder}`,
@@ -833,6 +833,7 @@ export default function EditArticlePage() {
           )}
         </div>
       )}
+      </div>
 
       {error && (
         <div style={{ padding: '10px 20px', background: 'rgba(239,68,68,0.08)', borderBottom: '1px solid rgba(239,68,68,0.2)' }}>
