@@ -25,6 +25,7 @@ import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
 import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
+import type { StackBannerAd } from '@/components/bakabar/DCAStackBanner';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -164,6 +165,31 @@ async function fetchTrendingByRegion(): Promise<Record<string, TrendingNativeAd 
   return map;
 }
 
+// region_stack ADS per region — WS-5c (5 Jun): dipindah dari client
+// (DCAStackBanner useEffect ×13) ke server. limit=2 (maks slot ads-murni);
+// komponen slice(0, maxAds) sesuai slot. Di-cache 60s + timeout-guarded.
+async function fetchStackByRegion(): Promise<Record<string, StackBannerAd[]>> {
+  const entries = await Promise.all(
+    REGIONS.map(async (r) => {
+      try {
+        const res = await fetchWithTimeout(
+          `${API}/public/ads/by-position/region_stack?region=${encodeURIComponent(r.slug)}&limit=2`,
+          FETCH_OPTS,
+        );
+        const data = await res.json();
+        const ads =
+          data?.success && Array.isArray(data.data) ? (data.data as StackBannerAd[]) : [];
+        return [r.slug, ads] as const;
+      } catch {
+        return [r.slug, [] as StackBannerAd[]] as const;
+      }
+    }),
+  );
+  const map: Record<string, StackBannerAd[]> = {};
+  entries.forEach(([slug, ads]) => { map[slug] = ads; });
+  return map;
+}
+
 async function fetchCampaigns(): Promise<BadonasiCampaign[]> {
   try {
     const res = await fetchWithTimeout(`${API}/funding/campaigns?limit=12`, FETCH_OPTS);
@@ -195,7 +221,7 @@ export default async function BakabarPage({
   // Fetch hero + region + viral + trending + campaign + report PARALEL di server.
   const regionTargets = REGIONS.map((r) => [r.slug, regionQuery(r.slug)] as const);
 
-  const [heroRaw, regionRaw, viralRaw, trendingByRegion, campaigns, reports] = await Promise.all([
+  const [heroRaw, regionRaw, viralRaw, trendingByRegion, stackByRegion, campaigns, reports] = await Promise.all([
     fetchHeroArticles(type, location, q),
     Promise.all(
       regionTargets.map(async ([slug, query]) => {
@@ -205,6 +231,7 @@ export default async function BakabarPage({
     ),
     fetchList('source=social', 8),
     fetchTrendingByRegion(),
+    fetchStackByRegion(),
     fetchCampaigns(),
     fetchReports(),
   ]);
@@ -245,6 +272,7 @@ export default async function BakabarPage({
         regionArticles={regionArticles}
         viralArticles={viralArticles}
         trendingByRegion={trendingByRegion}
+        stackByRegion={stackByRegion}
         campaigns={campaigns}
         reports={reports}
       />

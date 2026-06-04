@@ -14,6 +14,11 @@
 //   - House card (kampanye/balapor) kini terisi dari first paint (server),
 //     tanpa pop-in setelah hydrate.
 //
+// WS-5c (5 Jun 2026): +stackByRegion — region_stack ADS per region juga
+//   dipindah ke server-fetch (page.tsx). Diteruskan ke RegionSection →
+//   DCAStackBanner (presentational untuk 13 region utama). Section Viral
+//   (non-REGIONS) tidak dapat prop → DCAStackBanner fallback fetch sendiri.
+//
 // v15.0 (4 Juni): WS-3 region wire-up server-side + empty-state.
 // v14.0 (31 Mei): Opsi B RSC split — hero render dari server slides.
 // ══════════════════════════════════════════════════════════════════
@@ -34,6 +39,7 @@ import type { HeroSlide, DummyArticle, RegionConfig } from '@/components/bakabar
 import type { TrendingNativeAd } from '@/components/bakabar/TrendingArticleAd';
 import type { BadonasiCampaign } from '@/components/bakabar/CampaignCol3Card';
 import type { BalaporReport } from '@/components/bakabar/SuaraWargaCol3Card';
+import type { StackBannerAd } from '@/components/bakabar/DCAStackBanner';
 
 // ─── Pola slot house content kolom-3 (zona atas) ──────────────────
 // House card = HANYA data real: Kampanye (idx 1,5,9) + BALAPOR (idx 2,6,10).
@@ -88,6 +94,7 @@ export default function BakabarShell({
   regionArticles,
   viralArticles,
   trendingByRegion,
+  stackByRegion,
   campaigns,
   reports,
 }: {
@@ -95,6 +102,7 @@ export default function BakabarShell({
   regionArticles: Record<string, DummyArticle[]>;
   viralArticles: DummyArticle[];
   trendingByRegion: Record<string, TrendingNativeAd | null>;
+  stackByRegion: Record<string, StackBannerAd[]>;
   campaigns: BadonasiCampaign[];
   reports: BalaporReport[];
 }) {
@@ -157,6 +165,7 @@ export default function BakabarShell({
                       <RegionSection
                         region={{ ...region, featured: real[0], trending_list: real.slice(1) }}
                         trendingAd={trendingByRegion[region.slug] ?? null}
+                        stackAds={stackByRegion[region.slug] ?? []}
                         houseSlot={slot}
                         houseCampaign={campaign}
                         houseReports={slotReports}
@@ -175,7 +184,9 @@ export default function BakabarShell({
 
               {/* Section Viral Maluku Utara — artikel real dari server (source=social).
                   Reuse RegionSection; hideWeather (non-geografis); kol-3 = ADS murni.
-                  🛡️ label editorial manual, BUKAN is_viral engine. Skip kalau kosong. */}
+                  🛡️ label editorial manual, BUKAN is_viral engine. Skip kalau kosong.
+                  CATATAN: slug viral di luar REGIONS → TIDAK pass stackAds →
+                  DCAStackBanner fallback fetch sendiri (1 call, perilaku lama). */}
               {liveViral && (
                 <RegionSection region={liveViral} houseSlot="ads" hideWeather />
               )}

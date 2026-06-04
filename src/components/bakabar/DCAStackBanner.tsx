@@ -1,5 +1,3 @@
-'use client';
-
 // ════════════════════════════════════════════════════════════════
 // BAKABAR — DCA Stack Banner v2.0 (Phase 4 — Multi-Ad region_stack)
 // PATH: src/components/bakabar/DCAStackBanner.tsx
@@ -54,7 +52,8 @@ export interface StackBannerAd {
 
 type Props = {
   regionSlug: string;
-  maxAds?:    number;   // v2.0: 1 (default) atau 2 (ADS-murni stack)
+  maxAds?:    number;          // v2.0: 1 (default) atau 2 (ADS-murni stack)
+  ads?:       StackBannerAd[];  // WS-5c (5 Jun): server-provided → skip client fetch
 };
 
 const HOVER_GRACE_MS = 1500;
@@ -72,11 +71,18 @@ function useReducedMotion(): boolean {
   return reduced;
 }
 
-export default function DCAStackBanner({ regionSlug, maxAds = 1 }: Props) {
-  const [ads, setAds] = useState<StackBannerAd[]>([]);
-  const [loading, setLoading] = useState(true);
+export default function DCAStackBanner({ regionSlug, maxAds = 1, ads: adsProp }: Props) {
+  // WS-5c (5 Jun 2026): HYBRID — region_stack dipindah ke server-fetch (page.tsx),
+  // di-cache 60s → beban Dalang konstan. `ads` prop di-pass dari server untuk 13
+  // region utama → SKIP client fetch. Section non-REGIONS (mis. Viral) tidak
+  // dapat prop → fallback fetch sendiri (perilaku lama). Jika rantai props gagal,
+  // fallback tetap jalan = defense in depth.
+  const serverProvided = adsProp !== undefined;
+  const [adsState, setAdsState] = useState<StackBannerAd[]>([]);
+  const [loading, setLoading] = useState(!serverProvided);
 
   useEffect(() => {
+    if (serverProvided) return; // server kasih data → tidak fetch
     let cancelled = false;
     (async () => {
       try {
@@ -85,7 +91,7 @@ export default function DCAStackBanner({ regionSlug, maxAds = 1 }: Props) {
         );
         const json = await res.json();
         if (!cancelled && json?.success && Array.isArray(json.data)) {
-          setAds((json.data as StackBannerAd[]).slice(0, maxAds));
+          setAdsState((json.data as StackBannerAd[]).slice(0, maxAds));
         }
       } catch {
         // Empty state — gracefully hide
@@ -94,7 +100,9 @@ export default function DCAStackBanner({ regionSlug, maxAds = 1 }: Props) {
       }
     })();
     return () => { cancelled = true; };
-  }, [regionSlug, maxAds]);
+  }, [regionSlug, maxAds, serverProvided]);
+
+  const ads = serverProvided ? adsProp!.slice(0, maxAds) : adsState;
 
   if (loading || ads.length === 0) return null;
 

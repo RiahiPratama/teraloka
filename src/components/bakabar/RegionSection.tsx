@@ -4,6 +4,11 @@
 // BAKABAR — Region Section v11.0 (Phase 4 — House Data-Only + ADS)
 // PATH: src/components/bakabar/RegionSection.tsx
 // ────────────────────────────────────────────────────────────────
+// WS-5c (5 Jun 2026): +stackAds prop — region_stack ADS dipindah ke
+//   server-fetch (page.tsx → BakabarShell). Diteruskan ke DCAStackBanner
+//   (presentational). Kalau stackAds undefined (mis. dipakai di luar
+//   homepage) → DCAStackBanner fallback fetch sendiri.
+//
 // v11.0 UPDATE (31 Mei 2026):
 //   - CABUT slot Layanan + Zakat dari kolom-3. Filosofi: kartu house =
 //     HANYA yang punya DATA REAL (Kampanye BADONASI + Suara Warga BALAPOR).
@@ -27,7 +32,7 @@ import { ArrowRight, ArrowUpDown, BadgeCheck } from 'lucide-react';
 import type { RegionConfig } from './region-data';
 import WeatherWidget from '../shared/environment/WeatherWidget';
 import TrendingArticleAd, { type TrendingNativeAd } from './TrendingArticleAd';
-import DCAStackBanner from './DCAStackBanner';
+import DCAStackBanner, { type StackBannerAd } from './DCAStackBanner';
 import CampaignCol3Card, { type BadonasiCampaign } from './CampaignCol3Card';
 import SuaraWargaCol3Card, { type BalaporReport } from './SuaraWargaCol3Card';
 
@@ -80,6 +85,7 @@ function timeAgo(dateStr: string) {
 type Props = {
   region:         RegionConfig;
   trendingAd?:    TrendingNativeAd | null;
+  stackAds?:      StackBannerAd[];            // WS-5c: server-provided region_stack ADS
   houseSlot?:     HouseSlot;                  // jenis zona atas kolom-3 (dari BakabarShell)
   houseCampaign?: BadonasiCampaign | null;    // data kampanye (kalau houseSlot='kampanye')
   houseReports?:  BalaporReport[];            // data laporan (kalau houseSlot='balapor')
@@ -89,6 +95,7 @@ type Props = {
 export default function RegionSection({
   region,
   trendingAd = null,
+  stackAds,
   houseSlot = 'ads',
   houseCampaign = null,
   houseReports = [],
@@ -268,16 +275,16 @@ export default function RegionSection({
               <>
                 <CampaignCol3Card campaign={houseCampaign!} className="flex-1" />
                 {/* 1 banner ADS di bawah kartu data */}
-                <DCAStackBanner regionSlug={slug} maxAds={1} />
+                <DCAStackBanner regionSlug={slug} maxAds={1} ads={stackAds} />
               </>
             ) : showBalapor ? (
               <>
                 <SuaraWargaCol3Card reports={houseReports} className="flex-1" />
-                <DCAStackBanner regionSlug={slug} maxAds={1} />
+                <DCAStackBanner regionSlug={slug} maxAds={1} ads={stackAds} />
               </>
             ) : (
               /* ADS murni: 2 banner stack (eks slot Layanan/Zakat) */
-              <DCAStackBanner regionSlug={slug} maxAds={2} />
+              <DCAStackBanner regionSlug={slug} maxAds={2} ads={stackAds} />
             )}
 
           </div>
