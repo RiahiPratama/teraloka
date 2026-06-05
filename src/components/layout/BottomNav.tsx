@@ -151,7 +151,7 @@ export default function BottomNav() {
             <div className="grid grid-cols-2 gap-2">
               {[
                 { icon: '⛵', label: 'Speedboat Ternate', href: '/speed' },
-                { icon: '🏠', label: 'Kos di Akehuda', href: '/kos?area=akehuda' },
+                { icon: '🏠', label: 'Kos di Akehuda', href: '/bakos?area=akehuda' },
                 { icon: '📰', label: 'Berita Terkini', href: '/bakabar' },
                 { icon: '💚', label: 'Donasi Aktif', href: '/fundraising' },
               ].map(s => (

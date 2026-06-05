@@ -69,7 +69,7 @@ export default function KosDetailPage() {
         const res = await fetch(`${API_URL}/listings/${slug}`);
         const data = await res.json();
         if (!data.success || !data.data) {
-          router.replace('/kos');
+          router.replace('/bakos');
           return;
         }
         const l = data.data;
@@ -82,7 +82,7 @@ export default function KosDetailPage() {
           if (roomData.success) setRooms(roomData.data ?? []);
         }
       } catch {
-        router.replace('/kos');
+        router.replace('/bakos');
       } finally {
         setLoading(false);
       }
@@ -92,7 +92,7 @@ export default function KosDetailPage() {
 
   const handleContact = async () => {
     if (!user || !token) {
-      router.push(`/login?redirect=/kos/${slug}`);
+      router.push(`/login?redirect=/bakos/${slug}`);
       return;
     }
     if (!listing) return;
@@ -152,7 +152,7 @@ export default function KosDetailPage() {
         borderBottom: '1px solid #E5E7EB',
         padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12,
       }}>
-        <Link href="/kos" style={{ color: '#374151', fontSize: 20, textDecoration: 'none' }}>←</Link>
+        <Link href="/bakos" style={{ color: '#374151', fontSize: 20, textDecoration: 'none' }}>←</Link>
         <span style={{ fontWeight: 700, fontSize: 15, color: '#111827', flex: 1,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {listing.title}

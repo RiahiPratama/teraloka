@@ -9,7 +9,7 @@ const HERO_PHOTO_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
 
 const POPULAR_TAGS = [
   { label: 'Speedboat Ternate–Sidangoli', href: '/speed' },
-  { label: 'Kos di Akehuda', href: '/kos?area=akehuda' },
+  { label: 'Kos di Akehuda', href: '/bakos?area=akehuda' },
   { label: 'Berita Hari Ini', href: '/bakabar' },
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
@@ -25,7 +25,7 @@ const SERVICE_PILLS = [
   },
   {
     icon: '🏠', label: 'KOS', sub: 'Cari & Sewa Kos',
-    href: '/kos', color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)', border: 'rgba(27,107,74,0.15)',
+    href: '/bakos', color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)', border: 'rgba(27,107,74,0.15)',
   },
   {
     icon: '💖', label: 'DONASI', sub: 'Bantu Sesama',
@@ -347,7 +347,7 @@ export default function Hero() {
           </Link>
 
           {/* Card Sekunder — BAKOS */}
-          <Link href="/kos" className="float-card" style={{
+          <Link href="/bakos" className="float-card" style={{
             position: 'absolute', top: '60%', right: '-8%',
             textDecoration: 'none',
             background: 'rgba(255,255,255,0.95)',

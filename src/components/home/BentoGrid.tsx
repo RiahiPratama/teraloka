@@ -167,7 +167,7 @@ export default async function BentoGrid() {
         </Link>
 
         {/* MARKETPLACE */}
-        <Link href="/kos" style={{
+        <Link href="/bakos" style={{
           position: 'relative', borderRadius: 18, overflow: 'hidden',
           background: 'var(--primary)', minHeight: 200, padding: 26,
           textDecoration: 'none', display: 'flex', flexDirection: 'column',

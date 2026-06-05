@@ -9,7 +9,7 @@ const ACTIVE_HREF: Record<string, string> = {
   'BAKABAR':   '/bakabar',
   'BALAPOR':   '/reports',
   'BADONASI': '/fundraising',
-  'BAKOS':     '/kos',
+  'BAKOS':     '/bakos',
 }
 
 export default function ServicesEcosystem() {

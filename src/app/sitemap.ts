@@ -10,7 +10,7 @@ const BASE_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://teraloka.com';
 export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages = [
     '', '/bakabar', '/balapor', '/speed', '/ferry', '/ship', '/pelni',
-    '/kos', '/property', '/vehicle', '/services', '/fundraising',
+    '/bakos', '/property', '/vehicle', '/services', '/fundraising',
     '/events', '/bills', '/login',
   ];
 

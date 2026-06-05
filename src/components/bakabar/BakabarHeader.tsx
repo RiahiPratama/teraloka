@@ -32,7 +32,7 @@ const NAV_LINKS = [
   { label: 'BAKABAR',  href: '/bakabar',     Icon: Newspaper },
   { label: 'BALAPOR',  href: '/reports',     Icon: Megaphone },
   { label: 'BAPASIAR', href: '/speed',       Icon: Ship },
-  { label: 'BAKOS',    href: '/kos',         Icon: Home },
+  { label: 'BAKOS',    href: '/bakos',         Icon: Home },
   { label: 'BADONASI', href: '/fundraising', Icon: Heart },
 ];
 

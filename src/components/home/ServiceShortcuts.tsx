@@ -4,7 +4,7 @@ import Link from 'next/link'
 
 const SHORTCUTS = [
   { icon: '⛵', label: 'Speedboat', href: '/speed',       color: '#0891B2', bg: 'rgba(8,145,178,0.08)'   },
-  { icon: '🏠', label: 'Kos',       href: '/kos',         color: '#1B6B4A', bg: 'rgba(27,107,74,0.08)'  },
+  { icon: '🏠', label: 'Kos',       href: '/bakos',         color: '#1B6B4A', bg: 'rgba(27,107,74,0.08)'  },
   { icon: '📰', label: 'Berita',    href: '/bakabar',        color: '#003526', bg: 'rgba(0,53,38,0.06)'    },
   { icon: '💚', label: 'Donasi',    href: '/fundraising', color: '#E8963A', bg: 'rgba(232,150,58,0.08)' },
   { icon: '📢', label: 'Laporan',   href: '/reports',     color: '#7c3aed', bg: 'rgba(124,58,237,0.07)' },

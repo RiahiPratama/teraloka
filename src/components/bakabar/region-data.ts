@@ -191,7 +191,7 @@ export const HERO_CAROUSEL_SLIDES: HeroSlide[] = [
 // ─── Layanan TeraLoka List (KEEP — untuk cross-promo Col 3) ───
 // Tetap ada walaupun Col 3 v9 revert ke stack. Bisa dipakai di Phase 2.
 export const LAYANAN_LIST: LayananListItem[] = [
-  { variant: 'bakos', name: 'BAKOS', tagline: 'Komunitas warga MalUt. Diskusi & jaringan tetangga.', icon: '💬', href: '/kos', cta_label: 'Gabung' },
+  { variant: 'bakos', name: 'BAKOS', tagline: 'Komunitas warga MalUt. Diskusi & jaringan tetangga.', icon: '💬', href: '/bakos', cta_label: 'Gabung' },
   { variant: 'bapasiar', name: 'BAPASIAR', tagline: 'Marketplace MalUt. Jual-beli produk lokal.', icon: '🛒', href: '/speed', cta_label: 'Cek' },
   { variant: 'badonasi', name: 'BADONASI', tagline: 'Galang donasi tetangga. Transparan & verified.', icon: '🤲', href: '/fundraising', cta_label: 'Galang' },
   { variant: 'balapor', name: 'BALAPOR', tagline: 'Lapor masalah sekitar. Identitas terlindungi.', icon: '📢', href: '/balapor', cta_label: 'Lapor' },

@@ -10,7 +10,7 @@ const NAV_LINKS = [
   { label: 'BAKABAR',   href: '/bakabar' },
   { label: 'BALAPOR',   href: '/reports' },
   { label: 'BAPASIAR',  href: '/speed' },
-  { label: 'BAKOS',     href: '/kos' },
+  { label: 'BAKOS',     href: '/bakos' },
   { label: 'BADONASI', href: '/fundraising' },
 ];
 
