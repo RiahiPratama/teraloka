@@ -53,20 +53,26 @@ export const QUICK = [
 ] as const;
 
 // Area populer MalUt — shortcut pencarian (set query 'q'); BUKAN agregasi backend.
+// 🛡️ photo = foto mood area (Unsplash), bukan foto kos asli. Swappable.
 export interface Area {
   name: string;
   land: string;
   q: string;
   icon: string;
   tone: 'green' | 'blue' | 'amber' | 'purple';
+  photo: string;
   tag?: string;
 }
 
 export const AREAS: Area[] = [
-  { name: 'Akehuda', land: 'Dekat Unkhair', q: 'Akehuda', icon: 'school', tone: 'green', tag: 'Terpopuler' },
-  { name: 'Kalumpang', land: 'Pusat kota', q: 'Kalumpang', icon: 'storefront', tone: 'blue' },
-  { name: 'Bastiong', land: 'Pelabuhan · akses speedboat', q: 'Bastiong', icon: 'anchor', tone: 'amber', tag: 'Akses speed' },
-  { name: 'Sasa', land: 'Dekat STAIN', q: 'Sasa', icon: 'menu_book', tone: 'purple' },
+  { name: 'Akehuda', land: 'Dekat Unkhair', q: 'Akehuda', icon: 'school', tone: 'green',
+    photo: 'https://images.unsplash.com/photo-1562774053-701939374585?w=600', tag: 'Terpopuler' },
+  { name: 'Kalumpang', land: 'Pusat kota', q: 'Kalumpang', icon: 'storefront', tone: 'blue',
+    photo: 'https://images.unsplash.com/photo-1519567241046-7f570eee3ce6?w=600' },
+  { name: 'Bastiong', land: 'Pelabuhan · akses speedboat', q: 'Bastiong', icon: 'anchor', tone: 'amber',
+    photo: 'https://images.unsplash.com/photo-1502209524164-acea936639a2?w=600', tag: 'Akses speed' },
+  { name: 'Sasa', land: 'Dekat STAIN', q: 'Sasa', icon: 'menu_book', tone: 'purple',
+    photo: 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=600' },
 ];
 
 export const TIPE: Record<string, { lbl: string; cls: string }> = {

@@ -1,30 +1,28 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKOS — Map Section (public LP)
+// BAKOS — Map teaser (public LP) — SLIM
 // PATH: src/components/bakos/public/map-section.tsx
-// 🛡️ Placeholder "segera" — geocoding (lat/long) belum dirender.
-//    Decorative island MalUt + Gamalama. Wire Leaflet (pola balapor) nanti.
+// 🛡️ Bukan peta beneran. Teaser ramping & intentional (bukan blob raksasa).
+//    Leaflet (pola balapor) di-wire nanti. Kota = chip, belum link.
 // ════════════════════════════════════════════════════════════════
+
+const KOTA = ['Ternate', 'Tidore', 'Sofifi', 'Tobelo'];
 
 export function MapSection() {
   return (
     <section className="bk-sec bk-pt0"><div className="bk-wrap">
-      <div className="bk-sh">
-        <div>
-          <h2>Peta kos di Ternate</h2>
-          <p>Lihat sebaran kos per area</p>
+      <div className="bk-mapteaser">
+        <span className="grid-bg" />
+        <span className="ic"><span className="material-symbols-outlined">map</span></span>
+        <div className="tx">
+          <b>Peta sebaran kos</b>
+          <span>Lihat kos per lokasi di peta interaktif — <em>segera hadir</em></span>
+        </div>
+        <div className="kota">
+          {KOTA.map((k) => <span key={k} className="chip"><span className="material-symbols-outlined">location_on</span>{k}</span>)}
         </div>
       </div>
-      <div className="bk-mapwrap"><div className="bk-mapcanvas">
-        <div className="bk-island" />
-        <div className="bk-vol"><span className="material-symbols-outlined">landscape</span></div>
-        <div className="bk-soon">
-          <span className="material-symbols-outlined">map</span>
-          <span>Peta interaktif</span>
-          <em>segera — pin per lokasi kos</em>
-        </div>
-      </div></div>
     </div></section>
   );
 }

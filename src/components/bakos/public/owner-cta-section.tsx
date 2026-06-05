@@ -13,6 +13,7 @@ export function OwnerCtaSection() {
   return (
     <section className="bk-sec bk-pt0"><div className="bk-wrap"><div className="bk-octa">
       <div className="blob" />
+      <div className="blob2" />
       <div className="bk-ol">
         <span className="bk-opill"><span className="material-symbols-outlined">home</span> Untuk pemilik kos</span>
         <h2>Punya kos? Kelola lebih mudah, <span>sewa tetap 100% milik Anda.</span></h2>

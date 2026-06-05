@@ -1,9 +1,9 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKOS — Listing Card (public LP)
+// BAKOS — Listing Card (public LP) — PREMIUM (Airbnb-style)
 // PATH: src/components/bakos/public/listing-card.tsx
-// 1 kartu kos dari data REAL. Link ke /bakos/[slug].
+// Borderless, foto dominan, fasilitas plain-text, seluruh card clickable.
 // 🛡️ facilities di-guard via facList(); badge verif/seed HANYA jika field ada.
 // ════════════════════════════════════════════════════════════════
 
@@ -20,9 +20,11 @@ export function ListingCard({ item }: { item: Listing }) {
   return (
     <Link href={`/bakos/${item.slug}`} className="bk-kos">
       <div className="bk-kos-img">
-        {img
-          ? <img src={img} alt={item.title} loading="lazy" />
-          : <div className="ph"><span className="material-symbols-outlined">apartment</span></div>}
+        <div className="bk-kos-imgzoom">
+          {img
+            ? <img src={img} alt={item.title} loading="lazy" />
+            : <div className="ph"><span className="material-symbols-outlined">apartment</span></div>}
+        </div>
 
         <div className="bk-kb-row">
           {seed && (
@@ -39,7 +41,7 @@ export function ListingCard({ item }: { item: Listing }) {
 
         <span className="bk-fav"><span className="material-symbols-outlined">favorite</span></span>
         {item.photos?.length > 0 && (
-          <span className="bk-kphoto"><span className="material-symbols-outlined">photo_library</span> {item.photos.length} foto</span>
+          <span className="bk-kphoto"><span className="material-symbols-outlined">photo_library</span> {item.photos.length}</span>
         )}
       </div>
 
@@ -47,33 +49,26 @@ export function ListingCard({ item }: { item: Listing }) {
         <div className="bk-kt">
           <h3>{item.title}</h3>
           {item.rating_count > 0
-            ? <span className="bk-rate"><span className="material-symbols-outlined">star</span> {item.rating_avg.toFixed(1)} ({item.rating_count})</span>
+            ? <span className="bk-rate"><span className="material-symbols-outlined">star</span> {item.rating_avg.toFixed(1)}</span>
             : <span className="bk-rate muted">Baru</span>}
         </div>
 
         {(item.address || near || item.city_id) && (
-          <div className="bk-kloc">
-            <span className="material-symbols-outlined">location_on</span>
-            {item.address || item.city_id}
-            {near && <> · <span className="near">{near}</span></>}
-          </div>
+          <p className="bk-kloc">
+            {item.address || item.city_id}{near ? ` · ${near}` : ''}
+          </p>
         )}
 
         {facs.length > 0 && (
-          <div className="bk-ktags">
-            {facs.slice(0, 4).map((f, i) => <span key={i} className="bk-ktag">{f}</span>)}
-            {facs.length > 4 && <span className="bk-ktag muted">+{facs.length - 4}</span>}
-          </div>
+          <p className="bk-kfacs">{facs.slice(0, 3).join(' · ')}</p>
         )}
 
-        <div className="bk-kfoot">
-          <div className="bk-kprice">
-            <b>{formatRupiah(item.price)} <small>/{item.price_period}</small></b>
-            {item.is_negotiable
-              ? <span className="nego">Nego</span>
-              : seed ? <span className="seedn">Menunggu konfirmasi pemilik</span> : <span className="src">Harga dari pemilik</span>}
-          </div>
-          <span className="bk-kbtn">Lihat detail</span>
+        <div className="bk-kprice">
+          <span className="amt">{formatRupiah(item.price)}</span>
+          <span className="per">/{item.price_period}</span>
+          {item.is_negotiable
+            ? <span className="note nego">· Nego</span>
+            : seed ? <span className="note seedn">· Menunggu konfirmasi</span> : null}
         </div>
       </div>
     </Link>
