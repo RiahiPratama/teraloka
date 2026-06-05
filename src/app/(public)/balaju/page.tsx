@@ -1,16 +1,19 @@
-// src/app/(public)/balaju/page.tsx
-// F7-1a — BALAJU rider entry. Server component tipis: metadata + render shell client.
-// Pola sama BAKABAR (page server + shell client). Interaktif (peta, auth, polling)
-// ada di BalajuEntry (client).
+// app/balaju/page.tsx  (atau route lain yang kamu pilih untuk LANDING — lihat catatan)
+import type { Metadata } from "next";
+import BalajuLanding from "@/components/balaju/public/BalajuLanding";
 
-import { BalajuEntry } from './BalajuEntry';
-
-export const metadata = {
-  title: 'BALAJU — Ojek & Kurir Maluku Utara | TeraLoka',
+export const metadata: Metadata = {
+  title: "BALAJU — Ojek Lokal Maluku Utara | Harga Jujur, Driver Utuh",
   description:
-    'Layanan ojek, kurir, dan mobil lokal Maluku Utara. Harga transparan, driver terdekat, cepat & aman.',
+    "Ojek dan antar barang lokal Maluku Utara. Harga transparan tanpa biaya tersembunyi — driver menerima tarif penuh, fee aplikasi ditampilkan terpisah. Aktif di Ternate.",
+  openGraph: {
+    title: "BALAJU — Ojek Lokal Maluku Utara",
+    description:
+      "Harga transparan, driver dibayar penuh. Mobilitas lokal TeraLoka untuk warga Maluku Utara.",
+    type: "website",
+  },
 };
 
-export default function BalajuPage() {
-  return <BalajuEntry />;
+export default function BalajuLandingPage() {
+  return <BalajuLanding />;
 }

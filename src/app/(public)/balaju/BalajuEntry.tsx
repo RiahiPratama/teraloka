@@ -115,7 +115,7 @@ export function BalajuEntry() {
 
     // Gerbang Citizen: harga boleh diintip publik, tapi PESAN wajib login.
     if (!user) {
-      router.push('/login?redirect=/balaju');
+      router.push('/login?redirect=/balaju/pesan');
       return;
     }
 
@@ -137,7 +137,7 @@ export function BalajuEntry() {
     } catch (e: any) {
       // Token kedaluwarsa di tengah (401/403) → arahkan login, bukan error generik.
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
-        router.push('/login?redirect=/balaju');
+        router.push('/login?redirect=/balaju/pesan');
         return;
       }
       setOrderErr('Gagal membuat pesanan. Coba lagi.');

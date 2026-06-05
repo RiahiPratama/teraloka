@@ -1,0 +1,70 @@
+/* ============================================================
+   balaju-landing.css — SELF-CONTAINED, premium.
+   Warna = CSS var scoped ke .bl-landing. Ikon = lucide-react.
+   Render di dalam shell TeraLoka (no header/footer sendiri).
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Urbanist:wght@500;600;700;800;900&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+.bl-landing {
+  --bl-forest:   #1B6B4A;
+  --bl-forest-d: #0F4732;
+  --bl-toska:    #0891B2;
+  --bl-amber:    #E8963A;
+  --bl-cream:    #FBF8F2;
+  --bl-ink:      #14241D;
+  --bl-muted:    #5A6B62;
+  --bl-line:     #E7E1D6;
+  --bl-forest-10: rgba(27,107,74,.10);
+  --bl-forest-15: rgba(27,107,74,.15);
+  --bl-forest-25: rgba(27,107,74,.25);
+  --bl-forest-30: rgba(27,107,74,.30);
+  --bl-forest-70: rgba(27,107,74,.70);
+  --bl-toska-10:  rgba(8,145,178,.10);
+  --bl-amber-15:  rgba(232,150,58,.15);
+  --bl-forest-d-70: rgba(15,71,50,.70);
+
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  color: var(--bl-ink);
+  background: var(--bl-cream);
+}
+
+.bl-landing :is(h1,h2,h3,h4),
+.bl-display { font-family: 'Urbanist', sans-serif; letter-spacing: -0.02em; }
+
+.bl-shadow-soft { box-shadow: 0 12px 34px -16px rgba(20,36,29,.18); }
+.bl-shadow-lift { box-shadow: 0 26px 60px -28px rgba(27,107,74,.40); }
+.bl-shadow-xl   { box-shadow: 0 44px 90px -34px rgba(15,71,50,.45); }
+
+.bl-grad {
+  background: linear-gradient(120deg, #0891B2 0%, #1B6B4A 55%, #E8963A 130%);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+/* gradient mesh halus buat depth (Stripe-ish) */
+.bl-mesh { position: relative; }
+.bl-mesh::before {
+  content: ""; position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background:
+    radial-gradient(42% 52% at 86% 4%, rgba(8,145,178,.12), transparent 70%),
+    radial-gradient(46% 58% at 6% 0%, rgba(27,107,74,.10), transparent 70%),
+    radial-gradient(52% 62% at 96% 96%, rgba(232,150,58,.12), transparent 70%);
+}
+
+.bl-grain { position: relative; }
+.bl-grain::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .04; z-index: 0;
+  background-image: radial-gradient(#14241D .8px, transparent .8px); background-size: 14px 14px;
+}
+
+.bl-reveal { opacity: 0; transform: translateY(28px); transition: opacity .7s cubic-bezier(.2,.8,.2,1), transform .7s cubic-bezier(.2,.8,.2,1); }
+.bl-reveal.on { opacity: 1; transform: none; }
+
+.bl-tick { animation: bl-float 5s ease-in-out infinite; }
+@keyframes bl-float { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+/* FAQ accordion (details native, tanpa state React) */
+.bl-faq summary { list-style: none; cursor: pointer; }
+.bl-faq summary::-webkit-details-marker { display: none; }
+.bl-faq-chev { transition: transform .25s ease; }
+.bl-faq[open] .bl-faq-chev { transform: rotate(180deg); }
