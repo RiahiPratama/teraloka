@@ -13,7 +13,8 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BalajuLocationStep, type BalajuPoint } from '@/components/balaju/rider/BalajuLocationStep';
-import { useApi } from '@/lib/api/client';
+import { useApi, ApiError } from '@/lib/api/client';
+import { useAuth } from '@/hooks/useAuth';
 
 const BRAND = '#1B6B4A';
 
@@ -56,6 +57,7 @@ const TRUST = [
 export function BalajuEntry() {
   const api = useApi();
   const router = useRouter();
+  const { user } = useAuth();
   const [service, setService] = useState<ServiceType>('ride_bike');
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
@@ -104,9 +106,19 @@ export function BalajuEntry() {
   const [ordering, setOrdering] = useState(false);
   const [orderErr, setOrderErr] = useState<string | null>(null);
 
-  // Tap "Pesan Sekarang" → POST /rides (bikin order) → redirect ke halaman status.
+  // Tap "Pesan Sekarang":
+  //  - belum login → arahkan ke /login (gerbang publik → Citizen), bukan error.
+  //  - sudah login → POST /rides (bikin order) → redirect ke halaman status.
+  // Pola sama kos/[slug]: cek useAuth().user, redirect ?redirect= kalau null.
   async function handleOrder() {
     if (!pickup || !dropoff || ordering) return;
+
+    // Gerbang Citizen: harga boleh diintip publik, tapi PESAN wajib login.
+    if (!user) {
+      router.push('/login?redirect=/balaju');
+      return;
+    }
+
     setOrdering(true);
     setOrderErr(null);
     try {
@@ -123,6 +135,11 @@ export function BalajuEntry() {
       if (!id) throw new Error('no id');
       router.push(`/balaju/pesan/${id}`);
     } catch (e: any) {
+      // Token kedaluwarsa di tengah (401/403) → arahkan login, bukan error generik.
+      if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        router.push('/login?redirect=/balaju');
+        return;
+      }
       setOrderErr('Gagal membuat pesanan. Coba lagi.');
       setOrdering(false);
     }
@@ -277,11 +294,22 @@ export function BalajuEntry() {
         >
           {ordering
             ? 'Membuat pesanan...'
-            : `Pesan Sekarang — ${(() => {
-                const f = fareOf(service);
-                return f !== null ? rupiah(f) : '';
-              })()}`}
+            : !user
+              ? `Masuk untuk Pesan — ${(() => {
+                  const f = fareOf(service);
+                  return f !== null ? rupiah(f) : '';
+                })()}`
+              : `Pesan Sekarang — ${(() => {
+                  const f = fareOf(service);
+                  return f !== null ? rupiah(f) : '';
+                })()}`}
         </button>
+      )}
+
+      {!user && estimate !== null && (
+        <p className="mt-2 text-center text-[11px] text-gray-400">
+          Masuk dulu untuk memesan — harga di atas sudah final.
+        </p>
       )}
 
       <p className="mt-3 text-center text-[11px] text-gray-400">
