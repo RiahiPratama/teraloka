@@ -2,8 +2,8 @@
 
 // src/app/(public)/balaju/BalajuEntry.tsx
 // F7 — Entry shell BALAJU rider. Pilih layanan + rute (peta/GPS/autocomplete) +
-// estimate harga + bikin order. Konsisten gaya TeraLoka: #1B6B4A primary,
-// aksen #F59E0B, Tailwind, mobile-first.
+// estimate harga + bikin order. Konsisten gaya TeraLoka: design-system bl- (premium),
+// warna forest/toska/amber, lucide icons, mobile-first.
 //
 // FARE-V2 (Jun 2026): kontrak /estimate model TAMBAH.
 //   estimate balikin per layanan { tarif_dasar, komisi, total_bayar }.
@@ -12,11 +12,11 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, type LucideIcon } from 'lucide-react';
 import { BalajuLocationStep, type BalajuPoint } from '@/components/balaju/rider/BalajuLocationStep';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
-
-const BRAND = '#1B6B4A';
+import '@/components/balaju/public/balaju-landing.css';
 
 function rupiah(n: number): string {
   return 'Rp ' + n.toLocaleString('id-ID');
@@ -38,20 +38,20 @@ interface EstimateResult {
 
 const SERVICES: {
   id: ServiceType;
-  emoji: string;
+  Icon: LucideIcon;
   name: string;
   desc: string;
 }[] = [
-  { id: 'ride_bike', emoji: '🛵', name: 'BALAJU Ojek', desc: 'Ojek cepat & hemat' },
-  { id: 'ride_car', emoji: '🚗', name: 'BALAJU Mobil', desc: 'Nyaman beramai-ramai' },
-  { id: 'courier', emoji: '📦', name: 'BALAJU Kurir', desc: 'Kirim barang cepat & aman' },
+  { id: 'ride_bike', Icon: Bike, name: 'BALAJU Ojek', desc: 'Ojek cepat & hemat' },
+  { id: 'ride_car', Icon: Car, name: 'BALAJU Mobil', desc: 'Nyaman beramai-ramai' },
+  { id: 'courier', Icon: Package, name: 'BALAJU Kurir', desc: 'Kirim barang cepat & aman' },
 ];
 
-const TRUST = [
-  { emoji: '📍', label: 'Lokal' },
-  { emoji: '⚡', label: 'Cepat' },
-  { emoji: '🛡️', label: 'Aman' },
-  { emoji: '💰', label: 'Transparan' },
+const TRUST: { Icon: LucideIcon; label: string }[] = [
+  { Icon: MapPin, label: 'Lokal' },
+  { Icon: Zap, label: 'Cepat' },
+  { Icon: ShieldCheck, label: 'Aman' },
+  { Icon: Wallet, label: 'Transparan' },
 ];
 
 export function BalajuEntry() {
@@ -148,173 +148,189 @@ export function BalajuEntry() {
   const selectedBreakdown = breakdownOf(service);
 
   return (
-    <div className="mx-auto max-w-md px-4 py-5">
-      {/* Header brand */}
-      <header className="mb-5">
-        <div className="flex items-center gap-2">
-          <span
-            className="grid h-9 w-9 place-items-center rounded-xl text-lg font-bold text-white"
-            style={{ backgroundColor: BRAND }}
-          >
-            B
-          </span>
-          <div>
-            <h1 className="text-xl font-bold leading-none" style={{ color: BRAND }}>
-              BALAJU
-            </h1>
-            <p className="text-xs text-gray-500">Jalan Kita, Terhubung.</p>
-          </div>
-        </div>
-        <p className="mt-3 text-sm text-gray-600">
-          Ojek, kurir, dan mobil lokal Maluku Utara. Harga transparan, driver
-          terdekat — cepat &amp; aman.
-        </p>
-      </header>
-
-      {/* Trust badges */}
-      <div className="mb-5 grid grid-cols-4 gap-2">
-        {TRUST.map((t) => (
-          <div
-            key={t.label}
-            className="rounded-xl bg-gray-50 py-2 text-center"
-          >
-            <div className="text-lg">{t.emoji}</div>
-            <div className="mt-0.5 text-[11px] text-gray-600">{t.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Pilih layanan */}
-      <section className="mb-5">
-        <h2 className="mb-2 text-sm font-semibold text-gray-800">Pilih Layanan</h2>
-        <div className="space-y-2">
-          {SERVICES.map((s) => {
-            const active = service === s.id;
-            return (
-              <button
-                key={s.id}
-                onClick={() => setService(s.id)}
-                className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition ${
-                  active
-                    ? 'border-transparent'
-                    : 'border-gray-200 bg-white hover:bg-gray-50'
-                }`}
-                style={active ? { backgroundColor: '#F0F7F4', borderColor: BRAND } : undefined}
-              >
-                <span className="grid h-10 w-10 place-items-center rounded-lg bg-gray-100 text-xl">
-                  {s.emoji}
-                </span>
-                <span className="flex-1">
-                  <span className="block text-sm font-medium text-gray-900">{s.name}</span>
-                  <span className="block text-xs text-gray-500">{s.desc}</span>
-                </span>
-                {fareOf(s.id) !== null && (
-                  <span className="mr-1 text-sm font-bold" style={{ color: BRAND }}>
-                    {rupiah(fareOf(s.id)!)}
-                  </span>
-                )}
-                <span
-                  className={`grid h-5 w-5 place-items-center rounded-full border-2 ${
-                    active ? '' : 'border-gray-300'
-                  }`}
-                  style={active ? { borderColor: BRAND, backgroundColor: BRAND } : undefined}
-                >
-                  {active && <span className="h-2 w-2 rounded-full bg-white" />}
-                </span>
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Rute — pilih jemput + tujuan (peta + GPS + autocomplete) */}
-      <section className="mb-5">
-        <h2 className="mb-2 text-sm font-semibold text-gray-800">Rute</h2>
-        <BalajuLocationStep
-          onChange={({ pickup: p, dropoff: d }) => {
-            setPickup(p);
-            setDropoff(d);
-            resetEstimate();
-          }}
-          onReady={({ pickup: p, dropoff: d }) => {
-            setPickup(p);
-            setDropoff(d);
-          }}
-        />
-        <p className="mt-2 text-[11px] text-gray-400">
-          Harga muncul setelah jemput &amp; tujuan dipilih.
-        </p>
-      </section>
-
-      {/* FARE-V2: kartu transparansi — fee TeraLoka tampil TERPISAH (prinsip #2).
-          Framing menang: "Driver terima X, platform Y" > "tarif X, driver cuma Z". */}
-      {selectedBreakdown && (
-        <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
-          <div className="flex items-baseline justify-between">
-            <span className="text-sm text-gray-600">Total bayar</span>
-            <span className="text-lg font-bold" style={{ color: BRAND }}>
-              {rupiah(selectedBreakdown.total_bayar)}
+    <div className="bl-landing">
+      <div className="mx-auto max-w-md px-4 py-6">
+        {/* Header brand */}
+        <header className="mb-6">
+          <div className="flex items-center gap-2.5">
+            <span className="bl-shadow-soft grid h-10 w-10 place-items-center rounded-2xl bg-[var(--bl-forest)] text-white">
+              <Bike className="h-5 w-5" />
+            </span>
+            <div className="leading-none">
+              <h1 className="bl-display text-xl font-extrabold text-[var(--bl-forest-d)]">BALAJU</h1>
+              <p className="mt-0.5 text-xs text-[var(--bl-muted)]">Jalan Kita, Terhubung.</p>
+            </div>
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full border border-[var(--bl-line)] bg-white px-3 py-1.5 text-[11px] font-bold text-[var(--bl-forest-d)]">
+              <MapPin className="h-3.5 w-3.5 text-[var(--bl-forest)]" /> Ternate
             </span>
           </div>
-          <div className="mt-2 space-y-1 border-t border-dashed border-gray-200 pt-2">
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>🛵 Driver terima (utuh)</span>
-              <span className="font-medium text-gray-700">{rupiah(selectedBreakdown.tarif_dasar)}</span>
+          <p className="mt-4 text-sm leading-relaxed text-[var(--bl-muted)]">
+            Ojek, kurir, dan mobil lokal Maluku Utara. Harga transparan, driver
+            terdekat — cepat &amp; aman.
+          </p>
+        </header>
+
+        {/* Trust badges */}
+        <div className="mb-6 grid grid-cols-4 gap-2">
+          {TRUST.map(({ Icon, label }) => (
+            <div
+              key={label}
+              className="flex flex-col items-center gap-1.5 rounded-2xl border border-[var(--bl-line)] bg-white py-3"
+            >
+              <span className="grid h-9 w-9 place-items-center rounded-full bg-[var(--bl-forest-10)]">
+                <Icon className="h-[18px] w-[18px] text-[var(--bl-forest)]" />
+              </span>
+              <span className="text-[11px] font-semibold text-[var(--bl-ink)]">{label}</span>
             </div>
-            <div className="flex items-center justify-between text-xs text-gray-500">
-              <span>💰 Fee TeraLoka</span>
-              <span className="font-medium text-gray-700">{rupiah(selectedBreakdown.komisi)}</span>
-            </div>
+          ))}
+        </div>
+
+        {/* Pilih layanan */}
+        <section className="mb-6">
+          <h2 className="bl-display mb-3 text-sm font-bold uppercase tracking-wide text-[var(--bl-forest-d)]">Pilih Layanan</h2>
+          <div className="space-y-2.5">
+            {SERVICES.map((s) => {
+              const active = service === s.id;
+              const Icon = s.Icon;
+              return (
+                <button
+                  key={s.id}
+                  onClick={() => setService(s.id)}
+                  className={`flex w-full items-center gap-3 rounded-2xl border p-3.5 text-left transition ${
+                    active
+                      ? 'bl-shadow-soft border-[var(--bl-forest)] bg-[var(--bl-forest-10)]'
+                      : 'border-[var(--bl-line)] bg-white hover:border-[var(--bl-forest-30)]'
+                  }`}
+                >
+                  <span
+                    className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl ${
+                      active ? 'bg-[var(--bl-forest)] text-white' : 'bg-[var(--bl-forest-10)] text-[var(--bl-forest)]'
+                    }`}
+                  >
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <span className="flex-1">
+                    <span className="block text-sm font-bold text-[var(--bl-ink)]">{s.name}</span>
+                    <span className="block text-xs text-[var(--bl-muted)]">{s.desc}</span>
+                  </span>
+                  {estLoading && fareOf(s.id) === null ? (
+                    <span className="mr-1 inline-block h-4 w-14 animate-pulse rounded-full bg-[var(--bl-forest-10)]" />
+                  ) : fareOf(s.id) !== null ? (
+                    <span className="bl-display mr-1 text-sm font-extrabold text-[var(--bl-forest)]">
+                      {rupiah(fareOf(s.id)!)}
+                    </span>
+                  ) : null}
+                  <span
+                    className={`grid h-5 w-5 shrink-0 place-items-center rounded-full border-2 ${
+                      active ? 'border-[var(--bl-forest)] bg-[var(--bl-forest)]' : 'border-[var(--bl-line)]'
+                    }`}
+                  >
+                    {active && <span className="h-2 w-2 rounded-full bg-white" />}
+                  </span>
+                </button>
+              );
+            })}
           </div>
-          <p className="mt-2 text-[11px] text-gray-400">
-            Driver kamu menerima tarif penuh. Fee TeraLoka tampil terpisah &amp; transparan.
+        </section>
+
+        {/* Rute — pilih jemput + tujuan (peta + GPS + autocomplete) */}
+        <section className="mb-6">
+          <h2 className="bl-display mb-3 text-sm font-bold uppercase tracking-wide text-[var(--bl-forest-d)]">Rute</h2>
+          <BalajuLocationStep
+            onChange={({ pickup: p, dropoff: d }) => {
+              setPickup(p);
+              setDropoff(d);
+              resetEstimate();
+            }}
+            onReady={({ pickup: p, dropoff: d }) => {
+              setPickup(p);
+              setDropoff(d);
+            }}
+          />
+          <p className="mt-2 text-[11px] text-[var(--bl-muted)]">
+            Harga muncul setelah jemput &amp; tujuan dipilih.
           </p>
         </section>
-      )}
 
-      {estErr && <p className="mb-2 text-center text-xs text-red-500">{estErr}</p>}
-      {orderErr && <p className="mb-2 text-center text-xs text-red-500">{orderErr}</p>}
+        {/* FARE-V2: kartu transparansi — fee TeraLoka tampil TERPISAH (prinsip #2).
+            Framing menang: "Driver terima X, platform Y" > "tarif X, driver cuma Z". */}
+        {selectedBreakdown && (
+          <section className="bl-shadow-soft mb-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
+            <div className="flex items-baseline justify-between">
+              <span className="text-xs text-[var(--bl-muted)]">
+                Total bayar
+                {estimate && (
+                  <span className="font-medium text-[var(--bl-muted)]">
+                    {' '}· ± {(estimate.distance_m / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 })} km
+                  </span>
+                )}
+              </span>
+              <span className="bl-display text-2xl font-extrabold text-[var(--bl-forest)]">
+                {rupiah(selectedBreakdown.total_bayar)}
+              </span>
+            </div>
+            <div className="mt-2 space-y-1 border-t border-dashed border-[var(--bl-line)] pt-2 text-[11px]">
+              <div className="flex items-center justify-between text-[var(--bl-muted)]">
+                <span className="flex items-center gap-1.5">
+                  <Bike className="h-3.5 w-3.5 text-[var(--bl-forest)]" /> Driver terima (utuh)
+                </span>
+                <span className="font-semibold text-[var(--bl-ink)]">{rupiah(selectedBreakdown.tarif_dasar)}</span>
+              </div>
+              <div className="flex items-center justify-between text-[var(--bl-muted)]">
+                <span className="flex items-center gap-1.5">
+                  <Smartphone className="h-3.5 w-3.5 text-[var(--bl-amber)]" /> Fee TeraLoka
+                </span>
+                <span className="font-semibold text-[var(--bl-ink)]">{rupiah(selectedBreakdown.komisi)}</span>
+              </div>
+            </div>
+            <p className="mt-2 text-[11px] text-[var(--bl-muted)]">
+              Driver kamu menerima tarif penuh. Fee TeraLoka tampil terpisah &amp; transparan.
+            </p>
+          </section>
+        )}
 
-      {/* CTA — sebelum estimate: "Lihat Harga"; sesudah: "Pesan Sekarang" */}
-      {estimate === null ? (
-        <button
-          onClick={handleEstimate}
-          disabled={!canContinue || estLoading}
-          className="w-full rounded-xl py-3.5 text-center text-sm font-semibold text-white transition disabled:cursor-not-allowed disabled:opacity-40"
-          style={{ backgroundColor: BRAND }}
-        >
-          {estLoading ? 'Menghitung harga...' : 'Lihat Harga'}
-        </button>
-      ) : (
-        <button
-          onClick={handleOrder}
-          disabled={ordering}
-          className="w-full rounded-xl py-3.5 text-center text-sm font-semibold text-white transition disabled:opacity-60"
-          style={{ backgroundColor: BRAND }}
-        >
-          {ordering
-            ? 'Membuat pesanan...'
-            : !user
-              ? `Masuk untuk Pesan — ${(() => {
-                  const f = fareOf(service);
-                  return f !== null ? rupiah(f) : '';
-                })()}`
-              : `Pesan Sekarang — ${(() => {
-                  const f = fareOf(service);
-                  return f !== null ? rupiah(f) : '';
-                })()}`}
-        </button>
-      )}
+        {estErr && <p className="mb-2 text-center text-xs font-medium text-red-500">{estErr}</p>}
+        {orderErr && <p className="mb-2 text-center text-xs font-medium text-red-500">{orderErr}</p>}
 
-      {!user && estimate !== null && (
-        <p className="mt-2 text-center text-[11px] text-gray-400">
-          Masuk dulu untuk memesan — harga di atas sudah final.
+        {/* CTA — sebelum estimate: "Lihat Harga"; sesudah: "Pesan Sekarang" */}
+        {estimate === null ? (
+          <button
+            onClick={handleEstimate}
+            disabled={!canContinue || estLoading}
+            className="bl-shadow-lift w-full rounded-2xl bg-[var(--bl-forest)] py-4 text-center text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {estLoading ? 'Menghitung harga...' : 'Lihat Harga'}
+          </button>
+        ) : (
+          <button
+            onClick={handleOrder}
+            disabled={ordering}
+            className="bl-shadow-lift w-full rounded-2xl bg-[var(--bl-forest)] py-4 text-center text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-60"
+          >
+            {ordering
+              ? 'Membuat pesanan...'
+              : !user
+                ? `Masuk untuk Pesan — ${(() => {
+                    const f = fareOf(service);
+                    return f !== null ? rupiah(f) : '';
+                  })()}`
+                : `Pesan Sekarang — ${(() => {
+                    const f = fareOf(service);
+                    return f !== null ? rupiah(f) : '';
+                  })()}`}
+          </button>
+        )}
+
+        {!user && estimate !== null && (
+          <p className="mt-2 text-center text-[11px] text-[var(--bl-muted)]">
+            Masuk dulu untuk memesan — harga di atas sudah final.
+          </p>
+        )}
+
+        <p className="mt-4 text-center text-[11px] text-[var(--bl-muted)]">
+          TeraLoka BALAJU · Maluku Utara
         </p>
-      )}
-
-      <p className="mt-3 text-center text-[11px] text-gray-400">
-        TeraLoka BALAJU · Maluku Utara
-      </p>
+      </div>
     </div>
   );
 }

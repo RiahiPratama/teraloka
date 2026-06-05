@@ -19,9 +19,13 @@
  * Map = sumber kebenaran: autocomplete/GPS cuma geser peta + set pin,
  *   rider selalu bisa koreksi via tap/geser. Centroid kelurahan bukan
  *   titik presisi — geser pin buat akurasi.
+ *
+ * Visual: design-system bl- (var --bl-* di-scope dari .bl-landing parent
+ *   di BalajuEntry). Ikon lucide.
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { Search, LocateFixed, Check } from 'lucide-react';
 import { BalajuMapPicker, type LatLng } from './BalajuMapPicker';
 import { useReverseGeo } from '@/components/shared/locations/use-locations';
 import { useLocationSearch } from '@/components/shared/locations/use-locations';
@@ -108,7 +112,7 @@ export function BalajuLocationStep({ onReady, onChange }: BalajuLocationStepProp
   return (
     <div>
       {/* Toggle: lagi atur Jemput / Tujuan */}
-      <div className="mb-2 flex gap-2">
+      <div className="mb-2.5 flex gap-2">
         {(['pickup', 'dropoff'] as Which[]).map((w) => {
           const on = which === w;
           const pt = w === 'pickup' ? pickup : dropoff;
@@ -117,19 +121,26 @@ export function BalajuLocationStep({ onReady, onChange }: BalajuLocationStepProp
             <button
               key={w}
               onClick={() => setWhich(w)}
-              className={`flex-1 rounded-lg border px-3 py-2 text-left text-xs transition ${
-                on ? 'border-transparent' : 'border-gray-200 bg-white'
+              className={`min-w-0 flex-1 rounded-xl border px-3 py-2.5 text-left transition ${
+                on ? 'bl-shadow-soft' : 'border-[var(--bl-line)] bg-white'
               }`}
-              style={on ? { backgroundColor: '#F0F7F4', borderColor: dot } : undefined}
+              style={on ? { backgroundColor: 'var(--bl-forest-10)', borderColor: dot } : undefined}
             >
               <span className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: dot }} />
-                <span className="font-semibold text-gray-700">
+                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />
+                <span className="text-xs font-bold text-[var(--bl-ink)]">
                   {w === 'pickup' ? 'Titik Jemput' : 'Tujuan'}
                 </span>
               </span>
-              <span className="mt-0.5 block truncate text-[11px] text-gray-500">
-                {pt ? pt.name : 'Belum dipilih'}
+              <span className="mt-1 flex items-center gap-1 text-[11px]">
+                {pt ? (
+                  <>
+                    <Check className="h-3 w-3 shrink-0" style={{ color: dot }} />
+                    <span className="font-semibold" style={{ color: dot }}>Sudah dipilih</span>
+                  </>
+                ) : (
+                  <span className="text-[var(--bl-muted)]">Belum dipilih</span>
+                )}
               </span>
             </button>
           );
@@ -154,33 +165,38 @@ export function BalajuLocationStep({ onReady, onChange }: BalajuLocationStepProp
       />
 
       {/* GPS + status */}
-      <div className="mb-2 mt-2 flex items-center gap-2">
+      <div className="mb-2.5 mt-2.5 flex items-center gap-2.5">
         <button
           onClick={handleGps}
           disabled={gpsBusy}
-          className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--bl-line)] bg-white px-3.5 py-2 text-xs font-semibold text-[var(--bl-ink)] transition hover:border-[var(--bl-forest-30)] disabled:opacity-50"
         >
-          <span>📍</span>
+          <LocateFixed className="h-4 w-4 text-[var(--bl-forest)]" />
           {gpsBusy ? 'Mengambil lokasi...' : 'Pakai lokasi saya'}
         </button>
-        <span className="text-[11px] text-gray-400">
+        <span className="text-[11px] text-[var(--bl-muted)]">
           atau tap / geser pin di peta
         </span>
       </div>
-      {gpsErr && <p className="mb-2 text-[11px] text-amber-600">{gpsErr}</p>}
+      {gpsErr && <p className="mb-2 text-[11px] font-medium text-[var(--bl-amber)]">{gpsErr}</p>}
 
       {/* Peta — pin = titik aktif */}
-      <BalajuMapPicker
-        center={center}
-        marker={active ? { lat: active.lat, lng: active.lng } : null}
-        onPick={handlePick}
-        height={280}
-      />
+      <div className="bl-shadow-soft overflow-hidden rounded-2xl border border-[var(--bl-line)]">
+        <BalajuMapPicker
+          center={center}
+          marker={active ? { lat: active.lat, lng: active.lng } : null}
+          onPick={handlePick}
+          height={280}
+        />
+      </div>
 
-      {/* Ringkasan 2 titik */}
-      <div className="mt-3 space-y-1.5">
-        <PointRow color={BRAND} label="Jemput" point={pickup} />
-        <PointRow color={ACCENT} label="Tujuan" point={dropoff} />
+      {/* Ringkasan 2 titik — nama lengkap muncul DI SINI (bukan di pil atas) */}
+      <div className="mt-3 rounded-2xl border border-[var(--bl-line)] bg-white p-3">
+        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Rute terpilih</div>
+        <div className="space-y-2">
+          <PointRow color={BRAND} label="Jemput" point={pickup} />
+          <PointRow color={ACCENT} label="Tujuan" point={dropoff} />
+        </div>
       </div>
     </div>
   );
@@ -197,10 +213,10 @@ function PointRow({
   point: BalajuPoint | null;
 }) {
   return (
-    <div className="flex items-center gap-2 text-xs">
-      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
-      <span className="shrink-0 font-medium text-gray-600">{label}:</span>
-      <span className="truncate text-gray-500">{point ? point.name : 'belum dipilih'}</span>
+    <div className="flex gap-2 text-xs">
+      <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+      <span className="shrink-0 font-bold text-[var(--bl-ink)]">{label}:</span>
+      <span className="min-w-0 flex-1 text-[var(--bl-muted)]">{point ? point.name : 'belum dipilih'}</span>
     </div>
   );
 }
@@ -234,6 +250,7 @@ function LocationSearchBox({
 
   return (
     <div ref={boxRef} className="relative">
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--bl-muted)]" />
       <input
         value={term}
         onChange={(e) => {
@@ -242,13 +259,13 @@ function LocationSearchBox({
         }}
         onFocus={() => term.length >= 2 && setOpen(true)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-gray-300"
+        className="w-full rounded-xl border border-[var(--bl-line)] bg-white py-2.5 pl-9 pr-3 text-sm text-[var(--bl-ink)] outline-none transition placeholder:text-[var(--bl-muted)] focus:border-[var(--bl-forest)]"
       />
       {open && term.length >= 2 && (
-        <div className="absolute z-[1000] mt-1 max-h-56 w-full overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg">
-          {loading && <div className="px-3 py-2 text-xs text-gray-400">Mencari...</div>}
+        <div className="bl-shadow-lift absolute z-[1000] mt-1.5 max-h-56 w-full overflow-auto rounded-xl border border-[var(--bl-line)] bg-white">
+          {loading && <div className="px-3 py-2 text-xs text-[var(--bl-muted)]">Mencari...</div>}
           {!loading && list.length === 0 && (
-            <div className="px-3 py-2 text-xs text-gray-400">Tidak ditemukan</div>
+            <div className="px-3 py-2 text-xs text-[var(--bl-muted)]">Tidak ditemukan</div>
           )}
           {list.map((loc) => (
             <button
@@ -258,10 +275,10 @@ function LocationSearchBox({
                 setTerm(loc.name);
                 setOpen(false);
               }}
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-gray-50"
+              className="block w-full px-3 py-2.5 text-left text-sm transition hover:bg-[var(--bl-forest-10)]"
             >
-              <span className="font-medium text-gray-800">{loc.name}</span>
-              <span className="ml-1.5 text-[11px] text-gray-400">{loc.type}</span>
+              <span className="font-semibold text-[var(--bl-ink)]">{loc.name}</span>
+              <span className="ml-1.5 text-[11px] text-[var(--bl-muted)]">{loc.type}</span>
             </button>
           ))}
         </div>
