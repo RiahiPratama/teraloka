@@ -1,17 +1,14 @@
 'use client';
 
 // src/app/(public)/balaju/BalajuEntry.tsx
-// F7-1a — Entry shell BALAJU rider (STATIS dulu; peta + order di F7-1b/F7-2).
-// Konsisten gaya TeraLoka: #1B6B4A primary, aksen #F59E0B, Tailwind, mobile-first.
+// F7 — Entry shell BALAJU rider. Pilih layanan + rute (peta/GPS/autocomplete) +
+// estimate harga + bikin order. Konsisten gaya TeraLoka: #1B6B4A primary,
+// aksen #F59E0B, Tailwind, mobile-first.
 //
-// Yang ada di F7-1a:
-//   - Header brand BALAJU + tagline
-//   - 4 trust badge (lokal, cepat, aman, transparan)
-//   - Pilih layanan (Ojek / Mobil / Kurir) — state lokal, belum panggil backend
-//   - Input jemput/tujuan (placeholder statis — peta F7-1b)
-//   - CTA "Lanjut" (disabled sampai lengkap — wiring F7-2)
-//
-// Belum: peta, reverse-geo, hitung harga, buat order, auth-gate.
+// FARE-V2 (Jun 2026): kontrak /estimate model TAMBAH.
+//   estimate balikin per layanan { tarif_dasar, komisi, total_bayar }.
+//   - total_bayar = yang RIDER bayar (ditampilkan sebagai harga utama)
+//   - tarif_dasar = driver terima UTUH; komisi = fee TeraLoka (transparan, terpisah)
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -26,9 +23,12 @@ function rupiah(n: number): string {
 
 type ServiceType = 'ride_bike' | 'ride_car' | 'courier';
 
+// FARE-V2: breakdown model TAMBAH (ganti field lama `fare`).
 interface EstimateItem {
   service_type: ServiceType;
-  fare: number;
+  tarif_dasar: number; // driver terima utuh
+  komisi: number; // fee TeraLoka
+  total_bayar: number; // yang rider bayar (tarif_dasar + komisi)
 }
 interface EstimateResult {
   distance_m: number;
@@ -66,10 +66,14 @@ export function BalajuEntry() {
 
   const canContinue = pickup !== null && dropoff !== null;
 
-  // Harga layanan tertentu dari hasil estimate (null kalau belum hitung).
+  // Breakdown layanan tertentu dari hasil estimate (null kalau belum hitung).
+  function breakdownOf(svc: ServiceType): EstimateItem | null {
+    return estimate?.estimates.find((e) => e.service_type === svc) ?? null;
+  }
+
+  // Harga yang RIDER bayar utk layanan tertentu (total_bayar). null kalau belum hitung.
   function fareOf(svc: ServiceType): number | null {
-    const hit = estimate?.estimates.find((e) => e.service_type === svc);
-    return hit ? hit.fare : null;
+    return breakdownOf(svc)?.total_bayar ?? null;
   }
 
   // Tap "Lihat Harga" → panggil backend estimate (3 layanan sekaligus).
@@ -123,6 +127,8 @@ export function BalajuEntry() {
       setOrdering(false);
     }
   }
+
+  const selectedBreakdown = breakdownOf(service);
 
   return (
     <div className="mx-auto max-w-md px-4 py-5">
@@ -222,6 +228,32 @@ export function BalajuEntry() {
           Harga muncul setelah jemput &amp; tujuan dipilih.
         </p>
       </section>
+
+      {/* FARE-V2: kartu transparansi — fee TeraLoka tampil TERPISAH (prinsip #2).
+          Framing menang: "Driver terima X, platform Y" > "tarif X, driver cuma Z". */}
+      {selectedBreakdown && (
+        <section className="mb-4 rounded-xl border border-gray-200 bg-white p-4">
+          <div className="flex items-baseline justify-between">
+            <span className="text-sm text-gray-600">Total bayar</span>
+            <span className="text-lg font-bold" style={{ color: BRAND }}>
+              {rupiah(selectedBreakdown.total_bayar)}
+            </span>
+          </div>
+          <div className="mt-2 space-y-1 border-t border-dashed border-gray-200 pt-2">
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>🛵 Driver terima (utuh)</span>
+              <span className="font-medium text-gray-700">{rupiah(selectedBreakdown.tarif_dasar)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs text-gray-500">
+              <span>💰 Fee TeraLoka</span>
+              <span className="font-medium text-gray-700">{rupiah(selectedBreakdown.komisi)}</span>
+            </div>
+          </div>
+          <p className="mt-2 text-[11px] text-gray-400">
+            Driver kamu menerima tarif penuh. Fee TeraLoka tampil terpisah &amp; transparan.
+          </p>
+        </section>
+      )}
 
       {estErr && <p className="mb-2 text-center text-xs text-red-500">{estErr}</p>}
       {orderErr && <p className="mb-2 text-center text-xs text-red-500">{orderErr}</p>}
