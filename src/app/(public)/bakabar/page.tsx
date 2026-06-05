@@ -35,17 +35,28 @@ const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 // → cache shared global, hemat invocation Dalang VPS + Vercel.
 const FETCH_OPTS: RequestInit = { next: { revalidate: 60 } };
 
-// ── Timeout guard (WS-5c, 5 Jun 2026) ───────────────────────────
-// page.tsx fetch ~28 endpoint Dalang di server (await Promise.all). Tanpa
+// ── Timeout guard (WS-5c, 5 Jun 2026; rev2 6 Jun) ───────────────
+// page.tsx fetch ~40 endpoint Dalang di server (await Promise.all). Tanpa
 // timeout, SATU endpoint hang = SELURUH render block → Vercel limit ~10s →
-// halaman gagal tampil total. AbortController batasi tiap fetch 3.5s;
-// timeout → abort → throw → ke-catch di tiap fetcher → fallback ([] / null).
-// Halaman tetap tampil walau sebagian data telat (degradasi anggun).
-const FETCH_TIMEOUT_MS = 3500;
+// halaman gagal tampil total. AbortController batasi tiap fetch; timeout →
+// abort → throw → ke-catch di tiap fetcher → fallback ([] / null).
+//
+// rev2: PISAH timeout per prioritas. ARTIKEL = konten inti, JANGAN di-abort
+// gampang — saat Dalang cold-start bisa 1-12 dtk (kebukti: run pertama
+// ternate 12s, lalu warm 0.6s). Timeout 3.5s ketat ngebunuh artikel valid →
+// region "kosong" palsu. Artikel pakai 9s (di bawah Vercel 10s). Slot
+// SEKUNDER (ads/trending/campaign/report) tetap 3.5s — telat = slot kosong,
+// gak fatal (bukan konten inti).
+const TIMEOUT_ARTICLE_MS   = 9000;  // konten inti — longgar, toleran cold-start
+const TIMEOUT_SECONDARY_MS = 3500;  // ads/trending/campaign/report — ketat
 
-async function fetchWithTimeout(url: string, opts: RequestInit = {}): Promise<Response> {
+async function fetchWithTimeout(
+  url: string,
+  opts: RequestInit = {},
+  timeoutMs: number = TIMEOUT_SECONDARY_MS,
+): Promise<Response> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...opts, signal: controller.signal });
   } finally {
@@ -116,7 +127,7 @@ function resolveNav(sp: SearchParams) {
 // ── Generic list fetch (resilient: gagal → []) ──────────────────
 async function fetchList(query: string, limit: number): Promise<any[]> {
   try {
-    const res = await fetchWithTimeout(`${API}/content/articles?${query}&limit=${limit}`, FETCH_OPTS);
+    const res = await fetchWithTimeout(`${API}/content/articles?${query}&limit=${limit}`, FETCH_OPTS, TIMEOUT_ARTICLE_MS);
     const data = await res.json();
     return data?.success ? (data.data ?? []) : [];
   } catch {
