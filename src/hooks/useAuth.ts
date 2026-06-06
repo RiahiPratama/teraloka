@@ -8,7 +8,7 @@ const TOKEN_KEY = 'tl_token';
 const REFRESH_KEY = 'tl_refresh';
 const DEVICE_KEY = 'tl_device';
 const LOCKED_KEY = 'tl_locked';        // '1' = sesi dikunci, masuk lagi butuh PIN
-const LASTUSER_KEY = 'tl_last_user';   // { phone, name } untuk layar PIN-login
+const LASTUSER_KEY = 'tl_last_user';   // { phone, name, has_pin } untuk layar PIN-login
 const REQUEST_TIMEOUT_MS = 20_000;
 
 function getDeviceId(): string {
@@ -64,6 +64,12 @@ export interface AuthUser {
 export interface LockedSession {
   phone: string;
   name: string | null;
+}
+
+interface LastUser {
+  phone: string;
+  name: string | null;
+  has_pin: boolean;
 }
 
 interface AuthContextType {
@@ -130,6 +136,21 @@ function resetPostHog(): void {
   }
 }
 
+// Baca metadata user terakhir (untuk layar PIN-login). has_pin = sumber kebenaran
+// apakah PIN-pad boleh ditampilkan saat sesi dikunci (O3).
+function readLastUser(): LastUser | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(LASTUSER_KEY);
+    if (!raw) return null;
+    const p = JSON.parse(raw);
+    if (!p?.phone) return null;
+    return { phone: p.phone, name: p.name ?? null, has_pin: p.has_pin === true };
+  } catch {
+    return null;
+  }
+}
+
 export function useAuthProvider(): AuthContextType {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
@@ -160,14 +181,12 @@ export function useAuthProvider(): AuthContextType {
       !!localStorage.getItem(DEVICE_KEY);
 
     if (locked && hasDevice) {
-      // Surface sesi terkunci -> login page tampilkan layar PIN. JANGAN silent refresh.
-      const raw = localStorage.getItem(LASTUSER_KEY);
-      if (raw) {
-        try {
-          setLockedSession(JSON.parse(raw));
-        } catch {
-          /* ignore */
-        }
+      // Sesi dikunci (user sengaja Keluar). JANGAN silent refresh apa pun.
+      // O3: tampilkan layar PIN HANYA kalau user terbukti punya PIN.
+      // Kalau tidak punya PIN -> lockedSession null -> login page tampil OTP.
+      const lu = readLastUser();
+      if (lu?.has_pin) {
+        setLockedSession({ phone: lu.phone, name: lu.name });
       }
       setIsLoading(false);
       return;
@@ -214,9 +233,17 @@ export function useAuthProvider(): AuthContextType {
     return false;
   }
 
-  function persistLastUser(u: { phone: string; name: string | null }) {
+  // Simpan metadata user terakhir. has_pin di-merge: kalau pemanggil tidak kirim
+  // has_pin, pertahankan nilai existing (mis. updateProfile tidak ubah status PIN).
+  function persistLastUser(u: { phone: string; name: string | null; has_pin?: boolean }) {
     try {
-      localStorage.setItem(LASTUSER_KEY, JSON.stringify({ phone: u.phone, name: u.name ?? null }));
+      const prev = readLastUser();
+      const payload: LastUser = {
+        phone: u.phone,
+        name: u.name ?? null,
+        has_pin: typeof u.has_pin === 'boolean' ? u.has_pin : (prev?.has_pin ?? false),
+      };
+      localStorage.setItem(LASTUSER_KEY, JSON.stringify(payload));
     } catch {
       /* ignore */
     }
@@ -253,7 +280,12 @@ export function useAuthProvider(): AuthContextType {
       localStorage.setItem(TOKEN_KEY, data.data.token);
       if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
       localStorage.removeItem(LOCKED_KEY);
-      persistLastUser({ phone: data.data.user.phone, name: data.data.user.name });
+      // O3: simpan status PIN dari backend supaya gating PIN-login akurat.
+      persistLastUser({
+        phone: data.data.user.phone,
+        name: data.data.user.name,
+        has_pin: !!data.data.has_pin,
+      });
       setToken(data.data.token);
       setUser(data.data.user);
       setLockedSession(null);
@@ -288,7 +320,8 @@ export function useAuthProvider(): AuthContextType {
       localStorage.setItem(TOKEN_KEY, data.data.token);
       if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
       localStorage.removeItem(LOCKED_KEY);
-      persistLastUser({ phone: data.data.user.phone, name: data.data.user.name });
+      // pinLogin sukses => user PASTI punya PIN.
+      persistLastUser({ phone: data.data.user.phone, name: data.data.user.name, has_pin: true });
       setToken(data.data.token);
       setUser(data.data.user);
       setLockedSession(null);
@@ -315,8 +348,13 @@ export function useAuthProvider(): AuthContextType {
       body: JSON.stringify({ pin }),
     });
     if (result.errorMessage) return { success: false, message: result.errorMessage };
+    const ok = result.data?.success === true;
+    // O3: PIN baru ter-set => tandai has_pin true supaya PIN-login muncul saat Keluar.
+    if (ok && user) {
+      persistLastUser({ phone: user.phone, name: user.name, has_pin: true });
+    }
     return {
-      success: result.data?.success === true,
+      success: ok,
       message: result.data?.data?.message ?? result.data?.error?.message ?? 'Gagal menyimpan PIN.',
     };
   }
@@ -346,6 +384,7 @@ export function useAuthProvider(): AuthContextType {
     setUser(result.data.data);
     if (result.data.data) {
       identifyUserInPostHog(result.data.data);
+      // has_pin tidak dikirim -> di-merge (pertahankan status PIN existing).
       persistLastUser({ phone: result.data.data.phone, name: result.data.data.name });
     }
     return true;
@@ -357,6 +396,14 @@ export function useAuthProvider(): AuthContextType {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
       localStorage.setItem(LOCKED_KEY, '1');
+    }
+    // O2: recompute lockedSession langsung (tanpa perlu reload halaman).
+    // O3: HANYA tampilkan PIN-login kalau user punya PIN; kalau tidak, login page tampil OTP.
+    const lu = readLastUser();
+    if (lu?.has_pin) {
+      setLockedSession({ phone: lu.phone, name: lu.name });
+    } else {
+      setLockedSession(null);
     }
     setToken(null);
     setUser(null);

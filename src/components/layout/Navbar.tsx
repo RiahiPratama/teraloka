@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useState, useRef, useEffect } from 'react';
 import Logo from '@/components/ui/Logo';
 import { useAuth } from '@/hooks/useAuth';
+import ChangePinModal from '@/components/auth/ChangePinModal';
 
 const NAV_LINKS = [
   { label: 'BAKABAR',   href: '/bakabar' },
@@ -32,6 +33,78 @@ const ROLE_META: Record<string, { label: string; color: string; bg: string }> = 
   user:            { label: 'Pengguna',        color: '#374151', bg: '#E5E7EB' },
 };
 
+/* ─── Line icons (inline SVG, dependency-free) ─────────────────────────── */
+type IconProps = { className?: string };
+const ICON = 'h-[18px] w-[18px] shrink-0';
+const svgBase = {
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 1.8,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+};
+
+function IconUser({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.1a7.5 7.5 0 0 1 15 0A17.9 17.9 0 0 1 12 21.75c-2.68 0-5.22-.58-7.5-1.65Z" />
+    </svg>
+  );
+}
+function IconMegaphone({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M10.5 6.75H7.5a3.75 3.75 0 0 0 0 7.5h3l6 4.5V2.25l-6 4.5Z" />
+      <path d="M18.75 8.25a4 4 0 0 1 0 5.5M9 14.25v3a2.25 2.25 0 0 0 4.5 0" />
+    </svg>
+  );
+}
+function IconStore({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M4 9.5V20a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9.5M3.5 6 5 3h14l1.5 3M3.5 6h17M3.5 6a2.5 2.5 0 0 0 4.25 1.5A2.5 2.5 0 0 0 12 7.5a2.5 2.5 0 0 0 4.25 0A2.5 2.5 0 0 0 20.5 6M9.5 21v-5h5v5" />
+    </svg>
+  );
+}
+function IconHeart({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M21 8.25c0-2.49-2.1-4.5-4.69-4.5-1.93 0-3.6 1.13-4.31 2.73-.72-1.6-2.38-2.73-4.31-2.73C5.1 3.75 3 5.76 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z" />
+    </svg>
+  );
+}
+function IconLock({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75M6.75 21.75h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />
+    </svg>
+  );
+}
+function IconCog({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M10.34 4.22c.27-1.63 2.61-1.63 2.88 0l.04.24c.18 1.07 1.34 1.67 2.31 1.2l.22-.1c1.49-.72 3.05.97 2.05 2.32l-.15.2c-.66.9-.28 2.18.77 2.6l.23.08c1.54.55 1.54 2.73 0 3.28l-.23.08c-1.05.42-1.43 1.7-.77 2.6l.15.2c1 1.35-.56 3.04-2.05 2.32l-.22-.1c-.97-.47-2.13.13-2.31 1.2l-.04.24c-.27 1.63-2.61 1.63-2.88 0l-.04-.24c-.18-1.07-1.34-1.67-2.31-1.2l-.22.1c-1.49.72-3.05-.97-2.05-2.32l.15-.2c.66-.9.28-2.18-.77-2.6l-.23-.08c-1.54-.55-1.54-2.73 0-3.28l.23-.08c1.05-.42 1.43-1.7.77-2.6l-.15-.2c-1-1.35.56-3.04 2.05-2.32l.22.1c.97.47 2.13-.13 2.31-1.2l.04-.24Z" />
+      <path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
+  );
+}
+function IconLogout({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+    </svg>
+  );
+}
+function IconHome({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="m2.25 12 8.95-8.96c.44-.43 1.16-.43 1.6 0L21.75 12M4.5 9.75v10.13c0 .62.5 1.12 1.13 1.12H9.75v-4.88c0-.62.5-1.12 1.13-1.12h2.25c.62 0 1.12.5 1.12 1.12V21h4.13c.62 0 1.12-.5 1.12-1.13V9.75" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
   const router = useRouter();
   const pathname = usePathname();
@@ -50,6 +123,7 @@ export default function Navbar() {
   }
 
   const [dropdownOpen, setDropdownOpen]     = useState(false);
+  const [changePinOpen, setChangePinOpen]   = useState(false);
   const [searchOpen, setSearchOpen]         = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery]       = useState('');
@@ -118,6 +192,14 @@ export default function Navbar() {
 
   const isAdmin = user?.role === 'super_admin' || (user?.role ?? '').startsWith('admin_');
   const roleMeta = ROLE_META[user?.role ?? 'user'] ?? ROLE_META.user;
+
+  // Item akun (dipakai desktop dropdown). Icon = komponen line-icon.
+  const accountItems = [
+    { href: '/profile', label: 'Profil Saya', Icon: IconUser },
+    { href: '/my-reports', label: 'Laporan Saya', Icon: IconMegaphone },
+    { href: '/owner', label: 'Portal Mitra', Icon: IconStore },
+    { href: '/owner/funding/campaigns/new/info', label: 'Ajukan Campaign', Icon: IconHeart },
+  ];
 
   return (
     <>
@@ -214,12 +296,13 @@ export default function Navbar() {
                     </svg>
                   </button>
                   {dropdownOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 rounded-2xl border border-gray-100 bg-white z-[999] overflow-hidden"
-                      style={{ boxShadow: '0 8px 32px rgba(0,0,0,0.12)' }}>
-                      <div className="px-4 py-3 border-b border-gray-100"
+                    <div className="absolute right-0 top-full mt-2 w-64 rounded-2xl border border-gray-100 bg-white z-[999] overflow-hidden"
+                      style={{ boxShadow: '0 12px 40px rgba(0,0,0,0.14)' }}>
+                      <div className="px-4 py-4 border-b border-gray-100"
                         style={{ background: 'linear-gradient(135deg, #f8fffe, #f0fdf9)' }}>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#1B6B4A] text-sm font-bold text-white shrink-0">
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B6B4A] text-base font-bold text-white shrink-0"
+                            style={{ boxShadow: '0 4px 12px rgba(27,107,74,0.3)' }}>
                             {user.name ? user.name[0].toUpperCase() : '+'}
                           </div>
                           <div className="min-w-0">
@@ -234,33 +317,37 @@ export default function Navbar() {
                           </span>
                         </div>
                       </div>
-                      <div className="py-1">
-                        {[
-                          { href: '/profile', icon: '👤', label: 'Profil Saya' },
-                          { href: '/my-reports', icon: '📢', label: 'Laporan Saya' },
-                          { href: '/owner', icon: '🏠', label: 'Portal Mitra' },
-                          { href: '/owner/funding/campaigns/new/info', icon: '💚', label: 'Ajukan Campaign' },
-                        ].map(item => (
+                      <div className="p-1.5">
+                        {accountItems.map(item => (
                           <Link key={item.href} href={item.href} onClick={() => setDropdownOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors">
-                            <span className="text-base">{item.icon}</span> {item.label}
+                            className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                            <item.Icon className="h-[18px] w-[18px] shrink-0 text-gray-400" />
+                            {item.label}
                           </Link>
                         ))}
+                        <button
+                          onClick={() => { setChangePinOpen(true); setDropdownOpen(false); }}
+                          className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+                          <IconLock className="h-[18px] w-[18px] shrink-0 text-gray-400" />
+                          Ganti PIN
+                        </button>
                         {isAdmin && (
                           <>
-                            <div className="mx-3 my-1 border-t border-gray-100" />
+                            <div className="mx-2 my-1 border-t border-gray-100" />
                             <Link href="/admin" onClick={() => setDropdownOpen(false)}
-                              className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold transition-colors"
+                              className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-semibold transition-colors hover:bg-gray-50"
                               style={{ color: roleMeta.bg }}>
-                              <span className="text-base">⚙️</span> Admin Dashboard
+                              <IconCog className="h-[18px] w-[18px] shrink-0" />
+                              Admin Dashboard
                             </Link>
                           </>
                         )}
                       </div>
-                      <div className="border-t border-gray-100 py-1">
+                      <div className="border-t border-gray-100 p-1.5">
                         <button onClick={handleLogout}
-                          className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-500 hover:bg-red-50 transition-colors">
-                          <span className="text-base">🚪</span> Keluar
+                          className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition-colors">
+                          <IconLogout className="h-[18px] w-[18px] shrink-0" />
+                          Keluar
                         </button>
                       </div>
                     </div>
@@ -336,7 +423,7 @@ export default function Navbar() {
                 onClick={(e) => handleNavClick(e, '/', () => setMobileMenuOpen(false))}
                 className="flex items-center gap-3 px-4 py-3 rounded-2xl font-semibold text-sm transition-colors hover:bg-gray-50 mb-2"
                 style={{ color: 'var(--primary)', border: '1.5px solid var(--primary)', background: 'rgba(0,53,38,0.04)' }}>
-                <span className="text-base">🏠</span> Beranda TeraLoka
+                <IconHome className="h-[18px] w-[18px] shrink-0" /> Beranda TeraLoka
               </Link>
               <div className="grid grid-cols-2 gap-2">
                 {NAV_LINKS.map(link => (
@@ -360,17 +447,21 @@ export default function Navbar() {
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <Link href="/profile" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <span>👤</span> Profil Saya
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconUser className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Profil Saya
                     </Link>
                     <Link href="/profile/donations" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <span>💚</span> Donasi Saya
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconHeart className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Donasi Saya
                     </Link>
                     <Link href="/my-reports" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <span>📢</span> Laporan Saya
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconMegaphone className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Laporan Saya
                     </Link>
+                    <button onClick={() => { setChangePinOpen(true); setMobileMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconLock className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Ganti PIN
+                    </button>
                   </div>
                 </div>
 
@@ -381,13 +472,13 @@ export default function Navbar() {
                   </p>
                   <div className="grid grid-cols-2 gap-2">
                     <Link href="/owner" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <span>🏠</span> Portal Mitra
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconStore className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Portal Mitra
                     </Link>
                     <Link href="/owner/funding/campaigns/new/info" onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border"
                       style={{ color: '#1B6B4A', borderColor: '#1B6B4A', background: 'rgba(27,107,74,0.05)' }}>
-                      <span>💚</span> Ajukan Campaign
+                      <IconHeart className="h-[18px] w-[18px] shrink-0" /> Ajukan Campaign
                     </Link>
                   </div>
                 </div>
@@ -401,15 +492,15 @@ export default function Navbar() {
                     <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border"
                       style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}15` }}>
-                      <span>⚙️</span> Admin Dashboard
+                      <IconCog className="h-[18px] w-[18px] shrink-0" /> Admin Dashboard
                     </Link>
                   </div>
                 )}
 
                 {/* Logout */}
                 <button onClick={handleLogout}
-                  className="w-full py-3 rounded-2xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors">
-                  🚪 Keluar
+                  className="flex w-full items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors">
+                  <IconLogout className="h-[18px] w-[18px] shrink-0" /> Keluar
                 </button>
               </>
             ) : (
@@ -429,6 +520,8 @@ export default function Navbar() {
           </div>
         </div>
       )}
+
+      <ChangePinModal open={changePinOpen} onClose={() => setChangePinOpen(false)} />
     </>
   );
 }
