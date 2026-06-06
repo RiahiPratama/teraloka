@@ -196,7 +196,7 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
 
   return (
     <div className="bl-landing">
-      <div className="mx-auto max-w-md px-4 py-6">
+      <div className="mx-auto max-w-md px-4 py-6 md:pt-12">
         {/* Header */}
         <div className="flex items-center gap-2.5">
           <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--bl-forest)] text-white">
