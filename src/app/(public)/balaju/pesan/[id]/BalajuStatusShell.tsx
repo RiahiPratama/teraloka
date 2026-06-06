@@ -2,17 +2,16 @@
 
 // src/app/(public)/balaju/pesan/[id]/BalajuStatusShell.tsx
 // F7-3b — Halaman status BALAJU HIDUP. Polling GET /rides/:id (5s, stop di terminal).
-// Marketplace berbasis offer: status 'open' + ada ride_offers pending -> rider PILIH
-//   offer (POST /:id/select). State machine asli: open -> matched -> ongoing -> completed;
-//   plus cancelled & no_driver (terminal). Tarif BEKU dari order (offered/driver/komisi).
-// WAJAH only — kontrak backend dihormati apa adanya (GET /:id TIDAK embed nama/plat driver,
-//   jadi kartu driver = rating + tier + tarif saja; tidak mengarang field).
+// MODEL B (auto-assign): driver yang accept LANGSUNG jadi (open->matched). Rider TIDAK memilih.
+//   open = "Mencari driver..." murni. matched+ = kartu info driver (nama/HP/motor/plat/rating).
+// State: open -> matched -> ongoing -> completed; plus cancelled & no_driver (terminal).
+// Tarif BEKU dari order. driver/vehicle di-embed backend di GET /:id.
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Bike, Car, Package, MapPin, Star, ShieldCheck, Check, Loader2, X, RotateCcw, Search,
+  Bike, Car, Package, MapPin, Star, ShieldCheck, Check, Loader2, X, RotateCcw, Search, Phone,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import '@/components/balaju/public/balaju-landing.css';
@@ -22,15 +21,21 @@ const ORDER_URL = '/balaju/pesan';
 type RideStatus = 'open' | 'matched' | 'ongoing' | 'completed' | 'cancelled' | 'no_driver';
 type ServiceType = 'ride_bike' | 'ride_car' | 'courier';
 
-interface RideOffer {
+interface DriverInfo {
   id: string;
-  request_id: string;
-  driver_id: string;
-  accepts_fare: boolean;
-  counter_fare: number | null;
-  status: string; // pending | selected | rejected | expired
-  driver_rating_snapshot: number | null;
-  driver_tier_snapshot: string | null;
+  name: string | null;
+  phone: string | null;
+  rating_avg: number | null;
+  rating_count: number | null;
+  verification_tier: string | null;
+}
+
+interface VehicleInfo {
+  vehicle_type: string | null;
+  brand_model: string | null;
+  plate_number: string | null;
+  color: string | null;
+  year: number | null;
 }
 
 interface RideDetail {
@@ -51,7 +56,8 @@ interface RideDetail {
   selected_driver_id: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
-  ride_offers?: RideOffer[];
+  driver?: DriverInfo | null;
+  vehicle?: VehicleInfo | null;
 }
 
 function rupiah(n: number | null | undefined): string {
@@ -129,20 +135,6 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
     };
   }, [rideId]);
 
-  async function selectOffer(offerId: string) {
-    if (acting) return;
-    setActing(true);
-    setErr(null);
-    try {
-      await api.post('/rides/' + rideId + '/select', { offer_id: offerId });
-      await fetchRide();
-    } catch (e: any) {
-      setErr(e instanceof ApiError ? e.message : 'Gagal memilih driver. Coba lagi.');
-    } finally {
-      setActing(false);
-    }
-  }
-
   async function cancelRide() {
     const reason = cancelReason.trim();
     if (!reason) {
@@ -194,11 +186,12 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
   const step = stepOf(ride.status);
   const headlineFare = ride.agreed_fare ?? ride.offered_fare;
   const distanceKm = ((ride.distance_estimate_m ?? 0) / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
-  const offers = (ride.ride_offers ?? []);
-  const pendingOffers = offers.filter((o) => o.status === 'pending');
-  const selectedOffer = offers.find((o) => o.status === 'selected') ?? null;
   const canCancel = ride.status === 'open' || ride.status === 'matched';
-  const offerFare = (o: RideOffer) => (o.accepts_fare ? ride.offered_fare ?? 0 : o.counter_fare ?? 0);
+  const driver = ride.driver ?? null;
+  const vehicle = ride.vehicle ?? null;
+  const vehicleLine = vehicle
+    ? [vehicle.brand_model, vehicle.color].filter(Boolean).join(' · ')
+    : null;
 
   return (
     <div className="bl-landing">
@@ -269,13 +262,9 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         {/* Judul status hidup */}
         {ride.status === 'open' && (
           <div className="mt-6 text-center">
-            <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">
-              {pendingOffers.length > 0 ? 'Pilih driver kamu' : 'Mencari driver terdekat...'}
-            </h1>
+            <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">Mencari driver terdekat...</h1>
             <p className="mt-1 text-sm text-[var(--bl-muted)]">
-              {pendingOffers.length > 0
-                ? `${pendingOffers.length} driver menawarkan diri — pilih satu untuk lanjut.`
-                : 'Tunggu sebentar, kami sedang menghubungi driver di sekitarmu.'}
+              Tunggu sebentar, kami sedang menghubungi driver di sekitarmu. Begitu ada yang siap, langsung kami sambungkan.
             </p>
           </div>
         )}
@@ -318,70 +307,59 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
           </div>
         </div>
 
-        {/* Penawaran masuk (status open) */}
-        {ride.status === 'open' && pendingOffers.length > 0 && (
-          <div className="mt-4 space-y-2.5">
-            {pendingOffers.map((o) => (
-              <div key={o.id} className="bl-shadow-soft rounded-2xl border border-[var(--bl-line)] bg-white p-4">
-                <div className="flex items-center gap-3">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
-                    <Bike className="h-5 w-5" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 text-sm font-bold text-[var(--bl-ink)]">
-                      Driver
-                      {o.driver_tier_snapshot && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bl-forest-10)] px-2 py-0.5 text-[10px] font-bold capitalize text-[var(--bl-forest-d)]">
-                          <ShieldCheck className="h-3 w-3" /> {o.driver_tier_snapshot}
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--bl-muted)]">
-                      <Star className="h-3 w-3 fill-[var(--bl-amber)] text-[var(--bl-amber)]" />
-                      {o.driver_rating_snapshot != null ? o.driver_rating_snapshot.toFixed(1) : 'Baru'}
-                    </div>
-                  </div>
-                  <div className="bl-display shrink-0 text-base font-extrabold text-[var(--bl-forest)]">{rupiah(offerFare(o))}</div>
-                </div>
-                <button
-                  onClick={() => selectOffer(o.id)}
-                  disabled={acting}
-                  className="bl-shadow-soft mt-3 w-full rounded-xl bg-[var(--bl-forest)] py-2.5 text-center text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-60"
-                >
-                  {acting ? 'Memproses...' : 'Pilih driver ini'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Mencari (open, belum ada offer) */}
-        {ride.status === 'open' && pendingOffers.length === 0 && (
+        {/* Mencari driver (status open) */}
+        {ride.status === 'open' && (
           <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--bl-line)] bg-white py-6 text-sm text-[var(--bl-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--bl-forest)]" /> Menunggu driver merespons...
+            <Loader2 className="h-4 w-4 animate-spin text-[var(--bl-forest)]" /> Menghubungi driver di sekitarmu...
           </div>
         )}
 
-        {/* Kartu driver terpilih (matched / ongoing) */}
+        {/* Kartu driver (matched / ongoing) — info lengkap Model B */}
         {(ride.status === 'matched' || ride.status === 'ongoing') && (
-          <div className="bl-shadow-soft mt-4 flex items-center gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
-              <Bike className="h-5 w-5" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-sm font-bold text-[var(--bl-ink)]">
-                Driver kamu
-                {selectedOffer?.driver_tier_snapshot && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--bl-forest-10)] px-2 py-0.5 text-[10px] font-bold capitalize text-[var(--bl-forest-d)]">
-                    <ShieldCheck className="h-3 w-3" /> {selectedOffer.driver_tier_snapshot}
+          <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
+                <Bike className="h-6 w-6" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-bold text-[var(--bl-ink)]">{driver?.name || 'Driver kamu'}</span>
+                  {driver?.verification_tier && (
+                    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[var(--bl-forest-10)] px-2 py-0.5 text-[10px] font-bold capitalize text-[var(--bl-forest-d)]">
+                      <ShieldCheck className="h-3 w-3" /> {driver.verification_tier}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--bl-muted)]">
+                  <Star className="h-3 w-3 fill-[var(--bl-amber)] text-[var(--bl-amber)]" />
+                  {driver?.rating_avg != null ? driver.rating_avg.toFixed(1) : 'Baru'}
+                  {driver?.rating_count != null && driver.rating_count > 0 && (
+                    <span className="text-[var(--bl-muted)]">· {driver.rating_count} ulasan</span>
+                  )}
+                </div>
+              </div>
+              {driver?.phone && (
+                <a
+                  href={'tel:' + driver.phone}
+                  className="bl-shadow-soft grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--bl-forest)] text-white transition hover:bg-[var(--bl-forest-d)]"
+                  aria-label="Telepon driver"
+                >
+                  <Phone className="h-5 w-5" />
+                </a>
+              )}
+            </div>
+
+            {/* Detail kendaraan */}
+            {(vehicleLine || vehicle?.plate_number) && (
+              <div className="mt-3 flex items-center justify-between gap-3 border-t border-dashed border-[var(--bl-line)] pt-3">
+                <span className="min-w-0 truncate text-xs text-[var(--bl-muted)]">{vehicleLine || 'Kendaraan'}</span>
+                {vehicle?.plate_number && (
+                  <span className="bl-display shrink-0 rounded-md border border-[var(--bl-line)] bg-[var(--bl-cream)] px-2 py-0.5 text-xs font-extrabold tracking-wider text-[var(--bl-ink)]">
+                    {vehicle.plate_number}
                   </span>
                 )}
               </div>
-              <div className="mt-0.5 flex items-center gap-1 text-[11px] text-[var(--bl-muted)]">
-                <Star className="h-3 w-3 fill-[var(--bl-amber)] text-[var(--bl-amber)]" />
-                {selectedOffer?.driver_rating_snapshot != null ? selectedOffer.driver_rating_snapshot.toFixed(1) : 'Baru'}
-              </div>
-            </div>
+            )}
           </div>
         )}
 
