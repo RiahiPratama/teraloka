@@ -3,21 +3,15 @@
 import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import PinInput from '@/components/auth/PinInput';
 
-type Step = 'phone' | 'otp' | 'onboard';
+type Step = 'phone' | 'otp' | 'setpin' | 'onboard';
 
-// Inner component — menggunakan useSearchParams.
-// Harus di-wrap Suspense (required oleh Next.js 15+).
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, requestOtp, verifyOtp, updateProfile } = useAuth();
+  const { user, requestOtp, verifyOtp, setPin, updateProfile } = useAuth();
 
-  // Baca ?redirect= dari URL dengan security guard:
-  // - HANYA path internal yang dimulai dengan "/"
-  // - Tolak "//anything" (protocol-relative URL bypass)
-  // - Tolak "https://evil.com" (external redirect attack)
-  // Ini mencegah "open redirect vulnerability".
   const rawRedirect = searchParams.get('redirect');
   const redirectTo =
     rawRedirect && rawRedirect.startsWith('/') && !rawRedirect.startsWith('//')
@@ -27,6 +21,9 @@ function LoginPageContent() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState(['', '', '', '', '', '']);
+  const [pin1, setPin1] = useState(['', '', '', '', '', '']);
+  const [pin2, setPin2] = useState(['', '', '', '', '', '']);
+  const [isNewUser, setIsNewUser] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
@@ -67,13 +64,46 @@ function LoginPageContent() {
     const result = await verifyOtp(phone, code);
     setLoading(false);
     if (result.success) {
-      if (result.is_new) {
+      setIsNewUser(!!result.is_new);
+      if (!result.has_pin) {
+        // Belum punya PIN (user baru ATAU user lama pra-fitur) → buat PIN dulu
+        setStep('setpin');
+      } else if (result.is_new) {
         setStep('onboard');
       } else {
         router.replace(redirectTo);
       }
     } else {
       setError(result.message);
+    }
+  }
+
+  async function handleSetPin() {
+    setError('');
+    const p1 = pin1.join('');
+    const p2 = pin2.join('');
+    if (p1.length !== 6) {
+      setError('PIN harus 6 angka.');
+      return;
+    }
+    if (p1 !== p2) {
+      setError('PIN dan ulangi PIN tidak sama.');
+      setPin2(['', '', '', '', '', '']);
+      return;
+    }
+    setLoading(true);
+    const r = await setPin(p1);
+    setLoading(false);
+    if (r.success) {
+      if (isNewUser) {
+        setStep('onboard');
+      } else {
+        router.replace(redirectTo);
+      }
+    } else {
+      setError(r.message);
+      setPin1(['', '', '', '', '', '']);
+      setPin2(['', '', '', '', '', '']);
     }
   }
 
@@ -107,6 +137,7 @@ function LoginPageContent() {
   }
 
   const otpFilled = otp.every((d) => d.length === 1);
+  const pinFilled = pin1.every((d) => d.length === 1) && pin2.every((d) => d.length === 1);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -219,6 +250,47 @@ function LoginPageContent() {
           </div>
         )}
 
+        {/* ─── Step: Set PIN ─── */}
+        {step === 'setpin' && (
+          <div>
+            <div className="mb-5 text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+                <svg className="h-7 w-7 text-[#1B6B4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Buat PIN Keamanan</h2>
+              <p className="text-sm text-gray-500">
+                PIN 6 angka untuk amankan akun & login cepat tanpa OTP.
+              </p>
+            </div>
+
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">PIN baru</label>
+            <div className="mb-4">
+              <PinInput value={pin1} onChange={(v) => { setPin1(v); setError(''); }} autoFocus />
+            </div>
+
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">Ulangi PIN</label>
+            <div className="mb-2">
+              <PinInput value={pin2} onChange={(v) => { setPin2(v); setError(''); }} />
+            </div>
+
+            {error && <p className="mb-2 text-center text-xs text-red-500">{error}</p>}
+
+            <button
+              onClick={handleSetPin}
+              disabled={!pinFilled || loading}
+              className="mt-2 h-12 w-full rounded-xl bg-[#1B6B4A] text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {loading ? 'Menyimpan...' : 'Simpan PIN'}
+            </button>
+
+            <p className="mt-3 text-center text-xs text-gray-400">
+              Hindari PIN mudah ditebak (123456, 000000, dst).
+            </p>
+          </div>
+        )}
+
         {/* ─── Step: Onboard (user baru) ─── */}
         {step === 'onboard' && (
           <div>
@@ -260,8 +332,6 @@ function LoginPageContent() {
   );
 }
 
-// Default export — Suspense wrapper untuk useSearchParams (Next.js 15+).
-// Fallback: card kosong dengan dimensi sama biar ga ada layout shift.
 export default function LoginPage() {
   return (
     <Suspense

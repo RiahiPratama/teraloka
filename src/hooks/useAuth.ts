@@ -5,17 +5,28 @@ import { posthog, isPostHogReady } from '@/lib/posthog';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const TOKEN_KEY = 'tl_token';
-const REQUEST_TIMEOUT_MS = 20_000; // 20 detik — accommodate Fonnte WA delay
+const REFRESH_KEY = 'tl_refresh';   // ← BARU: refresh token (rotating, device-bound)
+const DEVICE_KEY = 'tl_device';     // ← BARU: device id stabil per-browser
+const REQUEST_TIMEOUT_MS = 20_000;
+
+// ─── device id: generate sekali per browser, simpan di localStorage ──
+function getDeviceId(): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    let id = localStorage.getItem(DEVICE_KEY);
+    if (!id) {
+      id =
+        (typeof crypto !== 'undefined' && crypto.randomUUID?.()) ||
+        Date.now().toString(36) + Math.random().toString(36).slice(2);
+      localStorage.setItem(DEVICE_KEY, id);
+    }
+    return id;
+  } catch {
+    return '';
+  }
+}
 
 // ─── Helper: fetch dengan timeout + safe JSON parse + error normalization ───
-//
-// Mengatasi 3 masalah real di mobile network:
-//   1. Browser fetch tanpa timeout → request hang 60-120s → button "Mengirim..." stuck
-//   2. Response bukan JSON valid (HTML error page, plain text) → JSON.parse throw
-//   3. Network error generic ('Failed to fetch') → user binggung, gak tau harus apa
-//
-// Filosofi: Frontend (Wajah) harus graceful handle network instability,
-//           kasih user clear feedback, dan biarkan retry kerja normal.
 async function safeFetchJson(
   url: string,
   options: RequestInit = {},
@@ -26,43 +37,23 @@ async function safeFetchJson(
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
 
-    // Defensive JSON parse — kalau response bukan JSON valid, jangan crash
     const text = await res.text();
     let data: any = null;
     try {
       data = text ? JSON.parse(text) : null;
     } catch {
-      return {
-        ok: false,
-        data: null,
-        errorMessage: 'Response server tidak valid. Coba lagi.',
-      };
+      return { ok: false, data: null, errorMessage: 'Response server tidak valid. Coba lagi.' };
     }
 
     return { ok: res.ok, data };
   } catch (err: any) {
-    // AbortError (timeout) — paling umum di mobile network
     if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
-      return {
-        ok: false,
-        data: null,
-        errorMessage: 'Permintaan timeout. Cek koneksi internet, coba lagi.',
-      };
+      return { ok: false, data: null, errorMessage: 'Permintaan timeout. Cek koneksi internet, coba lagi.' };
     }
-    // Network failure — biasanya offline atau DNS issue
     if (err?.message?.includes('Failed to fetch') || err?.message?.includes('NetworkError')) {
-      return {
-        ok: false,
-        data: null,
-        errorMessage: 'Tidak bisa connect ke server. Cek koneksi internet.',
-      };
+      return { ok: false, data: null, errorMessage: 'Tidak bisa connect ke server. Cek koneksi internet.' };
     }
-    // Generic fallback
-    return {
-      ok: false,
-      data: null,
-      errorMessage: 'Terjadi kesalahan koneksi. Coba lagi.',
-    };
+    return { ok: false, data: null, errorMessage: 'Terjadi kesalahan koneksi. Coba lagi.' };
   }
 }
 
@@ -80,7 +71,12 @@ interface AuthContextType {
   token: string | null;
   isLoading: boolean;
   requestOtp: (phone: string) => Promise<{ success: boolean; message: string }>;
-  verifyOtp: (phone: string, otp: string) => Promise<{ success: boolean; message: string; is_new?: boolean }>;
+  verifyOtp: (
+    phone: string,
+    otp: string,
+  ) => Promise<{ success: boolean; message: string; is_new?: boolean; has_pin?: boolean }>;
+  setPin: (pin: string) => Promise<{ success: boolean; message: string }>;
+  verifyPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   updateProfile: (name: string) => Promise<boolean>;
   logout: () => void;
 }
@@ -89,19 +85,25 @@ export const AuthContext = createContext<AuthContextType | null>(null);
 
 export function useAuth() {
   const ctx = useContext(AuthContext);
-  if (!ctx) return { user: null, token: null, isLoading: true, requestOtp: async () => ({ success: false, message: "Not initialized" }), verifyOtp: async () => ({ success: false, message: "Not initialized", is_new: false }), updateProfile: async () => false, logout: () => {} };
+  if (!ctx)
+    return {
+      user: null,
+      token: null,
+      isLoading: true,
+      requestOtp: async () => ({ success: false, message: 'Not initialized' }),
+      verifyOtp: async () => ({ success: false, message: 'Not initialized', is_new: false, has_pin: false }),
+      setPin: async () => ({ success: false, message: 'Not initialized' }),
+      verifyPin: async () => ({ success: false, message: 'Not initialized' }),
+      updateProfile: async () => false,
+      logout: () => {},
+    };
   return ctx;
 }
 
-/**
- * PostHog identify helper — mask phone for privacy, include role.
- * Safe wrapper: no-op kalau PostHog ga ready.
- */
 function identifyUserInPostHog(user: AuthUser): void {
   if (!isPostHogReady()) return;
   try {
     posthog.identify(user.id, {
-      // Phone dimasking untuk privacy (hanya first 5 + last 3 digits)
       phone_masked: user.phone ? `${user.phone.slice(0, 5)}***${user.phone.slice(-3)}` : null,
       role: user.role,
       name: user.name,
@@ -113,10 +115,6 @@ function identifyUserInPostHog(user: AuthUser): void {
   }
 }
 
-/**
- * PostHog reset — call on logout.
- * Clear identity sehingga next anonymous session tidak terkait ke user lama.
- */
 function resetPostHog(): void {
   if (!isPostHogReady()) return;
   try {
@@ -132,30 +130,60 @@ export function useAuthProvider(): AuthContextType {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    init();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Init: coba token tersimpan → kalau invalid/expired, coba SILENT REFRESH
+  // (device trusted) sebelum nyerah. Ini yang bikin returning user gak perlu OTP.
+  async function init() {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
     if (saved) {
       setToken(saved);
-      fetchMe(saved);
-    } else {
-      setIsLoading(false);
+      const ok = await fetchMe(saved);
+      if (ok) {
+        setIsLoading(false);
+        return;
+      }
     }
-  }, []);
+    const refreshed = await trySilentRefresh();
+    if (!refreshed) clearSession();
+    setIsLoading(false);
+  }
 
-  async function fetchMe(t: string) {
+  async function fetchMe(t: string): Promise<boolean> {
     const result = await safeFetchJson(`${API}/auth/me`, {
       headers: { Authorization: `Bearer ${t}` },
     });
-
     if (result.ok && result.data?.data) {
       setUser(result.data.data);
-      // Re-identify on page reload saat user masih authenticated
-      // (PostHog bisa lose identity across browser restart)
       identifyUserInPostHog(result.data.data);
-    } else {
-      // Auth failed atau network error — clear session
-      logout();
+      return true;
     }
-    setIsLoading(false);
+    return false;
+  }
+
+  // Silent refresh: pakai refresh_token + device_id → access token baru, TANPA OTP.
+  async function trySilentRefresh(): Promise<boolean> {
+    const refresh = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null;
+    const device = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_KEY) : null;
+    if (!refresh || !device) return false;
+
+    const result = await safeFetchJson(`${API}/auth/token/refresh`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: device, refresh_token: refresh }),
+    });
+
+    if (result.data?.success && result.data?.data?.token) {
+      const newToken = result.data.data.token as string;
+      const newRefresh = result.data.data.refresh_token as string | undefined;
+      localStorage.setItem(TOKEN_KEY, newToken);
+      if (newRefresh) localStorage.setItem(REFRESH_KEY, newRefresh);
+      setToken(newToken);
+      return await fetchMe(newToken);
+    }
+    return false;
   }
 
   async function requestOtp(phone: string) {
@@ -165,43 +193,33 @@ export function useAuthProvider(): AuthContextType {
       body: JSON.stringify({ phone }),
     });
 
-    // Network error (timeout, offline, parse fail)
-    if (result.errorMessage) {
-      return { success: false, message: result.errorMessage };
-    }
+    if (result.errorMessage) return { success: false, message: result.errorMessage };
 
-    // Backend response — sukses atau validation error
     return {
       success: result.data?.success === true,
-      message: result.data?.data?.message
-        ?? result.data?.error?.message
-        ?? 'Terjadi kesalahan',
+      message: result.data?.data?.message ?? result.data?.error?.message ?? 'Terjadi kesalahan',
     };
   }
 
   async function verifyOtp(phone: string, otp: string) {
+    const device_id = getDeviceId();
     const result = await safeFetchJson(`${API}/auth/otp/verify`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ phone, otp }),
+      body: JSON.stringify({ phone, otp, device_id }),
     });
 
-    // Network error
     if (result.errorMessage) {
-      return { success: false, message: result.errorMessage, is_new: undefined };
+      return { success: false, message: result.errorMessage, is_new: undefined, has_pin: undefined };
     }
 
     const data = result.data;
 
-    // Sukses — save token + identify
     if (data?.success && data?.data?.token) {
       localStorage.setItem(TOKEN_KEY, data.data.token);
+      if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
       setToken(data.data.token);
       setUser(data.data.user);
-
-      // Identify user di PostHog setelah login sukses.
-      // Link semua events browser sebelumnya (anonymous) ke user.id ini.
-      // Critical: kalau user baru register → juga identify (first touch tracking)
       identifyUserInPostHog(data.data.user);
     }
 
@@ -209,6 +227,35 @@ export function useAuthProvider(): AuthContextType {
       success: data?.success === true,
       message: data?.data?.message ?? data?.error?.message ?? 'Terjadi kesalahan',
       is_new: data?.data?.is_new,
+      has_pin: data?.data?.has_pin,
+    };
+  }
+
+  async function setPin(pin: string) {
+    if (!token) return { success: false, message: 'Belum login.' };
+    const result = await safeFetchJson(`${API}/auth/pin/set`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pin }),
+    });
+    if (result.errorMessage) return { success: false, message: result.errorMessage };
+    return {
+      success: result.data?.success === true,
+      message: result.data?.data?.message ?? result.data?.error?.message ?? 'Gagal menyimpan PIN.',
+    };
+  }
+
+  async function verifyPin(pin: string) {
+    if (!token) return { success: false, message: 'Belum login.' };
+    const result = await safeFetchJson(`${API}/auth/pin/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ pin }),
+    });
+    if (result.errorMessage) return { success: false, message: result.errorMessage };
+    return {
+      success: result.data?.success === true,
+      message: result.data?.error?.message ?? 'PIN terverifikasi.',
     };
   }
 
@@ -217,33 +264,31 @@ export function useAuthProvider(): AuthContextType {
 
     const result = await safeFetchJson(`${API}/auth/profile`, {
       method: 'PATCH',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name }),
     });
 
-    // Network error atau response invalid
-    if (result.errorMessage || !result.data?.success) {
-      return false;
-    }
+    if (result.errorMessage || !result.data?.success) return false;
 
     setUser(result.data.data);
-    // Re-identify dengan updated name
-    if (result.data.data) {
-      identifyUserInPostHog(result.data.data);
-    }
+    if (result.data.data) identifyUserInPostHog(result.data.data);
     return true;
   }
 
-  function logout() {
-    if (typeof window !== 'undefined') localStorage.removeItem(TOKEN_KEY);
+  function clearSession() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      // DEVICE_KEY sengaja DIPERTAHANKAN — identitas device stabil lintas login.
+    }
     setToken(null);
     setUser(null);
-    // Reset PostHog identity — anonymous session next
+  }
+
+  function logout() {
+    clearSession();
     resetPostHog();
   }
 
-  return { user, token, isLoading, requestOtp, verifyOtp, updateProfile, logout };
+  return { user, token, isLoading, requestOtp, verifyOtp, setPin, verifyPin, updateProfile, logout };
 }
