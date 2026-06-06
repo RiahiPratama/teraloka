@@ -29,11 +29,29 @@ import { Search, LocateFixed, Check } from 'lucide-react';
 import { BalajuMapPicker, type LatLng } from './BalajuMapPicker';
 import { useReverseGeo } from '@/components/shared/locations/use-locations';
 import { useLocationSearch } from '@/components/shared/locations/use-locations';
-import type { Location } from '@/components/shared/locations/locations-types';
+import type { Location, ReverseGeoResult } from '@/components/shared/locations/locations-types';
 
 const BRAND = '#1B6B4A';
 const ACCENT = '#F59E0B';
 const TERNATE: LatLng = { lat: 0.7903, lng: 127.3861 };
+
+// Ringkas nama lokasi dari reverse-geo: "<kelurahan>, <kota/kabupaten>".
+// parent_breadcrumb urutannya "Provinsi › Kota/Kab › Kecamatan › Kelurahan".
+// JEBAKAN: kecamatan Ternate ("Kota Ternate Utara") juga diawali "Kota" — makanya
+// ambil segmen PERTAMA yang diawali Kota/Kabupaten (kota selalu sebelum kecamatan).
+function shortPlace(res: ReverseGeoResult | null | undefined): string | null {
+  const kelurahan = res?.name?.trim();
+  if (!kelurahan) return null;
+  const segments = (res?.parent_breadcrumb ?? '')
+    .split(/\s*›\s*/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const kota = segments.find((s) => /^(kota|kabupaten|kab\.?)\b/i.test(s));
+  if (kota && kota.toLowerCase() !== kelurahan.toLowerCase()) {
+    return `${kelurahan}, ${kota}`;
+  }
+  return kelurahan;
+}
 
 export interface BalajuPoint {
   lat: number;
@@ -46,15 +64,17 @@ type Which = 'pickup' | 'dropoff';
 export interface BalajuLocationStepProps {
   onReady: (pts: { pickup: BalajuPoint; dropoff: BalajuPoint }) => void;
   onChange?: (pts: { pickup: BalajuPoint | null; dropoff: BalajuPoint | null }) => void;
+  onNoteChange?: (note: string) => void;
 }
 
-export function BalajuLocationStep({ onReady, onChange }: BalajuLocationStepProps) {
+export function BalajuLocationStep({ onReady, onChange, onNoteChange }: BalajuLocationStepProps) {
   const [which, setWhich] = useState<Which>('pickup');
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
   const [center, setCenter] = useState<LatLng>(TERNATE);
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsErr, setGpsErr] = useState<string | null>(null);
+  const [pickupNote, setPickupNote] = useState('');
 
   const reverseGeo = useReverseGeo();
 
@@ -75,10 +95,7 @@ export function BalajuLocationStep({ onReady, onChange }: BalajuLocationStepProp
     setActive({ lat: coord.lat, lng: coord.lng, name: 'Titik dipilih' });
     try {
       const res = await reverseGeo.execute(coord.lat, coord.lng);
-      const name =
-        res?.name && res?.parent_breadcrumb
-          ? `${res.name}, ${res.parent_breadcrumb}`
-          : res?.name ?? 'Titik dipilih (dari peta)';
+      const name = shortPlace(res) ?? 'Titik dipilih (dari peta)';
       setActive({ lat: coord.lat, lng: coord.lng, name });
     } catch {
       // reverse-geo gagal/null → koordinat tetap kepakai, nama fallback. Jangan crash.
@@ -197,6 +214,27 @@ export function BalajuLocationStep({ onReady, onChange }: BalajuLocationStepProp
           <PointRow color={BRAND} label="Jemput" point={pickup} />
           <PointRow color={ACCENT} label="Tujuan" point={dropoff} />
         </div>
+      </div>
+
+      {/* Catatan jemput (opsional) — kompensasi nama kelurahan reverse-geo yang bisa meleset.
+          GPS akurat, tapi patokan bantu driver nemu titik persisnya. */}
+      <div className="mt-3">
+        <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-[var(--bl-ink)]">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: BRAND }} />
+          Catatan jemput <span className="font-medium text-[var(--bl-muted)]">(opsional)</span>
+        </label>
+        <textarea
+          value={pickupNote}
+          onChange={(e) => {
+            const v = e.target.value.slice(0, 160);
+            setPickupNote(v);
+            onNoteChange?.(v);
+          }}
+          rows={2}
+          placeholder="Patokan biar driver gampang nemu — cth: depan Masjid Raya, rumah pagar hijau, sebelah warung kopi."
+          className="w-full resize-none rounded-xl border border-[var(--bl-line)] bg-white px-3 py-2.5 text-sm text-[var(--bl-ink)] outline-none transition placeholder:text-[var(--bl-muted)] focus:border-[var(--bl-forest)]"
+        />
+        <div className="mt-0.5 text-right text-[10px] text-[var(--bl-muted)]">{pickupNote.length}/160</div>
       </div>
     </div>
   );

@@ -61,6 +61,7 @@ export function BalajuEntry() {
   const [service, setService] = useState<ServiceType>('ride_bike');
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
+  const [pickupNote, setPickupNote] = useState('');
 
   const [estimate, setEstimate] = useState<EstimateResult | null>(null);
   const [estLoading, setEstLoading] = useState(false);
@@ -130,6 +131,7 @@ export function BalajuEntry() {
         dropoff_lng: dropoff.lng,
         pickup_address: pickup.name,
         dropoff_address: dropoff.name,
+        service_details: pickupNote.trim() ? { pickup_note: pickupNote.trim() } : {},
       });
       const id = res?.request?.id;
       if (!id) throw new Error('no id');
@@ -246,6 +248,7 @@ export function BalajuEntry() {
               setPickup(p);
               setDropoff(d);
             }}
+            onNoteChange={setPickupNote}
           />
           <p className="mt-2 text-[11px] text-[var(--bl-muted)]">
             Harga muncul setelah jemput &amp; tujuan dipilih.

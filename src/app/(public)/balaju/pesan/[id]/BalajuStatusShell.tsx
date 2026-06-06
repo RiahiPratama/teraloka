@@ -56,6 +56,7 @@ interface RideDetail {
   selected_driver_id: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
+  service_details?: { pickup_note?: string | null } | null;
   driver?: DriverInfo | null;
   vehicle?: VehicleInfo | null;
 }
@@ -288,6 +289,11 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
           </div>
         )}
 
+        {/* Zona animasi status (WAJAH ilustratif) */}
+        {ride.status === 'open' && <SearchingRadar />}
+        {ride.status === 'matched' && <DriverEnRouteMap variant="toPickup" />}
+        {ride.status === 'ongoing' && <DriverEnRouteMap variant="onTrip" />}
+
         {/* Rute */}
         <div className="mt-5 flex gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
           <div className="flex flex-col items-center pt-1">
@@ -299,6 +305,12 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Jemput</div>
               <div className="text-sm font-semibold text-[var(--bl-ink)]">{ride.pickup_address || 'Titik jemput'}</div>
+              {ride.service_details?.pickup_note && (
+                <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-[var(--bl-forest-10)] px-2 py-1.5 text-[11px] text-[var(--bl-forest-d)]">
+                  <MapPin className="mt-px h-3 w-3 shrink-0 text-[var(--bl-forest)]" />
+                  <span className="min-w-0">{ride.service_details.pickup_note}</span>
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Tujuan</div>
@@ -306,13 +318,6 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
             </div>
           </div>
         </div>
-
-        {/* Mencari driver (status open) */}
-        {ride.status === 'open' && (
-          <div className="mt-4 flex items-center justify-center gap-2 rounded-2xl border border-dashed border-[var(--bl-line)] bg-white py-6 text-sm text-[var(--bl-muted)]">
-            <Loader2 className="h-4 w-4 animate-spin text-[var(--bl-forest)]" /> Menghubungi driver di sekitarmu...
-          </div>
-        )}
 
         {/* Kartu driver (matched / ongoing) — info lengkap Model B */}
         {(ride.status === 'matched' || ride.status === 'ongoing') && (
@@ -439,6 +444,96 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
 
         <p className="mt-4 text-center text-[11px] text-[var(--bl-muted)]">TeraLoka BALAJU · Maluku Utara</p>
       </div>
+    </div>
+  );
+}
+
+// ── Animasi "mencari driver" — radar pulsing (pure CSS, scoped blstat-) ──
+function SearchingRadar() {
+  return (
+    <div className="mt-4 rounded-2xl border border-[var(--bl-line)] bg-white py-8">
+      <style>{`
+        @keyframes blstat-ping {
+          0%   { transform: scale(0.3); opacity: 0.5; }
+          70%  { opacity: 0; }
+          100% { transform: scale(1.7); opacity: 0; }
+        }
+        @keyframes blstat-sweep { to { transform: rotate(360deg); } }
+        @keyframes blstat-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        .blstat-radar { position: relative; width: 150px; height: 150px; margin: 0 auto; }
+        .blstat-radar > span { position: absolute; inset: 0; margin: auto; border-radius: 9999px; }
+        .blstat-ring { width: 150px; height: 150px; border: 2px solid var(--bl-forest); animation: blstat-ping 2.4s ease-out infinite; }
+        .blstat-ring:nth-of-type(2) { animation-delay: 0.8s; }
+        .blstat-ring:nth-of-type(3) { animation-delay: 1.6s; }
+        .blstat-sweep { width: 150px; height: 150px; background: conic-gradient(from 0deg, transparent 0deg, var(--bl-forest-10) 55deg, transparent 90deg); animation: blstat-sweep 2.6s linear infinite; }
+        .blstat-core { width: 54px; height: 54px; display: grid; place-items: center; background: var(--bl-forest); color: #fff; box-shadow: 0 10px 22px -8px var(--bl-forest); animation: blstat-bob 2s ease-in-out infinite; }
+        @media (prefers-reduced-motion: reduce) {
+          .blstat-ring, .blstat-sweep, .blstat-core { animation: none; }
+        }
+      `}</style>
+      <div className="blstat-radar">
+        <span className="blstat-sweep" />
+        <span className="blstat-ring" />
+        <span className="blstat-ring" />
+        <span className="blstat-ring" />
+        <span className="blstat-core"><Bike className="h-6 w-6" /></span>
+      </div>
+      <p className="mt-6 text-center text-sm font-bold text-[var(--bl-forest-d)]">Mencari driver terdekat</p>
+      <p className="mt-0.5 text-center text-xs text-[var(--bl-muted)]">Menghubungi driver di sekitarmu…</p>
+    </div>
+  );
+}
+
+// ── Ilustrasi peta: puck bergerak menyusuri rute (SMIL, tanpa JS/lib) ──
+// variant 'toPickup' = driver menuju jemput (pin amber). 'onTrip' = perjalanan (pin tujuan forest).
+function DriverEnRouteMap({ variant }: { variant: 'toPickup' | 'onTrip' }) {
+  const onTrip = variant === 'onTrip';
+  const label = onTrip ? 'Perjalanan berlangsung' : 'Driver menuju ke kamu';
+  return (
+    <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--bl-line)] bg-white">
+      <div className="relative">
+        <svg viewBox="0 0 360 150" className="h-[150px] w-full" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ilustrasi rute perjalanan">
+          <rect width="360" height="150" fill="var(--bl-cream)" />
+          {/* blok kota */}
+          <g opacity="0.55" fill="var(--bl-forest-10)">
+            <rect x="22" y="18" width="48" height="32" rx="5" />
+            <rect x="84" y="12" width="40" height="26" rx="5" />
+            <rect x="246" y="16" width="52" height="30" rx="5" />
+            <rect x="300" y="92" width="46" height="40" rx="5" />
+            <rect x="28" y="98" width="42" height="34" rx="5" />
+            <rect x="150" y="104" width="48" height="30" rx="5" />
+          </g>
+          {/* rute */}
+          <path id="blstat-route" d="M 40 122 C 110 122, 118 52, 200 60 S 300 78, 320 42" fill="none" stroke="var(--bl-forest)" strokeWidth="3" strokeDasharray="6 8" strokeLinecap="round" opacity="0.5" />
+          {/* titik asal */}
+          <circle cx="40" cy="122" r="5" fill="var(--bl-forest)" opacity="0.55" />
+          {/* pin tujuan (akhir rute 320,42) */}
+          <g transform="translate(320 42)">
+            <circle r="12" fill={onTrip ? 'var(--bl-forest-10)' : 'var(--bl-amber-15)'}>
+              <animate attributeName="r" values="10;15;10" dur="1.8s" repeatCount="indefinite" />
+            </circle>
+            <circle r="6" fill={onTrip ? 'var(--bl-forest)' : 'var(--bl-amber)'} />
+            <circle r="2.4" fill="#fff" />
+          </g>
+          {/* puck bergerak */}
+          <g>
+            <circle r="13" fill="var(--bl-forest)" opacity="0.16" />
+            <circle r="7.5" fill="var(--bl-forest)" stroke="#fff" strokeWidth="2.5" />
+            {onTrip && <circle r="12" fill="none" stroke="var(--bl-amber)" strokeWidth="2" strokeDasharray="3 3" opacity="0.8" />}
+            <animateMotion dur="6s" repeatCount="indefinite" calcMode="linear">
+              <mpath href="#blstat-route" />
+            </animateMotion>
+          </g>
+        </svg>
+        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[var(--bl-forest-d)] shadow-sm backdrop-blur">
+          <span className="relative flex h-1.5 w-1.5">
+            <span className="absolute h-full w-full animate-ping rounded-full bg-[var(--bl-forest-70)]" />
+            <span className="relative h-1.5 w-1.5 rounded-full bg-[var(--bl-forest)]" />
+          </span>
+          {label}
+        </span>
+      </div>
+      <p className="border-t border-[var(--bl-line)] px-3 py-2 text-center text-[10px] text-[var(--bl-muted)]">Ilustrasi rute — bukan posisi GPS real-time</p>
     </div>
   );
 }
