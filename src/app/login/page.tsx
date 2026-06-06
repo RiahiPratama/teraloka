@@ -33,8 +33,11 @@ function LoginPageContent() {
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    if (user) router.replace(redirectTo);
-  }, [user, redirectTo, router]);
+    // Redirect HANYA pas masih di step 'phone' (user emang udah login dari awal).
+    // Jangan nendang pas lagi di setpin/onboard/otp — user udah ke-set tapi belum
+    // kelar setup. Tanpa guard ini, layar "Buat PIN" muncul sekejap lalu ke-redirect.
+    if (user && step === 'phone') router.replace(redirectTo);
+  }, [user, step, redirectTo, router]);
 
   useEffect(() => {
     if (timer <= 0) return;
