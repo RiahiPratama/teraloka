@@ -5,11 +5,12 @@ import { posthog, isPostHogReady } from '@/lib/posthog';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const TOKEN_KEY = 'tl_token';
-const REFRESH_KEY = 'tl_refresh';   // ← BARU: refresh token (rotating, device-bound)
-const DEVICE_KEY = 'tl_device';     // ← BARU: device id stabil per-browser
+const REFRESH_KEY = 'tl_refresh';
+const DEVICE_KEY = 'tl_device';
+const LOCKED_KEY = 'tl_locked';        // '1' = sesi dikunci, masuk lagi butuh PIN
+const LASTUSER_KEY = 'tl_last_user';   // { phone, name } untuk layar PIN-login
 const REQUEST_TIMEOUT_MS = 20_000;
 
-// ─── device id: generate sekali per browser, simpan di localStorage ──
 function getDeviceId(): string {
   if (typeof window === 'undefined') return '';
   try {
@@ -26,17 +27,12 @@ function getDeviceId(): string {
   }
 }
 
-// ─── Helper: fetch dengan timeout + safe JSON parse + error normalization ───
 async function safeFetchJson(
   url: string,
   options: RequestInit = {},
 ): Promise<{ ok: boolean; data: any; errorMessage?: string }> {
   try {
-    const res = await fetch(url, {
-      ...options,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
-
+    const res = await fetch(url, { ...options, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) });
     const text = await res.text();
     let data: any = null;
     try {
@@ -44,7 +40,6 @@ async function safeFetchJson(
     } catch {
       return { ok: false, data: null, errorMessage: 'Response server tidak valid. Coba lagi.' };
     }
-
     return { ok: res.ok, data };
   } catch (err: any) {
     if (err?.name === 'TimeoutError' || err?.name === 'AbortError') {
@@ -66,19 +61,27 @@ export interface AuthUser {
   phone_verified?: boolean;
 }
 
+export interface LockedSession {
+  phone: string;
+  name: string | null;
+}
+
 interface AuthContextType {
   user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
+  lockedSession: LockedSession | null;
   requestOtp: (phone: string) => Promise<{ success: boolean; message: string }>;
   verifyOtp: (
     phone: string,
     otp: string,
   ) => Promise<{ success: boolean; message: string; is_new?: boolean; has_pin?: boolean }>;
+  pinLogin: (pin: string) => Promise<{ success: boolean; message: string; fallbackOtp?: boolean }>;
   setPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   verifyPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   updateProfile: (name: string) => Promise<boolean>;
-  logout: () => void;
+  logout: () => void;       // KUNCI: simpan device trust, masuk lagi pakai PIN
+  logoutFull: () => void;   // KELUAR PENUH: buang device trust, masuk lagi pakai OTP
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -90,12 +93,15 @@ export function useAuth() {
       user: null,
       token: null,
       isLoading: true,
+      lockedSession: null,
       requestOtp: async () => ({ success: false, message: 'Not initialized' }),
       verifyOtp: async () => ({ success: false, message: 'Not initialized', is_new: false, has_pin: false }),
+      pinLogin: async () => ({ success: false, message: 'Not initialized', fallbackOtp: false }),
       setPin: async () => ({ success: false, message: 'Not initialized' }),
       verifyPin: async () => ({ success: false, message: 'Not initialized' }),
       updateProfile: async () => false,
       logout: () => {},
+      logoutFull: () => {},
     };
   return ctx;
 }
@@ -128,14 +134,13 @@ export function useAuthProvider(): AuthContextType {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [lockedSession, setLockedSession] = useState<LockedSession | null>(null);
 
   useEffect(() => {
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Init: coba token tersimpan → kalau invalid/expired, coba SILENT REFRESH
-  // (device trusted) sebelum nyerah. Ini yang bikin returning user gak perlu OTP.
   async function init() {
     const saved = typeof window !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null;
     if (saved) {
@@ -146,15 +151,39 @@ export function useAuthProvider(): AuthContextType {
         return;
       }
     }
+
+    // Tidak ada token valid. Cek apakah sesi DIKUNCI (perlu PIN) vs boleh silent refresh.
+    const locked = typeof window !== 'undefined' && localStorage.getItem(LOCKED_KEY) === '1';
+    const hasDevice =
+      typeof window !== 'undefined' &&
+      !!localStorage.getItem(REFRESH_KEY) &&
+      !!localStorage.getItem(DEVICE_KEY);
+
+    if (locked && hasDevice) {
+      // Surface sesi terkunci -> login page tampilkan layar PIN. JANGAN silent refresh.
+      const raw = localStorage.getItem(LASTUSER_KEY);
+      if (raw) {
+        try {
+          setLockedSession(JSON.parse(raw));
+        } catch {
+          /* ignore */
+        }
+      }
+      setIsLoading(false);
+      return;
+    }
+
+    // Tidak dikunci -> coba silent refresh (returning user, tidak logout).
     const refreshed = await trySilentRefresh();
-    if (!refreshed) clearSession();
+    if (!refreshed) {
+      setToken(null);
+      setUser(null);
+    }
     setIsLoading(false);
   }
 
   async function fetchMe(t: string): Promise<boolean> {
-    const result = await safeFetchJson(`${API}/auth/me`, {
-      headers: { Authorization: `Bearer ${t}` },
-    });
+    const result = await safeFetchJson(`${API}/auth/me`, { headers: { Authorization: `Bearer ${t}` } });
     if (result.ok && result.data?.data) {
       setUser(result.data.data);
       identifyUserInPostHog(result.data.data);
@@ -163,7 +192,6 @@ export function useAuthProvider(): AuthContextType {
     return false;
   }
 
-  // Silent refresh: pakai refresh_token + device_id → access token baru, TANPA OTP.
   async function trySilentRefresh(): Promise<boolean> {
     const refresh = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null;
     const device = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_KEY) : null;
@@ -186,15 +214,21 @@ export function useAuthProvider(): AuthContextType {
     return false;
   }
 
+  function persistLastUser(u: { phone: string; name: string | null }) {
+    try {
+      localStorage.setItem(LASTUSER_KEY, JSON.stringify({ phone: u.phone, name: u.name ?? null }));
+    } catch {
+      /* ignore */
+    }
+  }
+
   async function requestOtp(phone: string) {
     const result = await safeFetchJson(`${API}/auth/otp/request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone }),
     });
-
     if (result.errorMessage) return { success: false, message: result.errorMessage };
-
     return {
       success: result.data?.success === true,
       message: result.data?.data?.message ?? result.data?.error?.message ?? 'Terjadi kesalahan',
@@ -218,8 +252,11 @@ export function useAuthProvider(): AuthContextType {
     if (data?.success && data?.data?.token) {
       localStorage.setItem(TOKEN_KEY, data.data.token);
       if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
+      localStorage.removeItem(LOCKED_KEY);
+      persistLastUser({ phone: data.data.user.phone, name: data.data.user.name });
       setToken(data.data.token);
       setUser(data.data.user);
+      setLockedSession(null);
       identifyUserInPostHog(data.data.user);
     }
 
@@ -229,6 +266,45 @@ export function useAuthProvider(): AuthContextType {
       is_new: data?.data?.is_new,
       has_pin: data?.data?.has_pin,
     };
+  }
+
+  async function pinLogin(pin: string) {
+    const device = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_KEY) : null;
+    const refresh = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null;
+    if (!device || !refresh) {
+      return { success: false, message: 'Sesi tidak ada. Login dengan OTP.', fallbackOtp: true };
+    }
+
+    const result = await safeFetchJson(`${API}/auth/pin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: device, refresh_token: refresh, pin }),
+    });
+
+    if (result.errorMessage) return { success: false, message: result.errorMessage };
+
+    const data = result.data;
+    if (data?.success && data?.data?.token) {
+      localStorage.setItem(TOKEN_KEY, data.data.token);
+      if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
+      localStorage.removeItem(LOCKED_KEY);
+      persistLastUser({ phone: data.data.user.phone, name: data.data.user.name });
+      setToken(data.data.token);
+      setUser(data.data.user);
+      setLockedSession(null);
+      identifyUserInPostHog(data.data.user);
+      return { success: true, message: 'ok' };
+    }
+
+    const code = data?.error?.code;
+    const fallbackOtp = ['DEVICE_NOT_TRUSTED', 'PIN_LOGIN_EXPIRED', 'PIN_LOCKED', 'PIN_NOT_SET', 'REFRESH_INVALID'].includes(code);
+    if (fallbackOtp) {
+      // device tidak valid / expired / lupa -> jatuh ke OTP. Bersihkan jejak kunci.
+      localStorage.removeItem(LOCKED_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      setLockedSession(null);
+    }
+    return { success: false, message: data?.error?.message ?? 'PIN salah.', fallbackOtp };
   }
 
   async function setPin(pin: string) {
@@ -261,34 +337,58 @@ export function useAuthProvider(): AuthContextType {
 
   async function updateProfile(name: string) {
     if (!token) return false;
-
     const result = await safeFetchJson(`${API}/auth/profile`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ name }),
     });
-
     if (result.errorMessage || !result.data?.success) return false;
-
     setUser(result.data.data);
-    if (result.data.data) identifyUserInPostHog(result.data.data);
+    if (result.data.data) {
+      identifyUserInPostHog(result.data.data);
+      persistLastUser({ phone: result.data.data.phone, name: result.data.data.name });
+    }
     return true;
   }
 
-  function clearSession() {
+  // KUNCI (logout biasa): buang access token, set flag terkunci.
+  // Refresh token + device + last_user DIPERTAHANKAN -> masuk lagi cukup PIN.
+  function logout() {
     if (typeof window !== 'undefined') {
       localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(REFRESH_KEY);
-      // DEVICE_KEY sengaja DIPERTAHANKAN — identitas device stabil lintas login.
+      localStorage.setItem(LOCKED_KEY, '1');
     }
     setToken(null);
     setUser(null);
   }
 
-  function logout() {
-    clearSession();
+  // KELUAR PENUH: buang semua jejak sesi -> masuk lagi WAJIB OTP.
+  function logoutFull() {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem(REFRESH_KEY);
+      localStorage.removeItem(LOCKED_KEY);
+      localStorage.removeItem(LASTUSER_KEY);
+      // DEVICE_KEY dipertahankan (identitas device stabil).
+    }
+    setToken(null);
+    setUser(null);
+    setLockedSession(null);
     resetPostHog();
   }
 
-  return { user, token, isLoading, requestOtp, verifyOtp, setPin, verifyPin, updateProfile, logout };
+  return {
+    user,
+    token,
+    isLoading,
+    lockedSession,
+    requestOtp,
+    verifyOtp,
+    pinLogin,
+    setPin,
+    verifyPin,
+    updateProfile,
+    logout,
+    logoutFull,
+  };
 }
