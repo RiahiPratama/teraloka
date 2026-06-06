@@ -227,8 +227,9 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         {step >= 0 && (
           <div className="mt-6 flex items-center">
             {STEPS.map((label, i) => {
-              const done = i < step;
-              const current = i === step;
+              const allDone = ride.status === 'completed';
+              const done = i < step || allDone;
+              const current = i === step && !allDone;
               return (
                 <div key={label} className="flex flex-1 flex-col items-center">
                   <div className="flex w-full items-center">
