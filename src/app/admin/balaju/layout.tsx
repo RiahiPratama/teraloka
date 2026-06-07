@@ -11,8 +11,9 @@
 // 🛡️ FILOSOFI PRD §4: tab REAL = link aktif; tab PARKIR = disabled + "soon".
 //    Flip parkir→real saat backend masing-masing jadi.
 //
-// REAL: Dashboard (/admin/balaju), Verifikasi (/admin/balaju/drivers), Driver (/admin/balaju/roster).
-//   🛡️ Roster sengaja DI LUAR /drivers biar prefix-match Verifikasi gak nyangkut.
+// REAL: Dashboard (/admin/balaju), Ride Motor (/admin/balaju/rides),
+//       Driver (/admin/balaju/roster), Verifikasi (/admin/balaju/drivers).
+//   🛡️ Tiap route REAL beda prefix → match-prefix gak saling nyangkut.
 // ═══════════════════════════════════════════════════════════════
 
 import { usePathname } from 'next/navigation';
@@ -36,7 +37,7 @@ interface TabDef {
 // Urutan = IA mockup §3. href hanya untuk yang backend-nya SUDAH ADA.
 const TABS: TabDef[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} />, href: '/admin/balaju', match: 'exact' },
-  { key: 'ride_bike', label: 'Ride Motor', icon: <Bike size={15} /> },                                  // PARKIR (list order belum)
+  { key: 'ride_bike', label: 'Ride Motor', icon: <Bike size={15} />, href: '/admin/balaju/rides', match: 'prefix' },
   { key: 'driver', label: 'Driver', icon: <Users size={15} />, href: '/admin/balaju/roster', match: 'prefix' },
   { key: 'verifikasi', label: 'Verifikasi', icon: <ShieldCheck size={15} />, href: '/admin/balaju/drivers', match: 'prefix' },
   { key: 'financial', label: 'Financial', icon: <Wallet size={15} /> },                                 // PARKIR
