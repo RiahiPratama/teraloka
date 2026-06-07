@@ -154,7 +154,21 @@ export function DriverHomeShell() {
       const r = await api.post<{ is_online: boolean }>('/driver/online', { online: next });
       setOnline(!!r.is_online);
     } catch (e) {
-      if (handleAuthError(e)) return;
+      if (e instanceof ApiError && e.status === 401) {
+        stopPolling();
+        router.push('/login?redirect=/mitra/driver');
+        return;
+      }
+      // 403 = belum diverifikasi admin (BUKAN sesi habis) -> jangan redirect, kasih tau.
+      if (e instanceof ApiError && e.status === 403) {
+        setOnline(false);
+        setErr('Akun driver kamu belum diverifikasi admin. Order baru bisa diterima setelah akun aktif.');
+        return;
+      }
+      if (e instanceof ApiError && e.status === 404) {
+        setNotDriver(true);
+        return;
+      }
       setErr(e instanceof ApiError ? e.message : 'Gagal mengubah status. Coba lagi.');
     } finally {
       setToggling(false);
