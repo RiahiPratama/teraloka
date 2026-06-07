@@ -1,0 +1,100 @@
+'use client';
+// ════════════════════════════════════════════════════════════════
+// BAKOS — Cari composer (fetch + filter + debounce + URL sync)
+// PATH: src/components/bakos/public/search/BakosCari.tsx
+// 🛡️ Layout disiapkan utk split list+map: .bkc-body bisa jadi 2-kolom
+//    begitu peta siap (tambah <aside> kanan, grid pindah kiri — zero rombak).
+// ════════════════════════════════════════════════════════════════
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { API_URL, PRICE_FILTERS, type Listing } from '../bakos-links';
+import { ListingGrid } from '../listing-grid';
+import { CariFilters } from './cari-filters';
+import '../bakos-landing.css';
+import './bakos-cari.css';
+
+export function BakosCari() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const [q, setQ] = useState(sp.get('q') ?? '');
+  const [kosType, setKosType] = useState(sp.get('kos_type') ?? '');
+  const [priceKey, setPriceKey] = useState('all');
+  const [listings, setListings] = useState<Listing[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [total, setTotal] = useState(0);
+  const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchKos = useCallback(async (qVal: string, kt: string, pk: string) => {
+    setLoading(true);
+    try {
+      const params = new URLSearchParams({ type: 'kos', page: '1', limit: '24' });
+      if (qVal.trim()) params.set('q', qVal.trim());
+      if (kt) params.set('kos_type', kt);
+      if (pk !== 'all') {
+        const [mn, mx] = pk.split('-');
+        if (Number(mn) > 0) params.set('min_price', mn);
+        if (Number(mx) > 0) params.set('max_price', mx);
+      }
+      const res = await fetch(`${API_URL}/listings?${params.toString()}`);
+      const data = await res.json();
+      const items: Listing[] = data.data ?? data.listings ?? [];
+      setListings(items);
+      setTotal(data.pagination?.total ?? data.meta?.total ?? data.total ?? items.length);
+    } catch {
+      setListings([]); setTotal(0);
+    } finally { setLoading(false); }
+  }, []);
+
+  // filter berubah → fetch (q di-debounce, pills langsung)
+  useEffect(() => {
+    if (debRef.current) clearTimeout(debRef.current);
+    debRef.current = setTimeout(() => fetchKos(q, kosType, priceKey), 400);
+    return () => { if (debRef.current) clearTimeout(debRef.current); };
+  }, [q, kosType, priceKey, fetchKos]);
+
+  // sync URL (shareable) — q + kos_type
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (q.trim()) p.set('q', q.trim());
+    if (kosType) p.set('kos_type', kosType);
+    const qs = p.toString();
+    router.replace(`/bakos/cari${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [q, kosType, router]);
+
+  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); };
+
+  return (
+    <div className="bkc">
+      {/* filter bar sticky */}
+      <div className="bkc-bar">
+        <div className="bkc-wrap">
+          <div className="bkc-search">
+            <span className="material-symbols-outlined">search</span>
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Cari nama kos, area (mis. Bastiong, Akehuda)…"
+            />
+            {q && <button className="x" onClick={() => setQ('')} aria-label="Hapus">
+              <span className="material-symbols-outlined">close</span>
+            </button>}
+          </div>
+          <CariFilters
+            kosType={kosType} priceKey={priceKey}
+            onKosType={setKosType} onPrice={setPriceKey}
+          />
+        </div>
+      </div>
+
+      {/* hasil — full width (peta nyusul: jadiin .bkc-body 2-kolom) */}
+      <div className="bkc-body">
+        <div className="bkc-results">
+          <ListingGrid listings={listings} loading={loading} searchInput={q} onReset={reset} />
+        </div>
+        {/* 🛡️ SLOT PETA (aktifkan saat koordinat siap):
+        <aside className="bkc-map"><BakosKosMap listings={listings} /></aside> */}
+      </div>
+    </div>
+  );
+}

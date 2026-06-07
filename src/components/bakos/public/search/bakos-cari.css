@@ -1,0 +1,45 @@
+/* ════════════════════════════════════════════════════════════════
+   BAKOS Cari — layout + filter bar. Scope .bkc
+   PATH: src/components/bakos/public/search/bakos-cari.css
+   ════════════════════════════════════════════════════════════════ */
+.bkc { --grn:#1B6B4A; --ink:#0F172A; --mut:#64748B; --line:#E8ECEF; --bg:#fff; min-height:60vh; }
+
+/* ── filter bar sticky ── */
+.bkc-bar { position:sticky; top:0; z-index:30; background:#fff; border-bottom:1px solid var(--line);
+  box-shadow:0 1px 0 rgba(15,23,42,.02); }
+.bkc-wrap { max-width:1180px; margin:0 auto; padding:14px 22px; display:flex; flex-direction:column; gap:12px; }
+
+/* search input */
+.bkc-search { display:flex; align-items:center; gap:10px; background:#F4F6F8; border:1px solid var(--line);
+  border-radius:14px; padding:11px 14px; transition:border-color .15s, background .15s; }
+.bkc-search:focus-within { background:#fff; border-color:var(--grn); }
+.bkc-search .material-symbols-outlined { color:var(--mut); font-size:22px; }
+.bkc-search input { flex:1; border:0; background:transparent; outline:none; font-size:15px; color:var(--ink);
+  font-family:inherit; }
+.bkc-search input::placeholder { color:#94A3B8; }
+.bkc-search .x { border:0; background:transparent; cursor:pointer; color:var(--mut); display:flex;
+  padding:2px; border-radius:8px; }
+.bkc-search .x:hover { background:var(--line); color:var(--ink); }
+.bkc-search .x .material-symbols-outlined { font-size:18px; }
+
+/* filter pills */
+.bkc-filters { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.bkc-fgrp { display:flex; gap:8px; flex-wrap:wrap; }
+.bkc-div { width:1px; height:22px; background:var(--line); margin:0 4px; }
+.bkc-pill { border:1px solid var(--line); background:#fff; color:var(--mut); font-weight:600;
+  font-size:13px; padding:7px 14px; border-radius:999px; cursor:pointer; white-space:nowrap;
+  transition:all .15s; font-family:inherit; }
+.bkc-pill:hover { border-color:var(--grn); color:var(--grn); }
+.bkc-pill.on { background:var(--grn); border-color:var(--grn); color:#fff; }
+
+/* body — full width sekarang; siap jadi 2-kolom (grid + aside) saat peta on */
+.bkc-body { max-width:1180px; margin:0 auto; }
+.bkc-results { padding-top:8px; }
+
+/* ── responsive ── */
+@media (max-width:600px) {
+  .bkc-wrap { padding:12px 16px; }
+  .bkc-div { display:none; }
+  .bkc-filters { gap:6px; }
+  .bkc-pill { font-size:12px; padding:6px 12px; }
+}
