@@ -128,7 +128,7 @@ const NAV_SECTIONS: NavSectionConfig[] = [
     label: 'PROPERTI & SEWA',
     items: [
       {
-        href: '/admin/listings?type=kos',
+        href: '/admin/bakos',
         label: 'BAKOS',
         sublabel: 'Kos & penginapan',
         service: 'bakos',
