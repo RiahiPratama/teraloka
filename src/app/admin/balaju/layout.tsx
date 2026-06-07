@@ -4,15 +4,13 @@
 // BALAJU Command Center — Sub-Navigation (Nested Layout)
 // Path: wrap semua /admin/balaju/*   (auth+role udah di admin/layout.tsx global)
 //
-// 🛡️ Keputusan arsitektur: sidebar global kiri (256px) SUDAH ADA. IA BALAJU
-//    dirender sebagai TAB BAR horizontal (bukan sidebar kedua) → hemat ruang,
-//    layout global nol disentuh.
-//
+// 🛡️ Sidebar global kiri (256px) SUDAH ADA. IA BALAJU = TAB BAR horizontal
+//    (bukan sidebar kedua). Layout global nol disentuh.
 // 🛡️ FILOSOFI PRD §4: tab REAL = link aktif; tab PARKIR = disabled + "soon".
-//    Flip parkir→real saat backend masing-masing jadi.
 //
 // REAL: Dashboard (/admin/balaju), Ride Motor (/admin/balaju/rides),
-//       Driver (/admin/balaju/roster), Verifikasi (/admin/balaju/drivers).
+//       Driver (/admin/balaju/roster), Verifikasi (/admin/balaju/drivers),
+//       Tarif (/admin/balaju/tarif).
 //   🛡️ Tiap route REAL beda prefix → match-prefix gak saling nyangkut.
 // ═══════════════════════════════════════════════════════════════
 
@@ -30,18 +28,16 @@ interface TabDef {
   label: string;
   icon: ReactNode;
   href?: string; // ada = REAL (link); kosong = PARKIR (disabled)
-  /** match aktif: 'exact' (Dashboard) atau 'prefix' (sub-route) */
   match?: 'exact' | 'prefix';
 }
 
-// Urutan = IA mockup §3. href hanya untuk yang backend-nya SUDAH ADA.
 const TABS: TabDef[] = [
   { key: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={15} />, href: '/admin/balaju', match: 'exact' },
   { key: 'ride_bike', label: 'Ride Motor', icon: <Bike size={15} />, href: '/admin/balaju/rides', match: 'prefix' },
   { key: 'driver', label: 'Driver', icon: <Users size={15} />, href: '/admin/balaju/roster', match: 'prefix' },
   { key: 'verifikasi', label: 'Verifikasi', icon: <ShieldCheck size={15} />, href: '/admin/balaju/drivers', match: 'prefix' },
+  { key: 'tarif', label: 'Tarif', icon: <SlidersHorizontal size={15} />, href: '/admin/balaju/tarif', match: 'prefix' },
   { key: 'financial', label: 'Financial', icon: <Wallet size={15} /> },                                 // PARKIR
-  { key: 'tarif', label: 'Tarif', icon: <SlidersHorizontal size={15} /> },                              // PARKIR (cek fare-config)
   { key: 'ride_car', label: 'Ride Mobil', icon: <Car size={15} /> },                                    // PARKIR (F9)
   { key: 'courier', label: 'Kurir', icon: <Package size={15} /> },                                      // PARKIR
   { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },                              // PARKIR
