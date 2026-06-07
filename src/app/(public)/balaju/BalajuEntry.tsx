@@ -9,10 +9,17 @@
 //   estimate balikin per layanan { tarif_dasar, komisi, total_bayar }.
 //   - total_bayar = yang RIDER bayar (ditampilkan sebagai harga utama)
 //   - tarif_dasar = driver terima UTUH; komisi = fee TeraLoka (transparan, terpisah)
+//
+// FIX (7 Jun 2026) — DRAFT PERSIST (anti state-loss saat login round-trip):
+//   Masalah: user isi rute+harga SEBELUM login (estimate publik), tap Pesan -> redirect /login
+//   -> balik -> komponen mount ulang -> useState reset -> form KOSONG (harus input ulang).
+//   Solusi: simpan draft ke sessionStorage sebelum redirect login; restore + tampil RINGKASAN
+//   rute pas balik (one-shot consume). NOL backend, NOL sentuh BalajuLocationStep
+//   (komponen itu gak nerima initial value -> pola ringkasan + tombol "Ubah" dipakai).
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, type LucideIcon } from 'lucide-react';
+import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, Pencil, type LucideIcon } from 'lucide-react';
 import { BalajuLocationStep, type BalajuPoint } from '@/components/balaju/rider/BalajuLocationStep';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -34,6 +41,16 @@ interface EstimateItem {
 interface EstimateResult {
   distance_m: number;
   estimates: EstimateItem[];
+}
+
+// Draft order yang diselamatkan nyebrang login. Simpan point UTUH (JSON) biar nol field-loss.
+const DRAFT_KEY = 'balaju:order-draft';
+interface OrderDraft {
+  service: ServiceType;
+  pickup: BalajuPoint;
+  dropoff: BalajuPoint;
+  pickupNote: string;
+  estimate: EstimateResult | null;
 }
 
 const SERVICES: {
@@ -62,12 +79,46 @@ export function BalajuEntry() {
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
   const [pickupNote, setPickupNote] = useState('');
+  // resumed = draft kebaca dari sessionStorage (tampil ringkasan, sembunyikan picker).
+  const [resumed, setResumed] = useState(false);
 
   const [estimate, setEstimate] = useState<EstimateResult | null>(null);
   const [estLoading, setEstLoading] = useState(false);
   const [estErr, setEstErr] = useState<string | null>(null);
 
   const canContinue = pickup !== null && dropoff !== null;
+
+  // Restore draft sekali pas mount (one-shot: baca lalu hapus, biar gak nge-haunt kunjungan berikut).
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      sessionStorage.removeItem(DRAFT_KEY);
+      const d = JSON.parse(raw) as OrderDraft;
+      if (d?.pickup && d?.dropoff) {
+        setService(d.service ?? 'ride_bike');
+        setPickup(d.pickup);
+        setDropoff(d.dropoff);
+        setPickupNote(d.pickupNote ?? '');
+        setEstimate(d.estimate ?? null);
+        setResumed(true);
+      }
+    } catch {
+      // draft korup -> abaikan, mulai bersih.
+    }
+  }, []);
+
+  // Simpan draft sebelum lempar ke login (biar gak ilang pas balik).
+  function saveDraft() {
+    if (typeof window === 'undefined' || !pickup || !dropoff) return;
+    const d: OrderDraft = { service, pickup, dropoff, pickupNote, estimate };
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d));
+    } catch {
+      // quota/private mode -> abaikan, fallback ke perilaku lama.
+    }
+  }
 
   // Breakdown layanan tertentu dari hasil estimate (null kalau belum hitung).
   function breakdownOf(svc: ServiceType): EstimateItem | null {
@@ -104,18 +155,24 @@ export function BalajuEntry() {
     if (estimate) setEstimate(null);
   }
 
+  // Buka kembali picker (user mau ganti rute dari ringkasan resume).
+  function editRoute() {
+    setResumed(false);
+    setEstimate(null);
+  }
+
   const [ordering, setOrdering] = useState(false);
   const [orderErr, setOrderErr] = useState<string | null>(null);
 
   // Tap "Pesan Sekarang":
-  //  - belum login → arahkan ke /login (gerbang publik → Citizen), bukan error.
+  //  - belum login → simpan draft + arahkan ke /login (gerbang publik → Citizen), bukan error.
   //  - sudah login → POST /rides (bikin order) → redirect ke halaman status.
-  // Pola sama kos/[slug]: cek useAuth().user, redirect ?redirect= kalau null.
   async function handleOrder() {
     if (!pickup || !dropoff || ordering) return;
 
     // Gerbang Citizen: harga boleh diintip publik, tapi PESAN wajib login.
     if (!user) {
+      saveDraft(); // <- selamatkan isian biar gak ilang pas balik dari login
       router.push('/login?redirect=/balaju/pesan');
       return;
     }
@@ -137,8 +194,9 @@ export function BalajuEntry() {
       if (!id) throw new Error('no id');
       router.push(`/balaju/pesan/${id}`);
     } catch (e: any) {
-      // Token kedaluwarsa di tengah (401/403) → arahkan login, bukan error generik.
+      // Token kedaluwarsa di tengah (401/403) → simpan draft + arahkan login, bukan error generik.
       if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        saveDraft();
         router.push('/login?redirect=/balaju/pesan');
         return;
       }
@@ -148,6 +206,7 @@ export function BalajuEntry() {
   }
 
   const selectedBreakdown = breakdownOf(service);
+  const showSummary = resumed && pickup !== null && dropoff !== null;
 
   return (
     <div className="bl-landing">
@@ -166,10 +225,16 @@ export function BalajuEntry() {
               <MapPin className="h-3.5 w-3.5 text-[var(--bl-forest)]" /> Ternate
             </span>
           </div>
-          <p className="mt-4 text-sm leading-relaxed text-[var(--bl-muted)]">
-            Ojek, kurir, dan mobil lokal Maluku Utara. Harga transparan, driver
-            terdekat — cepat &amp; aman.
-          </p>
+          {showSummary ? (
+            <p className="mt-4 rounded-xl bg-[var(--bl-forest-10)] px-3 py-2 text-sm font-semibold text-[var(--bl-forest-d)]">
+              Lanjutkan pesananmu — rute &amp; harga masih tersimpan.
+            </p>
+          ) : (
+            <p className="mt-4 text-sm leading-relaxed text-[var(--bl-muted)]">
+              Ojek, kurir, dan mobil lokal Maluku Utara. Harga transparan, driver
+              terdekat — cepat &amp; aman.
+            </p>
+          )}
         </header>
 
         {/* Trust badges */}
@@ -235,24 +300,61 @@ export function BalajuEntry() {
           </div>
         </section>
 
-        {/* Rute — pilih jemput + tujuan (peta + GPS + autocomplete) */}
+        {/* Rute — RINGKASAN (kalau resume dari login) ATAU picker penuh */}
         <section className="mb-6">
           <h2 className="bl-display mb-3 text-sm font-bold uppercase tracking-wide text-[var(--bl-forest-d)]">Rute</h2>
-          <BalajuLocationStep
-            onChange={({ pickup: p, dropoff: d }) => {
-              setPickup(p);
-              setDropoff(d);
-              resetEstimate();
-            }}
-            onReady={({ pickup: p, dropoff: d }) => {
-              setPickup(p);
-              setDropoff(d);
-            }}
-            onNoteChange={setPickupNote}
-          />
-          <p className="mt-2 text-[11px] text-[var(--bl-muted)]">
-            Harga muncul setelah jemput &amp; tujuan dipilih.
-          </p>
+
+          {showSummary ? (
+            <div className="bl-shadow-soft rounded-2xl border border-[var(--bl-line)] bg-white p-4">
+              <div className="flex gap-3">
+                <div className="flex flex-col items-center pt-1">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[var(--bl-forest)]" />
+                  <span className="my-1 h-8 w-px bg-[var(--bl-line)]" />
+                  <MapPin className="h-4 w-4 text-[var(--bl-amber)]" />
+                </div>
+                <div className="min-w-0 flex-1 space-y-3">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Jemput</div>
+                    <div className="text-sm font-semibold text-[var(--bl-ink)]">{pickup?.name || 'Titik jemput'}</div>
+                    {pickupNote.trim() && (
+                      <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-[var(--bl-forest-10)] px-2 py-1.5 text-[11px] text-[var(--bl-forest-d)]">
+                        <MapPin className="mt-px h-3 w-3 shrink-0 text-[var(--bl-forest)]" />
+                        <span className="min-w-0">{pickupNote.trim()}</span>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Tujuan</div>
+                    <div className="text-sm font-semibold text-[var(--bl-ink)]">{dropoff?.name || 'Tujuan'}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={editRoute}
+                  className="inline-flex h-fit shrink-0 items-center gap-1 rounded-lg border border-[var(--bl-line)] bg-white px-2.5 py-1.5 text-[11px] font-semibold text-[var(--bl-forest-d)] transition hover:border-[var(--bl-forest-30)]"
+                >
+                  <Pencil className="h-3 w-3" /> Ubah
+                </button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <BalajuLocationStep
+                onChange={({ pickup: p, dropoff: d }) => {
+                  setPickup(p);
+                  setDropoff(d);
+                  resetEstimate();
+                }}
+                onReady={({ pickup: p, dropoff: d }) => {
+                  setPickup(p);
+                  setDropoff(d);
+                }}
+                onNoteChange={setPickupNote}
+              />
+              <p className="mt-2 text-[11px] text-[var(--bl-muted)]">
+                Harga muncul setelah jemput &amp; tujuan dipilih.
+              </p>
+            </>
+          )}
         </section>
 
         {/* FARE-V2: kartu transparansi — fee TeraLoka tampil TERPISAH (prinsip #2).
