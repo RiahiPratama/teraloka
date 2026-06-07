@@ -4,12 +4,14 @@
 // PATH: src/components/bakos/public/detail/kos-action-card.tsx
 // 🛡️ RECORD-ONLY: bukan booking. Self-contained: useAuth + contact handler.
 // Dirender 2x (aside desktop + bar mobile); CSS sembunyiin salah satu per viewport.
+// B3-c: tombol "Saya pemilik" buka ClaimFormModal (POST /bakos/listings/:id/claim).
 // ════════════════════════════════════════════════════════════════
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/components/bakos/public/bakos-links';
 import { MS, type ListingDetail, type Room } from './types';
+import { ClaimFormModal } from './ClaimFormModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -30,7 +32,7 @@ export function KosActionCard({
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [claimNote, setClaimNote] = useState(false);
+  const [showClaim, setShowClaim] = useState(false);
 
   const handleContact = async () => {
     if (!user || !token) { router.push(`/login?redirect=/bakos/${listing.slug}`); return; }
@@ -51,6 +53,12 @@ export function KosActionCard({
     finally { setLoading(false); }
   };
 
+  // B3-c: anonim → dorong login; login → buka form klaim
+  const handleClaimClick = () => {
+    if (!user || !token) { router.push(`/login?redirect=/bakos/${listing.slug}`); return; }
+    setShowClaim(true);
+  };
+
   if (success) {
     return <div className="bkd-ok"><strong>✓ WhatsApp sudah dibuka</strong><span>Lanjutkan percakapan dengan pemilik kos</span></div>;
   }
@@ -69,14 +77,25 @@ export function KosActionCard({
   }
   if (listing.is_claimable) {
     return (
-      <div className="bkd-note warn">
-        <h4><MS n="eco" /> Belum dikelola pemilik</h4>
-        <p>Kontak &amp; alamat lengkap muncul setelah pemilik mengaktifkan kos di BAKOS.</p>
-        <button className="bkd-btn ghost" style={{ marginTop: 10 }} onClick={() => setClaimNote(true)}>
-          Saya pemilik kos ini <MS n="arrow_forward" />
-        </button>
-        {claimNote && <p className="hint">Fitur klaim kos segera hadir. Sementara, hubungi admin TeraLoka untuk klaim manual.</p>}
-      </div>
+      <>
+        <div className="bkd-note warn">
+          <h4><MS n="eco" /> Belum dikelola pemilik</h4>
+          <p>Kontak &amp; alamat lengkap muncul setelah pemilik mengaktifkan kos di BAKOS.</p>
+          <button className="bkd-btn ghost" style={{ marginTop: 10 }} onClick={handleClaimClick}>
+            {user ? 'Saya pemilik kos ini' : 'Login & klaim kos ini'} <MS n="arrow_forward" />
+          </button>
+        </div>
+        {showClaim && token && (
+          <ClaimFormModal
+            listingId={listing.id}
+            listingTitle={listing.title}
+            token={token}
+            defaultName={(user as any)?.name ?? ''}
+            defaultPhone={(user as any)?.phone ?? ''}
+            onClose={() => setShowClaim(false)}
+          />
+        )}
+      </>
     );
   }
   return <div className="bkd-note lock"><p><MS n="lock" /> Pemilik belum mengaktifkan kontak</p></div>;
