@@ -5,10 +5,12 @@
 // 🛡️ POLICY A: klaim = AJUKAN kepemilikan saja. Approve admin transfer owner;
 //    kontak TETAP terkunci sampai pemilik subscribe. Klaim GRATIS.
 // Submit → POST /bakos/listings/:id/claim  body { evidence:{ nama, phone, note } }
-//    (claimant_id diisi backend dari JWT; listing_id dari URL param)
-// 🛡️ Prefix /bakos WAJIB (route ada di bakos.ts @ /bakos, beda dari /listings/:id/contact)
+// 🛡️ PORTAL ke document.body (lepas stacking-context navbar). Karena diportal,
+//    tombol PAKAI STYLE INLINE (bukan class .bkd-btn yg ke-scope di subtree
+//    detail) — biar self-contained, gak bergantung CSS eksternal.
 // ════════════════════════════════════════════════════════════════
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { MS } from './types';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -40,6 +42,22 @@ const input: React.CSSProperties = {
   fontSize: 14, color: '#0F172A', outline: 'none', boxSizing: 'border-box',
 };
 
+// 🛡️ tombol style INLINE (self-contained, kebal scoping CSS) — match brand BAKOS
+const btnBase: React.CSSProperties = {
+  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+  padding: '12px 18px', borderRadius: 12, fontSize: 15, fontWeight: 700,
+  cursor: 'pointer', border: 'none', lineHeight: 1.2, transition: 'opacity .15s',
+};
+const btnPrimary: React.CSSProperties = {
+  ...btnBase,
+  background: 'linear-gradient(135deg, #1B6B4A 0%, #0891B2 100%)',
+  color: '#fff',
+};
+const btnGhost: React.CSSProperties = {
+  ...btnBase,
+  background: '#fff', color: '#1B6B4A', border: '1.5px solid #1B6B4A',
+};
+
 export function ClaimFormModal({
   listingId, listingTitle, token, defaultName, defaultPhone, onClose,
 }: ClaimFormModalProps) {
@@ -49,6 +67,15 @@ export function ClaimFormModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+
+  useEffect(() => {
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = prev; };
+  }, []);
 
   const submit = async () => {
     setError(null);
@@ -67,7 +94,6 @@ export function ClaimFormModal({
       if (data.success) {
         setDone(true);
       } else {
-        // backend bisa balikin error string ATAU { code, message } — handle dua-duanya
         const msg = typeof data.error === 'string' ? data.error : data.error?.message;
         setError(msg ?? 'Gagal mengirim klaim. Coba lagi.');
       }
@@ -78,10 +104,11 @@ export function ClaimFormModal({
     }
   };
 
-  return (
+  if (!mounted) return null;
+
+  const modal = (
     <div style={ov} onClick={() => { if (!loading) onClose(); }} role="dialog" aria-modal="true">
       <div style={card} onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
         <div style={{ ...pad, borderBottom: '1px solid #F1F5F9', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
           <div>
             <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0F172A' }}>
@@ -99,7 +126,6 @@ export function ClaimFormModal({
         </div>
 
         {done ? (
-          // ── Success state ──
           <div style={{ ...pad, textAlign: 'center' }}>
             <div style={{ fontSize: 40, color: '#16A34A', lineHeight: 1 }}>
               <MS n="check_circle" />
@@ -112,12 +138,11 @@ export function ClaimFormModal({
               Untuk membuka kontak &amp; alamat lengkap bagi calon penyewa,
               kamu perlu mengaktifkan langganan BAKOS.
             </p>
-            <button className="bkd-btn primary" style={{ marginTop: 18, width: '100%' }} onClick={onClose}>
+            <button style={{ ...btnPrimary, marginTop: 18, width: '100%' }} onClick={onClose}>
               Mengerti
             </button>
           </div>
         ) : (
-          // ── Form state ──
           <div style={pad}>
             <div style={{ background: '#F0FDF4', border: '1px solid #BBF7D0', borderRadius: 10, padding: '10px 12px', marginBottom: 16 }}>
               <p style={{ margin: 0, fontSize: 12.5, color: '#15803D', lineHeight: 1.55 }}>
@@ -158,10 +183,10 @@ export function ClaimFormModal({
             )}
 
             <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-              <button className="bkd-btn ghost" style={{ flex: 1 }} onClick={onClose} disabled={loading}>
+              <button style={{ ...btnGhost, flex: 1, opacity: loading ? 0.6 : 1 }} onClick={onClose} disabled={loading}>
                 Batal
               </button>
-              <button className="bkd-btn primary" style={{ flex: 1 }} onClick={submit} disabled={loading}>
+              <button style={{ ...btnPrimary, flex: 1, opacity: loading ? 0.6 : 1 }} onClick={submit} disabled={loading}>
                 {loading ? 'Mengirim…' : 'Kirim Klaim'}
               </button>
             </div>
@@ -170,4 +195,6 @@ export function ClaimFormModal({
       </div>
     </div>
   );
+
+  return createPortal(modal, document.body);
 }
