@@ -10,7 +10,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Bike, Car, Package, MapPin, Loader2, Check, Play, Flag, X, Wallet, ShieldCheck, ChevronRight,
+  Bike, Car, Package, MapPin, Loader2, Check, Play, Flag, X, Wallet, ShieldCheck, ChevronRight, Navigation,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import '@/components/balaju/public/balaju-landing.css';
@@ -26,6 +26,10 @@ interface RideDetail {
   service_type: ServiceType;
   pickup_address: string | null;
   dropoff_address: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  dropoff_lat: number | null;
+  dropoff_lng: number | null;
   distance_estimate_m: number | null;
   offered_fare: number | null;
   driver_earning: number | null;
@@ -186,6 +190,22 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
   };
   const head = STATUS_HEAD[ride.status];
 
+  // Deep-link navigasi ke Google Maps (HP driver) — gratis, tanpa API key.
+  // matched -> arah ke titik JEMPUT; ongoing -> arah ke TUJUAN. Sembunyi kalau koordinat kosong.
+  const navTarget =
+    ride.status === 'matched'
+      ? (ride.pickup_lat != null && ride.pickup_lng != null
+          ? { lat: ride.pickup_lat, lng: ride.pickup_lng, label: 'Navigasi ke titik jemput' }
+          : null)
+      : ride.status === 'ongoing'
+        ? (ride.dropoff_lat != null && ride.dropoff_lng != null
+            ? { lat: ride.dropoff_lat, lng: ride.dropoff_lng, label: 'Navigasi ke tujuan' }
+            : null)
+        : null;
+  const navHref = navTarget
+    ? `https://www.google.com/maps/dir/?api=1&destination=${navTarget.lat},${navTarget.lng}`
+    : null;
+
   return (
     <div className="bl-landing">
       <div className="mx-auto max-w-md px-4 py-6 md:pt-12">
@@ -284,6 +304,19 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
         )}
 
         {err && <p className="mt-3 text-center text-xs font-medium text-red-500">{err}</p>}
+
+        {/* Navigasi — deep-link ke Google Maps di HP driver (gratis, tanpa API key) */}
+        {navHref && (
+          <a
+            href={navHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl border border-[var(--bl-forest)] bg-white py-3.5 text-sm font-bold text-[var(--bl-forest-d)] transition hover:bg-[var(--bl-forest-10)]"
+          >
+            <Navigation className="h-4 w-4 text-[var(--bl-forest)]" />
+            {navTarget?.label}
+          </a>
+        )}
 
         {/* ── AKSI ── */}
         {/* matched: Mulai + Batal */}
