@@ -1,13 +1,11 @@
-'use client';
-
 // ════════════════════════════════════════════════════════════════
-// BAKOS — Hero Section (public LP)
+// BAKOS — Hero Section (public LP) — copy + search + PETA preview
 // PATH: src/components/bakos/public/hero-section.tsx
-// Hero trust-first + supply count + search card (controlled).
-// 🛡️ Tidak ada klaim "tim datang" — solo founder. Trust = via BAKABAR + kontak langsung.
+// 🛡️ .bk-supply (count) → diganti <HeroMap/> (peta preview, gaya BALAPOR).
+//    Count "160 kos" sekarang jadi badge di atas peta. Search TIDAK diubah.
 // ════════════════════════════════════════════════════════════════
-
 import { KOS_TYPES, PRICE_FILTERS, QUICK } from './bakos-links';
+import { HeroMap } from './map/HeroMap';
 
 interface HeroProps {
   total: number;
@@ -22,7 +20,7 @@ interface HeroProps {
 }
 
 export function HeroSection({
-  total, loading, searchInput, setSearchInput,
+  searchInput, setSearchInput,
   kosType, setKosType, priceFilter, setPriceFilter, onSearch,
 }: HeroProps) {
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSearch(); };
@@ -37,10 +35,9 @@ export function HeroSection({
           <h1>Cari kos di <span>Maluku Utara</span>,<br />tanpa khawatir ditipu.</h1>
           <p className="bk-sub">Kontak pemilik kos langsung, tanpa calo. Harga transparan, nomor diteruskan aman lewat WhatsApp, dan tampil di hadapan pembaca berita lokal BAKABAR.</p>
         </div>
-        <div className="bk-supply">
-          <div className="big">{loading ? '—' : total} <small>kos terdaftar</small></div>
-          <div className="a">Ternate · Tidore · Sofifi</div>
-        </div>
+
+        {/* 🛡️ peta preview — ganti .bk-supply lama */}
+        <HeroMap />
       </div>
 
       <form className="bk-search" onSubmit={handleSubmit}>

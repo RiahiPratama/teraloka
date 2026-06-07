@@ -1,20 +1,19 @@
 'use client';
 // ════════════════════════════════════════════════════════════════
-// BAKOS — Map Section (landing) — picker kota + peta kelurahan interaktif
-// PATH: src/components/bakos/public/map-section.tsx
-// Fetch /bakos/kota (picker + badge) + /bakos/sebaran (marker kelurahan).
-// Klik marker → /bakos/cari?location_id=. Kota tanpa kos → "segera hadir".
-// 🛡️ export name TETAP MapSection (dipakai BakosLanding) — gak ubah import.
+// BAKOS — HeroMap (peta preview di hero, gaya BALAPOR)
+// PATH: src/components/bakos/public/map/HeroMap.tsx
+// Self-fetch /bakos/kota + /bakos/sebaran. Peta LOCKED (preview, anti
+// scroll-trap). Marker tetap clickable → /bakos/cari. Picker compact.
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useMemo, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
-import { API_URL } from './bakos-links';
-import './map/bakos-map.css';
+import { API_URL } from '../bakos-links';
+import './bakos-map.css';
 
 const BakosKotaMap = dynamic(
-  () => import('./map/BakosKotaMap').then((m) => m.BakosKotaMap),
-  { ssr: false, loading: () => <div className="bkmap-loading">Memuat peta…</div> },
+  () => import('./BakosKotaMap').then((m) => m.BakosKotaMap),
+  { ssr: false, loading: () => <div className="bkmap-loading sm">Memuat peta…</div> },
 );
 
 interface KotaItem { id: string; name: string; type: string; jumlah_kos: number; }
@@ -23,7 +22,7 @@ interface KelPoint {
   latitude: number; longitude: number; jumlah_kos: number;
 }
 
-export function MapSection() {
+export function HeroMap() {
   const router = useRouter();
   const [kota, setKota] = useState<KotaItem[]>([]);
   const [kel, setKel] = useState<KelPoint[]>([]);
@@ -52,69 +51,53 @@ export function MapSection() {
 
   const selKota = useMemo(() => kota.find((k) => k.id === selected), [kota, selected]);
   const hasKos = (selKota?.jumlah_kos ?? 0) > 0;
-  // /sebaran = kelurahan Ternate (satu-satunya kota berisi kos). Tampil hanya jika kota terpilih punya kos.
   const points = hasKos ? kel : [];
-
-  const onPick = (location_id: string) =>
-    router.push(`/bakos/cari?location_id=${location_id}`);
+  const onPick = (id: string) => router.push(`/bakos/cari?location_id=${id}`);
 
   return (
-    <section className="bk-sec bk-pt0"><div className="bk-wrap">
-      <div className="bkmap-head">
-        <div>
-          <h2>Cari kos per wilayah</h2>
-          <p>Pilih kota/kabupaten, lalu klik kelurahan di peta untuk lihat kos di sana.</p>
-        </div>
-      </div>
-
-      {/* picker kota/kabupaten */}
-      <div className="bkmap-picker">
+    <div className="bk-heromap">
+      {/* picker kota/kab — compact, horizontal scroll */}
+      <div className="bk-heromap-pick">
         {loading
-          ? [1, 2, 3, 4].map((i) => <span key={i} className="bkmap-chip skel" />)
+          ? [1, 2, 3].map((i) => <span key={i} className="bkmap-chip sm skel" />)
           : kota.map((k) => (
             <button
               key={k.id}
-              className={`bkmap-chip${selected === k.id ? ' on' : ''}${k.jumlah_kos === 0 ? ' empty' : ''}`}
+              className={`bkmap-chip sm${selected === k.id ? ' on' : ''}${k.jumlah_kos === 0 ? ' empty' : ''}`}
               onClick={() => setSelected(k.id)}
             >
-              <span className="material-symbols-outlined">location_city</span>
-              {k.name}
-              <span className="b">{k.jumlah_kos}</span>
+              {k.name}<span className="b">{k.jumlah_kos}</span>
             </button>
           ))}
       </div>
 
-      {/* frame peta */}
-      <div className="bkmap-frame">
+      <div className="bk-heromap-frame">
         {selKota && (
-          <div className="bkmap-counter">
+          <div className="bkmap-counter sm">
             <span className="material-symbols-outlined">apartment</span>
             {hasKos ? `${selKota.jumlah_kos} kos · ${selKota.name}` : selKota.name}
           </div>
         )}
-
         {loading ? (
-          <div className="bkmap-loading">Memuat peta…</div>
+          <div className="bkmap-loading sm">Memuat peta…</div>
         ) : hasKos ? (
           <>
-            <BakosKotaMap points={points} onPick={onPick} />
-            <button className="bkmap-explore" onClick={() => router.push('/bakos/cari')}>
-              Lihat semua kos <span className="material-symbols-outlined">arrow_forward</span>
+            <BakosKotaMap points={points} onPick={onPick} height={340} locked />
+            <button className="bkmap-explore sm" onClick={() => router.push('/bakos/cari')}>
+              Eksplor peta <span className="material-symbols-outlined">arrow_forward</span>
             </button>
           </>
         ) : (
-          <div className="bkmap-empty">
+          <div className="bkmap-empty sm">
             <span className="material-symbols-outlined">eco</span>
-            <p className="t">Belum ada kos di {selKota?.name ?? 'wilayah ini'}</p>
-            <p className="s">BAKOS sedang berkembang. Kos di wilayah ini segera hadir.</p>
-            {selKota?.jumlah_kos === 0 && (
-              <button onClick={() => { const t = kota.find((k) => k.jumlah_kos > 0); if (t) setSelected(t.id); }}>
-                Lihat kos di Ternate
-              </button>
-            )}
+            <p className="t">Belum ada kos di {selKota?.name ?? 'sini'}</p>
+            <p className="s">Segera hadir.</p>
+            <button onClick={() => { const t = kota.find((k) => k.jumlah_kos > 0); if (t) setSelected(t.id); }}>
+              Lihat Ternate
+            </button>
           </div>
         )}
       </div>
-    </div></section>
+    </div>
   );
 }

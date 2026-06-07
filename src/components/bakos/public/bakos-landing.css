@@ -27,7 +27,8 @@
 .bk-hero{background:linear-gradient(180deg,#fbf7ef 0%,#fff 70%);padding:56px 0 36px}
 .bk-crumb{font-size:13px;font-weight:700;color:var(--bk-hint);margin-bottom:18px;letter-spacing:.01em}
 .bk-crumb b{color:var(--bk-amber-d)}
-.bk-hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:36px}
+.bk-hero-top{display:grid;grid-template-columns:1fr minmax(380px,480px);align-items:start;gap:36px}
+@media(max-width:900px){.bk-hero-top{grid-template-columns:1fr}}
 .bk-pill{display:inline-flex;align-items:center;gap:8px;background:var(--bk-green-l);color:var(--bk-green-d);font-weight:800;font-size:12.5px;padding:8px 15px;border-radius:999px}
 .bk-pill .material-symbols-outlined{font-size:17px;font-variation-settings:'FILL' 1}
 .bk-hero h1{font-size:clamp(34px,5vw,58px);font-weight:900;letter-spacing:-.04em;line-height:1.02;margin-top:20px}
