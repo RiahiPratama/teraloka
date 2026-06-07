@@ -1,32 +1,28 @@
 'use client';
 // ════════════════════════════════════════════════════════════════
-// BAKOS Command Center — Tab Listing (B4): moderasi kos + drawer detail
+// BAKOS Command Center — Tab Listing (B4 v2): moderasi + bulk + prioritas
 // PATH: src/app/admin/bakos/listing/page.tsx
-// Klik baris → drawer admin UNREDACTED (foto/fasilitas/kamar/alamat+koordinat/
-//   owner/riwayat klaim) + verify/suspend di footer drawer.
-// GET   /admin/listings?type=kos        (tabel)
-// GET   /admin/listings/:id             (detail full — drawer)
-// PATCH /admin/listings/:id/verify      { is_verified }
-// PATCH /admin/listings/:id/status      { status }
-// 🛡️ verify cuma toggle boolean (gak set verified_by). Phone owner = admin-only.
+// v2 (solo founder): thumbnail foto · umur · badge prioritas (aktif-belum-verified)
+//   · bulk verify (checkbox borongan) · drawer detail (preserved).
+// GET /admin/listings?type=kos · GET /admin/listings/:id · PATCH verify|status
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import { ShieldCheck, ShieldX, Search, MapPin, Phone, User, BedDouble, History, ExternalLink } from 'lucide-react';
+import { ShieldCheck, ShieldX, Search, MapPin, Phone, User, BedDouble, History, ExternalLink, AlertTriangle, CheckCheck } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 interface KosRow {
   id: string; display_id: string | null; title: string; slug: string; type: string; status: string;
   price: number | null; price_period: string | null; address: string | null;
-  listing_tier: string | null; created_at: string;
+  listing_tier: string | null; created_at: string; cover_image_url: string | null;
   is_verified: boolean; kos_type: string | null; listing_fee_status: string | null;
 }
 interface KosDetail extends KosRow {
-  display_id: string | null; description: string | null; photos: string[] | null;
-  cover_image_url: string | null; facilities: Record<string, any> | null;
+  description: string | null; photos: string[] | null;
+  facilities: Record<string, any> | null;
   latitude: number | null; longitude: number | null; nearby_landmarks: string[] | null;
   phone: string | null; accommodation_type: string | null; electricity_type: string | null;
   kos_rules: string | null; is_negotiable: boolean; rating_avg: number; rating_count: number;
@@ -48,6 +44,12 @@ const STATUS_STYLE: Record<string, { color: string; label: string }> = {
   unclaimed: { color: '#9CA3AF', label: 'Belum diklaim' },
 };
 function rp(n: number | null | undefined) { return n ? 'Rp ' + n.toLocaleString('id-ID') : '—'; }
+function ageStr(iso: string | null) {
+  if (!iso) return '';
+  const d = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (d <= 0) return 'hari ini'; if (d === 1) return 'kemarin'; if (d < 30) return `${d} hari lalu`;
+  return `${Math.floor(d / 30)} bln lalu`;
+}
 function facList(f: Record<string, any> | null | undefined): string[] {
   if (!f) return [];
   if (Array.isArray(f)) return f.map(String);
@@ -61,10 +63,12 @@ export default function BakosListingTab() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
-  const [verifFilter, setVerifFilter] = useState<'' | 'verified' | 'unverified'>('');
+  const [verifFilter, setVerifFilter] = useState<'' | 'verified' | 'unverified' | 'risk'>('');
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
   const [openId, setOpenId] = useState<string | null>(null);
+  const [sel, setSel] = useState<Set<string>>(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); };
@@ -72,9 +76,9 @@ export default function BakosListingTab() {
 
   const fetchRows = useCallback(async () => {
     if (!tk()) return;
-    setLoading(true);
+    setLoading(true); setSel(new Set());
     try {
-      const params = new URLSearchParams({ type: 'kos', limit: '50' });
+      const params = new URLSearchParams({ type: 'kos', limit: '100' });
       if (statusFilter) params.set('status', statusFilter);
       if (search) params.set('q', search);
       const res = await fetch(`${API_URL}/admin/listings?${params}`, { headers: { Authorization: `Bearer ${tk()}` } });
@@ -83,6 +87,7 @@ export default function BakosListingTab() {
       let list: KosRow[] = data.data.data ?? [];
       if (verifFilter === 'verified') list = list.filter(r => r.is_verified);
       if (verifFilter === 'unverified') list = list.filter(r => !r.is_verified);
+      if (verifFilter === 'risk') list = list.filter(r => r.listing_fee_status === 'active' && !r.is_verified);
       setRows(list);
       setTotal(data.data.total ?? list.length);
     } catch (err: any) { showToast(err.message || 'Gagal memuat listing', false); }
@@ -90,6 +95,31 @@ export default function BakosListingTab() {
   }, [token, statusFilter, verifFilter, search]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
+
+  // 🛡️ Prioritas: kos AKTIF (tayang+dikelola) tapi BELUM diverifikasi = bahaya
+  const riskCount = rows.filter(r => r.listing_fee_status === 'active' && !r.is_verified).length;
+
+  const toggleSel = (id: string) => setSel(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const allVisibleUnverified = rows.filter(r => !r.is_verified).map(r => r.id);
+  const selectAllUnverified = () => setSel(new Set(allVisibleUnverified));
+
+  const bulkVerify = async () => {
+    const ids = Array.from(sel);
+    if (ids.length === 0) return;
+    setBulkBusy(true);
+    try {
+      const results = await Promise.allSettled(ids.map(id =>
+        fetch(`${API_URL}/admin/listings/${id}/verify`, {
+          method: 'PATCH', headers: { Authorization: `Bearer ${tk()}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ is_verified: true }),
+        }).then(r => r.json())
+      ));
+      const okN = results.filter(r => r.status === 'fulfilled' && (r.value as any)?.success).length;
+      showToast(`${okN}/${ids.length} kos terverifikasi`, okN === ids.length);
+      fetchRows();
+    } catch { showToast('Bulk verify gagal', false); }
+    finally { setBulkBusy(false); }
+  };
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
@@ -99,10 +129,22 @@ export default function BakosListingTab() {
         </div>
       )}
 
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 14 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>Listing Kos</h1>
-        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>{total} kos · klik baris untuk detail & verifikasi</p>
+        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>{total} kos · klik baris untuk detail · centang untuk verifikasi borongan</p>
       </div>
+
+      {/* 🛡️ Strip prioritas: aktif tapi belum verified */}
+      {riskCount > 0 && verifFilter !== 'risk' && (
+        <div onClick={() => setVerifFilter('risk')} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 16px', marginBottom: 14, borderRadius: 12, background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.3)', cursor: 'pointer' }}>
+          <AlertTriangle size={18} color="#EF4444" />
+          <div style={{ flex: 1 }}>
+            <p style={{ fontSize: 13, fontWeight: 700, color: '#EF4444' }}>{riskCount} kos sudah tayang & dikelola tapi BELUM diverifikasi</p>
+            <p style={{ fontSize: 11, color: t.textDim }}>Kontak udah kebuka ke publik padahal belum dicek — prioritaskan. Klik untuk filter.</p>
+          </div>
+          <span style={{ fontSize: 12, color: '#EF4444', fontWeight: 700 }}>Lihat →</span>
+        </div>
+      )}
 
       {/* Filter */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'center', marginBottom: 16 }}>
@@ -110,11 +152,11 @@ export default function BakosListingTab() {
           <button key={s.value} onClick={() => setStatusFilter(s.value)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: statusFilter === s.value ? '#F59E0B' : t.navHover, color: statusFilter === s.value ? '#fff' : t.textDim }}>{s.label}</button>
         ))}
         <div style={{ width: 1, height: 24, background: t.sidebarBorder }} />
-        {([['', 'Semua verif'], ['unverified', 'Belum'], ['verified', 'Verified']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => setVerifFilter(v as any)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: verifFilter === v ? '#0891B2' : t.navHover, color: verifFilter === v ? '#fff' : t.textDim }}>{l}</button>
+        {([['', 'Semua verif'], ['unverified', 'Belum'], ['verified', 'Verified'], ['risk', '⚠️ Perlu Perhatian']] as const).map(([v, l]) => (
+          <button key={v} onClick={() => setVerifFilter(v as any)} style={{ padding: '6px 12px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 12, fontWeight: 600, background: verifFilter === v ? (v === 'risk' ? '#EF4444' : '#0891B2') : t.navHover, color: verifFilter === v ? '#fff' : t.textDim }}>{l}</button>
         ))}
         <div style={{ flex: 1, display: 'flex', gap: 6, minWidth: 180 }}>
-          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)} placeholder="Cari nama kos..."
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)} placeholder="Cari nama / kode kos..."
             style={{ flex: 1, padding: '6px 12px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, fontSize: 12, color: t.textPrimary, background: t.mainBg, outline: 'none' }} />
           <button onClick={() => setSearch(searchInput)} style={{ padding: '6px 12px', borderRadius: 8, background: '#F59E0B', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Search size={13} /> Cari</button>
         </div>
@@ -133,22 +175,37 @@ export default function BakosListingTab() {
         </div>
       ) : (
         <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px 130px 120px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '36px 120px 1fr 110px 120px 110px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px', alignItems: 'center' }}>
+            <div>
+              <input type="checkbox" checked={sel.size > 0 && allVisibleUnverified.every(id => sel.has(id)) && allVisibleUnverified.length > 0}
+                onChange={(e) => e.target.checked ? selectAllUnverified() : setSel(new Set())} style={{ cursor: 'pointer' }} title="Pilih semua yang belum verified" />
+            </div>
             <div>Kode</div><div>Kos</div><div>Harga</div><div>Verifikasi</div><div>Status</div>
           </div>
           {rows.map((row) => {
             const st = STATUS_STYLE[row.status] ?? { color: '#9CA3AF', label: row.status };
             const managed = row.listing_fee_status === 'active';
+            const risk = managed && !row.is_verified;
+            const checked = sel.has(row.id);
             return (
-              <div key={row.id} onClick={() => setOpenId(row.id)} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px 130px 120px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center', cursor: 'pointer' }}
-                onMouseEnter={(e) => (e.currentTarget.style.background = t.navHover)} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+              <div key={row.id} onClick={() => setOpenId(row.id)} style={{ display: 'grid', gridTemplateColumns: '36px 120px 1fr 110px 120px 110px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center', cursor: 'pointer', background: checked ? 'rgba(8,145,178,0.08)' : risk ? 'rgba(239,68,68,0.05)' : 'transparent' }}
+                onMouseEnter={(e) => { if (!checked) e.currentTarget.style.background = t.navHover; }} onMouseLeave={(e) => { e.currentTarget.style.background = checked ? 'rgba(8,145,178,0.08)' : risk ? 'rgba(239,68,68,0.05)' : 'transparent'; }}>
+                <div onClick={(e) => { e.stopPropagation(); toggleSel(row.id); }}>
+                  <input type="checkbox" checked={checked} readOnly style={{ cursor: 'pointer' }} />
+                </div>
                 <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700, color: row.display_id ? '#F59E0B' : t.textMuted }}>{row.display_id || '—'}</div>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {row.title}
-                    {managed && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.12)', padding: '2px 6px', borderRadius: 4 }}>DIKELOLA</span>}
-                  </p>
-                  <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{row.kos_type || '—'} · {row.address?.slice(0, 32) || '—'}</p>
+                <div style={{ minWidth: 0, display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {row.cover_image_url
+                    ? <img src={row.cover_image_url} alt="" style={{ width: 40, height: 40, borderRadius: 8, objectFit: 'cover', flexShrink: 0, background: '#1f2937' }} />
+                    : <div style={{ width: 40, height: 40, borderRadius: 8, background: '#1f2937', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16 }}>🏠</div>}
+                  <div style={{ minWidth: 0 }}>
+                    <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {row.title}
+                      {managed && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.12)', padding: '2px 6px', borderRadius: 4 }}>DIKELOLA</span>}
+                      {risk && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#EF4444', background: 'rgba(239,68,68,0.12)', padding: '2px 6px', borderRadius: 4 }}>⚠ CEK</span>}
+                    </p>
+                    <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{row.kos_type || '—'} · {row.address?.slice(0, 26) || '—'} · {ageStr(row.created_at)}</p>
+                  </div>
                 </div>
                 <div style={{ fontSize: 12, color: t.textDim }}>{rp(row.price)}</div>
                 <div>
@@ -160,6 +217,17 @@ export default function BakosListingTab() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Bulk action bar */}
+      {sel.size > 0 && (
+        <div style={{ position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)', zIndex: 1200, background: '#0B1220', border: '1px solid #1f2937', borderRadius: 14, padding: '12px 18px', display: 'flex', alignItems: 'center', gap: 16, boxShadow: '0 12px 40px rgba(0,0,0,0.4)' }}>
+          <span style={{ fontSize: 13, color: '#E5E7EB', fontWeight: 600 }}>{sel.size} kos dipilih</span>
+          <button onClick={() => setSel(new Set())} style={{ fontSize: 12, color: '#94A3B8', background: 'none', border: 'none', cursor: 'pointer' }}>Batal</button>
+          <button onClick={bulkVerify} disabled={bulkBusy} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '8px 16px', borderRadius: 10, border: 'none', background: '#0891B2', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: bulkBusy ? 0.6 : 1 }}>
+            <CheckCheck size={15} /> {bulkBusy ? 'Memproses…' : `Verifikasi ${sel.size}`}
+          </button>
         </div>
       )}
 

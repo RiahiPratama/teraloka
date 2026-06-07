@@ -1,21 +1,17 @@
 'use client';
 // ════════════════════════════════════════════════════════════════
-// BAKOS Command Center — Tab Langganan (B5 mesin uang)
+// BAKOS Command Center — Tab Langganan (B5 v2 mesin uang)
 // PATH: src/app/admin/bakos/langganan/page.tsx
-// Alur MANUAL (pola ADS): owner WA "udah transfer" → admin catat di sini →
-//   kontak REVEAL + ledger 4303. Tidak ada gateway.
-// GET  /admin/listings?type=kos                         (daftar kos + fee_status)
-// GET  /admin/bank-accounts/dropdown                    (dropdown rekening)
-// POST /bakos/admin/listings/:id/subscription/confirm   (aktifkan)
-//   body: { subscription_tier, amount, bank_account_id, duration_months?, payment_proof_url?, notes? }
-// 🛡️ Sekali confirm: engine set listing_fee_status='active' + post Cr 4303
-//    (idempotency per bulan). Kontak kebuka otomatis.
+// v2 (solo founder): kartu ringkasan (Kos Aktif · MRR estimasi · Basic/Pro)
+//   · seksi "mau habis" (listing_fee_paid_until ≤ 7 hari) · kolom berlaku-s/d.
+// 🛡️ MRR = estimasi dari listing_fee kos aktif (label jujur, bukan angka pasti).
+// GET /admin/listings?type=kos · GET /admin/bank-accounts/dropdown · POST .../subscription/confirm
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import { Search, CreditCard, CheckCircle2 } from 'lucide-react';
+import { Search, CreditCard, CheckCircle2, Wallet, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 // 🛡️ Kalau dropdown 404, ralat URL ini (cek mount bank-accounts.ts):
@@ -25,10 +21,20 @@ interface KosRow {
   id: string; display_id: string | null; title: string; slug: string; status: string; price: number | null;
   kos_type: string | null; listing_tier: string | null; address: string | null;
   is_verified: boolean; listing_fee_status: string | null;
+  listing_fee: number | null; subscription_tier: string | null; listing_fee_paid_until: string | null;
 }
 interface BankOpt { id: string; label: string; }
 
 function rp(n: number | null | undefined) { return n ? 'Rp ' + n.toLocaleString('id-ID') : '—'; }
+function rpShort(n: number) {
+  if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'jt';
+  if (n >= 1_000) return 'Rp ' + Math.round(n / 1_000) + 'rb';
+  return 'Rp ' + n;
+}
+function daysUntil(iso: string | null): number | null {
+  if (!iso) return null;
+  return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+}
 function bankLabel(b: any): string {
   const head = [b.bank_name, b.account_number].filter(Boolean).join(' · ');
   const who = b.account_holder_alias || b.account_holder || b.alias || b.label;
@@ -53,7 +59,7 @@ export default function BakosLanggananTab() {
     if (!tk()) return;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ type: 'kos', limit: '100' });
+      const params = new URLSearchParams({ type: 'kos', limit: '200' });
       if (search) params.set('q', search);
       const res = await fetch(`${API_URL}/admin/listings?${params}`, { headers: { Authorization: `Bearer ${tk()}` } });
       const data = await res.json();
@@ -65,8 +71,19 @@ export default function BakosLanggananTab() {
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
+  // ── Ringkasan (client-side, dari rows) ──
+  const active = rows.filter(r => r.listing_fee_status === 'active');
+  const mrr = active.reduce((s, r) => s + (Number(r.listing_fee) || 0), 0);
+  const feeUnknown = active.filter(r => !r.listing_fee).length;
+  const basicN = active.filter(r => r.subscription_tier === 'basic').length;
+  const proN = active.filter(r => r.subscription_tier === 'pro').length;
+  // mau habis: paid_until ≤ 7 hari (termasuk lewat)
+  const expiring = active
+    .map(r => ({ r, d: daysUntil(r.listing_fee_paid_until) }))
+    .filter(x => x.d !== null && (x.d as number) <= 7)
+    .sort((a, b) => (a.d as number) - (b.d as number));
+
   const filtered = rows.filter(r => view === 'aktif' ? r.listing_fee_status === 'active' : r.listing_fee_status !== 'active');
-  const countAktif = rows.filter(r => r.listing_fee_status === 'active').length;
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
@@ -76,20 +93,50 @@ export default function BakosLanggananTab() {
         </div>
       )}
 
-      <div style={{ marginBottom: 18 }}>
+      <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>Langganan</h1>
-        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>
-          Catat pembayaran langganan owner → kontak kebuka + tercatat di pembukuan (4303). {countAktif} kos aktif.
-        </p>
+        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>Catat pembayaran owner → kontak kebuka + tercatat di pembukuan (4303).</p>
       </div>
 
-      {/* Toggle view */}
+      {/* Kartu ringkasan */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
+        <SumCard t={t} icon={<CheckCircle2 size={18} />} accent="#10B981" label="Kos Aktif" value={String(active.length)} />
+        <SumCard t={t} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (estimasi)" value={rpShort(mrr)}
+          sub={feeUnknown > 0 ? `${feeUnknown} tarif belum tercatat` : 'dari tarif aktif'} />
+        <SumCard t={t} icon={<Wallet size={18} />} accent="#6366F1" label="Basic / Pro" value={`${basicN} / ${proN}`} />
+        <SumCard t={t} icon={<Clock size={18} />} accent={expiring.length > 0 ? '#F59E0B' : '#9CA3AF'} label="Mau Habis (≤7h)" value={String(expiring.length)}
+          sub={expiring.length > 0 ? 'tagih perpanjang' : 'aman'} />
+      </div>
+
+      {/* Seksi mau habis */}
+      {expiring.length > 0 && (
+        <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
+          <p style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
+            <AlertTriangle size={15} /> Langganan mau habis — tagih perpanjang sebelum kontak ke-kunci lagi
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {expiring.map(({ r, d }) => (
+              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${t.sidebarBorder}` }}>
+                <span style={{ color: t.textPrimary }}>
+                  <span style={{ fontFamily: 'ui-monospace, monospace', color: '#F59E0B', fontWeight: 700, marginRight: 8 }}>{r.display_id || ''}</span>
+                  {r.title}
+                </span>
+                <span style={{ color: (d as number) < 0 ? '#EF4444' : '#F59E0B', fontWeight: 700 }}>
+                  {(d as number) < 0 ? `lewat ${Math.abs(d as number)}h` : (d as number) === 0 ? 'habis hari ini' : `${d}h lagi`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Toggle + search */}
       <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
         {([['belum', 'Belum Berlangganan'], ['aktif', 'Langganan Aktif']] as const).map(([v, l]) => (
           <button key={v} onClick={() => setView(v)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: view === v ? '#F59E0B' : t.navHover, color: view === v ? '#fff' : t.textDim }}>{l}</button>
         ))}
         <div style={{ flex: 1, display: 'flex', gap: 6, minWidth: 180 }}>
-          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)} placeholder="Cari nama kos..."
+          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)} placeholder="Cari nama / kode kos..."
             style={{ flex: 1, padding: '6px 12px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, fontSize: 12, color: t.textPrimary, background: t.mainBg, outline: 'none' }} />
           <button onClick={() => setSearch(searchInput)} style={{ padding: '6px 12px', borderRadius: 8, background: '#F59E0B', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Search size={13} /> Cari</button>
         </div>
@@ -108,32 +155,36 @@ export default function BakosLanggananTab() {
         </div>
       ) : (
         <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 120px 130px 150px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            <div>Kode</div><div>Kos</div><div>Harga</div><div>Status</div><div style={{ textAlign: 'right' }}>Aksi</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 130px 150px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div>Kode</div><div>Kos</div><div>Harga</div><div>{view === 'aktif' ? 'Berlaku s/d' : 'Status'}</div><div style={{ textAlign: 'right' }}>Aksi</div>
           </div>
           {filtered.map((row) => {
-            const active = row.listing_fee_status === 'active';
+            const isActive = row.listing_fee_status === 'active';
+            const d = daysUntil(row.listing_fee_paid_until);
             return (
-              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 120px 130px 150px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 130px 150px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
                 <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700, color: row.display_id ? '#F59E0B' : t.textMuted }}>{row.display_id || '—'}</div>
                 <div style={{ minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</p>
+                  <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {row.title}
+                    {isActive && row.subscription_tier && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#0891B2', background: 'rgba(8,145,178,0.12)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{row.subscription_tier}</span>}
+                  </p>
                   <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{row.kos_type || '—'} · {row.listing_tier || '—'}</p>
                 </div>
                 <div style={{ fontSize: 12, color: t.textDim }}>{rp(row.price)}</div>
-                <div>
-                  {active
-                    ? <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 11, fontWeight: 700, color: '#10B981' }}><CheckCircle2 size={13} /> Aktif</span>
-                    : <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted }}>Belum aktif</span>}
+                <div style={{ fontSize: 12 }}>
+                  {isActive ? (
+                    row.listing_fee_paid_until ? (
+                      <span style={{ color: d !== null && d <= 7 ? '#F59E0B' : t.textDim, fontWeight: d !== null && d <= 7 ? 700 : 400 }}>
+                        {new Date(row.listing_fee_paid_until).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}
+                        {d !== null && d <= 7 && <span style={{ display: 'block', fontSize: 10 }}>{d < 0 ? `lewat ${Math.abs(d)}h` : `${d}h lagi`}</span>}
+                      </span>
+                    ) : <span style={{ color: t.textMuted }}>—</span>
+                  ) : <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted }}>Belum aktif</span>}
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  {active ? (
-                    <span style={{ fontSize: 11, color: t.textMuted }}>kontak terbuka</span>
-                  ) : (
-                    <button onClick={() => setSelected(row)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none' }}>
-                      <CreditCard size={13} /> Aktifkan
-                    </button>
-                  )}
+                  {isActive ? <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>✓ kontak terbuka</span>
+                    : <button onClick={() => setSelected(row)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none' }}><CreditCard size={13} /> Aktifkan</button>}
                 </div>
               </div>
             );
@@ -147,6 +198,17 @@ export default function BakosLanggananTab() {
           onDone={(msg) => { showToast(msg); setSelected(null); fetchRows(); }}
           onErr={(msg) => showToast(msg, false)} />
       )}
+    </div>
+  );
+}
+
+function SumCard({ t, icon, accent, label, value, sub }: { t: any; icon: React.ReactNode; accent: string; label: string; value: string; sub?: string }) {
+  return (
+    <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 12, padding: 16 }}>
+      <div style={{ width: 34, height: 34, borderRadius: 9, background: accent + '18', color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>{icon}</div>
+      <p style={{ fontSize: 11, color: t.textDim, fontWeight: 500 }}>{label}</p>
+      <p style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>{value}</p>
+      {sub && <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 2 }}>{sub}</p>}
     </div>
   );
 }
