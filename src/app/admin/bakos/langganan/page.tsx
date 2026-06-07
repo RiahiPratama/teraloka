@@ -22,7 +22,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api
 const BANK_DROPDOWN_URL = `${API_URL}/admin/bank-accounts/dropdown`;
 
 interface KosRow {
-  id: string; title: string; slug: string; status: string; price: number | null;
+  id: string; display_id: string | null; title: string; slug: string; status: string; price: number | null;
   kos_type: string | null; listing_tier: string | null; address: string | null;
   is_verified: boolean; listing_fee_status: string | null;
 }
@@ -108,13 +108,14 @@ export default function BakosLanggananTab() {
         </div>
       ) : (
         <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px 130px 150px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            <div>Kos</div><div>Harga</div><div>Status</div><div style={{ textAlign: 'right' }}>Aksi</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 120px 130px 150px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div>Kode</div><div>Kos</div><div>Harga</div><div>Status</div><div style={{ textAlign: 'right' }}>Aksi</div>
           </div>
           {filtered.map((row) => {
             const active = row.listing_fee_status === 'active';
             return (
-              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 130px 150px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 120px 130px 150px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700, color: row.display_id ? '#F59E0B' : t.textMuted }}>{row.display_id || '—'}</div>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.title}</p>
                   <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{row.kos_type || '—'} · {row.listing_tier || '—'}</p>

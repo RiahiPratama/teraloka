@@ -19,7 +19,7 @@ import { ShieldCheck, ShieldX, Search, MapPin, Phone, User, BedDouble, History, 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
 interface KosRow {
-  id: string; title: string; slug: string; type: string; status: string;
+  id: string; display_id: string | null; title: string; slug: string; type: string; status: string;
   price: number | null; price_period: string | null; address: string | null;
   listing_tier: string | null; created_at: string;
   is_verified: boolean; kos_type: string | null; listing_fee_status: string | null;
@@ -133,15 +133,16 @@ export default function BakosListingTab() {
         </div>
       ) : (
         <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 110px 130px 120px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            <div>Kos</div><div>Harga</div><div>Verifikasi</div><div>Status</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px 130px 120px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+            <div>Kode</div><div>Kos</div><div>Harga</div><div>Verifikasi</div><div>Status</div>
           </div>
           {rows.map((row) => {
             const st = STATUS_STYLE[row.status] ?? { color: '#9CA3AF', label: row.status };
             const managed = row.listing_fee_status === 'active';
             return (
-              <div key={row.id} onClick={() => setOpenId(row.id)} style={{ display: 'grid', gridTemplateColumns: '1fr 110px 130px 120px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center', cursor: 'pointer' }}
+              <div key={row.id} onClick={() => setOpenId(row.id)} style={{ display: 'grid', gridTemplateColumns: '130px 1fr 110px 130px 120px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center', cursor: 'pointer' }}
                 onMouseEnter={(e) => (e.currentTarget.style.background = t.navHover)} onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700, color: row.display_id ? '#F59E0B' : t.textMuted }}>{row.display_id || '—'}</div>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {row.title}
