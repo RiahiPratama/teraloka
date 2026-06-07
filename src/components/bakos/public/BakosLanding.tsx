@@ -14,7 +14,6 @@ import './bakos-landing.css';
 import { API_URL, type Listing } from './bakos-links';
 import { HeroSection } from './hero-section';
 import { AreaSection } from './area-section';
-import { MapSection } from './map-section';
 import { ListingGrid } from './listing-grid';
 import { KenapaSection } from './kenapa-section';
 import { OwnerCtaSection } from './owner-cta-section';
@@ -77,7 +76,6 @@ export function BakosLanding() {
       />
 
       <AreaSection listings={listings} onPick={(q) => { setSearchInput(q); scrollToList(); }} />
-      <MapSection />
       <ListingGrid listings={listings} loading={loading} searchInput={searchInput} onReset={reset} />
       <KenapaSection />
       <OwnerCtaSection />
