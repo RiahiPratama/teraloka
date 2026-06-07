@@ -2,29 +2,22 @@
 // ════════════════════════════════════════════════════════════════
 // BAKOS Command Center — Sub-Navigation (Nested Layout)
 // PATH: src/app/admin/bakos/layout.tsx
-// 🛡️ Auth + role udah di admin/layout.tsx global. Tab bar horizontal saja.
-//    Pola BALAJU: REAL = link aktif, PARKIR = disabled + "soon".
-// REAL: Overview (/admin/bakos), Listing (/admin/bakos/listing — B4 verify+status).
-// PARKIR: Langganan (B5), Analytics (B6). Verifikasi DIGABUNG ke Listing (B4).
+// 🛡️ Auth + role di admin/layout.tsx global. Tab bar horizontal saja.
+// REAL: Overview, Listing (B4), Langganan (B5). PARKIR: Analytics (B6).
 // ════════════════════════════════════════════════════════════════
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import {
-  LayoutDashboard, Building2, CreditCard, BarChart3,
-} from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
 
-interface TabDef {
-  key: string; label: string; icon: ReactNode;
-  href?: string; match?: 'exact' | 'prefix';
-}
+interface TabDef { key: string; label: string; icon: ReactNode; href?: string; match?: 'exact' | 'prefix'; }
 
 const TABS: TabDef[] = [
   { key: 'overview', label: 'Overview', icon: <LayoutDashboard size={15} />, href: '/admin/bakos', match: 'exact' },
   { key: 'listing', label: 'Listing', icon: <Building2 size={15} />, href: '/admin/bakos/listing', match: 'prefix' },
-  { key: 'langganan', label: 'Langganan', icon: <CreditCard size={15} /> },   // PARKIR (B5)
-  { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },     // PARKIR (B6)
+  { key: 'langganan', label: 'Langganan', icon: <CreditCard size={15} />, href: '/admin/bakos/langganan', match: 'prefix' },
+  { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },   // PARKIR (B6)
 ];
 
 function isActive(tab: TabDef, pathname: string): boolean {
