@@ -9,7 +9,7 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import { Home, Hand, CreditCard, MapPin, TrendingUp, Lock } from 'lucide-react';
+import { Home, Hand, CreditCard, MapPin, TrendingUp } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -17,7 +17,7 @@ interface Analytics {
   funnel: { total_kos: number; claimed: number; managed: number; claim_rate: number; convert_rate: number };
   tier: { basic: number; pro: number; total: number };
   sebaran: { kota: Array<{ name: string; type: string; jumlah_kos: number }>; total_aktif: number; kota_terisi: number };
-  revenue: null;
+  revenue: { total: number; count: number; period_days: number };
   generated_at: string;
 }
 
@@ -42,6 +42,8 @@ export default function BakosAnalyticsTab() {
   }, [token]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const rpFull = (n: number) => 'Rp ' + n.toLocaleString('id-ID');
 
   if (loading) return (
     <div style={{ padding: '60px 0', textAlign: 'center', color: t.textMuted, fontSize: 14 }}>
@@ -116,19 +118,20 @@ export default function BakosAnalyticsTab() {
           )}
         </div>
 
-        {/* ── Revenue coming soon (jujur) ── */}
-        <div style={{ background: t.mainBg, border: `1px dashed ${t.sidebarBorder}`, borderRadius: 16, padding: 24, position: 'relative' }}>
-          <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: t.textMuted, background: t.navHover, padding: '3px 10px', borderRadius: 20, marginBottom: 12 }}>
-            <Lock size={12} /> COMING SOON
+        {/* ── Revenue 4303 REAL (dari financial_events) ── */}
+        <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 16, padding: 24 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700, color: t.textPrimary }}>Revenue Langganan (4303)</h2>
+            <span style={{ fontSize: 10, fontWeight: 700, color: '#10B981', background: 'rgba(16,185,129,0.12)', padding: '3px 8px', borderRadius: 20 }}>LIVE · pembukuan</span>
           </div>
-          <h2 style={{ fontSize: 15, fontWeight: 700, color: t.textDim, marginBottom: 4 }}>Revenue (akun 4303)</h2>
-          <p style={{ fontSize: 12, color: t.textMuted, lineHeight: 1.6 }}>
-            Total pemasukan langganan dari pembukuan. Disambungkan setelah integrasi Money Domain (ledger 4303) divalidasi — biar angkanya akurat, bukan estimasi.
-          </p>
-          <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 8, color: t.textMuted }}>
-            <TrendingUp size={28} opacity={0.3} />
-            <span style={{ fontSize: 24, fontWeight: 800, opacity: 0.3 }}>Rp —</span>
+          <p style={{ fontSize: 12, color: t.textMuted, marginBottom: 14 }}>{data.revenue.count} pembayaran · {data.revenue.period_days} hari terakhir</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#10B981' }}>
+            <TrendingUp size={26} />
+            <span style={{ fontSize: 30, fontWeight: 800, color: t.textPrimary }}>{rpFull(data.revenue.total)}</span>
           </div>
+          {data.revenue.count === 0 && (
+            <p style={{ fontSize: 11, color: t.textMuted, marginTop: 10 }}>Belum ada langganan terbayar di periode ini.</p>
+          )}
         </div>
       </div>
 
