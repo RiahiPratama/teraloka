@@ -106,13 +106,23 @@ export function DriverApplyShell() {
     (async () => {
       try {
         const me = await api.get<Record<string, unknown>>('/driver/me');
-        // Sudah driver (status apa pun) → jangan tampilkan form.
+        const d = (me?.driver as Record<string, unknown> | undefined) ?? me;
+        const driverId = d?.id ?? d?.driver_id ?? null;
         const status =
+          (d?.verification_status as string | undefined) ??
           (me?.verification_status as string | undefined) ??
-          ((me?.driver as Record<string, unknown> | undefined)?.verification_status as string | undefined) ??
-          'pending';
-        setExistingStatus(status);
-        setPhase('already');
+          null;
+
+        // Hanya "sudah terdaftar" kalau BENAR ada row driver (driver_id valid).
+        // /driver/me bisa balik 200 + objek kosong utk non-driver → itu = FORM.
+        if (driverId) {
+          setExistingStatus(status ?? 'pending');
+          setPhase('already');
+        } else {
+          setName(user.name ?? '');
+          setPhone(user.phone ?? '');
+          setPhase('form');
+        }
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) {
           // Bukan driver → tampilkan form. Prefill dari akun.
