@@ -161,7 +161,8 @@ const NAV_SECTIONS: NavSectionConfig[] = [
         href: '/admin/balaju',
         label: 'BALAJU',
         sublabel: 'Ojek, kurir, mobil',
-        // service: 'balaju' belum terdaftar di ServiceKey — sengaja undefined (TD: daftarkan nanti)
+        // 'balaju' sengaja BUKAN ServiceKey — nambah ke union bikin 5 Record<ServiceKey>
+        // di dashboard wajib diisi + butuh token --balaju di globals.css. Skip (scope creep).
         icon: <Bike size={15} />,
         roles: ALL_ADMINS,
       },
