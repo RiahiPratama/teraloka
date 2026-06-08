@@ -36,6 +36,7 @@ import {
   Zap,
   Building2,
   Car,
+  Bike,
   Package,
   Ship,
   Compass,
@@ -156,6 +157,14 @@ const NAV_SECTIONS: NavSectionConfig[] = [
   {
     label: 'MOBILITAS',
     items: [
+      {
+        href: '/admin/balaju',
+        label: 'BALAJU',
+        sublabel: 'Ojek, kurir, mobil',
+        // service: 'balaju' belum terdaftar di ServiceKey — sengaja undefined (TD: daftarkan nanti)
+        icon: <Bike size={15} />,
+        roles: ALL_ADMINS,
+      },
       {
         href: '/admin/coming-soon?service=baantar',
         label: 'BAANTAR',
