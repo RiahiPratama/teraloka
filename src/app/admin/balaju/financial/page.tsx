@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Wallet, AlertTriangle, Ghost, Scale, CheckCircle2, RefreshCw, Users,
-  X, Lock, ArrowDownToLine, History, RotateCcw, Settings2,
+  X, Lock, ArrowDownToLine, History, RotateCcw, Settings2, MessageCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApi, ApiError } from '@/lib/api/client';
@@ -99,6 +99,18 @@ interface RemittanceRow {
   notes: string | null;
   remitted_at: string;
   created_at: string;
+}
+interface ReminderPreview {
+  driver_id: string;
+  driver_name: string;
+  amount_due: number;
+  ride_count: number;
+  oldest_pending_at: string | null;
+  recipient_phone: string | null;
+  message_preview: string;
+  anti_spam_blocked: boolean;
+  anti_spam_reason: string | null;
+  anti_spam_next_allowed_at: string | null;
 }
 
 const rupiah = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
@@ -419,6 +431,8 @@ function DriverModal({ driver, history, onClose, onChanged }: {
 
   // koreksi
   const [reverseRow, setReverseRow] = useState<RemittanceRow | null>(null);
+  // reminder WA
+  const [reminderOpen, setReminderOpen] = useState(false);
 
   useEffect(() => {
     if (!open || !(amount > 0)) { setPreview(null); return; }
@@ -482,6 +496,16 @@ function DriverModal({ driver, history, onClose, onChanged }: {
           <MiniStat label="Belum setor" value={rupiah(driver.belum_setor)} sub={driver.belum_setor > 0 ? `${driver.aging_days} hari` : 'lunas'} tone={driver.belum_setor > 0 ? 'warning' : 'healthy'} />
           <MiniStat label="Sudah setor" value={rupiah(driver.sudah_setor)} tone="healthy" />
         </div>
+
+        {/* Ingatkan WA — cuma kalau nunggak */}
+        {canCatat && (
+          <button
+            onClick={() => setReminderOpen(true)}
+            className="mb-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-bapasiar hover:bg-surface-muted"
+          >
+            <MessageCircle size={14} /> Ingatkan via WhatsApp
+          </button>
+        )}
 
         {/* Catat setoran */}
         {canCatat ? (
@@ -572,6 +596,117 @@ function DriverModal({ driver, history, onClose, onChanged }: {
           onDone={() => { setReverseRow(null); onChanged(); onClose(); }}
         />
       )}
+
+      {/* Reminder WA (nested) */}
+      {reminderOpen && (
+        <ReminderModal
+          driverId={driver.driver_id}
+          onClose={() => setReminderOpen(false)}
+          onSent={() => { setReminderOpen(false); onChanged(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Modal: Reminder WA ke driver (preview → kirim) ───────────
+
+function ReminderModal({ driverId, onClose, onSent }: {
+  driverId: string;
+  onClose: () => void;
+  onSent: () => void;
+}) {
+  const api = useApi();
+  const [prev, setPrev] = useState<ReminderPreview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<ReminderPreview>(`/admin/balaju/commission-remittance/reminder/preview?driver_id=${driverId}`);
+        if (!cancelled) setPrev(res);
+      } catch (e) {
+        if (!cancelled) setErr(e instanceof ApiError ? e.message : 'Gagal memuat preview reminder');
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [api, driverId]);
+
+  const send = async () => {
+    setSending(true);
+    setErr(null);
+    try {
+      const res = await api.post<{ success: boolean; blocked?: boolean; blocked_reason?: string }>(
+        '/admin/balaju/commission-remittance/reminder', { driver_id: driverId },
+      );
+      if (res.success) {
+        setDone('Reminder terkirim ✓');
+        setTimeout(onSent, 900);
+      } else {
+        setErr(res.blocked_reason ?? 'Reminder gagal dikirim');
+        setSending(false);
+      }
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Gagal mengirim reminder');
+      setSending(false);
+    }
+  };
+
+  const blocked = prev?.anti_spam_blocked;
+  const noPhone = prev && !prev.recipient_phone;
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-start justify-between">
+          <h3 className="flex items-center gap-1.5 text-base font-bold text-text"><MessageCircle size={16} className="text-bapasiar" /> Ingatkan via WhatsApp</h3>
+          <button onClick={onClose} className="rounded-md p-1 text-text-muted hover:bg-surface-muted"><X size={16} /></button>
+        </div>
+
+        {loading ? (
+          <p className="py-6 text-center text-sm text-text-muted">Memuat preview…</p>
+        ) : err && !prev ? (
+          <p className="text-sm font-semibold text-status-critical">{err}</p>
+        ) : prev ? (
+          <div className="space-y-3">
+            <div className="text-xs text-text-muted">
+              Kirim ke <span className="font-semibold text-text">{prev.driver_name}</span>
+              {prev.recipient_phone ? <span className="font-mono"> · {prev.recipient_phone}</span> : <span className="text-status-critical"> · nomor tidak ada</span>}
+              <span> · tunggakan {rupiah(prev.amount_due)} ({prev.ride_count} order)</span>
+            </div>
+
+            <div className="max-h-48 overflow-y-auto whitespace-pre-wrap rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs text-text-muted">
+              {prev.message_preview}
+            </div>
+
+            {blocked && (
+              <div className="flex items-start gap-2 rounded-lg border border-status-warning/30 bg-status-warning/5 px-3 py-2 text-xs text-text-muted">
+                <AlertTriangle size={13} className="mt-0.5 shrink-0 text-status-warning" />
+                <span>{prev.anti_spam_reason}</span>
+              </div>
+            )}
+            {done && <p className="text-sm font-semibold text-status-healthy">{done}</p>}
+            {err && <p className="text-xs font-semibold text-status-critical">{err}</p>}
+
+            <div className="flex gap-2">
+              <button onClick={onClose} className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-text-muted hover:bg-surface-muted">Tutup</button>
+              <button
+                onClick={send}
+                disabled={sending || !!blocked || !!noPhone || !!done}
+                className="flex-1 rounded-lg bg-bapasiar px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                {sending ? 'Mengirim…' : blocked ? 'Diblok anti-spam' : 'Kirim reminder'}
+              </button>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
