@@ -10,7 +10,7 @@
 //
 // REAL: Dashboard (/admin/balaju), Ride Motor (/admin/balaju/rides),
 //       Driver (/admin/balaju/roster), Verifikasi (/admin/balaju/drivers),
-//       Tarif (/admin/balaju/tarif).
+//       Tarif (/admin/balaju/tarif), Financial (/admin/balaju/financial).
 //   🛡️ Tiap route REAL beda prefix → match-prefix gak saling nyangkut.
 // ═══════════════════════════════════════════════════════════════
 
@@ -37,7 +37,7 @@ const TABS: TabDef[] = [
   { key: 'driver', label: 'Driver', icon: <Users size={15} />, href: '/admin/balaju/roster', match: 'prefix' },
   { key: 'verifikasi', label: 'Verifikasi', icon: <ShieldCheck size={15} />, href: '/admin/balaju/drivers', match: 'prefix' },
   { key: 'tarif', label: 'Tarif', icon: <SlidersHorizontal size={15} />, href: '/admin/balaju/tarif', match: 'prefix' },
-  { key: 'financial', label: 'Financial', icon: <Wallet size={15} /> },                                 // PARKIR
+  { key: 'financial', label: 'Financial', icon: <Wallet size={15} />, href: '/admin/balaju/financial', match: 'prefix' }, // REAL (audit komisi akrual)
   { key: 'ride_car', label: 'Ride Mobil', icon: <Car size={15} /> },                                    // PARKIR (F9)
   { key: 'courier', label: 'Kurir', icon: <Package size={15} /> },                                      // PARKIR
   { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },                              // PARKIR
