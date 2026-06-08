@@ -72,6 +72,7 @@ interface FinancialResponse {
   };
   per_service: PerService[];
   per_driver: PerDriver[];
+  cash_accounts?: { code: string; name: string; balance: number; error?: boolean }[];
   settlement: Settlement | null;
   meta: { scope: string; generated_at: string; source: string; note: string };
 }
@@ -217,6 +218,26 @@ export default function AdminBalajuFinancialPage() {
                 <MiniStat label="Belum disetor" value={rupiah(settlement.outstanding)} tone={settlement.outstanding > 0 ? 'warning' : 'healthy'} />
                 <MiniStat label="Sudah masuk kas" value={rupiah(settlement.settled)} tone="healthy" />
                 <MiniStat label="Driver terkunci" value={String(settlement.locked_driver_count)} sub={`utang > ${rupiah(settlement.debt_threshold)}`} tone={settlement.locked_driver_count > 0 ? 'critical' : 'healthy'} />
+              </div>
+            </Card>
+          )}
+
+          {/* Posisi kas aktual (cross-service) */}
+          {(data.cash_accounts?.length ?? 0) > 0 && (
+            <Card className="mb-5">
+              <h2 className="mb-1 flex items-center gap-2 text-base font-bold text-text">
+                <Wallet size={16} className="text-bapasiar" /> Posisi kas
+              </h2>
+              <p className="mb-3 text-[11px] text-text-light">Saldo akun kas aktual dari ledger (lintas-layanan, bukan cuma BALAJU).</p>
+              <div className="grid grid-cols-2 gap-4">
+                {data.cash_accounts!.map((acc) => (
+                  <MiniStat
+                    key={acc.code}
+                    label={`${acc.name} · ${acc.code}`}
+                    value={acc.error ? '—' : rupiah(acc.balance)}
+                    tone={acc.balance < 0 ? 'critical' : 'healthy'}
+                  />
+                ))}
               </div>
             </Card>
           )}
