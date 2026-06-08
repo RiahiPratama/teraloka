@@ -4,16 +4,19 @@
 // BALAJU Command Center — Financial (Audit Komisi + Setoran F4b)
 // Path: /admin/balaju/financial   Route guard: admin/layout.tsx (auth + role)
 //
-// 🛡️ WAJAH MURNI — nol logika. Semua hitung di OTAK (GET /admin/balaju/financial).
-// 🛡️ AKRUAL + SETORAN: komisi = piutang (1202) saat ride completed; turun saat driver
-//   setor (F4b). per_driver bedain sudah/belum setor + status + aging. Catat setoran =
-//   POST /admin/balaju/commission-remittance (super_admin). Preview FIFO = GET .../preview.
+// 🛡️ WAJAH MURNI — nol logika. Hitung di OTAK (GET /admin/balaju/financial).
+// 🛡️ AKRUAL + SETORAN: komisi = piutang (1202) saat completed; turun saat driver setor.
+//   Per-driver: klik "Kelola" → modal (info + catat setoran + riwayat driver + koreksi).
+//   Catat   = POST /admin/balaju/commission-remittance
+//   Preview = GET  .../commission-remittance/preview
+//   Riwayat = GET  .../commission-remittance/history (difilter per-driver di client)
+//   Koreksi = POST .../commission-remittance/:id/reverse
 // ═══════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useState } from 'react';
 import {
   Wallet, AlertTriangle, Ghost, Scale, CheckCircle2, RefreshCw, Users,
-  X, Lock, ArrowDownToLine, History, RotateCcw,
+  X, Lock, ArrowDownToLine, History, RotateCcw, Settings2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApi, ApiError } from '@/lib/api/client';
@@ -72,7 +75,6 @@ interface FinancialResponse {
   settlement: Settlement | null;
   meta: { scope: string; generated_at: string; source: string; note: string };
 }
-
 interface PreviewResponse {
   driver_id: string;
   amount: number;
@@ -82,7 +84,6 @@ interface PreviewResponse {
   ride_count: number;
   rides: { ride_id: string; commission_amount: number; completed_at: string | null }[];
 }
-
 interface RemittanceRow {
   id: string;
   driver_id: string;
@@ -123,8 +124,7 @@ export default function AdminBalajuFinancialPage() {
   const [data, setData] = useState<FinancialResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [setoranFor, setSetoranFor] = useState<PerDriver | null>(null);
-  const [reverseFor, setReverseFor] = useState<RemittanceRow | null>(null);
+  const [manageDriver, setManageDriver] = useState<PerDriver | null>(null);
   const [history, setHistory] = useState<RemittanceRow[]>([]);
 
   const fetchData = useCallback(async () => {
@@ -142,10 +142,10 @@ export default function AdminBalajuFinancialPage() {
 
   const fetchHistory = useCallback(async () => {
     try {
-      const res = await api.get<RemittanceRow[]>('/admin/balaju/commission-remittance/history?limit=50');
+      const res = await api.get<RemittanceRow[]>('/admin/balaju/commission-remittance/history?limit=100');
       setHistory(res);
     } catch {
-      // non-fatal: riwayat gagal gak ngeblok dashboard
+      // non-fatal
     }
   }, [api]);
 
@@ -178,7 +178,7 @@ export default function AdminBalajuFinancialPage() {
         </button>
       </div>
 
-      {/* Banner: model akrual */}
+      {/* Banner */}
       <div className="mb-5 flex items-start gap-2 rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs text-text-muted">
         <AlertTriangle size={14} className="mt-0.5 shrink-0 text-status-warning" />
         <span>
@@ -193,7 +193,7 @@ export default function AdminBalajuFinancialPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={fetchData} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={refreshAll} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -216,12 +216,7 @@ export default function AdminBalajuFinancialPage() {
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <MiniStat label="Belum disetor" value={rupiah(settlement.outstanding)} tone={settlement.outstanding > 0 ? 'warning' : 'healthy'} />
                 <MiniStat label="Sudah masuk kas" value={rupiah(settlement.settled)} tone="healthy" />
-                <MiniStat
-                  label="Driver terkunci"
-                  value={String(settlement.locked_driver_count)}
-                  sub={`utang > ${rupiah(settlement.debt_threshold)}`}
-                  tone={settlement.locked_driver_count > 0 ? 'critical' : 'healthy'}
-                />
+                <MiniStat label="Driver terkunci" value={String(settlement.locked_driver_count)} sub={`utang > ${rupiah(settlement.debt_threshold)}`} tone={settlement.locked_driver_count > 0 ? 'critical' : 'healthy'} />
               </div>
             </Card>
           )}
@@ -235,7 +230,7 @@ export default function AdminBalajuFinancialPage() {
                 <>
                   <span className="font-semibold text-status-critical">Perlu cleanup.</span>{' '}
                   {(intg?.imbalance_count ?? 0) > 0 && <><span className="font-semibold text-text">{intg?.imbalance_count}</span> order bukunya rusak (selisih <span className="font-semibold tabular-nums text-text">{rupiah(intg?.total_imbalance ?? 0)}</span>). </>}
-                  {(intg?.non_reproducible_count ?? 0) > 0 && <><span className="font-semibold text-text">{intg?.non_reproducible_count}</span> order tidak reproducible oleh config sekarang (kemungkinan era POTONG lama atau beku di tarif lama). </>}
+                  {(intg?.non_reproducible_count ?? 0) > 0 && <><span className="font-semibold text-text">{intg?.non_reproducible_count}</span> order tidak reproducible oleh config sekarang. </>}
                   Daftar lengkapnya ada di tabel "Order bermasalah" di bawah.
                 </>
               )}
@@ -260,11 +255,11 @@ export default function AdminBalajuFinancialPage() {
             </div>
           </Card>
 
-          {/* Per driver — setoran */}
+          {/* Per driver — klik Kelola buka modal */}
           {data.per_driver.length > 0 && (
             <Card className="mb-5 overflow-hidden">
               <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-text">
-                <Users size={16} className="text-bapasiar" /> Setoran per driver <span className="font-normal text-text-muted">(siapa belum setor)</span>
+                <Users size={16} className="text-bapasiar" /> Setoran per driver <span className="font-normal text-text-muted">(klik Kelola untuk catat / koreksi)</span>
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -272,8 +267,6 @@ export default function AdminBalajuFinancialPage() {
                     <tr className="text-text-muted">
                       <th className="px-2 py-1.5 text-left font-semibold">driver</th>
                       <th className="px-2 py-1.5 text-left font-semibold">kontak</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">order</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">sudah setor</th>
                       <th className="px-2 py-1.5 text-right font-semibold">belum setor</th>
                       <th className="px-2 py-1.5 text-right font-semibold">usia</th>
                       <th className="px-2 py-1.5 text-left font-semibold">status</th>
@@ -284,14 +277,16 @@ export default function AdminBalajuFinancialPage() {
                     {data.per_driver.map((d) => {
                       const sb = STATUS_BADGE[d.status];
                       return (
-                        <tr key={d.driver_id} className={cn('border-t border-border', d.locked && 'bg-status-critical/5')}>
+                        <tr
+                          key={d.driver_id}
+                          onClick={() => setManageDriver(d)}
+                          className={cn('cursor-pointer border-t border-border hover:bg-surface-muted', d.locked && 'bg-status-critical/5')}
+                        >
                           <td className="px-2 py-2">
                             <div className="font-semibold text-text">{d.name ?? short(d.driver_id)}</div>
                             <div className="font-mono text-[10px] text-text-light">{short(d.driver_id)}{d.plate ? ` · ${d.plate}` : ''}</div>
                           </td>
                           <td className="px-2 py-2 text-text-muted">{d.phone ?? '—'}</td>
-                          <td className="px-2 py-2 text-right tabular-nums text-text-muted">{d.rides}</td>
-                          <td className="px-2 py-2 text-right font-mono tabular-nums text-status-healthy">{rupiah(d.sudah_setor)}</td>
                           <td className="px-2 py-2 text-right font-mono font-bold tabular-nums text-text">{rupiah(d.belum_setor)}</td>
                           <td className="px-2 py-2 text-right tabular-nums text-text-muted">{d.belum_setor > 0 ? `${d.aging_days}h` : '—'}</td>
                           <td className="px-2 py-2">
@@ -302,11 +297,10 @@ export default function AdminBalajuFinancialPage() {
                           </td>
                           <td className="px-2 py-2 text-right">
                             <button
-                              onClick={() => { if (Number(d.belum_setor) > 0) setSetoranFor(d); }}
-                              disabled={Number(d.belum_setor) <= 0}
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-bapasiar hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
+                              onClick={(e) => { e.stopPropagation(); setManageDriver(d); }}
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-bapasiar hover:bg-surface-muted"
                             >
-                              <ArrowDownToLine size={11} /> Catat
+                              <Settings2 size={11} /> Kelola
                             </button>
                           </td>
                         </tr>
@@ -315,59 +309,6 @@ export default function AdminBalajuFinancialPage() {
                   </tbody>
                 </table>
               </div>
-            </Card>
-          )}
-
-          {/* Riwayat setoran */}
-          {history.length > 0 && (
-            <Card className="mb-5 overflow-hidden">
-              <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-text">
-                <History size={16} className="text-bapasiar" /> Riwayat setoran <span className="font-normal text-text-muted">({history.length})</span>
-              </h2>
-              <div className="overflow-x-auto">
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-text-muted">
-                      <th className="px-2 py-1.5 text-left font-semibold">tgl</th>
-                      <th className="px-2 py-1.5 text-left font-semibold">driver</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">nominal</th>
-                      <th className="px-2 py-1.5 text-left font-semibold">metode</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">order</th>
-                      <th className="px-2 py-1.5 text-left font-semibold">ref</th>
-                      <th className="px-2 py-1.5 text-right font-semibold">aksi</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {history.map((r) => (
-                      <tr key={r.id} className="border-t border-border">
-                        <td className="px-2 py-2 text-text-muted">{fdatetime(r.remitted_at)}</td>
-                        <td className="px-2 py-2">
-                          <div className="font-semibold text-text">{r.driver_name ?? short(r.driver_id)}</div>
-                          <div className="font-mono text-[10px] text-text-light">{short(r.driver_id)}</div>
-                        </td>
-                        <td className="px-2 py-2 text-right font-mono font-bold tabular-nums text-text">{rupiah(r.total_covered)}</td>
-                        <td className="px-2 py-2">
-                          <Badge variant="status" status="neutral">{r.method === 'cash' ? 'tunai · 1121' : 'transfer · 1112'}</Badge>
-                        </td>
-                        <td className="px-2 py-2 text-right tabular-nums text-text-muted">{r.ride_count}</td>
-                        <td className="px-2 py-2 font-mono text-text-light">{r.reference_code ?? '—'}</td>
-                        <td className="px-2 py-2 text-right">
-                          <button
-                            onClick={() => setReverseFor(r)}
-                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-status-critical hover:bg-status-critical/5"
-                          >
-                            <RotateCcw size={11} /> Koreksi
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="mt-2 flex items-start gap-1.5 text-[11px] text-text-light">
-                <AlertTriangle size={12} className="mt-0.5 shrink-0 text-status-warning" />
-                "Koreksi" membalik setoran: jurnal di-reverse (jejak tetap di ledger), order balik ke status belum-setor, dan bisa dicatat ulang. Pakai kalau salah nominal / salah driver.
-              </p>
             </Card>
           )}
 
@@ -410,10 +351,6 @@ export default function AdminBalajuFinancialPage() {
                   </tbody>
                 </table>
               </div>
-              <p className="mt-2 flex items-start gap-1.5 text-[11px] text-text-light">
-                <AlertTriangle size={12} className="mt-0.5 shrink-0 text-status-warning" />
-                "Buku rusak" = data benar-benar inkonsisten (target sapu). "Tinjau" = tidak reproducible oleh config sekarang — bisa fosil lama atau order sah yang beku di tarif lama; cek <span className="font-mono">created_at</span> vs riwayat edit tarif sebelum menghapus.
-              </p>
             </Card>
           )}
 
@@ -423,21 +360,195 @@ export default function AdminBalajuFinancialPage() {
         </>
       )}
 
-      {/* Modal catat setoran */}
-      {setoranFor && (
-        <SetoranModal
-          driver={setoranFor}
-          onClose={() => setSetoranFor(null)}
-          onDone={() => { setSetoranFor(null); refreshAll(); }}
+      {/* Modal kelola driver (info + catat + riwayat + koreksi) */}
+      {manageDriver && (
+        <DriverModal
+          driver={manageDriver}
+          history={history.filter((h) => h.driver_id === manageDriver.driver_id)}
+          onClose={() => setManageDriver(null)}
+          onChanged={refreshAll}
         />
       )}
+    </div>
+  );
+}
 
-      {/* Modal koreksi setoran */}
-      {reverseFor && (
+// ─── Modal: Kelola Driver (catat setoran + riwayat + koreksi) ──
+
+function DriverModal({ driver, history, onClose, onChanged }: {
+  driver: PerDriver;
+  history: RemittanceRow[];
+  onClose: () => void;
+  onChanged: () => void;
+}) {
+  const api = useApi();
+  const sb = STATUS_BADGE[driver.status];
+  const canCatat = Number(driver.belum_setor) > 0;
+
+  // catat form
+  const [open, setOpen] = useState(canCatat); // form kebuka kalau ada tunggakan
+  const [amount, setAmount] = useState<number>(Number(driver.belum_setor) || 0);
+  const [method, setMethod] = useState<'cash' | 'transfer'>('transfer');
+  const [reference, setReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [preview, setPreview] = useState<PreviewResponse | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  // koreksi
+  const [reverseRow, setReverseRow] = useState<RemittanceRow | null>(null);
+
+  useEffect(() => {
+    if (!open || !(amount > 0)) { setPreview(null); return; }
+    let cancelled = false;
+    setPreviewing(true);
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get<PreviewResponse>(
+          `/admin/balaju/commission-remittance/preview?driver_id=${driver.driver_id}&amount=${amount}`,
+        );
+        if (!cancelled) setPreview(res);
+      } catch {
+        if (!cancelled) setPreview(null);
+      } finally {
+        if (!cancelled) setPreviewing(false);
+      }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [open, amount, driver.driver_id, api]);
+
+  const submitCatat = async () => {
+    setSubmitting(true);
+    setErr(null);
+    try {
+      await api.post('/admin/balaju/commission-remittance', {
+        driver_id: driver.driver_id,
+        amount,
+        method,
+        reference_code: reference || undefined,
+        notes: notes || undefined,
+      });
+      onChanged();
+      onClose();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Gagal mencatat setoran');
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[55] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-surface p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="flex items-center gap-2 text-base font-bold text-text">
+              {driver.name ?? short(driver.driver_id)}
+              {driver.locked && <Lock size={13} className="text-status-critical" />}
+              <Badge variant="status" status={sb.status}>{sb.label}</Badge>
+            </h3>
+            <p className="font-mono text-[11px] text-text-light">{short(driver.driver_id)}{driver.plate ? ` · ${driver.plate}` : ''}{driver.phone ? ` · ${driver.phone}` : ''}</p>
+          </div>
+          <button onClick={onClose} className="rounded-md p-1 text-text-muted hover:bg-surface-muted"><X size={16} /></button>
+        </div>
+
+        {/* Ringkasan driver */}
+        <div className="mb-4 grid grid-cols-2 gap-3">
+          <MiniStat label="Belum setor" value={rupiah(driver.belum_setor)} sub={driver.belum_setor > 0 ? `${driver.aging_days} hari` : 'lunas'} tone={driver.belum_setor > 0 ? 'warning' : 'healthy'} />
+          <MiniStat label="Sudah setor" value={rupiah(driver.sudah_setor)} tone="healthy" />
+        </div>
+
+        {/* Catat setoran */}
+        {canCatat ? (
+          <div className="mb-4 rounded-lg border border-border-light p-3">
+            <button onClick={() => setOpen((v) => !v)} className="mb-2 flex w-full items-center justify-between text-sm font-bold text-text">
+              <span className="flex items-center gap-1.5"><ArrowDownToLine size={14} className="text-bapasiar" /> Catat setoran</span>
+              <span className="text-xs text-text-muted">{open ? 'tutup' : 'buka'}</span>
+            </button>
+            {open && (
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold text-text-muted">Nominal setoran</label>
+                  <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))}
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm tabular-nums text-text focus:border-bapasiar focus:outline-none" />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  {(['transfer', 'cash'] as const).map((m) => (
+                    <button key={m} onClick={() => setMethod(m)}
+                      className={cn('rounded-lg border px-3 py-2 text-sm font-semibold',
+                        method === m ? 'border-bapasiar bg-bapasiar/10 text-bapasiar' : 'border-border text-text-muted hover:bg-surface-muted')}>
+                      {m === 'cash' ? 'Tunai → 1121' : 'Transfer → 1112'}
+                    </button>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="No. referensi (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-bapasiar focus:outline-none" />
+                  <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Catatan (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-bapasiar focus:outline-none" />
+                </div>
+                <div className="rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs">
+                  {previewing ? <span className="text-text-muted">Menghitung FIFO…</span>
+                    : preview ? (
+                      <div className="space-y-0.5 text-text-muted">
+                        <div className="flex justify-between"><span>Order ke-cover (FIFO)</span><span className="font-semibold text-text">{preview.ride_count} order</span></div>
+                        <div className="flex justify-between"><span>Total komisi ke-cover</span><span className="font-semibold tabular-nums text-text">{rupiah(preview.total_covered)}</span></div>
+                        {preview.surplus > 0 && <div className="flex justify-between text-status-warning"><span>Lebih bayar</span><span className="font-semibold tabular-nums">{rupiah(preview.surplus)}</span></div>}
+                        <div className="flex justify-between"><span>Sisa tunggakan</span><span className="font-semibold tabular-nums text-text">{rupiah(Math.max(0, preview.total_pending - preview.total_covered))}</span></div>
+                      </div>
+                    ) : <span className="text-text-light">Isi nominal untuk lihat order yang dilunasi.</span>}
+                </div>
+                {err && <p className="text-xs font-semibold text-status-critical">{err}</p>}
+                <button onClick={submitCatat} disabled={submitting || !(amount > 0) || !preview || preview.ride_count === 0}
+                  className="w-full rounded-lg bg-bapasiar px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+                  {submitting ? 'Menyimpan…' : 'Catat setoran'}
+                </button>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="mb-4 rounded-lg border border-status-healthy/30 bg-status-healthy/5 px-3 py-2.5 text-xs text-text-muted">
+            <span className="font-semibold text-status-healthy">Lunas.</span> Tidak ada komisi tertunggak untuk driver ini.
+          </div>
+        )}
+
+        {/* Riwayat setoran driver ini */}
+        <div>
+          <h4 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-text">
+            <History size={14} className="text-bapasiar" /> Riwayat setoran <span className="font-normal text-text-muted">({history.length})</span>
+          </h4>
+          {history.length === 0 ? (
+            <p className="rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs text-text-light">Belum ada setoran tercatat.</p>
+          ) : (
+            <div className="space-y-2">
+              {history.map((r) => (
+                <div key={r.id} className="flex items-center justify-between gap-2 rounded-lg border border-border-light px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5 text-sm font-semibold text-text">
+                      {rupiah(r.total_covered)}
+                      <Badge variant="status" status="neutral">{r.method === 'cash' ? 'tunai' : 'transfer'}</Badge>
+                    </div>
+                    <div className="text-[10px] text-text-light">{fdatetime(r.remitted_at)} · {r.ride_count} order{r.reference_code ? ` · ${r.reference_code}` : ''}</div>
+                  </div>
+                  <button onClick={() => setReverseRow(r)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-status-critical hover:bg-status-critical/5">
+                    <RotateCcw size={11} /> Koreksi
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Konfirmasi koreksi (nested, di atas) */}
+      {reverseRow && (
         <ReverseModal
-          remittance={reverseFor}
-          onClose={() => setReverseFor(null)}
-          onDone={() => { setReverseFor(null); refreshAll(); }}
+          remittance={reverseRow}
+          onClose={() => setReverseRow(null)}
+          onDone={() => { setReverseRow(null); onChanged(); onClose(); }}
         />
       )}
     </div>
@@ -470,182 +581,29 @@ function ReverseModal({ remittance, onClose, onDone }: {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between">
           <div>
             <h3 className="flex items-center gap-1.5 text-base font-bold text-status-critical"><RotateCcw size={16} /> Koreksi setoran</h3>
-            <p className="text-xs text-text-muted">{remittance.driver_name ?? short(remittance.driver_id)} · {rupiah(remittance.total_covered)} · {remittance.ride_count} order</p>
+            <p className="text-xs text-text-muted">{rupiah(remittance.total_covered)} · {remittance.method === 'cash' ? 'tunai' : 'transfer'} · {remittance.ride_count} order</p>
           </div>
           <button onClick={onClose} className="rounded-md p-1 text-text-muted hover:bg-surface-muted"><X size={16} /></button>
         </div>
-
         <div className="mb-3 flex items-start gap-2 rounded-lg border border-status-critical/30 bg-status-critical/5 px-3 py-2.5 text-xs text-text-muted">
           <AlertTriangle size={14} className="mt-0.5 shrink-0 text-status-critical" />
-          <span>Tindakan ini <span className="font-semibold text-text">membalik jurnal</span> (jejak tetap di ledger), mengembalikan {remittance.ride_count} order ke status belum-setor, dan menghapus catatan setoran ini. Order bisa dicatat ulang setelahnya.</span>
+          <span>Membalik jurnal (jejak tetap di ledger), mengembalikan {remittance.ride_count} order ke status belum-setor, & menghapus catatan setoran ini. Bisa dicatat ulang setelahnya.</span>
         </div>
-
         <label className="mb-1 block text-xs font-semibold text-text-muted">Alasan koreksi (wajib)</label>
-        <textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          rows={2}
-          placeholder="mis. salah nominal, salah driver, dobel input…"
-          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-status-critical focus:outline-none"
-        />
-
+        <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} placeholder="mis. salah nominal, salah driver, dobel input…"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-status-critical focus:outline-none" />
         {err && <p className="mt-2 text-xs font-semibold text-status-critical">{err}</p>}
-
         <div className="mt-4 flex gap-2">
           <button onClick={onClose} className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-text-muted hover:bg-surface-muted">Batal</button>
-          <button
-            onClick={submit}
-            disabled={submitting || !reason.trim()}
-            className="flex-1 rounded-lg bg-status-critical px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
+          <button onClick={submit} disabled={submitting || !reason.trim()}
+            className="flex-1 rounded-lg bg-status-critical px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
             {submitting ? 'Memproses…' : 'Koreksi setoran'}
           </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Modal: Catat Setoran (FIFO preview + submit) ──────────────
-
-function SetoranModal({ driver, onClose, onDone }: {
-  driver: PerDriver;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const api = useApi();
-  const [amount, setAmount] = useState<number>(driver.belum_setor);
-  const [method, setMethod] = useState<'cash' | 'transfer'>('transfer');
-  const [reference, setReference] = useState('');
-  const [notes, setNotes] = useState('');
-  const [preview, setPreview] = useState<PreviewResponse | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-
-  // Debounced FIFO preview saat amount berubah
-  useEffect(() => {
-    if (!(amount > 0)) { setPreview(null); return; }
-    let cancelled = false;
-    setPreviewing(true);
-    const t = setTimeout(async () => {
-      try {
-        const res = await api.get<PreviewResponse>(
-          `/admin/balaju/commission-remittance/preview?driver_id=${driver.driver_id}&amount=${amount}`,
-        );
-        if (!cancelled) setPreview(res);
-      } catch {
-        if (!cancelled) setPreview(null);
-      } finally {
-        if (!cancelled) setPreviewing(false);
-      }
-    }, 350);
-    return () => { cancelled = true; clearTimeout(t); };
-  }, [amount, driver.driver_id, api]);
-
-  const submit = async () => {
-    setSubmitting(true);
-    setErr(null);
-    try {
-      // ⚠️ Asumsi: api.post<T>(url, body). Sesuaikan kalau signature beda.
-      await api.post('/admin/balaju/commission-remittance', {
-        driver_id: driver.driver_id,
-        amount,
-        method,
-        reference_code: reference || undefined,
-        notes: notes || undefined,
-      });
-      onDone();
-    } catch (e) {
-      setErr(e instanceof ApiError ? e.message : 'Gagal mencatat setoran');
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
-      <div
-        className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-start justify-between">
-          <div>
-            <h3 className="text-base font-bold text-text">Catat setoran komisi</h3>
-            <p className="text-xs text-text-muted">{driver.name ?? short(driver.driver_id)} · belum setor {rupiah(driver.belum_setor)}</p>
-          </div>
-          <button onClick={onClose} className="rounded-md p-1 text-text-muted hover:bg-surface-muted"><X size={16} /></button>
-        </div>
-
-        <div className="space-y-3">
-          {/* Amount */}
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-text-muted">Nominal setoran</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(Number(e.target.value))}
-              className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text tabular-nums focus:border-bapasiar focus:outline-none"
-            />
-          </div>
-
-          {/* Method */}
-          <div>
-            <label className="mb-1 block text-xs font-semibold text-text-muted">Metode</label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['transfer', 'cash'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMethod(m)}
-                  className={cn(
-                    'rounded-lg border px-3 py-2 text-sm font-semibold',
-                    method === m ? 'border-bapasiar bg-bapasiar/10 text-bapasiar' : 'border-border text-text-muted hover:bg-surface-muted',
-                  )}
-                >
-                  {m === 'cash' ? 'Tunai → 1121' : 'Transfer → 1112'}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Ref + notes */}
-          <div className="grid grid-cols-2 gap-2">
-            <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="No. referensi (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-bapasiar focus:outline-none" />
-            <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Catatan (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-bapasiar focus:outline-none" />
-          </div>
-
-          {/* FIFO preview */}
-          <div className="rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs">
-            {previewing ? (
-              <span className="text-text-muted">Menghitung FIFO…</span>
-            ) : preview ? (
-              <div className="space-y-0.5 text-text-muted">
-                <div className="flex justify-between"><span>Order ke-cover (FIFO)</span><span className="font-semibold text-text">{preview.ride_count} order</span></div>
-                <div className="flex justify-between"><span>Total komisi ke-cover</span><span className="font-semibold tabular-nums text-text">{rupiah(preview.total_covered)}</span></div>
-                {preview.surplus > 0 && <div className="flex justify-between text-status-warning"><span>Lebih bayar</span><span className="font-semibold tabular-nums">{rupiah(preview.surplus)}</span></div>}
-                <div className="flex justify-between"><span>Sisa tunggakan</span><span className="font-semibold tabular-nums text-text">{rupiah(Math.max(0, preview.total_pending - preview.total_covered))}</span></div>
-              </div>
-            ) : (
-              <span className="text-text-light">Isi nominal untuk lihat order yang akan dilunasi.</span>
-            )}
-          </div>
-
-          {err && <p className="text-xs font-semibold text-status-critical">{err}</p>}
-
-          <div className="flex gap-2 pt-1">
-            <button onClick={onClose} className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-text-muted hover:bg-surface-muted">Batal</button>
-            <button
-              onClick={submit}
-              disabled={submitting || !(amount > 0) || !preview || preview.ride_count === 0}
-              className="flex-1 rounded-lg bg-bapasiar px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              {submitting ? 'Menyimpan…' : 'Catat setoran'}
-            </button>
-          </div>
         </div>
       </div>
     </div>
