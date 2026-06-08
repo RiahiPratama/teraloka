@@ -13,7 +13,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Wallet, AlertTriangle, Ghost, Scale, CheckCircle2, RefreshCw, Users,
-  X, Lock, ArrowDownToLine,
+  X, Lock, ArrowDownToLine, History, RotateCcw,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useApi, ApiError } from '@/lib/api/client';
@@ -83,11 +83,32 @@ interface PreviewResponse {
   rides: { ride_id: string; commission_amount: number; completed_at: string | null }[];
 }
 
+interface RemittanceRow {
+  id: string;
+  driver_id: string;
+  driver_name: string | null;
+  amount: number;
+  total_covered: number;
+  surplus: number;
+  ride_count: number;
+  method: 'cash' | 'transfer';
+  cash_account_code: string;
+  reference_code: string | null;
+  notes: string | null;
+  remitted_at: string;
+  created_at: string;
+}
+
 const rupiah = (n: number) => 'Rp ' + Math.round(n || 0).toLocaleString('id-ID');
 const short = (s: string) => (typeof s === 'string' ? s.slice(0, 8) : '—');
 const fdate = (s: string | null) => {
   if (!s) return '—';
   try { return new Date(s).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' }); }
+  catch { return s; }
+};
+const fdatetime = (s: string | null) => {
+  if (!s) return '—';
+  try { return new Date(s).toLocaleString('id-ID', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }); }
   catch { return s; }
 };
 
@@ -103,6 +124,8 @@ export default function AdminBalajuFinancialPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [setoranFor, setSetoranFor] = useState<PerDriver | null>(null);
+  const [reverseFor, setReverseFor] = useState<RemittanceRow | null>(null);
+  const [history, setHistory] = useState<RemittanceRow[]>([]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -117,7 +140,18 @@ export default function AdminBalajuFinancialPage() {
     }
   }, [api]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  const fetchHistory = useCallback(async () => {
+    try {
+      const res = await api.get<RemittanceRow[]>('/admin/balaju/commission-remittance/history?limit=50');
+      setHistory(res);
+    } catch {
+      // non-fatal: riwayat gagal gak ngeblok dashboard
+    }
+  }, [api]);
+
+  const refreshAll = useCallback(() => { fetchData(); fetchHistory(); }, [fetchData, fetchHistory]);
+
+  useEffect(() => { refreshAll(); }, [refreshAll]);
 
   const intg = data?.integrity;
   const dirty = !!intg && (intg.imbalance_count > 0 || intg.non_reproducible_count > 0);
@@ -136,7 +170,7 @@ export default function AdminBalajuFinancialPage() {
           <p className="mt-1 text-sm text-text-muted">Piutang komisi (1202), setoran driver, & integritas data per order</p>
         </div>
         <button
-          onClick={fetchData}
+          onClick={refreshAll}
           disabled={loading}
           className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-semibold text-text-muted hover:bg-surface-muted disabled:opacity-50"
         >
@@ -268,8 +302,8 @@ export default function AdminBalajuFinancialPage() {
                           </td>
                           <td className="px-2 py-2 text-right">
                             <button
-                              onClick={() => setSetoranFor(d)}
-                              disabled={d.belum_setor <= 0}
+                              onClick={() => { if (Number(d.belum_setor) > 0) setSetoranFor(d); }}
+                              disabled={Number(d.belum_setor) <= 0}
                               className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-bapasiar hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-40"
                             >
                               <ArrowDownToLine size={11} /> Catat
@@ -281,6 +315,59 @@ export default function AdminBalajuFinancialPage() {
                   </tbody>
                 </table>
               </div>
+            </Card>
+          )}
+
+          {/* Riwayat setoran */}
+          {history.length > 0 && (
+            <Card className="mb-5 overflow-hidden">
+              <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-text">
+                <History size={16} className="text-bapasiar" /> Riwayat setoran <span className="font-normal text-text-muted">({history.length})</span>
+              </h2>
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-text-muted">
+                      <th className="px-2 py-1.5 text-left font-semibold">tgl</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">driver</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">nominal</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">metode</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">order</th>
+                      <th className="px-2 py-1.5 text-left font-semibold">ref</th>
+                      <th className="px-2 py-1.5 text-right font-semibold">aksi</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {history.map((r) => (
+                      <tr key={r.id} className="border-t border-border">
+                        <td className="px-2 py-2 text-text-muted">{fdatetime(r.remitted_at)}</td>
+                        <td className="px-2 py-2">
+                          <div className="font-semibold text-text">{r.driver_name ?? short(r.driver_id)}</div>
+                          <div className="font-mono text-[10px] text-text-light">{short(r.driver_id)}</div>
+                        </td>
+                        <td className="px-2 py-2 text-right font-mono font-bold tabular-nums text-text">{rupiah(r.total_covered)}</td>
+                        <td className="px-2 py-2">
+                          <Badge variant="status" status="neutral">{r.method === 'cash' ? 'tunai · 1121' : 'transfer · 1112'}</Badge>
+                        </td>
+                        <td className="px-2 py-2 text-right tabular-nums text-text-muted">{r.ride_count}</td>
+                        <td className="px-2 py-2 font-mono text-text-light">{r.reference_code ?? '—'}</td>
+                        <td className="px-2 py-2 text-right">
+                          <button
+                            onClick={() => setReverseFor(r)}
+                            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-status-critical hover:bg-status-critical/5"
+                          >
+                            <RotateCcw size={11} /> Koreksi
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="mt-2 flex items-start gap-1.5 text-[11px] text-text-light">
+                <AlertTriangle size={12} className="mt-0.5 shrink-0 text-status-warning" />
+                "Koreksi" membalik setoran: jurnal di-reverse (jejak tetap di ledger), order balik ke status belum-setor, dan bisa dicatat ulang. Pakai kalau salah nominal / salah driver.
+              </p>
             </Card>
           )}
 
@@ -341,9 +428,85 @@ export default function AdminBalajuFinancialPage() {
         <SetoranModal
           driver={setoranFor}
           onClose={() => setSetoranFor(null)}
-          onDone={() => { setSetoranFor(null); fetchData(); }}
+          onDone={() => { setSetoranFor(null); refreshAll(); }}
         />
       )}
+
+      {/* Modal koreksi setoran */}
+      {reverseFor && (
+        <ReverseModal
+          remittance={reverseFor}
+          onClose={() => setReverseFor(null)}
+          onDone={() => { setReverseFor(null); refreshAll(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── Modal: Koreksi/Batal Setoran (reverse) ───────────────────
+
+function ReverseModal({ remittance, onClose, onDone }: {
+  remittance: RemittanceRow;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const api = useApi();
+  const [reason, setReason] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const submit = async () => {
+    if (!reason.trim()) { setErr('Alasan koreksi wajib diisi'); return; }
+    setSubmitting(true);
+    setErr(null);
+    try {
+      await api.post(`/admin/balaju/commission-remittance/${remittance.id}/reverse`, { reason: reason.trim() });
+      onDone();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Gagal mengoreksi setoran');
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="flex items-center gap-1.5 text-base font-bold text-status-critical"><RotateCcw size={16} /> Koreksi setoran</h3>
+            <p className="text-xs text-text-muted">{remittance.driver_name ?? short(remittance.driver_id)} · {rupiah(remittance.total_covered)} · {remittance.ride_count} order</p>
+          </div>
+          <button onClick={onClose} className="rounded-md p-1 text-text-muted hover:bg-surface-muted"><X size={16} /></button>
+        </div>
+
+        <div className="mb-3 flex items-start gap-2 rounded-lg border border-status-critical/30 bg-status-critical/5 px-3 py-2.5 text-xs text-text-muted">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-status-critical" />
+          <span>Tindakan ini <span className="font-semibold text-text">membalik jurnal</span> (jejak tetap di ledger), mengembalikan {remittance.ride_count} order ke status belum-setor, dan menghapus catatan setoran ini. Order bisa dicatat ulang setelahnya.</span>
+        </div>
+
+        <label className="mb-1 block text-xs font-semibold text-text-muted">Alasan koreksi (wajib)</label>
+        <textarea
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          rows={2}
+          placeholder="mis. salah nominal, salah driver, dobel input…"
+          className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text focus:border-status-critical focus:outline-none"
+        />
+
+        {err && <p className="mt-2 text-xs font-semibold text-status-critical">{err}</p>}
+
+        <div className="mt-4 flex gap-2">
+          <button onClick={onClose} className="flex-1 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-text-muted hover:bg-surface-muted">Batal</button>
+          <button
+            onClick={submit}
+            disabled={submitting || !reason.trim()}
+            className="flex-1 rounded-lg bg-status-critical px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {submitting ? 'Memproses…' : 'Koreksi setoran'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
