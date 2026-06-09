@@ -198,10 +198,18 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
   const distanceKm = ((ride.distance_estimate_m ?? 0) / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
   const note = ride.service_details?.pickup_note;
 
-  // Kontak penumpang (matched/ongoing). riderWa null -> tombol WA disembunyikan.
+  // Kontak penumpang (matched/ongoing). Pesan dibekali alamat + pin lokasi jemput (link OSM,
+  // non-Google) biar titik temu langsung kebaca di chat. wa.me = TEKS only; ini link peta yang
+  // bisa di-tap, bukan kartu lokasi native WA (butuh WA Business API — di-defer).
   const riderWa = toWa(ride.rider?.phone);
+  const pickupPin = (ride.pickup_lat != null && ride.pickup_lng != null)
+    ? `https://www.openstreetmap.org/?mlat=${ride.pickup_lat}&mlon=${ride.pickup_lng}#map=17/${ride.pickup_lat}/${ride.pickup_lng}`
+    : null;
+  const waLines: string[] = [`Halo, saya driver BALAJU untuk order #${ride.id.slice(0, 8)}.`];
+  if (ride.pickup_address) waLines.push(`Titik jemput: ${ride.pickup_address}`);
+  if (pickupPin) waLines.push(`Lokasi: ${pickupPin}`);
   const waToRider = riderWa
-    ? `https://wa.me/${riderWa}?text=${encodeURIComponent('Halo, saya driver BALAJU untuk order #' + ride.id.slice(0, 8) + '.')}`
+    ? `https://wa.me/${riderWa}?text=${encodeURIComponent(waLines.join('\n'))}`
     : null;
 
   const STATUS_HEAD: Partial<Record<RideStatus, { title: string; sub: string }>> = {
