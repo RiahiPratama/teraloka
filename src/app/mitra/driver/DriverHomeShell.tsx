@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Bike, Car, Package, MapPin, Power, Loader2, Navigation, Clock, Wallet, Inbox, ShieldAlert,
+  Bike, Car, Package, MapPin, Power, Loader2, Navigation, Timer, Wallet, Inbox, ShieldAlert,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import '@/components/balaju/public/balaju-landing.css';
@@ -261,7 +261,7 @@ export function DriverHomeShell() {
             </span>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-bold text-[var(--bl-ink)]">
-                {online ? 'Kamu sedang menerima order' : 'Kamu sedang offline'}
+                {online ? 'Kamu online · menunggu order' : 'Kamu sedang offline'}
               </div>
               <div className="mt-0.5 text-xs text-[var(--bl-muted)]">
                 {online ? 'Order masuk akan muncul di bawah otomatis.' : 'Aktifkan biar order masuk ke kamu.'}
@@ -337,7 +337,7 @@ export function DriverHomeShell() {
                   <span className={`inline-flex items-center gap-1 text-[11px] font-bold ${
                     secsLeft <= 10 ? 'text-red-500' : 'text-[var(--bl-muted)]'
                   }`}>
-                    <Clock className="h-3.5 w-3.5" /> {mm}:{ss}
+                    <Timer className="h-3.5 w-3.5" /> sisa {mm}:{ss}
                   </span>
                 </div>
 

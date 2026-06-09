@@ -50,6 +50,7 @@ interface OrderDraft {
   pickup: BalajuPoint;
   dropoff: BalajuPoint;
   pickupNote: string;
+  dropoffNote: string;
   estimate: EstimateResult | null;
 }
 
@@ -79,6 +80,7 @@ export function BalajuEntry() {
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
   const [pickupNote, setPickupNote] = useState('');
+  const [dropoffNote, setDropoffNote] = useState('');
   // resumed = draft kebaca dari sessionStorage (tampil ringkasan, sembunyikan picker).
   const [resumed, setResumed] = useState(false);
 
@@ -101,6 +103,7 @@ export function BalajuEntry() {
         setPickup(d.pickup);
         setDropoff(d.dropoff);
         setPickupNote(d.pickupNote ?? '');
+        setDropoffNote(d.dropoffNote ?? '');
         setEstimate(d.estimate ?? null);
         setResumed(true);
       }
@@ -112,7 +115,7 @@ export function BalajuEntry() {
   // Simpan draft sebelum lempar ke login (biar gak ilang pas balik).
   function saveDraft() {
     if (typeof window === 'undefined' || !pickup || !dropoff) return;
-    const d: OrderDraft = { service, pickup, dropoff, pickupNote, estimate };
+    const d: OrderDraft = { service, pickup, dropoff, pickupNote, dropoffNote, estimate };
     try {
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify(d));
     } catch {
@@ -188,7 +191,10 @@ export function BalajuEntry() {
         dropoff_lng: dropoff.lng,
         pickup_address: pickup.name,
         dropoff_address: dropoff.name,
-        service_details: pickupNote.trim() ? { pickup_note: pickupNote.trim() } : {},
+        service_details: {
+          ...(pickupNote.trim() ? { pickup_note: pickupNote.trim() } : {}),
+          ...(dropoffNote.trim() ? { dropoff_note: dropoffNote.trim() } : {}),
+        },
       });
       const id = res?.request?.id;
       if (!id) throw new Error('no id');
@@ -326,6 +332,12 @@ export function BalajuEntry() {
                   <div>
                     <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Tujuan</div>
                     <div className="text-sm font-semibold text-[var(--bl-ink)]">{dropoff?.name || 'Tujuan'}</div>
+                    {dropoffNote.trim() && (
+                      <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-[var(--bl-amber-15)] px-2 py-1.5 text-[11px] text-[var(--bl-forest-d)]">
+                        <MapPin className="mt-px h-3 w-3 shrink-0 text-[var(--bl-amber)]" />
+                        <span className="min-w-0">{dropoffNote.trim()}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <button
@@ -349,6 +361,7 @@ export function BalajuEntry() {
                   setDropoff(d);
                 }}
                 onNoteChange={setPickupNote}
+                onDropoffNoteChange={setDropoffNote}
               />
               <p className="mt-2 text-[11px] text-[var(--bl-muted)]">
                 Harga muncul setelah jemput &amp; tujuan dipilih.

@@ -65,9 +65,10 @@ export interface BalajuLocationStepProps {
   onReady: (pts: { pickup: BalajuPoint; dropoff: BalajuPoint }) => void;
   onChange?: (pts: { pickup: BalajuPoint | null; dropoff: BalajuPoint | null }) => void;
   onNoteChange?: (note: string) => void;
+  onDropoffNoteChange?: (note: string) => void;
 }
 
-export function BalajuLocationStep({ onReady, onChange, onNoteChange }: BalajuLocationStepProps) {
+export function BalajuLocationStep({ onReady, onChange, onNoteChange, onDropoffNoteChange }: BalajuLocationStepProps) {
   const [which, setWhich] = useState<Which>('pickup');
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
@@ -75,6 +76,7 @@ export function BalajuLocationStep({ onReady, onChange, onNoteChange }: BalajuLo
   const [gpsBusy, setGpsBusy] = useState(false);
   const [gpsErr, setGpsErr] = useState<string | null>(null);
   const [pickupNote, setPickupNote] = useState('');
+  const [dropoffNote, setDropoffNote] = useState('');
 
   const reverseGeo = useReverseGeo();
 
@@ -235,6 +237,27 @@ export function BalajuLocationStep({ onReady, onChange, onNoteChange }: BalajuLo
           className="w-full resize-none rounded-xl border border-[var(--bl-line)] bg-white px-3 py-2.5 text-sm text-[var(--bl-ink)] outline-none transition placeholder:text-[var(--bl-muted)] focus:border-[var(--bl-forest)]"
         />
         <div className="mt-0.5 text-right text-[10px] text-[var(--bl-muted)]">{pickupNote.length}/160</div>
+      </div>
+
+      {/* Catatan tujuan (opsional) — alamat lengkap / patokan titik antar. Sama seperti catatan
+          jemput: bantu driver nemu titik turun presisi (centroid kelurahan bisa meleset). */}
+      <div className="mt-3">
+        <label className="mb-1 flex items-center gap-1.5 text-[11px] font-bold text-[var(--bl-ink)]">
+          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: ACCENT }} />
+          Catatan tujuan <span className="font-medium text-[var(--bl-muted)]">(opsional)</span>
+        </label>
+        <textarea
+          value={dropoffNote}
+          onChange={(e) => {
+            const v = e.target.value.slice(0, 160);
+            setDropoffNote(v);
+            onDropoffNoteChange?.(v);
+          }}
+          rows={2}
+          placeholder="Alamat lengkap / patokan tujuan — cth: Toboko, Lorong Kartika No 65, rumah cat biru, sebelah apotek."
+          className="w-full resize-none rounded-xl border border-[var(--bl-line)] bg-white px-3 py-2.5 text-sm text-[var(--bl-ink)] outline-none transition placeholder:text-[var(--bl-muted)] focus:border-[var(--bl-forest)]"
+        />
+        <div className="mt-0.5 text-right text-[10px] text-[var(--bl-muted)]">{dropoffNote.length}/160</div>
       </div>
     </div>
   );
