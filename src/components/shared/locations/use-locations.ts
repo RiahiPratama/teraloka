@@ -276,9 +276,9 @@ export function useLocationBreadcrumb(locationId: string | null) {
  * Reverse geocode GPS → nearest kelurahan/desa.
  * Manual trigger only (gak auto-run, harus call execute()).
  *
- * Phase 1 NOTE: latitude/longitude masih NULL di DB,
- *   so result.data akan null sampai koordinat di-seed Phase 2.
- *   Frontend HARUS handle null gracefully (fallback manual pick).
+ * CATATAN: koordinat sudah di-seed (mayoritas terisi). Untuk titik yang masih null
+ *   (sebagian kecil belum ter-backfill) result.data bisa null — frontend tetap
+ *   handle null gracefully (fallback manual pick).
  */
 export function useReverseGeo() {
   const api = useApi();
