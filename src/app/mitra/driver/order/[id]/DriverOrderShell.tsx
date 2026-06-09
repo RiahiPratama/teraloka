@@ -38,9 +38,9 @@ interface RideDetail {
   agreed_fare: number | null;
   selected_driver_id: string | null;
   cancel_reason: string | null;
-  service_details?: { pickup_note?: string | null } | null;
   // Kontak penumpang (embed backend GET /:id, hanya saat matched/ongoing; null pasca-terminal).
   rider?: { id: string; name: string | null; phone: string | null } | null;
+  service_details?: { pickup_note?: string | null; dropoff_note?: string | null } | null;
 }
 
 const SERVICE_META: Record<ServiceType, { Icon: typeof Bike; label: string }> = {
@@ -197,6 +197,7 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
   const headlineFare = ride.agreed_fare ?? ride.offered_fare;
   const distanceKm = ((ride.distance_estimate_m ?? 0) / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
   const note = ride.service_details?.pickup_note;
+  const dnote = ride.service_details?.dropoff_note;
 
   // Kontak penumpang (matched/ongoing). Pesan dibekali alamat + pin lokasi jemput (link Google
   // Maps: tap -> app + Petunjuk Arah). Plain URL, tanpa API key, GRATIS. wa.me = TEKS only; ini
@@ -304,6 +305,12 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Tujuan</div>
               <div className="text-sm font-semibold text-[var(--bl-ink)]">{ride.dropoff_address || 'Tujuan'}</div>
+              {dnote && (
+                <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-[var(--bl-amber-15)] px-2 py-1.5 text-[11px] text-[var(--bl-forest-d)]">
+                  <MapPin className="mt-px h-3 w-3 shrink-0 text-[var(--bl-amber)]" />
+                  <span className="min-w-0">{dnote}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

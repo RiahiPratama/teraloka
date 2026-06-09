@@ -56,7 +56,7 @@ interface RideDetail {
   selected_driver_id: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
-  service_details?: { pickup_note?: string | null } | null;
+  service_details?: { pickup_note?: string | null; dropoff_note?: string | null } | null;
   driver?: DriverInfo | null;
   vehicle?: VehicleInfo | null;
 }
@@ -341,6 +341,12 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
             <div>
               <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Tujuan</div>
               <div className="text-sm font-semibold text-[var(--bl-ink)]">{ride.dropoff_address || 'Tujuan'}</div>
+              {ride.service_details?.dropoff_note && (
+                <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-[var(--bl-amber-15)] px-2 py-1.5 text-[11px] text-[var(--bl-forest-d)]">
+                  <MapPin className="mt-px h-3 w-3 shrink-0 text-[var(--bl-amber)]" />
+                  <span className="min-w-0">{ride.service_details.dropoff_note}</span>
+                </div>
+              )}
             </div>
           </div>
         </div>

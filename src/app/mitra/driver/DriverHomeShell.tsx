@@ -35,7 +35,7 @@ interface NearbyRequest {
   offered_fare: number | null;
   driver_earning: number | null;
   commission_amount: number | null;
-  service_details?: { pickup_note?: string | null } | null;
+  service_details?: { pickup_note?: string | null; dropoff_note?: string | null } | null;
 }
 
 interface NearbyItem {
@@ -326,6 +326,7 @@ export function DriverHomeShell() {
             const ss = String(secsLeft % 60).padStart(2, '0');
             const accepting = acceptingId === item.request_id;
             const note = req.service_details?.pickup_note;
+            const dnote = req.service_details?.dropoff_note;
 
             return (
               <div key={item.id} className="bl-shadow-soft mt-3 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
@@ -362,6 +363,12 @@ export function DriverHomeShell() {
                     <div>
                       <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Tujuan</div>
                       <div className="truncate text-sm font-semibold text-[var(--bl-ink)]">{req.dropoff_address || 'Tujuan'}</div>
+                      {dnote && (
+                        <div className="mt-1 flex items-start gap-1.5 rounded-lg bg-[var(--bl-amber-15)] px-2 py-1 text-[11px] text-[var(--bl-forest-d)]">
+                          <MapPin className="mt-px h-3 w-3 shrink-0 text-[var(--bl-amber)]" />
+                          <span className="min-w-0">{dnote}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
