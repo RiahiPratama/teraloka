@@ -3,4 +3,6 @@
 // TODO: sesuaikan ke route & nomor produksi.
 export const ORDER_URL = "/balaju/pesan";
 export const WA_URL = "https://wa.me/GANTI_NOMOR_WA"; // KONTAK PUBLIK — JANGAN nomor OTP sistem
-export const DRIVER_URL = WA_URL; // route /balaju/driver belum ada (F5). Arahkan ke WA/form dulu.
+// Apply page driver LIVE 8 Jun 2026 → /mitra/driver/daftar (form pendaftaran).
+// 1 klik langsung ke form (smart-gate handle login + cek sudah-driver).
+export const DRIVER_URL = "/mitra/driver/daftar";
