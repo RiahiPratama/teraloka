@@ -11,6 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Bike, Car, Package, MapPin, Loader2, Check, Play, Flag, X, Wallet, ShieldCheck, ChevronRight, Navigation,
+  Phone, MessageCircle, User,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import '@/components/balaju/public/balaju-landing.css';
@@ -38,6 +39,8 @@ interface RideDetail {
   selected_driver_id: string | null;
   cancel_reason: string | null;
   service_details?: { pickup_note?: string | null } | null;
+  // Kontak penumpang (embed backend GET /:id, hanya saat matched/ongoing; null pasca-terminal).
+  rider?: { id: string; name: string | null; phone: string | null } | null;
 }
 
 const SERVICE_META: Record<ServiceType, { Icon: typeof Bike; label: string }> = {
@@ -50,6 +53,17 @@ const TERMINAL: RideStatus[] = ['completed', 'cancelled', 'no_driver'];
 
 function rupiah(n: number | null | undefined): string {
   return 'Rp ' + Number(n ?? 0).toLocaleString('id-ID');
+}
+
+// Normalisasi nomor ke format wa.me (digit only, 628xxx). DB sudah 628xxx;
+// guard ini cuma jaga-jaga nomor legacy 08xxx / tanpa awalan. null kalau kosong.
+function toWa(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  let d = phone.replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('0')) d = '62' + d.slice(1);
+  else if (!d.startsWith('62')) d = '62' + d;
+  return d;
 }
 
 export function DriverOrderShell({ rideId }: { rideId: string }) {
@@ -184,6 +198,12 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
   const distanceKm = ((ride.distance_estimate_m ?? 0) / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
   const note = ride.service_details?.pickup_note;
 
+  // Kontak penumpang (matched/ongoing). riderWa null -> tombol WA disembunyikan.
+  const riderWa = toWa(ride.rider?.phone);
+  const waToRider = riderWa
+    ? `https://wa.me/${riderWa}?text=${encodeURIComponent('Halo, saya driver BALAJU untuk order #' + ride.id.slice(0, 8) + '.')}`
+    : null;
+
   const STATUS_HEAD: Partial<Record<RideStatus, { title: string; sub: string }>> = {
     matched: { title: 'Menuju titik jemput', sub: 'Jemput penumpang di titik di bawah.' },
     ongoing: { title: 'Perjalanan berlangsung', sub: 'Antar penumpang ke tujuan dengan selamat.' },
@@ -279,6 +299,42 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Kartu penumpang (matched/ongoing) — kontak ke rider via WA / telepon.
+            Tampil hanya kalau backend kirim rider.phone (otomatis null pasca-terminal). */}
+        {(ride.status === 'matched' || ride.status === 'ongoing') && ride.rider?.phone && (
+          <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
+                <User className="h-6 w-6" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Penumpang</div>
+                <div className="truncate text-sm font-bold text-[var(--bl-ink)]">{ride.rider.name || 'Penumpang'}</div>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {waToRider && (
+                  <a
+                    href={waToRider}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="bl-shadow-soft grid h-11 w-11 place-items-center rounded-full bg-[var(--bl-forest)] text-white transition hover:bg-[var(--bl-forest-d)]"
+                    aria-label="WhatsApp penumpang"
+                  >
+                    <MessageCircle className="h-5 w-5" />
+                  </a>
+                )}
+                <a
+                  href={'tel:' + ride.rider.phone}
+                  className="grid h-11 w-11 place-items-center rounded-full border border-[var(--bl-forest)] bg-white text-[var(--bl-forest)] transition hover:bg-[var(--bl-forest-10)]"
+                  aria-label="Telepon penumpang"
+                >
+                  <Phone className="h-5 w-5" />
+                </a>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Kartu penghasilan driver */}
         {headlineFare != null && (

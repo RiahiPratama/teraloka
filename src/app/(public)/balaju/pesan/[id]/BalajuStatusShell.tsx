@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Bike, Car, Package, MapPin, Star, ShieldCheck, Check, Loader2, X, RotateCcw, Search, Phone,
+  Bike, Car, Package, MapPin, Star, ShieldCheck, Check, Loader2, X, RotateCcw, Search, Phone, MessageCircle,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import '@/components/balaju/public/balaju-landing.css';
@@ -63,6 +63,17 @@ interface RideDetail {
 
 function rupiah(n: number | null | undefined): string {
   return 'Rp ' + Number(n ?? 0).toLocaleString('id-ID');
+}
+
+// Normalisasi nomor ke format wa.me (digit only, 628xxx). DB sudah 628xxx;
+// guard ini cuma jaga-jaga nomor legacy 08xxx / tanpa awalan. null kalau kosong.
+function toWa(phone: string | null | undefined): string | null {
+  if (!phone) return null;
+  let d = phone.replace(/\D/g, '');
+  if (!d) return null;
+  if (d.startsWith('0')) d = '62' + d.slice(1);
+  else if (!d.startsWith('62')) d = '62' + d;
+  return d;
 }
 
 const SERVICE_META: Record<ServiceType, { Icon: typeof Bike; label: string }> = {
@@ -194,6 +205,12 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
     ? [vehicle.brand_model, vehicle.color].filter(Boolean).join(' · ')
     : null;
 
+  // Kontak driver via WA (driverWa null -> tombol WA disembunyikan; tombol telepon tetap).
+  const driverWa = toWa(driver?.phone);
+  const waToDriver = driverWa
+    ? `https://wa.me/${driverWa}?text=${encodeURIComponent('Halo, saya penumpang BALAJU untuk order #' + ride.id.slice(0, 8) + '.')}`
+    : null;
+
   return (
     <div className="bl-landing">
       <div className="mx-auto max-w-md px-4 py-6 md:pt-12">
@@ -289,10 +306,10 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
           </div>
         )}
 
-        {/* Zona animasi status (WAJAH ilustratif) */}
+        {/* Zona status HIDUP (WAJAH) — liveness + arah, BUKAN posisi GPS */}
         {ride.status === 'open' && <SearchingRadar />}
-        {ride.status === 'matched' && <DriverEnRouteMap variant="toPickup" />}
-        {ride.status === 'ongoing' && <DriverEnRouteMap variant="onTrip" />}
+        {ride.status === 'matched' && <DriverLiveStatus variant="toPickup" />}
+        {ride.status === 'ongoing' && <DriverLiveStatus variant="onTrip" />}
 
         {/* Rute */}
         <div className="mt-5 flex gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
@@ -344,13 +361,26 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
                 </div>
               </div>
               {driver?.phone && (
-                <a
-                  href={'tel:' + driver.phone}
-                  className="bl-shadow-soft grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--bl-forest)] text-white transition hover:bg-[var(--bl-forest-d)]"
-                  aria-label="Telepon driver"
-                >
-                  <Phone className="h-5 w-5" />
-                </a>
+                <div className="flex shrink-0 items-center gap-2">
+                  {waToDriver && (
+                    <a
+                      href={waToDriver}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="bl-shadow-soft grid h-11 w-11 place-items-center rounded-full bg-[var(--bl-forest)] text-white transition hover:bg-[var(--bl-forest-d)]"
+                      aria-label="WhatsApp driver"
+                    >
+                      <MessageCircle className="h-5 w-5" />
+                    </a>
+                  )}
+                  <a
+                    href={'tel:' + driver.phone}
+                    className="grid h-11 w-11 place-items-center rounded-full border border-[var(--bl-forest)] bg-white text-[var(--bl-forest)] transition hover:bg-[var(--bl-forest-10)]"
+                    aria-label="Telepon driver"
+                  >
+                    <Phone className="h-5 w-5" />
+                  </a>
+                </div>
               )}
             </div>
 
@@ -484,56 +514,58 @@ function SearchingRadar() {
   );
 }
 
-// ── Ilustrasi peta: puck bergerak menyusuri rute (SMIL, tanpa JS/lib) ──
-// variant 'toPickup' = driver menuju jemput (pin amber). 'onTrip' = perjalanan (pin tujuan forest).
-function DriverEnRouteMap({ variant }: { variant: 'toPickup' | 'onTrip' }) {
+// ── Status driver HIDUP (jujur): denyut liveness + konektor mengalir ke arah tujuan. ──
+// BUKAN peta & BUKAN posisi GPS. Ini indikator "order aktif & driver menuju" — benar secara
+// lifecycle (status matched/ongoing dari polling), tanpa mengklaim koordinat yang tidak kita punya.
+// variant 'toPickup' = menuju titik jemput (pin amber). 'onTrip' = menuju tujuan (pin forest).
+function DriverLiveStatus({ variant }: { variant: 'toPickup' | 'onTrip' }) {
   const onTrip = variant === 'onTrip';
-  const label = onTrip ? 'Perjalanan berlangsung' : 'Driver menuju ke kamu';
+  const headline = onTrip ? 'Menuju tujuan' : 'Driver menuju ke kamu';
+  const sub = onTrip
+    ? 'Driver sedang mengantarmu ke tujuan.'
+    : 'Driver sedang dalam perjalanan ke titik jemputmu.';
+  const pinBg = onTrip ? 'var(--bl-forest-10)' : 'var(--bl-amber-15)';
+  const pinFg = onTrip ? 'var(--bl-forest)' : 'var(--bl-amber)';
   return (
-    <div className="mt-4 overflow-hidden rounded-2xl border border-[var(--bl-line)] bg-white">
-      <div className="relative">
-        <svg viewBox="0 0 360 150" className="h-[150px] w-full" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Ilustrasi rute perjalanan">
-          <rect width="360" height="150" fill="var(--bl-cream)" />
-          {/* blok kota */}
-          <g opacity="0.55" fill="var(--bl-forest-10)">
-            <rect x="22" y="18" width="48" height="32" rx="5" />
-            <rect x="84" y="12" width="40" height="26" rx="5" />
-            <rect x="246" y="16" width="52" height="30" rx="5" />
-            <rect x="300" y="92" width="46" height="40" rx="5" />
-            <rect x="28" y="98" width="42" height="34" rx="5" />
-            <rect x="150" y="104" width="48" height="30" rx="5" />
-          </g>
-          {/* rute */}
-          <path id="blstat-route" d="M 40 122 C 110 122, 118 52, 200 60 S 300 78, 320 42" fill="none" stroke="var(--bl-forest)" strokeWidth="3" strokeDasharray="6 8" strokeLinecap="round" opacity="0.5" />
-          {/* titik asal */}
-          <circle cx="40" cy="122" r="5" fill="var(--bl-forest)" opacity="0.55" />
-          {/* pin tujuan (akhir rute 320,42) */}
-          <g transform="translate(320 42)">
-            <circle r="12" fill={onTrip ? 'var(--bl-forest-10)' : 'var(--bl-amber-15)'}>
-              <animate attributeName="r" values="10;15;10" dur="1.8s" repeatCount="indefinite" />
-            </circle>
-            <circle r="6" fill={onTrip ? 'var(--bl-forest)' : 'var(--bl-amber)'} />
-            <circle r="2.4" fill="#fff" />
-          </g>
-          {/* puck bergerak */}
-          <g>
-            <circle r="13" fill="var(--bl-forest)" opacity="0.16" />
-            <circle r="7.5" fill="var(--bl-forest)" stroke="#fff" strokeWidth="2.5" />
-            {onTrip && <circle r="12" fill="none" stroke="var(--bl-amber)" strokeWidth="2" strokeDasharray="3 3" opacity="0.8" />}
-            <animateMotion dur="6s" repeatCount="indefinite" calcMode="linear">
-              <mpath href="#blstat-route" />
-            </animateMotion>
-          </g>
+    <div className="mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-5">
+      <style>{`
+        @keyframes blive-ping { 0%{transform:scale(.4);opacity:.5} 70%{opacity:0} 100%{transform:scale(1.85);opacity:0} }
+        @keyframes blive-flow { to { stroke-dashoffset: -28; } }
+        @keyframes blive-bob  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+        .blive-node{position:relative;display:grid;place-items:center;width:46px;height:46px;flex:none}
+        .blive-ring{position:absolute;inset:0;margin:auto;width:46px;height:46px;border-radius:9999px;border:2px solid var(--bl-forest);animation:blive-ping 2.2s ease-out infinite}
+        .blive-ring:nth-of-type(2){animation-delay:1.1s}
+        .blive-core{position:relative;display:grid;place-items:center;width:42px;height:42px;border-radius:9999px;background:var(--bl-forest);color:#fff;box-shadow:0 8px 18px -8px var(--bl-forest);animation:blive-bob 2s ease-in-out infinite}
+        .blive-line{animation:blive-flow 1s linear infinite}
+        @media (prefers-reduced-motion: reduce){ .blive-ring,.blive-core,.blive-line{animation:none} }
+      `}</style>
+      <div className="flex items-center justify-between gap-2">
+        <span className="blive-node">
+          <span className="blive-ring" />
+          <span className="blive-ring" />
+          <span className="blive-core"><Bike className="h-5 w-5" /></span>
+        </span>
+        <svg viewBox="0 0 120 24" preserveAspectRatio="none" className="h-6 flex-1" aria-hidden="true">
+          <line x1="2" y1="12" x2="118" y2="12" stroke="var(--bl-line)" strokeWidth="3" strokeLinecap="round" />
+          <line className="blive-line" x1="2" y1="12" x2="118" y2="12" stroke="var(--bl-forest)" strokeWidth="3" strokeLinecap="round" strokeDasharray="2 12" />
         </svg>
-        <span className="absolute left-3 top-3 inline-flex items-center gap-1.5 rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-bold text-[var(--bl-forest-d)] shadow-sm backdrop-blur">
+        <span className="grid h-[42px] w-[42px] flex-none place-items-center rounded-full" style={{ background: pinBg, color: pinFg }}>
+          <MapPin className="h-5 w-5" />
+        </span>
+      </div>
+      <div className="mt-4 text-center">
+        <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-[var(--bl-forest-d)]">
           <span className="relative flex h-1.5 w-1.5">
             <span className="absolute h-full w-full animate-ping rounded-full bg-[var(--bl-forest-70)]" />
             <span className="relative h-1.5 w-1.5 rounded-full bg-[var(--bl-forest)]" />
           </span>
-          {label}
-        </span>
+          {headline}
+        </div>
+        <p className="mt-1 text-xs text-[var(--bl-muted)]">{sub}</p>
       </div>
-      <p className="border-t border-[var(--bl-line)] px-3 py-2 text-center text-[10px] text-[var(--bl-muted)]">Ilustrasi rute — bukan posisi GPS real-time</p>
+      <p className="mt-4 border-t border-[var(--bl-line)] pt-2 text-center text-[10px] text-[var(--bl-muted)]">
+        Status diperbarui otomatis · bukan pelacakan GPS
+      </p>
     </div>
   );
 }
