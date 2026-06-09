@@ -18,7 +18,7 @@ import '@/components/balaju/public/balaju-landing.css';
 
 const ORDER_URL = '/balaju/pesan';
 
-type RideStatus = 'open' | 'matched' | 'ongoing' | 'completed' | 'cancelled' | 'no_driver';
+type RideStatus = 'open' | 'matched' | 'arrived' | 'ongoing' | 'completed' | 'cancelled' | 'no_driver';
 type ServiceType = 'ride_bike' | 'ride_car' | 'courier';
 
 interface DriverInfo {
@@ -84,9 +84,9 @@ const SERVICE_META: Record<ServiceType, { Icon: typeof Bike; label: string }> = 
 
 const TERMINAL: RideStatus[] = ['completed', 'cancelled', 'no_driver'];
 
-// open=0, matched=1, ongoing=2, completed=3. cancelled/no_driver = -1 (mode banner).
+// open=0, matched/arrived=1, ongoing=2, completed=3. cancelled/no_driver = -1 (mode banner).
 function stepOf(s: RideStatus): number {
-  return s === 'open' ? 0 : s === 'matched' ? 1 : s === 'ongoing' ? 2 : s === 'completed' ? 3 : -1;
+  return s === 'open' ? 0 : (s === 'matched' || s === 'arrived') ? 1 : s === 'ongoing' ? 2 : s === 'completed' ? 3 : -1;
 }
 
 const STEPS = ['Cari driver', 'Driver siap', 'Perjalanan', 'Selesai'];
@@ -198,7 +198,7 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
   const step = stepOf(ride.status);
   const headlineFare = ride.agreed_fare ?? ride.offered_fare;
   const distanceKm = ((ride.distance_estimate_m ?? 0) / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
-  const canCancel = ride.status === 'open' || ride.status === 'matched';
+  const canCancel = ride.status === 'open' || ride.status === 'matched' || ride.status === 'arrived';
   const driver = ride.driver ?? null;
   const vehicle = ride.vehicle ?? null;
   const vehicleLine = vehicle
@@ -301,6 +301,12 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
             <p className="mt-1 text-sm text-[var(--bl-muted)]">Driver sudah dipilih. Tunggu di titik jemput ya.</p>
           </div>
         )}
+        {ride.status === 'arrived' && (
+          <div className="mt-6 text-center">
+            <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">Driver sudah tiba 📍</h1>
+            <p className="mt-1 text-sm text-[var(--bl-muted)]">Driver menunggu di titik jemput. Segera temui ya.</p>
+          </div>
+        )}
         {ride.status === 'ongoing' && (
           <div className="mt-6 text-center">
             <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">Perjalanan berlangsung</h1>
@@ -318,6 +324,7 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         {/* Zona status HIDUP (WAJAH) — liveness + arah, BUKAN posisi GPS */}
         {ride.status === 'open' && <SearchingRadar />}
         {ride.status === 'matched' && <DriverLiveStatus variant="toPickup" />}
+        {ride.status === 'arrived' && <DriverLiveStatus variant="arrived" />}
         {ride.status === 'ongoing' && <DriverLiveStatus variant="onTrip" />}
 
         {/* Rute */}
@@ -352,7 +359,7 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         </div>
 
         {/* Kartu driver (matched / ongoing) — info lengkap Model B */}
-        {(ride.status === 'matched' || ride.status === 'ongoing') && (
+        {(ride.status === 'matched' || ride.status === 'arrived' || ride.status === 'ongoing') && (
           <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
             <div className="flex items-center gap-3">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
@@ -533,14 +540,18 @@ function SearchingRadar() {
 // BUKAN peta & BUKAN posisi GPS. Ini indikator "order aktif & driver menuju" — benar secara
 // lifecycle (status matched/ongoing dari polling), tanpa mengklaim koordinat yang tidak kita punya.
 // variant 'toPickup' = menuju titik jemput (pin amber). 'onTrip' = menuju tujuan (pin forest).
-function DriverLiveStatus({ variant }: { variant: 'toPickup' | 'onTrip' }) {
+// 'arrived' = driver sudah sampai titik jemput (pin forest, headline "sudah tiba").
+function DriverLiveStatus({ variant }: { variant: 'toPickup' | 'onTrip' | 'arrived' }) {
   const onTrip = variant === 'onTrip';
-  const headline = onTrip ? 'Menuju tujuan' : 'Driver menuju ke kamu';
+  const arrived = variant === 'arrived';
+  const headline = onTrip ? 'Menuju tujuan' : arrived ? 'Driver sudah tiba' : 'Driver menuju ke kamu';
   const sub = onTrip
     ? 'Driver sedang mengantarmu ke tujuan.'
-    : 'Driver sedang dalam perjalanan ke titik jemputmu.';
-  const pinBg = onTrip ? 'var(--bl-forest-10)' : 'var(--bl-amber-15)';
-  const pinFg = onTrip ? 'var(--bl-forest)' : 'var(--bl-amber)';
+    : arrived
+      ? 'Driver menunggu di titik jemput. Segera temui ya.'
+      : 'Driver sedang dalam perjalanan ke titik jemputmu.';
+  const pinBg = onTrip || arrived ? 'var(--bl-forest-10)' : 'var(--bl-amber-15)';
+  const pinFg = onTrip || arrived ? 'var(--bl-forest)' : 'var(--bl-amber)';
   return (
     <div className="mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-5">
       <style>{`

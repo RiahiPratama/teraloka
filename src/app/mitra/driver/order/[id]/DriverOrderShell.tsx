@@ -18,7 +18,7 @@ import '@/components/balaju/public/balaju-landing.css';
 
 const HOME = '/mitra/driver';
 
-type RideStatus = 'open' | 'matched' | 'ongoing' | 'completed' | 'cancelled' | 'no_driver';
+type RideStatus = 'open' | 'matched' | 'arrived' | 'ongoing' | 'completed' | 'cancelled' | 'no_driver';
 type ServiceType = 'ride_bike' | 'ride_car' | 'courier';
 
 interface RideDetail {
@@ -125,6 +125,19 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
     };
   }, [rideId]);
 
+  async function doArrive() {
+    if (acting) return;
+    setActing(true); setErr(null);
+    try {
+      await api.post('/rides/' + rideId + '/arrive');
+      await fetchRide();
+    } catch (e) {
+      setErr(e instanceof ApiError ? e.message : 'Gagal menandai tiba. Coba lagi.');
+    } finally {
+      setActing(false);
+    }
+  }
+
   async function doStart() {
     if (acting) return;
     setActing(true); setErr(null);
@@ -214,7 +227,8 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
     : null;
 
   const STATUS_HEAD: Partial<Record<RideStatus, { title: string; sub: string }>> = {
-    matched: { title: 'Menuju titik jemput', sub: 'Jemput penumpang di titik di bawah.' },
+    matched: { title: 'Menuju titik jemput', sub: 'Jemput penumpang di titik di bawah, lalu tandai "tiba".' },
+    arrived: { title: 'Sudah di titik jemput', sub: 'Tunggu penumpang naik, lalu mulai perjalanan.' },
     ongoing: { title: 'Perjalanan berlangsung', sub: 'Antar penumpang ke tujuan dengan selamat.' },
   };
   const head = STATUS_HEAD[ride.status];
@@ -222,7 +236,7 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
   // Deep-link navigasi ke Google Maps (HP driver) — gratis, tanpa API key.
   // matched -> arah ke titik JEMPUT; ongoing -> arah ke TUJUAN. Sembunyi kalau koordinat kosong.
   const navTarget =
-    ride.status === 'matched'
+    ride.status === 'matched' || ride.status === 'arrived'
       ? (ride.pickup_lat != null && ride.pickup_lng != null
           ? { lat: ride.pickup_lat, lng: ride.pickup_lng, label: 'Navigasi ke titik jemput' }
           : null)
@@ -317,7 +331,7 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
 
         {/* Kartu penumpang (matched/ongoing) — kontak ke rider via WA / telepon.
             Tampil hanya kalau backend kirim rider.phone (otomatis null pasca-terminal). */}
-        {(ride.status === 'matched' || ride.status === 'ongoing') && ride.rider?.phone && (
+        {(ride.status === 'matched' || ride.status === 'arrived' || ride.status === 'ongoing') && ride.rider?.phone && (
           <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
             <div className="flex items-center gap-3">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
@@ -390,17 +404,28 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
         )}
 
         {/* ── AKSI ── */}
-        {/* matched: Mulai + Batal */}
-        {ride.status === 'matched' && (
+        {/* matched: "Saya tiba" → arrived: "Mulai perjalanan". Batal shared (handle no-show). */}
+        {(ride.status === 'matched' || ride.status === 'arrived') && (
           <div className="mt-4 space-y-3">
-            <button
-              onClick={doStart}
-              disabled={acting}
-              className="bl-shadow-lift flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--bl-forest)] py-4 text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-60"
-            >
-              {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              Mulai perjalanan
-            </button>
+            {ride.status === 'matched' ? (
+              <button
+                onClick={doArrive}
+                disabled={acting}
+                className="bl-shadow-lift flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--bl-forest)] py-4 text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-60"
+              >
+                {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+                Saya tiba di titik jemput
+              </button>
+            ) : (
+              <button
+                onClick={doStart}
+                disabled={acting}
+                className="bl-shadow-lift flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--bl-forest)] py-4 text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-60"
+              >
+                {acting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                Mulai perjalanan
+              </button>
+            )}
 
             {!cancelOpen ? (
               <button
