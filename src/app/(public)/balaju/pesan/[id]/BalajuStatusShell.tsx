@@ -205,13 +205,13 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
     ? [vehicle.brand_model, vehicle.color].filter(Boolean).join(' · ')
     : null;
 
-  // Kontak driver via WA. Pesan dibekali alamat + pin lokasi jemput (link peta OSM, non-Google)
-  // biar driver langsung tahu titik temu dari dalam chat — tanpa buka tombol Navigasi terpisah.
+  // Kontak driver via WA. Pesan dibekali alamat + pin lokasi jemput (link Google Maps:
+  // tap -> app Google Maps di titik + tombol Petunjuk Arah). Plain URL, tanpa API key, GRATIS.
   // CATATAN: wa.me cuma kirim TEKS. Pin = link peta yang bisa di-tap, BUKAN kartu lokasi native
-  // WhatsApp (itu butuh WA Business API berbayar — di-defer).
+  // WhatsApp (itu butuh WA Business API berbayar — di-defer; user tetap bisa "Bagikan Lokasi" manual).
   const driverWa = toWa(driver?.phone);
   const pickupPin = (ride.pickup_lat != null && ride.pickup_lng != null)
-    ? `https://www.openstreetmap.org/?mlat=${ride.pickup_lat}&mlon=${ride.pickup_lng}#map=17/${ride.pickup_lat}/${ride.pickup_lng}`
+    ? `https://www.google.com/maps?q=${ride.pickup_lat},${ride.pickup_lng}`
     : null;
   const waLines: string[] = [`Halo, saya penumpang BALAJU untuk order #${ride.id.slice(0, 8)}.`];
   if (ride.pickup_address) waLines.push(`Titik jemput: ${ride.pickup_address}`);
