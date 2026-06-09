@@ -1,11 +1,14 @@
 'use client';
 // ════════════════════════════════════════════════════════════════
-// BAKOS Command Center — Tab Langganan (B5 v2 mesin uang)
+// BAKOS Command Center — Tab Langganan (Model B — per-owner)
 // PATH: src/app/admin/bakos/langganan/page.tsx
-// v2 (solo founder): kartu ringkasan (Kos Aktif · MRR estimasi · Basic/Pro)
+// Kartu ringkasan (Kos Aktif · MRR estimasi · B/P/Bisnis · Mau Habis)
 //   · seksi "mau habis" (listing_fee_paid_until ≤ 7 hari) · kolom berlaku-s/d.
-// 🛡️ MRR = estimasi dari listing_fee kos aktif (label jujur, bukan angka pasti).
-// GET /admin/listings?type=kos · GET /admin/bank-accounts/dropdown · POST .../subscription/confirm
+// 🛡️ MRR Model B = per-OWNER, dibaca dari backend GET /bakos/admin/mrr
+//    (estimasi recurring dari tier). BUKAN lagi SUM listing_fee client-side
+//    (listing_fee per-kos sudah di-deprecate → 0).
+// GET /admin/listings?type=kos · GET /bakos/admin/mrr · GET /admin/bank-accounts/dropdown
+//   · POST /bakos/admin/listings/:id/subscription/confirm
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { createPortal } from 'react-dom';
@@ -16,6 +19,7 @@ import { Search, CreditCard, CheckCircle2, Wallet, TrendingUp, Clock, AlertTrian
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 // 🛡️ Kalau dropdown 404, ralat URL ini (cek mount bank-accounts.ts):
 const BANK_DROPDOWN_URL = `${API_URL}/admin/bank-accounts/dropdown`;
+const MRR_URL = `${API_URL}/bakos/admin/mrr`;
 
 interface KosRow {
   id: string; display_id: string | null; title: string; slug: string; status: string; price: number | null;
@@ -24,6 +28,7 @@ interface KosRow {
   listing_fee: number | null; subscription_tier: string | null; listing_fee_paid_until: string | null;
 }
 interface BankOpt { id: string; label: string; }
+interface MrrData { mrr: number; active_count: number; by_tier: { basic: number; pro: number; bisnis: number }; }
 
 function rp(n: number | null | undefined) { return n ? 'Rp ' + n.toLocaleString('id-ID') : '—'; }
 function rpShort(n: number) {
@@ -51,6 +56,7 @@ export default function BakosLanggananTab() {
   const [view, setView] = useState<'belum' | 'aktif'>('belum');
   const [selected, setSelected] = useState<KosRow | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [mrrData, setMrrData] = useState<MrrData | null>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
   const tk = () => token || (typeof window !== 'undefined' ? localStorage.getItem('tl_token') || '' : '');
@@ -71,12 +77,23 @@ export default function BakosLanggananTab() {
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  // ── Ringkasan (client-side, dari rows) ──
+  // ── MRR per-owner dari backend (Model B; bukan SUM listing_fee) ──
+  const fetchMrr = useCallback(async () => {
+    if (!tk()) return;
+    try {
+      const res = await fetch(MRR_URL, { headers: { Authorization: `Bearer ${tk()}` } });
+      const data = await res.json();
+      if (data.success) setMrrData(data.data);
+    } catch { /* MRR gagal — kartu tetap tampil dgn '…' */ }
+  }, [token]);
+
+  useEffect(() => { fetchMrr(); }, [fetchMrr]);
+
+  // ── Ringkasan kos-level (dari rows; "aktif" = kontak terbuka per kos) ──
   const active = rows.filter(r => r.listing_fee_status === 'active');
-  const mrr = active.reduce((s, r) => s + (Number(r.listing_fee) || 0), 0);
-  const feeUnknown = active.filter(r => !r.listing_fee).length;
   const basicN = active.filter(r => r.subscription_tier === 'basic').length;
   const proN = active.filter(r => r.subscription_tier === 'pro').length;
+  const bisnisN = active.filter(r => r.subscription_tier === 'bisnis').length;
   // mau habis: paid_until ≤ 7 hari (termasuk lewat)
   const expiring = active
     .map(r => ({ r, d: daysUntil(r.listing_fee_paid_until) }))
@@ -101,9 +118,10 @@ export default function BakosLanggananTab() {
       {/* Kartu ringkasan */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
         <SumCard t={t} icon={<CheckCircle2 size={18} />} accent="#10B981" label="Kos Aktif" value={String(active.length)} />
-        <SumCard t={t} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (estimasi)" value={rpShort(mrr)}
-          sub={feeUnknown > 0 ? `${feeUnknown} tarif belum tercatat` : 'dari tarif aktif'} />
-        <SumCard t={t} icon={<Wallet size={18} />} accent="#6366F1" label="Basic / Pro" value={`${basicN} / ${proN}`} />
+        <SumCard t={t} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (estimasi)"
+          value={mrrData ? rpShort(mrrData.mrr) : '…'}
+          sub={mrrData ? `${mrrData.active_count} pelanggan aktif` : 'memuat…'} />
+        <SumCard t={t} icon={<Wallet size={18} />} accent="#6366F1" label="B / P / Bisnis" value={`${basicN} / ${proN} / ${bisnisN}`} />
         <SumCard t={t} icon={<Clock size={18} />} accent={expiring.length > 0 ? '#F59E0B' : '#9CA3AF'} label="Mau Habis (≤7h)" value={String(expiring.length)}
           sub={expiring.length > 0 ? 'tagih perpanjang' : 'aman'} />
       </div>
@@ -195,7 +213,7 @@ export default function BakosLanggananTab() {
       {selected && (
         <ConfirmModal t={t} kos={selected} tk={tk()}
           onClose={() => setSelected(null)}
-          onDone={(msg) => { showToast(msg); setSelected(null); fetchRows(); }}
+          onDone={(msg) => { showToast(msg); setSelected(null); fetchRows(); fetchMrr(); }}
           onErr={(msg) => showToast(msg, false)} />
       )}
     </div>
@@ -217,7 +235,7 @@ function SumCard({ t, icon, accent, label, value, sub }: { t: any; icon: React.R
 function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
   t: any; kos: KosRow; tk: string; onClose: () => void; onDone: (m: string) => void; onErr: (m: string) => void;
 }) {
-  const [tier, setTier] = useState<'basic' | 'pro'>('basic');
+  const [tier, setTier] = useState<'basic' | 'pro' | 'bisnis'>('basic');
   const [amount, setAmount] = useState('');
   const [bankId, setBankId] = useState('');
   const [banks, setBanks] = useState<BankOpt[]>([]);
@@ -285,7 +303,7 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
           <div style={{ marginBottom: 14 }}>
             <label style={lbl}>Paket</label>
             <div style={{ display: 'flex', gap: 8 }}>
-              {(['basic', 'pro'] as const).map(tr => (
+              {(['basic', 'pro', 'bisnis'] as const).map(tr => (
                 <button key={tr} onClick={() => setTier(tr)} disabled={loading} style={{
                   flex: 1, padding: '10px', borderRadius: 10, cursor: 'pointer', fontSize: 13, fontWeight: 700, textTransform: 'capitalize',
                   border: `1.5px solid ${tier === tr ? '#1B6B4A' : '#CBD5E1'}`,
