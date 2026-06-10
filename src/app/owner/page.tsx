@@ -14,11 +14,13 @@ import {
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
-const LISTING_TYPES = [
-  { key: 'kos',       label: 'Kos-kosan', Icon: Home,       href: '/owner/listing/new/kos',           color: '#0891B2' },
-  { key: 'properti',  label: 'Properti',  Icon: Building2,  href: '/owner/listing/new?type=properti',  color: '#1B6B4A' },
-  { key: 'kendaraan', label: 'Kendaraan', Icon: Car,        href: '/owner/listing/new?type=kendaraan', color: '#E8963A' },
-  { key: 'jasa',      label: 'Jasa',      Icon: Wrench,     href: '/owner/listing/new?type=jasa',      color: '#888780' },
+// L5-OWNER-VERTIKAL — hub per layanan. Kos: rumah = /owner/bakos (kelola lengkap).
+// Properti/Kendaraan/Jasa = BANIAGA, belum siap → "Segera" (disabled, anti-404).
+const VERTIKAL = [
+  { type: 'kos',       label: 'Kos-kosan', color: '#1B6B4A', Icon: Home,      ready: true,  href: '/owner/bakos', soon: '' },
+  { type: 'properti',  label: 'Properti',  color: '#0891B2', Icon: Building2,  ready: false, href: '#',            soon: 'Jual/sewa properti — segera hadir' },
+  { type: 'kendaraan', label: 'Kendaraan', color: '#E8963A', Icon: Car,        ready: false, href: '#',            soon: 'Sewa kendaraan — segera hadir' },
+  { type: 'jasa',      label: 'Jasa',      color: '#7C3AED', Icon: Wrench,     ready: false, href: '#',            soon: 'Layanan jasa — segera hadir' },
 ];
 
 interface CampaignStats {
@@ -362,7 +364,8 @@ export default function OwnerDashboard() {
           </div>
         )}
 
-        {/* ═══════════════════════ LISTING ════════════════════════ */}
+        {/* ═══════════════════════ LISTING per LAYANAN ════════════════════════ */}
+        {/* L5-OWNER-VERTIKAL — hub ringkas. Detail tiap vertikal di rumahnya sendiri. */}
         <div className="mb-6 rounded-3xl bg-white border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
@@ -376,115 +379,74 @@ export default function OwnerDashboard() {
             </div>
           </div>
 
-          <div className="mb-4 grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
-              <p className="text-lg font-extrabold text-gray-900">{listings.length}</p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Total Listing</p>
+          {fetchingListings ? (
+            <div className="flex items-center justify-center py-10">
+              <Loader2 size={20} className="animate-spin text-gray-300" />
             </div>
-            <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
-              <p className="text-lg font-extrabold text-gray-900 flex items-center justify-center gap-1">
-                <Eye size={13} className="text-[#0891B2]" /> {totalViews}
-              </p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Views</p>
-            </div>
-            <div className="rounded-2xl bg-gradient-to-br from-gray-50 to-white border border-gray-100 p-3 text-center hover:shadow-md transition-shadow">
-              <p className="text-lg font-extrabold text-gray-900 flex items-center justify-center gap-1">
-                <MessageCircle size={13} className="text-[#E8963A]" /> {totalContacts}
-              </p>
-              <p className="text-[10px] text-gray-500 mt-0.5">Kontak</p>
-            </div>
-          </div>
+          ) : (
+            <div className="space-y-2.5">
+              {VERTIKAL.map((v) => {
+                const VIcon = v.Icon;
+                const items = listings.filter((l: any) => l.type === v.type);
+                const count = items.length;
+                const views = items.reduce((s: number, l: any) => s + (l.view_count ?? 0), 0);
+                const contacts = items.reduce((s: number, l: any) => s + (l.contact_count ?? 0), 0);
+                const active = v.ready && count > 0;
 
-          <div>
-            <p className="mb-2 text-[10px] font-bold text-gray-500 uppercase tracking-widest">Daftarkan listing baru</p>
-            <div className="grid grid-cols-2 gap-2">
-              {LISTING_TYPES.map(t => {
-                const TIcon = t.Icon;
-                return (
-                  <Link
-                    key={t.key}
-                    href={t.href}
-                    className="group flex items-center gap-2 rounded-2xl border border-gray-100 bg-white px-3 py-3 text-xs font-bold text-gray-700 transition-all hover:border-[#1B6B4A] hover:shadow-md hover:-translate-y-0.5"
+                const Inner = (
+                  <div
+                    className={`group flex items-center gap-3.5 rounded-2xl border p-4 transition-all ${
+                      v.ready
+                        ? 'border-gray-100 bg-white shadow-sm hover:shadow-md hover:-translate-y-0.5 hover:border-[#1B6B4A]/30 cursor-pointer'
+                        : 'border-gray-100 bg-gray-50/40 opacity-75'
+                    }`}
                   >
                     <div
-                      className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110"
-                      style={{ background: `${t.color}15` }}
+                      className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
+                      style={{ background: `${v.color}15` }}
                     >
-                      <TIcon size={16} style={{ color: t.color }} strokeWidth={2.4} />
+                      <VIcon size={22} style={{ color: v.color }} strokeWidth={2.2} />
                     </div>
-                    <span className="group-hover:text-[#1B6B4A] transition-colors">{t.label}</span>
-                  </Link>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-extrabold text-gray-900">{v.label}</p>
+                        {!v.ready && (
+                          <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider text-gray-400">Segera</span>
+                        )}
+                      </div>
+                      {v.ready ? (
+                        count > 0 ? (
+                          <div className="mt-1 flex items-center gap-3 text-[11px] text-gray-500">
+                            <span className="font-bold text-gray-700">{count} listing</span>
+                            <span className="flex items-center gap-1"><Eye size={11} className="text-[#0891B2]" />{views}</span>
+                            <span className="flex items-center gap-1"><MessageCircle size={11} className="text-[#E8963A]" />{contacts}</span>
+                          </div>
+                        ) : (
+                          <p className="mt-1 text-[11px] text-gray-400">Belum ada — daftarkan kos pertamamu</p>
+                        )
+                      ) : (
+                        <p className="mt-1 text-[11px] text-gray-400">{v.soon}</p>
+                      )}
+                    </div>
+
+                    {v.ready && (
+                      <div className="flex items-center gap-1.5 shrink-0 rounded-xl bg-gradient-to-r from-[#1B6B4A] to-[#0891B2] px-3.5 py-2 text-xs font-bold text-white shadow-sm transition-shadow group-hover:shadow-md">
+                        {count > 0 ? 'Kelola' : 'Mulai'} <ChevronRight size={14} />
+                      </div>
+                    )}
+                  </div>
                 );
+
+                return v.ready
+                  ? <Link key={v.type} href={v.href}>{Inner}</Link>
+                  : <div key={v.type}>{Inner}</div>;
               })}
             </div>
-          </div>
+          )}
         </div>
 
-        {/* Listing list */}
-        {(fetchingListings || listings.length > 0) && (
-          <div>
-            <p className="mb-3 text-[10px] font-bold text-gray-500 uppercase tracking-widest px-2">Listing Saya</p>
-            {fetchingListings ? (
-              <div className="flex items-center justify-center py-10">
-                <Loader2 size={20} className="animate-spin text-gray-300" />
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {listings.map((item: any) => (
-                  <div key={item.id} className="rounded-2xl border border-gray-100 bg-white shadow-sm hover:shadow-md transition-shadow p-4">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-gray-900 truncate">{item.title}</p>
-                        <p className="mt-0.5 text-xs text-gray-500">
-                          {item.price ? formatRupiah(item.price) : 'Harga negosiasi'}
-                          {item.price_period ? `/${item.price_period}` : ''}
-                          {item.is_negotiable && <span className="ml-1 text-[#1B6B4A] font-semibold">(nego)</span>}
-                        </p>
-                      </div>
-                      <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider ${
-                        item.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                        item.status === 'draft'  ? 'bg-amber-100 text-amber-700' :
-                        'bg-gray-100 text-gray-500'
-                      }`}>
-                        {item.status === 'active' ? 'Aktif' : item.status === 'draft' ? 'Draft' : item.status}
-                      </span>
-                    </div>
 
-                    {item.listing_tier && (
-                      <p className="mt-1.5 text-[11px] text-gray-400">
-                        Tier: <span className="font-semibold text-gray-600">{item.listing_tier}</span>{' '}
-                        · {item.listing_fee > 0 ? formatRupiah(item.listing_fee) + '/bln' : 'Gratis'}
-                      </p>
-                    )}
-
-                    <div className="mt-2 flex gap-3 text-xs text-gray-400">
-                      <span className="flex items-center gap-1"><Eye size={11} />{item.view_count ?? 0}</span>
-                      <span className="flex items-center gap-1"><MessageCircle size={11} />{item.contact_count ?? 0}</span>
-                      {item.rating_avg > 0 && <span>⭐ {item.rating_avg}</span>}
-                    </div>
-
-                    <div className="mt-3 flex gap-2">
-                      {item.type === 'kos' && (
-                        <Link
-                          href={`/owner/listing/${item.id}/rooms`}
-                          className="flex-1 rounded-xl bg-gradient-to-r from-[#1B6B4A] to-[#0891B2] py-2 text-center text-xs font-bold text-white shadow-sm hover:shadow-md transition-shadow"
-                        >
-                          🛏️ Kelola Kamar
-                        </Link>
-                      )}
-                      <Link
-                        href={`/owner/listing/${item.id}/edit`}
-                        className="flex-1 rounded-xl border border-gray-200 bg-white py-2 text-center text-xs font-bold text-gray-600 hover:border-[#1B6B4A] hover:text-[#1B6B4A] transition-colors"
-                      >
-                        Edit
-                      </Link>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
 
       </div>
     </div>
