@@ -19,7 +19,7 @@ const KosDetailMap = dynamic(() => import('./KosDetailMap'), {
 function RuleRow({ label, value }: { label: string; value: boolean | null }) {
   if (value == null) return null; // belum dinyatakan → tidak ditampilkan
   return (
-    <div className="bkd-rule">
+    <div className={`bkd-rule${value ? '' : ' no'}`}>
       <MS n={value ? 'check_circle' : 'cancel'} />
       <span>{value ? `Boleh ${label}` : `Tidak boleh ${label}`}</span>
     </div>
