@@ -18,6 +18,8 @@ import { useApi, ApiError } from '@/lib/api/client';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
+import KosMapPicker from '@/components/bakos/owner/KosMapPicker';
+import type { LatLng } from '@/components/bakos/owner/KosMapPickerInner';
 import { ChevronLeft, ChevronDown, Plus, Check, Loader2 } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
@@ -54,6 +56,7 @@ function KosFormContent() {
   const [coverPhotos, setCoverPhotos] = useState<string[]>([]);
   const [landmarks, setLandmarks] = useState<string[]>([]);
   const [landmarkCustom, setLandmarkCustom] = useState('');
+  const [coord, setCoord] = useState<LatLng | null>(null);
 
   const [kosType, setKosType] = useState('');
   const [electricityType, setElectricityType] = useState('');
@@ -94,6 +97,8 @@ function KosFormContent() {
       const created = await api.post<{ id: string }>('/bakos/owner/listings', {
         title, description,
         location_id: scope?.id ?? null,
+        latitude: coord?.lat ?? null,
+        longitude: coord?.lng ?? null,
         address,
         phone: phone.replace(/\D/g, ''),
         cover_image_url: coverPhotos[0] ?? null,
@@ -210,6 +215,9 @@ function KosFormContent() {
             </Field>
             <Field label="Alamat Lengkap" hint="Opsional — disembunyikan dari publik sampai berlangganan">
               <input value={address} onChange={e => setAddress(e.target.value)} placeholder="Nama jalan & nomor" className={INPUT} />
+            </Field>
+            <Field label="Titik Peta (opsional)" hint="Tandai lokasi presisi kos. Hanya tampil ke publik setelah berlangganan.">
+              <KosMapPicker value={coord} onChange={setCoord} />
             </Field>
             <Field label="Dekat Dengan" hint="Opsional — bantu calon penghuni nemu kos kamu">
               <ChipRow options={LANDMARKS} active={landmarks} onTap={(v) => toggle(landmarks, setLandmarks, v)} />

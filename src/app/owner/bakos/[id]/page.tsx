@@ -21,6 +21,8 @@ import { useApi, ApiError } from '@/lib/api/client';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
+import KosMapPicker from '@/components/bakos/owner/KosMapPicker';
+import type { LatLng } from '@/components/bakos/owner/KosMapPickerInner';
 import { ChevronLeft, BedDouble, Trash2, Loader2, AlertCircle, Save, Check } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
@@ -47,6 +49,7 @@ export default function OwnerKosEditPage() {
   const [photos, setPhotos] = useState<string[]>([]);
   const [scope, setScope] = useState<LocationScope | null>(null);
   const [scopeLabel, setScopeLabel] = useState('');
+  const [coord, setCoord] = useState<LatLng | null>(null);
   const [address, setAddress] = useState('');
   const [kosType, setKosType] = useState('');
   const [electricityType, setElectricityType] = useState('');
@@ -78,6 +81,7 @@ export default function OwnerKosEditPage() {
       setChildrenAllowed(k.children_allowed ?? null);
       setPetsAllowed(k.pets_allowed ?? null);
       if (k.location_id) setScope({ id: k.location_id, type: 'desa' });
+      if (k.latitude != null && k.longitude != null) setCoord({ lat: Number(k.latitude), lng: Number(k.longitude) });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Gagal memuat kos.');
     } finally {
@@ -100,6 +104,8 @@ export default function OwnerKosEditPage() {
         photos,
         cover_image_url: photos[0] ?? null,
         location_id: scope?.id ?? null,
+        latitude: coord?.lat ?? null,
+        longitude: coord?.lng ?? null,
         address,
         kos_type: kosType,
         electricity_type: electricityType || null,
@@ -211,6 +217,9 @@ export default function OwnerKosEditPage() {
             </Field>
             <Field label="Alamat Lengkap" hint="Disembunyikan dari publik sampai berlangganan">
               <input value={address} onChange={e => setAddress(e.target.value)} className={INPUT} />
+            </Field>
+            <Field label="Titik Peta (opsional)" hint="Tandai lokasi presisi kos. Hanya tampil ke publik setelah berlangganan.">
+              <KosMapPicker value={coord} onChange={setCoord} />
             </Field>
           </Section>
 
