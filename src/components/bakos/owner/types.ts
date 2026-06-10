@@ -5,6 +5,7 @@
 // ────────────────────────────────────────────────────────────────
 // Frontend & backend = repo terpisah → tipe didefinisikan ulang di sini,
 // sinkron dengan GET /bakos/owner/overview (owner-dashboard-service.ts).
+// 10 Jun — L5-OWNER-FEATURES: + features (gating) + analytics (Bisnis-gated).
 // ════════════════════════════════════════════════════════════════
 
 export type OwnerKosGate =
@@ -51,9 +52,28 @@ export interface OwnerQuotaInfo {
   photos_max: number;
 }
 
+// 🛡️ L5-OWNER-FEATURES — kapabilitas tier (mirror TIER_SPECS.features). Gating WAJAH.
+export interface OwnerFeatures {
+  waReminder: boolean;
+  priorityListing: boolean;
+  analytics: boolean;
+  businessBadge: boolean;
+}
+
+// 🛡️ Analytics agregat — null kalau tier bukan Bisnis (gated di backend).
+export interface OwnerAnalytics {
+  total_views: number;
+  total_contacts: number;
+  contact_rate: number; // 0..1
+  per_listing: Array<{ id: string; title: string; views: number; contacts: number }>;
+  top_listing: { id: string; title: string; views: number; contacts: number } | null;
+}
+
 export interface OwnerOverview {
   subscription: OwnerSubscriptionInfo;
+  features: OwnerFeatures;           // L5-OWNER-FEATURES
   quota: OwnerQuotaInfo;
+  analytics: OwnerAnalytics | null;  // null = bukan Bisnis
   listings: OwnerKosCard[];
 }
 
@@ -83,6 +103,15 @@ export const GATE_VIEW: Record<OwnerKosGate, GateView> = {
   live_locked: { label: 'Tayang · kontak terkunci', bg: '#E6F1FB', fg: '#042C53', icon: 'lock' },
   live_unlocked: { label: 'Aktif', bg: '#E1F5EE', fg: '#04342C', icon: 'check' },
   inactive: { label: 'Dijeda', bg: '#F1EFE8', fg: '#5F5E5A', icon: 'pause' },
+};
+
+// ─── Tier badge (header dashboard) — Pro/Bisnis tampil beda ──────
+export interface TierBadge { label: string; bg: string; fg: string; }
+export const TIER_BADGE: Record<string, TierBadge> = {
+  free:   { label: 'Free',   bg: '#F1EFE8', fg: '#5F5E5A' },
+  basic:  { label: 'Basic',  bg: '#E6F1FB', fg: '#042C53' },
+  pro:    { label: 'Pro',    bg: '#FAEEDA', fg: '#854F0B' },
+  bisnis: { label: 'Bisnis', bg: 'linear-gradient(135deg,#854F0B,#B8860B)', fg: '#FFFFFF' },
 };
 
 export function formatRp(n: number | null | undefined): string {

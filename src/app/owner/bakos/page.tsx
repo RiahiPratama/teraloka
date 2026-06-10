@@ -1,13 +1,13 @@
 'use client';
-
 // ════════════════════════════════════════════════════════════════
 // BAKOS Owner — Dashboard (PREMIUM)
 // PATH: src/app/owner/bakos/page.tsx
 // PENANDA: L5-FE-OWNER-DASHBOARD
 // ────────────────────────────────────────────────────────────────
-// GET /bakos/owner/overview → paket + kuota + daftar kos (gate badge).
+// GET /bakos/owner/overview → paket + kuota + features + analytics + daftar kos.
 // Visual selaras flow (kartu putih, amber, kertas bg).
-// 🛡️ Anti-fabrikasi: hanya view_count/contact_count mentah.
+// 🛡️ Anti-fabrikasi: hanya view_count/contact_count mentah (analytics dihitung OTAK).
+// 10 Jun — L5-OWNER-FEATURES: + badge tier + section gated (Analytics/WA Reminder).
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react';
@@ -16,7 +16,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { Building2, Plus, Loader2, LogIn, AlertCircle, Crown, ChevronLeft } from 'lucide-react';
 import OwnerKosCard from '@/components/bakos/owner/OwnerKosCard';
-import { type OwnerOverview, BAKOS_TOKENS, formatRp } from '@/components/bakos/owner/types';
+import { OwnerTierSections } from '@/components/bakos/owner/OwnerTierSections';
+import { type OwnerOverview, BAKOS_TOKENS, TIER_BADGE, formatRp } from '@/components/bakos/owner/types';
 
 const BRAND = BAKOS_TOKENS.accent;
 
@@ -74,8 +75,11 @@ export default function OwnerBakosDashboardPage() {
           <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: BAKOS_TOKENS.accentBg, border: `1px solid ${BAKOS_TOKENS.border}` }}>
             <Building2 size={19} style={{ color: BRAND }} />
           </div>
-          <div className="min-w-0">
-            <h1 className="text-[22px] font-bold tracking-tight leading-tight" style={{ color: BAKOS_TOKENS.textPrimary }}>Kos Saya</h1>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <h1 className="text-[22px] font-bold tracking-tight leading-tight" style={{ color: BAKOS_TOKENS.textPrimary }}>Kos Saya</h1>
+              {data && <TierBadgeChip tier={data.subscription.tier} />}
+            </div>
             <p className="text-[13px]" style={{ color: BAKOS_TOKENS.textSecondary }}>Kelola listing kos kamu</p>
           </div>
         </div>
@@ -96,7 +100,12 @@ export default function OwnerBakosDashboardPage() {
           <>
             <SubscriptionCard data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
 
-            <div className="mt-4 mb-5">
+            {/* 🛡️ L5-OWNER-FEATURES — section gated per tier (Analytics/WA Reminder + teaser upgrade) */}
+            <div className="mt-4">
+              <OwnerTierSections data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
+            </div>
+
+            <div className="mb-5">
               {data.quota.can_add_listing.ok ? (
                 <button onClick={() => router.push('/owner/bakos/baru')} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold active:scale-[0.99] transition-transform shadow-sm" style={{ background: BRAND, color: '#fff' }}>
                   <Plus size={18} /> Tambah Kos
@@ -129,6 +138,16 @@ export default function OwnerBakosDashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+// ─── Badge tier (header) — Pro/Bisnis tampil beda ───
+function TierBadgeChip({ tier }: { tier: string }) {
+  const b = TIER_BADGE[tier] ?? TIER_BADGE.free;
+  return (
+    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full shrink-0" style={{ background: b.bg, color: b.fg }}>
+      {b.label}
+    </span>
   );
 }
 
