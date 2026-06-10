@@ -23,7 +23,7 @@ import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } fr
 
 const BRAND = '#854F0B'; // ganti ke '#1B6B4A' kalau mau hijau
 
-const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam', 'Akses kartu', 'Lift'];
+const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam'];
 const ROOM_FACILITIES = ['WiFi', 'AC', 'Kamar mandi dalam', 'Kamar mandi luar', 'Kloset duduk', 'Kloset jongkok', 'Shower', 'Water heater', 'Dapur pribadi', 'Kasur', 'Lemari', 'Meja belajar', 'Televisi', 'Jendela', 'Balkon', 'Kipas angin', 'Kulkas'];
 const LANDMARKS = ['Dekat kampus', 'Dekat sekolah', 'Dekat rumah sakit', 'Dekat pasar', 'Dekat mall', 'Dekat pelabuhan', 'Dekat kantor pemerintah', 'Dekat masjid', 'Dekat pusat kota', 'Pinggir jalan utama'];
 const STEPS = ['Info Dasar', 'Fasilitas & Peraturan', 'Tipe Kamar'];
@@ -43,6 +43,21 @@ function Btn({ active, onClick, children }: { active: boolean; onClick: () => vo
       style={active ? { background: BRAND, color: '#fff' } : { background: '#F1EFE8', color: '#5F5E5A' }}>
       {children}
     </button>
+  );
+}
+
+function TriRuleBaru({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+  const set = (v: boolean) => onChange(value === v ? null : v);
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+      <span className="text-sm text-gray-800">{label}</span>
+      <div className="flex gap-1.5 shrink-0">
+        <button type="button" onClick={() => set(true)} className="rounded-lg px-3 py-1.5 text-xs font-semibold border transition active:scale-95"
+          style={value === true ? { background: '#15803D', color: '#fff', borderColor: '#15803D' } : { background: '#fff', borderColor: '#e5e7eb', color: '#5F5E5A' }}>Boleh</button>
+        <button type="button" onClick={() => set(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold border transition active:scale-95"
+          style={value === false ? { background: '#B91C1C', color: '#fff', borderColor: '#B91C1C' } : { background: '#fff', borderColor: '#e5e7eb', color: '#5F5E5A' }}>Tidak</button>
+      </div>
+    </div>
   );
 }
 
@@ -71,6 +86,9 @@ function KosFormContent() {
   const [sharedFacilities, setSharedFacilities] = useState<string[]>([]);
   const [kosRules, setKosRules] = useState('');
   const [isNegotiable, setIsNegotiable] = useState(false);
+  const [coupleAllowed, setCoupleAllowed] = useState<boolean | null>(null);
+  const [childrenAllowed, setChildrenAllowed] = useState<boolean | null>(null);
+  const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
 
   const [rooms, setRooms] = useState<RoomType[]>([emptyRoom()]);
   const [expandedRoom, setExpandedRoom] = useState<string>(rooms[0].id);
@@ -105,6 +123,9 @@ function KosFormContent() {
         facilities: sharedFacilities,
         kos_rules: kosRules || null,
         is_negotiable: isNegotiable,
+        couple_allowed: coupleAllowed,
+        children_allowed: childrenAllowed,
+        pets_allowed: petsAllowed,
         nearby_landmarks: allLandmarks,
         price: Math.min(...rooms.map(r => Number(r.price.replace(/\D/g, '')) || 999999999)),
         price_period: 'bulan',
@@ -267,6 +288,15 @@ function KosFormContent() {
             <input type="checkbox" checked={isNegotiable} onChange={e => setIsNegotiable(e.target.checked)} className="mt-0.5 h-4 w-4" style={{ accentColor: BRAND }} />
             <div><p className="text-sm font-medium text-gray-800">Harga bisa nego</p><p className="text-xs text-gray-500">Tampilkan tanda nego di listing</p></div>
           </label>
+          <div>
+            <label className="text-sm font-medium text-gray-700">Boleh Pasutri / Anak / Hewan?</label>
+            <p className="text-xs text-gray-400 mb-1.5">Dipakai untuk filter pencarian. Tidak dipilih = belum dinyatakan.</p>
+            <div className="space-y-2">
+              <TriRuleBaru label="Pasutri (suami-istri)" value={coupleAllowed} onChange={setCoupleAllowed} />
+              <TriRuleBaru label="Bawa anak" value={childrenAllowed} onChange={setChildrenAllowed} />
+              <TriRuleBaru label="Bawa hewan" value={petsAllowed} onChange={setPetsAllowed} />
+            </div>
+          </div>
           <div>
             <label className="text-sm font-medium text-gray-700">Peraturan Kos</label>
             <p className="text-xs text-gray-400 mb-1.5">Berlaku untuk seluruh penghuni</p>

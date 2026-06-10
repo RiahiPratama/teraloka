@@ -1,16 +1,17 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BAKOS Owner — Kelola / Edit Kos
+// BAKOS Owner — Kelola / Edit Kos (PREMIUM)
 // PATH: src/app/owner/bakos/[id]/page.tsx
 // PENANDA: L5-FE-OWNER-EDIT
 // ────────────────────────────────────────────────────────────────
 // Prefill: GET /bakos/owner/listings/:id (full + rooms, owner-scoped).
-// Simpan: PUT /bakos/owner/listings/:id (field aman; backend tolak
-//   status/listing_fee/subscription/source/owner_id).
-// Lokasi: GeographicScopePicker prefill ke location_id existing.
-//   city_id di-derive ulang backend kalau location_id berubah.
-// 🛡️ Fix tombol "Kelola" dashboard yang sebelumnya 404.
+// Simpan:  PUT /bakos/owner/listings/:id (field aman saja).
+// Premium pass: kartu ber-shadow + section bertingkat + input refined
+//   + save bar sticky. Bahasa visual kertas+amber (BAKOS_TOKENS).
+// 🛡️ 'Akses kartu' & 'Lift' dibuang (tidak relevan kos MalUt).
+// 🛡️ Pasutri/anak = ATURAN → chip cepat menambah baris ke kos_rules
+//    (tanpa kolom baru; promote ke kolom hanya bila jadi filter).
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback } from 'react';
@@ -19,12 +20,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
-import { BAKOS_TOKENS, formatRp } from '@/components/bakos/owner/types';
-import { ChevronLeft, BedDouble, Trash2, Loader2, AlertCircle, Save } from 'lucide-react';
+import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
+import { ChevronLeft, BedDouble, Trash2, Loader2, AlertCircle, Save, Check } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
-const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam', 'Akses kartu', 'Lift'];
+
+const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam'];
 const LANDMARKS = ['Dekat kampus', 'Dekat sekolah', 'Dekat rumah sakit', 'Dekat pasar', 'Dekat mall', 'Dekat pelabuhan', 'Dekat kantor pemerintah', 'Dekat masjid', 'Dekat pusat kota', 'Pinggir jalan utama'];
+const RULE_CHIPS = ['Maks 2 orang/kamar', 'Jam malam 22.00', 'Wajib lapor tamu menginap', 'Wajib jaga kebersihan'];
 
 export default function OwnerKosEditPage() {
   const { id } = useParams<{ id: string }>();
@@ -38,7 +41,6 @@ export default function OwnerKosEditPage() {
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [roomCount, setRoomCount] = useState(0);
 
-  // form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState('');
@@ -52,6 +54,9 @@ export default function OwnerKosEditPage() {
   const [kosRules, setKosRules] = useState('');
   const [isNegotiable, setIsNegotiable] = useState(false);
   const [landmarks, setLandmarks] = useState<string[]>([]);
+  const [coupleAllowed, setCoupleAllowed] = useState<boolean | null>(null);
+  const [childrenAllowed, setChildrenAllowed] = useState<boolean | null>(null);
+  const [petsAllowed, setPetsAllowed] = useState<boolean | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +74,9 @@ export default function OwnerKosEditPage() {
       setIsNegotiable(!!k.is_negotiable);
       setLandmarks(Array.isArray(k.nearby_landmarks) ? k.nearby_landmarks : []);
       setRoomCount(Array.isArray(k.rooms) ? k.rooms.length : 0);
+      setCoupleAllowed(k.couple_allowed ?? null);
+      setChildrenAllowed(k.children_allowed ?? null);
+      setPetsAllowed(k.pets_allowed ?? null);
       if (k.location_id) setScope({ id: k.location_id, type: 'desa' });
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Gagal memuat kos.');
@@ -99,8 +107,12 @@ export default function OwnerKosEditPage() {
         kos_rules: kosRules || null,
         is_negotiable: isNegotiable,
         nearby_landmarks: landmarks,
+        couple_allowed: coupleAllowed,
+        children_allowed: childrenAllowed,
+        pets_allowed: petsAllowed,
       });
       setSavedAt(Date.now());
+      setTimeout(() => setSavedAt(null), 2500);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Gagal menyimpan.');
     } finally {
@@ -121,6 +133,14 @@ export default function OwnerKosEditPage() {
   const toggle = (arr: string[], set: (v: string[]) => void, val: string) =>
     set(arr.includes(val) ? arr.filter(x => x !== val) : [...arr, val]);
 
+  function addRule(text: string) {
+    setKosRules(prev => {
+      const lines = prev ? prev.split('\n').map(s => s.trim()).filter(Boolean) : [];
+      if (lines.includes(text)) return prev;
+      return [...lines, text].join('\n');
+    });
+  }
+
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: BAKOS_TOKENS.pageBg }}><Loader2 className="animate-spin" style={{ color: BRAND }} /></div>;
   }
@@ -130,117 +150,182 @@ export default function OwnerKosEditPage() {
     </div>;
   }
 
-  const inputCls = 'mt-1.5 w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm outline-none focus:border-[#854F0B]';
-  const chip = (active: boolean) => active ? { background: BRAND, color: '#fff' } : { background: '#F1EFE8', color: '#5F5E5A' };
-
   return (
-    <div className="min-h-screen pb-20" style={{ background: BAKOS_TOKENS.pageBg }}>
-      <div className="max-w-lg mx-auto px-4 pt-5">
-        <button onClick={() => router.push('/owner/bakos')} className="flex items-center gap-1 text-xs mb-3" style={{ color: BAKOS_TOKENS.textSecondary }}>
+    <div className="min-h-screen pb-28" style={{ background: BAKOS_TOKENS.pageBg }}>
+      <div className="max-w-xl mx-auto px-4 pt-5">
+        <button onClick={() => router.push('/owner/bakos')} className="flex items-center gap-1 text-xs mb-3 hover:opacity-70 transition-opacity" style={{ color: BAKOS_TOKENS.textSecondary }}>
           <ChevronLeft size={14} /> Kos Saya
         </button>
 
-        <h1 className="text-lg font-bold mb-1" style={{ color: BAKOS_TOKENS.textPrimary }}>Kelola Kos</h1>
-        <p className="text-xs mb-4" style={{ color: BAKOS_TOKENS.textSecondary }}>Ubah info kos. Status & langganan diatur admin.</p>
+        <div className="mb-5">
+          <h1 className="text-[22px] font-bold tracking-tight" style={{ color: BAKOS_TOKENS.textPrimary }}>Kelola Kos</h1>
+          <p className="text-[13px] mt-0.5" style={{ color: BAKOS_TOKENS.textSecondary }}>Ubah info kos. Status & langganan diatur admin.</p>
+        </div>
 
-        {/* Kelola kamar */}
-        <button onClick={() => router.push(`/owner/bakos/${id}/kamar`)} className="w-full flex items-center justify-between rounded-xl px-4 py-3 mb-4" style={{ background: BAKOS_TOKENS.accentBg, border: `0.5px solid ${BAKOS_TOKENS.border}` }}>
-          <span className="flex items-center gap-2 text-sm font-semibold" style={{ color: BRAND }}>
-            <BedDouble size={17} /> Kelola Kamar
+        {/* Kelola kamar — CTA premium */}
+        <button onClick={() => router.push(`/owner/bakos/${id}/kamar`)}
+          className="w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-5 transition-transform active:scale-[0.99]"
+          style={{ background: `linear-gradient(135deg, ${BAKOS_TOKENS.accentBg}, #fff)`, border: `1px solid ${BAKOS_TOKENS.border}`, boxShadow: '0 1px 3px rgba(133,79,11,0.06)' }}>
+          <span className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#fff', border: `1px solid ${BAKOS_TOKENS.border}` }}>
+              <BedDouble size={17} style={{ color: BRAND }} />
+            </span>
+            <span className="text-left">
+              <span className="block text-sm font-semibold" style={{ color: BAKOS_TOKENS.textPrimary }}>Kelola Kamar</span>
+              <span className="block text-[11px]" style={{ color: BAKOS_TOKENS.textSecondary }}>Tipe, harga, ketersediaan</span>
+            </span>
           </span>
-          <span className="text-xs" style={{ color: BAKOS_TOKENS.textSecondary }}>{roomCount} tipe →</span>
+          <span className="text-xs font-semibold flex items-center gap-1" style={{ color: BRAND }}>{roomCount} tipe →</span>
         </button>
 
         <div className="space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700">Nama Kos</label>
-            <input value={title} onChange={e => setTitle(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700">Deskripsi</label>
-            <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className={inputCls} />
-          </div>
+          <Section title="Info Dasar">
+            <Field label="Nama Kos">
+              <input value={title} onChange={e => setTitle(e.target.value)} className={INPUT} />
+            </Field>
+            <Field label="Deskripsi">
+              <textarea value={description} onChange={e => setDescription(e.target.value)} rows={3} className={INPUT} />
+            </Field>
+            <Field label="Foto Kos">
+              <ImageUpload bucket="listings" label="" onUpload={(urls: string[]) => setPhotos(urls)} existingUrls={photos} maxFiles={5} />
+            </Field>
+            <Field label="Nomor WA">
+              <div className="flex items-center overflow-hidden rounded-xl border bg-white focus-within:border-[#854F0B] focus-within:ring-2 focus-within:ring-[#854F0B]/15 transition" style={{ borderColor: BAKOS_TOKENS.border }}>
+                <span className="flex h-11 items-center border-r px-3 text-sm" style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>+62</span>
+                <input type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="flex-1 h-11 px-3 text-sm outline-none bg-transparent" />
+              </div>
+            </Field>
+          </Section>
 
-          <ImageUpload bucket="listings" label="Foto Kos" onUpload={(urls: string[]) => setPhotos(urls)} existingUrls={photos} maxFiles={5} />
+          <Section title="Lokasi">
+            <Field label="Kelurahan / Desa" hint="Penyala peta sebaran & pencarian area">
+              <GeographicScopePicker
+                value={scope}
+                onChange={(s, bc?: LocationBreadcrumb) => { setScope(s); setScopeLabel(bc?.display_short ?? ''); }}
+                allowedTypes={['kelurahan', 'desa']}
+                allowGps
+                brandColor={BRAND}
+                placeholder="Cari kelurahan / desa..."
+              />
+              {scopeLabel && <p className="mt-1.5 text-xs font-medium" style={{ color: BRAND }}>📍 {scopeLabel}</p>}
+            </Field>
+            <Field label="Alamat Lengkap" hint="Disembunyikan dari publik sampai berlangganan">
+              <input value={address} onChange={e => setAddress(e.target.value)} className={INPUT} />
+            </Field>
+          </Section>
 
-          <div>
-            <label className="text-sm font-medium text-gray-700">Lokasi Kos (Kelurahan/Desa)</label>
-            <p className="text-xs text-gray-400 mb-1.5">Penyala peta sebaran & pencarian area</p>
-            <GeographicScopePicker
-              value={scope}
-              onChange={(s, bc?: LocationBreadcrumb) => { setScope(s); setScopeLabel(bc?.display_short ?? ''); }}
-              allowedTypes={['kelurahan', 'desa']}
-              allowGps
-              brandColor={BRAND}
-              placeholder="Cari kelurahan / desa..."
-            />
-            {scopeLabel && <p className="mt-1 text-xs" style={{ color: BRAND }}>📍 {scopeLabel}</p>}
-          </div>
+          <Section title="Tipe & Fasilitas">
+            <Field label="Tipe Kos">
+              <ChipRow options={['putra', 'putri', 'campur']} active={[kosType]} onTap={setKosType} capitalize />
+            </Field>
+            <Field label="Listrik">
+              <ChipRow options={['Token', 'Included']} active={[electricityType]} onTap={setElectricityType} />
+            </Field>
+            <Field label="Fasilitas Bersama">
+              <ChipRow options={SHARED_FACILITIES} active={facilities} onTap={(v) => toggle(facilities, setFacilities, v)} multi />
+            </Field>
+            <Field label="Dekat Dengan">
+              <ChipRow options={LANDMARKS} active={landmarks} onTap={(v) => toggle(landmarks, setLandmarks, v)} multi />
+            </Field>
+            <label className="flex cursor-pointer items-center gap-3 rounded-xl border bg-white px-3.5 py-3" style={{ borderColor: BAKOS_TOKENS.border }}>
+              <input type="checkbox" checked={isNegotiable} onChange={e => setIsNegotiable(e.target.checked)} className="h-4 w-4" style={{ accentColor: BRAND }} />
+              <span className="text-sm font-medium" style={{ color: BAKOS_TOKENS.textPrimary }}>Harga bisa nego</span>
+            </label>
+          </Section>
 
-          <div>
-            <label className="text-sm font-medium text-gray-700">Alamat Lengkap <span className="text-gray-400">(disembunyikan publik sampai berlangganan)</span></label>
-            <input value={address} onChange={e => setAddress(e.target.value)} className={inputCls} />
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Nomor WA</label>
-            <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 focus-within:border-[#854F0B] mt-1.5">
-              <span className="flex h-12 items-center border-r border-gray-200 px-3 text-sm text-gray-400">+62</span>
-              <input type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="flex-1 h-12 px-3 text-sm outline-none bg-transparent" />
-            </div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Tipe Kos</label>
-            <div className="mt-1.5 flex gap-2">{['putra', 'putri', 'campur'].map(k => (
-              <button key={k} onClick={() => setKosType(k)} className="rounded-xl py-2 px-3 text-xs font-medium capitalize" style={chip(kosType === k)}>{k}</button>
-            ))}</div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Listrik</label>
-            <div className="mt-1.5 flex gap-2">{['Token', 'Included'].map(e => (
-              <button key={e} onClick={() => setElectricityType(e)} className="rounded-xl py-2 px-3 text-xs font-medium" style={chip(electricityType === e)}>{e}</button>
-            ))}</div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Fasilitas Bersama</label>
-            <div className="flex flex-wrap gap-2 mt-1.5">{SHARED_FACILITIES.map(f => (
-              <button key={f} onClick={() => toggle(facilities, setFacilities, f)} className="rounded-xl py-2 px-3 text-xs font-medium" style={chip(facilities.includes(f))}>{f}</button>
-            ))}</div>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Dekat dengan</label>
-            <div className="flex flex-wrap gap-2 mt-1.5">{LANDMARKS.map(l => (
-              <button key={l} onClick={() => toggle(landmarks, setLandmarks, l)} className="rounded-xl py-2 px-3 text-xs font-medium" style={chip(landmarks.includes(l))}>{l}</button>
-            ))}</div>
-          </div>
-
-          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 bg-white p-3">
-            <input type="checkbox" checked={isNegotiable} onChange={e => setIsNegotiable(e.target.checked)} className="mt-0.5 h-4 w-4" style={{ accentColor: BRAND }} />
-            <div><p className="text-sm font-medium text-gray-800">Harga bisa nego</p></div>
-          </label>
-
-          <div>
-            <label className="text-sm font-medium text-gray-700">Peraturan Kos</label>
-            <textarea value={kosRules} onChange={e => setKosRules(e.target.value)} rows={4} placeholder="Jam malam, tamu menginap, dll." className={inputCls} />
-          </div>
+          <Section title="Peraturan">
+            <Field label="Boleh Pasutri / Anak / Hewan?" hint="Dipakai untuk filter pencarian. Tidak dipilih = belum dinyatakan.">
+              <div className="space-y-2">
+                <TriRule label="Pasutri (suami-istri)" value={coupleAllowed} onChange={setCoupleAllowed} />
+                <TriRule label="Bawa anak" value={childrenAllowed} onChange={setChildrenAllowed} />
+                <TriRule label="Bawa hewan" value={petsAllowed} onChange={setPetsAllowed} />
+              </div>
+            </Field>
+            <Field label="Aturan Cepat" hint="Tap untuk menambah ke peraturan kos">
+              <div className="flex flex-wrap gap-2">
+                {RULE_CHIPS.map(r => (
+                  <button key={r} type="button" onClick={() => addRule(r)}
+                    className="rounded-full px-3 py-1.5 text-xs font-medium border transition active:scale-95"
+                    style={{ background: '#fff', borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>
+                    + {r}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Peraturan Kos">
+              <textarea value={kosRules} onChange={e => setKosRules(e.target.value)} rows={5} placeholder="Satu aturan per baris. Tap chip di atas atau tulis sendiri." className={INPUT} />
+            </Field>
+          </Section>
 
           {error && <div className="rounded-xl p-3 flex items-start gap-2" style={{ background: '#FDECEC' }}><AlertCircle size={16} className="text-red-600 shrink-0 mt-0.5" /><p className="text-xs text-red-800">{error}</p></div>}
-          {savedAt && !error && <p className="text-xs font-semibold" style={{ color: '#15803D' }}>✓ Tersimpan</p>}
-
-          <div className="flex gap-2 pt-1">
-            <button onClick={handleSave} disabled={saving} className="flex-1 flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-50" style={{ background: BRAND }}>
-              <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan'}
-            </button>
-            <button onClick={handleDelete} className="rounded-xl px-4 py-3 text-sm font-medium border border-red-200 text-red-600 flex items-center gap-1">
-              <Trash2 size={15} /> Hapus
-            </button>
-          </div>
         </div>
       </div>
+
+      {/* Sticky save bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur" style={{ background: 'rgba(239,237,229,0.92)', borderColor: BAKOS_TOKENS.border }}>
+        <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-2">
+          {savedAt && <span className="flex items-center gap-1 text-xs font-semibold mr-auto" style={{ color: '#15803D' }}><Check size={14} /> Tersimpan</span>}
+          {!savedAt && <span className="text-[11px] mr-auto" style={{ color: BAKOS_TOKENS.textTertiary }}>Perubahan belum tersimpan</span>}
+          <button onClick={handleDelete} className="rounded-xl px-3.5 py-2.5 text-sm font-medium border border-red-200 text-red-600 flex items-center gap-1.5"><Trash2 size={15} /> Hapus</button>
+          <button onClick={handleSave} disabled={saving} className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50 flex items-center gap-2" style={{ background: BRAND }}>
+            <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Premium primitives ──────────────────────────────────────────
+const INPUT = 'w-full rounded-xl border bg-white px-3.5 py-2.5 text-sm outline-none transition border-[#E4E0D5] focus:border-[#854F0B] focus:ring-2 focus:ring-[#854F0B]/15 placeholder:text-gray-400';
+
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl bg-white p-4 sm:p-5 space-y-4" style={{ border: `1px solid ${BAKOS_TOKENS.border}`, boxShadow: '0 1px 2px rgba(0,0,0,0.03)' }}>
+      <p className="text-[11px] font-bold uppercase tracking-widest" style={{ color: BAKOS_TOKENS.textTertiary }}>{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[13px] font-semibold" style={{ color: BAKOS_TOKENS.textPrimary }}>{label}</label>
+      {hint && <p className="text-[11px] mb-1.5" style={{ color: BAKOS_TOKENS.textTertiary }}>{hint}</p>}
+      <div className={hint ? '' : 'mt-1.5'}>{children}</div>
+    </div>
+  );
+}
+
+function TriRule({ label, value, onChange }: { label: string; value: boolean | null; onChange: (v: boolean | null) => void }) {
+  const set = (v: boolean) => onChange(value === v ? null : v);
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border bg-white px-3.5 py-2.5" style={{ borderColor: BAKOS_TOKENS.border }}>
+      <span className="text-sm" style={{ color: BAKOS_TOKENS.textPrimary }}>{label}</span>
+      <div className="flex gap-1.5 shrink-0">
+        <button type="button" onClick={() => set(true)} className="rounded-lg px-3 py-1.5 text-xs font-semibold border transition active:scale-95"
+          style={value === true ? { background: '#15803D', color: '#fff', borderColor: '#15803D' } : { background: '#fff', borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>Boleh</button>
+        <button type="button" onClick={() => set(false)} className="rounded-lg px-3 py-1.5 text-xs font-semibold border transition active:scale-95"
+          style={value === false ? { background: '#B91C1C', color: '#fff', borderColor: '#B91C1C' } : { background: '#fff', borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>Tidak</button>
+      </div>
+    </div>
+  );
+}
+
+function ChipRow({ options, active, onTap, multi, capitalize }: { options: string[]; active: string[]; onTap: (v: string) => void; multi?: boolean; capitalize?: boolean }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(o => {
+        const on = active.includes(o);
+        return (
+          <button key={o} type="button" onClick={() => onTap(o)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition active:scale-95 ${capitalize ? 'capitalize' : ''}`}
+            style={on ? { background: BRAND, color: '#fff', borderColor: BRAND } : { background: '#fff', borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>
+            {o}
+          </button>
+        );
+      })}
     </div>
   );
 }
