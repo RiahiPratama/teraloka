@@ -286,6 +286,21 @@ export function DriverHomeShell() {
 
         {err && <p className="mt-3 text-center text-xs font-medium text-red-500">{err}</p>}
 
+        {/* Akses cepat: penghasilan & setoran komisi */}
+        <Link
+          href="/mitra/driver/penghasilan"
+          className="bl-shadow-soft mt-3 flex items-center gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-4 transition hover:bg-[var(--bl-cream)]"
+        >
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest-d)]">
+            <Wallet className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <div className="text-sm font-bold text-[var(--bl-ink)]">Penghasilan &amp; setoran</div>
+            <div className="mt-0.5 text-xs text-[var(--bl-muted)]">Lihat pendapatan, riwayat trip, sisa komisi</div>
+          </div>
+          <span className="text-[var(--bl-muted)]">›</span>
+        </Link>
+
         {/* Daftar order masuk */}
         <div className="mt-6">
           <div className="flex items-center justify-between">
