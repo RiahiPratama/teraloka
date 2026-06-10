@@ -11,7 +11,6 @@ import ServicesEcosystem  from '@/components/home/ServicesEcosystem'
 import SocialProof        from '@/components/home/SocialProof'
 import CTASection         from '@/components/home/CTASection'
 import Footer             from '@/components/layout/Footer'
-import Fab                from '@/components/layout/Fab'
 
 export default function HomePage() {
   return (
@@ -61,8 +60,8 @@ export default function HomePage() {
       {/* 13 — Footer */}
       <Footer />
 
-      {/* 14 — FAB laporan */}
-      <Fab />
+      {/* FAB laporan (/balapor/buat) di-retire 10 Jun 2026 — slot kanan-bawah
+          dipakai <SosFab /> (root layout.tsx). */}
     </>
   )
 }

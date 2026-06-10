@@ -2,7 +2,6 @@ import Navbar from '@/components/layout/Navbar'
 import Ticker from '@/components/layout/Ticker'
 import CategoryTabs from '@/components/bakabar/CategoryTabs'
 import Footer from '@/components/layout/Footer'
-import Fab from '@/components/layout/Fab'
 import { RegionProvider } from '@/contexts/RegionContext'
 import { RegionPickerModal } from '@/components/public/RegionPicker'
 
@@ -25,9 +24,12 @@ import { RegionPickerModal } from '@/components/public/RegionPicker'
 //     ADD: <RegionProvider> wrap children + <RegionPickerModal /> global.
 //     Region state persist via localStorage, manual toggle via Navbar RegionChip
 //     (added separately di Navbar.tsx).
+//   - 10 Jun 2026: HAPUS <Fab /> (shortcut /balapor/buat, bottom-right). Slot
+//     kanan-bawah sekarang diisi <SosFab /> (di root layout.tsx) — emergency
+//     button diprioritaskan di posisi itu. Fab chat di-retire.
 //
 // Folder convention LOCKED:
-//   - src/components/layout/ = persistent global UI (Navbar, Footer, Fab, BottomNav)
+//   - src/components/layout/ = persistent global UI (Navbar, Footer, BottomNav)
 //   - src/components/bakabar/ = BAKABAR-spec UI (CategoryTabs, PrayerBreakingBar, etc)
 //   - src/components/public/  = public-facing modals/widgets (RegionPicker)
 //
@@ -50,12 +52,13 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         <main className="pb-nav">{children}</main>
       </div>
       <Footer />
-      <Fab />
 
       {/* Region Picker Modal — global, render kalau pickerOpen true.
           Auto-show first-visit di slug page via <RegionFirstVisitTrigger />. */}
       <RegionPickerModal />
 
+      {/* <Fab /> (shortcut /balapor/buat) di-retire 10 Jun 2026 — slot kanan-bawah
+          dipakai <SosFab /> (root layout.tsx). */}
       {/* <BottomNav /> dihandle di src/app/layout.tsx via <ConditionalBottomNav /> */}
     </RegionProvider>
   )
