@@ -59,6 +59,7 @@ interface RideDetail {
   service_details?: { pickup_note?: string | null; dropoff_note?: string | null } | null;
   driver?: DriverInfo | null;
   vehicle?: VehicleInfo | null;
+  rated_by_rider?: boolean; // true kalau rider sudah beri rating (sembunyikan form)
 }
 
 function rupiah(n: number | null | undefined): string {
@@ -101,6 +102,13 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
   const [acting, setActing] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+  // Rating pasca-trip (rider -> driver)
+  const [ratingScore, setRatingScore] = useState(0);
+  const [ratingHover, setRatingHover] = useState(0);
+  const [ratingComment, setRatingComment] = useState('');
+  const [ratingDone, setRatingDone] = useState(false);
+  const [ratingSubmitting, setRatingSubmitting] = useState(false);
+  const [ratingErr, setRatingErr] = useState<string | null>(null);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const fetchRef = useRef<() => void>(() => {});
@@ -165,6 +173,28 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
       setErr(e instanceof ApiError ? e.message : 'Gagal membatalkan. Coba lagi.');
     } finally {
       setActing(false);
+    }
+  }
+
+  async function doRate() {
+    if (ratingScore < 1 || ratingSubmitting) return;
+    setRatingSubmitting(true);
+    setRatingErr(null);
+    try {
+      await api.post('/rides/' + rideId + '/rate', {
+        score: ratingScore,
+        comment: ratingComment.trim() || undefined,
+      });
+      setRatingDone(true);
+    } catch (e: any) {
+      // 409 = sudah pernah rating; anggap selesai (idempotent dari sisi UX).
+      if (e instanceof ApiError && e.status === 409) {
+        setRatingDone(true);
+        return;
+      }
+      setRatingErr(e instanceof ApiError ? e.message : 'Gagal mengirim rating. Coba lagi.');
+    } finally {
+      setRatingSubmitting(false);
     }
   }
 
@@ -320,6 +350,66 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
             <p className="mt-1 text-sm text-[var(--bl-muted)]">Terima kasih sudah pakai BALAJU. Jalan kita, terhubung.</p>
           </div>
         )}
+
+        {/* Kartu rating pasca-trip (rider -> driver). Sembunyi kalau sudah dirating. */}
+        {ride.status === 'completed' && (ratingDone || ride.rated_by_rider ? (
+          <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-5 text-center">
+            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-[var(--bl-forest-d)]">
+              <Star className="h-4 w-4 fill-[var(--bl-amber)] text-[var(--bl-amber)]" />
+              Terima kasih atas penilaianmu!
+            </div>
+            <p className="mt-1 text-xs text-[var(--bl-muted)]">Masukanmu bantu jaga kualitas driver BALAJU.</p>
+          </div>
+        ) : (
+          <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-5">
+            <p className="text-center text-sm font-bold text-[var(--bl-ink)]">Beri rating perjalananmu</p>
+            <p className="mt-0.5 text-center text-xs text-[var(--bl-muted)]">
+              Bagaimana pengalamanmu dengan {ride.driver?.name || 'driver'}?
+            </p>
+
+            {/* Bintang 1-5 */}
+            <div className="mt-3 flex items-center justify-center gap-1.5">
+              {[1, 2, 3, 4, 5].map((n) => {
+                const active = (ratingHover || ratingScore) >= n;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setRatingScore(n)}
+                    onMouseEnter={() => setRatingHover(n)}
+                    onMouseLeave={() => setRatingHover(0)}
+                    aria-label={`${n} bintang`}
+                    className="p-1 transition active:scale-90"
+                  >
+                    <Star
+                      className={`h-8 w-8 transition ${active ? 'fill-[var(--bl-amber)] text-[var(--bl-amber)]' : 'text-[var(--bl-line)]'}`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            <textarea
+              value={ratingComment}
+              onChange={(e) => setRatingComment(e.target.value)}
+              rows={2}
+              maxLength={500}
+              placeholder="Komentar (opsional) — mis. ramah, motor bersih, tepat waktu…"
+              className="mt-3 w-full resize-none rounded-xl border border-[var(--bl-line)] bg-white px-3 py-2 text-sm text-[var(--bl-ink)] outline-none focus:border-[var(--bl-forest)]"
+            />
+
+            {ratingErr && <p className="mt-2 text-center text-xs font-medium text-red-500">{ratingErr}</p>}
+
+            <button
+              onClick={doRate}
+              disabled={ratingScore < 1 || ratingSubmitting}
+              className="bl-shadow-lift mt-3 flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--bl-forest)] py-3.5 text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-50"
+            >
+              {ratingSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Star className="h-4 w-4" />}
+              Kirim rating
+            </button>
+          </div>
+        ))}
 
         {/* Zona status HIDUP (WAJAH) — liveness + arah, BUKAN posisi GPS */}
         {ride.status === 'open' && <SearchingRadar />}
