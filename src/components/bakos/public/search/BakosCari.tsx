@@ -4,6 +4,9 @@
 // PATH: src/components/bakos/public/search/BakosCari.tsx
 // 🛡️ Layout disiapkan utk split list+map: .bkc-body bisa jadi 2-kolom
 //    begitu peta siap (tambah <aside> kanan, grid pindah kiri — zero rombak).
+// 10 Jun 2026 — L5-CARI-LOCID: terima location_id dari klik marker peta hero
+//   (HeroMap → /bakos/cari?location_id=...). Read-only (tak ada UI ubah),
+//   diteruskan ke fetch + dipertahankan di URL sync (biar gak kehapus).
 // ════════════════════════════════════════════════════════════════
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -20,6 +23,8 @@ export function BakosCari() {
   const [q, setQ] = useState(sp.get('q') ?? '');
   const [kosType, setKosType] = useState(sp.get('kos_type') ?? '');
   const [priceKey, setPriceKey] = useState('all');
+  // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Read-only (tak ada UI ubah di halaman ini).
+  const [locationId] = useState(sp.get('location_id') ?? '');
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -31,6 +36,7 @@ export function BakosCari() {
       const params = new URLSearchParams({ type: 'kos', page: '1', limit: '24' });
       if (qVal.trim()) params.set('q', qVal.trim());
       if (kt) params.set('kos_type', kt);
+      if (locationId) params.set('location_id', locationId);   // L5-CARI-LOCID — filter per-kelurahan
       if (pk !== 'all') {
         const [mn, mx] = pk.split('-');
         if (Number(mn) > 0) params.set('min_price', mn);
@@ -44,7 +50,7 @@ export function BakosCari() {
     } catch {
       setListings([]); setTotal(0);
     } finally { setLoading(false); }
-  }, []);
+  }, [locationId]);
 
   // filter berubah → fetch (q di-debounce, pills langsung)
   useEffect(() => {
@@ -53,14 +59,15 @@ export function BakosCari() {
     return () => { if (debRef.current) clearTimeout(debRef.current); };
   }, [q, kosType, priceKey, fetchKos]);
 
-  // sync URL (shareable) — q + kos_type
+  // sync URL (shareable) — q + kos_type + location_id (jangan buang filter peta)
   useEffect(() => {
     const p = new URLSearchParams();
     if (q.trim()) p.set('q', q.trim());
     if (kosType) p.set('kos_type', kosType);
+    if (locationId) p.set('location_id', locationId);   // L5-CARI-LOCID — pertahankan di URL
     const qs = p.toString();
     router.replace(`/bakos/cari${qs ? `?${qs}` : ''}`, { scroll: false });
-  }, [q, kosType, router]);
+  }, [q, kosType, locationId, router]);
 
   const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); };
 
