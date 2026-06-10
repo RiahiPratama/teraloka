@@ -33,7 +33,7 @@ const PERIODS: { key: Period; label: string }[] = [
 interface Earnings {
   driver: { id: string; name: string | null; rating_avg: number; rating_count: number; is_online: boolean };
   earnings: { currency: string; today: number; week: number; total: number; rides_today: number; rides_week: number; rides_total: number };
-  commission: { currency: string; outstanding: number; settled: number; debt_threshold: number; remaining_to_lock: number; status: 'lunas' | 'berutang' | 'locked'; locked: boolean };
+  commission: { currency: string; outstanding: number; settled: number; debt_threshold: number; remaining_to_lock: number; status: 'lunas' | 'berutang' | 'locked'; locked: boolean; last_settled_at: string | null };
 }
 interface Trip {
   id: string; completed_at: string | null; pickup: string | null; dropoff: string | null;
@@ -53,6 +53,10 @@ function fmtDateTime(iso: string | null): string {
   return new Date(iso).toLocaleString('id-ID', {
     day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jayapura',
   });
+}
+function fmtDate(iso: string | null): string {
+  if (!iso) return '';
+  return new Date(iso).toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Jayapura' });
 }
 // Ringkas alamat: ambil segmen pertama sebelum koma / '›' (nama kelurahan).
 function shortAddr(s: string | null): string {
@@ -224,7 +228,11 @@ export default function DriverEarningsShell() {
 
           {commission.settled > 0 && (
             <div className="mt-3 flex items-center gap-1.5 border-t border-[var(--bl-line)] pt-3 text-[11px] text-[var(--bl-muted)]">
-              <Check className="h-3.5 w-3.5 text-[var(--bl-forest)]" /> Sudah disetor sebelumnya: {rupiah(commission.settled)}
+              <Check className="h-3.5 w-3.5 shrink-0 text-[var(--bl-forest)]" />
+              <span>
+                Sudah disetor: <span className="font-semibold text-[var(--bl-ink)]">{rupiah(commission.settled)}</span>
+                {commission.last_settled_at && <> · terakhir {fmtDate(commission.last_settled_at)}</>}
+              </span>
             </div>
           )}
         </div>
