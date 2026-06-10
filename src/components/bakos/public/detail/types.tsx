@@ -1,6 +1,6 @@
 // ════════════════════════════════════════════════════════════════
 // BAKOS Detail — shared types & helpers
-// PATH: src/components/bakos/public/detail/types.ts
+// PATH: src/components/bakos/public/detail/types.tsx
 // ════════════════════════════════════════════════════════════════
 
 export interface Room {
@@ -18,6 +18,10 @@ export interface ListingDetail {
   rating_avg: number; rating_count: number; has_room_types: boolean; room_size_m2: number | null;
   accommodation_type: string | null; kos_rules: string | null; electricity_type: string | null;
   contact_enabled: boolean; is_claimable: boolean; is_managed: boolean; owner_id: string;
+  // ── Field lokasi presisi (gated backend: cuma kos berlangganan yang dapat nilai) ──
+  latitude: number | null; longitude: number | null;
+  // ── Aturan terstruktur (publik; null = belum dinyatakan owner) ──
+  couple_allowed: boolean | null; children_allowed: boolean | null; pets_allowed: boolean | null;
 }
 
 export const SECTIONS = [

@@ -2,11 +2,29 @@
 // ════════════════════════════════════════════════════════════════
 // BAKOS Detail — Content sections (presentational)
 // PATH: src/components/bakos/public/detail/kos-sections.tsx
-// Tentang · Trust · Fasilitas+Spec · Tipe Kamar · Lokasi · Aturan · Ulasan
+// Tentang · Trust · Fasilitas+Spec · Tipe Kamar · Lokasi(+pin) · Aturan(+tristate) · Ulasan
 // ════════════════════════════════════════════════════════════════
+import dynamic from 'next/dynamic';
 import { facList, formatRupiah } from '@/components/bakos/public/bakos-links';
 import { MS, facIcon, facLabel, type ListingDetail, type Room } from './types';
 import { PriceLine } from './kos-action-card';
+
+// 🛡️ Map single-pin dynamic(ssr:false) — Leaflet pecah di SSR.
+const KosDetailMap = dynamic(() => import('./KosDetailMap'), {
+  ssr: false,
+  loading: () => <div style={{ height: 220, borderRadius: 12, background: '#EDEAE1' }} />,
+});
+
+// Render satu aturan tristate (cuma kalau owner sudah nyatakan).
+function RuleRow({ label, value }: { label: string; value: boolean | null }) {
+  if (value == null) return null; // belum dinyatakan → tidak ditampilkan
+  return (
+    <div className="bkd-rule">
+      <MS n={value ? 'check_circle' : 'cancel'} />
+      <span>{value ? `Boleh ${label}` : `Tidak boleh ${label}`}</span>
+    </div>
+  );
+}
 
 export function KosSections({
   listing, rooms, selectedRoom, onSelectRoom,
@@ -18,6 +36,8 @@ export function KosSections({
   const landmarks = listing.nearby_landmarks
     ? (Array.isArray(listing.nearby_landmarks) ? listing.nearby_landmarks : [listing.nearby_landmarks])
     : [];
+  const hasRules = listing.couple_allowed != null || listing.children_allowed != null || listing.pets_allowed != null;
+  const hasPin = listing.latitude != null && listing.longitude != null;
 
   return (
     <>
@@ -95,6 +115,11 @@ export function KosSections({
         <h2>Lokasi</h2>
         <p className="bkd-loc"><MS n="location_on" /> {listing.address || listing.area || 'Lokasi belum tersedia'}</p>
         {!listing.address && <p className="bkd-locsub"><MS n="lock" /> Titik presisi &amp; alamat lengkap tampil setelah pemilik mengaktifkan kos</p>}
+        {hasPin && (
+          <div style={{ marginTop: 12 }}>
+            <KosDetailMap lat={listing.latitude as number} lng={listing.longitude as number} />
+          </div>
+        )}
         {landmarks.length > 0 && (
           <div className="bkd-landmarks">
             {landmarks.map((l, i) => <span className="bkd-lm" key={i}><MS n="near_me" /> {l}</span>)}
@@ -103,10 +128,17 @@ export function KosSections({
       </div>
 
       {/* Aturan */}
-      {listing.kos_rules && (
+      {(hasRules || listing.kos_rules) && (
         <div className="bkd-sec">
           <h2>Peraturan Kos</h2>
-          <p className="bkd-desc">{listing.kos_rules}</p>
+          {hasRules && (
+            <div className="bkd-rules">
+              <RuleRow label="pasutri (suami-istri)" value={listing.couple_allowed} />
+              <RuleRow label="bawa anak" value={listing.children_allowed} />
+              <RuleRow label="bawa hewan" value={listing.pets_allowed} />
+            </div>
+          )}
+          {listing.kos_rules && <p className="bkd-desc" style={{ whiteSpace: 'pre-line' }}>{listing.kos_rules}</p>}
         </div>
       )}
 
