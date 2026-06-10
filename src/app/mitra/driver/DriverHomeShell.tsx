@@ -10,7 +10,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Bike, Car, Package, MapPin, Power, Loader2, Navigation, Timer, Wallet, Inbox, ShieldAlert,
+  Bike, Car, Package, MapPin, Power, Loader2, Navigation, Timer, Wallet, Inbox, ShieldAlert, ChevronRight,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import '@/components/balaju/public/balaju-landing.css';
@@ -72,6 +72,8 @@ export function DriverHomeShell() {
   const [acceptingId, setAcceptingId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
+  const [todayEarning, setTodayEarning] = useState<number | null>(null);
+  const [todayRides, setTodayRides] = useState<number>(0);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -124,6 +126,16 @@ export function DriverHomeShell() {
         // error lain: biarin offline, driver bisa toggle manual.
       } finally {
         setBooting(false);
+      }
+    })();
+    // Penghasilan hari ini (ringan, sekali — buat kartu glance di beranda).
+    (async () => {
+      try {
+        const e = await api.get<{ earnings?: { today?: number; rides_today?: number } }>('/driver/earnings');
+        setTodayEarning(e?.earnings?.today ?? 0);
+        setTodayRides(e?.earnings?.rides_today ?? 0);
+      } catch {
+        // gagal != fatal; kartu sembunyi kalau null.
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,19 +298,24 @@ export function DriverHomeShell() {
 
         {err && <p className="mt-3 text-center text-xs font-medium text-red-500">{err}</p>}
 
-        {/* Akses cepat: penghasilan & setoran komisi */}
+        {/* Pendapatan hari ini — glance + entry ke detail penghasilan */}
         <Link
           href="/mitra/driver/penghasilan"
-          className="bl-shadow-soft mt-3 flex items-center gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-4 transition hover:bg-[var(--bl-cream)]"
+          className="bl-shadow-lift mt-3 flex items-center gap-4 overflow-hidden rounded-3xl bg-[var(--bl-forest)] p-5 text-white transition active:scale-[0.99]"
         >
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest-d)]">
-            <Wallet className="h-5 w-5" />
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white/15">
+            <Wallet className="h-6 w-6" />
           </span>
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-bold text-[var(--bl-ink)]">Penghasilan &amp; setoran</div>
-            <div className="mt-0.5 text-xs text-[var(--bl-muted)]">Lihat pendapatan, riwayat trip, sisa komisi</div>
+            <div className="text-[13px] font-medium text-white/80">Pendapatan hari ini</div>
+            <div className="bl-display mt-0.5 text-3xl font-extrabold leading-none">
+              {todayEarning === null ? '—' : rupiah(todayEarning)}
+            </div>
+            <div className="mt-1 text-[11px] text-white/70">
+              {todayRides} trip selesai · ketuk untuk rincian
+            </div>
           </div>
-          <span className="text-[var(--bl-muted)]">›</span>
+          <ChevronRight className="h-5 w-5 shrink-0 text-white/70" />
         </Link>
 
         {/* Daftar order masuk */}
