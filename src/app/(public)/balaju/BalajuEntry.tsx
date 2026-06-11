@@ -19,7 +19,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, Pencil, RotateCcw, ArrowRight, type LucideIcon } from 'lucide-react';
+import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, Pencil, RotateCcw, ArrowRight, X, type LucideIcon } from 'lucide-react';
 import { BalajuLocationStep, type BalajuPoint } from '@/components/balaju/rider/BalajuLocationStep';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -47,6 +47,8 @@ interface EstimateResult {
 interface RecentRoute {
   pickup: BalajuPoint;
   dropoff: BalajuPoint;
+  pickup_note: string | null;
+  dropoff_note: string | null;
   count: number;
   last_used: string;
 }
@@ -91,6 +93,7 @@ export function BalajuEntry() {
   const [dropoffNote, setDropoffNote] = useState('');
   // "Perjalanan terakhir" — saran rute berulang (pesan 1-tap). Muncul kalau ada.
   const [recentRoutes, setRecentRoutes] = useState<RecentRoute[]>([]);
+  const [routesModalOpen, setRoutesModalOpen] = useState(false);
   // resumed = draft kebaca dari sessionStorage (tampil ringkasan, sembunyikan picker).
   const [resumed, setResumed] = useState(false);
 
@@ -196,10 +199,11 @@ export function BalajuEntry() {
   function applyRoute(r: RecentRoute) {
     setPickup(r.pickup);
     setDropoff(r.dropoff);
-    setPickupNote('');
-    setDropoffNote('');
+    setPickupNote(r.pickup_note ?? ''); // bawa patokan (rute berulang biasanya sama); editable
+    setDropoffNote(r.dropoff_note ?? '');
     resetEstimate();
     setResumed(true); // tampil ringkasan rute (pola sama dgn resume login)
+    setRoutesModalOpen(false);
   }
 
   const [ordering, setOrdering] = useState(false);
@@ -386,38 +390,25 @@ export function BalajuEntry() {
         </section>
 
         {/* Perjalanan terakhir — saran rute berulang (pesan 1-tap).
-            Muncul kalau: login + ada saran + belum pilih rute (biar gak nimpa isian aktif). */}
+            Tampil 3 teratas; sisanya lewat modal "Lihat semua". */}
         {recentRoutes.length > 0 && !pickup && !dropoff && !showSummary && (
           <section className="mb-6">
             <h2 className="bl-display mb-3 text-sm font-bold uppercase tracking-wide text-[var(--bl-forest-d)]">
               Perjalanan terakhir
             </h2>
             <div className="space-y-2">
-              {recentRoutes.map((r, i) => (
-                <button
-                  key={`${r.pickup.lat},${r.pickup.lng}-${r.dropoff.lat},${r.dropoff.lng}-${i}`}
-                  onClick={() => applyRoute(r)}
-                  className="bl-shadow-soft flex w-full items-center gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-3.5 text-left transition hover:border-[var(--bl-forest)]"
-                >
-                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
-                    <RotateCcw className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex items-center gap-1.5 text-sm font-semibold text-[var(--bl-ink)]">
-                      <span className="truncate">{r.pickup.name}</span>
-                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--bl-muted)]" />
-                      <span className="truncate">{r.dropoff.name}</span>
-                    </span>
-                    {r.count > 1 && (
-                      <span className="mt-0.5 block text-[11px] text-[var(--bl-muted)]">
-                        {r.count}× perjalanan
-                      </span>
-                    )}
-                  </span>
-                  <span className="shrink-0 text-[11px] font-bold text-[var(--bl-forest)]">Pilih</span>
-                </button>
+              {recentRoutes.slice(0, 3).map((r, i) => (
+                <RouteRow key={`top-${i}`} route={r} onPick={() => applyRoute(r)} />
               ))}
             </div>
+            {recentRoutes.length > 3 && (
+              <button
+                onClick={() => setRoutesModalOpen(true)}
+                className="mt-2 w-full rounded-xl border border-[var(--bl-line)] bg-white py-2.5 text-xs font-bold text-[var(--bl-forest-d)] transition hover:border-[var(--bl-forest-30)]"
+              >
+                Lihat semua ({recentRoutes.length})
+              </button>
+            )}
           </section>
         )}
 
@@ -610,6 +601,60 @@ export function BalajuEntry() {
           </div>
         </div>
       )}
+
+      {/* Modal "Lihat semua" perjalanan terakhir */}
+      {routesModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4"
+          onClick={() => setRoutesModalOpen(false)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-md flex-col rounded-t-3xl bg-white sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-[var(--bl-line)] p-4">
+              <h2 className="bl-display text-base font-extrabold text-[var(--bl-ink)]">Perjalanan terakhir</h2>
+              <button
+                onClick={() => setRoutesModalOpen(false)}
+                className="grid h-8 w-8 place-items-center rounded-full text-[var(--bl-muted)] hover:bg-[var(--bl-line)]"
+                aria-label="Tutup"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="space-y-2 overflow-y-auto p-4">
+              {recentRoutes.map((r, i) => (
+                <RouteRow key={`all-${i}`} route={r} onPick={() => applyRoute(r)} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+// Baris saran rute (dipakai di section "3 teratas" + modal "lihat semua").
+function RouteRow({ route: r, onPick }: { route: RecentRoute; onPick: () => void }) {
+  return (
+    <button
+      onClick={onPick}
+      className="bl-shadow-soft flex w-full items-center gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-3.5 text-left transition hover:border-[var(--bl-forest)]"
+    >
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
+        <RotateCcw className="h-4 w-4" />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-1.5 text-sm font-semibold text-[var(--bl-ink)]">
+          <span className="truncate">{r.pickup.name}</span>
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--bl-muted)]" />
+          <span className="truncate">{r.dropoff.name}</span>
+        </span>
+        {r.count > 1 && (
+          <span className="mt-0.5 block text-[11px] text-[var(--bl-muted)]">{r.count}× perjalanan</span>
+        )}
+      </span>
+      <span className="shrink-0 text-[11px] font-bold text-[var(--bl-forest)]">Pilih</span>
+    </button>
   );
 }
