@@ -75,6 +75,7 @@ export default function OwnerLeasePage() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [remindLease, setRemindLease] = useState<Lease | null>(null);
   const [payLease, setPayLease] = useState<Lease | null>(null);
+  const [endLease, setEndLease] = useState<Lease | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -95,15 +96,22 @@ export default function OwnerLeasePage() {
     load();
   }, [authLoading, user, load]);
 
-  async function handleCheckout(lease: Lease) {
-    const mode = window.confirm(`Akhiri sewa ${lease.tenant_name} dari ${lease.room_name ?? 'kamar'}?\n\nPenyewa keluar & slot kamar dikosongkan.\n\nOK = lanjut  ·  Cancel = batal`) ? 'berakhir' : null;
-    if (!mode) return;
+  // buka modal konfirmasi (ganti window.confirm yang jelek)
+  function handleCheckout(lease: Lease) {
+    setEndLease(lease);
+  }
+
+  // eksekusi akhiri sewa setelah konfirmasi modal
+  async function confirmEndLease() {
+    const lease = endLease;
+    if (!lease) return;
     try {
       setBusyId(lease.id);
-      await api.post(`/bakos/owner/lease/${lease.id}/end`, { mode });
+      await api.post(`/bakos/owner/lease/${lease.id}/end`, { mode: 'berakhir' });
+      setEndLease(null);
       await load();
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Gagal checkout.');
+      alert(e instanceof ApiError ? e.message : 'Gagal mengakhiri sewa.');
     } finally {
       setBusyId(null);
     }
@@ -279,6 +287,33 @@ export default function OwnerLeasePage() {
           onClose={() => setPayLease(null)}
           onChanged={() => load()}
         />
+      )}
+
+      {/* Modal konfirmasi Akhiri Sewa (ganti window.confirm) */}
+      {endLease && (
+        <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center pb-[env(safe-area-inset-bottom)]" style={{ background: 'rgba(44,44,42,0.45)' }} onClick={() => setEndLease(null)}>
+          <div className="w-full sm:max-w-sm rounded-t-3xl sm:rounded-3xl p-5" style={{ background: BAKOS_TOKENS.pageBg }} onClick={e => e.stopPropagation()}>
+            <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center mb-4" style={{ background: '#FDECEC' }}>
+              <LogOut size={26} style={{ color: '#A32D2D' }} />
+            </div>
+            <h3 className="text-base font-bold text-center mb-1" style={{ color: BAKOS_TOKENS.textPrimary }}>Akhiri Sewa?</h3>
+            <p className="text-sm text-center mb-5 leading-relaxed" style={{ color: BAKOS_TOKENS.textSecondary }}>
+              Sewa <b style={{ color: BAKOS_TOKENS.textPrimary }}>{endLease.tenant_name}</b> dari {endLease.room_name ?? 'kamar'} akan diakhiri. Slot kamar otomatis dikosongkan & bisa diisi penyewa baru.
+            </p>
+            <div className="flex gap-2">
+              <button onClick={() => setEndLease(null)} disabled={busyId === endLease.id}
+                className="flex-1 rounded-xl border py-2.5 text-sm font-semibold disabled:opacity-50"
+                style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textPrimary, background: '#fff' }}>
+                Batal
+              </button>
+              <button onClick={confirmEndLease} disabled={busyId === endLease.id}
+                className="flex-1 rounded-xl py-2.5 text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-1.5"
+                style={{ background: '#A32D2D' }}>
+                {busyId === endLease.id ? <Loader2 size={15} className="animate-spin" /> : <LogOut size={15} />} Ya, Akhiri
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
