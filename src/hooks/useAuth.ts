@@ -82,10 +82,14 @@ interface AuthContextType {
     phone: string,
     otp: string,
   ) => Promise<{ success: boolean; message: string; is_new?: boolean; has_pin?: boolean }>;
+  googleLogin: (
+    idToken: string,
+  ) => Promise<{ success: boolean; message: string; is_new?: boolean; has_pin?: boolean }>;
   pinLogin: (pin: string) => Promise<{ success: boolean; message: string; fallbackOtp?: boolean }>;
   setPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   verifyPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   updateProfile: (name: string) => Promise<boolean>;
+  savePhone: (phone: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;       // KUNCI: simpan device trust, masuk lagi pakai PIN
   logoutFull: () => void;   // KELUAR PENUH: buang device trust, masuk lagi pakai OTP
 }
@@ -102,10 +106,12 @@ export function useAuth() {
       lockedSession: null,
       requestOtp: async () => ({ success: false, message: 'Not initialized' }),
       verifyOtp: async () => ({ success: false, message: 'Not initialized', is_new: false, has_pin: false }),
+      googleLogin: async () => ({ success: false, message: 'Not initialized', is_new: false, has_pin: false }),
       pinLogin: async () => ({ success: false, message: 'Not initialized', fallbackOtp: false }),
       setPin: async () => ({ success: false, message: 'Not initialized' }),
       verifyPin: async () => ({ success: false, message: 'Not initialized' }),
       updateProfile: async () => false,
+      savePhone: async () => ({ success: false, message: 'Not initialized' }),
       logout: () => {},
       logoutFull: () => {},
     };
@@ -300,6 +306,67 @@ export function useAuthProvider(): AuthContextType {
     };
   }
 
+  // Google Sign-In: kirim id_token ke backend /auth/google. Pola identik verifyOtp —
+  // backend balikin shape SAMA { token, refresh_token, is_new, has_pin, user }.
+  // User Google phone=null → persistLastUser pakai '' (PIN-login pakai device+refresh,
+  // bukan phone; phone cuma utk tampilan masked).
+  async function googleLogin(idToken: string) {
+    const device_id = getDeviceId();
+    const result = await safeFetchJson(`${API}/auth/google`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken, device_id }),
+    });
+
+    if (result.errorMessage) {
+      return { success: false, message: result.errorMessage, is_new: undefined, has_pin: undefined };
+    }
+
+    const data = result.data;
+
+    if (data?.success && data?.data?.token) {
+      localStorage.setItem(TOKEN_KEY, data.data.token);
+      if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
+      localStorage.removeItem(LOCKED_KEY);
+      persistLastUser({
+        phone: data.data.user.phone ?? '',
+        name: data.data.user.name,
+        has_pin: !!data.data.has_pin,
+      });
+      setToken(data.data.token);
+      setUser(data.data.user);
+      setLockedSession(null);
+      identifyUserInPostHog(data.data.user);
+    }
+
+    return {
+      success: data?.success === true,
+      message: data?.data?.message ?? data?.error?.message ?? 'Login Google gagal.',
+      is_new: data?.data?.is_new,
+      has_pin: data?.data?.has_pin,
+    };
+  }
+
+  // Simpan nomor WA post-login (kontak opsional, TANPA OTP verify). Extend /auth/profile.
+  async function savePhone(phone: string) {
+    if (!token) return { success: false, message: 'Belum login.' };
+    const result = await safeFetchJson(`${API}/auth/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ phone }),
+    });
+    if (result.errorMessage) return { success: false, message: result.errorMessage };
+    const ok = result.data?.success === true;
+    if (ok && result.data?.data) {
+      setUser(result.data.data);
+      persistLastUser({ phone: result.data.data.phone ?? '', name: result.data.data.name });
+    }
+    return {
+      success: ok,
+      message: result.data?.data?.message ?? result.data?.error?.message ?? 'Gagal menyimpan nomor.',
+    };
+  }
+
   async function pinLogin(pin: string) {
     const device = typeof window !== 'undefined' ? localStorage.getItem(DEVICE_KEY) : null;
     const refresh = typeof window !== 'undefined' ? localStorage.getItem(REFRESH_KEY) : null;
@@ -431,10 +498,12 @@ export function useAuthProvider(): AuthContextType {
     lockedSession,
     requestOtp,
     verifyOtp,
+    googleLogin,
     pinLogin,
     setPin,
     verifyPin,
     updateProfile,
+    savePhone,
     logout,
     logoutFull,
   };

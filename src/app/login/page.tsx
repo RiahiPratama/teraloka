@@ -4,13 +4,14 @@ import { useState, useRef, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import PinInput from '@/components/auth/PinInput';
+import GoogleSignInButton from '@/components/auth/GoogleSignInButton';
 
-type Step = 'phone' | 'otp' | 'setpin' | 'onboard' | 'pinlogin';
+type Step = 'phone' | 'otp' | 'setpin' | 'onboard' | 'addphone' | 'pinlogin';
 
 function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoading, lockedSession, requestOtp, verifyOtp, pinLogin, setPin, updateProfile, logoutFull } =
+  const { user, isLoading, lockedSession, requestOtp, verifyOtp, googleLogin, pinLogin, setPin, updateProfile, savePhone, logoutFull } =
     useAuth();
 
   const rawRedirect = searchParams.get('redirect');
@@ -27,6 +28,11 @@ function LoginPageContent() {
   const [resetPinMode, setResetPinMode] = useState(false);
   const [bootDone, setBootDone] = useState(false);
   const [name, setName] = useState('');
+  const [googlePhone, setGooglePhone] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  // Nahan redirect-otomatis selama flow Google (login set user tapi kita mau
+  // lanjut ke setpin/addphone dulu, bukan langsung tendang ke redirectTo).
+  const [googleInProgress, setGoogleInProgress] = useState(false);
   const [error, setError] = useState('');
   const [info, setInfo] = useState('');
   const [loading, setLoading] = useState(false);
@@ -46,8 +52,9 @@ function LoginPageContent() {
 
   useEffect(() => {
     // Redirect hanya pas user sudah login DAN tidak lagi di tengah setup/PIN.
-    if (user && (step === 'phone' || step === 'pinlogin')) router.replace(redirectTo);
-  }, [user, step, redirectTo, router]);
+    // googleInProgress = nahan redirect selama flow Google (mau ke setpin/addphone dulu).
+    if (!googleInProgress && user && (step === 'phone' || step === 'pinlogin')) router.replace(redirectTo);
+  }, [user, step, redirectTo, router, googleInProgress]);
 
   useEffect(() => {
     if (timer <= 0) return;
@@ -87,6 +94,49 @@ function LoginPageContent() {
       }
     } else {
       setError(result.message);
+    }
+  }
+
+  // Google Sign-In: terima id_token dari tombol Google → backend → user set.
+  // Flow: login → kalau belum punya PIN -> setpin (keputusan: PIN wajib utk Google).
+  //       Setelah PIN -> step 'addphone' (soft-gate nomor) -> masuk.
+  //       Kalau user lama (sudah punya PIN) -> langsung masuk.
+  async function handleGoogleCredential(idToken: string) {
+    setError('');
+    setGoogleLoading(true);
+    setGoogleInProgress(true); // tahan redirect-otomatis selama flow Google
+    const result = await googleLogin(idToken);
+    setGoogleLoading(false);
+    if (result.success) {
+      setIsNewUser(!!result.is_new);
+      if (!result.has_pin) {
+        // user Google baru / belum set PIN -> wajib set PIN dulu
+        setStep('setpin');
+      } else {
+        // user Google lama yang sudah punya PIN -> langsung masuk
+        setGoogleInProgress(false);
+        router.replace(redirectTo);
+      }
+    } else {
+      setGoogleInProgress(false);
+      setError(result.message || 'Login Google gagal. Coba lagi.');
+    }
+  }
+
+  // Simpan nomor WA (soft-gate, opsional). Skip = langsung masuk.
+  async function handleSaveGooglePhone() {
+    setError('');
+    if (googlePhone.length < 9) {
+      setError('Nomor tidak valid. Minimal 9 angka.');
+      return;
+    }
+    setLoading(true);
+    const r = await savePhone(googlePhone);
+    setLoading(false);
+    if (r.success) {
+      router.replace(redirectTo);
+    } else {
+      setError(r.message);
     }
   }
 
@@ -150,6 +200,9 @@ function LoginPageContent() {
     if (r.success) {
       if (resetPinMode) {
         router.replace(redirectTo);
+      } else if (user && !user.phone) {
+        // User Google baru (phone null) -> soft-gate tambah nomor WA dulu
+        setStep('addphone');
       } else if (isNewUser) {
         setStep('onboard');
       } else {
@@ -275,6 +328,23 @@ function LoginPageContent() {
               {loading ? 'Mengirim...' : 'Kirim Kode OTP'}
             </button>
 
+            {/* Divider "atau" */}
+            <div className="my-4 flex items-center gap-3">
+              <div className="h-px flex-1 bg-gray-200" />
+              <span className="text-xs text-gray-400">atau</span>
+              <div className="h-px flex-1 bg-gray-200" />
+            </div>
+
+            {/* Tombol Google Sign-In */}
+            <GoogleSignInButton
+              onCredential={handleGoogleCredential}
+              onError={() => setError('Login Google dibatalkan atau gagal. Coba lagi.')}
+              disabled={googleLoading}
+            />
+            {googleLoading && (
+              <p className="mt-2 text-center text-xs text-gray-400">Memproses login Google...</p>
+            )}
+
             <p className="mt-4 text-center text-xs leading-relaxed text-gray-400">
               Dengan masuk, kamu setuju dengan <span className="text-[#1B6B4A]">Syarat & Ketentuan</span> TeraLoka
             </p>
@@ -399,6 +469,54 @@ function LoginPageContent() {
               className="mt-4 h-12 w-full rounded-xl bg-[#1B6B4A] text-sm font-semibold text-white disabled:opacity-40"
             >
               {loading ? 'Menyimpan...' : 'Simpan & Masuk'}
+            </button>
+          </div>
+        )}
+
+        {/* Step: Tambah Nomor WA (soft-gate Google user — alasan jelas + skippable) */}
+        {step === 'addphone' && (
+          <div>
+            <div className="mb-5 text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-50">
+                <svg className="h-7 w-7 text-[#1B6B4A]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+              </div>
+              <h2 className="text-lg font-semibold text-gray-900">Tambah Nomor WhatsApp</h2>
+              <p className="text-sm text-gray-500">
+                Supaya kami bisa kirim notifikasi pesanan, panggilan darurat (SOS), dan koordinasi BALAJU.
+              </p>
+            </div>
+
+            <label className="mb-1.5 block text-xs font-medium text-gray-500">Nomor WhatsApp</label>
+            <div className="flex items-center overflow-hidden rounded-xl border border-gray-200 transition-colors focus-within:border-[#1B6B4A]">
+              <span className="flex h-12 items-center border-r border-gray-200 px-3 text-sm text-gray-400">+62</span>
+              <input
+                type="tel"
+                value={googlePhone}
+                onChange={(e) => { setGooglePhone(e.target.value.replace(/\D/g, '')); setError(''); }}
+                placeholder="812 3456 7890"
+                className="h-12 flex-1 bg-transparent px-3 text-sm outline-none"
+                autoFocus
+              />
+            </div>
+
+            {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
+
+            <button
+              onClick={handleSaveGooglePhone}
+              disabled={googlePhone.length < 9 || loading}
+              className="mt-4 h-12 w-full rounded-xl bg-[#1B6B4A] text-sm font-semibold text-white disabled:opacity-40"
+            >
+              {loading ? 'Menyimpan...' : 'Simpan & Masuk'}
+            </button>
+
+            {/* Skip kecil — gak menonjol, tapi ada (jangan kehilangan user yg keukeuh) */}
+            <button
+              onClick={() => router.replace(redirectTo)}
+              className="mt-3 w-full text-center text-xs text-gray-400 hover:text-gray-600"
+            >
+              Nanti saja
             </button>
           </div>
         )}
