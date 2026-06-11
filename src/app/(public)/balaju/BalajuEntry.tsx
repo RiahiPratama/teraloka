@@ -75,7 +75,7 @@ const TRUST: { Icon: LucideIcon; label: string }[] = [
 export function BalajuEntry() {
   const api = useApi();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, savePhone } = useAuth();
   const [service, setService] = useState<ServiceType>('ride_bike');
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
@@ -166,20 +166,18 @@ export function BalajuEntry() {
 
   const [ordering, setOrdering] = useState(false);
   const [orderErr, setOrderErr] = useState<string | null>(null);
+  // Gate nomor (soft, tanpa OTP): wajib ada nomor sebelum pesan biar driver bisa kontak.
+  const [phoneModalOpen, setPhoneModalOpen] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
+  const [savingPhone, setSavingPhone] = useState(false);
+  const [phoneErr, setPhoneErr] = useState<string | null>(null);
 
   // Tap "Pesan Sekarang":
   //  - belum login → simpan draft + arahkan ke /login (gerbang publik → Citizen), bukan error.
   //  - sudah login → POST /rides (bikin order) → redirect ke halaman status.
-  async function handleOrder() {
-    if (!pickup || !dropoff || ordering) return;
-
-    // Gerbang Citizen: harga boleh diintip publik, tapi PESAN wajib login.
-    if (!user) {
-      saveDraft(); // <- selamatkan isian biar gak ilang pas balik dari login
-      router.push('/login?redirect=/balaju/pesan');
-      return;
-    }
-
+  // POST /rides murni — dipanggil setelah semua gate (login + nomor) lolos.
+  async function doCreateOrder() {
+    if (!pickup || !dropoff) return;
     setOrdering(true);
     setOrderErr(null);
     try {
@@ -209,6 +207,49 @@ export function BalajuEntry() {
       setOrderErr('Gagal membuat pesanan. Coba lagi.');
       setOrdering(false);
     }
+  }
+
+  // Tap "Pesan Sekarang": 2 gerbang berlapis.
+  //  1. belum login → simpan draft + ke /login.
+  //  2. login TAPI belum punya nomor → buka modal nomor (driver wajib bisa kontak rider).
+  //  3. lengkap → POST /rides.
+  async function handleOrder() {
+    if (!pickup || !dropoff || ordering) return;
+
+    if (!user) {
+      saveDraft();
+      router.push('/login?redirect=/balaju/pesan');
+      return;
+    }
+
+    // Gate nomor: tanpa nomor, driver gak bisa hubungi rider saat menjemput.
+    if (!user.phone) {
+      setPhoneInput('');
+      setPhoneErr(null);
+      setPhoneModalOpen(true);
+      return;
+    }
+
+    await doCreateOrder();
+  }
+
+  // Simpan nomor (soft, tanpa OTP) lalu LANGSUNG lanjut bikin order.
+  async function submitPhone() {
+    const p = phoneInput.trim();
+    if (!p) {
+      setPhoneErr('Nomor HP wajib diisi.');
+      return;
+    }
+    setSavingPhone(true);
+    setPhoneErr(null);
+    const res = await savePhone(p);
+    setSavingPhone(false);
+    if (!res.success) {
+      setPhoneErr(res.message || 'Gagal menyimpan nomor. Coba lagi.');
+      return;
+    }
+    setPhoneModalOpen(false);
+    await doCreateOrder(); // user.phone sekarang keisi → order lanjut
   }
 
   const selectedBreakdown = breakdownOf(service);
@@ -449,6 +490,52 @@ export function BalajuEntry() {
           TeraLoka BALAJU · Maluku Utara
         </p>
       </div>
+
+      {/* Modal gate nomor — muncul kalau user login tapi belum punya nomor HP. */}
+      {phoneModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4" onClick={() => !savingPhone && setPhoneModalOpen(false)}>
+          <div
+            className="w-full max-w-md rounded-t-3xl bg-white p-6 sm:rounded-3xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
+              <Smartphone className="h-6 w-6" />
+            </span>
+            <h2 className="bl-display mt-3 text-center text-lg font-extrabold text-[var(--bl-ink)]">Nomor HP kamu</h2>
+            <p className="mt-1 text-center text-sm text-[var(--bl-muted)]">
+              Driver butuh nomormu untuk menghubungi saat menjemput. Cukup sekali isi.
+            </p>
+
+            <input
+              type="tel"
+              inputMode="numeric"
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              placeholder="08xxxxxxxxxx"
+              autoFocus
+              className="mt-4 w-full rounded-2xl border border-[var(--bl-line)] bg-white px-4 py-3.5 text-base font-semibold text-[var(--bl-ink)] outline-none focus:border-[var(--bl-forest)]"
+            />
+            {phoneErr && <p className="mt-2 text-center text-xs font-medium text-red-500">{phoneErr}</p>}
+
+            <button
+              onClick={submitPhone}
+              disabled={savingPhone}
+              className="bl-shadow-lift mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-[var(--bl-forest)] py-3.5 text-sm font-bold text-white transition hover:bg-[var(--bl-forest-d)] disabled:opacity-50"
+            >
+              {savingPhone ? 'Menyimpan…' : 'Simpan & lanjut pesan'}
+            </button>
+            <button
+              onClick={() => !savingPhone && setPhoneModalOpen(false)}
+              className="mt-2 w-full py-2 text-sm font-semibold text-[var(--bl-muted)]"
+            >
+              Nanti saja
+            </button>
+            <p className="mt-2 text-center text-[10px] text-[var(--bl-muted)]">
+              Nomormu tidak dipublikasikan — hanya dibagikan ke driver saat order berlangsung.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
