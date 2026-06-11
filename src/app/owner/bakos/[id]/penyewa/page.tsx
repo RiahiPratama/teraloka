@@ -18,7 +18,8 @@ import { useApi, ApiError } from '@/lib/api/client';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
 import { type Lease, type LeaseStatus, LEASE_STATUS_VIEW, OCCUPYING } from '@/components/bakos/owner/lease-types';
 import LeaseFormModal from '@/components/bakos/owner/LeaseFormModal';
-import { ChevronLeft, Loader2, UserPlus, Phone, Calendar, AlertCircle, Users, Pencil, LogOut } from 'lucide-react';
+import LeaseReminderModal from '@/components/bakos/owner/LeaseReminderModal';
+import { ChevronLeft, Loader2, UserPlus, Phone, Calendar, AlertCircle, Users, Pencil, LogOut, BellRing } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
 const FILTERS: { key: 'all' | LeaseStatus; label: string }[] = [
@@ -49,6 +50,7 @@ export default function OwnerLeasePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Lease | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [remindLease, setRemindLease] = useState<Lease | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -171,6 +173,11 @@ export default function OwnerLeasePage() {
 
                   {!ended && (
                     <div className="mt-3 flex gap-2">
+                      <button onClick={() => setRemindLease(lease)}
+                        className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 text-white"
+                        style={{ background: BRAND }}>
+                        <BellRing size={13} /> Ingatkan
+                      </button>
                       <button onClick={() => { setEditing(lease); setModalOpen(true); }}
                         className="flex-1 rounded-xl border py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
                         style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textPrimary, background: '#fff' }}>
@@ -196,6 +203,13 @@ export default function OwnerLeasePage() {
           editing={editing}
           onClose={() => setModalOpen(false)}
           onSaved={() => { setModalOpen(false); load(); }}
+        />
+      )}
+
+      {remindLease && (
+        <LeaseReminderModal
+          lease={remindLease}
+          onClose={() => setRemindLease(null)}
         />
       )}
     </div>
