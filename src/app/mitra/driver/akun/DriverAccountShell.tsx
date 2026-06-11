@@ -5,16 +5,21 @@
 // Sumber: GET /driver/me (driver + vehicle + documents signed-URL) & useAuth() (identitas akun).
 // Edit data via admin (etos manual-first). Aktivitas warga (BALAPOR/BADONASI) = akun warga, terpisah.
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   ChevronLeft, Loader2, ShieldCheck, ShieldAlert, Clock, Bike, Car, Package,
-  Phone, User, FileText, LogOut, AlertTriangle, Check, IdCard,
+  Phone, User, FileText, LogOut, AlertTriangle, Check, IdCard, Camera,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
+import { createClient } from '@/lib/supabase/client';
+import { compressImage } from '@/utils/pwa-utils';
 import '@/components/balaju/public/balaju-landing.css';
+
+const AVATAR_BUCKET = 'avatars';
+const AVATAR_MAX_MB = 2; // limit bucket avatars
 
 const HOME_URL = '/mitra/driver';
 
@@ -58,12 +63,17 @@ function initials(name: string | null): string {
 export default function DriverAccountShell() {
   const api = useApi();
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, updateAvatar } = useAuth();
 
   const [data, setData] = useState<MeResponse | null>(null);
   const [perf, setPerf] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
+
+  // Avatar upload (client-side, niru pola KycDocUpload tapi bucket publik).
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarErr, setAvatarErr] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -92,6 +102,66 @@ export default function DriverAccountShell() {
   function doLogout() {
     logout();
     router.push('/');
+  }
+
+  // Upload foto profil: pilih file -> compress -> bucket 'avatars' (publik) ->
+  // getPublicUrl -> updateAvatar(url) (PATCH profile + setUser). Niru KycDocUpload,
+  // bedanya emit URL publik (bukan raw path) krn avatar dilihat rider.
+  async function onAvatarPick(file: File | undefined) {
+    if (!file || avatarBusy) return;
+    setAvatarErr(null);
+
+    if (!file.type.startsWith('image/')) {
+      setAvatarErr('Format harus JPG, PNG, atau WEBP.');
+      return;
+    }
+
+    setAvatarBusy(true);
+    try {
+      const processed = await compressImage(file);
+      if (processed.size > AVATAR_MAX_MB * 1024 * 1024) {
+        setAvatarErr(`Foto terlalu besar. Maks ${AVATAR_MAX_MB}MB.`);
+        setAvatarBusy(false);
+        return;
+      }
+
+      const supabase = createClient();
+      const uid = user?.id;
+      if (!uid) {
+        setAvatarErr('Sesi tidak ditemukan. Coba lagi.');
+        setAvatarBusy(false);
+        return;
+      }
+
+      const ext = (processed.name.split('.').pop() || 'jpg').toLowerCase();
+      const path = `${uid}/${Date.now()}.${ext}`;
+
+      const { error: upErr } = await supabase.storage
+        .from(AVATAR_BUCKET)
+        .upload(path, processed, { cacheControl: '3600', upsert: true });
+      if (upErr) {
+        setAvatarErr(`Upload gagal: ${upErr.message}`);
+        setAvatarBusy(false);
+        return;
+      }
+
+      const { data: pub } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(path);
+      const url = pub?.publicUrl;
+      if (!url) {
+        setAvatarErr('Gagal mengambil URL foto.');
+        setAvatarBusy(false);
+        return;
+      }
+
+      const ok = await updateAvatar(url);
+      if (!ok) {
+        setAvatarErr('Foto terunggah tapi gagal disimpan. Coba lagi.');
+      }
+    } catch (e) {
+      setAvatarErr(e instanceof Error ? e.message : 'Gagal memproses foto.');
+    } finally {
+      setAvatarBusy(false);
+    }
   }
 
   if (loading) {
@@ -148,9 +218,36 @@ export default function DriverAccountShell() {
         {/* Kartu profil */}
         <div className="bl-shadow-lift mt-5 rounded-3xl border border-[var(--bl-line)] bg-white p-5">
           <div className="flex items-center gap-4">
-            <span className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-[var(--bl-forest)] text-xl font-extrabold text-white bl-display">
-              {initials(driver.name)}
-            </span>
+            <div className="relative shrink-0">
+              {user?.avatar_url ? (
+                <img
+                  src={user.avatar_url}
+                  alt={cleanName}
+                  className="h-16 w-16 rounded-full object-cover border border-[var(--bl-line)]"
+                />
+              ) : (
+                <span className="grid h-16 w-16 place-items-center rounded-full bg-[var(--bl-forest)] text-xl font-extrabold text-white bl-display">
+                  {initials(driver.name)}
+                </span>
+              )}
+              {/* Tombol kamera — upload foto profil */}
+              <button
+                type="button"
+                onClick={() => !avatarBusy && fileRef.current?.click()}
+                disabled={avatarBusy}
+                aria-label="Ubah foto profil"
+                className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-[var(--bl-forest)] text-white shadow-md ring-2 ring-white transition active:scale-90 disabled:opacity-60"
+              >
+                {avatarBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(e) => onAvatarPick(e.target.files?.[0])}
+                className="hidden"
+              />
+            </div>
             <div className="min-w-0 flex-1">
               <div className="bl-display text-lg font-extrabold text-[var(--bl-ink)] truncate">{cleanName}</div>
               <div className="mt-1 flex flex-wrap items-center gap-1.5">
@@ -164,6 +261,7 @@ export default function DriverAccountShell() {
                   </span>
                 )}
               </div>
+              {avatarErr && <p className="mt-1.5 text-[11px] font-medium text-red-500">{avatarErr}</p>}
             </div>
           </div>
 

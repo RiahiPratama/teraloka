@@ -89,6 +89,7 @@ interface AuthContextType {
   setPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   verifyPin: (pin: string) => Promise<{ success: boolean; message: string }>;
   updateProfile: (name: string) => Promise<boolean>;
+  updateAvatar: (avatarUrl: string) => Promise<boolean>;
   savePhone: (phone: string) => Promise<{ success: boolean; message: string }>;
   logout: () => void;       // KUNCI: simpan device trust, masuk lagi pakai PIN
   logoutFull: () => void;   // KELUAR PENUH: buang device trust, masuk lagi pakai OTP
@@ -111,6 +112,7 @@ export function useAuth() {
       setPin: async () => ({ success: false, message: 'Not initialized' }),
       verifyPin: async () => ({ success: false, message: 'Not initialized' }),
       updateProfile: async () => false,
+      updateAvatar: async () => false,
       savePhone: async () => ({ success: false, message: 'Not initialized' }),
       logout: () => {},
       logoutFull: () => {},
@@ -457,6 +459,25 @@ export function useAuthProvider(): AuthContextType {
     return true;
   }
 
+  // Simpan avatar_url post-upload. File udah di bucket 'avatars' (publik) — di sini
+  // cuma simpan URL-nya ke profil via PATCH /auth/profile (pola sama updateProfile).
+  // setUser -> avatar langsung kebarui di UI tanpa reload.
+  async function updateAvatar(avatarUrl: string) {
+    if (!token) return false;
+    const result = await safeFetchJson(`${API}/auth/profile`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ avatar_url: avatarUrl }),
+    });
+    if (result.errorMessage || !result.data?.success) return false;
+    if (result.data.data) {
+      setUser(result.data.data);
+      identifyUserInPostHog(result.data.data);
+      persistLastUser({ phone: result.data.data.phone ?? '', name: result.data.data.name });
+    }
+    return true;
+  }
+
   // KUNCI (logout biasa): buang access token, set flag terkunci.
   // Refresh token + device + last_user DIPERTAHANKAN -> masuk lagi cukup PIN.
   function logout() {
@@ -503,6 +524,7 @@ export function useAuthProvider(): AuthContextType {
     setPin,
     verifyPin,
     updateProfile,
+    updateAvatar,
     savePhone,
     logout,
     logoutFull,
