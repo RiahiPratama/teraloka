@@ -104,6 +104,14 @@ function IconHome({ className = ICON }: IconProps) {
     </svg>
   );
 }
+function IconActivity({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v5l3 2" />
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const router = useRouter();
@@ -196,6 +204,7 @@ export default function Navbar() {
   // Item akun (dipakai desktop dropdown). Icon = komponen line-icon.
   const accountItems = [
     { href: '/profile', label: 'Profil Saya', Icon: IconUser },
+    { href: '/aktivitas', label: 'Aktivitasku', Icon: IconActivity },
     { href: '/my-reports', label: 'Laporan Saya', Icon: IconMegaphone },
     { href: '/owner', label: 'Portal Mitra', Icon: IconStore },
     { href: '/owner/funding/campaigns/new/info', label: 'Ajukan Campaign', Icon: IconHeart },
@@ -453,6 +462,10 @@ export default function Navbar() {
                     <Link href="/profile/donations" onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
                       <IconHeart className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Donasi Saya
+                    </Link>
+                    <Link href="/aktivitas" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconActivity className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Aktivitasku
                     </Link>
                     <Link href="/my-reports" onClick={() => setMobileMenuOpen(false)}
                       className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
