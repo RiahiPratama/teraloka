@@ -16,7 +16,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
-import { type Lease, type LeaseStatus, LEASE_STATUS_VIEW, OCCUPYING } from '@/components/bakos/owner/lease-types';
+import { type Lease, type LeaseStatus, LEASE_STATUS_VIEW } from '@/components/bakos/owner/lease-types';
 import LeaseFormModal from '@/components/bakos/owner/LeaseFormModal';
 import LeaseReminderModal from '@/components/bakos/owner/LeaseReminderModal';
 import { ChevronLeft, Loader2, UserPlus, Phone, Calendar, AlertCircle, Users, Pencil, LogOut, BellRing } from 'lucide-react';
@@ -34,6 +34,21 @@ function fmtRp(n: number) { return 'Rp ' + (n ?? 0).toLocaleString('id-ID'); }
 function fmtDate(s: string) {
   try { return new Date(s + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }); }
   catch { return s; }
+}
+
+// "2 jam lalu" / "kemarin" / "3 hari lalu" dari timestamp ISO.
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  const diffMs = Date.now() - then;
+  const mins = Math.floor(diffMs / 60000);
+  if (mins < 1) return 'baru saja';
+  if (mins < 60) return `${mins} menit lalu`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} jam lalu`;
+  const days = Math.floor(hours / 24);
+  if (days === 1) return 'kemarin';
+  if (days < 30) return `${days} hari lalu`;
+  return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export default function OwnerLeasePage() {
@@ -72,7 +87,7 @@ export default function OwnerLeasePage() {
   }, [authLoading, user, load]);
 
   async function handleCheckout(lease: Lease) {
-    const mode = window.confirm(`Checkout ${lease.tenant_name} dari ${lease.room_name ?? 'kamar'}?\n\nOK = masa sewa berakhir normal\nCancel = batal`) ? 'berakhir' : null;
+    const mode = window.confirm(`Akhiri sewa ${lease.tenant_name} dari ${lease.room_name ?? 'kamar'}?\n\nPenyewa keluar & slot kamar dikosongkan.\n\nOK = lanjut  ·  Cancel = batal`) ? 'berakhir' : null;
     if (!mode) return;
     try {
       setBusyId(lease.id);
@@ -86,8 +101,9 @@ export default function OwnerLeasePage() {
   }
 
   const filtered = filter === 'all' ? leases : leases.filter(l => l.status === filter);
-  const occupying = leases.filter(l => OCCUPYING.includes(l.status)).length;
+  const aktifCount = leases.filter(l => l.status === 'aktif').length;
   const nunggak = leases.filter(l => l.status === 'nunggak').length;
+  const keluarCount = leases.filter(l => l.status === 'berakhir' || l.status === 'keluar').length;
 
   if (authLoading || loading) {
     return <div className="min-h-screen flex items-center justify-center" style={{ background: BAKOS_TOKENS.pageBg }}><Loader2 className="animate-spin" style={{ color: BRAND }} /></div>;
@@ -114,10 +130,11 @@ export default function OwnerLeasePage() {
           </div>
         </div>
 
-        {/* ringkasan */}
-        <div className="grid grid-cols-3 gap-2 mb-4">
-          <Stat label="Menempati" value={occupying} />
+        {/* ringkasan — 4 kartu gak-overlap: Aktif + Nunggak + Keluar = Total */}
+        <div className="grid grid-cols-4 gap-2 mb-4">
+          <Stat label="Aktif" value={aktifCount} />
           <Stat label="Nunggak" value={nunggak} danger={nunggak > 0} />
+          <Stat label="Keluar" value={keluarCount} />
           <Stat label="Total" value={leases.length} />
         </div>
 
@@ -169,6 +186,14 @@ export default function OwnerLeasePage() {
                     <div className="flex items-center gap-1.5"><Phone size={12} /> {lease.tenant_phone}</div>
                     <div className="flex items-center gap-1.5"><Calendar size={12} /> Jatuh tempo tiap tgl <b style={{ color: BAKOS_TOKENS.textPrimary }}>{lease.due_day}</b> · {fmtRp(lease.rent_amount)}/bln</div>
                     <div className="flex items-center gap-1.5 opacity-80"><Calendar size={12} /> {fmtDate(lease.start_date)} → {fmtDate(lease.end_date)}</div>
+                    {!ended && (
+                      <div className="flex items-center gap-1.5" style={{ color: lease.last_reminded_at ? BRAND : BAKOS_TOKENS.textTertiary }}>
+                        <BellRing size={12} />
+                        {lease.last_reminded_at
+                          ? `Terakhir diingatkan ${relativeTime(lease.last_reminded_at)}`
+                          : 'Belum pernah diingatkan'}
+                      </div>
+                    )}
                   </div>
 
                   {!ended && (
@@ -186,7 +211,7 @@ export default function OwnerLeasePage() {
                       <button onClick={() => handleCheckout(lease)} disabled={busyId === lease.id}
                         className="flex-1 rounded-xl border py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
                         style={{ borderColor: '#F0C9C9', color: '#A32D2D', background: '#fff' }}>
-                        {busyId === lease.id ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />} Checkout
+                        {busyId === lease.id ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />} Akhiri Sewa
                       </button>
                     </div>
                   )}

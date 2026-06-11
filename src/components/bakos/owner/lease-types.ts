@@ -25,6 +25,7 @@ export interface Lease {
   // enrich dari listLeases
   kos_title?: string | null;
   room_name?: string | null;
+  last_reminded_at?: string | null;
 }
 
 export interface LeaseInput {
