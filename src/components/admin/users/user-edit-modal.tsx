@@ -4,9 +4,10 @@
  * TeraLoka — UserEditModal
  * Phase 2 · Batch 7a3 — Avatar Upload Integration
  * ------------------------------------------------------------
- * Combined modal untuk 3 edit actions:
+ * Combined modal untuk 4 edit actions:
  * - mode='name'   → PATCH /admin/users/:id/name    body: { name }
  * - mode='phone'  → PATCH /admin/users/:id/phone   body: { phone, reason }
+ * - mode='email'  → PATCH /admin/users/:id/email   body: { email, reason }
  * - mode='avatar' → PATCH /admin/users/:id/avatar  body: { avatar_url }
  *
  * Avatar mode menggunakan ImageUpload component (upload langsung ke
@@ -14,10 +15,16 @@
  *
  * Phone mode extra field: reason (optional audit trail).
  * Phone mode warning: JWT lama masih valid sampai expired.
+ *
+ * EMAIL mode (11 Jun 2026 — TL-AUTH-LINK):
+ *   Set/ubah email = ACCOUNT LINKING. User OTP lama yang di-set email-nya
+ *   bisa login Google ke akun LAMA mereka (handler /auth/google auto-link
+ *   by verified email). KRUSIAL untuk selamatkan super_admin dari lockout.
+ *   Warning keamanan: email = kunci login Google, harus benar & dikuasai user.
  */
 
 import { useState, useEffect, type FormEvent } from 'react';
-import { Edit3, Phone, Camera, Trash2 } from 'lucide-react';
+import { Edit3, Phone, Mail, Camera, Trash2 } from 'lucide-react';
 import { ApiError, useApi } from '@/lib/api/client';
 import type { User } from '@/types/users';
 import { Button } from '@/components/ui/button';
@@ -30,12 +37,12 @@ import {
 import { Input } from '@/components/ui/input';
 import ImageUpload from '@/components/ui/ImageUpload';
 
-export type EditMode = 'name' | 'phone' | 'avatar';
+export type EditMode = 'name' | 'phone' | 'email' | 'avatar';
 
 export interface UserEditModalProps {
   open: boolean;
   onClose: () => void;
-  /** Mode edit: 'name', 'phone', atau 'avatar' */
+  /** Mode edit: 'name', 'phone', 'email', atau 'avatar' */
   mode: EditMode;
   /** Target user */
   user: User | null;
@@ -72,6 +79,9 @@ export function UserEditModal({
     } else if (mode === 'phone') {
       setValue(user.phone ?? '');
       setReason('');
+    } else if (mode === 'email') {
+      setValue(user.email ?? '');
+      setReason('');
     } else if (mode === 'avatar') {
       setAvatarUrl(user.avatar_url);
     }
@@ -90,11 +100,20 @@ export function UserEditModal({
     e?.preventDefault();
     if (!user) return;
 
-    // Validation khusus untuk name/phone modes
-    if (mode === 'name' || mode === 'phone') {
+    // Validation untuk name/phone/email modes
+    if (mode === 'name' || mode === 'phone' || mode === 'email') {
       const trimmed = value.trim();
       if (!trimmed) {
-        setError(mode === 'name' ? 'Nama tidak boleh kosong' : 'Nomor WA tidak boleh kosong');
+        setError(
+          mode === 'name' ? 'Nama tidak boleh kosong' :
+          mode === 'phone' ? 'Nomor WA tidak boleh kosong' :
+          'Email tidak boleh kosong'
+        );
+        return;
+      }
+      // Validasi format email (sebelum kirim ke server)
+      if (mode === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+        setError('Format email tidak valid');
         return;
       }
     }
@@ -111,6 +130,12 @@ export function UserEditModal({
           reason: reason.trim(),
         });
         onToast('Nomor WA berhasil diubah', true);
+      } else if (mode === 'email') {
+        await api.patch(`/admin/users/${user.id}/email`, {
+          email: value.trim(),
+          reason: reason.trim(),
+        });
+        onToast('Email berhasil diubah', true);
       } else if (mode === 'avatar') {
         // avatar_url bisa null (remove) atau string URL (new avatar)
         await api.patch(`/admin/users/${user.id}/avatar`, {
@@ -129,6 +154,7 @@ export function UserEditModal({
       const errorMap: Record<EditMode, string> = {
         name: 'Gagal mengubah nama',
         phone: 'Gagal mengubah nomor WA',
+        email: 'Gagal mengubah email',
         avatar: 'Gagal mengubah foto profil',
       };
       const message =
@@ -148,37 +174,43 @@ export function UserEditModal({
   const icon =
     mode === 'name' ? <Edit3 size={18} /> :
     mode === 'phone' ? <Phone size={18} /> :
+    mode === 'email' ? <Mail size={18} /> :
     <Camera size={18} />;
 
   const title =
     mode === 'name' ? 'Edit Nama' :
     mode === 'phone' ? 'Ganti Nomor WA' :
+    mode === 'email' ? 'Ganti Email' :
     'Ganti Foto Profil';
 
   const description =
     mode === 'name' ? 'Nama tampil di platform TeraLoka' :
     mode === 'phone' ? 'Nomor WA lama akan diganti. JWT lama tetap valid sampai expired.' :
+    mode === 'email' ? 'Email dipakai untuk login Google. Pastikan email benar & dikuasai user.' :
     'Upload foto baru atau hapus foto existing';
 
   const tone: 'primary' | 'warning' =
     mode === 'name' ? 'primary' :
     mode === 'phone' ? 'warning' :
+    mode === 'email' ? 'warning' :
     'primary';
 
   const submitLabel =
     mode === 'name' ? 'Simpan' :
     mode === 'phone' ? 'Ganti Nomor' :
+    mode === 'email' ? 'Simpan Email' :
     'Simpan Foto';
 
   const submitLoadingLabel =
     mode === 'name' ? 'Menyimpan...' :
     mode === 'phone' ? 'Mengganti...' :
+    mode === 'email' ? 'Menyimpan...' :
     'Menyimpan...';
 
   // Determine if submit enabled — untuk avatar, enable kalau ada perubahan
   const avatarChanged = mode === 'avatar' && avatarUrl !== (user?.avatar_url ?? null);
   const canSubmit =
-    mode === 'name' || mode === 'phone'
+    mode === 'name' || mode === 'phone' || mode === 'email'
       ? value.trim().length > 0
       : avatarChanged;
 
@@ -206,34 +238,57 @@ export function UserEditModal({
             </div>
           )}
 
-          {/* Name / Phone input */}
-          {(mode === 'name' || mode === 'phone') && (
+          {/* Email warning banner — account linking security */}
+          {mode === 'email' && (
+            <div className="rounded-lg bg-status-warning/8 border border-status-warning/20 px-3 py-2.5 text-xs text-status-warning leading-relaxed">
+              ⚠️ Email ini jadi kunci login Google ke akun user. Siapa pun yang
+              bisa login Google dengan email ini akan masuk ke akun ini. Pastikan
+              email benar & beneran dikuasai user yang bersangkutan.
+            </div>
+          )}
+
+          {/* Name / Phone / Email input */}
+          {(mode === 'name' || mode === 'phone' || mode === 'email') && (
             <>
               <Input
-                label={mode === 'name' ? 'Nama Lengkap' : 'Nomor WA Baru'}
+                label={
+                  mode === 'name' ? 'Nama Lengkap' :
+                  mode === 'phone' ? 'Nomor WA Baru' :
+                  'Email Baru'
+                }
                 required
-                type={mode === 'name' ? 'text' : 'tel'}
+                type={
+                  mode === 'name' ? 'text' :
+                  mode === 'phone' ? 'tel' :
+                  'email'
+                }
                 value={value}
                 onChange={(e) => {
                   setValue(e.target.value);
                   if (error) setError(null);
                 }}
                 placeholder={
-                  mode === 'name' ? 'Nama lengkap...' : '628XXXXXXXXXX'
+                  mode === 'name' ? 'Nama lengkap...' :
+                  mode === 'phone' ? '628XXXXXXXXXX' :
+                  'nama@gmail.com'
                 }
                 error={error ?? undefined}
                 autoFocus
                 disabled={loading}
               />
 
-              {mode === 'phone' && (
+              {(mode === 'phone' || mode === 'email') && (
                 <Input
                   label="Alasan"
                   helperText="Opsional — untuk audit log"
                   type="text"
                   value={reason}
                   onChange={(e) => setReason(e.target.value)}
-                  placeholder="HP hilang, ganti kartu, dll..."
+                  placeholder={
+                    mode === 'phone'
+                      ? 'HP hilang, ganti kartu, dll...'
+                      : 'Link akun ke Google, pemulihan akses, dll...'
+                  }
                   disabled={loading}
                 />
               )}

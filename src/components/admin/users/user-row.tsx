@@ -28,7 +28,7 @@
  */
 
 import { useState, useRef, useEffect, type MouseEvent } from 'react';
-import { MoreHorizontal, Edit3, Phone, Ban, CheckCircle2, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Edit3, Phone, Mail, Ban, CheckCircle2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from './user-avatar';
@@ -51,6 +51,7 @@ export interface UserRowProps {
   /** Callback slots — akan di-wire di Batch 7a2 */
   onEditName?: (user: User) => void;
   onEditPhone?: (user: User) => void;
+  onEditEmail?: (user: User) => void;
   onToggleActive?: (user: User) => void;
   onDelete?: (user: User) => void;
   onChangeRole?: (user: User, newRole: UserRole) => void;
@@ -157,6 +158,7 @@ interface ActionMenuProps {
   isActive: boolean;
   /** Callback slots — kalau undefined, item di-disable dengan "Segera hadir" label */
   onEditPhone?: (user: User) => void;
+  onEditEmail?: (user: User) => void;
   onToggleActive?: (user: User) => void;
   onDelete?: (user: User) => void;
 }
@@ -165,6 +167,7 @@ function ActionMenu({
   user,
   isActive,
   onEditPhone,
+  onEditEmail,
   onToggleActive,
   onDelete,
 }: ActionMenuProps) {
@@ -217,6 +220,13 @@ function ActionMenu({
       icon: <Phone size={13} />,
       label: 'Ganti Nomor WA',
       onClick: onEditPhone ? () => { onEditPhone(user); setOpen(false); } : undefined,
+      color: 'text-text-secondary',
+      hoverBg: 'hover:bg-surface-muted',
+    },
+    {
+      icon: <Mail size={13} />,
+      label: 'Ganti Email',
+      onClick: onEditEmail ? () => { onEditEmail(user); setOpen(false); } : undefined,
       color: 'text-text-secondary',
       hoverBg: 'hover:bg-surface-muted',
     },
@@ -387,6 +397,7 @@ export function UserRow({
   loading = false,
   onEditName,
   onEditPhone,
+  onEditEmail,
   onToggleActive,
   onDelete,
   onChangeRole,
@@ -507,6 +518,7 @@ export function UserRow({
             user={user}
             isActive={isActive}
             onEditPhone={onEditPhone}
+            onEditEmail={onEditEmail}
             onToggleActive={onToggleActive}
             onDelete={onDelete}
           />

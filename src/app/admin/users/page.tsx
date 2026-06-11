@@ -11,6 +11,10 @@
  * - Click → open UserEditModal mode='avatar' (ImageUpload + PATCH endpoint)
  * - Backend endpoint: PATCH /admin/users/:id/avatar
  *
+ * 11 Jun 2026 (TL-AUTH-LINK):
+ * - Tambah "Ganti Email" → UserEditModal mode='email' (PATCH /admin/users/:id/email)
+ *   Account-linking: set email user OTP lama → bisa login Google ke akun lama.
+ *
  * Previous batches:
  * - 7a1: List view + filters + stats
  * - 7a2: 5 modals (invite, editName, editPhone, role, activate/deactivate/delete)
@@ -180,6 +184,10 @@ export default function AdminUsersPage() {
     setModal({ type: 'edit', mode: 'phone', user });
   }, []);
 
+  const handleEditEmail = useCallback((user: User) => {
+    setModal({ type: 'edit', mode: 'email', user });
+  }, []);
+
   const handleChangeRole = useCallback((user: User, newRole: UserRole) => {
     if (newRole === user.role) return;
     setModal({ type: 'role', user, newRole });
@@ -345,7 +353,7 @@ export default function AdminUsersPage() {
               onKeyDown={(e) => {
                 if (e.key === 'Enter') applySearch();
               }}
-              placeholder="Cari nama atau nomor WA…"
+              placeholder="Cari nama, nomor WA, atau email…"
               className="flex-1 min-w-0 bg-transparent border-none outline-none text-[12px] text-text placeholder:text-text-subtle"
             />
             {searchInput && (
@@ -436,6 +444,7 @@ export default function AdminUsersPage() {
                   currentUserId={currentUser?.id}
                   onEditName={handleEditName}
                   onEditPhone={handleEditPhone}
+                  onEditEmail={handleEditEmail}
                   onToggleActive={handleToggleActive}
                   onDelete={handleDelete}
                   onChangeRole={handleChangeRole}
