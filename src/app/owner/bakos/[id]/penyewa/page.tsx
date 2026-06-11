@@ -209,33 +209,44 @@ export default function OwnerLeasePage() {
                       const mlabel = lease.current_period ? lease.current_period.split('-')[1] : '';
                       const bulanNama = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][Number(mlabel)] ?? '';
                       return (
-                        <button onClick={() => setPayLease(lease)}
-                          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full active:scale-95 transition-transform w-fit"
+                        <span
+                          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full w-fit"
                           style={pv ? { color: pv.color, background: pv.bg } : { color: BAKOS_TOKENS.textSecondary, background: BAKOS_TOKENS.surfaceAlt }}>
                           <Wallet size={11} />
-                          {pv ? `${bulanNama}: ${pv.label}` : 'Catat bayar'}
-                        </button>
+                          {pv ? `${bulanNama}: ${pv.label}` : 'Belum ada tagihan'}
+                        </span>
                       );
                     })()}
                   </div>
 
                   {!ended && (
-                    <div className="mt-3 flex gap-2">
-                      <button onClick={() => setRemindLease(lease)}
-                        className="flex-1 rounded-xl py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 text-white"
-                        style={{ background: BRAND }}>
-                        <BellRing size={13} /> Ingatkan
-                      </button>
-                      <button onClick={() => { setEditing(lease); setModalOpen(true); }}
-                        className="flex-1 rounded-xl border py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
-                        style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textPrimary, background: '#fff' }}>
-                        <Pencil size={13} /> Edit
-                      </button>
-                      <button onClick={() => handleCheckout(lease)} disabled={busyId === lease.id}
-                        className="flex-1 rounded-xl border py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
-                        style={{ borderColor: '#F0C9C9', color: '#A32D2D', background: '#fff' }}>
-                        {busyId === lease.id ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />} Akhiri Sewa
-                      </button>
+                    <div className="mt-3 space-y-2">
+                      {/* baris 1 — aksi sering: Catat Bayar (primer) + Ingatkan */}
+                      <div className="flex gap-2">
+                        <button onClick={() => setPayLease(lease)}
+                          className="flex-1 rounded-xl py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 text-white"
+                          style={{ background: BRAND }}>
+                          <Wallet size={14} /> Catat Bayar
+                        </button>
+                        <button onClick={() => setRemindLease(lease)}
+                          className="flex-1 rounded-xl border py-2.5 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
+                          style={{ borderColor: BRAND, color: BRAND, background: '#fff' }}>
+                          <BellRing size={13} /> Ingatkan
+                        </button>
+                      </div>
+                      {/* baris 2 — aksi jarang: Edit + Akhiri Sewa */}
+                      <div className="flex gap-2">
+                        <button onClick={() => { setEditing(lease); setModalOpen(true); }}
+                          className="flex-1 rounded-xl border py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95"
+                          style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textPrimary, background: '#fff' }}>
+                          <Pencil size={13} /> Edit
+                        </button>
+                        <button onClick={() => handleCheckout(lease)} disabled={busyId === lease.id}
+                          className="flex-1 rounded-xl border py-2 text-xs font-semibold flex items-center justify-center gap-1.5 transition active:scale-95 disabled:opacity-50"
+                          style={{ borderColor: '#F0C9C9', color: '#A32D2D', background: '#fff' }}>
+                          {busyId === lease.id ? <Loader2 size={13} className="animate-spin" /> : <LogOut size={13} />} Akhiri Sewa
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
