@@ -23,7 +23,7 @@ import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } fr
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
 import KosMapPicker from '@/components/bakos/owner/KosMapPicker';
 import type { LatLng } from '@/components/bakos/owner/KosMapPickerInner';
-import { ChevronLeft, BedDouble, Trash2, Loader2, AlertCircle, Save, Check } from 'lucide-react';
+import { ChevronLeft, BedDouble, Trash2, Loader2, AlertCircle, Save, Check, Users } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
 
@@ -182,6 +182,22 @@ export default function OwnerKosEditPage() {
             </span>
           </span>
           <span className="text-xs font-semibold flex items-center gap-1" style={{ color: BRAND }}>{roomCount} tipe →</span>
+        </button>
+
+        {/* L5-FE-LEASE-CTA — Kelola Penyewa (PMS Fase 1) */}
+        <button onClick={() => router.push(`/owner/bakos/${id}/penyewa`)}
+          className="w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-5 transition-transform active:scale-[0.99]"
+          style={{ background: `linear-gradient(135deg, ${BAKOS_TOKENS.accentBg}, #fff)`, border: `1px solid ${BAKOS_TOKENS.border}`, boxShadow: '0 1px 3px rgba(133,79,11,0.06)' }}>
+          <span className="flex items-center gap-2.5">
+            <span className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: '#fff', border: `1px solid ${BAKOS_TOKENS.border}` }}>
+              <Users size={17} style={{ color: BRAND }} />
+            </span>
+            <span className="text-left">
+              <span className="block text-sm font-semibold" style={{ color: BAKOS_TOKENS.textPrimary }}>Kelola Penyewa</span>
+              <span className="block text-[11px]" style={{ color: BAKOS_TOKENS.textSecondary }}>Catat penyewa, jatuh tempo, checkout</span>
+            </span>
+          </span>
+          <span className="text-xs font-semibold flex items-center gap-1" style={{ color: BRAND }}>→</span>
         </button>
 
         <div className="space-y-4">
