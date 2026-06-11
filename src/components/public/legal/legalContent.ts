@@ -1,6 +1,7 @@
 // src/content/legal/legalContent.ts
 //
 // SINGLE SOURCE OF TRUTH untuk 4 dokumen legal footer TeraLoka.
+// MARKER: LEGAL-CONFIG-LIVE-11JUN2026
 // Edit teks hukum di sini → semua halaman (/privasi /syarat /pedoman /lisensi) ikut update.
 //
 // ⚙️ ISI SEBELUM GO-LIVE: lengkapi LEGAL_CONFIG di bawah.
@@ -22,7 +23,7 @@ export interface LegalConfig {
 }
 
 export const LEGAL_CONFIG: LegalConfig = {
-  tanggalBerlaku: '[ISI TANGGAL BERLAKU]',
+  tanggalBerlaku: '11 Juni 2026',
   pengelolaNama: 'Tim Pengelola TeraLoka',
   pengelolaStatus:
     'TeraLoka saat ini dikelola sebagai sebuah inisiatif yang sedang dalam proses ' +
@@ -30,9 +31,9 @@ export const LEGAL_CONFIG: LegalConfig = {
     'fungsi pengelolaan dijalankan oleh tim pengelola TeraLoka, dan akan dialihkan kepada ' +
     'badan hukum yang dibentuk segera setelah pendiriannya selesai. Perubahan ini akan ' +
     'diberitahukan melalui pembaruan dokumen ini.',
-  emailPrivasi: 'privasi@teraloka.com',
-  emailKontak: 'halo@teraloka.com',
-  emailHakJawab: 'redaksi@teraloka.com',
+  emailPrivasi: 'siapgo86@gmail.com',
+  emailKontak: 'siapgo86@gmail.com',
+  emailHakJawab: 'siapgo86@gmail.com',
   alamat: 'Ternate, Maluku Utara, Indonesia',
   kotaPengadilan: 'Ternate',
 };
@@ -45,7 +46,7 @@ export function privasiDoc(c: LegalConfig): string {
 
 ## 1. Pendahuluan
 
-TeraLoka ("Platform", "kami") adalah platform digital hiperlokal untuk wilayah Maluku Utara yang menyediakan beragam layanan, antara lain BAKABAR (berita), BALAPOR (laporan warga), BADONASI (penggalangan dana), BAKOS (kos-kosan), BAPASIAR (transportasi), serta layanan lainnya.
+TeraLoka ("Platform", "kami") adalah platform digital hiperlokal untuk wilayah Maluku Utara yang menyediakan beragam layanan, antara lain BAKABAR (berita), BALAPOR (laporan warga), BADONASI (penggalangan dana), BAKOS (kos-kosan), BALAJU (transportasi), serta layanan lainnya.
 
 Kami menghormati privasi Anda. Kebijakan Privasi ini menjelaskan jenis Data Pribadi yang kami kumpulkan, dasar dan tujuan pemrosesannya, dengan siapa data dibagikan, berapa lama disimpan, serta hak-hak Anda sebagai pemilik data — sebagaimana diatur dalam Undang-Undang Nomor 27 Tahun 2022 tentang Pelindungan Data Pribadi ("UU PDP") dan peraturan pelaksananya.
 
@@ -187,7 +188,7 @@ export function syaratDoc(c: LegalConfig): string {
 
 ## 1. Penerimaan Ketentuan
 
-Dengan mengakses atau menggunakan TeraLoka ("Platform") — termasuk layanan BAKABAR, BALAPOR, BADONASI, BAKOS, BAPASIAR, dan lainnya — Anda ("Pengguna") menyatakan menyetujui Syarat & Ketentuan ini beserta Kebijakan Privasi dan Pedoman Komunitas yang merupakan satu kesatuan. Jika tidak setuju, mohon tidak menggunakan Platform.
+Dengan mengakses atau menggunakan TeraLoka ("Platform") — termasuk layanan BAKABAR, BALAPOR, BADONASI, BAKOS, BALAJU, dan lainnya — Anda ("Pengguna") menyatakan menyetujui Syarat & Ketentuan ini beserta Kebijakan Privasi dan Pedoman Komunitas yang merupakan satu kesatuan. Jika tidak setuju, mohon tidak menggunakan Platform.
 
 ## 2. Tentang Pengelola
 
