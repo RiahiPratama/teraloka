@@ -7,8 +7,9 @@ import Link from 'next/link';
 import {
   ChevronLeft, Phone, ShieldCheck, ShieldAlert, Clock, Crown, Settings2,
   Home, Ship, User as UserIcon, LayoutDashboard, Users, Newspaper, Plus,
-  ClipboardList, HeartHandshake, LogOut, ArrowRight, Check, Loader2,
+  ClipboardList, HeartHandshake, LogOut, ArrowRight, Check, Loader2, Camera, Trash2, X,
 } from 'lucide-react';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -61,6 +62,33 @@ export default function ProfilePage() {
   const [phoneError, setPhoneError] = useState('');
 
   const [kycStatus, setKycStatus] = useState<'incomplete' | 'pending_verification' | 'verified' | 'loading'>('loading');
+
+  // Avatar (foto profil)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(user?.avatar_url ?? null);
+  const [avatarEditing, setAvatarEditing] = useState(false);
+  const [avatarSaving, setAvatarSaving] = useState(false);
+
+  useEffect(() => { setAvatarUrl(user?.avatar_url ?? null); }, [user?.avatar_url]);
+
+  async function persistAvatar(url: string | null) {
+    if (!token) return;
+    setAvatarSaving(true);
+    try {
+      const res = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ avatar_url: url }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error?.message || 'Gagal simpan avatar');
+      setAvatarUrl(url);
+      setAvatarEditing(false);
+    } catch (err: any) {
+      setError(err.message || 'Gagal menyimpan foto');
+    } finally {
+      setAvatarSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!isLoading && !user) router.replace('/login?redirect=/profile');
@@ -154,15 +182,102 @@ export default function ProfilePage() {
             <ChevronLeft size={15} /> Beranda
           </Link>
           <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <div style={{
-              width: 74, height: 74, borderRadius: '50%',
-              background: 'rgba(255,255,255,0.14)', border: '3px solid rgba(255,255,255,0.28)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              fontSize: 30, fontWeight: 800, color: '#fff', flexShrink: 0,
-              boxShadow: '0 8px 24px -8px rgba(0,0,0,0.4)',
-            }}>
-              {name ? name.charAt(0).toUpperCase() : '?'}
+            <div style={{ position: 'relative', flexShrink: 0 }}>
+              <div style={{
+                width: 74, height: 74, borderRadius: '50%',
+                background: 'rgba(255,255,255,0.14)', border: '3px solid rgba(255,255,255,0.28)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 30, fontWeight: 800, color: '#fff', overflow: 'hidden',
+                boxShadow: '0 8px 24px -8px rgba(0,0,0,0.4)',
+              }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="Foto profil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  : (name ? name.charAt(0).toUpperCase() : '?')}
+              </div>
+              <button
+                onClick={() => setAvatarEditing(v => !v)}
+                aria-label="Ubah foto profil"
+                style={{
+                  position: 'absolute', bottom: -2, right: -2, width: 28, height: 28, borderRadius: '50%',
+                  background: C.forest, border: '2px solid #fff', color: '#fff', cursor: 'pointer',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  boxShadow: '0 4px 12px -2px rgba(0,0,0,0.3)',
+                }}
+              >
+                <Camera size={13} />
+              </button>
+
             </div>
+
+            {avatarEditing && (
+              <div
+                onClick={() => setAvatarEditing(false)}
+                style={{
+                  position: 'fixed', inset: 0, zIndex: 100,
+                  background: 'rgba(7,31,28,0.55)', backdropFilter: 'blur(3px)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20,
+                }}
+              >
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    background: '#fff', borderRadius: 20, border: `1px solid ${C.line}`,
+                    boxShadow: '0 30px 70px -20px rgba(7,31,28,0.6)', padding: 22,
+                    width: '100%', maxWidth: 360,
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <h3 style={{ fontSize: 16, fontWeight: 800, color: C.ink, letterSpacing: '-0.2px' }}>Foto Profil</h3>
+                    <button onClick={() => setAvatarEditing(false)} aria-label="Tutup" style={{ border: 'none', background: '#F3F4F6', cursor: 'pointer', color: C.muted, display: 'flex', width: 28, height: 28, borderRadius: '50%', alignItems: 'center', justifyContent: 'center' }}>
+                      <X size={15} />
+                    </button>
+                  </div>
+                  <p style={{ fontSize: 12.5, color: C.muted, marginBottom: 16 }}>
+                    Unggah foto persegi, maksimal 1MB (JPG / PNG).
+                  </p>
+
+                  {/* Preview avatar saat ini */}
+                  <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 16 }}>
+                    <div style={{
+                      width: 96, height: 96, borderRadius: '50%', overflow: 'hidden',
+                      background: `linear-gradient(135deg, ${C.forestDeep}, ${C.forest})`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: '#fff', fontSize: 36, fontWeight: 800,
+                      border: `3px solid ${C.line}`,
+                    }}>
+                      {avatarUrl
+                        ? <img src={avatarUrl} alt="Foto profil" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        : (name ? name.charAt(0).toUpperCase() : '?')}
+                    </div>
+                  </div>
+
+                  <ImageUpload
+                    bucket="avatars"
+                    label=""
+                    maxFiles={1}
+                    maxSizeMB={1}
+                    onUpload={(urls: string[]) => { const u = urls[0]; if (u) persistAvatar(u); }}
+                    existingUrls={avatarUrl ? [avatarUrl] : []}
+                  />
+
+                  {avatarUrl && (
+                    <button
+                      onClick={() => persistAvatar(null)}
+                      disabled={avatarSaving}
+                      style={{
+                        marginTop: 12, width: '100%', padding: '10px', borderRadius: 12,
+                        border: '1px solid #FECACA', background: 'rgba(239,68,68,0.04)', color: '#EF4444',
+                        fontSize: 12.5, fontWeight: 600, cursor: avatarSaving ? 'not-allowed' : 'pointer',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                        opacity: avatarSaving ? 0.5 : 1,
+                      }}
+                    >
+                      <Trash2 size={14} /> Hapus Foto
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
             <div style={{ minWidth: 0 }}>
               <h1 style={{ color: '#fff', fontSize: 23, fontWeight: 800, letterSpacing: '-0.4px', lineHeight: 1.15 }}>
                 {name || 'Belum isi nama'}
