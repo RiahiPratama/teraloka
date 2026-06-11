@@ -20,6 +20,17 @@ const INPUT = 'w-full h-11 px-3 text-sm rounded-xl border bg-white outline-none 
 
 interface Room { id: string; room_type: string; available_rooms: number; total_rooms: number; is_active: boolean; }
 
+
+// Format ribuan untuk input nominal (2500000 -> "2.500.000"). Simpan angka murni di state.
+function formatThousand(n: number): string {
+  if (!n || n <= 0) return '';
+  return n.toLocaleString('id-ID');
+}
+function parseThousand(s: string): number {
+  const digits = s.replace(/[^\d]/g, '');
+  return digits ? parseInt(digits, 10) : 0;
+}
+
 export default function LeaseFormModal({
   listingId, editing, onClose, onSaved,
 }: {
@@ -170,10 +181,10 @@ export default function LeaseFormModal({
 
           <div className="grid grid-cols-2 gap-3">
             <Field label="Sewa / bulan">
-              <input type="number" min={0} value={rentAmount} onChange={e => setRentAmount(Number(e.target.value))} className={INPUT} placeholder="800000" />
+              <input type="text" inputMode="numeric" value={formatThousand(rentAmount)} onChange={e => setRentAmount(parseThousand(e.target.value))} className={INPUT} placeholder="800.000" />
             </Field>
             <Field label="Deposit">
-              <input type="number" min={0} value={deposit} onChange={e => setDeposit(Number(e.target.value))} className={INPUT} placeholder="0" />
+              <input type="text" inputMode="numeric" value={formatThousand(deposit)} onChange={e => setDeposit(parseThousand(e.target.value))} className={INPUT} placeholder="0" />
             </Field>
           </div>
 
