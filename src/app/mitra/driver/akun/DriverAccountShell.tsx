@@ -29,6 +29,13 @@ interface DriverInfo {
 }
 interface MeResponse { is_driver: boolean; driver: DriverInfo | null; vehicle: VehicleInfo | null; documents: DocInfo[] }
 
+// Kartu kinerja (GET /driver/performance) — agregat, nol identitas rider.
+interface PerformanceData {
+  rating: { avg: number; count: number };
+  completed_trips: number;
+  acceptance: { rate: number | null; accepted: number; missed: number; sample: number };
+}
+
 const SERVICE_LABEL: Record<string, { Icon: typeof Bike; label: string }> = {
   ride_bike: { Icon: Bike, label: 'Ojek' },
   ride_car: { Icon: Car, label: 'Mobil' },
@@ -54,6 +61,7 @@ export default function DriverAccountShell() {
   const { user, logout } = useAuth();
 
   const [data, setData] = useState<MeResponse | null>(null);
+  const [perf, setPerf] = useState<PerformanceData | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
@@ -67,6 +75,15 @@ export default function DriverAccountShell() {
         if (alive) setErr(e instanceof ApiError ? e.message : 'Gagal memuat data akun.');
       } finally {
         if (alive) setLoading(false);
+      }
+    })();
+    // Kinerja di-fetch terpisah & defensif — gagal = kartu kinerja gak muncul, akun tetap utuh.
+    (async () => {
+      try {
+        const p = await api.get<PerformanceData>('/driver/performance');
+        if (alive) setPerf(p);
+      } catch {
+        /* kinerja opsional */
       }
     })();
     return () => { alive = false; };
@@ -165,6 +182,44 @@ export default function DriverAccountShell() {
             </div>
           </div>
         </div>
+
+        {/* Kartu Kinerja — 3 metrik agregat (rating, trip, acceptance). Nol identitas rider. */}
+        {perf && (
+          <div className="mt-5">
+            <h2 className="bl-display mb-2 text-sm font-extrabold text-[var(--bl-forest-d)]">Kinerja</h2>
+            <div className="bl-shadow-soft grid grid-cols-3 gap-px overflow-hidden rounded-2xl border border-[var(--bl-line)] bg-[var(--bl-line)]">
+              {/* Rating */}
+              <div className="bg-white p-3.5 text-center">
+                <div className="bl-display text-xl font-extrabold text-[var(--bl-ink)]">
+                  {perf.rating.count ? perf.rating.avg.toFixed(1) : '—'}
+                  {perf.rating.count ? <span className="text-sm text-[var(--bl-amber)]"> ★</span> : null}
+                </div>
+                <div className="mt-0.5 text-[10px] font-medium text-[var(--bl-muted)]">
+                  {perf.rating.count ? `${perf.rating.count} penilaian` : 'Belum dinilai'}
+                </div>
+              </div>
+              {/* Trip selesai */}
+              <div className="bg-white p-3.5 text-center">
+                <div className="bl-display text-xl font-extrabold text-[var(--bl-ink)]">{perf.completed_trips}</div>
+                <div className="mt-0.5 text-[10px] font-medium text-[var(--bl-muted)]">Trip selesai</div>
+              </div>
+              {/* Acceptance — data tipis (<5 sampel) -> tampil "—" biar gak misleading */}
+              <div className="bg-white p-3.5 text-center">
+                <div className="bl-display text-xl font-extrabold text-[var(--bl-ink)]">
+                  {perf.acceptance.rate !== null && perf.acceptance.sample >= 5
+                    ? `${perf.acceptance.rate}%`
+                    : '—'}
+                </div>
+                <div className="mt-0.5 text-[10px] font-medium text-[var(--bl-muted)]">
+                  {perf.acceptance.sample >= 5 ? 'Order diterima' : 'Data belum cukup'}
+                </div>
+              </div>
+            </div>
+            <p className="mt-2 text-[10px] text-[var(--bl-muted)]">
+              Tingkat terima dihitung dari order yang ditawarkan ke kamu. Penilaian bersifat anonim.
+            </p>
+          </div>
+        )}
 
         {/* Data diri */}
         <Section title="Data diri">
