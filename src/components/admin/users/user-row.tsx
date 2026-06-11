@@ -35,7 +35,7 @@ import { UserAvatar } from './user-avatar';
 import {
   ROLE_CONFIG,
   INVITABLE_ROLES,
-  formatPhone,
+  userContact,
   lastSeen,
   timeAgo,
   type User,
@@ -440,8 +440,8 @@ export function UserRow({
             </span>
           )}
         </div>
-        <div className="text-[11px] text-text-muted tabular-nums">
-          {formatPhone(user.phone)}
+        <div className="text-[11px] text-text-muted truncate">
+          {userContact(user)}
         </div>
       </div>
 

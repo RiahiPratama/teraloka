@@ -26,6 +26,7 @@ import type { ServiceKey } from '@/components/ui/badge';
 export interface User {
   id: string;
   phone: string | null;
+  email: string | null;
   name: string | null;
   role: UserRole;
   is_active: boolean;
@@ -221,6 +222,17 @@ export function userDisplayName(user: Pick<User, 'name' | 'phone'>): string {
   if (user.name) return user.name;
   if (user.phone) return formatPhone(user.phone);
   return 'Pengguna';
+}
+
+/**
+ * Kontak tampil di bawah nama (admin table).
+ * Prioritas: phone (user OTP) → email (user Google) → fallback.
+ * Sejak Google jadi primary, banyak user phone=null tapi punya email.
+ */
+export function userContact(user: Pick<User, 'phone' | 'email'>): string {
+  if (user.phone) return formatPhone(user.phone);
+  if (user.email) return user.email;
+  return 'Belum ada kontak';
 }
 
 /* ─── Stats derivation ─── */
