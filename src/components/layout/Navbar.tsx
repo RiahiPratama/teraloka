@@ -8,10 +8,10 @@ import { useAuth } from '@/hooks/useAuth';
 import ChangePinModal from '@/components/auth/ChangePinModal';
 
 const NAV_LINKS = [
-  { label: 'BAKABAR',   href: '/bakabar' },
-  { label: 'BALAPOR',   href: '/reports' },
-  { label: 'BAPASIAR',  href: '/speed' },
-  { label: 'BAKOS',     href: '/bakos' },
+  { label: 'BAKABAR', href: '/bakabar' },
+  { label: 'BALAPOR', href: '/reports' },
+  { label: 'BAPASIAR', href: '/speed' },
+  { label: 'BAKOS', href: '/bakos' },
   { label: 'BADONASI', href: '/fundraising' },
 ];
 
@@ -25,17 +25,17 @@ const PLACEHOLDERS = [
 ];
 
 const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  super_admin:     { label: 'Super Admin',     color: '#fff',    bg: '#E8963A' },
-  admin_content:   { label: 'Admin Konten',    color: '#fff',    bg: '#0891B2' },
-  admin_transport: { label: 'Admin Transport', color: '#fff',    bg: '#6366F1' },
-  admin_listing:   { label: 'Admin Listing',   color: '#fff',    bg: '#8B5CF6' },
-  admin_funding:   { label: 'Admin Funding',   color: '#fff',    bg: '#1B6B4A' },
-  user:            { label: 'Pengguna',        color: '#374151', bg: '#E5E7EB' },
+  super_admin: { label: 'Super Admin', color: '#fff', bg: '#E8963A' },
+  admin_content: { label: 'Admin Konten', color: '#fff', bg: '#0891B2' },
+  admin_transport: { label: 'Admin Transport', color: '#fff', bg: '#6366F1' },
+  admin_listing: { label: 'Admin Listing', color: '#fff', bg: '#8B5CF6' },
+  admin_funding: { label: 'Admin Funding', color: '#fff', bg: '#1B6B4A' },
+  user: { label: 'Pengguna', color: '#374151', bg: '#E5E7EB' },
 };
 
 /* ─── Line icons (inline SVG, dependency-free) ─────────────────────────── */
 type IconProps = { className?: string };
-const ICON = 'h-[18px] w-[18px] shrink-0';
+const ICON = 'h-[10px] w-[10px] shrink-0';
 const svgBase = {
   viewBox: '0 0 24 24',
   fill: 'none',
@@ -122,16 +122,16 @@ export default function Navbar() {
     closeMenu?.();
   }
 
-  const [dropdownOpen, setDropdownOpen]     = useState(false);
-  const [changePinOpen, setChangePinOpen]   = useState(false);
-  const [searchOpen, setSearchOpen]         = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [changePinOpen, setChangePinOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [searchQuery, setSearchQuery]       = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
 
-  const dropdownRef    = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchWrapRef  = useRef<HTMLDivElement>(null);
+  const searchWrapRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const t = setInterval(() => setPlaceholderIdx(i => (i + 1) % PLACEHOLDERS.length), 3000);
@@ -221,7 +221,7 @@ export default function Navbar() {
               pointerEvents: searchOpen ? 'none' : 'auto',
             }}>
             <Link href="/" aria-label="TeraLoka Home" className="shrink-0">
-              <Logo height={26} />
+              <Logo height={20} />
             </Link>
             <div className="hidden md:flex items-center gap-0.5 ml-5">
               {NAV_LINKS.map(link => (
@@ -246,7 +246,7 @@ export default function Navbar() {
                 style={{ background: 'rgba(53,37,205,0.05)', border: '1.5px solid rgba(53,37,205,0.2)' }}>
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
                   stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="shrink-0">
-                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                  <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                 </svg>
                 <input ref={searchInputRef} type="text" value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -256,7 +256,7 @@ export default function Navbar() {
                 <button type="button" onClick={() => { setSearchOpen(false); setSearchQuery(''); }}
                   className="shrink-0 text-gray-400 hover:text-gray-600 p-0.5 rounded-full hover:bg-gray-100">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                    <path d="M18 6L6 18M6 6l12 12"/>
+                    <path d="M18 6L6 18M6 6l12 12" />
                   </svg>
                 </button>
               </form>
@@ -266,7 +266,7 @@ export default function Navbar() {
                 title="Cari (/)">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
                   stroke="var(--text-muted)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                  <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
                 </svg>
               </button>
             )}
@@ -288,7 +288,7 @@ export default function Navbar() {
                       {user.name ? user.name[0].toUpperCase() : '+'}
                     </div>
                     <span className="hidden md:block max-w-[100px] truncate">
-                      {user.name ?? '+' + user.phone?.slice(-4)}
+                      {user.name ?? (user.phone ? '+' + user.phone.slice(-4) : 'Akun')}
                     </span>
                     <svg className={`h-3.5 w-3.5 transition-transform shrink-0 ${dropdownOpen ? 'rotate-180' : ''}`}
                       fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -307,7 +307,7 @@ export default function Navbar() {
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-gray-800 truncate">{user.name ?? 'Pengguna'}</p>
-                            <p className="text-[11px] text-gray-400 truncate mt-0.5">+{user.phone}</p>
+                            <p className="text-[11px] text-gray-400 truncate mt-0.5">{user.phone ? '+' + user.phone : 'Belum ada nomor'}</p>
                           </div>
                         </div>
                         <div className="mt-2.5">

@@ -25,7 +25,7 @@ import type { ServiceKey } from '@/components/ui/badge';
 
 export interface User {
   id: string;
-  phone: string;
+  phone: string | null;
   name: string | null;
   role: UserRole;
   is_active: boolean;
@@ -163,7 +163,9 @@ export const ALL_ROLES = (Object.keys(ROLE_CONFIG) as UserRole[]).map((r) => ({
  * Format nomor WA Indonesia ke display format.
  * "628123456789" → "+62 812-3456-789"
  */
-export function formatPhone(phone: string): string {
+export function formatPhone(phone: string | null | undefined): string {
+  // User Google login tidak punya phone (null) sampai mereka isi manual.
+  if (!phone) return 'Belum ada nomor';
   if (phone.startsWith('62')) {
     const local = '0' + phone.slice(2);
     return (
@@ -216,7 +218,9 @@ export function userInitial(user: Pick<User, 'name'>): string {
  * Display name — nama kalau ada, fallback ke formatted phone.
  */
 export function userDisplayName(user: Pick<User, 'name' | 'phone'>): string {
-  return user.name || formatPhone(user.phone);
+  if (user.name) return user.name;
+  if (user.phone) return formatPhone(user.phone);
+  return 'Pengguna';
 }
 
 /* ─── Stats derivation ─── */
