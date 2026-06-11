@@ -354,10 +354,20 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         {/* Kartu rating pasca-trip (rider -> driver). Sembunyi kalau sudah dirating. */}
         {ride.status === 'completed' && (ratingDone || ride.rated_by_rider ? (
           <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-5 text-center">
-            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-[var(--bl-forest-d)]">
-              <Star className="h-4 w-4 fill-[var(--bl-amber)] text-[var(--bl-amber)]" />
-              Terima kasih atas penilaianmu!
+            {/* Echo skor yang baru dikasih (kalau sesi ini). Reload tanpa skor -> 1 bintang netral. */}
+            <div className="flex items-center justify-center gap-1">
+              {ratingScore > 0 ? (
+                [1, 2, 3, 4, 5].map((n) => (
+                  <Star
+                    key={n}
+                    className={`h-6 w-6 ${n <= ratingScore ? 'fill-[var(--bl-amber)] text-[var(--bl-amber)]' : 'text-[var(--bl-line)]'}`}
+                  />
+                ))
+              ) : (
+                <Star className="h-6 w-6 fill-[var(--bl-amber)] text-[var(--bl-amber)]" />
+              )}
             </div>
+            <div className="mt-2 text-sm font-bold text-[var(--bl-forest-d)]">Terima kasih atas penilaianmu!</div>
             <p className="mt-1 text-xs text-[var(--bl-muted)]">Masukanmu bantu jaga kualitas driver BALAJU.</p>
           </div>
         ) : (
