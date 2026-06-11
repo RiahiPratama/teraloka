@@ -8,11 +8,11 @@ import { useAuth } from '@/hooks/useAuth';
 import ChangePinModal from '@/components/auth/ChangePinModal';
 
 const NAV_LINKS = [
-  { label: 'BAKABAR', href: '/bakabar' },
-  { label: 'BALAPOR', href: '/reports' },
-  { label: 'BAPASIAR', href: '/speed' },
-  { label: 'BAKOS', href: '/bakos' },
+  { label: 'BAKABAR',  href: '/bakabar' },
+  { label: 'BALAPOR',  href: '/reports' },
   { label: 'BADONASI', href: '/fundraising' },
+  { label: 'BAKOS',    href: '/bakos' },
+  { label: 'BALAJU',   href: '/balaju' },
 ];
 
 const PLACEHOLDERS = [
