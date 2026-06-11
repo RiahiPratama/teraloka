@@ -329,9 +329,10 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
           </div>
         </div>
 
-        {/* Kartu penumpang (matched/ongoing) — kontak ke rider via WA / telepon.
-            Tampil hanya kalau backend kirim rider.phone (otomatis null pasca-terminal). */}
-        {(ride.status === 'matched' || ride.status === 'arrived' || ride.status === 'ongoing') && ride.rider?.phone && (
+        {/* Kartu penumpang (matched/arrived/ongoing) — kontak via WA / telepon.
+            Kalau rider belum punya nomor (order lama) -> fallback, JANGAN hilang (driver gak buntu). */}
+        {(ride.status === 'matched' || ride.status === 'arrived' || ride.status === 'ongoing') && (
+          ride.rider?.phone ? (
           <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
             <div className="flex items-center gap-3">
               <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
@@ -363,6 +364,20 @@ export function DriverOrderShell({ rideId }: { rideId: string }) {
               </div>
             </div>
           </div>
+          ) : (
+          <div className="mt-4 rounded-2xl border border-[var(--bl-line)] bg-[var(--bl-amber-15)] p-4">
+            <div className="flex items-center gap-3">
+              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-white text-[var(--bl-amber)]">
+                <User className="h-6 w-6" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-bold uppercase tracking-widest text-[var(--bl-muted)]">Penumpang</div>
+                <div className="truncate text-sm font-bold text-[var(--bl-ink)]">{ride.rider?.name || 'Penumpang'}</div>
+                <div className="mt-0.5 text-[11px] text-[var(--bl-muted)]">Belum mencantumkan nomor — tunggu di titik jemput.</div>
+              </div>
+            </div>
+          </div>
+          )
         )}
 
         {/* Kartu penghasilan driver */}
