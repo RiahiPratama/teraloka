@@ -115,8 +115,8 @@ export default function LeaseFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center" style={{ background: 'rgba(44,44,42,0.45)' }} onClick={onClose}>
-      <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white" style={{ background: BAKOS_TOKENS.pageBg }} onClick={e => e.stopPropagation()}>
+    <div className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center" style={{ background: 'rgba(44,44,42,0.45)' }} onClick={onClose}>
+      <div className="w-full sm:max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white pb-[env(safe-area-inset-bottom)]" style={{ background: BAKOS_TOKENS.pageBg }} onClick={e => e.stopPropagation()}>
         {/* header */}
         <div className="sticky top-0 z-10 flex items-center justify-between px-5 py-4 border-b backdrop-blur" style={{ background: 'rgba(239,237,229,0.95)', borderColor: BAKOS_TOKENS.border }}>
           <h2 className="text-base font-bold flex items-center gap-2" style={{ color: BAKOS_TOKENS.textPrimary }}>
