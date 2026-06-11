@@ -26,6 +26,8 @@ export interface Lease {
   kos_title?: string | null;
   room_name?: string | null;
   last_reminded_at?: string | null;
+  current_period?: string | null;
+  current_payment_status?: 'belum' | 'lunas' | 'telat' | null;
 }
 
 export interface LeaseInput {

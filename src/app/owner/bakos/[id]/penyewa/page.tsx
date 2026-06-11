@@ -19,7 +19,8 @@ import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
 import { type Lease, type LeaseStatus, LEASE_STATUS_VIEW } from '@/components/bakos/owner/lease-types';
 import LeaseFormModal from '@/components/bakos/owner/LeaseFormModal';
 import LeaseReminderModal from '@/components/bakos/owner/LeaseReminderModal';
-import { ChevronLeft, Loader2, UserPlus, Phone, Calendar, AlertCircle, Users, Pencil, LogOut, BellRing } from 'lucide-react';
+import LeasePaymentModal from '@/components/bakos/owner/LeasePaymentModal';
+import { ChevronLeft, Loader2, UserPlus, Phone, Calendar, AlertCircle, Users, Pencil, LogOut, BellRing, Wallet } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
 const FILTERS: { key: 'all' | LeaseStatus; label: string }[] = [
@@ -37,6 +38,13 @@ function fmtDate(s: string) {
 }
 
 // "2 jam lalu" / "kemarin" / "3 hari lalu" dari timestamp ISO.
+// badge status tagihan bulan berjalan (current_payment_status).
+const PAY_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+  lunas: { label: 'Lunas', color: '#15803D', bg: '#E1F5EE' },
+  belum: { label: 'Belum bayar', color: '#92740C', bg: '#FBF3D9' },
+  telat: { label: 'Telat', color: '#A32D2D', bg: '#FDECEC' },
+};
+
 function relativeTime(iso: string): string {
   const then = new Date(iso).getTime();
   const diffMs = Date.now() - then;
@@ -66,6 +74,7 @@ export default function OwnerLeasePage() {
   const [editing, setEditing] = useState<Lease | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [remindLease, setRemindLease] = useState<Lease | null>(null);
+  const [payLease, setPayLease] = useState<Lease | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -194,6 +203,20 @@ export default function OwnerLeasePage() {
                           : 'Belum pernah diingatkan'}
                       </div>
                     )}
+                    {!ended && (() => {
+                      const ps = lease.current_payment_status;
+                      const pv = ps ? PAY_BADGE[ps] : null;
+                      const mlabel = lease.current_period ? lease.current_period.split('-')[1] : '';
+                      const bulanNama = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][Number(mlabel)] ?? '';
+                      return (
+                        <button onClick={() => setPayLease(lease)}
+                          className="mt-1 inline-flex items-center gap-1.5 text-[11px] font-semibold px-2.5 py-1 rounded-full active:scale-95 transition-transform w-fit"
+                          style={pv ? { color: pv.color, background: pv.bg } : { color: BAKOS_TOKENS.textSecondary, background: BAKOS_TOKENS.surfaceAlt }}>
+                          <Wallet size={11} />
+                          {pv ? `${bulanNama}: ${pv.label}` : 'Catat bayar'}
+                        </button>
+                      );
+                    })()}
                   </div>
 
                   {!ended && (
@@ -235,6 +258,15 @@ export default function OwnerLeasePage() {
         <LeaseReminderModal
           lease={remindLease}
           onClose={() => setRemindLease(null)}
+        />
+      )}
+
+      {payLease && (
+        <LeasePaymentModal
+          lease={payLease}
+          canSendWa={true}
+          onClose={() => setPayLease(null)}
+          onChanged={() => load()}
         />
       )}
     </div>
