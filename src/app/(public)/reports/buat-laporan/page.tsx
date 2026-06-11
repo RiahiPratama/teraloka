@@ -241,7 +241,7 @@ export default function ReportsPage() {
           {user && (
             <div className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 backdrop-blur-sm border border-white/10">
               <span className="material-symbols-outlined text-[#EF4444] text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified_user</span>
-              <span className="text-xs text-white font-medium">Login sebagai +{user.phone}</span>
+              <span className="text-xs text-white font-medium">Login sebagai {user.phone ? '+' + user.phone : (user.name ?? 'akun Google')}</span>
             </div>
           )}
         </div>

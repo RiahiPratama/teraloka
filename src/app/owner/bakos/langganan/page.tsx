@@ -71,7 +71,7 @@ export default function OwnerLanggananPage() {
   }, [authLoading, user, load]);
 
   function pilih(t: Tier, label: string) {
-    const nama = user?.name ?? '+' + (user?.phone ?? '');
+    const nama = user?.name ?? (user?.phone ? '+' + user.phone : 'Owner');
     const msg = `Halo Admin TeraLoka 👋\nSaya *${nama}*, owner kos di BAKOS.\nMau upgrade ke paket *${label}* (${formatRp(TIERS.find(x => x.tier === t)!.price)}/bln).\nMohon info cara pembayaran & rekening tujuannya. Terima kasih!`;
     window.open(`https://wa.me/${WA_ADMIN}?text=${encodeURIComponent(msg)}`, '_blank');
   }

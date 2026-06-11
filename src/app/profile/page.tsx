@@ -289,7 +289,7 @@ export default function ProfilePage() {
               display: 'flex', alignItems: 'center', gap: 8,
             }}>
               <span>📱</span>
-              <span>+{user.phone}</span>
+              <span>{user.phone ? '+' + user.phone : 'Belum ada nomor'}</span>
               <span style={{
                 marginLeft: 'auto', fontSize: 10, fontWeight: 600,
                 color: '#10B981', background: 'rgba(16,185,129,0.1)',

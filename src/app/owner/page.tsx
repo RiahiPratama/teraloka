@@ -178,13 +178,13 @@ export default function OwnerDashboard() {
           <div className="flex items-center gap-3 mb-2">
             <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#003526] to-[#1B6B4A] flex items-center justify-center shadow-lg shadow-[#003526]/20">
               <span className="text-white text-lg font-extrabold">
-                {(user.name ?? user.phone).charAt(0).toUpperCase()}
+                {(user.name ?? user.phone ?? '?').charAt(0).toUpperCase()}
               </span>
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-[10px] text-gray-500 uppercase tracking-widest font-bold">Portal Mitra</p>
               <p className="text-base font-extrabold text-[#003526] truncate">
-                Halo, {user.name ?? '+' + user.phone} <span className="inline-block animate-pulse">👋</span>
+                Halo, {user.name ?? (user.phone ? '+' + user.phone : 'Mitra')} <span className="inline-block animate-pulse">👋</span>
               </p>
             </div>
           </div>

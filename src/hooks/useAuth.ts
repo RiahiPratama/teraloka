@@ -54,7 +54,7 @@ async function safeFetchJson(
 
 export interface AuthUser {
   id: string;
-  phone: string;
+  phone: string | null;
   name: string | null;
   role: string;
   avatar_url?: string | null;
@@ -288,7 +288,7 @@ export function useAuthProvider(): AuthContextType {
       localStorage.removeItem(LOCKED_KEY);
       // O3: simpan status PIN dari backend supaya gating PIN-login akurat.
       persistLastUser({
-        phone: data.data.user.phone,
+        phone: data.data.user.phone ?? '',
         name: data.data.user.name,
         has_pin: !!data.data.has_pin,
       });
@@ -388,7 +388,7 @@ export function useAuthProvider(): AuthContextType {
       if (data.data.refresh_token) localStorage.setItem(REFRESH_KEY, data.data.refresh_token);
       localStorage.removeItem(LOCKED_KEY);
       // pinLogin sukses => user PASTI punya PIN.
-      persistLastUser({ phone: data.data.user.phone, name: data.data.user.name, has_pin: true });
+      persistLastUser({ phone: data.data.user.phone ?? '', name: data.data.user.name, has_pin: true });
       setToken(data.data.token);
       setUser(data.data.user);
       setLockedSession(null);
@@ -418,7 +418,7 @@ export function useAuthProvider(): AuthContextType {
     const ok = result.data?.success === true;
     // O3: PIN baru ter-set => tandai has_pin true supaya PIN-login muncul saat Keluar.
     if (ok && user) {
-      persistLastUser({ phone: user.phone, name: user.name, has_pin: true });
+      persistLastUser({ phone: user.phone ?? '', name: user.name, has_pin: true });
     }
     return {
       success: ok,
@@ -452,7 +452,7 @@ export function useAuthProvider(): AuthContextType {
     if (result.data.data) {
       identifyUserInPostHog(result.data.data);
       // has_pin tidak dikirim -> di-merge (pertahankan status PIN existing).
-      persistLastUser({ phone: result.data.data.phone, name: result.data.data.name });
+      persistLastUser({ phone: result.data.data.phone ?? '', name: result.data.data.name });
     }
     return true;
   }
