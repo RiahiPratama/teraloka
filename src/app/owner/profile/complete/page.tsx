@@ -4,26 +4,33 @@ import { useEffect, useState, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import ImageUpload from '@/components/ui/ImageUpload';
+import KycDocUpload from '@/components/ui/KycDocUpload';
 import {
-  ArrowLeft, Shield, IdCard, AlertCircle, Loader2,
+  ArrowLeft, IdCard, AlertCircle, Loader2,
   CheckCircle2, EyeOff, Lock,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // /owner/profile/complete/page.tsx
 //
-// Form lengkapi profil verifikasi (KYC penggalang).
-// User upload KTP/KK/Akta + isi nama lengkap sesuai dokumen.
-// 
+// Form lengkapi profil verifikasi (KYC penggalang BADONASI).
+// User upload KTP + isi nama lengkap sesuai dokumen.
+//
+// MIGRASI (11 Jun 2026): ImageUpload → KycDocUpload.
+//   Alasan: ImageUpload balikin getPublicUrl() — bucket 'kyc' PRIVATE,
+//   jadi URL publik mati ("Object not found" = TD-OPS-001) + kolom
+//   creator_id_documents keisi URL, bukan raw path.
+//   KycDocUpload emit RAW PATH + preview lokal (URL.createObjectURL),
+//   konsisten dgn BALAJU driver apply.
+//
+// Backend kontrak (users-engine.ts):
+//   - creator_id_documents TEXT[]  → kirim [ktpPath] (1 elemen cukup)
+//   - syarat verified: length >= 1
+//
 // Privacy contract:
 // - Data hanya untuk admin TeraLoka (verifikasi)
 // - Tidak ditampilkan ke donor publik
 // - Disimpan di bucket "kyc" (private bucket)
-//
-// On submit success:
-// - Redirect ke ?return URL kalau ada (auto-resume flow galang dana)
-// - Atau ke /owner/profile (default)
 // ═══════════════════════════════════════════════════════════════
 
 export default function ProfileCompletePage() {
@@ -46,7 +53,7 @@ function ProfileCompletePageInner() {
 
   // Form state
   const [fullName, setFullName] = useState('');
-  const [idDocs, setIdDocs] = useState<string[]>([]);
+  const [ktpPath, setKtpPath] = useState<string | null>(null);
   const [agreeChecked, setAgreeChecked] = useState(false);
 
   // UI state
@@ -84,7 +91,9 @@ function ProfileCompletePageInner() {
           const json = await res.json();
           const p = json.data.profile;
           setFullName(p.creator_full_name ?? '');
-          setIdDocs(p.creator_id_documents ?? []);
+          // creator_id_documents = TEXT[]; ambil elemen pertama sebagai KTP draft
+          const docs: string[] = p.creator_id_documents ?? [];
+          setKtpPath(docs.length > 0 ? docs[0] : null);
         }
       } catch {
         // Silent — user can fill from scratch
@@ -103,8 +112,7 @@ function ProfileCompletePageInner() {
     if (trimmed.length < 3) errors.fullName = 'Nama lengkap minimal 3 karakter';
     else if (trimmed.length > 100) errors.fullName = 'Nama lengkap maksimal 100 karakter';
 
-    if (idDocs.length < 1) errors.docs = 'Upload minimal 1 dokumen identitas';
-    else if (idDocs.length > 3) errors.docs = 'Maksimal 3 dokumen';
+    if (!ktpPath) errors.docs = 'Upload foto KTP dulu';
 
     if (!agreeChecked) errors.agree = 'Centang persetujuan dulu sebelum lanjut';
 
@@ -129,7 +137,8 @@ function ProfileCompletePageInner() {
           },
           body: JSON.stringify({
             creator_full_name: fullName.trim(),
-            creator_id_documents: idDocs,
+            // TEXT[] — kirim array berisi 1 raw path KTP
+            creator_id_documents: ktpPath ? [ktpPath] : [],
           }),
         }
       );
@@ -184,8 +193,8 @@ function ProfileCompletePageInner() {
           <div className="flex items-start gap-2.5">
             <Lock size={16} className="text-blue-600 shrink-0 mt-0.5" />
             <div className="flex-1">
-              <p className="text-xs font-bold text-blue-900 mb-1.5 uppercase tracking-wider">
-                🔒 Data Pribadi & Rahasia
+              <p className="text-xs font-bold text-blue-900 mb-1.5 uppercase tracking-wider flex items-center gap-1.5">
+                <Lock size={11} /> Data Pribadi & Rahasia
               </p>
               <p className="text-xs text-blue-900 leading-relaxed">
                 Data identitas kamu <strong className="font-bold">hanya bisa dilihat oleh admin TeraLoka</strong> untuk verifikasi. <strong className="font-bold">Tidak ditampilkan ke donor publik.</strong> Kami patuh pada UU PDP (Pelindungan Data Pribadi) Indonesia.
@@ -209,27 +218,21 @@ function ProfileCompletePageInner() {
               </span>
             </div>
             <p className="text-xs text-gray-500 mb-3 leading-relaxed">
-              Upload <strong>1-3 dokumen</strong>: KTP (utama), atau KK / Akta Kelahiran. Foto harus jelas, tidak buram, dan terbaca.
+              Upload <strong>foto KTP</strong> kamu. Pastikan foto jelas, tidak buram, dan semua tulisan terbaca.
             </p>
 
-            <ImageUpload
-              bucket="kyc"
+            <KycDocUpload
+              docType="ktp"
+              userId={user!.id}
               label=""
-              maxFiles={3}
-              maxSizeMB={5}
-              onUpload={(urls: string[]) => {
-                setIdDocs(urls);
-                if (urls.length >= 1) setFieldErrors(p => ({ ...p, docs: undefined }));
+              required
+              value={ktpPath ?? undefined}
+              onChange={(path) => {
+                setKtpPath(path);
+                if (path) setFieldErrors(p => ({ ...p, docs: undefined }));
               }}
-              existingUrls={idDocs}
+              hint="Foto KTP jelas — nama & NIK terbaca"
             />
-
-            {idDocs.length > 0 && !fieldErrors.docs && (
-              <p className="mt-2 text-xs text-emerald-700 font-bold flex items-center gap-1">
-                <CheckCircle2 size={12} />
-                {idDocs.length} dokumen tersimpan (rahasia)
-              </p>
-            )}
 
             {fieldErrors.docs && (
               <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
