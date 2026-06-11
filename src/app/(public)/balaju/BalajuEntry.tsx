@@ -190,14 +190,16 @@ export function BalajuEntry() {
   }, [user, token]);
 
   // Tap saran rute -> prefill jemput + tujuan (form keisi), reset harga lama.
+  // setResumed(true) -> tampil mode RINGKASAN (baca state parent), bukan picker internal
+  // yang state-nya kepisah (kalau picker, UI-nya stale "Belum dipilih" walau parent terisi).
   // User tinggal "Lihat Harga" lalu "Pesan Sekarang". Pesan-ulang jadi ringkas.
   function applyRoute(r: RecentRoute) {
-    setResumed(false);
     setPickup(r.pickup);
     setDropoff(r.dropoff);
     setPickupNote('');
     setDropoffNote('');
     resetEstimate();
+    setResumed(true); // tampil ringkasan rute (pola sama dgn resume login)
   }
 
   const [ordering, setOrdering] = useState(false);
