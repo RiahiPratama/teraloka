@@ -35,7 +35,7 @@ import { UserAvatar } from './user-avatar';
 import {
   ROLE_CONFIG,
   INVITABLE_ROLES,
-  userContact,
+  formatPhone,
   lastSeen,
   timeAgo,
   type User,
@@ -440,8 +440,19 @@ export function UserRow({
             </span>
           )}
         </div>
-        <div className="text-[11px] text-text-muted truncate">
-          {userContact(user)}
+        <div className="flex items-center gap-1.5 text-[11px] text-text-muted min-w-0">
+          {user.phone && (
+            <span className="tabular-nums shrink-0">{formatPhone(user.phone)}</span>
+          )}
+          {user.phone && user.email && (
+            <span className="text-text-muted/40 shrink-0">·</span>
+          )}
+          {user.email && (
+            <span className="truncate">{user.email}</span>
+          )}
+          {!user.phone && !user.email && (
+            <span className="italic">Belum ada kontak</span>
+          )}
         </div>
       </div>
 
