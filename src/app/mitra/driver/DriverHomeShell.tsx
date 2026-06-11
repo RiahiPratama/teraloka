@@ -84,8 +84,12 @@ export function DriverHomeShell() {
   }, []);
 
   // Auth gate seragam dgn rider shell.
+  // Auth gate. PENTING: 401 = sesi habis (redirect login). 403 ≠ sesi habis —
+  // itu forbidden karena STATE (bukan driver order ini / order udah pindah /
+  // belum diverifikasi admin). Redirect login saat 403 = bug "kedipan login"
+  // pas terima order. 403 -> return false, ditangani caller (jangan tendang).
   const handleAuthError = useCallback((e: unknown): boolean => {
-    if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+    if (e instanceof ApiError && e.status === 401) {
       stopPolling();
       router.push('/login?redirect=/mitra/driver');
       return true;
@@ -120,8 +124,12 @@ export function DriverHomeShell() {
         setOnline(!!isOnline);
       } catch (e) {
         if (e instanceof ApiError && e.status === 404) { setNotDriver(true); }
-        else if (e instanceof ApiError && (e.status === 401 || e.status === 403)) {
+        else if (e instanceof ApiError && e.status === 401) {
           router.push('/login?redirect=/mitra/driver'); return;
+        }
+        else if (e instanceof ApiError && e.status === 403) {
+          // 403 = belum diverifikasi admin (BUKAN sesi habis) -> jangan redirect.
+          setErr('Akun driver kamu belum diverifikasi admin.');
         }
         // error lain: biarin offline, driver bisa toggle manual.
       } finally {
@@ -193,11 +201,15 @@ export function DriverHomeShell() {
     setErr(null);
     try {
       await api.post('/rides/' + item.request_id + '/offer', { mode: 'accept' });
+      // Order ketrima -> MATIKAN polling dulu sebelum pindah layar. Cegah request
+      // /nearby yang nyangkut balik 403 (state udah berubah) -> flash "kedipan login".
+      stopPolling();
       // Model B: langsung matched & jadi driver-nya. Lanjut ke layar order aktif (WAVE 2).
       router.push(ORDER_BASE + '/' + item.request_id);
     } catch (e) {
-      if (handleAuthError(e)) return;
-      // 409 = keduluan driver lain. Refresh daftar biar order itu ilang.
+      if (handleAuthError(e)) return; // cuma 401/404 di sini; 403 lanjut ke bawah
+      // 403 = order udah diambil driver lain / state berubah (BUKAN sesi habis).
+      // 409 = keduluan driver lain. Dua-duanya: refresh daftar, JANGAN redirect login.
       setErr(e instanceof ApiError ? e.message : 'Gagal mengambil order. Coba lagi.');
       fetchNearby();
     } finally {
