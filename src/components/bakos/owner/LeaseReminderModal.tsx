@@ -23,6 +23,7 @@ interface Preview {
   tenant_phone: string | null;
   kos_title: string;
   room_name: string | null;
+  current_payment_status: 'belum' | 'lunas' | 'telat' | 'none';
   message_preview: string;
   anti_spam_blocked: boolean;
   anti_spam_reason: string | null;
@@ -134,6 +135,14 @@ export default function LeaseReminderModal({
               <div className="rounded-2xl p-3.5 text-[13px] leading-relaxed whitespace-pre-wrap mb-3" style={{ background: '#E7F6EA', color: '#1B3A28', border: '1px solid #C9E9CF' }}>
                 {preview.message_preview}
               </div>
+
+              {/* A5 — sudah lunas: ingatkan owner (tapi tetap boleh kirim) */}
+              {preview.current_payment_status === 'lunas' && (
+                <div className="rounded-xl p-3 mb-3 flex items-start gap-2" style={{ background: '#E1F5EE' }}>
+                  <CheckCircle2 size={15} className="shrink-0 mt-0.5" style={{ color: '#15803D' }} />
+                  <p className="text-[11px]" style={{ color: '#15803D' }}>Penyewa ini sudah <b>lunas</b> bulan ini. Yakin tetap ingin mengingatkan?</p>
+                </div>
+              )}
 
               {/* anti-spam */}
               {preview.anti_spam_blocked && (
