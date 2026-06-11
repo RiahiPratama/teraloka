@@ -19,7 +19,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, Pencil, type LucideIcon } from 'lucide-react';
+import { Bike, Car, Package, MapPin, Zap, ShieldCheck, Wallet, Smartphone, Pencil, RotateCcw, ArrowRight, type LucideIcon } from 'lucide-react';
 import { BalajuLocationStep, type BalajuPoint } from '@/components/balaju/rider/BalajuLocationStep';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -41,6 +41,14 @@ interface EstimateItem {
 interface EstimateResult {
   distance_m: number;
   estimates: EstimateItem[];
+}
+
+// Saran rute berulang dari GET /rider/recent-routes. pickup/dropoff = shape BalajuPoint.
+interface RecentRoute {
+  pickup: BalajuPoint;
+  dropoff: BalajuPoint;
+  count: number;
+  last_used: string;
 }
 
 // Draft order yang diselamatkan nyebrang login. Simpan point UTUH (JSON) biar nol field-loss.
@@ -75,12 +83,14 @@ const TRUST: { Icon: LucideIcon; label: string }[] = [
 export function BalajuEntry() {
   const api = useApi();
   const router = useRouter();
-  const { user, savePhone } = useAuth();
+  const { user, savePhone, token } = useAuth();
   const [service, setService] = useState<ServiceType>('ride_bike');
   const [pickup, setPickup] = useState<BalajuPoint | null>(null);
   const [dropoff, setDropoff] = useState<BalajuPoint | null>(null);
   const [pickupNote, setPickupNote] = useState('');
   const [dropoffNote, setDropoffNote] = useState('');
+  // "Perjalanan terakhir" — saran rute berulang (pesan 1-tap). Muncul kalau ada.
+  const [recentRoutes, setRecentRoutes] = useState<RecentRoute[]>([]);
   // resumed = draft kebaca dari sessionStorage (tampil ringkasan, sembunyikan picker).
   const [resumed, setResumed] = useState(false);
 
@@ -162,6 +172,32 @@ export function BalajuEntry() {
   function editRoute() {
     setResumed(false);
     setEstimate(null);
+  }
+
+  // Ambil "Perjalanan terakhir" sekali pas user login. Gagal = diam (saran opsional).
+  useEffect(() => {
+    if (!user || !token) return;
+    let alive = true;
+    (async () => {
+      try {
+        const res = await api.get<{ routes: RecentRoute[] }>('/rider/recent-routes?limit=5');
+        if (alive && Array.isArray(res?.routes)) setRecentRoutes(res.routes);
+      } catch {
+        /* saran opsional — diam kalau gagal */
+      }
+    })();
+    return () => { alive = false; };
+  }, [user, token]);
+
+  // Tap saran rute -> prefill jemput + tujuan (form keisi), reset harga lama.
+  // User tinggal "Lihat Harga" lalu "Pesan Sekarang". Pesan-ulang jadi ringkas.
+  function applyRoute(r: RecentRoute) {
+    setResumed(false);
+    setPickup(r.pickup);
+    setDropoff(r.dropoff);
+    setPickupNote('');
+    setDropoffNote('');
+    resetEstimate();
   }
 
   const [ordering, setOrdering] = useState(false);
@@ -346,6 +382,42 @@ export function BalajuEntry() {
             })}
           </div>
         </section>
+
+        {/* Perjalanan terakhir — saran rute berulang (pesan 1-tap).
+            Muncul kalau: login + ada saran + belum pilih rute (biar gak nimpa isian aktif). */}
+        {recentRoutes.length > 0 && !pickup && !dropoff && !showSummary && (
+          <section className="mb-6">
+            <h2 className="bl-display mb-3 text-sm font-bold uppercase tracking-wide text-[var(--bl-forest-d)]">
+              Perjalanan terakhir
+            </h2>
+            <div className="space-y-2">
+              {recentRoutes.map((r, i) => (
+                <button
+                  key={`${r.pickup.lat},${r.pickup.lng}-${r.dropoff.lat},${r.dropoff.lng}-${i}`}
+                  onClick={() => applyRoute(r)}
+                  className="bl-shadow-soft flex w-full items-center gap-3 rounded-2xl border border-[var(--bl-line)] bg-white p-3.5 text-left transition hover:border-[var(--bl-forest)]"
+                >
+                  <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
+                    <RotateCcw className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 text-sm font-semibold text-[var(--bl-ink)]">
+                      <span className="truncate">{r.pickup.name}</span>
+                      <ArrowRight className="h-3.5 w-3.5 shrink-0 text-[var(--bl-muted)]" />
+                      <span className="truncate">{r.dropoff.name}</span>
+                    </span>
+                    {r.count > 1 && (
+                      <span className="mt-0.5 block text-[11px] text-[var(--bl-muted)]">
+                        {r.count}× perjalanan
+                      </span>
+                    )}
+                  </span>
+                  <span className="shrink-0 text-[11px] font-bold text-[var(--bl-forest)]">Pilih</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Rute — RINGKASAN (kalau resume dari login) ATAU picker penuh */}
         <section className="mb-6">
