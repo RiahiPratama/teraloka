@@ -72,6 +72,7 @@ const ICON_BG: Record<ServiceKey, string> = {
   bakos: 'bg-bakos-muted text-bakos',
   properti: 'bg-properti-muted text-properti',
   kendaraan: 'bg-kendaraan-muted text-kendaraan',
+  balaju: 'bg-balaju-muted text-balaju',
   baantar: 'bg-baantar-muted text-baantar',
   bapasiar: 'bg-bapasiar-muted text-bapasiar',
   baronda: 'bg-baronda-muted text-baronda',
@@ -102,7 +103,7 @@ function ActionTile({ item }: { item: QuickAction }) {
         'relative flex flex-col items-start gap-2.5 p-4 rounded-xl',
         'bg-surface border border-border transition-all duration-150',
         !item.disabled &&
-          'hover:border-border hover:shadow-sm hover:-translate-y-0.5',
+        'hover:border-border hover:shadow-sm hover:-translate-y-0.5',
         item.disabled && 'opacity-50 cursor-not-allowed'
       )}
     >

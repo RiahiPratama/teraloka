@@ -4,6 +4,10 @@
  * TeraLoka — Badge
  * Phase 2 · Batch 3c — Feedback & Navigation
  * Batch 6b Update: Added 'jasa' service key (21 services total)
+ * Update 2026-06-12: Added 'balaju' service key (22 services total).
+ *   BALAJU naik jadi ServiceKey global — vertikal mobilitas darat (ojek),
+ *   paling matang & launch duluan. Punya token --color-balaju* di globals.css
+ *   (teal #0F766E light / #2DD4BF dark). Sebelumnya pinjam warna bapasiar.
  * ------------------------------------------------------------
  * Pill label untuk status, count, atau service identity.
  *
@@ -20,7 +24,7 @@
  *    <Badge variant="service" service="bakabar">News</Badge>
  *    <Badge variant="service" service="balapor">Laporan</Badge>
  *    <Badge variant="service" service="badonasi">Donasi</Badge>
- *    ... (21 services total, pakai key dari globals.css)
+ *    ... (22 services total, pakai key dari globals.css)
  *
  * 3. Count — simple number badge (notification dot pattern)
  *    <Badge variant="count">12</Badge>
@@ -42,6 +46,7 @@ export type ServiceKey =
   | 'bakos'
   | 'properti'
   | 'kendaraan'
+  | 'balaju'
   | 'baantar'
   | 'bapasiar'
   | 'baronda'
@@ -118,6 +123,7 @@ const SERVICE_SOLID: Record<ServiceKey, string> = {
   bakos: 'bg-bakos text-white',
   properti: 'bg-properti text-white',
   kendaraan: 'bg-kendaraan text-white',
+  balaju: 'bg-balaju text-white',
   baantar: 'bg-baantar text-white',
   bapasiar: 'bg-bapasiar text-white',
   baronda: 'bg-baronda text-white',
@@ -142,6 +148,7 @@ const SERVICE_SOFT: Record<ServiceKey, string> = {
   bakos: 'bg-bakos-muted text-bakos-strong',
   properti: 'bg-properti-muted text-properti-strong',
   kendaraan: 'bg-kendaraan-muted text-kendaraan-strong',
+  balaju: 'bg-balaju-muted text-balaju-strong',
   baantar: 'bg-baantar-muted text-baantar-strong',
   bapasiar: 'bg-bapasiar-muted text-bapasiar-strong',
   baronda: 'bg-baronda-muted text-baronda-strong',

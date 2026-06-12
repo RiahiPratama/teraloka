@@ -46,6 +46,7 @@ import {
   BarChart3,
   Building2,
   CalendarClock,
+  Bike,
   Car,
   Compass,
   KeyRound,
@@ -191,6 +192,7 @@ export const ServiceIcons: Record<ServiceKey, ComponentType<IconProps>> = {
   // Lucide fallbacks — akan di-upgrade ke custom SVG di Batch 4d/5
   properti: wrap(Building2),
   kendaraan: wrap(Car),
+  balaju: wrap(Bike),
   baantar: wrap(Package),
   bapasiar: wrap(Ship),
   baronda: wrap(Compass),

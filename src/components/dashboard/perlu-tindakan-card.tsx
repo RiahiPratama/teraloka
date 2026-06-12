@@ -114,6 +114,7 @@ const SERVICE_ACCENT: Record<ServiceKey, string> = {
   bakos: 'bg-bakos-muted',
   properti: 'bg-properti-muted',
   kendaraan: 'bg-kendaraan-muted',
+  balaju: 'bg-balaju-muted',
   baantar: 'bg-baantar-muted',
   bapasiar: 'bg-bapasiar-muted',
   baronda: 'bg-baronda-muted',
@@ -138,6 +139,7 @@ const SERVICE_ICON_COLOR: Record<ServiceKey, string> = {
   bakos: 'text-bakos',
   properti: 'text-properti',
   kendaraan: 'text-kendaraan',
+  balaju: 'text-balaju',
   baantar: 'text-baantar',
   bapasiar: 'text-bapasiar',
   baronda: 'text-baronda',
@@ -164,7 +166,7 @@ function ActionRow({ item }: { item: ActionItem }) {
         'group flex items-center gap-3 px-3 py-2.5 rounded-lg',
         'transition-colors hover:bg-surface-muted',
         item.priority === 'urgent' &&
-          'bg-status-critical/5 hover:bg-status-critical/10'
+        'bg-status-critical/5 hover:bg-status-critical/10'
       )}
     >
       {/* Service icon bubble OR priority dot */}

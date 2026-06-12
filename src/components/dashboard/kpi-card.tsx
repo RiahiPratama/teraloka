@@ -94,6 +94,7 @@ const ICON_BG: Record<ServiceKey, string> = {
   bakos: 'bg-bakos-muted text-bakos',
   properti: 'bg-properti-muted text-properti',
   kendaraan: 'bg-kendaraan-muted text-kendaraan',
+  balaju: 'bg-balaju-muted text-balaju',
   baantar: 'bg-baantar-muted text-baantar',
   bapasiar: 'bg-bapasiar-muted text-bapasiar',
   baronda: 'bg-baronda-muted text-baronda',
