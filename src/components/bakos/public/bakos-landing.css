@@ -27,6 +27,17 @@
 .bk-hero{background:linear-gradient(180deg,#fbf7ef 0%,#fff 70%);padding:56px 0 36px}
 .bk-crumb{font-size:13px;font-weight:700;color:var(--bk-hint);margin-bottom:18px;letter-spacing:.01em}
 .bk-crumb b{color:var(--bk-amber-d)}
+/* chip kota: 1 baris geser (nowrap scroll) + fade kanan = petunjuk "geser →" */
+.bakos-lp .bk-heromap-pick{
+  flex-wrap:nowrap;
+  cursor:grab;
+  scroll-snap-type:x proximity;
+  -webkit-overflow-scrolling:touch;
+  -webkit-mask-image:linear-gradient(90deg,#000 88%,transparent);
+  mask-image:linear-gradient(90deg,#000 88%,transparent);
+}
+.bakos-lp .bk-heromap-pick > *{flex:0 0 auto;scroll-snap-align:start}
+.bakos-lp .bk-heromap-pick:active{cursor:grabbing}
 .bk-hero-top{display:grid;grid-template-columns:1fr minmax(380px,480px);align-items:start;gap:36px}
 @media(max-width:900px){.bk-hero-top{grid-template-columns:1fr}}
 .bk-pill{display:inline-flex;align-items:center;gap:8px;background:var(--bk-green-l);color:var(--bk-green-d);font-weight:800;font-size:12.5px;padding:8px 15px;border-radius:999px}
@@ -47,9 +58,9 @@
 .bk-sf .v{display:flex;align-items:center;gap:9px}
 .bk-sf .v .material-symbols-outlined{color:var(--bk-green);font-size:19px}
 .bk-sf input,.bk-sf select{border:none;background:none;font-family:inherit;font-size:15.5px;font-weight:700;color:var(--bk-ink);outline:none;width:100%}
-.bk-cari{margin:6px;padding:0 30px;border-radius:12px;background:#E8963A;color:#ffffff;font-weight:800;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:.15s;min-width:150px}
-.bk-cari:hover{background:#b86f1f}
-.bk-cari .material-symbols-outlined{font-size:20px;color:#ffffff}
+.bakos-lp .bk-cari{margin:6px;padding:0 30px;border-radius:12px;background:#E8963A;color:#ffffff;font-weight:800;font-size:15.5px;display:flex;align-items:center;justify-content:center;gap:8px;white-space:nowrap;transition:.15s;min-width:150px}
+.bakos-lp .bk-cari:hover{background:#b86f1f}
+.bakos-lp .bk-cari .material-symbols-outlined{font-size:20px;color:#ffffff}
 .bk-fcepat{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:20px}
 .bk-fcepat>span{font-size:13px;font-weight:700;color:var(--bk-muted)}
 .bk-fcepat button{display:flex;align-items:center;gap:6px;padding:9px 16px;border-radius:999px;border:1px solid var(--bk-line);background:#fff;font-weight:700;font-size:13.5px;color:var(--bk-muted);transition:.15s}
@@ -197,4 +208,48 @@
   .bk-search{flex-direction:column}
   .bk-sf{border-right:none;border-bottom:1px solid var(--bk-line)}.bk-cari{margin:8px;justify-content:center;padding:15px}
   .bk-areas{grid-template-columns:1fr}.bk-octa{padding:34px}
+}
+
+/* ════════════════════════════════════════════════════════════════
+   MOBILE HERO — designed pass (≤640px). Map-forward (pembeda lokal).
+   Density + rhythm ala Airbnb, peta TETAP prominent. PENANDA: BK-MOB-V2.
+   ════════════════════════════════════════════════════════════════ */
+@media(max-width:640px){
+  .bakos-lp{overflow-x:hidden}
+  .bk-wrap{padding:0 16px}
+  .bk-hero{padding:24px 0 20px}
+  .bk-crumb{margin-bottom:10px;font-size:11.5px}
+  .bk-hero-top{gap:16px;margin-bottom:2px}
+  .bk-hero-top>div{min-width:0}
+  .bk-pill{font-size:11px;padding:6px 12px;gap:6px}
+  .bk-pill .material-symbols-outlined{font-size:15px}
+  .bk-hero h1{font-size:clamp(25px,7vw,32px);letter-spacing:-.02em;line-height:1.08;margin-top:14px}
+  .bk-sub{font-size:14px;margin-top:11px;line-height:1.55;max-width:none}
+  .bk-heromap{min-width:0;max-width:100%;margin-top:4px}
+  .bk-heromap-pick{gap:6px;margin-bottom:8px}
+  .bakos-lp .bkmap-chip.sm{padding:7px 12px;font-size:12px}
+  .bakos-lp .bk-heromap-frame{min-height:300px;border-radius:14px}
+  .bakos-lp .bkmap-loading.sm,.bakos-lp .bkmap-empty.sm{min-height:300px}
+  .bakos-lp .bkmap-counter.sm{top:10px;left:10px}
+  .bk-search{margin-top:18px;padding:8px;border-radius:18px}
+  .bk-sf{padding:11px 16px}
+  .bk-sf input,.bk-sf select{font-size:15px}
+  .bk-cari{margin:6px 0 0;padding:14px;font-size:15px;border-radius:12px}
+  .bk-fcepat{gap:8px;margin-top:14px}
+  .bk-fcepat>span{width:100%;margin-bottom:2px;font-size:12px}
+  .bk-fcepat button{padding:8px 13px;font-size:12.5px}
+  .bk-sec{padding:32px 0}
+  .bk-sh{margin-bottom:16px}
+  .bk-sh h2{font-size:21px}
+  .bk-sh p{font-size:13px}
+  .bk-areas{gap:12px}
+  .bk-grid{gap:18px}
+  .bk-why{padding:32px 18px}
+  .bk-why h2{font-size:22px}
+  .bk-octa{padding:28px 20px}
+.bk-disclaimer{font-size:11.5px;padding:20px 0 6px}
+  /* fix: kasih napas bawah peta biar gak ketiban bottom-nav global */
+  .bakos-lp .bk-heromap{margin-bottom:8px}
+  .bakos-lp .bk-heromap-frame{min-height:280px}
+  .bakos-lp .bkmap-loading.sm,.bakos-lp .bkmap-empty.sm{min-height:280px}
 }
