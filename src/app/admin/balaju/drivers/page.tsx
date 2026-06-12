@@ -135,7 +135,7 @@ export default function AdminBalajuDriversPage() {
       {/* Header */}
       <div className="mb-5">
         <h1 className="flex items-center gap-2 text-xl font-bold text-text">
-          <Bike size={22} className="text-bapasiar" /> Verifikasi Driver
+          <Bike size={22} className="text-balaju" /> Verifikasi Driver
         </h1>
         <p className="mt-1 text-sm text-text-muted">
           Tinjau pengajuan driver BALAJU. Hanya driver terverifikasi yang bisa menerima order.
@@ -147,14 +147,14 @@ export default function AdminBalajuDriversPage() {
         {statCards.map((c) => (
           <KPICard
             key={c.key}
-            service="bapasiar"
+            service="balaju"
             icon={c.icon}
             label={c.label}
             value={c.value}
             sublabel={c.sublabel}
             badge={c.badge}
             onClick={() => { setStatus(c.key); setPage(1); }}
-            className={cn(status === c.key && 'ring-2 ring-bapasiar ring-offset-2 ring-offset-surface')}
+            className={cn(status === c.key && 'ring-2 ring-balaju ring-offset-2 ring-offset-surface')}
           />
         ))}
       </div>
@@ -180,7 +180,7 @@ export default function AdminBalajuDriversPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Cari nama atau nomor HP..."
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text outline-none focus:border-bapasiar"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text outline-none focus:border-balaju"
           />
         </div>
       </div>
@@ -191,7 +191,7 @@ export default function AdminBalajuDriversPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={fetchDrivers} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={fetchDrivers} className="mt-3 text-sm text-balaju hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -227,7 +227,7 @@ export default function AdminBalajuDriversPage() {
                   <tr key={d.id} className="cursor-pointer border-t border-border hover:bg-surface-muted/60" onClick={() => setReviewId(d.id)}>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bapasiar-muted text-sm font-bold text-bapasiar">
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-balaju-muted text-sm font-bold text-balaju">
                           {(d.name ?? '?').charAt(0).toUpperCase()}
                         </div>
                         <span className="font-semibold text-text">{d.name}</span>
@@ -259,7 +259,7 @@ export default function AdminBalajuDriversPage() {
                         className={cn(
                           'rounded-lg px-3.5 py-1.5 text-xs font-semibold',
                           d.verification_status === 'pending'
-                            ? 'bg-bapasiar text-white hover:opacity-90'
+                            ? 'bg-balaju text-white hover:opacity-90'
                             : 'border border-border text-text-muted hover:bg-surface-muted',
                         )}
                       >

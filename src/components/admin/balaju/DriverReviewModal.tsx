@@ -151,7 +151,7 @@ export default function DriverReviewModal({
         <div className="flex items-start justify-between border-b border-border px-5 py-4">
           {driver ? (
             <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bapasiar-muted text-base font-bold text-bapasiar">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-balaju-muted text-base font-bold text-balaju">
                 {(driver.name ?? '?').charAt(0).toUpperCase()}
               </div>
               <div>
@@ -203,7 +203,7 @@ export default function DriverReviewModal({
                 <div className="space-y-4 lg:col-span-2">
                   <div className="rounded-xl border border-border p-4">
                     <h3 className="mb-3 flex items-center gap-2 text-sm font-bold text-text">
-                      <ShieldCheck size={15} className="text-bapasiar" /> Data Driver
+                      <ShieldCheck size={15} className="text-balaju" /> Data Driver
                     </h3>
                     <dl className="space-y-2.5 text-sm">
                       <Row icon={<Phone size={14} />} label="Telepon" value={driver.phone} mono />
@@ -249,7 +249,7 @@ export default function DriverReviewModal({
                 <div className="lg:col-span-3">
                   <div className="rounded-xl border border-border p-4">
                     <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-text">
-                      <FileText size={15} className="text-bapasiar" /> Dokumen KYC
+                      <FileText size={15} className="text-balaju" /> Dokumen KYC
                     </h3>
                     <p className="mb-3 text-xs text-text-muted">
                       Data identitas — rahasia. Cocokkan nama & foto dengan data driver sebelum verifikasi.
@@ -303,7 +303,7 @@ export default function DriverReviewModal({
                       <XCircle size={16} /> Tolak
                     </button>
                     <button onClick={() => startAction('verify')}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-bapasiar px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-balaju px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
                       <CheckCircle2 size={16} /> Verifikasi
                     </button>
                   </>
@@ -316,7 +316,7 @@ export default function DriverReviewModal({
                 )}
                 {st === 'suspended' && (
                   <button onClick={() => startAction('reinstate')}
-                    className="inline-flex items-center gap-1.5 rounded-lg bg-bapasiar px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-balaju px-4 py-2 text-sm font-semibold text-white hover:opacity-90">
                     <RotateCcw size={16} /> Pulihkan
                   </button>
                 )}
@@ -334,7 +334,7 @@ export default function DriverReviewModal({
                       {(['bronze', 'silver', 'gold'] as Tier[]).map((tt) => (
                         <button key={tt} onClick={() => setTier(tt)}
                           className={cn('flex-1 rounded-lg border px-3 py-2 text-sm font-semibold capitalize',
-                            tier === tt ? 'border-bapasiar bg-bapasiar-muted text-bapasiar' : 'border-border text-text-muted hover:bg-surface-muted')}>
+                            tier === tt ? 'border-balaju bg-balaju-muted text-balaju' : 'border-border text-text-muted hover:bg-surface-muted')}>
                           {tt}
                         </button>
                       ))}
@@ -348,7 +348,7 @@ export default function DriverReviewModal({
                     </label>
                     <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2} autoFocus
                       placeholder={action === 'reject' ? 'cth: KTP tidak terbaca, nama tidak cocok…' : 'cth: laporan negatif berulang…'}
-                      className="w-full rounded-lg border border-border bg-surface p-2.5 text-sm text-text outline-none focus:border-bapasiar" />
+                      className="w-full rounded-lg border border-border bg-surface p-2.5 text-sm text-text outline-none focus:border-balaju" />
                   </div>
                 )}
                 {action === 'reinstate' && (
@@ -364,7 +364,7 @@ export default function DriverReviewModal({
                   </button>
                   <button onClick={confirmAction} disabled={submitting}
                     className={cn('rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-50',
-                      action === 'reject' ? 'bg-status-critical hover:opacity-90' : 'bg-bapasiar hover:opacity-90')}>
+                      action === 'reject' ? 'bg-status-critical hover:opacity-90' : 'bg-balaju hover:opacity-90')}>
                     {submitting ? 'Memproses…'
                       : action === 'verify' ? 'Konfirmasi Verifikasi'
                       : action === 'reject' ? 'Konfirmasi Tolak'

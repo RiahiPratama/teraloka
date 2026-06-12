@@ -130,7 +130,7 @@ export default function AdminBalajuRosterPage() {
       {/* Header */}
       <div className="mb-5">
         <h1 className="flex items-center gap-2 text-xl font-bold text-text">
-          <Users size={22} className="text-bapasiar" /> Driver Roster
+          <Users size={22} className="text-balaju" /> Driver Roster
         </h1>
         <p className="mt-1 text-sm text-text-muted">
           Fleet driver BALAJU — status online, tier, dan performa. Klik baris untuk detail &amp; aksi.
@@ -147,7 +147,7 @@ export default function AdminBalajuRosterPage() {
               className={cn(
                 'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
                 status === f
-                  ? 'border-bapasiar bg-bapasiar-muted text-bapasiar'
+                  ? 'border-balaju bg-balaju-muted text-balaju'
                   : 'border-border text-text-muted hover:bg-surface-muted',
               )}
             >
@@ -166,7 +166,7 @@ export default function AdminBalajuRosterPage() {
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Cari nama atau nomor HP..."
-            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text outline-none focus:border-bapasiar"
+            className="w-full rounded-lg border border-border bg-surface py-2 pl-9 pr-3 text-sm text-text outline-none focus:border-balaju"
           />
         </div>
       </div>
@@ -177,7 +177,7 @@ export default function AdminBalajuRosterPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={fetchDrivers} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={fetchDrivers} className="mt-3 text-sm text-balaju hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -215,7 +215,7 @@ export default function AdminBalajuRosterPage() {
                     <tr key={d.id} className="cursor-pointer border-t border-border hover:bg-surface-muted/60" onClick={() => setReviewId(d.id)}>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-3">
-                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-bapasiar-muted text-sm font-bold text-bapasiar">
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-balaju-muted text-sm font-bold text-balaju">
                             {(d.name ?? '?').charAt(0).toUpperCase()}
                           </div>
                           <span className="font-semibold text-text">{d.name}</span>

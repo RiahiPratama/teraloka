@@ -178,7 +178,7 @@ export default function AdminBalajuTarifPage() {
       {/* Header */}
       <div className="mb-2">
         <h1 className="flex items-center gap-2 text-xl font-bold text-text">
-          <SlidersHorizontal size={22} className="text-bapasiar" /> Pengaturan Tarif
+          <SlidersHorizontal size={22} className="text-balaju" /> Pengaturan Tarif
           <Badge variant="status" status="info"><Lock size={11} className="mr-1" /> FARE-V2</Badge>
         </h1>
         <p className="mt-1 text-sm text-text-muted">{model}</p>
@@ -198,7 +198,7 @@ export default function AdminBalajuTarifPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={fetchConfigs} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={fetchConfigs} className="mt-3 text-sm text-balaju hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -259,7 +259,7 @@ export default function AdminBalajuTarifPage() {
                         type="number"
                         value={draft[f.key] ?? ''}
                         onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
-                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text outline-none focus:border-bapasiar"
+                        className="mt-1 w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-text outline-none focus:border-balaju"
                       />
                       {f.hint && <span className="mt-0.5 block text-[10px] text-text-light">{f.hint}</span>}
                     </label>
@@ -277,7 +277,7 @@ export default function AdminBalajuTarifPage() {
                   <button
                     onClick={() => setConfirm(true)}
                     disabled={validationErrors.length > 0 || diff.length === 0}
-                    className="rounded-lg bg-bapasiar px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="rounded-lg bg-balaju px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     Tinjau Perubahan{diff.length > 0 ? ` (${diff.length})` : ''}
                   </button>
@@ -304,7 +304,7 @@ export default function AdminBalajuTarifPage() {
                 </div>
                 <div className="mt-5 flex items-center justify-end gap-2">
                   <button onClick={() => setConfirm(false)} disabled={saving} className="rounded-lg border border-border px-4 py-2 text-sm font-semibold text-text-muted hover:bg-surface-muted disabled:opacity-50">← Ubah lagi</button>
-                  <button onClick={applyChanges} disabled={saving} className="rounded-lg bg-bapasiar px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
+                  <button onClick={applyChanges} disabled={saving} className="rounded-lg bg-balaju px-4 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50">
                     {saving ? 'Menyimpan…' : 'Terapkan'}
                   </button>
                 </div>

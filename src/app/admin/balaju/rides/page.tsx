@@ -114,7 +114,7 @@ export default function AdminBalajuRidesPage() {
       {/* Header */}
       <div className="mb-5">
         <h1 className="flex items-center gap-2 text-xl font-bold text-text">
-          <Bike size={22} className="text-bapasiar" /> Ride Motor
+          <Bike size={22} className="text-balaju" /> Ride Motor
         </h1>
         <p className="mt-1 text-sm text-text-muted">
           Monitoring order ojek (ride_bike) — Ternate. Tarif beku saat order dibuat.
@@ -130,7 +130,7 @@ export default function AdminBalajuRidesPage() {
             className={cn(
               'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition-colors',
               status === f
-                ? 'border-bapasiar bg-bapasiar-muted text-bapasiar'
+                ? 'border-balaju bg-balaju-muted text-balaju'
                 : 'border-border text-text-muted hover:bg-surface-muted',
             )}
           >
@@ -148,7 +148,7 @@ export default function AdminBalajuRidesPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={fetchRides} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={fetchRides} className="mt-3 text-sm text-balaju hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -187,7 +187,7 @@ export default function AdminBalajuRidesPage() {
                     </td>
                     <td className="px-4 py-3 max-w-[260px]">
                       <div className="flex items-start gap-1.5 text-xs text-text-muted">
-                        <MapPin size={12} className="mt-0.5 shrink-0 text-bapasiar" />
+                        <MapPin size={12} className="mt-0.5 shrink-0 text-balaju" />
                         <span className="truncate" title={r.pickup_address ?? ''}>{r.pickup_address ?? '—'}</span>
                       </div>
                       <div className="mt-1 flex items-start gap-1.5 text-xs text-text-muted">

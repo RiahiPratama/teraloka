@@ -177,7 +177,7 @@ export default function AdminBalajuFinancialPage() {
       <div className="mb-2 flex items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-text">
-            <Wallet size={22} className="text-bapasiar" /> Financial — Komisi & Setoran
+            <Wallet size={22} className="text-balaju" /> Financial — Komisi & Setoran
             <Badge variant="status" status="info">AKRUAL</Badge>
           </h1>
           <p className="mt-1 text-sm text-text-muted">Piutang komisi (1202), setoran driver, & integritas data per order</p>
@@ -206,7 +206,7 @@ export default function AdminBalajuFinancialPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={refreshAll} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={refreshAll} className="mt-3 text-sm text-balaju hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -214,17 +214,17 @@ export default function AdminBalajuFinancialPage() {
         <>
           {/* KPI */}
           <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <Stat icon={<CheckCircle2 size={15} className="text-bapasiar" />} label="Order completed" value={String(intg?.completed_count ?? 0)} sub={`${intg?.consistent_count ?? 0} konsisten`} />
-            <Stat icon={<Wallet size={15} className="text-bapasiar" />} label="Piutang komisi (1202)" value={rupiah(data.commission.total_accrued)} sub={`hari ini ${rupiah(data.commission.today)}`} />
-            <Stat icon={<Ghost size={15} className={cn((intg?.non_reproducible_count ?? 0) > 0 ? 'text-status-warning' : 'text-bapasiar')} />} label="Perlu tinjau" value={String(intg?.non_reproducible_count ?? 0)} sub="≠ engine sekarang" alert={(intg?.non_reproducible_count ?? 0) > 0} alertColor="warning" />
-            <Stat icon={<Scale size={15} className={cn((intg?.imbalance_count ?? 0) > 0 ? 'text-status-critical' : 'text-bapasiar')} />} label="Selisih buku" value={rupiah(intg?.total_imbalance ?? 0)} sub={`${intg?.imbalance_count ?? 0} order rusak`} alert={(intg?.imbalance_count ?? 0) > 0} alertColor="critical" />
+            <Stat icon={<CheckCircle2 size={15} className="text-balaju" />} label="Order completed" value={String(intg?.completed_count ?? 0)} sub={`${intg?.consistent_count ?? 0} konsisten`} />
+            <Stat icon={<Wallet size={15} className="text-balaju" />} label="Piutang komisi (1202)" value={rupiah(data.commission.total_accrued)} sub={`hari ini ${rupiah(data.commission.today)}`} />
+            <Stat icon={<Ghost size={15} className={cn((intg?.non_reproducible_count ?? 0) > 0 ? 'text-status-warning' : 'text-balaju')} />} label="Perlu tinjau" value={String(intg?.non_reproducible_count ?? 0)} sub="≠ engine sekarang" alert={(intg?.non_reproducible_count ?? 0) > 0} alertColor="warning" />
+            <Stat icon={<Scale size={15} className={cn((intg?.imbalance_count ?? 0) > 0 ? 'text-status-critical' : 'text-balaju')} />} label="Selisih buku" value={rupiah(intg?.total_imbalance ?? 0)} sub={`${intg?.imbalance_count ?? 0} order rusak`} alert={(intg?.imbalance_count ?? 0) > 0} alertColor="critical" />
           </div>
 
           {/* Settlement summary */}
           {settlement && (
             <Card className="mb-5">
               <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-text">
-                <ArrowDownToLine size={16} className="text-bapasiar" /> Ringkasan setoran
+                <ArrowDownToLine size={16} className="text-balaju" /> Ringkasan setoran
               </h2>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
                 <MiniStat label="Belum disetor" value={rupiah(settlement.outstanding)} tone={settlement.outstanding > 0 ? 'warning' : 'healthy'} />
@@ -238,7 +238,7 @@ export default function AdminBalajuFinancialPage() {
           {(data.cash_accounts?.length ?? 0) > 0 && (
             <Card className="mb-5">
               <h2 className="mb-1 flex items-center gap-2 text-base font-bold text-text">
-                <Wallet size={16} className="text-bapasiar" /> Posisi kas
+                <Wallet size={16} className="text-balaju" /> Posisi kas
               </h2>
               <p className="mb-3 text-[11px] text-text-light">Saldo akun kas aktual dari ledger (lintas-layanan, bukan cuma BALAJU).</p>
               <div className="grid grid-cols-2 gap-4">
@@ -281,7 +281,7 @@ export default function AdminBalajuFinancialPage() {
                     <span className="font-bold tabular-nums text-text">{rupiah(s.commission)}</span>
                   </div>
                   <div className="h-2 w-full overflow-hidden rounded-full bg-surface-muted">
-                    <div className="h-full rounded-full bg-bapasiar" style={{ width: `${(s.commission / maxSvc) * 100}%` }} />
+                    <div className="h-full rounded-full bg-balaju" style={{ width: `${(s.commission / maxSvc) * 100}%` }} />
                   </div>
                 </div>
               ))}
@@ -292,7 +292,7 @@ export default function AdminBalajuFinancialPage() {
           {data.per_driver.length > 0 && (
             <Card className="mb-5 overflow-hidden">
               <h2 className="mb-3 flex items-center gap-2 text-base font-bold text-text">
-                <Users size={16} className="text-bapasiar" /> Setoran per driver <span className="font-normal text-text-muted">(klik Kelola untuk catat / koreksi)</span>
+                <Users size={16} className="text-balaju" /> Setoran per driver <span className="font-normal text-text-muted">(klik Kelola untuk catat / koreksi)</span>
               </h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
@@ -331,7 +331,7 @@ export default function AdminBalajuFinancialPage() {
                           <td className="px-2 py-2 text-right">
                             <button
                               onClick={(e) => { e.stopPropagation(); setManageDriver(d); }}
-                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-bapasiar hover:bg-surface-muted"
+                              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] font-semibold text-balaju hover:bg-surface-muted"
                             >
                               <Settings2 size={11} /> Kelola
                             </button>
@@ -501,7 +501,7 @@ function DriverModal({ driver, history, onClose, onChanged }: {
         {canCatat && (
           <button
             onClick={() => setReminderOpen(true)}
-            className="mb-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-bapasiar hover:bg-surface-muted"
+            className="mb-4 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-balaju hover:bg-surface-muted"
           >
             <MessageCircle size={14} /> Ingatkan via WhatsApp
           </button>
@@ -511,7 +511,7 @@ function DriverModal({ driver, history, onClose, onChanged }: {
         {canCatat ? (
           <div className="mb-4 rounded-lg border border-border-light p-3">
             <button onClick={() => setOpen((v) => !v)} className="mb-2 flex w-full items-center justify-between text-sm font-bold text-text">
-              <span className="flex items-center gap-1.5"><ArrowDownToLine size={14} className="text-bapasiar" /> Catat setoran</span>
+              <span className="flex items-center gap-1.5"><ArrowDownToLine size={14} className="text-balaju" /> Catat setoran</span>
               <span className="text-xs text-text-muted">{open ? 'tutup' : 'buka'}</span>
             </button>
             {open && (
@@ -519,20 +519,20 @@ function DriverModal({ driver, history, onClose, onChanged }: {
                 <div>
                   <label className="mb-1 block text-xs font-semibold text-text-muted">Nominal setoran</label>
                   <input type="number" value={amount} onChange={(e) => setAmount(Number(e.target.value))}
-                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm tabular-nums text-text focus:border-bapasiar focus:outline-none" />
+                    className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm tabular-nums text-text focus:border-balaju focus:outline-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   {(['transfer', 'cash'] as const).map((m) => (
                     <button key={m} onClick={() => setMethod(m)}
                       className={cn('rounded-lg border px-3 py-2 text-sm font-semibold',
-                        method === m ? 'border-bapasiar bg-bapasiar/10 text-bapasiar' : 'border-border text-text-muted hover:bg-surface-muted')}>
+                        method === m ? 'border-balaju bg-balaju/10 text-balaju' : 'border-border text-text-muted hover:bg-surface-muted')}>
                       {m === 'cash' ? 'Tunai → 1121' : 'Transfer → 1112'}
                     </button>
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-2">
-                  <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="No. referensi (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-bapasiar focus:outline-none" />
-                  <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Catatan (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-bapasiar focus:outline-none" />
+                  <input value={reference} onChange={(e) => setReference(e.target.value)} placeholder="No. referensi (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-balaju focus:outline-none" />
+                  <input value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Catatan (opsional)" className="rounded-lg border border-border bg-surface px-3 py-2 text-xs text-text focus:border-balaju focus:outline-none" />
                 </div>
                 <div className="rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs">
                   {previewing ? <span className="text-text-muted">Menghitung FIFO…</span>
@@ -547,7 +547,7 @@ function DriverModal({ driver, history, onClose, onChanged }: {
                 </div>
                 {err && <p className="text-xs font-semibold text-status-critical">{err}</p>}
                 <button onClick={submitCatat} disabled={submitting || !(amount > 0) || !preview || preview.ride_count === 0}
-                  className="w-full rounded-lg bg-bapasiar px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
+                  className="w-full rounded-lg bg-balaju px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40">
                   {submitting ? 'Menyimpan…' : 'Catat setoran'}
                 </button>
               </div>
@@ -562,7 +562,7 @@ function DriverModal({ driver, history, onClose, onChanged }: {
         {/* Riwayat setoran driver ini */}
         <div>
           <h4 className="mb-2 flex items-center gap-1.5 text-sm font-bold text-text">
-            <History size={14} className="text-bapasiar" /> Riwayat setoran <span className="font-normal text-text-muted">({history.length})</span>
+            <History size={14} className="text-balaju" /> Riwayat setoran <span className="font-normal text-text-muted">({history.length})</span>
           </h4>
           {history.length === 0 ? (
             <p className="rounded-lg border border-border-light bg-surface-muted px-3 py-2.5 text-xs text-text-light">Belum ada setoran tercatat.</p>
@@ -665,7 +665,7 @@ function ReminderModal({ driverId, onClose, onSent }: {
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div className="w-full max-w-md rounded-xl border border-border bg-surface p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="mb-3 flex items-start justify-between">
-          <h3 className="flex items-center gap-1.5 text-base font-bold text-text"><MessageCircle size={16} className="text-bapasiar" /> Ingatkan via WhatsApp</h3>
+          <h3 className="flex items-center gap-1.5 text-base font-bold text-text"><MessageCircle size={16} className="text-balaju" /> Ingatkan via WhatsApp</h3>
           <button onClick={onClose} className="rounded-md p-1 text-text-muted hover:bg-surface-muted"><X size={16} /></button>
         </div>
 
@@ -699,7 +699,7 @@ function ReminderModal({ driverId, onClose, onSent }: {
               <button
                 onClick={send}
                 disabled={sending || !!blocked || !!noPhone || !!done}
-                className="flex-1 rounded-lg bg-bapasiar px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                className="flex-1 rounded-lg bg-balaju px-3 py-2 text-sm font-semibold text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {sending ? 'Mengirim…' : blocked ? 'Diblok anti-spam' : 'Kirim reminder'}
               </button>
