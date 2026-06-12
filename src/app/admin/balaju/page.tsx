@@ -99,7 +99,7 @@ export default function AdminBalajuDashboardPage() {
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-bold text-text">
-            <LayoutDashboard size={22} className="text-bapasiar" /> Dashboard BALAJU
+            <LayoutDashboard size={22} className="text-balaju" /> Dashboard BALAJU
           </h1>
           <p className="mt-1 text-sm text-text-muted">
             Ringkasan operasional mobilitas darat — Ternate.
@@ -116,7 +116,7 @@ export default function AdminBalajuDashboardPage() {
       {!loading && error && (
         <Card variant="muted" className="py-12 text-center">
           <p className="text-sm font-semibold text-status-critical">{error}</p>
-          <button onClick={fetchOverview} className="mt-3 text-sm text-bapasiar hover:underline">Coba lagi</button>
+          <button onClick={fetchOverview} className="mt-3 text-sm text-balaju hover:underline">Coba lagi</button>
         </Card>
       )}
 
@@ -125,13 +125,13 @@ export default function AdminBalajuDashboardPage() {
           {/* ─── KPI utama ───────────────────────────────────────── */}
           <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
             <KPICard
-              service="bapasiar" icon={<Radio size={20} />} label="Driver Online"
+              service="balaju" icon={<Radio size={20} />} label="Driver Online"
               value={d?.online ?? 0} loading={loading}
               sublabel={d ? `dari ${d.verified} terverifikasi` : undefined}
               emptyMessage="Belum ada driver online"
             />
             <KPICard
-              service="bapasiar" icon={<Clock size={20} />} label="Pending Verifikasi"
+              service="balaju" icon={<Clock size={20} />} label="Pending Verifikasi"
               value={d?.pending ?? 0} loading={loading}
               sublabel="Menunggu tinjauan"
               badge={d && d.pending_aging_24h > 0 ? { label: `${d.pending_aging_24h} >24 jam`, tone: 'warning' } : undefined}
@@ -139,13 +139,13 @@ export default function AdminBalajuDashboardPage() {
               emptyMessage="Antrian kosong"
             />
             <KPICard
-              service="bapasiar" icon={<Package size={20} />} label="Total Order"
+              service="balaju" icon={<Package size={20} />} label="Total Order"
               value={r?.total ?? 0} loading={loading}
               sublabel={r ? `${r.today} hari ini` : undefined}
               emptyMessage="Belum ada order"
             />
             <KPICard
-              service="bapasiar" icon={<AlertTriangle size={20} />} label="Order Tanpa Driver"
+              service="balaju" icon={<AlertTriangle size={20} />} label="Order Tanpa Driver"
               value={noDriver} loading={loading}
               sublabel="Gagal cari driver"
               badge={noDriver > 0 ? { label: `${noDriverPct}% dari total`, tone: 'critical' } : undefined}
