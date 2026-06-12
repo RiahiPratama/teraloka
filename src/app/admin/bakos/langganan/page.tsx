@@ -159,9 +159,9 @@ export default function BakosLanggananTab() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
         <CardBtn t={t} active={activeCard === 'aktif'} onClick={() => setActiveCard('aktif')} icon={<CheckCircle2 size={18} />} accent="#10B981" label="Kos Aktif" value={String(active.length)} sub="kontak terbuka" />
         <CardBtn t={t} active={activeCard === 'revenue'} onClick={() => setActiveCard('revenue')} icon={<CreditCard size={18} />} accent="#1B6B4A" label="Revenue Tercatat (4303)"
-          value={payData ? rpShort(payData.total) : '…'} sub={payData ? `${payData.count} pembayaran · ledger` : 'memuat…'} />
+          value={payData ? rp(payData.total) : '…'} sub={payData ? `${payData.count} pembayaran · ledger` : 'memuat…'} />
         <CardBtn t={t} active={activeCard === 'mrr'} onClick={() => setActiveCard('mrr')} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (proyeksi)"
-          value={mrrData ? rpShort(mrrData.mrr) : '…'} sub={mrrData ? `${mrrData.active_count} pelanggan aktif` : 'memuat…'} />
+          value={mrrData ? rp(mrrData.mrr) : '…'} sub={mrrData ? `${mrrData.active_count} pelanggan aktif` : 'memuat…'} />
         <CardBtn t={t} active={activeCard === 'tier'} onClick={() => setActiveCard('tier')} icon={<Layers size={18} />} accent="#6366F1" label="F / B / P / BI"
           value={`${freeN} / ${basicN} / ${proN} / ${bisnisN}`} sub="funnel tier" />
         <CardBtn t={t} active={activeCard === 'habis'} onClick={() => setActiveCard('habis')} icon={<Clock size={18} />} accent={expiring.length > 0 ? '#F59E0B' : '#9CA3AF'} label="Mau Habis (≤7h)"
