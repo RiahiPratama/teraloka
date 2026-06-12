@@ -1,16 +1,13 @@
 'use client';
 // ════════════════════════════════════════════════════════════════
-// BAKOS Command Center — Tab Langganan (Model B — per-owner)
+// BAKOS Command Center — Tab Langganan (Model B — per-owner) · SMART-CARD
 // PATH: src/app/admin/bakos/langganan/page.tsx
-// Kartu ringkasan (Kos Aktif · Revenue Tercatat 4303 · MRR proyeksi · B/P/Bisnis · Mau Habis)
-//   · seksi "mau habis" (listing_fee_paid_until ≤ 7 hari) · kolom berlaku-s/d.
-//   · Riwayat Pembayaran Langganan (uang REAL ledger — siapa bayar, kapan, berapa).
-// 🛡️ MRR Model B = per-OWNER, dibaca dari backend GET /bakos/admin/mrr
-//    (PROYEKSI recurring dari tier). BUKAN uang real.
-// 🛡️ Revenue Tercatat (4303) = uang REAL historis dari ledger
-//    (GET /bakos/admin/subscription/payments). total HARUS match Analytics 4303.
-// 🛡️ Sewa penyewa TIDAK muncul di sini (record-only, bukan revenue TeraLoka).
-// PENANDA: L8-FE-PAYMENTS-HISTORY
+// 6 kartu CLICKABLE → zona detail tunggal (drill-down). 1 kartu aktif at a time.
+//   Kos Aktif · Revenue Tercatat (4303) · MRR proyeksi · F/B/P/BI · Mau Habis · Belum Langganan
+// 🛡️ Revenue Tercatat (4303) = uang REAL ledger (GET /bakos/admin/subscription/payments).
+// 🛡️ MRR = PROYEKSI recurring per-owner (GET /bakos/admin/mrr). BUKAN uang real.
+// 🛡️ Sewa penyewa TIDAK di sini (record-only, bukan revenue TeraLoka).
+// PENANDA: L9-FE-SMARTCARD-DRILLDOWN
 // GET /admin/listings?type=kos · GET /bakos/admin/mrr
 //   · GET /bakos/admin/subscription/payments · GET /admin/bank-accounts/dropdown
 //   · POST /bakos/admin/listings/:id/subscription/confirm
@@ -19,13 +16,15 @@ import { useEffect, useState, useCallback, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import { Search, CreditCard, CheckCircle2, Wallet, TrendingUp, Clock, AlertTriangle, Receipt } from 'lucide-react';
+import { Search, CreditCard, CheckCircle2, Wallet, TrendingUp, Clock, AlertTriangle, Receipt, Inbox, Layers } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
-// 🛡️ Kalau dropdown 404, ralat URL ini (cek mount bank-accounts.ts):
 const BANK_DROPDOWN_URL = `${API_URL}/admin/bank-accounts/dropdown`;
 const MRR_URL = `${API_URL}/bakos/admin/mrr`;
 const PAYMENTS_URL = `${API_URL}/bakos/admin/subscription/payments?limit=100`;
+
+// MIRROR tier-config (backend = sumber kebenaran). Sinkronkan bila tarif berubah.
+const TIER_PRICE: Record<string, number> = { free: 0, basic: 49_000, pro: 99_000, bisnis: 149_000 };
 
 interface KosRow {
   id: string; display_id: string | null; title: string; slug: string; status: string; price: number | null;
@@ -35,8 +34,6 @@ interface KosRow {
 }
 interface BankOpt { id: string; label: string; }
 interface MrrData { mrr: number; active_count: number; by_tier: { basic: number; pro: number; bisnis: number }; }
-
-// Riwayat pembayaran (uang REAL ledger 4303)
 interface PayRow {
   event_id: string; occurred_at: string | null; owner_id: string | null;
   kos_title: string | null; trigger_listing_id: string | null; tier: string | null;
@@ -45,6 +42,8 @@ interface PayRow {
   entry_number: string | null; idempotency_key: string | null;
 }
 interface PayData { payments: PayRow[]; total: number; count: number; }
+
+type CardKey = 'aktif' | 'revenue' | 'mrr' | 'tier' | 'habis' | 'belum';
 
 function rp(n: number | null | undefined) { return n ? 'Rp ' + n.toLocaleString('id-ID') : '—'; }
 function rpShort(n: number) {
@@ -81,12 +80,12 @@ export default function BakosLanggananTab() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [searchInput, setSearchInput] = useState('');
-  const [view, setView] = useState<'belum' | 'aktif'>('belum');
   const [selected, setSelected] = useState<KosRow | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [mrrData, setMrrData] = useState<MrrData | null>(null);
   const [payData, setPayData] = useState<PayData | null>(null);
   const [payLoading, setPayLoading] = useState(true);
+  const [activeCard, setActiveCard] = useState<CardKey>('revenue');
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
   const tk = () => token || (typeof window !== 'undefined' ? localStorage.getItem('tl_token') || '' : '');
@@ -107,7 +106,6 @@ export default function BakosLanggananTab() {
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  // ── MRR per-owner dari backend (Model B; PROYEKSI, bukan uang real) ──
   const fetchMrr = useCallback(async () => {
     if (!tk()) return;
     try {
@@ -119,7 +117,6 @@ export default function BakosLanggananTab() {
 
   useEffect(() => { fetchMrr(); }, [fetchMrr]);
 
-  // ── Riwayat pembayaran dari ledger (uang REAL 4303) ──
   const fetchPayments = useCallback(async () => {
     if (!tk()) return;
     setPayLoading(true);
@@ -127,24 +124,23 @@ export default function BakosLanggananTab() {
       const res = await fetch(PAYMENTS_URL, { headers: { Authorization: `Bearer ${tk()}` } });
       const data = await res.json();
       if (data.success) setPayData(data.data);
-    } catch { /* riwayat gagal — seksi tampil kosong */ }
+    } catch { /* riwayat gagal — panel tampil kosong */ }
     finally { setPayLoading(false); }
   }, [token]);
 
   useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
-  // ── Ringkasan kos-level (dari rows; "aktif" = kontak terbuka per kos) ──
+  // ── Derivasi kos-level ──
   const active = rows.filter(r => r.listing_fee_status === 'active');
+  const belum = rows.filter(r => r.listing_fee_status !== 'active');
+  const freeN = belum.length;                                   // belum bayar = tier free (funnel teratas)
   const basicN = active.filter(r => r.subscription_tier === 'basic').length;
   const proN = active.filter(r => r.subscription_tier === 'pro').length;
   const bisnisN = active.filter(r => r.subscription_tier === 'bisnis').length;
-  // mau habis: paid_until ≤ 7 hari (termasuk lewat)
   const expiring = active
     .map(r => ({ r, d: daysUntil(r.listing_fee_paid_until) }))
     .filter(x => x.d !== null && (x.d as number) <= 7)
     .sort((a, b) => (a.d as number) - (b.d as number));
-
-  const filtered = rows.filter(r => view === 'aktif' ? r.listing_fee_status === 'active' : r.listing_fee_status !== 'active');
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
@@ -156,159 +152,173 @@ export default function BakosLanggananTab() {
 
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>Langganan</h1>
-        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>Catat pembayaran owner → kontak kebuka + tercatat di pembukuan (4303).</p>
+        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>Klik kartu buat lihat data di baliknya. Pembayaran owner → kontak kebuka + tercatat di pembukuan (4303).</p>
       </div>
 
-      {/* Kartu ringkasan */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
-        <SumCard t={t} icon={<CheckCircle2 size={18} />} accent="#10B981" label="Kos Aktif" value={String(active.length)} />
-        <SumCard t={t} icon={<CreditCard size={18} />} accent="#1B6B4A" label="Revenue Tercatat (4303)"
-          value={payData ? rpShort(payData.total) : '…'}
-          sub={payData ? `${payData.count} pembayaran · ledger` : 'memuat…'} />
-        <SumCard t={t} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (proyeksi)"
-          value={mrrData ? rpShort(mrrData.mrr) : '…'}
-          sub={mrrData ? `${mrrData.active_count} pelanggan aktif` : 'memuat…'} />
-        <SumCard t={t} icon={<Wallet size={18} />} accent="#6366F1" label="B / P / Bisnis" value={`${basicN} / ${proN} / ${bisnisN}`} />
-        <SumCard t={t} icon={<Clock size={18} />} accent={expiring.length > 0 ? '#F59E0B' : '#9CA3AF'} label="Mau Habis (≤7h)" value={String(expiring.length)}
-          sub={expiring.length > 0 ? 'tagih perpanjang' : 'aman'} />
+      {/* 6 kartu CLICKABLE */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 18 }}>
+        <CardBtn t={t} active={activeCard === 'aktif'} onClick={() => setActiveCard('aktif')} icon={<CheckCircle2 size={18} />} accent="#10B981" label="Kos Aktif" value={String(active.length)} sub="kontak terbuka" />
+        <CardBtn t={t} active={activeCard === 'revenue'} onClick={() => setActiveCard('revenue')} icon={<CreditCard size={18} />} accent="#1B6B4A" label="Revenue Tercatat (4303)"
+          value={payData ? rpShort(payData.total) : '…'} sub={payData ? `${payData.count} pembayaran · ledger` : 'memuat…'} />
+        <CardBtn t={t} active={activeCard === 'mrr'} onClick={() => setActiveCard('mrr')} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (proyeksi)"
+          value={mrrData ? rpShort(mrrData.mrr) : '…'} sub={mrrData ? `${mrrData.active_count} pelanggan aktif` : 'memuat…'} />
+        <CardBtn t={t} active={activeCard === 'tier'} onClick={() => setActiveCard('tier')} icon={<Layers size={18} />} accent="#6366F1" label="F / B / P / BI"
+          value={`${freeN} / ${basicN} / ${proN} / ${bisnisN}`} sub="funnel tier" />
+        <CardBtn t={t} active={activeCard === 'habis'} onClick={() => setActiveCard('habis')} icon={<Clock size={18} />} accent={expiring.length > 0 ? '#F59E0B' : '#9CA3AF'} label="Mau Habis (≤7h)"
+          value={String(expiring.length)} sub={expiring.length > 0 ? 'tagih perpanjang' : 'aman'} />
+        <CardBtn t={t} active={activeCard === 'belum'} onClick={() => setActiveCard('belum')} icon={<Inbox size={18} />} accent="#F59E0B" label="Belum Langganan"
+          value={String(belum.length)} sub="klik → aktifkan" />
       </div>
 
-      {/* Seksi mau habis */}
-      {expiring.length > 0 && (
-        <div style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 14, padding: 16, marginBottom: 16 }}>
-          <p style={{ fontSize: 13, fontWeight: 700, color: '#F59E0B', display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10 }}>
-            <AlertTriangle size={15} /> Langganan mau habis — tagih perpanjang sebelum kontak ke-kunci lagi
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {expiring.map(({ r, d }) => (
-              <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '6px 0', borderBottom: `1px solid ${t.sidebarBorder}` }}>
-                <span style={{ color: t.textPrimary }}>
-                  <span style={{ fontFamily: 'ui-monospace, monospace', color: '#F59E0B', fontWeight: 700, marginRight: 8 }}>{r.display_id || ''}</span>
-                  {r.title}
-                </span>
-                <span style={{ color: (d as number) < 0 ? '#EF4444' : '#F59E0B', fontWeight: 700 }}>
-                  {(d as number) < 0 ? `lewat ${Math.abs(d as number)}h` : (d as number) === 0 ? 'habis hari ini' : `${d}h lagi`}
-                </span>
+      {/* ── ZONA DETAIL (drill-down kartu aktif) ── */}
+      <div>
+        {activeCard === 'revenue' && (
+          <Panel t={t} icon={<Receipt size={16} />} accent="#1B6B4A" title="Riwayat Pembayaran Langganan"
+            desc="Uang REAL tercatat di pembukuan (akun 4303) — siapa bayar, kapan, berapa. Beda dari MRR (proyeksi) & sewa penyewa."
+            right={payData ? <div style={{ textAlign: 'right' }}><p style={{ fontSize: 18, fontWeight: 800, color: '#1B6B4A' }}>{rp(payData.total)}</p><p style={{ fontSize: 11, color: t.textDim }}>{payData.count} pembayaran · total tercatat</p></div> : null}>
+            {payLoading ? <Empty t={t} text="Memuat riwayat…" /> : !payData || payData.payments.length === 0 ? (
+              <EmptyBox t={t} emoji="🧾" title="Belum ada pembayaran tercatat" hint="Pembayaran muncul di sini setelah langganan dikonfirmasi." />
+            ) : (
+              <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden', overflowX: 'auto' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 110px 150px 110px 140px', minWidth: 780, padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div>Tanggal</div><div>Kos / Owner</div><div>Tier</div><div style={{ textAlign: 'right' }}>Nominal</div><div>Periode</div><div>Rekening</div><div>Ledger</div>
+                </div>
+                {payData.payments.map((p) => (
+                  <div key={p.event_id} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 110px 150px 110px 140px', minWidth: 780, padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                    <div style={{ fontSize: 12, color: t.textDim }}>{fmtDate(p.occurred_at)}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.kos_title || '—'}</p>
+                      <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2, fontFamily: 'ui-monospace, monospace' }}>
+                        {p.owner_id ? `owner ${p.owner_id.slice(0, 8)}` : '—'}{p.notes && <span style={{ fontStyle: 'italic' }}> · {p.notes}</span>}
+                      </p>
+                    </div>
+                    <div>{p.tier ? <TierPill tier={p.tier} /> : '—'}</div>
+                    <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1B6B4A' }}>{rp(p.amount)}</div>
+                    <div style={{ fontSize: 11, color: t.textDim }}>{fmtDate(p.period_start)} → {fmtDate(p.period_end)}</div>
+                    <div style={{ fontSize: 12, color: t.textDim }}>{earmarkLabel(p.earmark_owner)}</div>
+                    <div style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace', color: t.textMuted }}>{p.entry_number || '—'}</div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )}
+          </Panel>
+        )}
 
-      {/* Toggle + search */}
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16, alignItems: 'center', flexWrap: 'wrap' }}>
-        {([['belum', 'Belum Berlangganan'], ['aktif', 'Langganan Aktif']] as const).map(([v, l]) => (
-          <button key={v} onClick={() => setView(v)} style={{ padding: '7px 14px', borderRadius: 8, border: 'none', cursor: 'pointer', fontSize: 13, fontWeight: 700, background: view === v ? '#F59E0B' : t.navHover, color: view === v ? '#fff' : t.textDim }}>{l}</button>
-        ))}
-        <div style={{ flex: 1, display: 'flex', gap: 6, minWidth: 180 }}>
-          <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)} placeholder="Cari nama / kode kos..."
-            style={{ flex: 1, padding: '6px 12px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, fontSize: 12, color: t.textPrimary, background: t.mainBg, outline: 'none' }} />
-          <button onClick={() => setSearch(searchInput)} style={{ padding: '6px 12px', borderRadius: 8, background: '#F59E0B', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Search size={13} /> Cari</button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div style={{ textAlign: 'center', padding: '60px 0', color: t.textMuted, fontSize: 14 }}>
-          <div style={{ width: 36, height: 36, borderRadius: '50%', border: '3px solid #F59E0B', borderTopColor: 'transparent', animation: 'spin 0.8s linear infinite', margin: '0 auto 12px' }} />
-          Memuat…
-          <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
-        </div>
-      ) : filtered.length === 0 ? (
-        <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '60px 24px', textAlign: 'center' }}>
-          <div style={{ fontSize: 40, marginBottom: 12 }}>{view === 'aktif' ? '💳' : '📭'}</div>
-          <p style={{ fontWeight: 600, color: t.textPrimary }}>{view === 'aktif' ? 'Belum ada langganan aktif' : 'Semua kos terfilter sudah berlangganan'}</p>
-        </div>
-      ) : (
-        <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 130px 150px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            <div>Kode</div><div>Kos</div><div>Harga</div><div>{view === 'aktif' ? 'Berlaku s/d' : 'Status'}</div><div style={{ textAlign: 'right' }}>Aksi</div>
-          </div>
-          {filtered.map((row) => {
-            const isActive = row.listing_fee_status === 'active';
-            const d = daysUntil(row.listing_fee_paid_until);
-            return (
-              <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 130px 150px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
-                <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700, color: row.display_id ? '#F59E0B' : t.textMuted }}>{row.display_id || '—'}</div>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {row.title}
-                    {isActive && row.subscription_tier && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 700, color: '#0891B2', background: 'rgba(8,145,178,0.12)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{row.subscription_tier}</span>}
-                  </p>
-                  <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{row.kos_type || '—'} · {row.listing_tier || '—'}</p>
-                </div>
-                <div style={{ fontSize: 12, color: t.textDim }}>{rp(row.price)}</div>
-                <div style={{ fontSize: 12 }}>
-                  {isActive ? (
-                    row.listing_fee_paid_until ? (
-                      <span style={{ color: d !== null && d <= 7 ? '#F59E0B' : t.textDim, fontWeight: d !== null && d <= 7 ? 700 : 400 }}>
-                        {new Date(row.listing_fee_paid_until).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' })}
-                        {d !== null && d <= 7 && <span style={{ display: 'block', fontSize: 10 }}>{d < 0 ? `lewat ${Math.abs(d)}h` : `${d}h lagi`}</span>}
-                      </span>
-                    ) : <span style={{ color: t.textMuted }}>—</span>
-                  ) : <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted }}>Belum aktif</span>}
-                </div>
-                <div style={{ textAlign: 'right' }}>
-                  {isActive ? <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>✓ kontak terbuka</span>
-                    : <button onClick={() => setSelected(row)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none' }}><CreditCard size={13} /> Aktifkan</button>}
+        {activeCard === 'mrr' && (
+          <Panel t={t} icon={<TrendingUp size={16} />} accent="#0891B2" title="MRR — Proyeksi Recurring (per-owner)"
+            desc="Ramalan pendapatan bulanan dari tier langganan aktif. BUKAN uang real — bandingkan dengan Revenue Tercatat (4303)."
+            right={mrrData ? <p style={{ fontSize: 18, fontWeight: 800, color: '#0891B2' }}>{rp(mrrData.mrr)}<span style={{ fontSize: 11, color: t.textDim, fontWeight: 400 }}> /bln</span></p> : null}>
+            {!mrrData ? <Empty t={t} text="Memuat MRR…" /> : (
+              <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '8px 16px' }}>
+                {(['basic', 'pro', 'bisnis'] as const).map(tier => {
+                  const n = mrrData.by_tier[tier]; const sub = n * TIER_PRICE[tier];
+                  return (
+                    <div key={tier} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 0', borderBottom: `1px solid ${t.sidebarBorder}` }}>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}><TierPill tier={tier} /> <span style={{ fontSize: 12, color: t.textDim }}>{rp(TIER_PRICE[tier])}/bln</span></span>
+                      <span style={{ fontSize: 13, color: t.textPrimary }}>{n} owner · <strong style={{ color: '#0891B2' }}>{rp(sub)}</strong></span>
+                    </div>
+                  );
+                })}
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', fontWeight: 700 }}>
+                  <span style={{ fontSize: 13 }}>Total proyeksi</span><span style={{ fontSize: 14, color: '#0891B2' }}>{rp(mrrData.mrr)}/bln</span>
                 </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+            )}
+          </Panel>
+        )}
 
-      {/* ── Riwayat Pembayaran Langganan (uang REAL ledger 4303) ── */}
-      <div style={{ marginTop: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
-          <div>
-            <h2 style={{ fontSize: 16, fontWeight: 800, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
-              <Receipt size={17} style={{ color: '#1B6B4A' }} /> Riwayat Pembayaran Langganan
-            </h2>
-            <p style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>
-              Uang REAL tercatat di pembukuan (akun 4303) — siapa bayar, kapan, berapa. Beda dari MRR (proyeksi) &amp; sewa penyewa.
-            </p>
-          </div>
-          {payData && (
-            <div style={{ textAlign: 'right' }}>
-              <p style={{ fontSize: 18, fontWeight: 800, color: '#1B6B4A' }}>{rp(payData.total)}</p>
-              <p style={{ fontSize: 11, color: t.textDim }}>{payData.count} pembayaran · total tercatat</p>
+        {activeCard === 'tier' && (
+          <Panel t={t} icon={<Layers size={16} />} accent="#6366F1" title="Funnel Tier — Free / Basic / Pro / Bisnis"
+            desc="Sebaran kos per tier. Free = terdaftar tapi belum langganan (funnel teratas).">
+            <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '12px 16px' }}>
+              {([['Free', freeN, '#9CA3AF'], ['Basic', basicN, '#0891B2'], ['Pro', proN, '#6366F1'], ['Bisnis', bisnisN, '#1B6B4A']] as const).map(([lbl, n, col]) => {
+                const max = Math.max(rows.length, 1);
+                return (
+                  <div key={lbl} style={{ marginBottom: 10 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, marginBottom: 4 }}>
+                      <span style={{ color: t.textPrimary, fontWeight: 600 }}>{lbl}</span><span style={{ color: t.textDim }}>{n} kos</span>
+                    </div>
+                    <div style={{ height: 8, borderRadius: 4, background: t.navHover, overflow: 'hidden' }}>
+                      <div style={{ height: '100%', width: `${(n / max) * 100}%`, background: col, borderRadius: 4 }} />
+                    </div>
+                  </div>
+                );
+              })}
+              <p style={{ fontSize: 11, color: t.textMuted, marginTop: 4 }}>Total {rows.length} kos terdaftar.</p>
             </div>
-          )}
-        </div>
+          </Panel>
+        )}
 
-        {payLoading ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: t.textMuted, fontSize: 13 }}>Memuat riwayat…</div>
-        ) : !payData || payData.payments.length === 0 ? (
-          <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '40px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: 32, marginBottom: 8 }}>🧾</div>
-            <p style={{ fontWeight: 600, color: t.textPrimary }}>Belum ada pembayaran tercatat</p>
-            <p style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>Pembayaran muncul di sini setelah langganan dikonfirmasi.</p>
-          </div>
-        ) : (
-          <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden', overflowX: 'auto' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 110px 150px 110px 140px', minWidth: 780, padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-              <div>Tanggal</div><div>Kos / Owner</div><div>Tier</div><div style={{ textAlign: 'right' }}>Nominal</div><div>Periode</div><div>Rekening</div><div>Ledger</div>
-            </div>
-            {payData.payments.map((p) => (
-              <div key={p.event_id} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 110px 150px 110px 140px', minWidth: 780, padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
-                <div style={{ fontSize: 12, color: t.textDim }}>{fmtDate(p.occurred_at)}</div>
-                <div style={{ minWidth: 0 }}>
-                  <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.kos_title || '—'}</p>
-                  <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2, fontFamily: 'ui-monospace, monospace' }}>
-                    {p.owner_id ? `owner ${p.owner_id.slice(0, 8)}` : '—'}
-                    {p.notes && <span style={{ fontStyle: 'italic' }}> · {p.notes}</span>}
-                  </p>
-                </div>
-                <div>
-                  {p.tier ? <span style={{ fontSize: 9, fontWeight: 700, color: '#0891B2', background: 'rgba(8,145,178,0.12)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{p.tier}</span> : '—'}
-                </div>
-                <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1B6B4A' }}>{rp(p.amount)}</div>
-                <div style={{ fontSize: 11, color: t.textDim }}>{fmtDate(p.period_start)} → {fmtDate(p.period_end)}</div>
-                <div style={{ fontSize: 12, color: t.textDim }}>{earmarkLabel(p.earmark_owner)}</div>
-                <div style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace', color: t.textMuted }}>{p.entry_number || '—'}</div>
+        {activeCard === 'habis' && (
+          <Panel t={t} icon={<AlertTriangle size={16} />} accent="#F59E0B" title="Langganan Mau Habis (≤7 hari)"
+            desc="Tagih perpanjang sebelum kontak ke-kunci lagi.">
+            {expiring.length === 0 ? <EmptyBox t={t} emoji="✅" title="Aman" hint="Tidak ada langganan yang mau habis dalam 7 hari." /> : (
+              <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '8px 16px' }}>
+                {expiring.map(({ r, d }) => (
+                  <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, padding: '10px 0', borderBottom: `1px solid ${t.sidebarBorder}` }}>
+                    <span style={{ color: t.textPrimary }}>
+                      <span style={{ fontFamily: 'ui-monospace, monospace', color: '#F59E0B', fontWeight: 700, marginRight: 8 }}>{r.display_id || ''}</span>{r.title}
+                    </span>
+                    <span style={{ color: (d as number) < 0 ? '#EF4444' : '#F59E0B', fontWeight: 700 }}>
+                      {(d as number) < 0 ? `lewat ${Math.abs(d as number)}h` : (d as number) === 0 ? 'habis hari ini' : `${d}h lagi`}
+                    </span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </Panel>
+        )}
+
+        {(activeCard === 'aktif' || activeCard === 'belum') && (
+          <Panel t={t} icon={activeCard === 'aktif' ? <CheckCircle2 size={16} /> : <Inbox size={16} />} accent={activeCard === 'aktif' ? '#10B981' : '#F59E0B'}
+            title={activeCard === 'aktif' ? 'Kos Langganan Aktif' : 'Kos Belum Langganan'}
+            desc={activeCard === 'aktif' ? 'Kontak terbuka untuk calon penyewa.' : 'Konfirmasi pembayaran owner → klik Aktifkan (kontak kebuka + tercatat 4303).'}>
+            <div style={{ display: 'flex', gap: 6, marginBottom: 12, maxWidth: 360 }}>
+              <input value={searchInput} onChange={(e) => setSearchInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && setSearch(searchInput)} placeholder="Cari nama / kode kos..."
+                style={{ flex: 1, padding: '6px 12px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, fontSize: 12, color: t.textPrimary, background: t.mainBg, outline: 'none' }} />
+              <button onClick={() => setSearch(searchInput)} style={{ padding: '6px 12px', borderRadius: 8, background: '#F59E0B', color: '#fff', border: 'none', fontSize: 12, cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}><Search size={13} /> Cari</button>
+            </div>
+            {loading ? <Empty t={t} text="Memuat…" /> : (activeCard === 'aktif' ? active : belum).length === 0 ? (
+              <EmptyBox t={t} emoji={activeCard === 'aktif' ? '💳' : '📭'} title={activeCard === 'aktif' ? 'Belum ada langganan aktif' : 'Semua kos sudah berlangganan'} />
+            ) : (
+              <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 130px 150px', padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  <div>Kode</div><div>Kos</div><div>Harga</div><div>{activeCard === 'aktif' ? 'Berlaku s/d' : 'Status'}</div><div style={{ textAlign: 'right' }}>Aksi</div>
+                </div>
+                {(activeCard === 'aktif' ? active : belum).map((row) => {
+                  const isActive = row.listing_fee_status === 'active';
+                  const d = daysUntil(row.listing_fee_paid_until);
+                  return (
+                    <div key={row.id} style={{ display: 'grid', gridTemplateColumns: '120px 1fr 110px 130px 150px', padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                      <div style={{ fontFamily: 'ui-monospace, monospace', fontSize: 12, fontWeight: 700, color: row.display_id ? '#F59E0B' : t.textMuted }}>{row.display_id || '—'}</div>
+                      <div style={{ minWidth: 0 }}>
+                        <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {row.title}
+                          {isActive && row.subscription_tier && <span style={{ marginLeft: 6 }}><TierPill tier={row.subscription_tier} /></span>}
+                        </p>
+                        <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{row.kos_type || '—'} · {row.listing_tier || '—'}</p>
+                      </div>
+                      <div style={{ fontSize: 12, color: t.textDim }}>{rp(row.price)}</div>
+                      <div style={{ fontSize: 12 }}>
+                        {isActive ? (
+                          row.listing_fee_paid_until ? (
+                            <span style={{ color: d !== null && d <= 7 ? '#F59E0B' : t.textDim, fontWeight: d !== null && d <= 7 ? 700 : 400 }}>
+                              {fmtDate(row.listing_fee_paid_until)}
+                              {d !== null && d <= 7 && <span style={{ display: 'block', fontSize: 10 }}>{d < 0 ? `lewat ${Math.abs(d)}h` : `${d}h lagi`}</span>}
+                            </span>
+                          ) : <span style={{ color: t.textMuted }}>—</span>
+                        ) : <span style={{ fontSize: 11, fontWeight: 700, color: t.textMuted }}>Belum aktif</span>}
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        {isActive ? <span style={{ fontSize: 11, color: '#10B981', fontWeight: 600 }}>✓ kontak terbuka</span>
+                          : <button onClick={() => setSelected(row)} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', color: '#fff', fontSize: 11, fontWeight: 700, cursor: 'pointer', border: 'none' }}><CreditCard size={13} /> Aktifkan</button>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Panel>
         )}
       </div>
 
@@ -322,13 +332,49 @@ export default function BakosLanggananTab() {
   );
 }
 
-function SumCard({ t, icon, accent, label, value, sub }: { t: any; icon: React.ReactNode; accent: string; label: string; value: string; sub?: string }) {
+// ── Kartu clickable ──
+function CardBtn({ t, active, icon, accent, label, value, sub, onClick }: { t: any; active: boolean; icon: React.ReactNode; accent: string; label: string; value: string; sub?: string; onClick: () => void }) {
   return (
-    <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 12, padding: 16 }}>
+    <button onClick={onClick} style={{
+      textAlign: 'left', cursor: 'pointer', background: t.mainBg, borderRadius: 12, padding: active ? 15 : 16,
+      border: active ? `2px solid ${accent}` : `1px solid ${t.sidebarBorder}`, display: 'flex', flexDirection: 'column', transition: 'border-color .12s',
+    }}>
       <div style={{ width: 34, height: 34, borderRadius: 9, background: accent + '18', color: accent, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>{icon}</div>
       <p style={{ fontSize: 11, color: t.textDim, fontWeight: 500 }}>{label}</p>
       <p style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>{value}</p>
       {sub && <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 2 }}>{sub}</p>}
+    </button>
+  );
+}
+
+// ── Wrapper panel detail ──
+function Panel({ t, icon, accent, title, desc, right, children }: { t: any; icon: React.ReactNode; accent: string; title: string; desc?: string; right?: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 800, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}><span style={{ color: accent }}>{icon}</span> {title}</h2>
+          {desc && <p style={{ fontSize: 12, color: t.textDim, marginTop: 2, maxWidth: 640 }}>{desc}</p>}
+        </div>
+        {right}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function TierPill({ tier }: { tier: string }) {
+  return <span style={{ fontSize: 9, fontWeight: 700, color: '#0891B2', background: 'rgba(8,145,178,0.12)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{tier}</span>;
+}
+function Empty({ t, text }: { t: any; text: string }) {
+  return <div style={{ textAlign: 'center', padding: '40px 0', color: t.textMuted, fontSize: 13 }}>{text}</div>;
+}
+function EmptyBox({ t, emoji, title, hint }: { t: any; emoji: string; title: string; hint?: string }) {
+  return (
+    <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '40px 24px', textAlign: 'center' }}>
+      <div style={{ fontSize: 32, marginBottom: 8 }}>{emoji}</div>
+      <p style={{ fontWeight: 600, color: t.textPrimary }}>{title}</p>
+      {hint && <p style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>{hint}</p>}
     </div>
   );
 }
@@ -349,13 +395,11 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { const p = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = p; }; }, []);
 
-  // fetch dropdown rekening
   useEffect(() => {
     (async () => {
       try {
         const res = await fetch(BANK_DROPDOWN_URL, { headers: { Authorization: `Bearer ${tk}` } });
         const data = await res.json();
-        // shape: { success, data: { accounts: [...] } } — fallback defensif
         const list = data?.data?.accounts ?? data?.accounts ?? (Array.isArray(data) ? data : data?.data) ?? [];
         const opts: BankOpt[] = (list ?? []).map((b: any) => ({ id: b.id, label: bankLabel(b) }));
         setBanks(opts);
@@ -400,8 +444,6 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
           <div style={{ background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 10, padding: '9px 12px', marginBottom: 16 }}>
             <p style={{ margin: 0, fontSize: 12, color: '#065F46', lineHeight: 1.5 }}>Konfirmasi = <strong>kontak kebuka</strong> untuk calon penyewa + tercatat di pembukuan (akun 4303).</p>
           </div>
-
-          {/* Tier */}
           <div style={{ marginBottom: 14 }}>
             <label style={lbl}>Paket</label>
             <div style={{ display: 'flex', gap: 8 }}>
@@ -414,8 +456,6 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
               ))}
             </div>
           </div>
-
-          {/* Amount + duration */}
           <div style={{ display: 'flex', gap: 10, marginBottom: 14 }}>
             <div style={{ flex: 2 }}>
               <label style={lbl}>Nominal (Rp)</label>
@@ -426,8 +466,6 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
               <input style={inp} value={duration} onChange={(e) => setDuration(e.target.value.replace(/\D/g, ''))} inputMode="numeric" disabled={loading} />
             </div>
           </div>
-
-          {/* Bank dropdown */}
           <div style={{ marginBottom: 14 }}>
             <label style={lbl}>Rekening tujuan</label>
             <select style={{ ...inp, cursor: 'pointer' }} value={bankId} onChange={(e) => setBankId(e.target.value)} disabled={loading}>
@@ -435,8 +473,6 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
               {banks.map(b => <option key={b.id} value={b.id}>{b.label}</option>)}
             </select>
           </div>
-
-          {/* Proof + notes */}
           <div style={{ marginBottom: 14 }}>
             <label style={lbl}>Link bukti transfer (opsional)</label>
             <input style={inp} value={proof} onChange={(e) => setProof(e.target.value)} placeholder="https://..." disabled={loading} />
@@ -445,7 +481,6 @@ function ConfirmModal({ t, kos, tk, onClose, onDone, onErr }: {
             <label style={lbl}>Catatan (opsional)</label>
             <textarea style={{ ...inp, minHeight: 56, resize: 'vertical', fontFamily: 'inherit' }} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="cth: transfer via BCA an. ..." disabled={loading} />
           </div>
-
           <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
             <button onClick={() => { if (!loading) onClose(); }} disabled={loading} style={{ flex: 1, padding: '12px', borderRadius: 12, border: '1.5px solid #CBD5E1', background: '#fff', color: '#64748B', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>Batal</button>
             <button onClick={submit} disabled={loading} style={{ flex: 1, padding: '12px', borderRadius: 12, border: 'none', background: 'linear-gradient(135deg, #1B6B4A, #0891B2)', color: '#fff', fontSize: 14, fontWeight: 700, cursor: 'pointer', opacity: loading ? 0.6 : 1 }}>{loading ? 'Memproses…' : 'Konfirmasi & Aktifkan'}</button>
