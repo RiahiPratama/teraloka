@@ -3,7 +3,10 @@
 // PATH: src/components/bakos/public/hero-section.tsx
 // 🛡️ .bk-supply (count) → diganti <HeroMap/> (peta preview, gaya BALAPOR).
 //    Count "160 kos" sekarang jadi badge di atas peta. Search TIDAK diubah.
+// L+: headline nowrap "Maluku Utara" + strip CTA owner (supply cold-start).
+//     PENANDA: BK-HERO-OWNER-CTA.
 // ════════════════════════════════════════════════════════════════
+import Link from 'next/link';
 import { KOS_TYPES, PRICE_FILTERS, QUICK } from './bakos-links';
 import { HeroMap } from './map/HeroMap';
 
@@ -32,7 +35,7 @@ export function HeroSection({
       <div className="bk-hero-top">
         <div>
           <span className="bk-pill"><span className="material-symbols-outlined">verified</span> Bagian dari TeraLoka · dipercaya warga MalUt</span>
-          <h1>Cari kos di <span>Maluku Utara</span>,<br />tanpa khawatir ditipu.</h1>
+          <h1>Cari kos di <span className="bk-nowrap">Maluku Utara</span>,<br />tanpa khawatir ditipu.</h1>
           <p className="bk-sub">Kontak pemilik kos langsung, tanpa calo. Harga transparan, nomor diteruskan aman lewat WhatsApp, dan tampil di hadapan pembaca berita lokal BAKABAR.</p>
         </div>
 
@@ -82,6 +85,16 @@ export function HeroSection({
           </button>
         ))}
       </div>
+
+      {/* ── STRIP CTA OWNER (BK-HERO-OWNER-CTA) — pintu kedua buat pemilik kos ── */}
+      <Link href="/owner/bakos" className="bk-ownerstrip">
+        <span className="bk-ownerstrip-ic"><span className="material-symbols-outlined">add_home_work</span></span>
+        <span className="bk-ownerstrip-tx">
+          <b>Punya kos di Ternate?</b>
+          <em>Daftarkan gratis · kelola dari HP · sewa 100% milik Anda</em>
+        </span>
+        <span className="bk-ownerstrip-btn">Daftarkan kos <span className="material-symbols-outlined">arrow_forward</span></span>
+      </Link>
     </div></section>
   );
 }
