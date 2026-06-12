@@ -1,33 +1,30 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// OWNER BOTTOM NAV
+// OWNER BOTTOM NAV — UNIVERSAL (12 Jun 2026)
 // ────────────────────────────────────────────────────────────────
-// Bottom nav khusus untuk /owner/* section.
-// 4 tab: Dashboard, Pencairan, Laporan, Profile
+// 4 tab GLOBAL (bukan donasi-specific): Beranda · Portal Mitra · Aktivitas · Profil
 //
-// Design: konsisten dengan BottomNav publik (var(--primary), blur,
-// safe-area, mobile-only via md:hidden).
+// Kenapa universal: owner = satu warga banyak peran (kos/donasi/driver/citizen).
+// Bottom nav owner = navigasi GLOBAL (keluar/pindah layanan), BUKAN sub-fitur
+// satu layanan. Sub-fitur (Pencairan/Laporan donasi, Penyewa/Tagihan kos) =
+// navigasi DALAM konten tiap section (header lokal + breadcrumb).
 //
-// Behavior:
-//   - Auto-hide saat virtual keyboard muncul
-//   - Auto-hide saat any modal open (May 2, 2026 fix —
-//     tombol modal action gak ketutup BottomNav)
-//   - Smart context: kalau di campaign detail, tab Pencairan/Laporan
-//     link ke campaign-specific path (/owner/funding/campaigns/[id]/...)
+//   Beranda      → /            (homepage TeraLoka — keluar dari mode owner)
+//   Portal Mitra → /owner       (hub layanan owner: kos, dst — pindah layanan)
+//   Aktivitas    → /aktivitas   (jejak lintas-layanan, citizen area)
+//   Profil       → /owner/profile
 //
-// ⭐ REFACTOR May 2, 2026: Domain umbrella /owner/funding/* (schema-based)
-//    Konsisten dengan /admin/funding/* dan DB schema funding.
+// History:
+//   - (lama) 4 tab Dashboard/Pencairan/Laporan/Profile — donasi-specific,
+//     nyasar di /owner/bakos. DIGANTI jadi universal 12 Jun 2026.
 //
-// ⭐ FIX May 2, 2026: Modal-aware via ModalContext
-//    Sebelumnya: modal action button ketutup BottomNav (penggalang stuck
-//    verify donasi karena "Lanjut" gak bisa diklik). Now: BottomNav
-//    auto-hide via translate-y-full saat any modal open.
+// Behavior tetap: auto-hide saat keyboard / modal open (via ModalProvider).
 // ════════════════════════════════════════════════════════════════
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, Banknote, ClipboardList, User } from 'lucide-react';
+import { Home, Store, Clock, User } from 'lucide-react';
 import { useKeyboardOpen } from '@/utils/pwa-utils';
 import { useModal } from '@/components/providers/ModalProvider';
 
@@ -43,62 +40,28 @@ export default function OwnerBottomNav() {
   const keyboardOpen = useKeyboardOpen();
   const { isAnyModalOpen } = useModal();
 
-  // Extract campaignId from path if we're in /owner/funding/campaigns/[id]/*
-  const campaignMatch = pathname.match(/^\/owner\/funding\/campaigns\/([^/]+)/);
-  const campaignId = campaignMatch?.[1];
-
   const items: NavItem[] = [
-    {
-      key: 'dashboard',
-      label: 'Dashboard',
-      href: '/owner',
-      icon: LayoutDashboard,
-    },
-    {
-      key: 'pencairan',
-      label: 'Pencairan',
-      href: campaignId
-        ? `/owner/funding/campaigns/${campaignId}/disbursements`
-        : '/owner/funding/disbursements',
-      icon: Banknote,
-    },
-    {
-      key: 'laporan',
-      label: 'Laporan',
-      href: campaignId
-        ? `/owner/funding/campaigns/${campaignId}/reports`
-        : '/owner/funding/reports',
-      icon: ClipboardList,
-    },
-    {
-      key: 'profile',
-      label: 'Profile',
-      href: '/owner/profile',
-      icon: User,
-    },
+    { key: 'beranda', label: 'Beranda', href: '/', icon: Home },
+    { key: 'mitra', label: 'Portal Mitra', href: '/owner', icon: Store },
+    { key: 'aktivitas', label: 'Aktivitas', href: '/aktivitas', icon: Clock },
+    { key: 'profil', label: 'Profil', href: '/owner/profile', icon: User },
   ];
 
   function isActive(item: NavItem) {
-    if (item.key === 'dashboard') {
-      // Dashboard active saat: di /owner exact, atau di /owner/funding/campaigns/[id] tanpa sub-path action
-      return (
-        pathname === '/owner' ||
-        (pathname.startsWith('/owner/funding/campaigns/') &&
-          !pathname.match(/(disbursements|reports|profile)$/) &&
-          !pathname.includes('/disbursements/') &&
-          !pathname.includes('/reports/'))
-      );
+    if (item.key === 'beranda') return pathname === '/';
+    if (item.key === 'mitra') {
+      // Portal Mitra active di /owner + semua sub-section owner KECUALI profil
+      return pathname.startsWith('/owner') && pathname !== '/owner/profile';
     }
-    if (item.key === 'pencairan') return pathname.includes('/disbursements');
-    if (item.key === 'laporan')   return pathname.includes('/reports');
-    if (item.key === 'profile')   return pathname === '/owner/profile';
+    if (item.key === 'aktivitas') return pathname.startsWith('/aktivitas');
+    if (item.key === 'profil') return pathname === '/owner/profile';
     return false;
   }
 
-  // Hide bottom nav saat keyboard muncul (full unmount untuk reclaim space)
+  // Hide saat keyboard muncul (reclaim space)
   if (keyboardOpen) return null;
 
-  // Hide bottom nav saat modal open (slide down via transform — preserve mount untuk smooth transition)
+  // Hide saat modal open (slide down — preserve mount untuk transisi halus)
   const hidden = isAnyModalOpen;
 
   return (
