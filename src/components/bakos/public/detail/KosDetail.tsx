@@ -49,10 +49,13 @@ export function KosDetail() {
   useEffect(() => {
     if (!listing) return;
     const onScroll = () => {
+      // Garis deteksi = tepat di bawah sticky bars (topbar + tab-nav ≈ 120px).
+      // Section terakhir yang tepi-atasnya sudah melewati garis = aktif.
+      const LINE = 130;
       let cur = SECTIONS[0].id as string;
       for (const s of SECTIONS) {
         const el = document.getElementById(`sec-${s.id}`);
-        if (el && el.getBoundingClientRect().top <= 160) cur = s.id;
+        if (el && el.getBoundingClientRect().top <= LINE) cur = s.id;
       }
       setActiveTab(cur);
     };
@@ -61,8 +64,15 @@ export function KosDetail() {
     return () => window.removeEventListener('scroll', onScroll);
   }, [listing]);
 
-  const goTo = (id: string) =>
-    document.getElementById(`sec-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const goTo = (id: string) => {
+    const el = document.getElementById(`sec-${id}`);
+    if (!el) return;
+    // Offset = tinggi sticky bars (topbar + tab-nav) supaya section tidak ketutup.
+    const OFFSET = 120;
+    const y = el.getBoundingClientRect().top + window.scrollY - OFFSET;
+    window.scrollTo({ top: y, behavior: 'smooth' });
+    setActiveTab(id);            // langsung sorot tab yang diklik (instan, tak nunggu scroll)
+  };
 
   if (loading) {
     return (
