@@ -107,7 +107,7 @@ function AnalyticsSection({ data }: { data: OwnerOverview }) {
   );
 }
 
-// ── WA Reminder (Pro+) — shell ──
+// ── WA Reminder (Pro+) — status aktif (fitur LIVE) ──
 function ReminderSection() {
   return (
     <div className="rounded-2xl p-5" style={{ background: '#fff', border: `1px solid ${BAKOS_TOKENS.border}` }}>
@@ -116,11 +116,14 @@ function ReminderSection() {
         <p className="text-sm font-bold" style={{ color: BAKOS_TOKENS.textPrimary }}>Pengingat WhatsApp</p>
         <span className="ml-auto text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full" style={{ background: BAKOS_TOKENS.accentBg, color: BRAND }}>Aktif</span>
       </div>
-      <p className="text-xs leading-relaxed" style={{ color: BAKOS_TOKENS.textSecondary }}>
-        Paket kamu termasuk pengingat WA otomatis untuk penyewa (jatuh tempo sewa, info kos). Fitur pengaturan reminder akan segera tersedia di sini.
+      <p className="text-xs leading-relaxed mb-3" style={{ color: BAKOS_TOKENS.textSecondary }}>
+        Penyewa otomatis dapat pengingat WhatsApp <b style={{ color: BAKOS_TOKENS.textPrimary }}>H-3 & saat jatuh tempo</b> sewa. Kamu juga bisa kirim pengingat manual kapan saja. Penyewa yang sudah bayar otomatis dilewati.
       </p>
-      <div className="mt-3 inline-flex items-center gap-1.5 text-xs font-semibold px-3.5 py-2 rounded-xl" style={{ background: BAKOS_TOKENS.surfaceAlt, color: BAKOS_TOKENS.textTertiary }}>
-        <Bell size={13} /> Segera hadir
+      <div className="rounded-xl p-3 flex items-start gap-2" style={{ background: BAKOS_TOKENS.surfaceAlt }}>
+        <Bell size={13} className="shrink-0 mt-0.5" style={{ color: BRAND }} />
+        <p className="text-[11px] leading-relaxed" style={{ color: BAKOS_TOKENS.textSecondary }}>
+          Atur & kirim pengingat per penyewa di halaman <b style={{ color: BAKOS_TOKENS.textPrimary }}>Kelola Penyewa</b> tiap kos (tombol "Ingatkan").
+        </p>
       </div>
     </div>
   );
