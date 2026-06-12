@@ -201,9 +201,9 @@
 .bk-octa li{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:700}
 .bk-octa li .material-symbols-outlined{color:var(--bk-amber);font-size:19px}
 .bk-or{z-index:2;text-align:center;flex-shrink:0}
-.bk-octa-btn{display:inline-flex;align-items:center;gap:9px;background:#ffffff;color:#13503a;font-weight:900;font-size:16px;padding:17px 30px;border-radius:14px;transition:.15s;white-space:nowrap}
-.bk-octa-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px -10px rgba(0,0,0,.4)}
-.bk-octa-btn .material-symbols-outlined{font-size:18px;color:#13503a}
+.bakos-lp .bk-octa-btn{display:inline-flex;align-items:center;gap:9px;background:#ffffff;color:#13503a;font-weight:900;font-size:16px;padding:17px 30px;border-radius:14px;transition:.15s;white-space:nowrap}
+.bakos-lp .bk-octa-btn:hover{transform:translateY(-2px);box-shadow:0 12px 28px -10px rgba(0,0,0,.4)}
+.bakos-lp .bk-octa-btn .material-symbols-outlined{font-size:18px;color:#13503a}
 .bk-onote{font-size:12.5px;color:#aed4c2;font-weight:600;margin-top:14px}
 
 /* ─── disclaimer (pengganti footer-ku; chrome global tetap dipakai) ─── */
