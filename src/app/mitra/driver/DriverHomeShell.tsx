@@ -10,9 +10,10 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  Bike, Car, Package, MapPin, Power, Loader2, Navigation, Timer, Wallet, Inbox, ShieldAlert, ChevronRight,
+  Bike, Car, Package, MapPin, Power, Loader2, Navigation, Timer, Wallet, Inbox, ShieldAlert, ChevronRight, Camera,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
+import { useAuth } from '@/hooks/useAuth';
 import '@/components/balaju/public/balaju-landing.css';
 
 const ORDER_BASE = '/mitra/driver/order'; // layar order aktif (WAVE 2)
@@ -74,6 +75,11 @@ export function DriverHomeShell() {
   const [nowTs, setNowTs] = useState(() => Date.now());
   const [todayEarning, setTodayEarning] = useState<number | null>(null);
   const [todayRides, setTodayRides] = useState<number>(0);
+  const [needsAvatar, setNeedsAvatar] = useState(false);
+
+  const { user } = useAuth();
+  // Foto profil belum ada -> nudge banner + (kalau coba online) gate. avatar_url user-level.
+  const hasAvatar = Boolean(user?.avatar_url);
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -179,10 +185,17 @@ export function DriverHomeShell() {
         router.push('/login?redirect=/mitra/driver');
         return;
       }
-      // 403 = belum diverifikasi admin (BUKAN sesi habis) -> jangan redirect, kasih tau.
+      // 403 = gerbang online (verify / avatar / debt). Bedain via code (BUKAN sesi habis).
       if (e instanceof ApiError && e.status === 403) {
         setOnline(false);
-        setErr('Akun driver kamu belum diverifikasi admin. Order baru bisa diterima setelah akun aktif.');
+        if (e.code === 'NO_AVATAR') {
+          // Tandai biar UI munculin tombol "Upload foto" (ke halaman akun).
+          setNeedsAvatar(true);
+          setErr('Upload foto profil dulu biar bisa terima order.');
+        } else {
+          // not_verified / debt_exceeded -> pakai pesan dari server.
+          setErr(e.message || 'Akun driver kamu belum bisa online.');
+        }
         return;
       }
       if (e instanceof ApiError && e.status === 404) {
@@ -309,6 +322,26 @@ export function DriverHomeShell() {
         </div>
 
         {err && <p className="mt-3 text-center text-xs font-medium text-red-500">{err}</p>}
+
+        {/* Nudge avatar — foto profil WAJIB buat online. Muncul kalau belum ada foto
+            (proaktif) atau habis kena gate. Link ke akun buat upload. */}
+        {(!hasAvatar || needsAvatar) && (
+          <Link
+            href="/mitra/driver/akun"
+            className="mt-3 flex items-center gap-3 rounded-2xl border border-[var(--bl-amber)] bg-[var(--bl-amber-15)] p-3.5 transition active:scale-[0.99]"
+          >
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white text-[var(--bl-amber)]">
+              <Camera className="h-5 w-5" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold text-[var(--bl-ink)]">Lengkapi foto profil</div>
+              <div className="mt-0.5 text-[11px] text-[var(--bl-muted)]">
+                Foto wajib buat bisa terima order. Penumpang lebih percaya driver berfoto.
+              </div>
+            </div>
+            <span className="shrink-0 text-[11px] font-bold text-[var(--bl-amber)]">Upload →</span>
+          </Link>
+        )}
 
         {/* Pendapatan hari ini — glance + entry ke detail penghasilan */}
         <Link
