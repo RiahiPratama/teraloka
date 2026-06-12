@@ -1,17 +1,16 @@
 'use client';
 // ════════════════════════════════════════════════════════════════
-// BAKOS Command Center — Tab Owner (dimensi OWNER + LIFECYCLE)
+// BAKOS Command Center — Tab Owner (LIFECYCLE + TAGIH via WAHA)
 // PATH: src/app/admin/bakos/owner/page.tsx
-// CRM pelanggan SaaS: status langganan + kapan berakhir + tagih (WA state-aware).
-// 🛡️ Grace 0 — disiplin. State dari BE (computeLifecycle) = sumber kebenaran.
-// 🛡️ total_paid = uang REAL ledger 4303. Admin TIDAK kelola kos/penyewa owner.
-// PENANDA: L9-FE-OWNER-LIFECYCLE
-// GET /bakos/admin/owners
+// 🛡️ Tombol Tagih = server kirim WA via WAHA (POST). BUKAN buka WhatsApp manual.
+// 🛡️ Grace 0 — disiplin. State dari BE (computeLifecycle). Admin kelola langganan, bukan kos.
+// PENANDA: L9-FE-OWNER-TAGIH-WAHA
+// GET /bakos/admin/owners · POST /bakos/admin/owners/:id/tagih
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import { Users, UserCheck, Building2, CreditCard, Search, Phone, AlertTriangle } from 'lucide-react';
+import { Users, UserCheck, CreditCard, Search, Send, AlertTriangle, Check } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const OWNERS_URL = `${API_URL}/bakos/admin/owners`;
@@ -37,14 +36,7 @@ function fmtDate(iso: string | null): string {
   if (isNaN(d.getTime())) return '—';
   return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
 }
-function waPhone(p: string | null): string | null {
-  if (!p) return null;
-  const d = String(p).replace(/\D/g, '');
-  return d.startsWith('0') ? '62' + d.slice(1) : d;
-}
 const TIER_COLOR: Record<string, string> = { free: '#9CA3AF', basic: '#0891B2', pro: '#6366F1', bisnis: '#1B6B4A' };
-
-// ── Lifecycle presentation (state dari BE, FE cuma nampilin) ──
 const STATE_META: Record<LifecycleState, { label: string; color: string }> = {
   aktif:       { label: 'Aktif', color: '#10B981' },
   mau_habis:   { label: 'Mau habis', color: '#F59E0B' },
@@ -58,18 +50,6 @@ function daysText(state: LifecycleState, d: number | null): string {
 }
 function needTagih(s: LifecycleState) { return s === 'mau_habis' || s === 'kadaluwarsa'; }
 
-// WA tagih — nada sesuai state (mau_habis ramah, kadaluwarsa tegas)
-function tagihUrl(o: OwnerRow): string | null {
-  const wa = waPhone(o.owner_phone);
-  if (!wa) return null;
-  const nama = o.owner_name || 'Bapak/Ibu';
-  const tgl = fmtDate(o.paid_until);
-  const msg = o.lifecycle_state === 'kadaluwarsa'
-    ? `Halo ${nama},\nLangganan BAKOS kos Anda sudah *berakhir* (${tgl}). Segera perpanjang agar kontak kos kembali aktif & tampil untuk calon penyewa. Balas pesan ini untuk info pembayaran. Terima kasih 🙏`
-    : `Halo ${nama},\nLangganan BAKOS kos Anda akan *berakhir ${tgl}* (${o.days_left} hari lagi). Mohon perpanjang agar kontak kos tetap terbuka untuk calon penyewa. Balas pesan ini untuk info pembayaran. Terima kasih 🙏`;
-  return `https://wa.me/${wa}?text=${encodeURIComponent(msg)}`;
-}
-
 export default function BakosOwnerTab() {
   const { t } = useContext(AdminThemeContext);
   const { token } = useAuth();
@@ -77,7 +57,11 @@ export default function BakosOwnerTab() {
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState('');
   const [onlyTagih, setOnlyTagih] = useState(false);
+  const [sending, setSending] = useState<string | null>(null);
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
+  const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
   const tk = () => token || (typeof window !== 'undefined' ? localStorage.getItem('tl_token') || '' : '');
 
   const fetchOwners = useCallback(async () => {
@@ -93,9 +77,27 @@ export default function BakosOwnerTab() {
 
   useEffect(() => { fetchOwners(); }, [fetchOwners]);
 
+  // ── Tagih: server kirim WA via WAHA (nol buka WhatsApp) ──
+  const tagihNow = async (o: OwnerRow) => {
+    setSending(o.owner_id);
+    try {
+      const res = await fetch(`${API_URL}/bakos/admin/owners/${o.owner_id}/tagih`, {
+        method: 'POST', headers: { Authorization: `Bearer ${tk()}` },
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(`Pengingat terkirim ke ${o.owner_name || 'owner'} via WhatsApp`);
+        setSent(s => new Set(s).add(o.owner_id));
+      } else {
+        const m = typeof json.error === 'string' ? json.error : json.error?.message;
+        showToast(m || 'Gagal kirim WA', false);
+      }
+    } catch { showToast('Gagal terhubung ke server', false); }
+    finally { setSending(null); }
+  };
+
   const owners = data?.owners ?? [];
   const subscribed = owners.filter(o => o.tier && o.tier !== 'free').length;
-  const activeKos = owners.reduce((s, o) => s + o.kos_active_count, 0);
   const totalPaid = owners.reduce((s, o) => s + o.total_paid, 0);
   const perluDitagih = data?.perlu_ditagih ?? 0;
 
@@ -108,9 +110,15 @@ export default function BakosOwnerTab() {
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 1400, color: t.textPrimary }}>
+      {toast && (
+        <div style={{ position: 'fixed', top: 20, right: 20, zIndex: 1500, background: toast.ok ? '#10B981' : '#EF4444', color: '#fff', padding: '10px 18px', borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: '0 4px 16px rgba(0,0,0,0.15)' }}>
+          {toast.ok ? '✓' : '✗'} {toast.msg}
+        </div>
+      )}
+
       <div style={{ marginBottom: 16 }}>
         <h1 style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>Owner Kos</h1>
-        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>Pelanggan SaaS BAKOS — status langganan, kapan berakhir, tagih perpanjang. Admin kelola hubungan langganan, bukan kos-nya.</p>
+        <p style={{ fontSize: 13, color: t.textDim, marginTop: 3 }}>Pelanggan SaaS BAKOS — status langganan, kapan berakhir, tagih perpanjang (WA otomatis via sistem). Admin kelola langganan, bukan kos-nya.</p>
       </div>
 
       {/* Ringkasan */}
@@ -144,16 +152,18 @@ export default function BakosOwnerTab() {
         </div>
       ) : (
         <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden', overflowX: 'auto' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 150px 120px 130px 110px', minWidth: 860, padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 90px 150px 120px 130px 120px', minWidth: 880, padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
             <div>Owner</div><div>Tier</div><div>Status / Berakhir</div><div>Kos (aktif)</div><div style={{ textAlign: 'right' }}>Total Bayar</div><div style={{ textAlign: 'right' }}>Aksi</div>
           </div>
           {filtered.map((o) => {
             const col = TIER_COLOR[o.tier] ?? '#9CA3AF';
             const sm = STATE_META[o.lifecycle_state];
-            const wa = waPhone(o.owner_phone);
-            const turl = tagihUrl(o);
+            const isSending = sending === o.owner_id;
+            const wasSent = sent.has(o.owner_id);
+            const urgent = needTagih(o.lifecycle_state);
+            const btnColor = o.lifecycle_state === 'kadaluwarsa' ? '#EF4444' : o.lifecycle_state === 'mau_habis' ? '#F59E0B' : '#0891B2';
             return (
-              <div key={o.owner_id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 150px 120px 130px 110px', minWidth: 860, padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+              <div key={o.owner_id} style={{ display: 'grid', gridTemplateColumns: '1fr 90px 150px 120px 130px 120px', minWidth: 880, padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
                 <div style={{ minWidth: 0 }}>
                   <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {o.owner_name || <span style={{ color: t.textMuted, fontFamily: 'ui-monospace, monospace' }}>{o.owner_id.slice(0, 8)}…</span>}
@@ -170,15 +180,17 @@ export default function BakosOwnerTab() {
                 <div style={{ fontSize: 13, color: t.textPrimary }}>{o.kos_count} <span style={{ color: t.textMuted, fontSize: 11 }}>({o.kos_active_count})</span></div>
                 <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: o.total_paid > 0 ? '#1B6B4A' : t.textMuted }}>{rp(o.total_paid)}</div>
                 <div style={{ textAlign: 'right' }}>
-                  {needTagih(o.lifecycle_state) && turl ? (
-                    <a href={turl} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, background: o.lifecycle_state === 'kadaluwarsa' ? '#EF4444' : '#F59E0B', color: '#fff', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                      <Phone size={12} /> Tagih
-                    </a>
-                  ) : wa ? (
-                    <a href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer" style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: '#10B981', fontSize: 11, fontWeight: 700, textDecoration: 'none' }}>
-                      <Phone size={12} /> WA
-                    </a>
-                  ) : <span style={{ fontSize: 11, color: t.textMuted }}>—</span>}
+                  <button onClick={() => tagihNow(o)} disabled={isSending || !o.owner_phone}
+                    title={!o.owner_phone ? 'Owner tidak punya nomor' : 'Kirim WA via sistem'}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5, padding: '6px 12px', borderRadius: 8, fontSize: 11, fontWeight: 700,
+                      cursor: isSending || !o.owner_phone ? 'not-allowed' : 'pointer', opacity: !o.owner_phone ? 0.4 : 1,
+                      border: urgent ? 'none' : `1px solid ${t.sidebarBorder}`,
+                      background: wasSent ? '#10B981' : urgent ? btnColor : 'transparent',
+                      color: wasSent ? '#fff' : urgent ? '#fff' : btnColor,
+                    }}>
+                    {isSending ? 'Mengirim…' : wasSent ? <><Check size={12} /> Terkirim</> : <><Send size={12} /> {urgent ? 'Tagih' : 'Ingatkan'}</>}
+                  </button>
                 </div>
               </div>
             );
