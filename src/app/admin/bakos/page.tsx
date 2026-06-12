@@ -67,6 +67,8 @@ export default function BakosCommandCenter() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [selected, setSelected] = useState<ClaimRow | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
+  const [rev, setRev] = useState<{ total: number; count: number } | null>(null);
+  const [mrr, setMrr] = useState<{ mrr: number; active_count: number } | null>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3200); };
 
@@ -76,12 +78,16 @@ export default function BakosCommandCenter() {
     const headers = { Authorization: `Bearer ${tk}` };
     setRefreshing(true);
     try {
-      const [dash, claims] = await Promise.all([
+      const [dash, claims, pay, mrrRes] = await Promise.all([
         fetch(`${API_URL}/bakos/admin/dashboard`, { headers }).then(r => r.json()).catch(() => null),
         fetch(`${API_URL}/bakos/admin/claims?status=pending&limit=8`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${API_URL}/bakos/admin/subscription/payments?limit=1`, { headers }).then(r => r.json()).catch(() => null),
+        fetch(`${API_URL}/bakos/admin/mrr`, { headers }).then(r => r.json()).catch(() => null),
       ]);
       if (dash?.success) setData(dash.data);
       if (claims?.success) setPendingClaims(claims.data.data ?? claims.data ?? []);
+      if (pay?.success) setRev({ total: pay.data.total ?? 0, count: pay.data.count ?? 0 });
+      if (mrrRes?.success) setMrr({ mrr: mrrRes.data.mrr ?? 0, active_count: mrrRes.data.active_count ?? 0 });
       setLastUpdated(new Date());
     } catch (e) { console.error('[BAKOS dashboard]', e); }
     finally { setLoading(false); setRefreshing(false); }
@@ -213,8 +219,7 @@ export default function BakosCommandCenter() {
 
       {/* COMING SOON (jujur, nol angka palsu) */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-        <ComingSoon t={t} icon={<CreditCard size={18} />} title="Revenue Langganan (4303)"
-          note="Menunggu konfirmasi schema money.* + alur subscription/confirm. MRR per tier belum ditampilkan." />
+        <RevenuePanel t={t} rev={rev} mrr={mrr} />
         <ComingSoon t={t} icon={<BedDouble size={18} />} title="Okupansi & PMS"
           note="Menunggu PMS lease/rooms aktif (B5). Tingkat hunian per kos belum tersedia." />
       </div>
@@ -311,6 +316,40 @@ function Stat({ t, icon, label, value, sublabel, accent, highlight, action }: {
       <p style={{ fontSize: 11, color: t.textDim, fontWeight: 500, marginBottom: 2 }}>{label}</p>
       <p style={{ fontSize: 22, fontWeight: 800, color: t.textPrimary }}>{value}</p>
       {sublabel && <p style={{ fontSize: 11, color: accent, fontWeight: 600, marginTop: 2 }}>{sublabel}</p>}
+    </div>
+  );
+}
+
+// ── Rupiah full (bukan singkat — konteks finansial) ──
+function rpFull(n: number): string { return 'Rp ' + (Number(n) || 0).toLocaleString('id-ID'); }
+
+// ── Revenue Langganan (REAL — dari ledger 4303 + MRR proyeksi) ──
+function RevenuePanel({ t, rev, mrr }: { t: any; rev: { total: number; count: number } | null; mrr: { mrr: number; active_count: number } | null }) {
+  return (
+    <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 16, padding: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+        <div style={{ width: 36, height: 36, borderRadius: 10, background: 'rgba(27,107,74,0.15)', color: '#1B6B4A', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}><CreditCard size={18} /></div>
+        <div>
+          <h3 style={{ fontSize: 14, fontWeight: 700, color: t.textPrimary }}>Revenue Langganan (4303)</h3>
+          <p style={{ fontSize: 11, color: t.textDim }}>Uang REAL tercatat di pembukuan</p>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12 }}>
+        <Link href="/admin/bakos/langganan" style={{ flex: 1, textDecoration: 'none' }}>
+          <div style={{ background: t.navHover, borderRadius: 12, padding: '12px 14px' }}>
+            <p style={{ fontSize: 11, color: t.textDim, marginBottom: 4 }}>Tercatat (ledger)</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#1B6B4A' }}>{rev ? rpFull(rev.total) : '…'}</p>
+            <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{rev ? `${rev.count} pembayaran` : 'memuat…'}</p>
+          </div>
+        </Link>
+        <Link href="/admin/bakos/langganan" style={{ flex: 1, textDecoration: 'none' }}>
+          <div style={{ background: t.navHover, borderRadius: 12, padding: '12px 14px' }}>
+            <p style={{ fontSize: 11, color: t.textDim, marginBottom: 4 }}>MRR (proyeksi)</p>
+            <p style={{ fontSize: 20, fontWeight: 800, color: '#0891B2' }}>{mrr ? rpFull(mrr.mrr) : '…'}</p>
+            <p style={{ fontSize: 11, color: t.textMuted, marginTop: 2 }}>{mrr ? `${mrr.active_count} pelanggan aktif` : 'memuat…'}</p>
+          </div>
+        </Link>
+      </div>
     </div>
   );
 }
