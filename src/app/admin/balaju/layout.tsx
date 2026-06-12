@@ -69,7 +69,7 @@ export default function BalajuAdminLayout({ children }: { children: ReactNode })
               <span
                 className={cn(
                   'inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors',
-                  active && 'border-bapasiar text-bapasiar',
+                  active && 'border-balaju text-balaju',
                   !active && !parkir && 'border-transparent text-text-muted hover:text-text hover:border-border',
                   parkir && 'border-transparent text-text-light cursor-not-allowed',
                 )}
