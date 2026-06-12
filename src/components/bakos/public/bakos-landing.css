@@ -252,7 +252,7 @@
   }
   .bk-areas::-webkit-scrollbar{display:none}
   .bk-areas:active{cursor:grabbing}
-  .bk-area{flex:0 0 78%;scroll-snap-align:start}   /* 78% → kartu ke-2 ngintip = petunjuk geser */
+  .bk-area{flex:0 0 68%;scroll-snap-align:start}   /* 68% → kartu ke-2 ngintip lebih jelas */
   .bk-area-photo{aspect-ratio:16/11}               /* kartu lebih pendek di HP */
 
   /* ── C: grid kos TETAP vertikal (listing utama), cuma rapetin ── */
