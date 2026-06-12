@@ -42,6 +42,7 @@ import {
   Activity,
   AlertCircle,
   AlertTriangle,
+  Bike,
   Building2,
   CheckCircle2,
   Database,
@@ -203,9 +204,19 @@ function buildServiceHealthSections() {
       label: 'MOBILITAS',
       items: [
         {
+          // BALAJU = vertikal mobilitas darat (ojek), paling matang, launch duluan.
+          // 'balaju' di-extend lokal di ServiceHealthItem (bukan ServiceKey global).
+          service: 'balaju' as const,
+          icon: <Bike size={14} />,
+          label: 'BALAJU',
+          status: 'healthy' as const,
+          href: '/admin/balaju',
+        },
+        {
+          // Display "BATITP" (rebrand 12 Jun), KEY tetap 'baantar' (lihat sidebar-nav).
           service: 'baantar' as const,
           icon: <Package size={14} />,
-          label: 'BAANTAR',
+          label: 'BATITP',
           status: 'coming' as const,
         },
         {

@@ -109,6 +109,12 @@
   --color-kendaraan-strong: #334155;
 
   /* MOBILITAS */
+  /* BALAJU = mobilitas darat (ojek/kurir). Teal-700 — keluarga toska brand
+     TeraLoka, sengaja beda dari --color-roles (#0D9488) biar tidak kembar. */
+  --color-balaju: #0F766E;
+  --color-balaju-muted: #F0FDFA;
+  --color-balaju-strong: #134E4A;
+
   --color-baantar: #F97316;
   --color-baantar-muted: #FFF7ED;
   --color-baantar-strong: #9A3412;
@@ -245,6 +251,11 @@
   --color-kendaraan: #94A3B8;
   --color-kendaraan-muted: rgba(148, 163, 184, 0.08);
   --color-kendaraan-strong: #CBD5E1;
+
+  /* BALAJU dark — teal-400 lifted (mirror pola service lain) */
+  --color-balaju: #2DD4BF;
+  --color-balaju-muted: rgba(45, 212, 191, 0.08);
+  --color-balaju-strong: #99F6E4;
 
   --color-baantar: #FB923C;
   --color-baantar-muted: rgba(251, 146, 60, 0.08);

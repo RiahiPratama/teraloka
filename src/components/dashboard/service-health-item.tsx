@@ -4,6 +4,12 @@
  * TeraLoka — ServiceHealthItem
  * Phase 2 · Batch 4b — Domain Components
  * Batch 6b Update: Added jasa to ICON_BG + BORDER_COLOR (21 services)
+ * Update 2026-06-12: BALAJU masuk Service Health.
+ *   'balaju' di-extend LOKAL (ServiceKey | 'balaju') — SENGAJA tidak ditambah
+ *   ke ServiceKey union global di badge.tsx supaya tidak memicu cascade error
+ *   di semua Record<ServiceKey> lain (service-icons, kpi-card, badge, dll).
+ *   Konsisten dgn keputusan "balaju bukan ServiceKey global" (lihat sidebar-nav).
+ *   Token warna --color-balaju* ada di globals.css (light + dark).
  * ------------------------------------------------------------
  * Kartu kecil yang merepresentasikan status 1 service.
  * Dipakai sebagai building block dari ServiceHealthStrip.
@@ -22,10 +28,10 @@
  *   />
  *
  *   <ServiceHealthItem
- *     service="baantar"
- *     icon={<Package size={14} />}
- *     label="BAANTAR"
- *     status="coming"
+ *     service="balaju"
+ *     icon={<Bike size={14} />}
+ *     label="BALAJU"
+ *     status="healthy"
  *   />
  */
 
@@ -35,6 +41,14 @@ import { cn } from '@/lib/utils';
 import { StatusDot } from '@/components/ui/status-dot';
 import { type ServiceKey } from '@/components/ui/badge';
 
+/**
+ * Service yg boleh tampil di Service Health.
+ * = ServiceKey global + 'balaju' (extend lokal, lihat catatan header file).
+ * Kalau nanti ada vertikal lain yg sama statusnya (punya dashboard tapi bukan
+ * ServiceKey global), tambah di sini + token warna di globals.css.
+ */
+export type ServiceHealthKey = ServiceKey | 'balaju';
+
 export type ServiceHealthStatus =
   | 'healthy'
   | 'warning'
@@ -43,7 +57,7 @@ export type ServiceHealthStatus =
   | 'coming';
 
 export interface ServiceHealthItemProps {
-  service: ServiceKey;
+  service: ServiceHealthKey;
   icon: ReactNode;
   label: string;
   status: ServiceHealthStatus;
@@ -57,13 +71,14 @@ export interface ServiceHealthItemProps {
 
 /* ─── Service color mapping (icon + left accent) ─── */
 
-const ICON_BG: Record<ServiceKey, string> = {
+const ICON_BG: Record<ServiceHealthKey, string> = {
   bakabar: 'bg-bakabar-muted text-bakabar',
   balapor: 'bg-balapor-muted text-balapor',
   badonasi: 'bg-badonasi-muted text-badonasi',
   bakos: 'bg-bakos-muted text-bakos',
   properti: 'bg-properti-muted text-properti',
   kendaraan: 'bg-kendaraan-muted text-kendaraan',
+  balaju: 'bg-balaju-muted text-balaju',
   baantar: 'bg-baantar-muted text-baantar',
   bapasiar: 'bg-bapasiar-muted text-bapasiar',
   baronda: 'bg-baronda-muted text-baronda',
@@ -81,13 +96,14 @@ const ICON_BG: Record<ServiceKey, string> = {
   roles: 'bg-roles-muted text-roles',
 };
 
-const BORDER_COLOR: Record<ServiceKey, string> = {
+const BORDER_COLOR: Record<ServiceHealthKey, string> = {
   bakabar: 'border-l-bakabar',
   balapor: 'border-l-balapor',
   badonasi: 'border-l-badonasi',
   bakos: 'border-l-bakos',
   properti: 'border-l-properti',
   kendaraan: 'border-l-kendaraan',
+  balaju: 'border-l-balaju',
   baantar: 'border-l-baantar',
   bapasiar: 'border-l-bapasiar',
   baronda: 'border-l-baronda',
