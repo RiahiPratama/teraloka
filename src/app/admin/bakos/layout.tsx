@@ -3,11 +3,11 @@
 // BAKOS Command Center — Sub-Navigation (Nested Layout)
 // PATH: src/app/admin/bakos/layout.tsx
 // 🛡️ Auth + role di admin/layout.tsx global. Tab bar horizontal saja.
-// REAL: Overview, Listing (B4), Langganan (B5), Analytics (B6).
+// REAL: Overview, Listing (B4), Langganan (B5), Owner (L9), Analytics (B6).
 // ════════════════════════════════════════════════════════════════
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, Building2, CreditCard, BarChart3 } from 'lucide-react';
+import { LayoutDashboard, Building2, CreditCard, Users, BarChart3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
 
@@ -17,6 +17,7 @@ const TABS: TabDef[] = [
   { key: 'overview', label: 'Overview', icon: <LayoutDashboard size={15} />, href: '/admin/bakos', match: 'exact' },
   { key: 'listing', label: 'Listing', icon: <Building2 size={15} />, href: '/admin/bakos/listing', match: 'prefix' },
   { key: 'langganan', label: 'Langganan', icon: <CreditCard size={15} />, href: '/admin/bakos/langganan', match: 'prefix' },
+  { key: 'owner', label: 'Owner', icon: <Users size={15} />, href: '/admin/bakos/owner', match: 'prefix' },
   { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} />, href: '/admin/bakos/analytics', match: 'prefix' },
 ];
 
