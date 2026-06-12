@@ -322,3 +322,29 @@
   }
   .bkd-swipe-empty .ms{ font-size:72px; }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BK-MAP-HOUSE (12 Jun 2026) — peta preview + modal full (Airbnb)
+   ════════════════════════════════════════════════════════════════ */
+/* tombol perbesar pojok kanan-atas preview */
+.bkd-map-expand{
+  position:absolute; top:12px; right:12px; z-index:2;
+  width:36px; height:36px; border-radius:50%; background:#fff;
+  display:flex; align-items:center; justify-content:center;
+  box-shadow:0 2px 8px rgba(15,23,42,.18); pointer-events:none;
+}
+
+/* modal full-screen */
+.bkd-map-modal{
+  position:fixed; inset:0; z-index:200; background:#fff;
+  display:flex; flex-direction:column;
+}
+.bkd-map-modal-body{ flex:1; min-height:0; }
+.bkd-map-modal-body .leaflet-container{ height:100%; width:100%; }
+.bkd-map-close{
+  position:absolute; top:16px; right:16px; z-index:1100;   /* kanan-atas: hindari zoom ctrl Leaflet (kiri) */
+  width:46px; height:46px; border-radius:50%; border:none; background:#fff;
+  display:flex; align-items:center; justify-content:center; cursor:pointer;
+  box-shadow:0 3px 14px rgba(15,23,42,.3);
+}
+.bkd-map-close:active{ transform:scale(.94); }
