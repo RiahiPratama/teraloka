@@ -13,6 +13,7 @@ import { KosSectionNav } from './kos-section-nav';
 import { KosSections } from './kos-sections';
 import { KosActionCard, PriceLine } from './kos-action-card';
 import './bakos-detail.css';
+import SharePopover from '@/components/shared/SharePopover';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -25,7 +26,6 @@ export function KosDetail() {
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<string>('foto');
-  const [shareMsg, setShareMsg] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -75,28 +75,6 @@ export function KosDetail() {
     setActiveTab(id);            // langsung sorot tab yang diklik (instan, tak nunggu scroll)
   };
 
-  // Share: native share sheet (HP) → fallback copy link.
-  const handleShare = async () => {
-    if (!listing) return;
-    const url = typeof window !== 'undefined' ? window.location.href : '';
-    const shareData = {
-      title: listing.title,
-      text: `${listing.title} — lihat kos ini di BAKOS TeraLoka`,
-      url,
-    };
-    try {
-      if (typeof navigator !== 'undefined' && navigator.share) {
-        await navigator.share(shareData);   // buka share sheet native
-      } else if (typeof navigator !== 'undefined' && navigator.clipboard) {
-        await navigator.clipboard.writeText(url);
-        setShareMsg('Link disalin ke clipboard');
-        setTimeout(() => setShareMsg(''), 2200);
-      }
-    } catch {
-      // user batal share / izin ditolak — diam saja (bukan error)
-    }
-  };
-
   if (loading) {
     return (
       <div className="bkd">
@@ -120,9 +98,16 @@ export function KosDetail() {
       <div className="bkd-top">
         <Link href="/bakos" className="back"><MS n="arrow_back" /></Link>
         <span className="ttl">{listing.title}</span>
-        <button className="share" onClick={handleShare} aria-label="Bagikan kos ini" type="button">
-          <MS n="ios_share" />
-        </button>
+        <span className="share">
+          <SharePopover
+            entity_id={listing.id}
+            entity_type="listing"
+            service_domain="bakos"
+            title={listing.title}
+            url={typeof window !== 'undefined' ? window.location.href : ''}
+            triggerVariant="icon"
+          />
+        </span>
       </div>
 
       <div className="bkd-wrap">
@@ -171,7 +156,6 @@ export function KosDetail() {
         </div>
       </div>
 
-      {shareMsg && <div className="bkd-toast">{shareMsg}</div>}
     </div>
   );
 }

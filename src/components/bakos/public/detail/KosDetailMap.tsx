@@ -28,7 +28,7 @@ function houseIcon(): L.DivIcon {
         display:flex;align-items:center;justify-content:center;
         border:3px solid #fff;box-shadow:0 3px 10px rgba(0,0,0,.35)">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff"
-          stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/>
           <path d="M9.5 20v-5h5v5"/>
         </svg>
@@ -85,7 +85,7 @@ export default function KosDetailMap({ lat, lng, height = 220 }: { lat: number; 
         {/* tombol perbesar (pojok kanan-atas, ala Airbnb) */}
         <div className="bkd-map-expand" aria-hidden="true">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1F2937"
-            stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M15 3h6v6"/><path d="M9 21H3v-6"/><path d="M21 3l-7 7"/><path d="M3 21l7-7"/>
           </svg>
         </div>
@@ -99,7 +99,7 @@ export default function KosDetailMap({ lat, lng, height = 220 }: { lat: number; 
           </div>
           <button className="bkd-map-close" onClick={() => setOpen(false)} aria-label="Tutup peta">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1F2937"
-              stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+              strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
               <path d="M18 6 6 18"/><path d="M6 6l12 12"/>
             </svg>
           </button>
