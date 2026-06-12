@@ -237,6 +237,7 @@ export default function SharePopover({
 }: SharePopoverProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [direction, setDirection] = useState<'top' | 'bottom'>('bottom');
+  const [align, setAlign] = useState<'center' | 'left' | 'right'>('center');
   const [copied, setCopied] = useState(false);
   const [isHoveringTrigger, setIsHoveringTrigger] = useState(false);
 
@@ -252,6 +253,15 @@ export default function SharePopover({
     const spaceBelow = viewportHeight - rect.bottom;
     const POPOVER_HEIGHT_ESTIMATE = 80;
     setDirection(spaceBelow < POPOVER_HEIGHT_ESTIMATE ? 'top' : 'bottom');
+
+    // Deteksi horizontal: popover ~280px. Kalau center bakal meluber tepi layar,
+    // align ke kanan (saat trigger mepet kanan) atau kiri (saat mepet kiri).
+    const POPOVER_HALF = 140;
+    const centerX = rect.left + rect.width / 2;
+    const vw = window.innerWidth;
+    if (centerX + POPOVER_HALF > vw - 8) setAlign('right');
+    else if (centerX - POPOVER_HALF < 8) setAlign('left');
+    else setAlign('center');
   }, []);
 
   useEffect(() => {
@@ -326,8 +336,11 @@ export default function SharePopover({
   }
 
   const popoverPositionClass = direction === 'top' ? 'bottom-full mb-2' : 'top-full mt-2';
+  // align horizontal: center (default), right (mepet kanan), left (mepet kiri)
+  const popoverAlignClass =
+    align === 'right' ? 'right-0' : align === 'left' ? 'left-0' : 'left-1/2 -translate-x-1/2';
   const popoverAnimationStyle: CSSProperties = {
-    transformOrigin: direction === 'top' ? 'bottom center' : 'top center',
+    transformOrigin: `${direction === 'top' ? 'bottom' : 'top'} ${align === 'center' ? 'center' : align}`,
   };
 
   return (
@@ -392,7 +405,7 @@ export default function SharePopover({
           style={popoverAnimationStyle}
           className={`
             absolute ${popoverPositionClass}
-            left-1/2 -translate-x-1/2
+            ${popoverAlignClass}
             z-50
             flex items-center gap-1
             p-2
