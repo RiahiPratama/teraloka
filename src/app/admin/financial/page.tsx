@@ -224,7 +224,7 @@ export default function AdminFinancialPage() {
       fetch(`${API}/money/revenue/timeseries?${tsQuery}`,                               { headers: h }).then(r => r.json()),
       fetch(`${API}/money/admin/events?limit=10`,                                        { headers: h }).then(r => r.json()),
       fetch(`${API}/money/revenue/badonasi-remittances?${periodQuery}&limit=10`,         { headers: h }).then(r => r.json()),
-      fetch(`${API}/money/revenue/activity-feed?${periodQuery}&limit=12`,                 { headers: h }).then(r => r.json()),
+      fetch(`${API}/money/revenue/activity-feed?${periodQuery}&limit=20`,                 { headers: h }).then(r => r.json()),
     ])
       .then(([be, ts, ev, yEv, af]) => {
         if (af?.success) setActivityFeed(af.data ?? []);
@@ -785,7 +785,7 @@ function OverviewTab({
             </p>
           </div>
           <span style={{ fontSize: 12, color: t.textMuted }}>
-            {activityFeed.length} transaksi
+            {activityFeed.length} terbaru
           </span>
         </div>
 
