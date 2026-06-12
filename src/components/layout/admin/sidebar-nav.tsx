@@ -7,6 +7,8 @@
  *                    removed isBakabarAnchor mechanism.
  * Batch 6b Update: Added JASA as first item in DAILY SERVICES
  *                  (JASA → PPOB → Event order)
+ * Rebrand 2026-06-12: BAANTAR display → "BATITP" (titip paket/belanja/makanan).
+ *                     DISPLAY-ONLY; service key tetap 'baantar' (lihat catatan di item).
  * ------------------------------------------------------------
  * Organism — renders seluruh nav sidebar dari config NAV_SECTIONS.
  * 7 grup × 21 services sesuai PRD section 3.1.
@@ -166,11 +168,33 @@ const NAV_SECTIONS: NavSectionConfig[] = [
         icon: <Bike size={15} />,
         roles: ALL_ADMINS,
       },
+      // ═══════════════════════════════════════════════════════════════════════
+      // ⚠️ CATATAN BUAT AGEN/DEV BERIKUTNYA — "kenapa BATITP tapi service 'baantar'?"
+      // ───────────────────────────────────────────────────────────────────────
+      // Layanan pengiriman ini DI-REBRAND jadi "BATITP" (titip paket / titip belanja
+      // / titip makanan) per 12 Jun 2026. TAPI yang diganti SENGAJA cuma DISPLAY
+      // (label + sublabel). Service KEY internal tetap 'baantar'.
+      //
+      // KENAPA key dibiarkan 'baantar' (BUKAN bug, ini keputusan sadar):
+      //   • 'baantar' = ServiceKey terdaftar di components/ui/badge.tsx (union type),
+      //     punya token warna --baantar di globals.css, dipakai di service-icons.tsx,
+      //     services.ts, kpi-card, badge, dll (~belasan tempat).
+      //   • Rename key baantar→batitp = ganti di SEMUA tempat itu sekaligus, resiko
+      //     1 ketinggalan → badge/warna/ikon pecah. Effort gede utk vertikal yg masih
+      //     PARKIR (disabled, logic titip-titip belum dibangun).
+      //
+      // KAPAN rename key BENERAN dilakukan:
+      //   Pas vertikal BATITP digarap (bikin folder/route/logic). SAAT ITU rename
+      //   baantar→batitp SEKALIGUS di: badge.tsx ServiceKey, globals.css token,
+      //   services.ts, service-icons.tsx, + href ?service= di bawah. Jangan dicicil.
+      //
+      // Jadi: "BATITP" di layar + "baantar" di kode = SENGAJA, sampai vertikal digarap.
+      // ═══════════════════════════════════════════════════════════════════════
       {
-        href: '/admin/coming-soon?service=baantar',
-        label: 'BAANTAR',
-        sublabel: 'Delivery & jastip',
-        service: 'baantar',
+        href: '/admin/coming-soon?service=baantar', // key masih 'baantar' (lihat catatan di atas)
+        label: 'BATITP',
+        sublabel: 'Titip paket, belanja, makanan',
+        service: 'baantar', // ← KEY internal, BUKAN display. Jangan diganti tanpa rename global.
         icon: <Package size={15} />,
         roles: ALL_ADMINS,
         disabled: true,
