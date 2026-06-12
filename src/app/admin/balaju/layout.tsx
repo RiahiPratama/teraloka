@@ -10,7 +10,8 @@
 //
 // REAL: Dashboard (/admin/balaju), Ride Motor (/admin/balaju/rides),
 //       Driver (/admin/balaju/roster), Verifikasi (/admin/balaju/drivers),
-//       Tarif (/admin/balaju/tarif), Financial (/admin/balaju/financial).
+//       Tarif (/admin/balaju/tarif), Financial (/admin/balaju/financial),
+//       Order Health (/admin/balaju/order-health).  ← reliabilitas notif dispatch
 //   🛡️ Tiap route REAL beda prefix → match-prefix gak saling nyangkut.
 // ═══════════════════════════════════════════════════════════════
 
@@ -18,7 +19,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, Bike, Users, ShieldCheck, Wallet, SlidersHorizontal,
-  BarChart3, MapPin, MonitorDot, ScrollText, Package, Car,
+  BarChart3, MapPin, MonitorDot, ScrollText, Package, Car, Activity,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
@@ -38,6 +39,7 @@ const TABS: TabDef[] = [
   { key: 'verifikasi', label: 'Verifikasi', icon: <ShieldCheck size={15} />, href: '/admin/balaju/drivers', match: 'prefix' },
   { key: 'tarif', label: 'Tarif', icon: <SlidersHorizontal size={15} />, href: '/admin/balaju/tarif', match: 'prefix' },
   { key: 'financial', label: 'Financial', icon: <Wallet size={15} />, href: '/admin/balaju/financial', match: 'prefix' }, // REAL (audit komisi akrual)
+  { key: 'order_health', label: 'Order Health', icon: <Activity size={15} />, href: '/admin/balaju/order-health', match: 'prefix' }, // REAL (reliabilitas notif dispatch + gone-dark)
   { key: 'ride_car', label: 'Ride Mobil', icon: <Car size={15} /> },                                    // PARKIR (F9)
   { key: 'courier', label: 'Kurir', icon: <Package size={15} /> },                                      // PARKIR
   { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },                              // PARKIR
