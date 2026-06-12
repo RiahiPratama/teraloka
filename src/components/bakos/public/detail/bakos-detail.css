@@ -237,3 +237,88 @@
   .bkd-dots{display:flex;}
 }
 @media (min-width:980px){ .bkd-dots{display:none;} }
+
+/* ════════════════════════════════════════════════════════════════
+   BK-DETAIL TAHAP-2 (12 Jun 2026) — foto full-bleed + card overlap (Airbnb)
+   ────────────────────────────────────────────────────────────────
+   MOBILE (≤979px): foto naik ke ATAS via flex order (DOM tidak diubah —
+   desktop 100% utuh). Foto edge-to-edge; konten teks jadi "card" yang
+   membulat & naik menutupi tepi bawah foto. Breadcrumb disembunyikan.
+   DESKTOP: tidak terpengaruh (tetap block normal, urutan asli).
+   PENANDA: BK-TAHAP2
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 979px) {
+  /* bkd-wrap jadi flex-column → bisa reorder anak via CSS order */
+  .bkd-wrap{
+    display:flex; flex-direction:column;
+    padding:0;                               /* override padding 14px sebelumnya; dipindah ke tiap blok */
+    position:relative;
+  }
+
+  /* 1) FOTO naik paling atas (order -1), full-bleed mentok tepi layar */
+  .bkd-wrap .bkd-gal{ order:-1; margin:0; }
+  .bkd-wrap .bkd-gal .bkd-grid{ border-radius:0; }
+  .bkd-wrap .bkd-gal .bkd-cell.hero,
+  .bkd-wrap .bkd-gal .bkd-cell.solo{ height:300px; border-radius:0; }
+
+  /* 2) CARD info: chips + h1 + meta — naik nutupin tepi bawah foto */
+  .bkd-wrap .bkd-chips{
+    order:1; margin:-22px 0 0;                /* naik ke atas, overlap foto */
+    position:relative; z-index:2; background:var(--card);
+    border-radius:20px 20px 0 0; padding:18px 16px 10px;
+  }
+  .bkd-wrap .bkd-h1{
+    order:2; margin:0 0 8px; padding:0 16px;
+    position:relative; z-index:2; background:var(--card);
+  }
+  .bkd-wrap .bkd-metarow{
+    order:3; margin:0; padding:0 16px 16px;
+    position:relative; z-index:2; background:var(--card);
+  }
+
+  /* 3) sisanya urut normal di bawah, padding balik */
+  .bkd-wrap .bkd-nav{ order:4; }
+  .bkd-wrap .bkd-body{ order:5; padding:0 16px; }
+
+  /* breadcrumb disembunyikan di mobile (Airbnb mobile tidak pakai) */
+  .bkd-wrap .bkd-bc{ display:none; }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   BK-GAL-SWIPE (12 Jun 2026) — galeri swipe mobile (geser jari)
+   ────────────────────────────────────────────────────────────────
+   Mobile (≤979px): .bkd-swipe tampil (scroll-snap horizontal),
+   .bkd-grid disembunyikan. Desktop (≥980px): sebaliknya.
+   ════════════════════════════════════════════════════════════════ */
+.bkd-swipe{ display:none; }                 /* default: desktop pakai grid */
+
+@media (max-width:979px){
+  .bkd-grid{ display:none !important; }      /* mobile: matikan grid lama */
+  .bkd-swipe{ display:block; position:relative; }
+
+  .bkd-swipe-track{
+    display:flex; overflow-x:auto; scroll-snap-type:x mandatory;
+    -webkit-overflow-scrolling:touch; scrollbar-width:none;
+  }
+  .bkd-swipe-track::-webkit-scrollbar{ display:none; }
+  .bkd-swipe-slide{
+    flex:0 0 100%; scroll-snap-align:center; height:300px; background:#E8ECEF;
+  }
+  .bkd-swipe-slide img{
+    width:100%; height:100%; object-fit:cover; display:block; user-select:none;
+  }
+  /* counter "1/5" pojok kanan-bawah (ala Airbnb) */
+  .bkd-swipe-count{
+    position:absolute; right:12px; bottom:12px; z-index:3;
+    background:rgba(15,23,42,.6); color:#fff; font-size:12px; font-weight:700;
+    padding:3px 10px; border-radius:20px; backdrop-filter:blur(4px);
+  }
+  .bkd-swipe-dots{
+    position:absolute; bottom:12px; left:50%; transform:translateX(-50%); z-index:3;
+    display:flex; gap:6px;
+  }
+  .bkd-swipe-empty{
+    height:300px; display:flex; align-items:center; justify-content:center; color:#CBD5E1; background:#E8ECEF;
+  }
+  .bkd-swipe-empty .ms{ font-size:72px; }
+}
