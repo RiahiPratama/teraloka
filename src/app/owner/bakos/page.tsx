@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { Building2, Plus, Loader2, LogIn, AlertCircle, Crown, ChevronLeft } from 'lucide-react';
 import OwnerKosCard from '@/components/bakos/owner/OwnerKosCard';
+import { OwnerTierSections } from '@/components/bakos/owner/OwnerTierSections';
 import { type OwnerOverview, BAKOS_TOKENS, formatRp } from '@/components/bakos/owner/types';
 
 const BRAND = BAKOS_TOKENS.accent;
@@ -96,7 +97,13 @@ export default function OwnerBakosDashboardPage() {
           <>
             <SubscriptionCard data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
 
-            <div className="mt-4 mb-5">
+            {/* L5-OWNER-FEATURES — teaser/analytics/reminder + CTA "Lihat semua paket".
+                Muncul walau 0 kos (owner baru bisa intip value paket). */}
+            <div className="mt-5">
+              <OwnerTierSections data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
+            </div>
+
+            <div className="mt-1 mb-5">
               {data.quota.can_add_listing.ok ? (
                 <button onClick={() => router.push('/owner/bakos/baru')} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold active:scale-[0.99] transition-transform shadow-sm" style={{ background: BRAND, color: '#fff' }}>
                   <Plus size={18} /> Tambah Kos
