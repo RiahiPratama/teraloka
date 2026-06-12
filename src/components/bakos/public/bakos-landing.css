@@ -120,7 +120,7 @@
 .bk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:26px 22px}
 .bk-kos{display:block;background:transparent}
 .bk-kos-img{position:relative;aspect-ratio:5/4;border-radius:var(--bk-r);overflow:hidden;background:#e7ece9}
-.bk-kos-imgzoom{position:absolute;inset:0;transition:transform .4s ease}
+.bk-kos-imgzoom{position:absolute;inset:0;width:100%;height:100%;transition:transform .4s ease}
 .bk-kos:hover .bk-kos-imgzoom{transform:scale(1.05)}
 .bk-kos-img .ph{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:#aebbb3;background:linear-gradient(135deg,#e7efe9,#dde9e3)}
 .bk-kos-img .ph .material-symbols-outlined{font-size:42px}
@@ -252,12 +252,18 @@
   }
   .bk-areas::-webkit-scrollbar{display:none}
   .bk-areas:active{cursor:grabbing}
-  .bk-area{flex:0 0 52%;scroll-snap-align:start}   /* ~52% → 2 kartu muat + ke-3 ngintip (mirip Airbnb 188px) */
-  .bk-area-photo{aspect-ratio:4/3}                 /* landscape — foto gak menjulang ke bawah */
-  .bk-area-ov .nm{font-size:17px}                  /* nama disesuaikan kartu lebih sempit */
-  .bk-area-ov .land{font-size:11px}
-  .bk-area-foot{padding:10px 12px 12px}
-  .bk-area-foot .cnt{font-size:12px}
+  /* ── kartu area pola AIRBNB: foto-dominan, info nempel, NO footer kotak ── */
+  .bk-area{flex:0 0 62%;scroll-snap-align:start;background:transparent;box-shadow:none;border-radius:0}
+  .bk-area:hover{transform:none;box-shadow:none}
+  .bk-area-photo{aspect-ratio:1/1;border-radius:16px}   /* foto kotak rounded ala Airbnb */
+  .bk-area-ov{left:14px;right:14px;bottom:12px}
+  .bk-area-ov .nm{font-size:18px}
+  .bk-area-ov .land{font-size:11.5px}
+  .bk-area-ov .aic{width:32px;height:32px;margin-bottom:7px}
+  /* footer: dari kotak putih → teks tipis nempel di bawah foto (tanpa panah/box) */
+  .bk-area-foot{padding:8px 2px 0;background:transparent}
+  .bk-area-foot .go{display:none}                       /* buang tombol panah */
+  .bk-area-foot .cnt{font-size:12.5px}
 
   /* ── C: grid kos TETAP vertikal (listing utama), cuma rapetin ── */
   .bk-grid{gap:16px}
