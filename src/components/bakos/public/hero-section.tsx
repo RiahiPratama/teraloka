@@ -90,7 +90,7 @@ export function HeroSection({
       <Link href="/owner/bakos" className="bk-ownerstrip">
         <span className="bk-ownerstrip-ic"><span className="material-symbols-outlined">add_home_work</span></span>
         <span className="bk-ownerstrip-tx">
-          <b>Punya kos di Ternate?</b>
+          <b>Punya kos di Maluku Utara?</b>
           <em>Daftarkan gratis · kelola dari HP · sewa 100% milik Anda</em>
         </span>
         <span className="bk-ownerstrip-btn">Daftarkan kos <span className="material-symbols-outlined">arrow_forward</span></span>
