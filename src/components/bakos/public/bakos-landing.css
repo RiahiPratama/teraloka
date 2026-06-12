@@ -97,7 +97,7 @@
 .bk-area-foot .cnt{font-size:13.5px;color:var(--bk-muted);font-weight:600}
 .bk-area-foot .cnt b{color:var(--bk-ink);font-weight:900;font-size:14.5px}
 .bk-area-foot .cnt b.muted{color:var(--bk-green);font-weight:800}
-.bk-area-foot .cnt em{font-style:normal;color:var(--bk-hint)}
+.bk-area-foot .cnt em{font-style:normal;color:var(--bk-ink);font-weight:800}
 .bk-area-foot .go{display:none}
 .bk-area-foot .go .material-symbols-outlined{font-size:18px;color:var(--bk-green);transition:.18s}
 .bk-area:hover .bk-area-foot .go{background:var(--bk-green)}

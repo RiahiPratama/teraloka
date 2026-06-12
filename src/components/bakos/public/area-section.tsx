@@ -42,7 +42,7 @@ export function AreaSection({ onPick, listings }: { onPick: (q: string) => void;
       return hay.includes(q.toLowerCase());
     });
 
-  const fmt = (n: number) => (n >= 1_000_000 ? `Rp ${(n / 1_000_000).toFixed(1)}jt` : `Rp ${Math.round(n / 1_000)}rb`);
+  const fmt = (n: number) => `Rp ${n.toLocaleString('id-ID')}`;
 
   return (
     <section className="bk-sec"><div className="bk-wrap">
