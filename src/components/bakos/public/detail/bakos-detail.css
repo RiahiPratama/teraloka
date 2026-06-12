@@ -263,7 +263,7 @@
 
   /* 2) CARD info: chips + h1 + meta — naik nutupin tepi bawah foto */
   .bkd-wrap .bkd-chips{
-    order:1; margin:-22px 0 0;                /* naik ke atas, overlap foto */
+    order:1; margin:-16px 0 0;                /* naik ke atas, overlap foto */
     position:relative; z-index:2; background:var(--card);
     border-radius:20px 20px 0 0; padding:18px 16px 10px;
   }
