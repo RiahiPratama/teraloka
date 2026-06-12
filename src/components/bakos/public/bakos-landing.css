@@ -24,7 +24,7 @@
 .bk-pt0{padding-top:0}
 
 /* ─── hero ─── */
-.bk-hero{background:linear-gradient(180deg,#fbf7ef 0%,#fff 70%);padding:56px 0 36px}
+.bk-hero{background:linear-gradient(180deg,#fbf7ef 0%,#fff 70%);padding:56px 0 20px}
 .bk-crumb{font-size:13px;font-weight:700;color:var(--bk-hint);margin-bottom:18px;letter-spacing:.01em}
 .bk-crumb b{color:var(--bk-amber-d)}
 /* chip kota: 1 baris geser (nowrap scroll) + fade kanan = petunjuk "geser →" */
@@ -87,7 +87,7 @@
 .bk-fcepat button.special{border-color:var(--bk-toska);color:var(--bk-toska)}
 
 /* ─── section header ─── */
-.bk-sec{padding:56px 0}
+.bk-sec{padding:40px 0}
 .bk-sh{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px}
 .bk-sh h2{font-size:28px;font-weight:900;letter-spacing:-.035em}
 .bk-sh p{font-size:14.5px;color:var(--bk-muted);font-weight:600;margin-top:4px}

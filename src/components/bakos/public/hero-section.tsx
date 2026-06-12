@@ -34,7 +34,7 @@ export function HeroSection({
 
       <div className="bk-hero-top">
         <div>
-          <span className="bk-pill"><span className="material-symbols-outlined">verified</span> Bagian dari TeraLoka · dipercaya warga MalUt</span>
+          <span className="bk-pill"><span className="material-symbols-outlined">verified</span> Bagian dari TeraLoka · dipercaya warga Maluku Utara</span>
           <h1>Cari kos di <span className="bk-nowrap">Maluku Utara</span>,<br />tanpa khawatir ditipu.</h1>
           <p className="bk-sub">Kontak pemilik kos langsung, tanpa calo. Harga transparan, nomor diteruskan aman lewat WhatsApp, dan tampil di hadapan pembaca berita lokal BAKABAR.</p>
         </div>
