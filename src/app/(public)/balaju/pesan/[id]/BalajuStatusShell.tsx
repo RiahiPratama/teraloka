@@ -6,6 +6,13 @@
 //   open = "Mencari driver..." murni. matched+ = kartu info driver (nama/HP/motor/plat/rating).
 // State: open -> matched -> ongoing -> completed; plus cancelled & no_driver (terminal).
 // Tarif BEKU dari order. driver/vehicle di-embed backend di GET /:id.
+//
+// TRANSPARANSI STATUS (12 Jun 2026 — Tier 1 #2): status `open` dibedakan via
+//   reopen_count. reopen_count=0 -> "Mencari driver terdekat" (pencarian awal).
+//   reopen_count>0 -> "Mencarikan driver lain" (driver sebelumnya batal, re-dispatch).
+//   Tujuan: rider gak ngerasa "mundur tanpa sebab" pas balik open setelah matched →
+//   kurangi cemas + cancel prematur. reopen_count datang dari GET /:id (select '*').
+// GREP MARKER: BALAJU_STATUS_REOPEN_AWARE_V1
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
@@ -57,6 +64,7 @@ interface RideDetail {
   selected_driver_id: string | null;
   cancel_reason: string | null;
   cancelled_by: string | null;
+  reopen_count?: number | null; // ronde re-dispatch: 0 = pencarian awal, >0 = driver sebelumnya batal
   service_details?: { pickup_note?: string | null; dropoff_note?: string | null } | null;
   driver?: DriverInfo | null;
   vehicle?: VehicleInfo | null;
@@ -227,6 +235,7 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
   const meta = SERVICE_META[ride.service_type] ?? SERVICE_META.ride_bike;
   const ServiceIcon = meta.Icon;
   const step = stepOf(ride.status);
+  const reopenCount = ride.reopen_count ?? 0;
   const headlineFare = ride.agreed_fare ?? ride.offered_fare;
   const distanceKm = ((ride.distance_estimate_m ?? 0) / 1000).toLocaleString('id-ID', { maximumFractionDigits: 1 });
   const canCancel = ride.status === 'open' || ride.status === 'matched' || ride.status === 'arrived';
@@ -320,10 +329,21 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         {/* Judul status hidup */}
         {ride.status === 'open' && (
           <div className="mt-6 text-center">
-            <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">Mencari driver terdekat...</h1>
-            <p className="mt-1 text-sm text-[var(--bl-muted)]">
-              Tunggu sebentar, kami sedang menghubungi driver di sekitarmu. Begitu ada yang siap, langsung kami sambungkan.
-            </p>
+            {reopenCount > 0 ? (
+              <>
+                <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">Mencarikan driver lain untukmu...</h1>
+                <p className="mt-1 text-sm text-[var(--bl-muted)]">
+                  Driver sebelumnya berhalangan. Tenang, kami sedang menghubungi driver terdekat lainnya — sebentar lagi ya.
+                </p>
+              </>
+            ) : (
+              <>
+                <h1 className="bl-display text-lg font-extrabold text-[var(--bl-forest-d)]">Mencari driver terdekat...</h1>
+                <p className="mt-1 text-sm text-[var(--bl-muted)]">
+                  Tunggu sebentar, kami sedang menghubungi driver di sekitarmu. Begitu ada yang siap, langsung kami sambungkan.
+                </p>
+              </>
+            )}
           </div>
         )}
         {ride.status === 'matched' && (
@@ -423,7 +443,7 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         ))}
 
         {/* Zona status HIDUP (WAJAH) — liveness + arah, BUKAN posisi GPS */}
-        {ride.status === 'open' && <SearchingRadar />}
+        {ride.status === 'open' && <SearchingRadar reopenCount={reopenCount} />}
         {ride.status === 'matched' && <DriverLiveStatus variant="toPickup" />}
         {ride.status === 'arrived' && <DriverLiveStatus variant="arrived" />}
         {ride.status === 'ongoing' && <DriverLiveStatus variant="onTrip" />}
@@ -610,7 +630,10 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
 }
 
 // ── Animasi "mencari driver" — radar pulsing (pure CSS, scoped blstat-) ──
-function SearchingRadar() {
+// reopenCount>0 = re-dispatch (driver sebelumnya batal) → teks "pengganti" biar jujur
+//   tanpa bikin rider ngerasa "mundur tanpa sebab".
+function SearchingRadar({ reopenCount = 0 }: { reopenCount?: number }) {
+  const retry = reopenCount > 0;
   return (
     <div className="mt-4 rounded-2xl border border-[var(--bl-line)] bg-white py-8">
       <style>{`
@@ -639,8 +662,12 @@ function SearchingRadar() {
         <span className="blstat-ring" />
         <span className="blstat-core"><Bike className="h-6 w-6" /></span>
       </div>
-      <p className="mt-6 text-center text-sm font-bold text-[var(--bl-forest-d)]">Mencari driver terdekat</p>
-      <p className="mt-0.5 text-center text-xs text-[var(--bl-muted)]">Menghubungi driver di sekitarmu…</p>
+      <p className="mt-6 text-center text-sm font-bold text-[var(--bl-forest-d)]">
+        {retry ? 'Mencarikan driver pengganti' : 'Mencari driver terdekat'}
+      </p>
+      <p className="mt-0.5 text-center text-xs text-[var(--bl-muted)]">
+        {retry ? 'Memperluas pencarian ke driver lain di sekitarmu…' : 'Menghubungi driver di sekitarmu…'}
+      </p>
     </div>
   );
 }
