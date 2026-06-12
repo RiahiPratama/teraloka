@@ -99,7 +99,6 @@ export function KosDetail() {
         </nav>
 
         <div className="bkd-chips">
-          {listing.display_id && <span className="bkd-id">{listing.display_id}</span>}
           {listing.is_verified
             ? <span className="bkd-badge verif"><MS n="verified" /> Terverifikasi</span>
             : listing.is_claimable ? <span className="bkd-badge seed"><MS n="eco" /> Belum dikelola</span> : null}

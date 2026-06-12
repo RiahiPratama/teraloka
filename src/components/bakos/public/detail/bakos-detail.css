@@ -206,6 +206,18 @@
   .bkd-price-head{display:none;}
 }
 @media (max-width:979px){
+  /* mobile bar: bar bersih (harga kiri, tombol kanan) — sembunyiin teks panjang */
+  .bkd-mbar-in{gap:12px;}
+  .bkd-mbar-in .pp{flex:0 0 auto; max-width:44%;}
+  .bkd-mbar-in .aa{flex:1; min-width:0;}
+  .bkd-mbar .bkd-micro{display:none;}        /* micro-text panjang nutup → sembunyiin di bar */
+  .bkd-mbar .bkd-price{display:none;}         /* harga sudah di .pp (PriceLine) → jangan dobel */
+  .bkd-mbar .bkd-btn{padding:13px 14px; font-size:14px; white-space:nowrap;}
+  .bkd-mbar .aa>*{margin:0;}                  /* buang margin antar elemen di bar */
+  .bkd-mbar .bkd-ok,.bkd-mbar .bkd-note{padding:8px 10px; font-size:12px;}
+  .bkd-mbar .bkd-ok strong{font-size:13px;}
+  .bkd-mbar .bkd-note h4{font-size:13px;}
+  .bkd-mbar .bkd-note p{display:none;}        /* deskripsi panjang sembunyiin di bar */
   .bkd-wrap{padding:14px 16px 0;}
   .bkd-h1{font-size:24px;}
   .bkd-grid{display:block; height:auto;}
