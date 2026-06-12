@@ -452,3 +452,22 @@ h1, h2, h3, h4, .font-sora { font-family: var(--font-sora), sans-serif; }
   background: var(--surface-low);
   color: var(--primary);
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BK-IMMERSIVE (12 Jun 2026) — detail kos gaya Airbnb, MOBILE ONLY.
+   ────────────────────────────────────────────────────────────────
+   Chrome global (Ticker/Navbar/CategoryTabs/Footer) disembunyikan HANYA
+   di mobile (≤979px) saat halaman immersive (data-immersive="true").
+   Desktop (≥980px) TIDAK terpengaruh — chrome tetap tampil normal.
+   Penanda di-set oleh PublicChrome (ConditionalChrome.tsx).
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 979px) {
+  [data-immersive="true"] .bk-chrome-top,
+  [data-immersive="true"] .bk-chrome-foot {
+    display: none !important;
+  }
+  /* nolin spacer paddingTop (navbar sudah hilang di mobile immersive) */
+  [data-immersive="true"] .bk-chrome-pad {
+    padding-top: 0 !important;
+  }
+}
