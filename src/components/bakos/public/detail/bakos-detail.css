@@ -192,8 +192,8 @@
 .bkd-locknote{font-size:12px; color:var(--mut); margin-top:6px; display:flex; align-items:center; gap:5px;}
 
 /* Mobile bar */
-.bkd-mbar{position:fixed; bottom:0; left:0; right:0; z-index:35; background:#fff; border-top:1px solid var(--line);
-  box-shadow:0 -4px 20px rgba(15,23,42,.08); padding:12px 16px;}
+.bkd-mbar{position:fixed; bottom:0; left:0; right:0; z-index:60; background:#fff; border-top:1px solid var(--line);
+  box-shadow:0 -6px 24px rgba(15,23,42,.12); padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
 .bkd-mbar-in{max-width:1180px; margin:0 auto; display:flex; align-items:center; gap:14px;}
 .bkd-mbar-in .pp{flex:0 0 auto;}
 .bkd-mbar-in .aa{flex:1;}
@@ -206,18 +206,25 @@
   .bkd-price-head{display:none;}
 }
 @media (max-width:979px){
-  /* mobile bar: bar bersih (harga kiri, tombol kanan) — sembunyiin teks panjang */
-  .bkd-mbar-in{gap:12px;}
-  .bkd-mbar-in .pp{flex:0 0 auto; max-width:44%;}
-  .bkd-mbar-in .aa{flex:1; min-width:0;}
-  .bkd-mbar .bkd-micro{display:none;}        /* micro-text panjang nutup → sembunyiin di bar */
-  .bkd-mbar .bkd-price{display:none;}         /* harga sudah di .pp (PriceLine) → jangan dobel */
-  .bkd-mbar .bkd-btn{padding:13px 14px; font-size:14px; white-space:nowrap;}
-  .bkd-mbar .aa>*{margin:0;}                  /* buang margin antar elemen di bar */
-  .bkd-mbar .bkd-ok,.bkd-mbar .bkd-note{padding:8px 10px; font-size:12px;}
-  .bkd-mbar .bkd-ok strong{font-size:13px;}
-  .bkd-mbar .bkd-note h4{font-size:13px;}
-  .bkd-mbar .bkd-note p{display:none;}        /* deskripsi panjang sembunyiin di bar */
+  /* ── ACTION BAR ala Mamikos/Airbnb: harga kiri + tombol WA kanan ── */
+  .bkd-mbar-in{gap:12px; align-items:center;}
+  .bkd-mbar-in .pp{flex:0 0 auto; max-width:46%;}      /* harga ringkas kiri */
+  .bkd-mbar-in .aa{flex:1 1 auto; min-width:0;}        /* tombol isi sisa kanan */
+  /* harga di bar: ringkas, gak wrap */
+  .bkd-mbar .bkd-price{flex-wrap:nowrap;}
+  .bkd-mbar .bkd-price .amt{font-size:19px; letter-spacing:-.02em;}
+  .bkd-mbar .bkd-price .per{font-size:11px;}
+  .bkd-mbar .bkd-price .nego{font-size:10px; padding:2px 6px;}
+  /* tombol WA: full sisa, 1 baris, gak meluber */
+  .bkd-mbar .bkd-btn{padding:13px 14px; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bkd-mbar .aa>*{margin:0;}
+  /* buang semua teks panjang yang bikin bar meluber/nutup gambar */
+  .bkd-mbar .bkd-micro{display:none;}
+  .bkd-mbar .bkd-note p,.bkd-mbar .bkd-note h4{display:none;}
+  .bkd-mbar .bkd-note.warn{padding:0; background:none; border:none;}
+  .bkd-mbar .bkd-note.lock{padding:10px 12px; font-size:12px; margin:0;}
+  .bkd-mbar .bkd-ok{padding:8px 12px;}
+  .bkd-mbar .bkd-ok strong{font-size:13px;} .bkd-mbar .bkd-ok span{font-size:11px;}
   .bkd-wrap{padding:14px 16px 0;}
   .bkd-h1{font-size:24px;}
   .bkd-grid{display:block; height:auto;}
@@ -225,7 +232,7 @@
   .bkd-cell.hero,.bkd-cell.solo{height:280px; border-radius:var(--r);}
   .bkd-facs{grid-template-columns:1fr;}
   .bkd-nav{top:58px;}
-  .bkd{padding-bottom:96px;}
+  .bkd{padding-bottom:80px;}   /* ruang utk action-bar (nav app hilang di detail) */
   .bkd-dots{display:flex;}
 }
 @media (min-width:980px){ .bkd-dots{display:none;} }
