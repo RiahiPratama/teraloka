@@ -28,6 +28,7 @@ interface DriverInfo {
   rating_avg: number | null;
   rating_count: number | null;
   verification_tier: string | null;
+  avatar_url?: string | null;
 }
 
 interface VehicleInfo {
@@ -462,9 +463,17 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         {(ride.status === 'matched' || ride.status === 'arrived' || ride.status === 'ongoing') && (
           <div className="bl-shadow-soft mt-4 rounded-2xl border border-[var(--bl-line)] bg-white p-4">
             <div className="flex items-center gap-3">
-              <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
-                <Bike className="h-6 w-6" />
-              </span>
+              {driver?.avatar_url ? (
+                <img
+                  src={driver.avatar_url}
+                  alt={driver.name || 'Driver'}
+                  className="h-12 w-12 shrink-0 rounded-full object-cover border border-[var(--bl-line)]"
+                />
+              ) : (
+                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-full bg-[var(--bl-forest-10)] text-[var(--bl-forest)]">
+                  <Bike className="h-6 w-6" />
+                </span>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-bold text-[var(--bl-ink)]">{driver?.name || 'Driver kamu'}</span>
