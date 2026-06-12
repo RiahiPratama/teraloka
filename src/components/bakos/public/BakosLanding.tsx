@@ -6,9 +6,11 @@
 // 🛡️ Chrome (navbar/ticker/footer) DISEDIAKAN layout (public) global —
 //    TIDAK di-render di sini (hindari dobel). Disclaimer record-only tetap
 //    ditampilkan di body. Data layer = port page.tsx lama (type=kos).
+// L+: race-guard (reqId) + debounce 300ms — fix hasil basi saat ngetik cepat.
+//     param harga = min_price/max_price (snake_case, samain BE). PENANDA: BK-SEARCH-RACE.
 // ════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import './bakos-landing.css';
 import { API_URL, type Listing } from './bakos-links';
@@ -28,7 +30,11 @@ export function BakosLanding() {
   const [priceFilter, setPriceFilter] = useState(searchParams.get('filter') || 'all');
   const [kosType, setKosType] = useState(searchParams.get('type') || '');
 
+  // 🛡️ race-guard: tiap fetch dapat id; cuma fetch TERBARU yang boleh set hasil.
+  const reqIdRef = useRef(0);
+
   const fetchListings = useCallback(async () => {
+    const myId = ++reqIdRef.current;   // klaim id terbaru
     setLoading(true);
     try {
       const params = new URLSearchParams({ type: 'kos', limit: '30' });
@@ -41,6 +47,9 @@ export function BakosLanding() {
       const data = await res.json();
       if (!data.success) throw new Error();
 
+      // 🛡️ kalau ada fetch lebih baru yang sudah jalan, BUANG hasil ini (basi).
+      if (myId !== reqIdRef.current) return;
+
       let results: Listing[] = data.data ?? [];
       // TD-BAKOS-01: kos_type difilter di client (backend belum support).
       if (kosType) results = results.filter((l) => l.kos_type === kosType);
@@ -48,14 +57,19 @@ export function BakosLanding() {
       setListings(results);
       setTotal(data.meta?.total ?? results.length);
     } catch {
+      if (myId !== reqIdRef.current) return;   // jangan timpa state dgn error basi
       setListings([]);
       setTotal(0);
     } finally {
-      setLoading(false);
+      if (myId === reqIdRef.current) setLoading(false);
     }
   }, [priceFilter, searchInput, kosType]);
 
-  useEffect(() => { fetchListings(); }, [fetchListings]);
+  // 🛡️ debounce 300ms: jangan nembak tiap huruf; tunggu user berhenti ngetik.
+  useEffect(() => {
+    const t = setTimeout(() => { fetchListings(); }, 300);
+    return () => clearTimeout(t);
+  }, [fetchListings]);
 
   const reset = () => { setSearchInput(''); setPriceFilter('all'); setKosType(''); };
   const scrollToList = () =>
