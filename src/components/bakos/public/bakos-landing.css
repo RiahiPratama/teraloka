@@ -253,7 +253,7 @@
   .bk-areas::-webkit-scrollbar{display:none}
   .bk-areas:active{cursor:grabbing}
   /* ── kartu area: base udah pola Airbnb; mobile cuma atur lebar carousel + font ── */
-  .bk-area{flex:0 0 62%;scroll-snap-align:start}
+  .bk-area{flex:0 0 47%;scroll-snap-align:start}   /* ~47% → 2 kartu muat penuh + ke-3 ngintip (Airbnb 188px) */
   .bk-area-ov{left:14px;right:14px;bottom:12px}
   .bk-area-ov .nm{font-size:18px}
   .bk-area-ov .land{font-size:11.5px}

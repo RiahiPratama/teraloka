@@ -82,9 +82,8 @@ export const TIPE: Record<string, { lbl: string; cls: string }> = {
 };
 
 export function formatRupiah(n: number): string {
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
-  if (n >= 1_000) return `Rp ${Math.round(n / 1_000)}rb`;
-  return `Rp ${n}`;
+  // Rupiah PENUH (no-short): Rp 1.400.000 — bukan Rp 1.4jt. Konsisten semua kartu.
+  return `Rp ${(Number(n) || 0).toLocaleString('id-ID')}`;
 }
 
 // 🛡️ facilities = jsonb → bisa array, objek {ac:true}, atau null. Normalisasi ke string[].
