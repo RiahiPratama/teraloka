@@ -253,7 +253,7 @@
   .bk-areas::-webkit-scrollbar{display:none}
   .bk-areas:active{cursor:grabbing}
   .bk-area{flex:0 0 52%;scroll-snap-align:start}   /* ~52% → 2 kartu muat + ke-3 ngintip (mirip Airbnb 188px) */
-  .bk-area-photo{aspect-ratio:4/5}                 /* portrait ala Airbnb (188×236) */
+  .bk-area-photo{aspect-ratio:4/3}                 /* landscape — foto gak menjulang ke bawah */
   .bk-area-ov .nm{font-size:17px}                  /* nama disesuaikan kartu lebih sempit */
   .bk-area-ov .land{font-size:11px}
   .bk-area-foot{padding:10px 12px 12px}
