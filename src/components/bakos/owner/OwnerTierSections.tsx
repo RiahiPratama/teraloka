@@ -11,7 +11,7 @@
 //    Teaser = funnel upgrade: tier bawah lihat apa yang dilewatin.
 // ════════════════════════════════════════════════════════════════
 
-import { BarChart3, Bell, Lock, Crown, TrendingUp, Eye, MessageCircle } from 'lucide-react';
+import { BarChart3, Bell, Lock, Crown, TrendingUp, Eye, MessageCircle, ChevronRight } from 'lucide-react';
 import { type OwnerOverview, BAKOS_TOKENS, formatRp } from './types';
 
 const BRAND = BAKOS_TOKENS.accent;
@@ -158,6 +158,19 @@ export function OwnerTierSections({ data, onUpgrade }: { data: OwnerOverview; on
           cta="Upgrade ke Pro"
           onUpgrade={onUpgrade}
         />
+      )}
+
+      {/* CTA umum — lihat semua paket (Free/Basic/Pro/Bisnis). Sembunyi kalau sudah Bisnis. */}
+      {data.subscription.tier !== 'bisnis' && (
+        <button onClick={onUpgrade}
+          className="w-full rounded-2xl p-4 flex items-center justify-between active:scale-[0.99] transition-transform"
+          style={{ background: '#fff', border: `1px dashed ${BRAND}` }}>
+          <div className="text-left">
+            <p className="text-sm font-bold" style={{ color: BAKOS_TOKENS.textPrimary }}>Lihat semua paket</p>
+            <p className="text-[11px] mt-0.5" style={{ color: BAKOS_TOKENS.textSecondary }}>Bandingkan Free, Basic, Pro & Bisnis — pilih yang pas buat kamu.</p>
+          </div>
+          <ChevronRight size={18} style={{ color: BRAND }} className="shrink-0" />
+        </button>
       )}
     </div>
   );
