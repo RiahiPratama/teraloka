@@ -60,12 +60,19 @@
   font-size: 13px; font-weight: 700; padding: 9px 18px; border-radius: 10px; cursor: pointer; }
 
 /* ── marker pin (Leaflet divIcon) ── */
-.bkmap-pin { width: 100%; height: 100%; border-radius: 50%; background: #1B6B4A;
-  border: 3px solid #fff; color: #fff; font-weight: 800; font-size: 13px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 2px 8px rgba(0,0,0,.28); cursor: pointer; transition: transform .12s; }
-.bkmap-pin.lg { background: #0891B2; font-size: 15px; }
-.bkmap-pin:hover { transform: scale(1.08); }
+/* marker lingkaran amber (brand BAKOS) — pola sama detail map: rumah + angka */
+.bkmap-circle { width: 100%; height: 100%; border-radius: 50%; background: #F59E0B;
+  border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0; cursor: pointer; transition: transform .12s; line-height: 1; }
+.bkmap-circle:hover { transform: scale(1.08); }
+.bkmap-circle .bkmap-h-ic { width: 13px; height: 13px; margin-bottom: 1px; }
+.bkmap-circle .bkmap-cnum { color: #fff; font-weight: 800; font-size: 12px;
+  text-shadow: 0 1px 1px rgba(120,53,15,.4); }
+.bkmap-circle.lg { background: #D97706; }
+.bkmap-circle.lg .bkmap-h-ic { width: 15px; height: 15px; }
+.bkmap-circle.lg .bkmap-cnum { font-size: 14px; }
+.leaflet-div-icon { background: transparent !important; border: none !important; }
 .bkmap-tip { font-size: 12px !important; }
 
 @media (max-width: 600px) {

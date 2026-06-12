@@ -59,7 +59,7 @@ function KosMarkerLayer({
           for (const m of c.getAllChildMarkers()) sum += (m.options?.kosCount as number) || 0;
           const size = sum < 10 ? 44 : sum < 50 ? 52 : 60;
           return L.divIcon({
-            html: `<div class="bkmap-pin lg">${sum}</div>`,
+            html: `<div class="bkmap-circle lg"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="bkmap-h-ic"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-5h5v5"/></svg><span class="bkmap-cnum">${sum}</span></div>`,
             className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2],
           });
         },
@@ -69,7 +69,7 @@ function KosMarkerLayer({
         const size = pinSize(p.jumlah_kos);
         const marker = L.marker([p.latitude, p.longitude], {
           icon: L.divIcon({
-            html: `<div class="bkmap-pin">${p.jumlah_kos}</div>`,
+            html: `<div class="bkmap-circle "><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" class="bkmap-h-ic"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V20h14V9.5"/><path d="M9.5 20v-5h5v5"/></svg><span class="bkmap-cnum">${p.jumlah_kos}</span></div>`,
             className: '', iconSize: [size, size], iconAnchor: [size / 2, size / 2],
           }),
           // @ts-expect-error — custom option buat sum di cluster
