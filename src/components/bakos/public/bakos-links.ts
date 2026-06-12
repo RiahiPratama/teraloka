@@ -31,9 +31,9 @@ export interface Listing {
 
 export const PRICE_FILTERS = [
   { key: 'all', label: 'Semua harga' },
-  { key: '0-500000', label: 'Di bawah Rp 500rb' },
-  { key: '500000-1000000', label: 'Rp 500rb–1jt' },
-  { key: '1000000-99999999', label: 'Di atas Rp 1jt' },
+  { key: '0-999999', label: 'Di bawah Rp 1 juta' },
+  { key: '1000000-2000000', label: 'Rp 1 juta – 2 juta' },
+  { key: '2000001-99999999', label: 'Di atas Rp 2 juta' },
 ] as const;
 
 export const KOS_TYPES = [
