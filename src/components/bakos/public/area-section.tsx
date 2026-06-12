@@ -6,11 +6,36 @@
 // Card foto gaya Airbnb/Rukita. Tap → set query pencarian.
 // 🛡️ Count = hitung REAL dari listing yang sudah di-fetch (bukan palsu).
 //    Foto area = mood (Unsplash); kalau gagal load, gradient tone tetap tampil.
+// L+: HP carousel horizontal (drag/swipe). Desktop tetap grid. PENANDA: BK-AREA-CAROUSEL.
 // ════════════════════════════════════════════════════════════════
 
+import { useRef, useCallback } from 'react';
 import { AREAS, type Listing } from './bakos-links';
 
+// drag-to-scroll (mirror HeroMap) — tarik kartu pakai mouse/jari di HP & desktop
+function useDragScroll() {
+  const ref = useRef<HTMLDivElement | null>(null);
+  const drag = useRef({ down: false, moved: false, startX: 0, startScroll: 0 });
+  const onDown = useCallback((e: React.MouseEvent) => {
+    const el = ref.current; if (!el) return;
+    drag.current = { down: true, moved: false, startX: e.pageX, startScroll: el.scrollLeft };
+  }, []);
+  const onMove = useCallback((e: React.MouseEvent) => {
+    const el = ref.current; if (!el || !drag.current.down) return;
+    const dx = e.pageX - drag.current.startX;
+    if (Math.abs(dx) > 4) drag.current.moved = true;
+    el.scrollLeft = drag.current.startScroll - dx;
+  }, []);
+  const end = useCallback(() => { drag.current.down = false; }, []);
+  const guardClick = useCallback((e: React.MouseEvent) => {
+    if (drag.current.moved) { e.preventDefault(); e.stopPropagation(); }
+  }, []);
+  return { ref, onDown, onMove, end, guardClick, dragging: () => drag.current.moved };
+}
+
 export function AreaSection({ onPick, listings }: { onPick: (q: string) => void; listings: Listing[] }) {
+  const ds = useDragScroll();
+
   const inArea = (q: string) =>
     listings.filter((l) => {
       const hay = `${l.address ?? ''} ${l.city_id ?? ''} ${(l.nearby_landmarks ?? []).join(' ')}`.toLowerCase();
@@ -27,15 +52,26 @@ export function AreaSection({ onPick, listings }: { onPick: (q: string) => void;
           <p>Area populer di Ternate &amp; sekitarnya</p>
         </div>
       </div>
-      <div className="bk-areas">
+      <div
+        className="bk-areas"
+        ref={ds.ref}
+        onMouseDown={ds.onDown}
+        onMouseMove={ds.onMove}
+        onMouseUp={ds.end}
+        onMouseLeave={ds.end}
+      >
         {AREAS.map((a) => {
           const list = inArea(a.q);
           const n = list.length;
           const from = n ? Math.min(...list.map((l) => l.price).filter((p) => p > 0)) : null;
           return (
-            <button key={a.name} className={`bk-area bk-atone-${a.tone}`} onClick={() => onPick(a.q)}>
+            <button
+              key={a.name}
+              className={`bk-area bk-atone-${a.tone}`}
+              onClick={(e) => { if (ds.dragging()) { ds.guardClick(e); return; } onPick(a.q); }}
+            >
               <span className="bk-area-photo">
-                <img src={a.photo} alt={a.name} loading="lazy" />
+                <img src={a.photo} alt={a.name} loading="lazy" draggable={false} />
                 <span className="bk-area-grad" />
                 {a.tag && <span className="bk-area-tag">{a.tag}</span>}
                 <span className="bk-area-ov">
