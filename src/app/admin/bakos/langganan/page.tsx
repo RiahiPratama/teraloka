@@ -2,24 +2,30 @@
 // ════════════════════════════════════════════════════════════════
 // BAKOS Command Center — Tab Langganan (Model B — per-owner)
 // PATH: src/app/admin/bakos/langganan/page.tsx
-// Kartu ringkasan (Kos Aktif · MRR estimasi · B/P/Bisnis · Mau Habis)
+// Kartu ringkasan (Kos Aktif · Revenue Tercatat 4303 · MRR proyeksi · B/P/Bisnis · Mau Habis)
 //   · seksi "mau habis" (listing_fee_paid_until ≤ 7 hari) · kolom berlaku-s/d.
+//   · Riwayat Pembayaran Langganan (uang REAL ledger — siapa bayar, kapan, berapa).
 // 🛡️ MRR Model B = per-OWNER, dibaca dari backend GET /bakos/admin/mrr
-//    (estimasi recurring dari tier). BUKAN lagi SUM listing_fee client-side
-//    (listing_fee per-kos sudah di-deprecate → 0).
-// GET /admin/listings?type=kos · GET /bakos/admin/mrr · GET /admin/bank-accounts/dropdown
+//    (PROYEKSI recurring dari tier). BUKAN uang real.
+// 🛡️ Revenue Tercatat (4303) = uang REAL historis dari ledger
+//    (GET /bakos/admin/subscription/payments). total HARUS match Analytics 4303.
+// 🛡️ Sewa penyewa TIDAK muncul di sini (record-only, bukan revenue TeraLoka).
+// PENANDA: L8-FE-PAYMENTS-HISTORY
+// GET /admin/listings?type=kos · GET /bakos/admin/mrr
+//   · GET /bakos/admin/subscription/payments · GET /admin/bank-accounts/dropdown
 //   · POST /bakos/admin/listings/:id/subscription/confirm
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
-import { Search, CreditCard, CheckCircle2, Wallet, TrendingUp, Clock, AlertTriangle } from 'lucide-react';
+import { Search, CreditCard, CheckCircle2, Wallet, TrendingUp, Clock, AlertTriangle, Receipt } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 // 🛡️ Kalau dropdown 404, ralat URL ini (cek mount bank-accounts.ts):
 const BANK_DROPDOWN_URL = `${API_URL}/admin/bank-accounts/dropdown`;
 const MRR_URL = `${API_URL}/bakos/admin/mrr`;
+const PAYMENTS_URL = `${API_URL}/bakos/admin/subscription/payments?limit=100`;
 
 interface KosRow {
   id: string; display_id: string | null; title: string; slug: string; status: string; price: number | null;
@@ -30,6 +36,16 @@ interface KosRow {
 interface BankOpt { id: string; label: string; }
 interface MrrData { mrr: number; active_count: number; by_tier: { basic: number; pro: number; bisnis: number }; }
 
+// Riwayat pembayaran (uang REAL ledger 4303)
+interface PayRow {
+  event_id: string; occurred_at: string | null; owner_id: string | null;
+  kos_title: string | null; trigger_listing_id: string | null; tier: string | null;
+  amount: number; period_start: string | null; period_end: string | null;
+  earmark_owner: string | null; payment_method: string | null; notes: string | null;
+  entry_number: string | null; idempotency_key: string | null;
+}
+interface PayData { payments: PayRow[]; total: number; count: number; }
+
 function rp(n: number | null | undefined) { return n ? 'Rp ' + n.toLocaleString('id-ID') : '—'; }
 function rpShort(n: number) {
   if (n >= 1_000_000) return 'Rp ' + (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'jt';
@@ -39,6 +55,18 @@ function rpShort(n: number) {
 function daysUntil(iso: string | null): number | null {
   if (!iso) return null;
   return Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000);
+}
+function fmtDate(iso: string | null): string {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: '2-digit' });
+}
+function earmarkLabel(o: string | null): string {
+  if (!o) return '—';
+  if (o === 'risnawati') return 'Risnawati';
+  if (o === 'amar') return 'Amar';
+  return o.charAt(0).toUpperCase() + o.slice(1);
 }
 function bankLabel(b: any): string {
   const head = [b.bank_name, b.account_number].filter(Boolean).join(' · ');
@@ -57,6 +85,8 @@ export default function BakosLanggananTab() {
   const [selected, setSelected] = useState<KosRow | null>(null);
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [mrrData, setMrrData] = useState<MrrData | null>(null);
+  const [payData, setPayData] = useState<PayData | null>(null);
+  const [payLoading, setPayLoading] = useState(true);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
   const tk = () => token || (typeof window !== 'undefined' ? localStorage.getItem('tl_token') || '' : '');
@@ -77,7 +107,7 @@ export default function BakosLanggananTab() {
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  // ── MRR per-owner dari backend (Model B; bukan SUM listing_fee) ──
+  // ── MRR per-owner dari backend (Model B; PROYEKSI, bukan uang real) ──
   const fetchMrr = useCallback(async () => {
     if (!tk()) return;
     try {
@@ -88,6 +118,20 @@ export default function BakosLanggananTab() {
   }, [token]);
 
   useEffect(() => { fetchMrr(); }, [fetchMrr]);
+
+  // ── Riwayat pembayaran dari ledger (uang REAL 4303) ──
+  const fetchPayments = useCallback(async () => {
+    if (!tk()) return;
+    setPayLoading(true);
+    try {
+      const res = await fetch(PAYMENTS_URL, { headers: { Authorization: `Bearer ${tk()}` } });
+      const data = await res.json();
+      if (data.success) setPayData(data.data);
+    } catch { /* riwayat gagal — seksi tampil kosong */ }
+    finally { setPayLoading(false); }
+  }, [token]);
+
+  useEffect(() => { fetchPayments(); }, [fetchPayments]);
 
   // ── Ringkasan kos-level (dari rows; "aktif" = kontak terbuka per kos) ──
   const active = rows.filter(r => r.listing_fee_status === 'active');
@@ -118,7 +162,10 @@ export default function BakosLanggananTab() {
       {/* Kartu ringkasan */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
         <SumCard t={t} icon={<CheckCircle2 size={18} />} accent="#10B981" label="Kos Aktif" value={String(active.length)} />
-        <SumCard t={t} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (estimasi)"
+        <SumCard t={t} icon={<CreditCard size={18} />} accent="#1B6B4A" label="Revenue Tercatat (4303)"
+          value={payData ? rpShort(payData.total) : '…'}
+          sub={payData ? `${payData.count} pembayaran · ledger` : 'memuat…'} />
+        <SumCard t={t} icon={<TrendingUp size={18} />} accent="#0891B2" label="MRR (proyeksi)"
           value={mrrData ? rpShort(mrrData.mrr) : '…'}
           sub={mrrData ? `${mrrData.active_count} pelanggan aktif` : 'memuat…'} />
         <SumCard t={t} icon={<Wallet size={18} />} accent="#6366F1" label="B / P / Bisnis" value={`${basicN} / ${proN} / ${bisnisN}`} />
@@ -210,10 +257,65 @@ export default function BakosLanggananTab() {
         </div>
       )}
 
+      {/* ── Riwayat Pembayaran Langganan (uang REAL ledger 4303) ── */}
+      <div style={{ marginTop: 28 }}>
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12, flexWrap: 'wrap', gap: 8 }}>
+          <div>
+            <h2 style={{ fontSize: 16, fontWeight: 800, color: t.textPrimary, display: 'flex', alignItems: 'center', gap: 8 }}>
+              <Receipt size={17} style={{ color: '#1B6B4A' }} /> Riwayat Pembayaran Langganan
+            </h2>
+            <p style={{ fontSize: 12, color: t.textDim, marginTop: 2 }}>
+              Uang REAL tercatat di pembukuan (akun 4303) — siapa bayar, kapan, berapa. Beda dari MRR (proyeksi) &amp; sewa penyewa.
+            </p>
+          </div>
+          {payData && (
+            <div style={{ textAlign: 'right' }}>
+              <p style={{ fontSize: 18, fontWeight: 800, color: '#1B6B4A' }}>{rp(payData.total)}</p>
+              <p style={{ fontSize: 11, color: t.textDim }}>{payData.count} pembayaran · total tercatat</p>
+            </div>
+          )}
+        </div>
+
+        {payLoading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: t.textMuted, fontSize: 13 }}>Memuat riwayat…</div>
+        ) : !payData || payData.payments.length === 0 ? (
+          <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, padding: '40px 24px', textAlign: 'center' }}>
+            <div style={{ fontSize: 32, marginBottom: 8 }}>🧾</div>
+            <p style={{ fontWeight: 600, color: t.textPrimary }}>Belum ada pembayaran tercatat</p>
+            <p style={{ fontSize: 12, color: t.textMuted, marginTop: 2 }}>Pembayaran muncul di sini setelah langganan dikonfirmasi.</p>
+          </div>
+        ) : (
+          <div style={{ background: t.mainBg, border: `1px solid ${t.sidebarBorder}`, borderRadius: 14, overflow: 'hidden', overflowX: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 110px 150px 110px 140px', minWidth: 780, padding: '12px 16px', background: t.navHover, borderBottom: `1px solid ${t.sidebarBorder}`, fontSize: 11, fontWeight: 700, color: t.textDim, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div>Tanggal</div><div>Kos / Owner</div><div>Tier</div><div style={{ textAlign: 'right' }}>Nominal</div><div>Periode</div><div>Rekening</div><div>Ledger</div>
+            </div>
+            {payData.payments.map((p) => (
+              <div key={p.event_id} style={{ display: 'grid', gridTemplateColumns: '110px 1fr 90px 110px 150px 110px 140px', minWidth: 780, padding: '12px 16px', borderBottom: `1px solid ${t.sidebarBorder}`, alignItems: 'center' }}>
+                <div style={{ fontSize: 12, color: t.textDim }}>{fmtDate(p.occurred_at)}</div>
+                <div style={{ minWidth: 0 }}>
+                  <p style={{ fontWeight: 600, fontSize: 13, color: t.textPrimary, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.kos_title || '—'}</p>
+                  <p style={{ fontSize: 10, color: t.textMuted, marginTop: 2, fontFamily: 'ui-monospace, monospace' }}>
+                    {p.owner_id ? `owner ${p.owner_id.slice(0, 8)}` : '—'}
+                    {p.notes && <span style={{ fontStyle: 'italic' }}> · {p.notes}</span>}
+                  </p>
+                </div>
+                <div>
+                  {p.tier ? <span style={{ fontSize: 9, fontWeight: 700, color: '#0891B2', background: 'rgba(8,145,178,0.12)', padding: '2px 6px', borderRadius: 4, textTransform: 'uppercase' }}>{p.tier}</span> : '—'}
+                </div>
+                <div style={{ textAlign: 'right', fontSize: 13, fontWeight: 700, color: '#1B6B4A' }}>{rp(p.amount)}</div>
+                <div style={{ fontSize: 11, color: t.textDim }}>{fmtDate(p.period_start)} → {fmtDate(p.period_end)}</div>
+                <div style={{ fontSize: 12, color: t.textDim }}>{earmarkLabel(p.earmark_owner)}</div>
+                <div style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace', color: t.textMuted }}>{p.entry_number || '—'}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {selected && (
         <ConfirmModal t={t} kos={selected} tk={tk()}
           onClose={() => setSelected(null)}
-          onDone={(msg) => { showToast(msg); setSelected(null); fetchRows(); fetchMrr(); }}
+          onDone={(msg) => { showToast(msg); setSelected(null); fetchRows(); fetchMrr(); fetchPayments(); }}
           onErr={(msg) => showToast(msg, false)} />
       )}
     </div>
