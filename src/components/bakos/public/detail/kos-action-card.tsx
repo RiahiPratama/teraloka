@@ -68,7 +68,7 @@ export function KosActionCard({
       <>
         <button className="bkd-btn primary" onClick={handleContact} disabled={loading}>
           {loading ? 'Menghubungi…' : user
-            ? <><MS n="chat" />{roomName ? `Tanya kamar "${roomName}"` : 'Hubungi via WhatsApp'}</>
+            ? <><MS n="chat" />{roomName ? `Tanya kamar "${roomName}"` : 'Chat Owner Kosan'}</>
             : <><MS n="lock" />Login untuk hubungi pemilik</>}
         </button>
         <p className="bkd-micro"><MS n="info" /> BAKOS menghubungkan kamu dengan pemilik. Sewa &amp; pembayaran langsung dengan pemilik.</p>
