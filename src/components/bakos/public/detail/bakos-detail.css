@@ -192,7 +192,7 @@
 .bkd-locknote{font-size:12px; color:var(--mut); margin-top:6px; display:flex; align-items:center; gap:5px;}
 
 /* Mobile bar */
-.bkd-mbar{position:fixed; bottom:0; left:0; right:0; z-index:60; background:#fff; border-top:1px solid var(--line);
+.bkd-mbar{position:fixed; bottom:0; left:0; right:0; z-index:70; background:#fff; border-top:1px solid var(--line);
   box-shadow:0 -6px 24px rgba(15,23,42,.12); padding:10px 16px; padding-bottom:calc(10px + env(safe-area-inset-bottom,0px));}
 .bkd-mbar-in{max-width:1180px; margin:0 auto; display:flex; align-items:center; gap:14px;}
 .bkd-mbar-in .pp{flex:0 0 auto;}
@@ -206,17 +206,18 @@
   .bkd-price-head{display:none;}
 }
 @media (max-width:979px){
-  /* ── ACTION BAR ala Mamikos/Airbnb: harga kiri + tombol WA kanan ── */
+  /* ── ACTION BAR ala Airbnb: harga vertikal kiri + tombol solid kanan ── */
   .bkd-mbar-in{gap:12px; align-items:center;}
-  .bkd-mbar-in .pp{flex:0 0 auto; max-width:46%;}      /* harga ringkas kiri */
+  .bkd-mbar-in .pp{flex:0 0 auto; max-width:42%;}      /* harga kiri */
   .bkd-mbar-in .aa{flex:1 1 auto; min-width:0;}        /* tombol isi sisa kanan */
-  /* harga di bar: ringkas, gak wrap */
-  .bkd-mbar .bkd-price{flex-wrap:nowrap;}
-  .bkd-mbar .bkd-price .amt{font-size:19px; letter-spacing:-.02em;}
+  /* harga: jumlah di atas (bold), "/bulan · Nego" kecil di bawah — vertikal */
+  .bkd-mbar .bkd-price{flex-wrap:wrap; gap:2px 6px; align-items:baseline; line-height:1.15;}
+  .bkd-mbar .bkd-price .amt{font-size:18px; font-weight:800; flex:0 0 100%;}  /* jumlah 1 baris penuh */
   .bkd-mbar .bkd-price .per{font-size:11px;}
   .bkd-mbar .bkd-price .nego{font-size:10px; padding:2px 6px;}
   /* tombol WA: full sisa, 1 baris, gak meluber */
   .bkd-mbar .bkd-btn{padding:13px 14px; font-size:14px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  .bkd-mbar .bkd-btn.primary{box-shadow:none;}   /* solid flat ala Airbnb — buang shadow ngambang */
   .bkd-mbar .aa>*{margin:0;}
   /* buang semua teks panjang yang bikin bar meluber/nutup gambar */
   .bkd-mbar .bkd-micro{display:none;}
