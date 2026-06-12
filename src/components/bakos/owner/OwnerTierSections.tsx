@@ -130,10 +130,28 @@ function ReminderSection() {
 }
 
 // ── Orchestrator: render gated ──
-export function OwnerTierSections({ data, onUpgrade }: { data: OwnerOverview; onUpgrade: () => void }) {
+// ── CTA "Lihat semua paket" (dipisah — render DI ATAS, dekat Paket Kamu) ──
+// Sembunyi kalau sudah Bisnis (ceiling, tak ada paket lebih tinggi).
+export function OwnerPaketCTA({ data, onUpgrade }: { data: OwnerOverview; onUpgrade: () => void }) {
+  if (data.subscription.tier === 'bisnis') return null;
+  return (
+    <button onClick={onUpgrade}
+      className="w-full rounded-2xl p-4 flex items-center justify-between active:scale-[0.99] transition-transform"
+      style={{ background: '#fff', border: `1px dashed ${BRAND}` }}>
+      <div className="text-left">
+        <p className="text-sm font-bold" style={{ color: BAKOS_TOKENS.textPrimary }}>Lihat semua paket</p>
+        <p className="text-[11px] mt-0.5" style={{ color: BAKOS_TOKENS.textSecondary }}>Bandingkan Free, Basic, Pro & Bisnis — pilih yang pas buat kamu.</p>
+      </div>
+      <ChevronRight size={18} style={{ color: BRAND }} className="shrink-0" />
+    </button>
+  );
+}
+
+// ── Teaser fitur premium (Performa + Pengingat) — render DI BAWAH, setelah daftar kos ──
+export function OwnerFeatureTeasers({ data, onUpgrade }: { data: OwnerOverview; onUpgrade: () => void }) {
   const f = data.features;
   return (
-    <div className="space-y-3 mb-5">
+    <div className="space-y-3 mt-6">
       {/* Analytics — Bisnis */}
       {f.analytics ? (
         <AnalyticsSection data={data} />
@@ -158,19 +176,6 @@ export function OwnerTierSections({ data, onUpgrade }: { data: OwnerOverview; on
           cta="Upgrade ke Pro"
           onUpgrade={onUpgrade}
         />
-      )}
-
-      {/* CTA umum — lihat semua paket (Free/Basic/Pro/Bisnis). Sembunyi kalau sudah Bisnis. */}
-      {data.subscription.tier !== 'bisnis' && (
-        <button onClick={onUpgrade}
-          className="w-full rounded-2xl p-4 flex items-center justify-between active:scale-[0.99] transition-transform"
-          style={{ background: '#fff', border: `1px dashed ${BRAND}` }}>
-          <div className="text-left">
-            <p className="text-sm font-bold" style={{ color: BAKOS_TOKENS.textPrimary }}>Lihat semua paket</p>
-            <p className="text-[11px] mt-0.5" style={{ color: BAKOS_TOKENS.textSecondary }}>Bandingkan Free, Basic, Pro & Bisnis — pilih yang pas buat kamu.</p>
-          </div>
-          <ChevronRight size={18} style={{ color: BRAND }} className="shrink-0" />
-        </button>
       )}
     </div>
   );

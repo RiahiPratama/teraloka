@@ -16,7 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { Building2, Plus, Loader2, LogIn, AlertCircle, Crown, ChevronLeft } from 'lucide-react';
 import OwnerKosCard from '@/components/bakos/owner/OwnerKosCard';
-import { OwnerTierSections } from '@/components/bakos/owner/OwnerTierSections';
+import { OwnerPaketCTA, OwnerFeatureTeasers } from '@/components/bakos/owner/OwnerTierSections';
 import { type OwnerOverview, BAKOS_TOKENS, formatRp } from '@/components/bakos/owner/types';
 
 const BRAND = BAKOS_TOKENS.accent;
@@ -95,15 +95,16 @@ export default function OwnerBakosDashboardPage() {
 
         {!loading && !error && data && (
           <>
+            {/* 1. Paket kamu */}
             <SubscriptionCard data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
 
-            {/* L5-OWNER-FEATURES — teaser/analytics/reminder + CTA "Lihat semua paket".
-                Muncul walau 0 kos (owner baru bisa intip value paket). */}
-            <div className="mt-5">
-              <OwnerTierSections data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
+            {/* 2. CTA "Lihat semua paket" — naik ke atas, dekat Paket Kamu (sembunyi di Bisnis) */}
+            <div className="mt-4">
+              <OwnerPaketCTA data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
             </div>
 
-            <div className="mt-1 mb-5">
+            {/* 3. Tombol Tambah Kos */}
+            <div className="mt-4 mb-5">
               {data.quota.can_add_listing.ok ? (
                 <button onClick={() => router.push('/owner/bakos/baru')} className="w-full flex items-center justify-center gap-2 py-3.5 rounded-2xl text-sm font-semibold active:scale-[0.99] transition-transform shadow-sm" style={{ background: BRAND, color: '#fff' }}>
                   <Plus size={18} /> Tambah Kos
@@ -123,6 +124,7 @@ export default function OwnerBakosDashboardPage() {
               )}
             </div>
 
+            {/* 4. Daftar kos / empty state */}
             {data.listings.length === 0 ? (
               <div className="py-16 text-center rounded-2xl bg-white" style={{ border: `1px solid ${BAKOS_TOKENS.border}` }}>
                 <Building2 size={40} className="mx-auto mb-3" style={{ color: BAKOS_TOKENS.textTertiary }} />
@@ -137,6 +139,9 @@ export default function OwnerBakosDashboardPage() {
                 ))}
               </div>
             )}
+
+            {/* 5. Teaser fitur premium (Performa + Pengingat) — paling bawah */}
+            <OwnerFeatureTeasers data={data} onUpgrade={() => router.push('/owner/bakos/langganan')} />
           </>
         )}
       </div>
