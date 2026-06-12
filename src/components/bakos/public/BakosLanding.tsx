@@ -33,8 +33,8 @@ export function BakosLanding() {
     try {
       const params = new URLSearchParams({ type: 'kos', limit: '30' });
       const [minStr, maxStr] = priceFilter !== 'all' ? priceFilter.split('-') : ['', ''];
-      if (minStr) params.set('minPrice', minStr);
-      if (maxStr && maxStr !== '99999999') params.set('maxPrice', maxStr);
+      if (minStr && minStr !== '0') params.set('min_price', minStr);
+      if (maxStr && maxStr !== '99999999') params.set('max_price', maxStr);
       if (searchInput) params.set('q', searchInput);
 
       const res = await fetch(`${API_URL}/listings?${params}`);
