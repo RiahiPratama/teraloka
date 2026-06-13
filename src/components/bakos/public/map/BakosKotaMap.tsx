@@ -13,7 +13,7 @@ import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import { useEffect, useRef } from 'react';
 import type { LatLngExpression } from 'leaflet';
 import L from 'leaflet';
-import { MapContainer, TileLayer, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, useMap, ZoomControl } from 'react-leaflet';
 
 export interface KelurahanPoint {
   location_id: string;
@@ -85,7 +85,13 @@ function KosMarkerLayer({
 
       cluster.addTo(map);
       layerRef.current = cluster;
-      try { map.fitBounds(cluster.getBounds().pad(0.25), { maxZoom: 14 }); } catch { /* noop */ }
+      try {
+        const b = cluster.getBounds();
+        map.fitBounds(b.pad(0.25), { maxZoom: 14 });
+        // 🛡️ batasi pan ke area Ternate (sebaran kos) + sedikit ruang — gak melayang ke laut/luar pulau.
+        map.setMaxBounds(b.pad(0.6));
+        map.setMinZoom(Math.max(12, map.getBoundsZoom(b.pad(0.6))));
+      } catch { /* noop */ }
     }
     setup();
     return () => {
@@ -98,16 +104,21 @@ function KosMarkerLayer({
 }
 
 export function BakosKotaMap({
-  points, onPick, height = 460, locked = false,
-}: { points: KelurahanPoint[]; onPick: (id: string, nama: string) => void; height?: number; locked?: boolean }) {
+  points, onPick, height = 460, locked = false, pannable = false,
+}: { points: KelurahanPoint[]; onPick: (id: string, nama: string) => void; height?: number; locked?: boolean; pannable?: boolean }) {
   return (
     <div className="bkmap-leaflet" style={{ height, width: '100%' }}>
       <MapContainer
         center={TERNATE_CENTER} zoom={13} minZoom={11} maxZoom={18}
-        scrollWheelZoom={false} dragging={!locked} touchZoom={!locked} doubleClickZoom={!locked} zoomControl={!locked}
+        scrollWheelZoom={false}
+        dragging={pannable || !locked}
+        touchZoom={pannable || !locked}
+        doubleClickZoom={!locked && !pannable}
+        zoomControl={false}
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer url={TILE_LIGHT} attribution={TILE_ATTR} />
+        {(pannable || !locked) && <ZoomControl position="bottomright" />}
         <KosMarkerLayer points={points} onPick={onPick} />
       </MapContainer>
     </div>

@@ -116,7 +116,7 @@ export function HeroMap() {
           <div className="bkmap-loading sm">Memuat peta…</div>
         ) : hasKos ? (
           <>
-            <BakosKotaMap points={points} onPick={onPick} height={340} locked />
+            <BakosKotaMap points={points} onPick={onPick} height={340} pannable />
             <button className="bkmap-explore sm" onClick={() => router.push('/bakos/cari')}>
               Eksplor peta <span className="material-symbols-outlined">arrow_forward</span>
             </button>
