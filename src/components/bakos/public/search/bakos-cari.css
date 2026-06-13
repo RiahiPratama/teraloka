@@ -104,3 +104,71 @@
     padding-bottom:18px;   /* desktop tak ada bottom-nav app → padding normal */
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   BKC-KOS-MAP (13 Jun 2026) — C-premium-only: toggle List/Peta +
+   peta pin presisi (kos berbayar) + kartu mini tap-marker.
+   ════════════════════════════════════════════════════════════════ */
+/* toggle List ⟷ Peta */
+.bkc-viewtoggle{
+  max-width:1180px; margin:0 auto; padding:10px 22px 0;
+  display:flex; gap:8px;
+}
+.bkc-vt{
+  display:inline-flex; align-items:center; gap:6px;
+  padding:8px 16px; border-radius:22px; border:1.5px solid var(--line); background:#fff;
+  font-family:inherit; font-size:13.5px; font-weight:700; color:var(--mut); cursor:pointer;
+  transition:all .15s;
+}
+.bkc-vt .material-symbols-outlined{ font-size:18px; }
+.bkc-vt:hover{ border-color:#CBD5E1; }
+.bkc-vt.on{ background:var(--grn); border-color:var(--grn); color:#fff; }
+.bkc-vt-count{
+  display:inline-flex; align-items:center; justify-content:center; min-width:18px; height:18px;
+  padding:0 5px; border-radius:9px; background:#F59E0B; color:#fff; font-size:11px; font-weight:800;
+}
+
+/* mapview container */
+.bkc-mapview{
+  max-width:1180px; margin:10px auto 0; padding:0 22px;
+}
+.bkc-map-wrap{
+  height:calc(100vh - 220px); min-height:420px; position:relative;
+  border-radius:16px; overflow:hidden; border:1px solid var(--line);
+}
+.bkc-map-loading{
+  height:60vh; display:flex; align-items:center; justify-content:center; color:#94A3B8;
+}
+
+/* pin rumah amber (brand BAKOS) — pin presisi kos berbayar */
+.bkc-pin{
+  width:100%; height:100%; border-radius:50%; background:#F59E0B;
+  border:3px solid #fff; box-shadow:0 2px 8px rgba(0,0,0,.3);
+  display:flex; align-items:center; justify-content:center;
+}
+.bkc-pin svg{ width:20px; height:20px; }
+.leaflet-div-icon{ background:transparent !important; border:none !important; }
+.bkc-pin-tip{ font-size:12px !important; font-weight:700; }
+
+/* kartu kos mini (tap marker) — slide-up dari bawah peta */
+.bkc-map-card{
+  position:absolute; left:12px; right:12px; bottom:12px; z-index:500;
+  background:#fff; border-radius:16px; box-shadow:0 8px 30px rgba(15,23,42,.25);
+  padding:8px; animation:bkc-card-up .22s cubic-bezier(.22,1,.36,1);
+  max-width:380px; margin:0 auto;
+}
+@keyframes bkc-card-up{ from{ transform:translateY(20px); opacity:0 } to{ transform:translateY(0); opacity:1 } }
+.bkc-map-card-x{
+  position:absolute; top:14px; right:14px; z-index:6; width:30px; height:30px; border-radius:50%;
+  border:none; background:rgba(255,255,255,.95); color:#1F2937; cursor:pointer;
+  display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,.2);
+}
+.bkc-map-card-x .material-symbols-outlined{ font-size:18px; }
+/* kartu di dalam map-card: matikan border/shadow ganda (udah dibungkus) */
+.bkc-map-card .bk-kos{ box-shadow:none; }
+
+/* desktop: peta lebih lega, kartu mini kanan-bawah (bukan full-width) */
+@media (min-width:980px){
+  .bkc-map-wrap{ height:calc(100vh - 200px); }
+  .bkc-map-card{ left:auto; right:18px; bottom:18px; width:340px; margin:0; }
+}

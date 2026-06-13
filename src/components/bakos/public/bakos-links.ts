@@ -27,6 +27,11 @@ export interface Listing {
   is_verified?: boolean;          // 🛡️ opsional — badge HANYA jika true
   source?: string;                // 🛡️ opsional — 'seed' = belum dikonfirmasi
   room_available?: number | null;
+  // 🛡️ C-premium-only: pin presisi HANYA utk kos berbayar (BE gate revealed).
+  //    Free → null → tak muncul di peta /cari (insentif upgrade).
+  latitude?: number | null;
+  longitude?: number | null;
+  is_managed?: boolean;           // true = berbayar aktif (gate revealed)
 }
 
 export const PRICE_FILTERS = [
@@ -88,9 +93,8 @@ export const TIPE: Record<string, { lbl: string; cls: string }> = {
 };
 
 export function formatRupiah(n: number): string {
-  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
-  if (n >= 1_000) return `Rp ${Math.round(n / 1_000)}rb`;
-  return `Rp ${n}`;
+  // Rupiah lengkap dgn pemisah ribuan titik: 1250000 → "Rp 1.250.000"
+  return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
 }
 
 // 🛡️ facilities = jsonb → bisa array, objek {ac:true}, atau null. Normalisasi ke string[].

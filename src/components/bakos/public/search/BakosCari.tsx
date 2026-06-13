@@ -9,10 +9,17 @@
 //   diteruskan ke fetch + dipertahankan di URL sync (biar gak kehapus).
 // ════════════════════════════════════════════════════════════════
 import { useCallback, useEffect, useRef, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { API_URL, PRICE_FILTERS, type Listing } from '../bakos-links';
 import { ListingGrid } from '../listing-grid';
 import { CariFilters } from './cari-filters';
+
+// 🛡️ Leaflet pecah di SSR → dynamic ssr:false
+const BakosKosMap = dynamic(
+  () => import('./BakosKosMap').then((m) => m.BakosKosMap),
+  { ssr: false, loading: () => <div className="bkc-map-loading">Memuat peta…</div> },
+);
 import '../bakos-landing.css';
 import './bakos-cari.css';
 
@@ -24,6 +31,7 @@ export function BakosCari() {
   const [kosType, setKosType] = useState(sp.get('kos_type') ?? '');
   const [priceKey, setPriceKey] = useState('all');
   const [sortKey, setSortKey] = useState('relevan');
+  const [view, setView] = useState<'list' | 'map'>('list');
   // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Read-only (tak ada UI ubah di halaman ini).
   const [locationId] = useState(sp.get('location_id') ?? '');
   const [listings, setListings] = useState<Listing[]>([]);
@@ -77,6 +85,13 @@ export function BakosCari() {
     return 0; // relevan = urutan dari BE
   });
 
+  // C-PREMIUM-ONLY: kos berkoordinat = berbayar (BE gate). Tombol Peta muncul HANYA kalau ada.
+  const mapPoints = sorted.filter((k) => k.latitude != null && k.longitude != null);
+  const hasMap = mapPoints.length > 0;
+
+  // kalau lagi di view map tapi tak ada titik (mis. filter berubah) → balik list
+  useEffect(() => { if (view === 'map' && !hasMap) setView('list'); }, [view, hasMap]);
+
   const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); setSortKey('relevan'); };
 
   return (
@@ -102,13 +117,30 @@ export function BakosCari() {
         </div>
       </div>
 
-      {/* hasil — full width (peta nyusul: jadiin .bkc-body 2-kolom) */}
-      <div className="bkc-body">
-        <div className="bkc-results">
-          <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} />
+      {/* toggle List ⟷ Peta — muncul HANYA kalau ada kos berbayar (berkoordinat) */}
+      {hasMap && (
+        <div className="bkc-viewtoggle">
+          <button className={`bkc-vt${view === 'list' ? ' on' : ''}`} onClick={() => setView('list')}>
+            <span className="material-symbols-outlined">view_list</span> Daftar
+          </button>
+          <button className={`bkc-vt${view === 'map' ? ' on' : ''}`} onClick={() => setView('map')}>
+            <span className="material-symbols-outlined">map</span> Peta
+            <span className="bkc-vt-count">{mapPoints.length}</span>
+          </button>
         </div>
-        {/* 🛡️ SLOT PETA (aktifkan saat koordinat siap):
-        <aside className="bkc-map"><BakosKosMap listings={listings} /></aside> */}
+      )}
+
+      {/* hasil — list ATAU peta (C-premium-only) */}
+      <div className="bkc-body">
+        {view === 'map' && hasMap ? (
+          <div className="bkc-mapview">
+            <BakosKosMap items={mapPoints} />
+          </div>
+        ) : (
+          <div className="bkc-results">
+            <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} />
+          </div>
+        )}
       </div>
     </div>
   );
