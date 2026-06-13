@@ -21,6 +21,7 @@ import {
   Bike, Car, Package, MapPin, Star, ShieldCheck, Check, Loader2, X, RotateCcw, Search, Phone, MessageCircle,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
+import { BalajuSosButton } from '@/components/balaju/public/BalajuSosButton';
 import '@/components/balaju/public/balaju-landing.css';
 
 const ORDER_URL = '/balaju/pesan';
@@ -546,6 +547,9 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
                 )}
               </div>
             )}
+
+            {/* SOS — cuma saat trip aktif (matched/arrived/ongoing) */}
+            <BalajuSosButton rideId={rideId} />
           </div>
         )}
 
