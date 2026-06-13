@@ -137,11 +137,21 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             DevConsoleFilter di atas. */}
         <ThemeScript />
 
-        {/* Material Symbols icon font — display=block (render-blocking by
-            design supaya icon gak flicker). Future opt: subset via icon
-            ranges yang actually dipake (TD-PERF-004). */}
+        {/* Material Symbols icon font — AXIS SUBSET (TD-PERF-004, 13 Jun 2026).
+            Strategi: pangkas RANGE AXIS (biang gembung 3.8 MB), BUKAN icon_names.
+            Alasan: icon dipakai tersebar (literal + config 70+ + fungsi dinamis
+            spt facIcon yg return shower/kitchen/tv/dll) → whitelist icon_names
+            RAPUH (kelewat = kotak kosong senyap di layanan manapun). Axis-only
+            jaga SEMUA icon hidup utk seluruh app (BAKABAR/BALAPOR/BADONASI/
+            BALAJU/BAKOS) sambil tetap hemat besar.
+            @24,400,0..1,0 = opsz 24, wght 400, FILL 0..1 (star/favorite terisi),
+            GRAD 0. Dari range penuh (opsz 20..48 × wght 100..700 × FILL 0..1 ×
+            GRAD -50..200) → 1 set. Hasil: 3.8 MB → ratusan KB. display=block
+            (anti-flicker icon). */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200&display=block"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block"
           rel="stylesheet"
         />
 
