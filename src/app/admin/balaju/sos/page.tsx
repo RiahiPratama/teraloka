@@ -165,18 +165,33 @@ export default function AdminBalajuSosPage() {
 
 /* ─── Baris kontak (rider / driver) dengan tombol WA + telp ─── */
 function ContactRow({
-  role, icon, contact,
-}: { role: string; icon: React.ReactNode; contact?: Contact }) {
+  role, icon, contact, tone,
+}: { role: string; icon: React.ReactNode; contact?: Contact; tone: 'rider' | 'driver' }) {
   const name = contact?.name ?? null;
   const phone = contact?.phone ?? null;
   const wa = waLink(phone);
+  // Rider = teal (balaju), Driver = amber — beda warna biar admin langsung bedain.
+  const isRider = tone === 'rider';
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-surface-muted/40 px-3 py-2">
+    <div className={cn(
+      'flex items-center justify-between gap-3 rounded-xl border px-3 py-2',
+      isRider ? 'border-balaju/30 bg-balaju/5' : 'border-amber-300/40 bg-amber-50/50',
+    )}>
       <div className="flex min-w-0 items-center gap-2">
-        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-balaju/10 text-balaju">{icon}</span>
+        <span className={cn(
+          'grid h-8 w-8 shrink-0 place-items-center rounded-full',
+          isRider ? 'bg-balaju/15 text-balaju' : 'bg-amber-100 text-amber-700',
+        )}>{icon}</span>
         <div className="min-w-0">
+          {/* Label peran — JELAS, biar gak ketuker pas darurat */}
+          <span className={cn(
+            'inline-block rounded px-1.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wide',
+            isRider ? 'bg-balaju/15 text-balaju' : 'bg-amber-100 text-amber-700',
+          )}>
+            {role}
+          </span>
           <div className="truncate text-sm font-bold text-text">
-            {name ?? role}
+            {name ?? `(${role} tidak diketahui)`}
             {contact?.plat ? <span className="ml-1 text-xs font-medium text-text-muted">· {contact.plat}</span> : null}
           </div>
           <div className="truncate text-xs text-text-muted">{phone ?? 'nomor tidak tersedia'}</div>
@@ -236,9 +251,9 @@ function SosCard({
       <div className="px-4 py-3">
         {/* Kontak RIDER + DRIVER (join live, selalu tampil) */}
         <div className="space-y-2">
-          <ContactRow role="Rider" icon={<User size={15} />} contact={ev.contact_rider} />
+          <ContactRow role="Rider" icon={<User size={15} />} contact={ev.contact_rider} tone="rider" />
           {hasDriver
-            ? <ContactRow role="Driver" icon={<Bike size={15} />} contact={ev.contact_driver} />
+            ? <ContactRow role="Driver" icon={<Bike size={15} />} contact={ev.contact_driver} tone="driver" />
             : (
               <div className="flex items-center gap-2 rounded-xl border border-dashed border-border px-3 py-2 text-xs text-text-light">
                 <Bike size={14} /> Driver belum ditugaskan untuk order ini
