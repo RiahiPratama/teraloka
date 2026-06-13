@@ -32,8 +32,8 @@ export function BakosCari() {
   const [priceKey, setPriceKey] = useState('all');
   const [sortKey, setSortKey] = useState('relevan');
   const [view, setView] = useState<'list' | 'map'>('list');
-  // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Read-only (tak ada UI ubah di halaman ini).
-  const [locationId] = useState(sp.get('location_id') ?? '');
+  // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Bisa di-clear saat user ngetik (mulai cari baru).
+  const [locationId, setLocationId] = useState(sp.get('location_id') ?? '');
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [total, setTotal] = useState(0);
@@ -92,7 +92,7 @@ export function BakosCari() {
   // kalau lagi di view map tapi tak ada titik (mis. filter berubah) → balik list
   useEffect(() => { if (view === 'map' && !hasMap) setView('list'); }, [view, hasMap]);
 
-  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); setSortKey('relevan'); };
+  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); setSortKey('relevan'); setLocationId(''); };
 
   return (
     <div className="bkc">
@@ -103,7 +103,12 @@ export function BakosCari() {
             <span className="material-symbols-outlined">search</span>
             <input
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value);
+                // 🛡️ user ngetik = mulai cari baru → buang filter kelurahan dari klik peta hero
+                //    (kalau tak di-clear, q + location_id saling sempitin → 0 hasil walau kos ada).
+                if (locationId) setLocationId('');
+              }}
               placeholder="Cari nama kos, area (mis. Bastiong, Akehuda)…"
             />
             {q && <button className="x" onClick={() => setQ('')} aria-label="Hapus">
