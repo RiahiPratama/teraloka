@@ -170,6 +170,7 @@ export interface AdFormState {
    * Backend buildImagesMap() handle final persistence.
    */
   images:          Record<string, string>;
+  images_mobile:   Record<string, string>;  // Batch 2 Fase B: per-position mobile creative map (NOT NULL)
   link_url:        string;
   disclaimer_text: string;
   slug:            string;
@@ -254,6 +255,7 @@ const EMPTY_STATE: AdFormState = {
   image_url:           '',
   cover_image_caption: '',          // SESI 7: caption untuk cover image advertorial
   images:              {},  // SESI 5D: empty map (HYBRID fallback ke image_url)
+  images_mobile:       {},  // Batch 2 Fase B: per-position mobile creative map (NOT NULL)
   link_url:            '',
   disclaimer_text:     '',
   slug:                '',
@@ -666,6 +668,7 @@ export function AdFormProvider({
           image_url:           ad.image_url ?? '',
           cover_image_caption: ad.cover_image_caption ?? '',  // SESI 7
           images:              ad.images ?? {},  // SESI 5D
+          images_mobile:       ad.images_mobile ?? {},  // Batch 2 Fase B
           link_url:            ad.link_url ?? '',
           disclaimer_text:     ad.disclaimer_text ?? '',
           slug:                ad.slug ?? '',
@@ -756,6 +759,7 @@ export function AdFormProvider({
       image_url:             state.image_url.trim() || null,
       cover_image_caption:   state.cover_image_caption.trim() || null,
       images:                Object.keys(state.images).length > 0 ? state.images : null,
+      images_mobile:         state.images_mobile ?? {},  // Batch 2 Fase B: SELALU {} (kolom NOT NULL), JANGAN null
       link_url:              state.link_url.trim(),
       disclaimer_text:       state.disclaimer_text.trim() || null,
       slug:                  state.slug.trim() || null,

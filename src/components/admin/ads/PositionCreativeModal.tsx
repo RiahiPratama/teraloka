@@ -169,6 +169,7 @@ export default function PositionCreativeModal({
   // Mode: detect dari state existing
   const existingFrames   = state.position_frames[positionKey];
   const existingImage    = state.images[positionKey];
+  const existingImageMobile = state.images_mobile[positionKey];  // Batch 2 Fase B
   // SESI 5H Phase 5B: per-position animation detection
   const existingTimeline = state.position_animation_timelines[positionKey];
   // SESI 10: per-position video detection
@@ -262,6 +263,18 @@ export default function PositionCreativeModal({
     const next = { ...state.images };
     delete next[positionKey];
     setField('images', next);
+  };
+
+  // Batch 2 Fase B: mobile creative handlers — mirror persis static desktop
+  const setStaticImageMobile = (url: string) => {
+    const next = { ...state.images_mobile, [positionKey]: url };
+    setField('images_mobile', next);
+  };
+
+  const clearStaticImageMobile = () => {
+    const next = { ...state.images_mobile };
+    delete next[positionKey];
+    setField('images_mobile', next);
   };
 
   // ───────────────────────────────────────────────────────────────
@@ -578,6 +591,21 @@ export default function PositionCreativeModal({
                   url ? setStaticImage(url) : clearStaticImage();
                 }}
                 label={`Upload ${meta.label} (${getRecommendedDimForFormat(meta, modeFormat)})`}
+              />
+
+              {/* Batch 2 Fase B: slot creative mobile (opsional) — selalu tampil; gating Batch 4 */}
+              <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 mt-4 block">
+                Creative Mobile (opsional)
+              </label>
+              <ImageUpload
+                bucket="ads"
+                maxFiles={1}
+                existingUrls={existingImageMobile ? [existingImageMobile] : []}
+                onUpload={(urls) => {
+                  const url = urls[0] ?? '';
+                  url ? setStaticImageMobile(url) : clearStaticImageMobile();
+                }}
+                label="Upload Creative Mobile (opsional)"
               />
 
               {/* SESI 10 Sub-Phase B: GIF support hint */}
