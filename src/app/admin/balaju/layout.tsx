@@ -19,7 +19,7 @@ import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import {
   LayoutDashboard, Bike, Users, ShieldCheck, Wallet, SlidersHorizontal,
-  BarChart3, MapPin, MonitorDot, ScrollText, Package, Car, Activity,
+  BarChart3, MapPin, MonitorDot, ScrollText, Package, Car, Activity, Siren,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ReactNode } from 'react';
@@ -40,6 +40,7 @@ const TABS: TabDef[] = [
   { key: 'tarif', label: 'Tarif', icon: <SlidersHorizontal size={15} />, href: '/admin/balaju/tarif', match: 'prefix' },
   { key: 'financial', label: 'Financial', icon: <Wallet size={15} />, href: '/admin/balaju/financial', match: 'prefix' }, // REAL (audit komisi akrual)
   { key: 'order_health', label: 'Order Health', icon: <Activity size={15} />, href: '/admin/balaju/order-health', match: 'prefix' }, // REAL (reliabilitas notif dispatch + gone-dark)
+  { key: 'sos', label: 'SOS', icon: <Siren size={15} />, href: '/admin/balaju/sos', match: 'prefix' }, // REAL (monitor sinyal darurat rider, 13 Jun 2026)
   { key: 'ride_car', label: 'Ride Mobil', icon: <Car size={15} /> },                                    // PARKIR (F9)
   { key: 'courier', label: 'Kurir', icon: <Package size={15} /> },                                      // PARKIR
   { key: 'analytics', label: 'Analytics', icon: <BarChart3 size={15} /> },                              // PARKIR
