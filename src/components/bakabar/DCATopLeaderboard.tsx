@@ -40,6 +40,7 @@ interface TopLeaderboardAd {
   body: string | null;
   link_url: string | null;
   image_url: string | null;
+  image_url_mobile?: string | null;  // Batch 3: creative mobile terpisah (banner statis non-DCA)
   advertiser_name: string;
   advertiser_type: 'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?: string | null;
@@ -187,18 +188,32 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
 
   // SESI 11 (31 Mei 2026): Banner statis/DCA = creative penuh, tampil FULL tanpa overlay.
   const displayImage = isDCA && currentFrame ? currentFrame.image_url : ad.image_url;
+  // Batch 3: mobile creative HANYA buat banner statis non-DCA (DCA frame gak punya mobile variant)
+  const mobileImage = (!isDCA && ad.image_url_mobile) ? ad.image_url_mobile : null;
   const hasImage = !!displayImage;
   if (hasImage) {
     const iLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
     return (
       <div className="relative w-full h-[220px] rounded-xl overflow-hidden bg-black">
-        <img
-          key={`tl-full-${currentIdx}`}
-          src={displayImage!}
-          alt={ad.title ?? ''}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
+        {mobileImage ? (
+          <picture key={`tl-full-${currentIdx}`}>
+            <source media="(max-width:767px)" srcSet={mobileImage} />
+            <img
+              src={displayImage!}
+              alt={ad.title ?? ''}
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </picture>
+        ) : (
+          <img
+            key={`tl-full-${currentIdx}`}
+            src={displayImage!}
+            alt={ad.title ?? ''}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        )}
         {iLabel && (
           <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
             style={{ background: '#F59E0B', color: '#fff' }}>
