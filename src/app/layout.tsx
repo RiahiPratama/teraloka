@@ -146,12 +146,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             BALAJU/BAKOS) sambil tetap hemat besar.
             @24,400,0..1,0 = opsz 24, wght 400, FILL 0..1 (star/favorite terisi),
             GRAD 0. Dari range penuh (opsz 20..48 × wght 100..700 × FILL 0..1 ×
-            GRAD -50..200) → 1 set. Hasil: 3.8 MB → ratusan KB. display=block
-            (anti-flicker icon). */}
+            GRAD -50..200) → 1 set. Hasil: 3.8 MB → ~445 KB.
+            display=swap (13 Jun): font TAK render-blocking → LCP turun. Icon
+            mungkin flicker sesaat saat load pertama (kotak→icon), tapi trade-off
+            worth utk LCP. Kalau flicker ganggu, balik ke block. */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=block"
+          href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0..1,0&display=swap"
           rel="stylesheet"
         />
 
