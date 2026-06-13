@@ -23,6 +23,7 @@ export function BakosCari() {
   const [q, setQ] = useState(sp.get('q') ?? '');
   const [kosType, setKosType] = useState(sp.get('kos_type') ?? '');
   const [priceKey, setPriceKey] = useState('all');
+  const [sortKey, setSortKey] = useState('relevan');
   // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Read-only (tak ada UI ubah di halaman ini).
   const [locationId] = useState(sp.get('location_id') ?? '');
   const [listings, setListings] = useState<Listing[]>([]);
@@ -69,7 +70,14 @@ export function BakosCari() {
     router.replace(`/bakos/cari${qs ? `?${qs}` : ''}`, { scroll: false });
   }, [q, kosType, locationId, router]);
 
-  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); };
+  // sort client-side (BE belum support sort param) — PENANDA BKC-SORT
+  const sorted = [...listings].sort((a, b) => {
+    if (sortKey === 'termurah') return (a.price ?? 0) - (b.price ?? 0);
+    if (sortKey === 'termahal') return (b.price ?? 0) - (a.price ?? 0);
+    return 0; // relevan = urutan dari BE
+  });
+
+  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); setSortKey('relevan'); };
 
   return (
     <div className="bkc">
@@ -88,8 +96,8 @@ export function BakosCari() {
             </button>}
           </div>
           <CariFilters
-            kosType={kosType} priceKey={priceKey}
-            onKosType={setKosType} onPrice={setPriceKey}
+            kosType={kosType} priceKey={priceKey} sortKey={sortKey}
+            onKosType={setKosType} onPrice={setPriceKey} onSort={setSortKey}
           />
         </div>
       </div>
@@ -97,7 +105,7 @@ export function BakosCari() {
       {/* hasil — full width (peta nyusul: jadiin .bkc-body 2-kolom) */}
       <div className="bkc-body">
         <div className="bkc-results">
-          <ListingGrid listings={listings} loading={loading} searchInput={q} onReset={reset} />
+          <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} />
         </div>
         {/* 🛡️ SLOT PETA (aktifkan saat koordinat siap):
         <aside className="bkc-map"><BakosKosMap listings={listings} /></aside> */}

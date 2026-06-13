@@ -36,6 +36,12 @@ export const PRICE_FILTERS = [
   { key: '2000001-99999999', label: 'Di atas Rp 2 juta' },
 ] as const;
 
+export const SORT_OPTIONS = [
+  { key: 'relevan',   label: 'Paling relevan' },
+  { key: 'termurah',  label: 'Harga termurah' },
+  { key: 'termahal',  label: 'Harga termahal' },
+] as const;
+
 export const KOS_TYPES = [
   { key: '', label: 'Semua' },
   { key: 'putra', label: 'Putra' },
@@ -82,8 +88,9 @@ export const TIPE: Record<string, { lbl: string; cls: string }> = {
 };
 
 export function formatRupiah(n: number): string {
-  // Rupiah PENUH (no-short): Rp 1.400.000 — bukan Rp 1.4jt. Konsisten semua kartu.
-  return `Rp ${(Number(n) || 0).toLocaleString('id-ID')}`;
+  if (n >= 1_000_000) return `Rp ${(n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1)}jt`;
+  if (n >= 1_000) return `Rp ${Math.round(n / 1_000)}rb`;
+  return `Rp ${n}`;
 }
 
 // 🛡️ facilities = jsonb → bisa array, objek {ac:true}, atau null. Normalisasi ke string[].
