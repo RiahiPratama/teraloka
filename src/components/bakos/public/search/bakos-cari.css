@@ -67,13 +67,15 @@
 
 /* bottom sheet */
 .bkc-sheet-overlay{
-  position:fixed; inset:0; z-index:1300; background:rgba(15,23,42,.45);
+  position:fixed; inset:0; z-index:99999; background:rgba(15,23,42,.45);
   display:flex; align-items:flex-end; justify-content:center; animation:bkc-fade .18s ease;
 }
 @keyframes bkc-fade{ from{opacity:0} to{opacity:1} }
 .bkc-sheet{
   width:100%; max-width:520px; background:#fff; border-radius:22px 22px 0 0;
-  padding:18px 18px calc(18px + env(safe-area-inset-bottom,0px));
+  /* padding bawah = bottom-nav app (~72px) + safe-area, biar opsi terakhir tak ketelan navbar */
+  padding:18px 18px calc(88px + env(safe-area-inset-bottom,0px));
+  max-height:80vh; overflow-y:auto;
   box-shadow:0 -8px 30px rgba(15,23,42,.18); animation:bkc-up .22s cubic-bezier(.22,1,.36,1);
 }
 @keyframes bkc-up{ from{transform:translateY(100%)} to{transform:translateY(0)} }
@@ -98,5 +100,7 @@
 /* desktop: sheet jadi popup tengah */
 @media (min-width:980px){
   .bkc-sheet-overlay{ align-items:center; }
-  .bkc-sheet{ border-radius:18px; max-width:440px; }
+  .bkc-sheet{ border-radius:18px; max-width:440px;
+    padding-bottom:18px;   /* desktop tak ada bottom-nav app → padding normal */
+  }
 }
