@@ -84,6 +84,11 @@ export default function DCASkyscraper({ side }: Props) {
   const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
   const [loading, setLoading] = useState(true);
   const [hideNearFooter, setHideNearFooter] = useState(false);
+  // WS-5d (13 Jun 2026): posisi atas skyscraper = atas banner ADS leaderboard
+  // (anak pertama <main>), DIUKUR runtime — bukan angka mati. Fallback 180
+  // (≈ main-top) sebelum effect jalan. Auto-align: apapun tinggi header/
+  // ticker/notif, skyscraper SELALU sejajar leaderboard "hero ADS paling atas".
+  const [topPx, setTopPx] = useState<number>(180);
 
   // Fetch ad on mount
   useEffect(() => {
@@ -119,6 +124,23 @@ export default function DCASkyscraper({ side }: Props) {
     return () => io.disconnect();
   }, []);
 
+  // WS-5d: align top ke banner ADS leaderboard (anak pertama main BAKABAR).
+  // 🛡️ Pakai selector UNIK [data-bakabar-content] — JANGAN querySelector('main')
+  // polos (ada <main> lain dari layout induk → ke-grab yang salah → skyscraper
+  // naik mentok ke pucuk). Ukur posisi dokumen (rect.top + scrollY) → valid
+  // berapapun scroll; karena aside position:fixed, ini jadi posisi viewport-nya
+  // di scroll=0 → sejajar leaderboard. Re-ukur on resize.
+  useEffect(() => {
+    const measure = () => {
+      const main = document.querySelector('[data-bakabar-content]');
+      const lb = main?.firstElementChild as HTMLElement | null;
+      if (lb) setTopPx(lb.getBoundingClientRect().top + window.scrollY);
+    };
+    measure();
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
   // Hide section if loading or empty
   if (loading || !ad) return null;
 
@@ -136,7 +158,10 @@ export default function DCASkyscraper({ side }: Props) {
       className="hidden min-[1400px]:block"
       style={{
         position: 'fixed',
-        top: 180,
+        // WS-5d (13 Jun 2026): top DIUKUR runtime ke atas banner ADS leaderboard
+        // (lihat effect measure di atas). Bukan angka mati lagi → auto-align,
+        // gak bisa meleset walau tinggi header berubah.
+        top: topPx,
         width: 160,
         height: 600,
         zIndex: 40,

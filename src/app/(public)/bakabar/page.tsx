@@ -110,7 +110,7 @@ export default async function BakabarPage({
 
           <DCASkyscraper side="left" />
 
-          <main className="flex-1 min-w-0" style={{ maxWidth: 1000 }}>
+          <main className="flex-1 min-w-0" style={{ maxWidth: 1000 }} data-bakabar-content>
 
             <DCATopLeaderboard />
 
