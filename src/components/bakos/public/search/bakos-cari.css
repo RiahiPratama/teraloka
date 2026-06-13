@@ -172,3 +172,16 @@
   .bkc-map-wrap{ height:calc(100vh - 200px); }
   .bkc-map-card{ left:auto; right:18px; bottom:18px; width:340px; margin:0; }
 }
+
+
+/* CTA "Lihat & Hubungi Owner" di kartu peta → buka detail (relay kontak ada di sana) */
+.bkc-map-cta{
+  display:flex; align-items:center; justify-content:center; gap:7px;
+  margin:8px 6px 4px; padding:12px; border-radius:12px;
+  background:linear-gradient(135deg,#1B6B4A,#0891B2); color:#fff;
+  font-family:inherit; font-size:14px; font-weight:800; text-decoration:none;
+  transition:opacity .15s;
+}
+.bkc-map-cta:hover{ opacity:.92; }
+.bkc-map-cta:active{ transform:scale(.98); }
+.bkc-map-cta .material-symbols-outlined{ font-size:19px; }

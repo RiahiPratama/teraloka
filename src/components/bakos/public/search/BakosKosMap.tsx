@@ -16,6 +16,7 @@ import type { LatLngExpression } from 'leaflet';
 import L from 'leaflet';
 import { MapContainer, TileLayer, useMap } from 'react-leaflet';
 import { type Listing } from '../bakos-links';
+import Link from 'next/link';
 import { ListingCard } from '../listing-card';
 
 const TILE = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
@@ -104,6 +105,10 @@ export function BakosKosMap({ items }: { items: Listing[] }) {
             <span className="material-symbols-outlined">close</span>
           </button>
           <ListingCard item={picked} />
+          <Link href={`/bakos/${picked.slug}`} className="bkc-map-cta">
+            Lihat Detail Kos
+            <span className="material-symbols-outlined">arrow_forward</span>
+          </Link>
         </div>
       )}
     </div>
