@@ -547,9 +547,6 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
                 )}
               </div>
             )}
-
-            {/* SOS — cuma saat trip aktif (matched/arrived/ongoing) */}
-            <BalajuSosButton rideId={rideId} />
           </div>
         )}
 
@@ -576,6 +573,14 @@ export function BalajuStatusShell({ rideId }: { rideId: string }) {
         )}
 
         {err && <p className="mt-3 text-center text-xs font-medium text-red-500">{err}</p>}
+
+        {/* SOS — cuma saat trip aktif. Sengaja DIPISAH dari tombol kontak driver
+            (mt-6 + border-top) biar gak salah pencet pas mau WA/telp driver. */}
+        {(ride.status === 'matched' || ride.status === 'arrived' || ride.status === 'ongoing') && (
+          <div className="mt-6 border-t border-[var(--bl-line)] pt-4">
+            <BalajuSosButton rideId={rideId} />
+          </div>
+        )}
 
         {/* Aksi batal (open / matched) */}
         {canCancel && (
