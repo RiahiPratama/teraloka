@@ -60,8 +60,14 @@ import type {
   CategoryCount,
 } from '@/types/newsroom-analytics';
 import { LastPublishBanner, ContentGaps, CoverageRegions } from '@/components/admin/content/content-pulse';
+import { RadarPanel } from '@/components/admin/radar/radar-panel';
 
-type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution';
+type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution' | 'radar';
+
+// 🛡️ Radar Anggaran = tab super_admin-only (di-append ke visibleTabs di bawah).
+const RADAR_TAB: { key: Tab; label: string; icon: string } = {
+  key: 'radar', label: 'Radar Anggaran', icon: '📡',
+};
 
 const TABS: { key: Tab; label: string; icon: string }[] = [
   { key: 'overview',     label: 'Overview',             icon: '📊' },
@@ -310,7 +316,7 @@ export default function AdminContentPage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        {TABS.map((tab) => (
+        {(isSuperAdmin ? [...TABS, RADAR_TAB] : TABS).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -523,6 +529,9 @@ export default function AdminContentPage() {
       {activeTab === 'newsroom' && <NewsroomAnalyticsView />}
 
       {activeTab === 'distribution' && <DistributionMetricsView />}
+
+      {/* 🛡️ Radar Anggaran — super_admin only (double-gate: tab button + konten) */}
+      {activeTab === 'radar' && isSuperAdmin && <RadarPanel />}
 
       {/* Delete modal */}
       <DeleteArticleModal
