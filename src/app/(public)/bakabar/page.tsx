@@ -39,7 +39,7 @@ import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 
 import { HERO_CAROUSEL_SLIDES, TERPOPULER_LIST } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
-import { resolveNav, fetchHeroArticles, toCarouselArticle } from '@/components/bakabar/bakabar-fetch';
+import { resolveNav, fetchHeroArticles, fetchTerpopuler, toCarouselArticle } from '@/components/bakabar/bakabar-fetch';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -73,8 +73,14 @@ export default async function BakabarPage({
   const sp = await searchParams;
   const { type, location, q } = resolveNav(sp);
 
-  // 🔑 await HANYA hero → flush cepat. Below-fold di-stream (BelowFold).
-  const heroRaw = await fetchHeroArticles(type, location, q);
+  // 🔑 await hero + terpopuler (PARALEL) → flush cepat. Below-fold di-stream.
+  // Terpopuler timeout 3.5s < hero 9s → gak nambah wall-clock worst-case.
+  const [heroRaw, terpopulerFetched] = await Promise.all([
+    fetchHeroArticles(type, location, q),
+    fetchTerpopuler(5),
+  ]);
+  // 🛡️ Fallback statis kalau API kosong/gagal/521 → sidebar GAK PERNAH kosong.
+  const terpopuler = terpopulerFetched.length ? terpopulerFetched : TERPOPULER_LIST;
 
   // Hero slide[idx] di-override dgn artikel asli kalau ada; sisanya fallback
   // ke HERO_CAROUSEL_SLIDES (statis) → hero TIDAK PERNAH kosong.
@@ -115,7 +121,7 @@ export default async function BakabarPage({
             <DCATopLeaderboard />
 
             {/* ── HERO + ADS sidebar — DI LUAR Suspense → FLUSH DULUAN ── */}
-            <HeroWithSidebar slides={slides} terpopuler={TERPOPULER_LIST} />
+            <HeroWithSidebar slides={slides} terpopuler={terpopuler} />
 
             {/* ── BELOW-FOLD — STREAM nyusul (region per-boundary) ────── */}
             <Suspense fallback={<BelowFoldFallback />}>

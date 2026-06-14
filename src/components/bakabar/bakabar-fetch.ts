@@ -131,6 +131,26 @@ export async function fetchHeroArticles(type: string, location: string, q: strin
   return fetchList(params.toString(), 12);
 }
 
+// Terpopuler (sidebar) — backend sort=popular (view_count DESC, window 30 hari).
+// Sekunder (sidebar) → timeout ketat 3.5s; gagal/521/kosong → [] (page.tsx fallback
+// ke TERPOPULER_LIST statis biar sidebar gak pernah kosong). res.ok → 521 HTML gak
+// di-parse. Map ke DummyArticle pakai toCarouselArticle (bentuk yg HeroWithSidebar mau).
+export async function fetchTerpopuler(limit: number): Promise<DummyArticle[]> {
+  try {
+    const res = await fetchWithTimeout(
+      `${API}/content/articles?sort=popular&limit=${limit}`,
+      FETCH_OPTS,
+      TIMEOUT_SECONDARY_MS,
+    );
+    if (!res.ok) return [];
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return [];
+    return data.data.map(toCarouselArticle);
+  } catch {
+    return [];
+  }
+}
+
 // Query per region: nasional → type, region geografis → location.
 export function regionQuery(slug: string): string {
   return slug === 'nasional' ? 'type=nasional' : `location=${encodeURIComponent(slug)}`;
