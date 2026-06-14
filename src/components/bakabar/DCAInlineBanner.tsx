@@ -7,13 +7,10 @@
 // 8:1 aspect ratio inline banner, antar region atau di mana saja.
 // Fetch dari public.ads /by-position/inline_banner. DCA-ready.
 //
-// 🛡️ DORMENT FILE — Mission 7 closeout:
-//   Component INI TIDAK di-import di page.tsx atau RegionSection.
-//   Ready untuk Mission 8 (Super Admin SMART) — admin bisa enable
-//   placement via UI tanpa nge-touch code lagi.
-//
-//   Saat lo decide untuk enable di future, tinggal import + render
-//   <DCAInlineBanner /> di tempat yang lo mau. Empty state graceful.
+// ✅ ACTIVE — sudah di-mount: BelowFold.tsx (homepage) + BakabarArchive.tsx
+//   (kanal/kategori). Empty state graceful (return null kalau gak ada ad).
+//   Phase 2a V3: mobile creative terpisah (statis <picture> + video viewport-switch),
+//   container aspect 8:1 desktop → 3:1 mobile.
 //
 // PRD: 02-PRD-DCA-v1.1
 // ════════════════════════════════════════════════════════════════
@@ -43,6 +40,7 @@ interface InlineBannerAd {
   body:                string | null;
   link_url:            string | null;
   image_url:           string | null;
+  image_url_mobile?:   string | null;  // Phase 2a V3: creative mobile terpisah (statis)
   advertiser_name:     string;
   advertiser_type:     'umum' | 'politisi' | 'pemerintah' | 'komersial';
   disclaimer_text?:    string | null;
@@ -50,6 +48,8 @@ interface InlineBannerAd {
   // SESI 11 Batch 8: Banner Motion (webM/mp4 fill)
   ad_format?:          'image' | 'text' | 'animated' | 'video';
   video_sources?:      Record<string, AdVideoSource> | null;
+  // Phase 2a V3: video mobile terpisah (viewport-switch, fallback desktop kalau null)
+  video_sources_mobile?: Record<string, AdVideoSource> | null;
 }
 
 const HOVER_GRACE_MS = 1500;
@@ -65,6 +65,21 @@ function useReducedMotion(): boolean {
     return () => mq.removeEventListener('change', handler);
   }, []);
   return reduced;
+}
+
+// Phase 2a V3: viewport detection client-side (SSR-safe — default false = desktop).
+// Mirror DCATopLeaderboard: server & initial-client render desktop → no hydration mismatch.
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width:767px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return isMobile;
 }
 
 export default function DCAInlineBanner() {
@@ -119,6 +134,9 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
   const rotationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const graceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useReducedMotion();
+  const isMobile = useIsMobile();  // Phase 2a V3: viewport-switch
+  // 🔑 Container aspect switch — 8:1 di HP terlalu tipis → 3:1 di mobile.
+  const containerAspect = isMobile ? '3 / 1' : '8 / 1';
 
   const frames = ad.creative_frames ?? [];
   const currentFrame = isDCA ? frames[currentIdx] : null;
@@ -145,14 +163,17 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
 
   // SESI 11 Batch 8: Banner Motion — video fill (ganti gradient card)
   // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
-  const video = ad.video_sources?.['inline_banner'] ?? null;
+  // Phase 2a V3: viewport-switch — HP nampilin video mobile, desktop nampilin desktop.
+  const videoDesktop = ad.video_sources?.['inline_banner'] ?? null;
+  const videoMobile  = ad.video_sources_mobile?.['inline_banner'] ?? null;
+  const video = (isMobile && videoMobile) ? videoMobile : videoDesktop;  // 🛡️ fallback desktop (mobile opsional)
   const hasVideo = !!(video && (video.webm || video.mp4));
   if (hasVideo) {
     const vLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
     return (
-      <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '8 / 1' }}>
+      <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: containerAspect }}>
         {!reducedMotion ? (
-          <video className="w-full h-full object-cover" autoPlay loop muted playsInline poster={video!.poster || undefined}>
+          <video key={video!.webm || video!.mp4} className="w-full h-full object-cover" autoPlay loop muted playsInline poster={video!.poster || undefined}>
             {video!.webm && <source src={video!.webm} type="video/webm" />}
             {video!.mp4  && <source src={video!.mp4}  type="video/mp4" />}
           </video>
@@ -175,14 +196,17 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
   if (hasImage) {
     const iLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
     return (
-      <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: '8 / 1' }}>
-        <img
-          key={`inline-full-${currentIdx}`}
-          src={displayImage!}
-          alt={ad.title ?? ''}
-          className="w-full h-full object-cover"
-          loading="lazy"
-        />
+      <div className="relative w-full rounded-xl overflow-hidden bg-black" style={{ aspectRatio: containerAspect }}>
+        {/* Phase 2a V3: mobile creative via <picture>; fallback ke displayImage kalau null */}
+        <picture key={`inline-full-${currentIdx}`}>
+          <source media="(max-width:767px)" srcSet={ad.image_url_mobile || displayImage!} />
+          <img
+            src={displayImage!}
+            alt={ad.title ?? ''}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        </picture>
         {iLabel && (
           <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
             style={{ background: '#F59E0B', color: '#fff' }}>
@@ -211,7 +235,7 @@ function InlineInner({ ad, isDCA }: { ad: InlineBannerAd; isDCA: boolean }) {
       className="relative w-full rounded-xl overflow-hidden flex items-center justify-between px-12 text-white cursor-pointer"
       style={{
         background: 'linear-gradient(135deg, #1e3a8a 0%, #312e81 50%, #4c1d95 100%)',
-        aspectRatio: '8 / 1',
+        aspectRatio: containerAspect,
       }}
     >
       <div className="absolute inset-0 pointer-events-none" style={{
