@@ -94,7 +94,7 @@ export interface PositionRenderMetadata {
   /** Group semantik untuk Targeting UI */
   pageGroup:            'banner_area' | 'sidebar' | 'in_article_native' | 'hero_special';
   /** Scope tayang AKURAT per-posisi (override hint grup). 'kanal' = halaman Kanal/Kategori. */
-  pageScope?:           'homepage' | 'slug' | 'kanal' | 'both';
+  pageScope?:           Array<'homepage' | 'slug' | 'kanal' | 'kategori' | 'sponsored'>;
   /** Optional: politisi-only constraint (KPU compliance) */
   politisiOnly?:        boolean;
   /** Tooltip detail "muncul di mana di public" */
@@ -117,6 +117,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCATopLeaderboard',
+    pageScope:            ['homepage', 'kanal', 'kategori'],
     realDim:              '1000×220px',
     recommendedImageDim:  '1000×220px',
     aspectRatio:          '4.5:1 horizontal',
@@ -140,6 +141,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCAInlineBanner',
+    pageScope:            ['homepage', 'kanal', 'kategori'],
     realDim:              '1600×200px',
     recommendedImageDim:  '1600×200px',
     aspectRatio:          '8:1 horizontal panjang',
@@ -185,6 +187,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      5,
     recommendedMaxActive: 5,
     component:            'LaIndieMoviePoliticalBanner (fallback mode)',
+    pageScope:            ['homepage'],
     realDim:              '160×240px',
     recommendedImageDim:  '160×240px',
     aspectRatio:          '2:3 poster vertikal',
@@ -208,6 +211,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      5,
     recommendedMaxActive: 5,
     component:            'LaIndieMovieServiceCarousel',
+    pageScope:            ['homepage', 'slug'],
     realDim:              '165×220px',
     recommendedImageDim:  '165×220px',
     aspectRatio:          '3:4 poster vertikal',
@@ -228,6 +232,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCASkyscraper (side="left")',
+    pageScope:            ['homepage', 'kanal', 'kategori'],
     realDim:              '160×600px',
     recommendedImageDim:  '160×600px',
     aspectRatio:          '160:600 vertikal',
@@ -246,6 +251,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCASkyscraper (side="right")',
+    pageScope:            ['homepage', 'kanal', 'kategori'],
     realDim:              '160×600px',
     recommendedImageDim:  '160×600px',
     aspectRatio:          '160:600 vertikal',
@@ -261,7 +267,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
   // ─── HOMEPAGE: TRENDING NATIVE PER WILAYAH ──────────────────────
   trending_native: {
     key:                  'trending_native',
-    pageScope:            'homepage',
+    pageScope:            ['homepage'],
     label:                'Iklan Menyamar di List Trending Wilayah',
     renderType:           'SINGLE_FIXED',
     visualSlotCount:      1,
@@ -289,6 +295,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'DCAStackBanner',
+    pageScope:            ['homepage'],
     realDim:              '320×200px',
     recommendedImageDim:  '320×200px',
     aspectRatio:          '8:5 horizontal',
@@ -309,6 +316,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      5,
     recommendedMaxActive: 5,
     component:            'LaIndieMoviePoliticalBanner (primary mode)',
+    pageScope:            ['homepage'],
     realDim:              '160×240px',
     recommendedImageDim:  '160×240px',
     aspectRatio:          '2:3 poster vertikal',
@@ -330,6 +338,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdInArticle',
+    pageScope:            ['slug'],
     realDim:              '640×360px',
     recommendedImageDim:  '640×360px',
     aspectRatio:          '16:9 horizontal',
@@ -352,6 +361,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdNativeSlug',
+    pageScope:            ['slug'],
     realDim:              '56×56px',
     recommendedImageDim:  '56×56px',
     aspectRatio:          '1:1 icon',
@@ -388,7 +398,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     textFormatAspectRatio:'16:9 horizontal',
     pageGroup:            'in_article_native',
     description:          'Native ad: kartu iklan di daftar Kanal/Kategori, mirror kartu artikel (cover 16:9 + judul + advertiser). Diselip tiap 6 artikel. Kosong → sel disembunyikan (grid tetap rapi). Statis / advertorial. Motion menyusul (Langkah 2).',
-    pageScope:            'kanal',
+    pageScope:            ['kanal', 'kategori'],
     frontendUrl:          '/bakabar/kanal/nasional',
   },
 
@@ -400,6 +410,7 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     visualSlotCount:      1,
     recommendedMaxActive: null,
     component:            'AdSidebarSlug',
+    pageScope:            ['homepage', 'slug', 'sponsored'],
     realDim:              '300×208px',
     recommendedImageDim:  '300×208px',
     aspectRatio:          '~1.44:1 horizontal',

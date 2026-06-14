@@ -67,13 +67,18 @@ import {
 } from './position-render-metadata';
 
 // Page scope label per group (visual hint, semantic only — backend trust positions)
+// PageScope = scope per-GRUP (scalar, derive dari pageGroup) — termasuk 'both'.
 type PageScope = 'homepage' | 'slug' | 'kanal' | 'both';
+// PageScopeValue = item scope per-POSISI (array, hasil audit mount per-route).
+type PageScopeValue = 'homepage' | 'slug' | 'kanal' | 'kategori' | 'sponsored';
 
-const PAGE_SCOPE_DISPLAY: Record<PageScope, { label: string; short: string; icon: typeof Home; color: string }> = {
-  homepage: { label: 'Homepage BAKABAR',       short: 'Homepage',     icon: Home,     color: 'text-bakabar' },
-  slug:     { label: 'Slug Artikel BAKABAR',   short: 'Artikel',      icon: FileText, color: 'text-baronda' },
-  kanal:    { label: 'Halaman Kanal/Kategori', short: 'Kanal',        icon: MapPin,   color: 'text-ads' },
-  both:     { label: 'Homepage + Slug',        short: 'Home+Artikel', icon: Globe2,   color: 'text-analytics' },
+const PAGE_SCOPE_DISPLAY: Record<PageScope | PageScopeValue, { label: string; short: string; icon: typeof Home; color: string }> = {
+  homepage:  { label: 'Homepage BAKABAR',            short: 'Homepage',     icon: Home,     color: 'text-bakabar' },
+  slug:      { label: 'Slug Artikel BAKABAR',        short: 'Artikel',      icon: FileText, color: 'text-baronda' },
+  kanal:     { label: 'Halaman Kanal BAKABAR',       short: 'Kanal',        icon: MapPin,   color: 'text-ads' },
+  kategori:  { label: 'Halaman Kategori BAKABAR',    short: 'Kategori',     icon: MapPin,   color: 'text-status-info' },
+  sponsored: { label: 'Halaman Sponsored/Advertorial', short: 'Sponsored',  icon: FileText, color: 'text-status-warning' },
+  both:      { label: 'Homepage + Slug',             short: 'Home+Artikel', icon: Globe2,   color: 'text-analytics' },
 };
 
 // Page group → page scope mapping (untuk visual hint)
@@ -85,11 +90,13 @@ const PAGE_GROUP_TO_SCOPE: Record<string, PageScope> = {
 };
 
 // SESI 11 L4: scope dalam bahasa manusia (buat slot card)
-const SCOPE_HUMAN: Record<PageScope, string> = {
-  homepage: 'Muncul di homepage',
-  slug:     'Muncul di halaman artikel',
-  kanal:    'Muncul di halaman Kanal/Kategori',
-  both:     'Muncul di homepage + artikel',
+const SCOPE_HUMAN: Record<PageScope | PageScopeValue, string> = {
+  homepage:  'Muncul di homepage',
+  slug:      'Muncul di halaman artikel',
+  kanal:     'Muncul di halaman Kanal',
+  kategori:  'Muncul di halaman Kategori',
+  sponsored: 'Muncul di halaman Sponsored/Advertorial',
+  both:      'Muncul di homepage + artikel',
 };
 
 const PAGE_GROUP_LABEL: Record<string, { group: string; description: string }> = {
@@ -112,7 +119,7 @@ const POSITION_GROUPS: Array<{
     politisiOnly?: boolean;
     isDormant:     boolean;
     dormantNote?:  string;
-    pageScope?:    PageScope;
+    pageScope?:    PageScopeValue[];
   }>;
 }> = (() => {
   const grouped: Record<string, typeof POSITION_GROUPS[number]['positions']> = {};
@@ -127,7 +134,9 @@ const POSITION_GROUPS: Array<{
       politisiOnly: meta.politisiOnly,
       isDormant:    meta.mountStatus === 'dormant',
       dormantNote:  meta.mountNote,
-      pageScope:    meta.pageScope ?? PAGE_GROUP_TO_SCOPE[meta.pageGroup] ?? 'both',
+      // Per-posisi: pakai pageScope array dari metadata apa adanya. Undefined
+      // (banner dormant) → biarin undefined → badge auto-hidden (guard di bawah).
+      pageScope:    meta.pageScope,
     });
   }
 
@@ -472,20 +481,24 @@ export default function AdFormSectionTargeting() {
                                             <Ban size={9} />
                                           </span>
                                         )}
-                                        {pos.pageScope && (
-                                          <span
-                                            className={cn(
-                                              'inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold border shrink-0',
-                                              pos.pageScope === 'homepage' && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
-                                              pos.pageScope === 'slug'     && 'bg-baronda/8 border-baronda/30 text-baronda',
-                                              pos.pageScope === 'kanal'    && 'bg-ads/8 border-ads/30 text-ads',
-                                              pos.pageScope === 'both'     && 'bg-analytics/8 border-analytics/30 text-analytics',
-                                            )}
-                                            title={SCOPE_HUMAN[pos.pageScope]}
-                                          >
-                                            {PAGE_SCOPE_DISPLAY[pos.pageScope].short}
-                                          </span>
-                                        )}
+                                        {pos.pageScope?.length ? (
+                                          pos.pageScope.map((sc) => (
+                                            <span
+                                              key={sc}
+                                              className={cn(
+                                                'inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold border shrink-0',
+                                                sc === 'homepage'  && 'bg-bakabar/8 border-bakabar/30 text-bakabar',
+                                                sc === 'slug'      && 'bg-baronda/8 border-baronda/30 text-baronda',
+                                                sc === 'kanal'     && 'bg-ads/8 border-ads/30 text-ads',
+                                                sc === 'kategori'  && 'bg-status-info/8 border-status-info/30 text-status-info',
+                                                sc === 'sponsored' && 'bg-status-warning/8 border-status-warning/30 text-status-warning',
+                                              )}
+                                              title={SCOPE_HUMAN[sc]}
+                                            >
+                                              {PAGE_SCOPE_DISPLAY[sc].short}
+                                            </span>
+                                          ))
+                                        ) : null}
                                       </div>
                                       {/* SESI 8: Format-aware dim hint */}
                                       <div className={cn(
