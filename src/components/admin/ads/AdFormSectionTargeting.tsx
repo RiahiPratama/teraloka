@@ -499,6 +499,15 @@ export default function AdFormSectionTargeting() {
                                             </span>
                                           ))
                                         ) : null}
+                                        {/* Batch C: badge device — cuma slot desktop-only (skyscraper/sidebar) */}
+                                        {meta.deviceScope === 'desktop' && (
+                                          <span
+                                            className="inline-flex items-center gap-0.5 px-1 py-0.5 rounded text-[8px] font-bold border bg-surface-muted border-border text-text-muted shrink-0"
+                                            title="Cuma tayang di desktop, gak di HP"
+                                          >
+                                            Desktop saja
+                                          </span>
+                                        )}
                                       </div>
                                       {/* SESI 8: Format-aware dim hint */}
                                       <div className={cn(
@@ -511,7 +520,11 @@ export default function AdFormSectionTargeting() {
                                         <span className="truncate">
                                           {!isCompatible
                                             ? 'Hanya untuk banner image'
-                                            : `${dimForFormat} · ${aspectForFormat}`}
+                                            : `${dimForFormat} · ${aspectForFormat}${
+                                                meta.mobileCreativeRecommended && meta.recommendedImageDimMobile
+                                                  ? ` · HP ${meta.recommendedImageDimMobile}`
+                                                  : ''
+                                              }`}
                                         </span>
                                       </div>
                                     </div>
