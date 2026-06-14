@@ -36,9 +36,20 @@ import {
   flagTooltip,
   formatPagu,
   type WatchdogLead,
+  type Flag,
 } from './radar-types';
 
 interface TreeNode { id: string; name: string; children?: TreeNode[] }
+
+// 🛡️ Hierarki chip (DISPLAY-ONLY — jangan ubah data lead.flags): kalau lead punya
+// pagu_relatif (amber/menonjol), sembunyiin pagu_besar (biru) di card itu — amber
+// sudah nyiratin "besar + menonjol". Cegah noise (live: pagu_besar nempel 100/100,
+// pagu_relatif cuma 10/100 → tanpa ini amber ketelen tembok biru).
+function displayFlags(flags?: Flag[]): Flag[] {
+  if (!flags || flags.length === 0) return [];
+  const hasRelatif = flags.some((f) => f.code === 'pagu_relatif');
+  return hasRelatif ? flags.filter((f) => f.code !== 'pagu_besar') : flags;
+}
 
 function flattenLocations(nodes: TreeNode[] | undefined): Map<string, string> {
   const map = new Map<string, string>();
@@ -290,23 +301,28 @@ export function RadarPanel() {
                     {lead.source ? ` · ${lead.source}` : ''}
                   </p>
                   {/* Sinyal netral (lead.flags dari backend) — beda visual dari badge
-                      status/prioritas: prefix "Sinyal:" + chip rounded. NO merah. */}
-                  {lead.flags && lead.flags.length > 0 && (
-                    <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                      <span className="text-[10px] font-bold uppercase tracking-wide text-text-subtle">
-                        Sinyal:
-                      </span>
-                      {lead.flags.map((f) => (
-                        <span
-                          key={f.code}
-                          title={flagTooltip(f)}
-                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${FLAG_CHIP_CLASS[f.tone]}`}
-                        >
-                          {f.label}
+                      status/prioritas: prefix "Sinyal:" + chip rounded. NO merah.
+                      displayFlags: hierarki amber>biru (pagu_relatif sembunyiin pagu_besar). */}
+                  {(() => {
+                    const shown = displayFlags(lead.flags);
+                    if (shown.length === 0) return null;
+                    return (
+                      <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-text-subtle">
+                          Sinyal:
                         </span>
-                      ))}
-                    </div>
-                  )}
+                        {shown.map((f) => (
+                          <span
+                            key={f.code}
+                            title={flagTooltip(f)}
+                            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${FLAG_CHIP_CLASS[f.tone]}`}
+                          >
+                            {f.label}
+                          </span>
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   {lead.sumber_url && (

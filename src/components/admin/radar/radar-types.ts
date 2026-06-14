@@ -93,19 +93,23 @@ export function formatPagu(pagu: number | null): string {
 }
 
 // ─── Radar Smart v1: flag chip presentation ─────────────────────
-// Tooltip per code = jelasin rule + tegas "bukan tuduhan". Fallback generik
-// kalau code baru muncul dari backend (mis. 'non_tender_besar'/Cek Metode).
+// Tooltip per code = jelasin rule + tegas "bukan indikasi masalah". Fallback
+// generik kalau code baru muncul dari backend.
+// 🛡️ Flag.code = string (union BE terpisah dari FE) → semua code ter-cover; tooltip
+//    di-sinkron manual. v2: +pagu_relatif (amber/attention, sinyal triase utama).
 export const FLAG_TOOLTIP: Record<string, string> = {
+  pagu_relatif:
+    'Nilai paket jauh di atas median paket sejenis — layak dilihat lebih dulu, bukan indikasi masalah.',
   pagu_besar:
-    'Pagu di atas ambang. Anggaran besar = dampak publik besar, layak dilihat. Bukan tuduhan.',
+    'Pagu di atas ambang — anggaran besar, dampak publik besar, layak dilihat. Bukan indikasi masalah.',
   pola_berulang:
-    'Nama paket serupa muncul berulang di hasil ini — menarik ditelusuri. Bukan tuduhan.',
+    'Satker/paket serupa muncul berulang — layak dilihat polanya, bukan indikasi masalah.',
   non_tender_besar:
-    'Perlu cek metode pengadaan. Sekadar penanda telusur. Bukan tuduhan.',
+    'Perlu cek metode pengadaan — sekadar penanda telusur, bukan indikasi masalah.',
 };
 
 export function flagTooltip(flag: Flag): string {
-  return FLAG_TOOLTIP[flag.code] ?? `${flag.label} — penanda telusur, bukan tuduhan.`;
+  return FLAG_TOOLTIP[flag.code] ?? `${flag.label} — penanda telusur, bukan indikasi masalah.`;
 }
 
 // 🛡️ Chip flag: info=biru (status-info), attention=amber (status-warning).
