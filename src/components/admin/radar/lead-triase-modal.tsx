@@ -19,7 +19,7 @@ import {
   WATCHDOG_API,
   STATUS_OPTIONS,
   PRIORITY_OPTIONS,
-  VERIFICATION_CHECKLIST,
+  TRIASE_FRAMEWORK,
   formatPagu,
   type WatchdogLead,
   type WatchdogStatus,
@@ -37,15 +37,19 @@ export function LeadTriaseModal({ lead, onClose, onSuccess }: Props) {
   const [status, setStatus] = useState<WatchdogStatus>(lead.status);
   const [priority, setPriority] = useState<WatchdogPriority>(lead.priority);
   const [catatan, setCatatan] = useState(lead.catatan_verifikasi ?? '');
-  const [checked, setChecked] = useState<boolean[]>(VERIFICATION_CHECKLIST.map(() => false));
+  // Centang panduan = keyed `${lens.key}-${i}` (nested, no index math). DISPLAY-ONLY
+  // — TIDAK dihitung jadi skor/verdict. Cuma catat centang manusia.
+  const [checked, setChecked] = useState<Record<string, boolean>>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const willMarkLayak = status === 'layak';
-  const checklistIncomplete = willMarkLayak && checked.some((c) => !c);
+  const checklistIncomplete =
+    willMarkLayak &&
+    TRIASE_FRAMEWORK.some((lens) => lens.items.some((_, i) => !checked[`${lens.key}-${i}`]));
 
-  function toggle(i: number) {
-    setChecked((prev) => prev.map((c, idx) => (idx === i ? !c : c)));
+  function toggle(key: string) {
+    setChecked((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
   async function save() {
@@ -106,27 +110,52 @@ export function LeadTriaseModal({ lead, onClose, onSuccess }: Props) {
             />
           </div>
 
-          {/* 🛡️ Checklist pengingat — muncul saat mau tandai 'layak' */}
+          {/* 🛡️ Framework triase 3-lensa — muncul saat mau tandai 'layak'.
+              PANDUAN keputusan manusia, BUKAN scoring/verdict. No angka, no blocker. */}
           {willMarkLayak && (
             <div className="rounded-lg bg-status-warning/8 border border-status-warning/30 px-3 py-2.5">
-              <p className="text-xs font-bold text-status-warning mb-2">
+              <p className="text-xs font-bold text-status-warning mb-1">
                 Pengingat sebelum tandai “Layak Telusur”
               </p>
-              <div className="space-y-1.5">
-                {VERIFICATION_CHECKLIST.map((item, i) => (
-                  <label key={i} className="flex items-start gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={checked[i]}
-                      onChange={() => toggle(i)}
-                      className="mt-0.5 accent-status-warning shrink-0"
-                    />
-                    <span className="text-[11px] text-text leading-snug">{item}</span>
-                  </label>
+              <p className="text-[11px] text-text-muted mb-3 leading-snug">
+                Ini panduan keputusan, bukan vonis. Kamu yang putuskan.
+              </p>
+
+              <div className="space-y-3">
+                {TRIASE_FRAMEWORK.map((lens, li) => (
+                  <div
+                    key={lens.key}
+                    className={
+                      // Lensa pertama (newsworthiness) sedikit ditekankan — netral, no merah.
+                      li === 0
+                        ? 'rounded-md bg-status-info/8 border border-status-info/25 px-2.5 py-2'
+                        : 'px-0.5'
+                    }
+                  >
+                    <p className="text-[11px] font-bold text-text">{lens.title}</p>
+                    <p className="text-[10px] text-text-muted mb-1.5 leading-snug">{lens.hint}</p>
+                    <div className="space-y-1.5">
+                      {lens.items.map((item, i) => {
+                        const key = `${lens.key}-${i}`;
+                        return (
+                          <label key={key} className="flex items-start gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={!!checked[key]}
+                              onChange={() => toggle(key)}
+                              className="mt-0.5 accent-status-warning shrink-0"
+                            />
+                            <span className="text-[11px] text-text leading-snug">{item}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
                 ))}
               </div>
+
               {checklistIncomplete && (
-                <p className="text-[11px] text-status-warning/90 mt-2">
+                <p className="text-[11px] text-status-warning/90 mt-2.5">
                   Belum semua poin dicek — pastikan dulu sebelum lanjut (pengingat, bukan blokir).
                 </p>
               )}

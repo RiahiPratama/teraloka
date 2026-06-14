@@ -78,13 +78,49 @@ export const PRIORITY_OPTIONS = (Object.keys(PRIORITY_LABEL) as WatchdogPriority
   label: PRIORITY_LABEL[v],
 }));
 
-// 🛡️ Checklist pengingat anti-pidana SEBELUM tandai "layak" — reminder kerja
-// internal, BUKAN vonis. Muncul di triase saat status diarahkan ke 'layak'.
-export const VERIFICATION_CHECKLIST = [
-  'Sumber primer dicek (dokumen SIRUP/LPSE asli, bukan cuma flag)',
-  'Framing "dianggarkan" bukan "dihabiskan" (data RENCANA/RUP)',
-  'Rencana hak jawab (kontak satker sebelum publish)',
-  'Cek dasar hukum bila perlu',
+// 🛡️ Framework triase 3-lensa — PANDUAN keputusan editor manusia SEBELUM tandai
+// "layak". Muncul di triase saat status diarahkan ke 'layak'.
+// 🔴 BUKAN scoring: NO angka/skor, NO auto-verdict, NO blocker, NO ranking.
+//    Cuma NAMPILIN pertanyaan + catat centang manusia. Keputusan 100% di tangan
+//    editor (Riahi), bukan komputasi. Amber/flag ≠ layak.
+export interface TriaseLens {
+  key:   string;
+  title: string;     // nama lensa
+  hint:  string;     // 1 kalimat: lensa ini nguji apa
+  items: string[];   // pertanyaan panduan (manusia centang)
+}
+
+export const TRIASE_FRAMEWORK: TriaseLens[] = [
+  {
+    key: 'newsworthiness',
+    title: 'Layak Jadi Cerita?',
+    hint: 'Lensa terkuat — kalau lemah di sini, jangan lanjut walau pagu besar.',
+    items: [
+      'Nyentuh layanan publik warga langsung (kesehatan, jalan, air, listrik)?',
+      'Ada anomali yang warga awam bisa "lho kok gini" — bukan cuma nilai besar?',
+      'Kepentingan publik jelas, bukan urusan administratif internal?',
+    ],
+  },
+  {
+    key: 'feasibility',
+    title: 'Bisa Dikejar Sendiri?',
+    hint: 'Realistis buat tim kecil — bukan investigasi yang butuh redaksi besar.',
+    items: [
+      'Sumber primer kebuka (detail SIRUP / LPSE bisa diakses)?',
+      'Bisa diverifikasi tanpa tim besar?',
+      'Satker bisa dikontak buat hak jawab?',
+    ],
+  },
+  {
+    key: 'legal_safety',
+    title: 'Aman Dipublikasi?',
+    hint: 'Pelindung hukum — semua poin ini harus bisa dijawab sebelum tayang.',
+    items: [
+      'Bisa diframe "dianggarkan/direncanakan", bukan "dihabiskan"?',
+      'Ada dokumen pendukung, bukan cuma flag radar?',
+      'Hak jawab ke satker feasible sebelum publikasi?',
+    ],
+  },
 ];
 
 export function formatPagu(pagu: number | null): string {
