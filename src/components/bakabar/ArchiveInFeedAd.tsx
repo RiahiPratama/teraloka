@@ -17,6 +17,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getAdLabel } from '@/lib/ads/getAdLabel';
+import { fetchAdJson } from '@/lib/ads/fetchAdJson';
 import { useAdView } from '@/hooks/useAdView';
 import { queueClick } from '@/lib/adTracking';
 import type { TrendingNativeAd } from './TrendingArticleAd';
@@ -32,13 +33,8 @@ async function loadKanalAds(): Promise<TrendingNativeAd[]> {
   if (_cache) return _cache;
   if (_inflight) return _inflight;
   _inflight = (async () => {
-    try {
-      const res = await fetch(`${API}/public/ads?position=kanal_infeed`);
-      const json = await res.json();
-      _cache = json?.success && Array.isArray(json.data) ? (json.data as TrendingNativeAd[]) : [];
-    } catch {
-      _cache = [];
-    }
+    // fetchAdJson: res.ok + retry + gagal→[]. Dedup _cache/_inflight tetap utuh.
+    _cache = await fetchAdJson<TrendingNativeAd>(`${API}/public/ads?position=kanal_infeed`);
     return _cache;
   })();
   return _inflight;

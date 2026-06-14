@@ -24,6 +24,7 @@ import { getAdLabel } from '@/lib/ads/getAdLabel';
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 // SESI 11 (31 Mei 2026): viewability impression + click beacon
 import { useAdView } from '@/hooks/useAdView';
+import { useAdFetch } from '@/hooks/useAdFetch';
 import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -78,31 +79,14 @@ export default function DCAStackBanner({ regionSlug, maxAds = 1, ads: adsProp }:
   // dapat prop → fallback fetch sendiri (perilaku lama). Jika rantai props gagal,
   // fallback tetap jalan = defense in depth.
   const serverProvided = adsProp !== undefined;
-  const [adsState, setAdsState] = useState<StackBannerAd[]>([]);
-  const [loading, setLoading] = useState(!serverProvided);
+  // useAdFetch dgn url=null saat server kasih data → hook SKIP fetch (dedup beban
+  // Dalang tetap). Fallback (non-REGIONS) → url berisi → fetch (res.ok+retry+abort).
+  const url = serverProvided
+    ? null
+    : `${API}/public/ads/by-position/region_stack?region=${encodeURIComponent(regionSlug)}&limit=${maxAds}`;
+  const { data, loading } = useAdFetch<StackBannerAd>(url);
 
-  useEffect(() => {
-    if (serverProvided) return; // server kasih data → tidak fetch
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(
-          `${API}/public/ads/by-position/region_stack?region=${encodeURIComponent(regionSlug)}&limit=${maxAds}`
-        );
-        const json = await res.json();
-        if (!cancelled && json?.success && Array.isArray(json.data)) {
-          setAdsState((json.data as StackBannerAd[]).slice(0, maxAds));
-        }
-      } catch {
-        // Empty state — gracefully hide
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [regionSlug, maxAds, serverProvided]);
-
-  const ads = serverProvided ? adsProp!.slice(0, maxAds) : adsState;
+  const ads = (serverProvided ? adsProp! : data).slice(0, maxAds);
 
   if (loading || ads.length === 0) return null;
 

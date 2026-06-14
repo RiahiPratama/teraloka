@@ -35,6 +35,7 @@ import { useEffect, useState, useRef } from 'react';
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 // SESI 11 (31 Mei 2026): viewability impression + click beacon
 import { useAdView } from '@/hooks/useAdView';
+import { fetchAdJson } from '@/lib/ads/fetchAdJson';
 import { queueClick } from '@/lib/adTracking';
 
 interface HeroAd {
@@ -104,45 +105,43 @@ export default function LaIndieMoviePoliticalBanner() {
   const reducedMotion = useReducedMotion();
 
   // ── Fetch chain: politisi → fallback → empty ──────────────
+  // fetchAdJson (res.ok + retry + abort) per langkah; AbortController cleanup di
+  // unmount. Logic chain/shuffle/slotMode dipertahankan. fetchAdJson gak throw
+  // (gagal/521 → []) → gak perlu try-catch lagi.
   useEffect(() => {
-    let cancelled = false;
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
 
     async function loadAds() {
-      try {
-        // STEP 1: Try politisi first
-        const politRes = await fetch(`${API}/public/ads/political-banner`);
-        const politJson = await politRes.json();
-
-        if (!cancelled && politJson?.success && Array.isArray(politJson.data) && politJson.data.length > 0) {
-          // Politisi ads found — shuffle for KPU fairness
-          setAds(shuffle(politJson.data.slice(0, 9)));
-          setSlotMode('politisi');
-          return;
-        }
-
-        // STEP 2: Fallback to hero_banner position
-        const fbRes = await fetch(`${API}/public/ads?position=homepage_hero_banner`);
-        const fbJson = await fbRes.json();
-
-        if (!cancelled && fbJson?.success && Array.isArray(fbJson.data) && fbJson.data.length > 0) {
-          // Fallback ads — natural order (no shuffle, admin curate by priority)
-          setAds(fbJson.data.slice(0, 9));
-          setSlotMode('fallback');
-          return;
-        }
-
-        // STEP 3: Empty
-        if (!cancelled) setSlotMode('empty');
-      } catch (err) {
-        console.error('[HeroBanner] fetch error:', err);
-        if (!cancelled) setSlotMode('empty');
-      } finally {
-        if (!cancelled) setLoading(false);
+      // STEP 1: politisi dulu
+      const polit = await fetchAdJson<HeroAd>(`${API}/public/ads/political-banner`, { signal });
+      if (signal.aborted) return;
+      if (polit.length > 0) {
+        // Politisi ada — shuffle buat KPU fairness
+        setAds(shuffle(polit.slice(0, 9)));
+        setSlotMode('politisi');
+        setLoading(false);
+        return;
       }
+
+      // STEP 2: fallback ke posisi homepage_hero_banner
+      const fb = await fetchAdJson<HeroAd>(`${API}/public/ads?position=homepage_hero_banner`, { signal });
+      if (signal.aborted) return;
+      if (fb.length > 0) {
+        // Fallback — natural order (no shuffle, admin curate by priority)
+        setAds(fb.slice(0, 9));
+        setSlotMode('fallback');
+        setLoading(false);
+        return;
+      }
+
+      // STEP 3: kosong
+      setSlotMode('empty');
+      setLoading(false);
     }
 
     loadAds();
-    return () => { cancelled = true; };
+    return () => ctrl.abort();
   }, []);
 
   // Auto-rotate
