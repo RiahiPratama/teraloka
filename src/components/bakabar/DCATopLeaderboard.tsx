@@ -48,6 +48,8 @@ interface TopLeaderboardAd {
   // SESI 11 Batch 8: Banner Motion (webM/mp4 fill)
   ad_format?: 'image' | 'text' | 'animated' | 'video';
   video_sources?: Record<string, AdVideoSource> | null;
+  // Phase 2a V3: video mobile terpisah (viewport-switch, fallback desktop kalau null)
+  video_sources_mobile?: Record<string, AdVideoSource> | null;
 }
 
 const HOVER_GRACE_MS = 1500;
@@ -63,6 +65,22 @@ function useReducedMotion(): boolean {
     return () => mq.removeEventListener('change', handler);
   }, []);
   return reduced;
+}
+
+// Phase 2a V3: viewport detection client-side (SSR-safe — default false = desktop).
+// Mirror useReducedMotion: server & initial-client render desktop → no hydration mismatch,
+// swap ke mobile setelah mount + listen resize/rotate.
+function useIsMobile(): boolean {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return;
+    const mq = window.matchMedia('(max-width:767px)');
+    setIsMobile(mq.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mq.addEventListener('change', handler);
+    return () => mq.removeEventListener('change', handler);
+  }, []);
+  return isMobile;
 }
 
 export default function DCATopLeaderboard() {
@@ -126,6 +144,7 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
   const rotationRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const graceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const reducedMotion = useReducedMotion();
+  const isMobile = useIsMobile();  // Phase 2a V3: viewport-switch video mobile
 
   const frames = ad.creative_frames ?? [];
   const currentFrame = isDCA ? frames[currentIdx] : null;
@@ -162,14 +181,17 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
 
   // SESI 11 Batch 8: Banner Motion — video fill (ganti gradient card)
   // SESI 11 (31 Mei): ad_format = HINT. Render video kalau posisi punya source, apa pun global format.
-  const video = ad.video_sources?.['top_leaderboard'] ?? null;
+  // Phase 2a V3: viewport-switch — HP nampilin video mobile, desktop nampilin desktop.
+  const videoDesktop = ad.video_sources?.['top_leaderboard'] ?? null;
+  const videoMobile  = ad.video_sources_mobile?.['top_leaderboard'] ?? null;
+  const video = (isMobile && videoMobile) ? videoMobile : videoDesktop;  // 🛡️ fallback desktop (mobile opsional)
   const hasVideo = !!(video && (video.webm || video.mp4));
   if (hasVideo) {
     const vLabel = getAdLabel({ advertiser_type: ad.advertiser_type, ad_format: 'image' });
     return (
       <div className="relative w-full h-[220px] rounded-xl overflow-hidden bg-black">
         {!reducedMotion ? (
-          <video className="w-full h-full object-cover" autoPlay loop muted playsInline preload="metadata" poster={video!.poster || undefined}>
+          <video key={video!.webm || video!.mp4} className="w-full h-full object-cover" autoPlay loop muted playsInline preload="metadata" poster={video!.poster || undefined}>
             {video!.webm && <source src={video!.webm} type="video/webm" />}
             {video!.mp4 && <source src={video!.mp4} type="video/mp4" />}
           </video>
