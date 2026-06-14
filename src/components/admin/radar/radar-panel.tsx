@@ -30,6 +30,10 @@ import {
   PRIORITY_LABEL,
   PRIORITY_BADGE,
   PRIORITY_OPTIONS,
+  SORT_OPTIONS,
+  PAGU_PRESETS,
+  FLAG_CHIP_CLASS,
+  flagTooltip,
   formatPagu,
   type WatchdogLead,
 } from './radar-types';
@@ -56,10 +60,21 @@ export function RadarPanel() {
   const [error, setError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
 
-  // Filters (backend: ?status=&priority=&source=)
+  // Filters (backend: ?status=&priority=&source=&min_pagu=&satker=&sort=)
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [sourceFilter, setSourceFilter] = useState('');
+  const [minPagu, setMinPagu] = useState('');           // preset min_pagu (value string)
+  const [satkerInput, setSatkerInput] = useState('');   // raw input (drive field only)
+  const [debouncedSatker, setDebouncedSatker] = useState(''); // ← yang masuk fetch params+deps
+  const [sort, setSort] = useState('pagu_desc');        // default match backend
+  const [onlyFlagged, setOnlyFlagged] = useState(false); // client-side filter (no refetch)
+
+  // Debounce satker: input mentah → debouncedSatker (400ms). Cuma debounced yg ke-fetch.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSatker(satkerInput), 400);
+    return () => clearTimeout(t);
+  }, [satkerInput]);
 
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
@@ -87,6 +102,9 @@ export function RadarPanel() {
       if (statusFilter) params.status = statusFilter;
       if (priorityFilter) params.priority = priorityFilter;
       if (sourceFilter.trim()) params.source = sourceFilter.trim();
+      if (minPagu) params.min_pagu = minPagu;
+      if (debouncedSatker.trim()) params.satker = debouncedSatker.trim();
+      params.sort = sort;
       const res = await api.get<unknown>(WATCHDOG_API, { params, signal: controller.signal });
       const list = Array.isArray(res) ? res : ((res as { data?: WatchdogLead[] })?.data ?? []);
       setLeads(list as WatchdogLead[]);
@@ -97,7 +115,7 @@ export function RadarPanel() {
       setLoading(false);
     }
     return () => controller.abort();
-  }, [api, statusFilter, priorityFilter, sourceFilter]);
+  }, [api, statusFilter, priorityFilter, sourceFilter, minPagu, debouncedSatker, sort]);
 
   useEffect(() => {
     fetchLeads();
@@ -117,6 +135,9 @@ export function RadarPanel() {
       setDeleting(false);
     }
   }
+
+  // Toggle "hanya yang ada flag" = client-side (no refetch). flags dari response.
+  const visible = onlyFlagged ? leads.filter((l) => (l.flags?.length ?? 0) > 0) : leads;
 
   return (
     <div className="space-y-6">
@@ -157,6 +178,41 @@ export function RadarPanel() {
             placeholder="Filter sumber (mis. SIRUP)"
           />
         </div>
+
+        {/* Radar Smart v1: pagu preset + satker (debounced) + sort */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-3">
+          <div>
+            <label className="block text-xs font-medium text-text-muted mb-1">Pagu minimal</label>
+            <div className="flex flex-wrap gap-1.5">
+              {PAGU_PRESETS.map((p) => (
+                <button
+                  key={p.value || 'all'}
+                  type="button"
+                  onClick={() => setMinPagu(p.value)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-semibold border transition-colors ${
+                    minPagu === p.value
+                      ? 'bg-brand-teal text-white border-brand-teal'
+                      : 'bg-surface text-text-muted border-border hover:bg-surface-muted'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <Input
+            label="Satker"
+            value={satkerInput}
+            onChange={(e) => setSatkerInput(e.target.value)}
+            placeholder="Cari satker…"
+          />
+          <Select
+            label="Urutkan"
+            options={SORT_OPTIONS}
+            value={sort}
+            onChange={(e) => setSort(e.target.value)}
+          />
+        </div>
       </Card>
 
       {/* Error */}
@@ -171,6 +227,26 @@ export function RadarPanel() {
         </Card>
       )}
 
+      {/* Counter + toggle "hanya yang ada flag" */}
+      {!loading && !error && leads.length > 0 && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-text-muted">
+            Menampilkan <span className="font-semibold text-text">{visible.length}</span> dari{' '}
+            <span className="font-semibold text-text">{leads.length}</span>
+            {onlyFlagged && ' · difilter: hanya yang ada sinyal'}
+          </p>
+          <label className="flex items-center gap-1.5 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={onlyFlagged}
+              onChange={(e) => setOnlyFlagged(e.target.checked)}
+              className="accent-brand-teal"
+            />
+            <span className="text-xs font-medium text-text-muted">Hanya yang ada sinyal</span>
+          </label>
+        </div>
+      )}
+
       {/* List */}
       {loading ? (
         <Card padded>
@@ -181,10 +257,16 @@ export function RadarPanel() {
           title="Belum ada lead"
           description="Tambah lead pengawasan anggaran untuk mulai mencatat & triase."
         />
+      ) : !error && visible.length === 0 ? (
+        <Card padded>
+          <p className="text-sm text-text-muted text-center py-8">
+            Tidak ada lead dengan sinyal di hasil ini. Matikan filter “Hanya yang ada sinyal”.
+          </p>
+        </Card>
       ) : !error ? (
         <Card padded={false}>
           <div className="divide-y divide-border">
-            {leads.map((lead) => (
+            {visible.map((lead) => (
               <div key={lead.id} className="flex items-start gap-3 px-4 py-3 hover:bg-surface-muted/40 transition-colors">
                 <button
                   type="button"
@@ -207,6 +289,24 @@ export function RadarPanel() {
                       : ''}
                     {lead.source ? ` · ${lead.source}` : ''}
                   </p>
+                  {/* Sinyal netral (lead.flags dari backend) — beda visual dari badge
+                      status/prioritas: prefix "Sinyal:" + chip rounded. NO merah. */}
+                  {lead.flags && lead.flags.length > 0 && (
+                    <div className="flex items-center gap-1 flex-wrap mt-1.5">
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-text-subtle">
+                        Sinyal:
+                      </span>
+                      {lead.flags.map((f) => (
+                        <span
+                          key={f.code}
+                          title={flagTooltip(f)}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${FLAG_CHIP_CLASS[f.tone]}`}
+                        >
+                          {f.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </button>
                 <div className="flex items-center gap-1 shrink-0">
                   {lead.sumber_url && (
