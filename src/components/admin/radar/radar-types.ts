@@ -48,6 +48,7 @@ export interface WatchdogLead {
   nama_klpd?:           string | null;
   lokasi_detail?:       string | null;
   detail_fetched_at?:   string | null;
+  external_id?:         string | null;   // idPaket SIRUP (link record). null = lead manual.
 }
 
 // Label NETRAL — bukan vonis. "layak" = layak DITELUSURI lebih lanjut.
@@ -140,6 +141,23 @@ export function formatPagu(pagu: number | null): string {
 /** True kalau lead udah di-enrich detail SIRUP (status read-only, dari detail_fetched_at). */
 export function isEnriched(lead: WatchdogLead): boolean {
   return !!lead.detail_fetched_at;
+}
+
+/**
+ * Freshness data — "Data per 14 Jun 2026" / "Belum ter-sync". 🛡️ Zirah hukum:
+ * data SIRUP berubah, jadi tunjukin tanggal snapshot.
+ */
+export function formatFetchedAt(iso: string | null | undefined): string {
+  if (!iso) return 'Belum ter-sync';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return 'Belum ter-sync';
+  return `Data per ${d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+}
+
+/** Link langsung ke record SIRUP (idPaket). null kalau lead manual → caller fallback sumber_url. */
+export function sirupDetailUrl(lead: WatchdogLead): string | null {
+  if (!lead.external_id) return null;
+  return `https://sirup.inaproc.id/sirup/rup/detailPaketPenyedia2020?idPaket=${encodeURIComponent(lead.external_id)}`;
 }
 
 /**

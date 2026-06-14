@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Database } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useLocationTree } from '@/components/shared/locations';
 import { Card } from '@/components/ui/card';
@@ -36,7 +36,10 @@ import {
   flagTooltip,
   isEnriched,
   formatPagu,
+  formatFetchedAt,
+  sirupDetailUrl,
   type WatchdogLead,
+  type WatchdogStatus,
   type Flag,
 } from './radar-types';
 
@@ -91,8 +94,10 @@ export function RadarPanel() {
   // Modals
   const [createOpen, setCreateOpen] = useState(false);
   const [triaseLead, setTriaseLead] = useState<WatchdogLead | null>(null);
+  const [triaseInitialStatus, setTriaseInitialStatus] = useState<WatchdogStatus | undefined>(undefined);
   const [deleteLead, setDeleteLead] = useState<WatchdogLead | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [statusBusy, setStatusBusy] = useState<string | null>(null); // id quick-action in-flight
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -132,6 +137,33 @@ export function RadarPanel() {
   useEffect(() => {
     fetchLeads();
   }, [fetchLeads, retryNonce]);
+
+  // 🛡️ Quick-action status dari kartu — HANYA transisi low-stakes (ditelusuri/tidak_layak).
+  // "layak" SENGAJA gak di sini (lihat openTriaseLayak) → wajib lewat modal + framework.
+  async function updateStatusQuick(lead: WatchdogLead, newStatus: WatchdogStatus, label: string) {
+    setStatusBusy(lead.id);
+    try {
+      await api.patch(`${WATCHDOG_API}/${lead.id}`, { status: newStatus });
+      showToast(`Status → ${label}`);
+      setRetryNonce((n) => n + 1);
+    } catch (err) {
+      showToast(err instanceof ApiError ? err.message : 'Gagal ubah status.', false);
+    } finally {
+      setStatusBusy(null);
+    }
+  }
+
+  // 🛡️ "Layak Telusur" dari kartu → BUKA modal dgn status pre-set 'layak' (BUKAN PATCH
+  // langsung) supaya framework 3-lensa muncul. Human gap dijaga.
+  function openTriaseLayak(lead: WatchdogLead) {
+    setTriaseInitialStatus('layak');
+    setTriaseLead(lead);
+  }
+
+  function openTriase(lead: WatchdogLead) {
+    setTriaseInitialStatus(undefined);
+    setTriaseLead(lead);
+  }
 
   async function confirmDelete() {
     if (!deleteLead) return;
@@ -278,81 +310,123 @@ export function RadarPanel() {
       ) : !error ? (
         <Card padded={false}>
           <div className="divide-y divide-border">
-            {visible.map((lead) => (
-              <div key={lead.id} className="flex items-start gap-3 px-4 py-3 hover:bg-surface-muted/40 transition-colors">
-                <button
-                  type="button"
-                  onClick={() => setTriaseLead(lead)}
-                  className="flex-1 min-w-0 text-left"
-                >
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-bold text-text truncate">{lead.paket_name}</p>
-                    <Badge variant="status" status={STATUS_BADGE[lead.status]}>
-                      {STATUS_LABEL[lead.status]}
-                    </Badge>
-                    <Badge variant="status" status={PRIORITY_BADGE[lead.priority]}>
-                      {PRIORITY_LABEL[lead.priority]}
-                    </Badge>
-                    {/* Status data (read-only): lead udah punya detail SIRUP. Netral/abu,
-                        TERPISAH dari chip "Sinyal:" di bawah (status data ≠ sinyal). */}
-                    {isEnriched(lead) && (
-                      <Badge variant="status" status="neutral">✓ Detail</Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-text-muted mt-0.5 truncate">
-                    {lead.satker} · {formatPagu(lead.pagu)}
-                    {lead.location_id && locMap.get(lead.location_id)
-                      ? ` · ${locMap.get(lead.location_id)}`
-                      : ''}
-                    {lead.source ? ` · ${lead.source}` : ''}
-                  </p>
-                  {/* Sinyal netral (lead.flags dari backend) — beda visual dari badge
-                      status/prioritas: prefix "Sinyal:" + chip rounded. NO merah.
-                      displayFlags: hierarki amber>biru (pagu_relatif sembunyiin pagu_besar). */}
-                  {(() => {
-                    const shown = displayFlags(lead.flags);
-                    if (shown.length === 0) return null;
-                    return (
-                      <div className="flex items-center gap-1 flex-wrap mt-1.5">
-                        <span className="text-[10px] font-bold uppercase tracking-wide text-text-subtle">
-                          Sinyal:
-                        </span>
-                        {shown.map((f) => (
-                          <span
-                            key={f.code}
-                            title={flagTooltip(f)}
-                            className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${FLAG_CHIP_CLASS[f.tone]}`}
-                          >
-                            {f.label}
-                          </span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                </button>
-                <div className="flex items-center gap-1 shrink-0">
-                  {lead.sumber_url && (
-                    <a
-                      href={lead.sumber_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-1.5 rounded-md text-text-muted hover:bg-surface-muted hover:text-text transition-colors"
-                      title="Buka sumber"
-                    >
-                      <ExternalLink size={14} />
-                    </a>
-                  )}
+            {visible.map((lead) => {
+              const shown = displayFlags(lead.flags);
+              const link = sirupDetailUrl(lead) ?? lead.sumber_url;
+              const isSirup = !!sirupDetailUrl(lead);
+              const busy = statusBusy === lead.id;
+              return (
+                <div key={lead.id} className="flex items-start gap-3 px-4 py-3 hover:bg-surface-muted/40 transition-colors">
                   <button
                     type="button"
-                    onClick={() => setDeleteLead(lead)}
-                    className="p-1.5 rounded-md text-text-muted hover:bg-status-critical/10 hover:text-status-critical transition-colors"
-                    title="Hapus lead"
+                    onClick={() => openTriase(lead)}
+                    className="flex-1 min-w-0 text-left"
                   >
-                    <Trash2 size={14} />
+                    {/* Baris 1: judul + status/prioritas + status-data (ikon, read-only) */}
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <p className="text-sm font-semibold text-text truncate">{lead.paket_name}</p>
+                      <Badge variant="status" status={STATUS_BADGE[lead.status]}>
+                        {STATUS_LABEL[lead.status]}
+                      </Badge>
+                      <Badge variant="status" status={PRIORITY_BADGE[lead.priority]}>
+                        {PRIORITY_LABEL[lead.priority]}
+                      </Badge>
+                      {/* Status DATA (read-only) — ikon non-interaktif, bukan toggle/centang.
+                          Netral/abu, TERPISAH dari chip "Sinyal:" (status data ≠ sinyal). */}
+                      {isEnriched(lead) && (
+                        <span
+                          className="inline-flex items-center gap-1 text-[10px] font-medium text-text-muted"
+                          title="Lead sudah ter-sync detail SIRUP"
+                        >
+                          <Database size={11} className="shrink-0" /> Detail
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Baris 2: PAGU prominent + Sinyal prominent (di-scan duluan).
+                        🛡️ Pagu bold/gede TAPI warna teks NORMAL (netral) — bukan merah/alarm. */}
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <span className="text-base font-bold text-text tabular-nums">
+                        {formatPagu(lead.pagu)}
+                      </span>
+                      {shown.map((f) => (
+                        <span
+                          key={f.code}
+                          title={flagTooltip(f)}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold border ${FLAG_CHIP_CLASS[f.tone]}`}
+                        >
+                          {f.label}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Baris 3: metadata sekunder (muted, kecil) + freshness */}
+                    <p className="text-[11px] text-text-subtle mt-1 truncate">
+                      {lead.satker}
+                      {lead.location_id && locMap.get(lead.location_id)
+                        ? ` · ${locMap.get(lead.location_id)}`
+                        : ''}
+                      {lead.source ? ` · ${lead.source}` : ''}
+                      {` · ${formatFetchedAt(lead.detail_fetched_at)}`}
+                    </p>
                   </button>
+
+                  {/* Aksi (di LUAR button — no nested interactive) */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {/* Quick-action status: low-stakes inline. 'layak' → buka modal (framework). */}
+                    {lead.status === 'baru' && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => updateStatusQuick(lead, 'ditelusuri', 'Sedang Ditelusuri')}
+                        className="px-2 py-1 rounded-md text-[11px] font-semibold text-text-muted border border-border hover:bg-surface-muted disabled:opacity-50"
+                      >
+                        Telusuri
+                      </button>
+                    )}
+                    {lead.status !== 'layak' && (
+                      <button
+                        type="button"
+                        onClick={() => openTriaseLayak(lead)}
+                        title="Tandai Layak Telusur (buka panduan 3-lensa)"
+                        className="px-2 py-1 rounded-md text-[11px] font-semibold text-status-healthy border border-status-healthy/30 hover:bg-status-healthy/8"
+                      >
+                        Layak…
+                      </button>
+                    )}
+                    {lead.status !== 'baru' && lead.status !== 'tidak_layak' && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => updateStatusQuick(lead, 'tidak_layak', 'Tidak Dilanjutkan')}
+                        className="px-2 py-1 rounded-md text-[11px] font-semibold text-text-muted border border-border hover:bg-surface-muted disabled:opacity-50"
+                      >
+                        Tdk
+                      </button>
+                    )}
+                    {link && (
+                      <a
+                        href={link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="p-1.5 rounded-md text-text-muted hover:bg-surface-muted hover:text-text transition-colors"
+                        title={isSirup ? 'Buka record SIRUP' : 'Buka sumber'}
+                      >
+                        <ExternalLink size={14} />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setDeleteLead(lead)}
+                      className="p-1.5 rounded-md text-text-muted hover:bg-status-critical/10 hover:text-status-critical transition-colors"
+                      title="Hapus lead"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </Card>
       ) : null}
@@ -372,9 +446,14 @@ export function RadarPanel() {
       {triaseLead && (
         <LeadTriaseModal
           lead={triaseLead}
-          onClose={() => setTriaseLead(null)}
+          initialStatus={triaseInitialStatus}
+          onClose={() => {
+            setTriaseLead(null);
+            setTriaseInitialStatus(undefined);
+          }}
           onSuccess={(msg) => {
             setTriaseLead(null);
+            setTriaseInitialStatus(undefined);
             showToast(msg);
             setRetryNonce((n) => n + 1);
           }}

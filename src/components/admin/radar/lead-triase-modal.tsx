@@ -32,11 +32,14 @@ interface Props {
   lead: WatchdogLead;
   onClose: () => void;
   onSuccess: (msg: string) => void;
+  // Quick-action "Layak" dari kartu buka modal dgn status pre-set 'layak' → framework
+  // 3-lensa MUNCUL (human gap dijaga). Default = status lead apa adanya.
+  initialStatus?: WatchdogStatus;
 }
 
-export function LeadTriaseModal({ lead, onClose, onSuccess }: Props) {
+export function LeadTriaseModal({ lead, onClose, onSuccess, initialStatus }: Props) {
   const api = useApi();
-  const [status, setStatus] = useState<WatchdogStatus>(lead.status);
+  const [status, setStatus] = useState<WatchdogStatus>(initialStatus ?? lead.status);
   const [priority, setPriority] = useState<WatchdogPriority>(lead.priority);
   const [catatan, setCatatan] = useState(lead.catatan_verifikasi ?? '');
   // Centang panduan = keyed `${lens.key}-${i}` (nested, no index math). DISPLAY-ONLY
