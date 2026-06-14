@@ -226,6 +226,8 @@ export interface AdFormState {
    * static image / DCA frames / animation timeline / video.
    */
   position_video_sources: Record<string, AdVideoSource>;
+  // Phase 2a V2b: per-position video mobile terpisah (payload → video_sources_mobile, NOT NULL)
+  position_video_sources_mobile: Record<string, AdVideoSource>;
 
   // ─── Schedule ──────────────────────────────────
   starts_at:       string;
@@ -274,6 +276,7 @@ const EMPTY_STATE: AdFormState = {
 
   // SESI 10: per-position video sources (empty = no video)
   position_video_sources: {},
+  position_video_sources_mobile: {},  // Phase 2a V2b
 
   // Schedule
   starts_at:           new Date().toISOString(),
@@ -691,6 +694,10 @@ export function AdFormProvider({
           position_video_sources: (ad.video_sources && typeof ad.video_sources === 'object' && !Array.isArray(ad.video_sources))
             ? ad.video_sources as Record<string, AdVideoSource>
             : {},
+          // Phase 2a V2b: per-position video mobile from DB (video_sources_mobile jsonb)
+          position_video_sources_mobile: (ad.video_sources_mobile && typeof ad.video_sources_mobile === 'object' && !Array.isArray(ad.video_sources_mobile))
+            ? ad.video_sources_mobile as Record<string, AdVideoSource>
+            : {},
           starts_at:           ad.starts_at ?? new Date().toISOString(),
           ends_at:             ad.ends_at ?? new Date(Date.now() + 30 * 86400000).toISOString(),
         });
@@ -774,6 +781,10 @@ export function AdFormProvider({
       video_sources:         Object.keys(state.position_video_sources).length > 0
         ? state.position_video_sources
         : null,
+      // Phase 2a V2b: 🛡️ ALWAYS {} (kolom NOT NULL) — JANGAN null kayak desktop di atas
+      video_sources_mobile:  Object.keys(state.position_video_sources_mobile).length > 0
+        ? state.position_video_sources_mobile
+        : {},
       starts_at:             state.starts_at,
       ends_at:               state.ends_at,
     };

@@ -174,6 +174,7 @@ export default function PositionCreativeModal({
   const existingTimeline = state.position_animation_timelines[positionKey];
   // SESI 10: per-position video detection
   const existingVideo    = state.position_video_sources[positionKey];
+  const existingVideoMobile = state.position_video_sources_mobile[positionKey];  // Phase 2a V2b
   const videoEligible    = VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
   // SESI 11 Batch 3 (30 Mei 2026): motion paket — sumber kebenaran tab di create mode.
   const motion           = resolveTierMotion(state.pricing_tier_data);
@@ -311,6 +312,24 @@ export default function PositionCreativeModal({
     }
     setField('position_video_sources', {
       ...state.position_video_sources,
+      [positionKey]: source,
+    });
+  };
+
+  // Phase 2a V2b: video mobile handlers — mirror persis setVideoSource/clearVideoSource
+  const clearVideoSourceMobile = () => {
+    const next = { ...state.position_video_sources_mobile };
+    delete next[positionKey];
+    setField('position_video_sources_mobile', next);
+  };
+
+  const setVideoSourceMobile = (source: AdVideoSource | null) => {
+    if (source === null) {
+      clearVideoSourceMobile();
+      return;
+    }
+    setField('position_video_sources_mobile', {
+      ...state.position_video_sources_mobile,
       [positionKey]: source,
     });
   };
@@ -833,6 +852,22 @@ export default function PositionCreativeModal({
                 onChange={setVideoSource}
                 positionLabel={meta.label}
               />
+
+              {/* Phase 2a V2b: slot video mobile (opsional) — selalu tampil (mirror mobile statis) */}
+              <label className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-2 mt-4 block">
+                Video Mobile (opsional)
+              </label>
+              <VideoUpload
+                value={existingVideoMobile ?? null}
+                onChange={setVideoSourceMobile}
+                positionLabel={`${meta.label} (Mobile)`}
+              />
+              {meta.mobileCreativeRecommended && meta.recommendedImageDimMobile && (
+                <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                  Mobile: {meta.recommendedImageDimMobile} ({meta.aspectRatioMobile}).
+                  Opsional — tayang di HP biar gak kepotong.
+                </p>
+              )}
             </div>
           )}
 
