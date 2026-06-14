@@ -53,7 +53,13 @@ import {
   type ArticleStatus,
   type StatsPeriod,
 } from '@/types/articles';
-import type { NewsroomSummary } from '@/types/newsroom-analytics';
+import type {
+  NewsroomSummary,
+  NewsroomAnalyticsResponse,
+  VelocityPoint,
+  CategoryCount,
+} from '@/types/newsroom-analytics';
+import { LastPublishBanner, ContentGaps } from '@/components/admin/content/content-pulse';
 
 type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution';
 
@@ -84,6 +90,8 @@ export default function AdminContentPage() {
 
   /* ─── Overview agregat: stat cards (all-time via period=1y) + trending (sort=popular) ─── */
   const [overviewSummary, setOverviewSummary] = useState<NewsroomSummary | null>(null);
+  const [overviewVelocity, setOverviewVelocity] = useState<VelocityPoint[]>([]);
+  const [overviewCategories, setOverviewCategories] = useState<CategoryCount[]>([]);
   const [popularTrending, setPopularTrending] = useState<Article[]>([]);
 
   /* ─── Manajemen articles (filtered, paginated) ─── */
@@ -155,8 +163,8 @@ export default function AdminContentPage() {
     let cancelled = false;
     (async () => {
       try {
-        const [summaryRes, popularRes] = await Promise.all([
-          api.get<{ summary: NewsroomSummary }>('/admin/articles/newsroom-analytics', {
+        const [analyticsRes, popularRes] = await Promise.all([
+          api.get<NewsroomAnalyticsResponse>('/admin/articles/newsroom-analytics', {
             params: { period: '1y' },
             signal: controller.signal,
           }),
@@ -166,7 +174,10 @@ export default function AdminContentPage() {
           }),
         ]);
         if (cancelled) return;
-        setOverviewSummary(summaryRes?.summary ?? null);
+        // Reuse 1 call: summary (stat cards) + velocity (days-since) + categories (gaps).
+        setOverviewSummary(analyticsRes?.summary ?? null);
+        setOverviewVelocity(analyticsRes?.velocity ?? []);
+        setOverviewCategories(analyticsRes?.categories ?? []);
         const pop = Array.isArray(popularRes) ? popularRes : popularRes?.data ?? [];
         setPopularTrending(pop as Article[]);
       } catch {
@@ -338,6 +349,10 @@ export default function AdminContentPage() {
       {/* Tab content */}
       {activeTab === 'overview' && (
         <div className="space-y-6">
+          {/* SMART v1: nudge cadence "X hari sejak publish" + [Tulis] (dari velocity).
+              RSS/draft/balapor TIDAK diduplikat — sudah di MissionControlBakabar bawah. */}
+          <LastPublishBanner velocity={overviewVelocity} />
+
           {/* Perlu Tindak Lanjut (Action Queue) — di atas Ringkasan */}
           <MissionControlBakabar
             onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
@@ -363,6 +378,9 @@ export default function AdminContentPage() {
             onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
             loading={articlesLoading}
           />
+
+          {/* SMART v1: Content Gaps — kategori kosong/tipis (categories[] cross-ref canonical) */}
+          <ContentGaps categories={overviewCategories} />
 
           {/* Manajemen Artikel — super_admin only */}
           {isSuperAdmin && (
