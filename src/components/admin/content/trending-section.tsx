@@ -26,18 +26,23 @@ import {
 
 interface TrendingSectionProps {
   articles: Article[];
+  /** Trending list dari endpoint ?sort=popular (view_count DESC). Kalau ada,
+   *  dipakai apa adanya; kalau null/kosong → fallback sort viral_score client. */
+  trendingArticles?: Article[];
   onReviewStaleDrafts?: () => void;
   loading?: boolean;
 }
 
 export function TrendingSection({
   articles,
+  trendingArticles,
   onReviewStaleDrafts,
   loading = false,
 }: TrendingSectionProps) {
-  // Top 5 published by viral_score
-  const published = articles.filter((a) => a.status === 'published');
-  const trending = sortByViralScore(published).slice(0, 5);
+  // Trending: pakai ?sort=popular kalau tersedia; else fallback viral_score client-side.
+  const trending = (trendingArticles && trendingArticles.length > 0)
+    ? trendingArticles.slice(0, 5)
+    : sortByViralScore(articles.filter((a) => a.status === 'published')).slice(0, 5);
 
   // Stale drafts (> 3 jam)
   const now = Date.now();

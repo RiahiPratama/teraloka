@@ -48,13 +48,12 @@ import { MissionControlBakabar } from '@/components/admin/content/mission-contro
 import { EditorialView } from '@/components/admin/content/editorial-view';
 import {
   computeArticleStats,
-  filterByPeriod,
   getDateRange,
   type Article,
   type ArticleStatus,
   type StatsPeriod,
-  STATS_PERIOD_LABELS,
 } from '@/types/articles';
+import type { NewsroomSummary } from '@/types/newsroom-analytics';
 
 type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution';
 
@@ -72,17 +71,20 @@ export default function AdminContentPage() {
   const { user } = useAuth();
   const isSuperAdmin = user?.role === 'super_admin';
 
-  /* ─── Tab + period state ─── */
+  /* ─── Tab state ─── */
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
-  const [period, setPeriod] = useState<StatsPeriod>('7d');
 
-  /* ─── Main articles (50 terbaru, untuk stats + trending) ─── */
+  /* ─── Main articles (50 terbaru, untuk daftar + perlu-perhatian) ─── */
 
   const [articles, setArticles] = useState<Article[]>([]);
   const [articlesLoading, setArticlesLoading] = useState(true);
   const [articlesError, setArticlesError] = useState<string | null>(null);
   const [retryNonce, setRetryNonce] = useState(0);
+
+  /* ─── Overview agregat: stat cards (all-time via period=1y) + trending (sort=popular) ─── */
+  const [overviewSummary, setOverviewSummary] = useState<NewsroomSummary | null>(null);
+  const [popularTrending, setPopularTrending] = useState<Article[]>([]);
 
   /* ─── Manajemen articles (filtered, paginated) ─── */
 
@@ -139,6 +141,39 @@ export default function AdminContentPage() {
       }
     })();
 
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [api, retryNonce]);
+
+  /* ─── Overview agregat: Total Views/Published (all-time via period=1y) +
+        Trending (sort=popular). Ganti compute client-side atas top-50/7d yang
+        bikin angka 0 misleading. period=1y nyakup semua artikel (<2 bln). ─── */
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        const [summaryRes, popularRes] = await Promise.all([
+          api.get<{ summary: NewsroomSummary }>('/admin/articles/newsroom-analytics', {
+            params: { period: '1y' },
+            signal: controller.signal,
+          }),
+          api.get<{ data: Article[] }>('/content/articles', {
+            params: { sort: 'popular', limit: 5 },
+            signal: controller.signal,
+          }),
+        ]);
+        if (cancelled) return;
+        setOverviewSummary(summaryRes?.summary ?? null);
+        const pop = Array.isArray(popularRes) ? popularRes : popularRes?.data ?? [];
+        setPopularTrending(pop as Article[]);
+      } catch {
+        // Non-blocking: stat cards fallback ke 0 + trending kosong (UI graceful).
+        // Error utama (daftar artikel) udah ditangani di useEffect atas.
+      }
+    })();
     return () => {
       cancelled = true;
       controller.abort();
@@ -227,9 +262,16 @@ export default function AdminContentPage() {
 
   /* ─── Derived state ─── */
 
-  const periodArticles = filterByPeriod(articles, period);
-  const stats = computeArticleStats(periodArticles);
-  const periodLabel = STATS_PERIOD_LABELS[period];
+  // Stat cards = agregat all-time dari newsroom-analytics (period=1y), bukan
+  // compute client-side atas top-50/7d. published & totalViews dari summary;
+  // sisa field (draft/review/dll, tak ditampilkan di cards) dari articles.
+  const baseStats = computeArticleStats(articles);
+  const stats = {
+    ...baseStats,
+    published:  overviewSummary?.total_published ?? baseStats.published,
+    totalViews: overviewSummary?.total_views ?? baseStats.totalViews,
+  };
+  const periodLabel = '(semua waktu)';
   const totalPages = Math.max(1, Math.ceil(manageTotal / PAGE_SIZE));
 
   /* ─── Render ─── */
@@ -301,30 +343,11 @@ export default function AdminContentPage() {
             onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
           />
 
-          {/* Period selector */}
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
-              Ringkasan
-            </h2>
-            <div className="flex gap-1 rounded-lg border border-border bg-surface p-0.5">
-              {(['7d', '30d', '90d', 'all'] as StatsPeriod[]).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`
-                    px-3 py-1 text-xs font-semibold rounded-md transition-colors
-                    ${
-                      period === p
-                        ? 'bg-brand-teal text-white'
-                        : 'text-text-muted hover:text-text'
-                    }
-                  `}
-                >
-                  {STATS_PERIOD_LABELS[p]}
-                </button>
-              ))}
-            </div>
-          </div>
+          {/* Ringkasan — period selector dihapus: stat cards = agregat all-time
+              (newsroom-analytics period=1y), bukan lagi compute client-side per-period */}
+          <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide">
+            Ringkasan
+          </h2>
 
           {/* Stats cards */}
           <ArticleStats
@@ -333,9 +356,10 @@ export default function AdminContentPage() {
             loading={articlesLoading}
           />
 
-          {/* Trending + Perlu Perhatian */}
+          {/* Trending (sort=popular) + Perlu Perhatian (drafts/review dari articles) */}
           <TrendingSection
-            articles={periodArticles}
+            articles={articles}
+            trendingArticles={popularTrending}
             onReviewStaleDrafts={isSuperAdmin ? handleReviewStaleDrafts : undefined}
             loading={articlesLoading}
           />
