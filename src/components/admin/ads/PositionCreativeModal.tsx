@@ -174,7 +174,7 @@ export default function PositionCreativeModal({
   const existingTimeline = state.position_animation_timelines[positionKey];
   // SESI 10: per-position video detection
   const existingVideo    = state.position_video_sources[positionKey];
-  const existingVideoMobile = state.position_video_sources_mobile[positionKey];  // Phase 2a V2b
+  const existingVideoMobile = state.position_video_sources_mobile?.[positionKey];  // Phase 2a V2b (guard state basi/HMR)
   const videoEligible    = VIDEO_ELIGIBLE_POSITIONS.includes(positionKey);
   // SESI 11 Batch 3 (30 Mei 2026): motion paket — sumber kebenaran tab di create mode.
   const motion           = resolveTierMotion(state.pricing_tier_data);
