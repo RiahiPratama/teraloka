@@ -391,19 +391,35 @@ export default function NewArticlePage() {
       });
       const data = await res.json();
 
-      if (!res.ok) {
-        setError(data.error?.message ?? 'Gagal membuat artikel.');
+      // (a) CREATE gagal → artikel GAK ADA sama sekali. (#2: cek res.ok DAN data.success)
+      if (!res.ok || !data?.success) {
+        setError(data?.error?.message ?? 'Gagal membuat artikel. Coba lagi.');
         return;
       }
 
       const id = data.data?.id;
-      setNewArticleId(id ?? null);
+      if (!id) {
+        // res.ok + success tapi tanpa id → anggap create gagal (jangan lanjut publish).
+        setError('Gagal membuat artikel: server tidak mengembalikan ID. Coba lagi.');
+        return;
+      }
+      setNewArticleId(id);
 
-      if (doPublish && id) {
-        await fetch(`${API}/content/articles/${id}/publish`, {
+      // (b) CREATE sukses + PUBLISH gagal → artikel ADA sebagai DRAFT (aman, bukan hilang).
+      // (#1: publish step WAJIB cek pr.ok + data.success — jangan setSubmitted unconditional)
+      if (doPublish) {
+        const pr = await fetch(`${API}/content/articles/${id}/publish`, {
           method: 'POST',
           headers: { Authorization: `Bearer ${token}` },
         });
+        const pd = await pr.json().catch(() => null);
+        if (!pr.ok || (pd && pd.success === false)) {
+          // Artikel SUDAH tersimpan sbg draft (create sukses) → buang autosave lokal,
+          // kasih tau editor artikel AMAN sebagai draft (bukan hilang) + bisa publish ulang.
+          localStorage.removeItem(LOCAL_DRAFT_KEY);
+          setError('Publish gagal, tapi artikel sudah TERSIMPAN sebagai draft. Coba publish ulang dari daftar artikel.');
+          return; // 🛡️ JANGAN setSubmitted(true) — publish belum berhasil
+        }
       }
 
       localStorage.removeItem(LOCAL_DRAFT_KEY);
