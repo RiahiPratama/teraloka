@@ -24,6 +24,7 @@ import { getAdLabel } from '@/lib/ads/getAdLabel';
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 // SESI 11 (31 Mei 2026): viewability impression + click beacon
 import { useAdView } from '@/hooks/useAdView';
+import { useAdFetch } from '@/hooks/useAdFetch';
 import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -48,34 +49,21 @@ const POSTER_H        = 220;   // 3:4 match banner Canva 810×1080
 const FOCUSED_SCALE   = 1.28;
 
 export default function LaIndieMovieServiceCarousel() {
-  const [ads, setAds] = useState<CarouselAd[]>([]);
-  const [loading, setLoading] = useState(true);
   const [focusedIdx, setFocusedIdx] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
   const rotationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const graceRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch ADS service_carousel (client, non-blocking). Fallback = hidden.
+  // useAdFetch (res.ok + retry + abort) — ganti pola useEffect+cancelled lama.
+  const { data, loading } = useAdFetch<CarouselAd>(`${API}/public/ads/by-position/service_carousel?limit=${MAX_CARDS}`);
+  const ads = data.slice(0, MAX_CARDS);
+
+  // Pusatkan fokus carousel saat ads datang (dep `data` ref stabil — fire 1x per fetch).
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API}/public/ads/by-position/service_carousel?limit=${MAX_CARDS}`);
-        const json = await res.json();
-        if (!cancelled && json?.success && Array.isArray(json.data)) {
-          const list = (json.data as CarouselAd[]).slice(0, MAX_CARDS);
-          setAds(list);
-          setFocusedIdx(list.length > 0 ? Math.floor((list.length - 1) / 2) : 0);
-        }
-      } catch {
-        // empty → hidden
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
+    const n = Math.min(data.length, MAX_CARDS);
+    setFocusedIdx(n > 0 ? Math.floor((n - 1) / 2) : 0);
+  }, [data]);
 
   // Auto-rotate (skip kalau <2 ad atau paused)
   useEffect(() => {

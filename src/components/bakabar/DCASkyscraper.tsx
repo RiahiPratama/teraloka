@@ -26,6 +26,7 @@ import { getAdLabel } from '@/lib/ads/getAdLabel';
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 // SESI 11 (31 Mei 2026): viewability impression + click beacon
 import { useAdView } from '@/hooks/useAdView';
+import { useAdFetch } from '@/hooks/useAdFetch';
 import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -79,38 +80,18 @@ function useReducedMotion(): boolean {
 }
 
 export default function DCASkyscraper({ side }: Props) {
-  const [ad, setAd] = useState<SkyscraperAd | null>(null);
+  // useAdFetch (res.ok + retry + abort) — url ikut `side`, refetch saat side berubah.
+  const position = side === 'left' ? 'skyscraper_left' : 'skyscraper_right';
+  const { data, loading } = useAdFetch<SkyscraperAd>(`${API}/public/ads/by-position/${position}?limit=1`);
+  const ad = data[0] ?? null;
   // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x)
   const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
-  const [loading, setLoading] = useState(true);
   const [hideNearFooter, setHideNearFooter] = useState(false);
   // WS-5d (13 Jun 2026): posisi atas skyscraper = atas banner ADS leaderboard
   // (anak pertama <main>), DIUKUR runtime — bukan angka mati. Fallback 180
   // (≈ main-top) sebelum effect jalan. Auto-align: apapun tinggi header/
   // ticker/notif, skyscraper SELALU sejajar leaderboard "hero ADS paling atas".
   const [topPx, setTopPx] = useState<number>(180);
-
-  // Fetch ad on mount
-  useEffect(() => {
-    let cancelled = false;
-    const position = side === 'left' ? 'skyscraper_left' : 'skyscraper_right';
-
-    (async () => {
-      try {
-        const res = await fetch(`${API}/public/ads/by-position/${position}?limit=1`);
-        const json = await res.json();
-        if (!cancelled && json?.success && Array.isArray(json.data) && json.data[0]) {
-          setAd(json.data[0] as SkyscraperAd);
-        }
-      } catch {
-        // Empty state — gak ada ad nongol (fixed aside hides cleanly)
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => { cancelled = true; };
-  }, [side]);
 
   // Footer-hide: pantau elemen footer, hide skyscraper saat footer in-viewport
   useEffect(() => {

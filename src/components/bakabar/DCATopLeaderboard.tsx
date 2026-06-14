@@ -23,6 +23,7 @@ import { getAdLabel } from '@/lib/ads/getAdLabel';
 import { type AdVideoSource } from '@/components/public/ads/AdVideoBanner';
 // SESI 11 (31 Mei 2026): viewability impression + click beacon
 import { useAdView } from '@/hooks/useAdView';
+import { useAdFetch } from '@/hooks/useAdFetch';
 import { queueClick } from '@/lib/adTracking';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -84,28 +85,11 @@ function useIsMobile(): boolean {
 }
 
 export default function DCATopLeaderboard() {
-  const [ad, setAd] = useState<TopLeaderboardAd | null>(null);
+  // useAdFetch (res.ok + retry + abort) — ganti pola useEffect+cancelled lama.
+  const { data, loading } = useAdFetch<TopLeaderboardAd>(`${API}/public/ads/by-position/top_leaderboard?limit=1`);
+  const ad = data[0] ?? null;
   // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x)
   const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch(`${API}/public/ads/by-position/top_leaderboard?limit=1`);
-        const json = await res.json();
-        if (!cancelled && json?.success && Array.isArray(json.data) && json.data[0]) {
-          setAd(json.data[0] as TopLeaderboardAd);
-        }
-      } catch {
-        // Empty state — gracefully hide
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
 
   // PERF (4 Jun 2026, WS-5c v2): reserve tinggi PERMANEN (above-the-fold).
   // Slot final = h-[220px] + mb-8 (32px) = 252px. Ad top_leaderboard datang
