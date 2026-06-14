@@ -607,6 +607,13 @@ export default function PositionCreativeModal({
                 }}
                 label="Upload Creative Mobile (opsional)"
               />
+              {/* Batch 4c: panduan ukuran mobile (cuma posisi yg butuh creative mobile terpisah) */}
+              {meta.mobileCreativeRecommended && meta.recommendedImageDimMobile && (
+                <p className="text-[10px] text-text-muted mt-1 leading-relaxed">
+                  Mobile: {meta.recommendedImageDimMobile} ({meta.aspectRatioMobile}).
+                  Tampil di HP — opsional tapi disarankan biar gak kepotong.
+                </p>
+              )}
 
               {/* SESI 10 Sub-Phase B: GIF support hint */}
               <div className="flex items-start gap-2 mt-3 p-3 rounded-lg bg-ads/5 border border-ads/30">

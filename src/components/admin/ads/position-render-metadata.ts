@@ -64,6 +64,12 @@ export interface PositionRenderMetadata {
   recommendedImageDim:  string;
   /** Aspect ratio hint untuk image upload */
   aspectRatio:          string;
+  /** Recommended mobile image dimension (slot mobile ratio beda dari desktop) */
+  recommendedImageDimMobile?: string;
+  /** Aspect ratio hint untuk creative mobile */
+  aspectRatioMobile?:         string;
+  /** True kalau posisi butuh creative mobile terpisah (crop risk di HP) */
+  mobileCreativeRecommended?: boolean;
   /**
    * Bahasa Indonesia praktis untuk admin/advertiser — referensi visual konkret
    * yang bisa dicocokin dengan halaman BAKABAR aktual.
@@ -114,6 +120,9 @@ export const POSITION_RENDER_METADATA: Record<string, PositionRenderMetadata> = 
     realDim:              '1000×220px',
     recommendedImageDim:  '1000×220px',
     aspectRatio:          '4.5:1 horizontal',
+    recommendedImageDimMobile: '1080×720px',
+    aspectRatioMobile:         '3:2 (slot mobile h-220 paten)',
+    mobileCreativeRecommended: true,
     displayLocation:      'Homepage BAKABAR, tepat di bawah ticker shalat (paling atas, slot premium #1)',
     deviceScope:          'all',
     mountStatus:          'active',
