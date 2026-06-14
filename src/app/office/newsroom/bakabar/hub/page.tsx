@@ -247,6 +247,32 @@ function HubContent() {
   const isSuperAdmin  = user?.role === 'super_admin';
   const showWidgets   = WIDGET_VISIBLE_STATUSES.includes(statusFilter);
 
+  // Role gate (tiru pola hub/new + hub/[id]/edit). Layout udah gate loading/login
+  // (spinner sampai user loaded), jadi di sini user dijamin loaded → no false-deny.
+  if (!user || !token) {
+    return (
+      <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 36, marginBottom: 8 }}>🔒</p>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: t.textPrimary }}>Akses Ditolak</h2>
+          <p style={{ fontSize: 13, color: t.textDim, marginTop: 4 }}>Halaman ini hanya untuk admin TeraLoka.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!['super_admin', 'admin_content'].includes(user.role)) {
+    return (
+      <div style={{ display: 'flex', minHeight: '60vh', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ fontSize: 36, marginBottom: 8 }}>🚫</p>
+          <h2 style={{ fontSize: 16, fontWeight: 600, color: t.textPrimary }}>Bukan Admin</h2>
+          <p style={{ fontSize: 13, color: t.textDim, marginTop: 4 }}>Kamu tidak punya akses ke ruang redaksi.</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ maxWidth: 1100, margin: '0 auto', fontFamily: "'Outfit', system-ui" }}>
       <style>{`

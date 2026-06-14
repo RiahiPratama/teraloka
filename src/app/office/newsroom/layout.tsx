@@ -111,7 +111,7 @@ function OfficeBakabarLayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem('token') || sessionStorage.getItem('token');
+    const token = localStorage.getItem('tl_token') || sessionStorage.getItem('tl_token');
     if (!token) return;
     fetch(`${API}/admin/stats`, { headers: { Authorization: `Bearer ${token}` } })
       .then(r => r.json())
