@@ -169,12 +169,12 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
     return (
       <div className="relative w-full h-[220px] rounded-xl overflow-hidden bg-black">
         {!reducedMotion ? (
-          <video className="w-full h-full object-cover" autoPlay loop muted playsInline poster={video!.poster || undefined}>
+          <video className="w-full h-full object-cover" autoPlay loop muted playsInline preload="metadata" poster={video!.poster || undefined}>
             {video!.webm && <source src={video!.webm} type="video/webm" />}
             {video!.mp4 && <source src={video!.mp4} type="video/mp4" />}
           </video>
         ) : video!.poster ? (
-          <img src={video!.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
+          <img src={video!.poster} alt="" className="w-full h-full object-cover" loading="eager" />
         ) : null}
         {vLabel && (
           <span className="absolute top-3 right-3 z-10 px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
@@ -202,7 +202,8 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
               src={displayImage!}
               alt={ad.title ?? ''}
               className="w-full h-full object-cover"
-              loading="lazy"
+              loading="eager"
+              fetchPriority="high"
             />
           </picture>
         ) : (
@@ -211,7 +212,8 @@ function LeaderboardInner({ ad, isDCA }: { ad: TopLeaderboardAd; isDCA: boolean 
             src={displayImage!}
             alt={ad.title ?? ''}
             className="w-full h-full object-cover"
-            loading="lazy"
+            loading="eager"
+            fetchPriority="high"
           />
         )}
         {iLabel && (
