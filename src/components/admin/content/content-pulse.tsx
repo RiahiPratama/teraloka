@@ -14,13 +14,16 @@
 //    (sudah di MissionControlBakabar).
 // ════════════════════════════════════════════════════════════════
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
+import { useApi, ApiError } from '@/lib/api/client';
 import { CATEGORIES } from '@/lib/categories';
 import type { VelocityPoint, CategoryCount } from '@/types/newsroom-analytics';
 
 const HUB_NEW = '/office/newsroom/bakabar/hub/new';
-const THIN_THRESHOLD = 3; // count < 3 → "tipis"
+const THIN_THRESHOLD = 3;        // kategori: count < 3 → "tipis"
+const REGION_THIN_THRESHOLD = 5; // daerah: total_articles < 5 → "tipis"
 
 /** Hari sejak tanggal terakhir velocity punya count > 0. null = gak ada publish. */
 function daysSinceLastPublish(velocity: VelocityPoint[]): { days: number; date: string } | null {
@@ -135,6 +138,123 @@ export function ContentGaps({ categories }: { categories: CategoryCount[] }) {
             ))}
           </div>
         </div>
+      )}
+    </Card>
+  );
+}
+
+/* ─── 3. Coverage Daerah (SMART v2 — region kosong/tipis) ─── */
+// Self-fetch /admin/articles/by-location (11 region MalUt; Sofifi terpisah =
+// seat provinsi, by-design). Mirror pola ContentGaps: chip kosong/tipis, fokus
+// ke yang actionable. Graceful kalau gagal (return null, gak crash dashboard).
+
+interface RegionCoverage {
+  region_id:         string;
+  region_name:       string;
+  region_type:       string;
+  bps_code:          string;
+  total_articles:    number;
+  last_published_at: string | null;
+}
+
+interface ByLocationResponse {
+  regions: RegionCoverage[];
+  meta: {
+    total_articles_aggregated: number;
+    unmapped_count:            number;
+    regions_with_coverage:     number;
+    regions_empty:             number;
+    last_computed:             string;
+  };
+}
+
+export function CoverageRegions() {
+  const api = useApi();
+  const [regions, setRegions] = useState<RegionCoverage[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<ByLocationResponse>('/admin/articles/by-location', {
+          signal: controller.signal,
+        });
+        if (cancelled) return;
+        setRegions(res?.regions ?? []);
+      } catch (err) {
+        if (cancelled) return;
+        if (err instanceof ApiError || (err as Error)?.name !== 'AbortError') {
+          setFailed(true); // graceful — widget hilang, dashboard tetap jalan
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [api]);
+
+  // Gagal fetch atau belum ada data → jangan render (jangan ganggu dashboard).
+  if (failed || !regions || regions.length === 0) return null;
+
+  const empty = regions.filter((r) => r.total_articles === 0);
+  const thin = regions
+    .filter((r) => r.total_articles > 0 && r.total_articles < REGION_THIN_THRESHOLD)
+    .sort((a, b) => a.total_articles - b.total_articles);
+  const okCount = regions.length - empty.length - thin.length;
+
+  return (
+    <Card padded>
+      <p className="text-sm font-semibold text-text mb-1">Coverage Daerah</p>
+      <p className="text-xs text-text-muted mb-3">
+        Sebaran konten per daerah Maluku Utara — daerah kurang = kandidat liputan berikutnya.
+      </p>
+
+      {empty.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
+            Kosong (0 artikel)
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {empty.map((r) => (
+              <span
+                key={r.region_id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-status-warning/8 border-status-warning/30 text-status-warning"
+              >
+                {r.region_name}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {thin.length > 0 && (
+        <div className="mb-3">
+          <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
+            Tipis (&lt;{REGION_THIN_THRESHOLD} artikel)
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {thin.map((r) => (
+              <span
+                key={r.region_id}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold border bg-surface-muted border-border text-text-muted"
+              >
+                {r.region_name}
+                <span className="text-text-subtle">· {r.total_articles}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {okCount > 0 && (
+        <p className="text-[11px] text-text-subtle">
+          {empty.length === 0 && thin.length === 0
+            ? `Semua ${regions.length} daerah ter-cover ✓`
+            : `${okCount} daerah lain cukup ter-cover ✓`}
+        </p>
       )}
     </Card>
   );

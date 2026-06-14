@@ -59,7 +59,7 @@ import type {
   VelocityPoint,
   CategoryCount,
 } from '@/types/newsroom-analytics';
-import { LastPublishBanner, ContentGaps } from '@/components/admin/content/content-pulse';
+import { LastPublishBanner, ContentGaps, CoverageRegions } from '@/components/admin/content/content-pulse';
 
 type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution';
 
@@ -381,6 +381,9 @@ export default function AdminContentPage() {
 
           {/* SMART v1: Content Gaps — kategori kosong/tipis (categories[] cross-ref canonical) */}
           <ContentGaps categories={overviewCategories} />
+
+          {/* SMART v2: Coverage Daerah — region kosong/tipis (/admin/articles/by-location) */}
+          <CoverageRegions />
 
           {/* Manajemen Artikel — super_admin only */}
           {isSuperAdmin && (
