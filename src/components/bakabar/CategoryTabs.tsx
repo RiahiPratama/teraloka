@@ -36,7 +36,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import PrayerBreakingBar from '@/components/bakabar/PrayerBreakingBar';
 import {
   Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
-  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare,
+  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare, Construction,
   Tag, Check, ChevronDown,
 } from 'lucide-react';
 
@@ -64,6 +64,7 @@ const TOPICS = [
   { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet },
   { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake },
   { key: 'transportasi', label: 'Transportasi', Icon: Ship },
+  { key: 'infrastruktur', label: 'Infrastruktur', Icon: Construction },
   { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy },
   { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope },
   { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap },

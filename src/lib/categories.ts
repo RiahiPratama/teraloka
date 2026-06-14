@@ -26,7 +26,7 @@
 
 import {
   Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
-  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare,
+  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare, Construction,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -45,6 +45,7 @@ export const CATEGORIES: Category[] = [
   { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet,         color: '#059669' },
   { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake, color: '#0891B2' },
   { key: 'transportasi', label: 'Transportasi', Icon: Ship,           color: '#0284C7' },
+  { key: 'infrastruktur', label: 'Infrastruktur', Icon: Construction,  color: '#EA580C' },
   { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy,         color: '#DC2626' },
   { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope,    color: '#E11D48' },
   { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap,  color: '#CA8A04' },

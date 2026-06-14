@@ -9,7 +9,7 @@ import {
   Globe, MapPin, Building2, Anchor, Flame,
   // Topik
   Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
-  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare,
+  Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare, Construction,
   // Layanan
   Megaphone, Home, Heart,
   // Avatar dropdown
@@ -58,6 +58,7 @@ const TOPIK_ITEMS = [
   { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet },
   { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake },
   { key: 'transportasi', label: 'Transportasi', Icon: Ship },
+  { key: 'infrastruktur', label: 'Infrastruktur', Icon: Construction },
   { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy },
   { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope },
   { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap },
