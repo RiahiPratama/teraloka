@@ -1,5 +1,7 @@
 'use client';
 
+import { BarChart3, Eye } from 'lucide-react';
+
 /**
  * TeraLoka — Pageviews Chart
  * Phase 2 · Batch 7e5 — Distribution Metrics
@@ -46,7 +48,7 @@ export function PageviewsChart({ data, loading = false }: PageviewsChartProps) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-text flex items-center gap-2">
-            <span>👁</span>
+            <Eye size={16} className="text-text-muted shrink-0" aria-hidden />
             <span>Pageviews Over Time</span>
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
@@ -69,7 +71,7 @@ export function PageviewsChart({ data, loading = false }: PageviewsChartProps) {
         <div className="h-[240px] rounded bg-surface-muted animate-pulse" />
       ) : chartData.length === 0 || totalPageviews === 0 ? (
         <div className="h-[240px] flex flex-col items-center justify-center text-center gap-1">
-          <span className="text-3xl mb-1">📊</span>
+          <BarChart3 size={28} className="text-text-muted mb-1" aria-hidden />
           <p className="text-sm font-semibold text-text-muted">
             Belum ada pageviews pada BAKABAR
           </p>

@@ -26,6 +26,10 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from 'recharts';
+import {
+  Newspaper, AlertTriangle, BarChart3, NotebookPen, Check, Eye, Share2,
+  Clock, Hourglass, Trophy, type LucideIcon,
+} from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { Card } from '@/components/ui/card';
 import { VelocityChart } from './charts/velocity-chart';
@@ -99,7 +103,7 @@ export function NewsroomAnalyticsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-text flex items-center gap-2">
-            <span>📰</span>
+            <Newspaper size={18} className="text-brand-teal shrink-0" aria-hidden />
             <span>Newsroom Analytics</span>
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
@@ -129,7 +133,7 @@ export function NewsroomAnalyticsView() {
       {/* Error */}
       {error && (
         <div className="px-4 py-3 rounded-lg bg-status-critical/10 border border-status-critical/30 text-status-critical text-sm flex items-center justify-between gap-3">
-          <span>⚠️ {error}</span>
+          <span className="flex items-center gap-1.5"><AlertTriangle size={16} aria-hidden /> {error}</span>
           <button
             onClick={refetch}
             className="text-xs font-semibold underline hover:no-underline"
@@ -172,30 +176,10 @@ interface SummaryCardsProps {
 
 function SummaryCards({ summary, loading }: SummaryCardsProps) {
   const cards = [
-    {
-      label: 'Total Artikel',
-      value: summary?.total_articles ?? 0,
-      emoji: '📝',
-      format: 'num',
-    },
-    {
-      label: 'Published',
-      value: summary?.total_published ?? 0,
-      emoji: '✓',
-      format: 'num',
-    },
-    {
-      label: 'Total Views',
-      value: summary?.total_views ?? 0,
-      emoji: '👁',
-      format: 'compact',
-    },
-    {
-      label: 'Total Shares',
-      value: summary?.total_shares ?? 0,
-      emoji: '↗',
-      format: 'compact',
-    },
+    { label: 'Total Artikel',  value: summary?.total_articles ?? 0,  Icon: NotebookPen, format: 'num' },
+    { label: 'Published',      value: summary?.total_published ?? 0, Icon: Check,       format: 'num' },
+    { label: 'Total Views',    value: summary?.total_views ?? 0,     Icon: Eye,         format: 'compact' },
+    { label: 'Total Shares',   value: summary?.total_shares ?? 0,    Icon: Share2,      format: 'compact' },
   ];
 
   return (
@@ -204,7 +188,7 @@ function SummaryCards({ summary, loading }: SummaryCardsProps) {
         <Card padded key={c.label} className="!p-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-text-muted">{c.label}</span>
-            <span className="text-sm">{c.emoji}</span>
+            <c.Icon size={16} className="text-text-muted" aria-hidden />
           </div>
           {loading ? (
             <div className="h-6 w-12 rounded bg-surface-muted animate-pulse mt-1" />
@@ -231,7 +215,7 @@ function CycleTimeCard({ data, loading }: CycleTimeCardProps) {
     <Card padded>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-text flex items-center gap-2">
-          <span>⏱️</span>
+          <Clock size={16} className="text-text-muted shrink-0" aria-hidden />
           <span>Cycle Time (Draft → Publish)</span>
         </h3>
         <p className="text-xs text-text-muted mt-0.5">
@@ -254,9 +238,9 @@ function CycleTimeCard({ data, loading }: CycleTimeCardProps) {
         </div>
       ) : (
         <div className="space-y-3 text-sm">
-          <Metric label="Rata-rata" value={formatHours(data.avg_hours)} emoji="⏱" tone="info" />
-          <Metric label="Median" value={formatHours(data.median_hours)} emoji="📊" tone="info" />
-          <Metric label="90th percentile" value={formatHours(data.p90_hours)} emoji="🐢" tone="warning" />
+          <Metric label="Rata-rata" value={formatHours(data.avg_hours)} Icon={Clock} tone="info" />
+          <Metric label="Median" value={formatHours(data.median_hours)} Icon={BarChart3} tone="info" />
+          <Metric label="90th percentile" value={formatHours(data.p90_hours)} Icon={Hourglass} tone="warning" />
           <div className="pt-2 mt-2 border-t border-border flex justify-between text-xs text-text-muted">
             <span>Tercepat: {formatHours(data.fastest_hours)}</span>
             <span>Terlama: {formatHours(data.slowest_hours)}</span>
@@ -281,7 +265,7 @@ function StatusBreakdown({ data, loading }: StatusBreakdownProps) {
     <Card padded>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-text flex items-center gap-2">
-          <span>📊</span>
+          <BarChart3 size={16} className="text-text-muted shrink-0" aria-hidden />
           <span>Status Breakdown</span>
         </h3>
         <p className="text-xs text-text-muted mt-0.5">
@@ -375,7 +359,7 @@ function TopAuthorsList({ data, loading }: TopAuthorsListProps) {
     <Card padded>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-text flex items-center gap-2">
-          <span>🏆</span>
+          <Trophy size={16} className="text-text-muted shrink-0" aria-hidden />
           <span>Top Authors</span>
         </h3>
         <p className="text-xs text-text-muted mt-0.5">
@@ -439,11 +423,11 @@ function TopAuthorsList({ data, loading }: TopAuthorsListProps) {
 interface MetricProps {
   label: string;
   value: string;
-  emoji: string;
+  Icon: LucideIcon;
   tone?: 'info' | 'warning' | 'default';
 }
 
-function Metric({ label, value, emoji, tone = 'default' }: MetricProps) {
+function Metric({ label, value, Icon, tone = 'default' }: MetricProps) {
   const toneClass: Record<NonNullable<MetricProps['tone']>, string> = {
     default: 'text-text',
     info:    'text-status-info',
@@ -453,7 +437,7 @@ function Metric({ label, value, emoji, tone = 'default' }: MetricProps) {
   return (
     <div className="flex items-center justify-between">
       <span className="text-text-muted flex items-center gap-2">
-        <span className="text-base">{emoji}</span>
+        <Icon size={16} className="text-text-muted shrink-0" aria-hidden />
         <span>{label}</span>
       </span>
       <span className={`font-bold ${toneClass[tone]}`}>{value}</span>

@@ -10,6 +10,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useState } from 'react';
+import { X } from 'lucide-react';
 import { Dialog, DialogHeader, DialogBody, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Select } from '@/components/ui/select';
@@ -207,7 +208,11 @@ export function LeadTriaseModal({ lead, onClose, onSuccess, initialStatus }: Pro
             rows={4}
           />
 
-          {error && <p className="text-xs font-semibold text-status-critical">✗ {error}</p>}
+          {error && (
+            <p className="text-xs font-semibold text-status-critical flex items-center gap-1">
+              <X size={14} aria-hidden /> {error}
+            </p>
+          )}
         </div>
       </DialogBody>
       <DialogFooter>

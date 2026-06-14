@@ -1,5 +1,7 @@
 'use client';
 
+import { FolderOpen } from 'lucide-react';
+
 /**
  * TeraLoka — Category Pie Chart
  * Phase 2 · Batch 7e4 — Newsroom Analytics
@@ -49,7 +51,7 @@ export function CategoryPie({ data, loading = false, topN = 8 }: CategoryPieProp
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-text flex items-center gap-2">
-            <span>🗂️</span>
+            <FolderOpen size={16} className="text-text-muted shrink-0" aria-hidden />
             <span>Distribusi Kategori</span>
           </h3>
           <p className="text-xs text-text-muted mt-0.5">

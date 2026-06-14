@@ -1,5 +1,7 @@
 'use client';
 
+import { Globe } from 'lucide-react';
+
 /**
  * TeraLoka — Traffic Sources Chart
  * Phase 2 · Batch 7e5 — Distribution Metrics
@@ -48,7 +50,7 @@ export function TrafficSourcesChart({
     <Card padded>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-text flex items-center gap-2">
-          <span>🌐</span>
+          <Globe size={16} className="text-text-muted shrink-0" aria-hidden />
           <span>Traffic Sources</span>
         </h3>
         <p className="text-xs text-text-muted mt-0.5">
@@ -60,7 +62,7 @@ export function TrafficSourcesChart({
         <div className="h-[220px] rounded bg-surface-muted animate-pulse" />
       ) : chartData.length === 0 ? (
         <div className="h-[220px] flex flex-col items-center justify-center text-center gap-1">
-          <span className="text-3xl mb-1">🌍</span>
+          <Globe size={28} className="text-text-muted mb-1" aria-hidden />
           <p className="text-sm font-semibold text-text-muted">
             Belum ada traffic data
           </p>

@@ -20,6 +20,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { AlertTriangle, Zap } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { Card } from '@/components/ui/card';
 
@@ -122,7 +123,7 @@ export function MissionControlBakabar({ onReviewStaleDrafts }: Props) {
   const header = (
     <div className="flex items-center justify-between gap-3 mb-3">
       <h2 className="text-sm font-semibold text-text-muted uppercase tracking-wide flex items-center gap-1.5">
-        <span>⚡</span> Perlu Tindak Lanjut
+        <Zap size={15} className="text-text-muted shrink-0" aria-hidden /> Perlu Tindak Lanjut
       </h2>
       {queue && (
         <span className="text-xs text-text-muted">
@@ -153,7 +154,7 @@ export function MissionControlBakabar({ onReviewStaleDrafts }: Props) {
       <div>
         {header}
         <div className="rounded-xl border border-status-critical/30 bg-status-critical/10 p-4 flex items-center justify-between gap-3">
-          <span className="text-sm text-status-critical">⚠️ {error}</span>
+          <span className="text-sm text-status-critical flex items-center gap-1.5"><AlertTriangle size={16} aria-hidden /> {error}</span>
           <button
             onClick={() => setRetryNonce((n) => n + 1)}
             className="text-xs font-semibold text-status-critical underline hover:no-underline shrink-0"

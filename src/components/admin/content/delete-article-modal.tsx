@@ -35,6 +35,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { Check, Trash2 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import type { Article } from '@/types/articles';
 
@@ -111,7 +112,7 @@ export function DeleteArticleModal({
       if (err instanceof ApiError) {
         if (err.status === 400 && err.message.toLowerCase().includes('takedown')) {
           setError(
-            '⚠️ Artikel ini punya takedown request aktif. Selesaikan takedown dulu.'
+            'Artikel ini punya takedown request aktif. Selesaikan takedown dulu.'
           );
         } else if (err.status === 404) {
           setError('Artikel mungkin sudah terhapus sebelumnya.');
@@ -131,7 +132,7 @@ export function DeleteArticleModal({
     return (
       <Dialog open onClose={onClose} size="md" disableBackdropClose>
         <DialogHeader
-          icon={<span className="text-2xl">✓</span>}
+          icon={<Check size={24} aria-hidden />}
           title="Artikel Berhasil Dihapus"
           description={
             result.files_removed
@@ -159,7 +160,7 @@ export function DeleteArticleModal({
   return (
     <Dialog open onClose={onClose} size="md" disableBackdropClose={isDeleting}>
       <DialogHeader
-        icon={<span className="text-xl">🗑️</span>}
+        icon={<Trash2 size={22} aria-hidden />}
         title="Hapus Permanen Artikel"
         description="Aksi ini TIDAK BISA dibatalkan. Artikel + semua foto terkait akan dihapus permanen."
         tone="danger"
@@ -186,8 +187,8 @@ export function DeleteArticleModal({
             <li className="list-disc">Semua foto di Supabase Storage</li>
             <li className="list-disc">Versi artikel (cascade)</li>
           </ul>
-          <p className="text-status-healthy pt-1">
-            ✓ Audit log tetap tersimpan (untuk compliance)
+          <p className="text-status-healthy pt-1 flex items-center gap-1">
+            <Check size={14} aria-hidden /> Audit log tetap tersimpan (untuk compliance)
           </p>
         </div>
 
@@ -200,7 +201,7 @@ export function DeleteArticleModal({
             placeholder={article.slug}
             helperText={
               isSlugMatch
-                ? '✓ Slug cocok'
+                ? 'Slug cocok'
                 : 'Copy-paste slug di atas persis'
             }
             disabled={isDeleting}

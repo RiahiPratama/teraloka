@@ -1,5 +1,7 @@
 'use client';
 
+import { TrendingUp, Info, AlertTriangle, Newspaper, Eye, Share2, Users, Clock, Trophy } from 'lucide-react';
+
 /**
  * TeraLoka — Distribution Metrics View
  * Phase 2 · Batch 7e5 — Tab 3 Content Panel
@@ -93,7 +95,7 @@ export function DistributionMetricsView() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-base font-bold text-text flex items-center gap-2">
-            <span>📈</span>
+            <TrendingUp size={18} className="text-brand-teal shrink-0" aria-hidden />
             <span>Distribution Metrics</span>
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
@@ -122,7 +124,7 @@ export function DistributionMetricsView() {
 
       {/* Pre-launch note */}
       <div className="rounded-lg bg-status-info/8 border border-status-info/30 px-3 py-2 text-xs text-status-info flex items-start gap-2">
-        <span className="shrink-0">ℹ️</span>
+        <Info size={16} className="shrink-0 mt-px" aria-hidden />
         <span>
           <strong>Pre-launch note:</strong> Data traffic akan terisi organic setelah platform public launch.
           Saat ini charts mungkin empty — infrastructure siap collect data dari menit pertama launch.
@@ -132,7 +134,7 @@ export function DistributionMetricsView() {
       {/* Error */}
       {error && (
         <div className="px-4 py-3 rounded-lg bg-status-critical/10 border border-status-critical/30 text-status-critical text-sm flex items-center justify-between gap-3">
-          <span>⚠️ {error}</span>
+          <span className="flex items-center gap-1.5"><AlertTriangle size={16} aria-hidden /> {error}</span>
           <button
             onClick={refetch}
             className="text-xs font-semibold underline hover:no-underline"
@@ -181,30 +183,10 @@ interface SummaryCardsProps {
 
 function SummaryCards({ summary, loading }: SummaryCardsProps) {
   const cards = [
-    {
-      label: 'Total Pageviews',
-      value: summary?.total_pageviews ?? 0,
-      emoji: '👁',
-      format: 'compact',
-    },
-    {
-      label: 'Total Shares',
-      value: summary?.total_shares ?? 0,
-      emoji: '↗',
-      format: 'compact',
-    },
-    {
-      label: 'Peak Unique Users',
-      value: summary?.peak_unique_users ?? 0,
-      emoji: '👥',
-      format: 'num',
-    },
-    {
-      label: 'Avg Time on Page',
-      value: summary?.avg_time_seconds ?? 0,
-      emoji: '⏱',
-      format: 'seconds',
-    },
+    { label: 'Total Pageviews',   value: summary?.total_pageviews ?? 0,   Icon: Eye,    format: 'compact' },
+    { label: 'Total Shares',      value: summary?.total_shares ?? 0,      Icon: Share2, format: 'compact' },
+    { label: 'Peak Unique Users', value: summary?.peak_unique_users ?? 0, Icon: Users,  format: 'num' },
+    { label: 'Avg Time on Page',  value: summary?.avg_time_seconds ?? 0,  Icon: Clock,  format: 'seconds' },
   ];
 
   return (
@@ -213,7 +195,7 @@ function SummaryCards({ summary, loading }: SummaryCardsProps) {
         <Card padded key={c.label} className="!p-3">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-text-muted">{c.label}</span>
-            <span className="text-sm">{c.emoji}</span>
+            <c.Icon size={16} className="text-text-muted" aria-hidden />
           </div>
           {loading ? (
             <div className="h-6 w-12 rounded bg-surface-muted animate-pulse mt-1" />
@@ -244,7 +226,7 @@ function TopArticlesList({ data, loading }: TopArticlesListProps) {
     <Card padded>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-text flex items-center gap-2">
-          <span>🏆</span>
+          <Trophy size={16} className="text-text-muted shrink-0" aria-hidden />
           <span>Top Articles by Views</span>
         </h3>
         <p className="text-xs text-text-muted mt-0.5">
@@ -263,7 +245,7 @@ function TopArticlesList({ data, loading }: TopArticlesListProps) {
         </div>
       ) : data.length === 0 ? (
         <div className="py-8 text-center flex flex-col items-center gap-1">
-          <span className="text-3xl mb-1">📰</span>
+          <Newspaper size={28} className="text-text-muted mb-1" aria-hidden />
           <p className="text-sm font-semibold text-text-muted">
             Belum ada view data
           </p>

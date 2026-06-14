@@ -26,6 +26,7 @@
  */
 
 import Link from 'next/link';
+import { Flame, Eye, Share2 } from 'lucide-react';
 import { ArticleStatusBadge } from './status-badge';
 import { timeAgo, formatNum, type Article } from '@/types/articles';
 
@@ -69,10 +70,10 @@ export function ArticleRow({
           )}
           {article.is_viral && (
             <span
-              className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-status-warning/15 text-status-warning"
+              className="inline-flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-status-warning/15 text-status-warning"
               title="Viral"
             >
-              🔥 VIRAL
+              <Flame size={11} aria-hidden /> VIRAL
             </span>
           )}
           <Link
@@ -99,11 +100,11 @@ export function ArticleRow({
       {/* Metrics (full variant) OR date (compact variant) */}
       {variant === 'full' ? (
         <div className="flex items-center gap-3 text-xs text-text-muted whitespace-nowrap">
-          <span title={`${article.view_count} views`}>
-            👁 {formatNum(article.view_count)}
+          <span className="inline-flex items-center gap-1" title={`${article.view_count} views`}>
+            <Eye size={14} aria-hidden /> {formatNum(article.view_count)}
           </span>
-          <span title={`${article.share_count} shares`}>
-            ↗ {formatNum(article.share_count)}
+          <span className="inline-flex items-center gap-1" title={`${article.share_count} shares`}>
+            <Share2 size={14} aria-hidden /> {formatNum(article.share_count)}
           </span>
         </div>
       ) : (

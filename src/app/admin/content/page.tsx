@@ -60,20 +60,24 @@ import type {
   CategoryCount,
 } from '@/types/newsroom-analytics';
 import { LastPublishBanner, ContentGaps, CoverageRegions } from '@/components/admin/content/content-pulse';
+import {
+  LayoutDashboard, NotebookPen, Newspaper, TrendingUp, Radar,
+  AlertTriangle, Lock, ClipboardList, Search, type LucideIcon,
+} from 'lucide-react';
 import { RadarPanel } from '@/components/admin/radar/radar-panel';
 
 type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution' | 'radar';
 
 // 🛡️ Radar Anggaran = tab super_admin-only (di-append ke visibleTabs di bawah).
-const RADAR_TAB: { key: Tab; label: string; icon: string } = {
-  key: 'radar', label: 'Radar Anggaran', icon: '📡',
+const RADAR_TAB: { key: Tab; label: string; Icon: LucideIcon } = {
+  key: 'radar', label: 'Radar Anggaran', Icon: Radar,
 };
 
-const TABS: { key: Tab; label: string; icon: string }[] = [
-  { key: 'overview',     label: 'Overview',             icon: '📊' },
-  { key: 'editorial',    label: 'Editorial Hub',        icon: '📝' },
-  { key: 'newsroom',     label: 'Newsroom Analytics',   icon: '📰' },
-  { key: 'distribution', label: 'Distribution Metrics', icon: '📈' },
+const TABS: { key: Tab; label: string; Icon: LucideIcon }[] = [
+  { key: 'overview',     label: 'Overview',             Icon: LayoutDashboard },
+  { key: 'editorial',    label: 'Editorial Hub',        Icon: NotebookPen },
+  { key: 'newsroom',     label: 'Newsroom Analytics',   Icon: Newspaper },
+  { key: 'distribution', label: 'Distribution Metrics', Icon: TrendingUp },
 ];
 
 const PAGE_SIZE = 10;
@@ -299,7 +303,7 @@ export default function AdminContentPage() {
       <div className="flex items-center justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold text-text tracking-tight flex items-center gap-2">
-            <span>📰</span>
+            <Newspaper size={20} className="text-brand-teal shrink-0" aria-hidden />
             <span>BAKABAR Command Center</span>
           </h1>
           <p className="text-sm text-text-muted mt-1">
@@ -330,7 +334,7 @@ export default function AdminContentPage() {
               }
             `}
           >
-            <span className="mr-1.5">{tab.icon}</span>
+            <tab.Icon size={18} className="inline-block align-text-bottom mr-1.5" aria-hidden />
             {tab.label}
             {activeTab === tab.key && (
               <span className="absolute left-0 right-0 -bottom-px h-[2px] bg-brand-teal" />
@@ -342,7 +346,7 @@ export default function AdminContentPage() {
       {/* Error banner for main articles */}
       {articlesError && (
         <div className="mb-4 px-4 py-3 rounded-lg bg-status-critical/10 border border-status-critical/30 text-status-critical text-sm flex items-center justify-between gap-3">
-          <span>⚠️ {articlesError}</span>
+          <span className="flex items-center gap-1.5"><AlertTriangle size={16} aria-hidden /> {articlesError}</span>
           <button
             onClick={refetch}
             className="text-xs font-semibold underline hover:no-underline"
@@ -399,7 +403,7 @@ export default function AdminContentPage() {
             >
               <div className="flex items-center justify-between gap-3 mb-4">
                 <h3 className="text-sm font-bold text-text flex items-center gap-2">
-                  <span>📋</span>
+                  <ClipboardList size={16} className="text-text-muted shrink-0" aria-hidden />
                   <span>Manajemen Artikel</span>
                 </h3>
                 <span className="text-xs text-text-muted">
@@ -440,7 +444,7 @@ export default function AdminContentPage() {
                 </div>
               ) : manageArticles.length === 0 ? (
                 <div className="py-12 text-center">
-                  <p className="text-3xl mb-2">🔎</p>
+                  <Search size={28} className="text-text-muted mx-auto mb-2" aria-hidden />
                   <p className="text-sm text-text-muted">
                     {hasActiveFilters
                       ? 'Tidak ada artikel yang cocok dengan filter.'
@@ -515,9 +519,8 @@ export default function AdminContentPage() {
           {/* Non-super_admin note */}
           {!isSuperAdmin && (
             <div className="rounded-xl border border-dashed border-border bg-surface-muted/50 p-6 text-center">
-              <p className="text-sm text-text-muted">
-                🔒 Manajemen Artikel (delete, filter advanced) hanya untuk
-                Super Admin
+              <p className="text-sm text-text-muted flex items-center justify-center gap-1.5">
+                <Lock size={16} aria-hidden /> Manajemen Artikel (delete, filter advanced) hanya untuk Super Admin
               </p>
             </div>
           )}

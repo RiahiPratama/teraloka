@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Plus, Trash2, ExternalLink, Database } from 'lucide-react';
+import { Plus, Trash2, ExternalLink, Database, Check, X } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useLocationTree } from '@/components/shared/locations';
 import { Card } from '@/components/ui/card';
@@ -487,11 +487,11 @@ export function RadarPanel() {
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed top-20 right-6 z-[150] px-4 py-3 rounded-xl shadow-lg text-sm font-semibold text-white ${
+          className={`fixed top-20 right-6 z-[150] px-4 py-3 rounded-xl shadow-lg text-sm font-semibold text-white flex items-center gap-1.5 ${
             toast.ok ? 'bg-status-healthy' : 'bg-status-critical'
           }`}
         >
-          {toast.ok ? '✓' : '✗'} {toast.msg}
+          {toast.ok ? <Check size={16} aria-hidden /> : <X size={16} aria-hidden />} {toast.msg}
         </div>
       )}
     </div>

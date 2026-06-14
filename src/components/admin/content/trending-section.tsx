@@ -15,6 +15,7 @@
  */
 
 import Link from 'next/link';
+import { Flame, AlertTriangle, Check, Circle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ArticleRow } from './article-row';
@@ -61,7 +62,7 @@ export function TrendingSection({
       <Card padded>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-base">🔥</span>
+            <Flame size={16} className="text-text-muted shrink-0" aria-hidden />
             <h3 className="text-sm font-bold text-text">Trending</h3>
           </div>
           <Link
@@ -119,7 +120,7 @@ export function TrendingSection({
       >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
-            <span className="text-base">⚠️</span>
+            <AlertTriangle size={16} className="text-text-muted shrink-0" aria-hidden />
             <h3 className="text-sm font-bold text-text">Perlu Perhatian</h3>
           </div>
           {staleDrafts.length > 0 && onReviewStaleDrafts && (
@@ -144,8 +145,8 @@ export function TrendingSection({
             ))}
           </div>
         ) : staleDrafts.length === 0 && reviewBacklog.length === 0 ? (
-          <div className="py-6 text-center">
-            <span className="text-2xl">✓</span>
+          <div className="py-6 text-center flex flex-col items-center">
+            <Check size={28} className="text-status-healthy" aria-hidden />
             <p className="text-sm text-text-muted mt-1">
               Semua artikel sudah diproses dengan baik
             </p>
@@ -155,21 +156,18 @@ export function TrendingSection({
             {staleDrafts.length > 0 && (
               <AlertItem
                 color="warning"
-                emoji="🟡"
                 text={`${staleDrafts.length} draft belum dipublish > 3 jam`}
               />
             )}
             {reviewBacklog.length > 0 && (
               <AlertItem
                 color="info"
-                emoji="🔵"
                 text={`${reviewBacklog.length} artikel menunggu review editor`}
               />
             )}
             {drafts.length > staleDrafts.length && (
               <AlertItem
                 color="neutral"
-                emoji="⚪"
                 text={`${drafts.length} total draft aktif`}
               />
             )}
@@ -184,11 +182,10 @@ export function TrendingSection({
 
 interface AlertItemProps {
   color: 'warning' | 'info' | 'neutral';
-  emoji: string;
   text: string;
 }
 
-function AlertItem({ color, emoji, text }: AlertItemProps) {
+function AlertItem({ color, text }: AlertItemProps) {
   const colorClass: Record<AlertItemProps['color'], string> = {
     warning: 'text-status-warning',
     info:    'text-status-info',
@@ -199,9 +196,7 @@ function AlertItem({ color, emoji, text }: AlertItemProps) {
     <li
       className={`flex items-start gap-2.5 text-sm ${colorClass[color]} leading-snug`}
     >
-      <span className="shrink-0" aria-hidden="true">
-        {emoji}
-      </span>
+      <Circle size={8} className="shrink-0 mt-1.5 fill-current" aria-hidden />
       <span>{text}</span>
     </li>
   );

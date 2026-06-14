@@ -1,5 +1,7 @@
 'use client';
 
+import { Share2, Send, type LucideIcon } from 'lucide-react';
+
 /**
  * TeraLoka — Share Platform Chart
  * Phase 2 · Batch 7e5 — Distribution Metrics
@@ -45,7 +47,7 @@ export function SharePlatformChart({ data, loading = false }: SharePlatformChart
     <Card padded>
       <div className="mb-4">
         <h3 className="text-sm font-bold text-text flex items-center gap-2">
-          <span>↗</span>
+          <Share2 size={16} className="text-text-muted shrink-0" aria-hidden />
           <span>Share Platform Breakdown</span>
         </h3>
         <p className="text-xs text-text-muted mt-0.5">
@@ -57,7 +59,7 @@ export function SharePlatformChart({ data, loading = false }: SharePlatformChart
         <div className="h-[220px] rounded bg-surface-muted animate-pulse" />
       ) : chartData.length === 0 ? (
         <EmptyState
-          emoji="📤"
+          Icon={Send}
           title="Belum ada share data"
           message="Data akan muncul setelah user mulai share artikel (post-launch)"
         />
@@ -111,15 +113,15 @@ export function SharePlatformChart({ data, loading = false }: SharePlatformChart
 /* ─── Empty state ─── */
 
 interface EmptyStateProps {
-  emoji: string;
+  Icon: LucideIcon;
   title: string;
   message: string;
 }
 
-function EmptyState({ emoji, title, message }: EmptyStateProps) {
+function EmptyState({ Icon, title, message }: EmptyStateProps) {
   return (
     <div className="h-[220px] flex flex-col items-center justify-center text-center gap-1">
-      <span className="text-3xl mb-1">{emoji}</span>
+      <Icon size={28} className="text-text-muted mb-1" aria-hidden />
       <p className="text-sm font-semibold text-text-muted">{title}</p>
       <p className="text-xs text-text-subtle max-w-[240px]">{message}</p>
     </div>

@@ -14,6 +14,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import {
+  Check, X, NotebookPen, AlertTriangle, Flame, Zap, Megaphone, Rss, PenLine, Inbox,
+} from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -171,11 +174,11 @@ export function EditorialView() {
       {/* Toast */}
       {toast && (
         <div
-          className={`fixed top-5 right-5 z-50 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-lg ${
+          className={`fixed top-5 right-5 z-50 px-4 py-2.5 rounded-lg text-sm font-semibold text-white shadow-lg flex items-center gap-1.5 ${
             toast.ok ? 'bg-status-healthy' : 'bg-status-critical'
           }`}
         >
-          {toast.ok ? '✓' : '✗'} {toast.msg}
+          {toast.ok ? <Check size={16} aria-hidden /> : <X size={16} aria-hidden />} {toast.msg}
         </div>
       )}
 
@@ -183,7 +186,7 @@ export function EditorialView() {
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
           <h2 className="text-sm font-bold text-text flex items-center gap-2">
-            <span>📝</span> Editorial Hub
+            <NotebookPen size={16} className="text-text-muted shrink-0" aria-hidden /> Editorial Hub
           </h2>
           <p className="text-xs text-text-muted mt-0.5">
             {total.toLocaleString('id-ID')} artikel · halaman {page}/{totalPages}
@@ -193,7 +196,7 @@ export function EditorialView() {
           href="/office/newsroom/bakabar/hub/new"
           className="inline-flex items-center gap-2 px-3.5 py-2 rounded-lg bg-brand-teal text-white text-xs font-semibold hover:bg-brand-teal/90 transition-colors"
         >
-          ✍️ Tulis Artikel
+          <PenLine size={14} aria-hidden /> Tulis Artikel
         </Link>
       </div>
 
@@ -243,7 +246,7 @@ export function EditorialView() {
       {/* Error */}
       {error && (
         <div className="rounded-lg bg-status-critical/10 border border-status-critical/30 px-3 py-2 flex items-center justify-between gap-3">
-          <span className="text-sm text-status-critical">⚠️ {error}</span>
+          <span className="text-sm text-status-critical flex items-center gap-1.5"><AlertTriangle size={16} aria-hidden /> {error}</span>
           <button onClick={() => setReloadNonce((n) => n + 1)} className="text-xs font-semibold text-status-critical underline hover:no-underline shrink-0">Coba lagi</button>
         </div>
       )}
@@ -265,7 +268,7 @@ export function EditorialView() {
           <div className="py-16 text-center text-sm text-text-muted">Memuat artikel…</div>
         ) : articles.length === 0 ? (
           <div className="py-16 text-center">
-            <p className="text-3xl mb-2">📭</p>
+            <Inbox size={28} className="text-text-muted mx-auto mb-2" aria-hidden />
             <p className="text-sm text-text-muted">
               {search ? `Tidak ada hasil untuk "${search}"` : 'Tidak ada artikel'}
             </p>
@@ -283,8 +286,8 @@ export function EditorialView() {
                 <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full w-fit ${STATUS_BADGE[a.status] ?? 'bg-surface-muted text-text-muted'}`}>
                   {STATUS_LABEL[a.status] ?? a.status}
                 </span>
-                {a.is_viral && <span className="text-[10px] font-bold text-status-warning">🔥 Viral</span>}
-                {a.is_breaking && <span className="text-[10px] font-bold text-status-critical">🔴 Breaking</span>}
+                {a.is_viral && <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-status-warning"><Flame size={11} aria-hidden /> Viral</span>}
+                {a.is_breaking && <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-status-critical"><Zap size={11} aria-hidden /> Breaking</span>}
               </div>
 
               {/* Judul */}
@@ -292,8 +295,12 @@ export function EditorialView() {
                 <p className="font-semibold text-[13px] text-text truncate">{a.title}</p>
                 <p className="text-[11px] text-text-muted">
                   {a.category || 'Umum'}
-                  {a.source === 'balapor' && ' · 📢 BALAPOR'}
-                  {a.source === 'rss' && ' · 🗞️ RSS'}
+                  {a.source === 'balapor' && (
+                    <span className="inline-flex items-center gap-0.5"> · <Megaphone size={11} aria-hidden /> BALAPOR</span>
+                  )}
+                  {a.source === 'rss' && (
+                    <span className="inline-flex items-center gap-0.5"> · <Rss size={11} aria-hidden /> RSS</span>
+                  )}
                 </p>
               </div>
 

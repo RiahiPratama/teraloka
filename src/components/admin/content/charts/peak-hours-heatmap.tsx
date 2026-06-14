@@ -1,5 +1,7 @@
 'use client';
 
+import { Clock } from 'lucide-react';
+
 /**
  * TeraLoka — Peak Hours Heatmap
  * Phase 2 · Batch 7e5 — Distribution Metrics
@@ -71,7 +73,7 @@ export function PeakHoursHeatmap({ data, loading = false }: PeakHoursHeatmapProp
       <div className="flex items-start justify-between gap-3 mb-4">
         <div>
           <h3 className="text-sm font-bold text-text flex items-center gap-2">
-            <span>🕐</span>
+            <Clock size={16} className="text-text-muted shrink-0" aria-hidden />
             <span>Peak Reading Hours</span>
           </h3>
           <p className="text-xs text-text-muted mt-0.5">
@@ -92,7 +94,7 @@ export function PeakHoursHeatmap({ data, loading = false }: PeakHoursHeatmapProp
         <div className="h-[220px] rounded bg-surface-muted animate-pulse" />
       ) : totalViews === 0 ? (
         <div className="h-[220px] flex flex-col items-center justify-center text-center gap-1">
-          <span className="text-3xl mb-1">🕐</span>
+          <Clock size={28} className="text-text-muted mb-1" aria-hidden />
           <p className="text-sm font-semibold text-text-muted">
             Belum ada data peak hours
           </p>

@@ -1,5 +1,7 @@
 'use client';
 
+import { LineChart as LineChartIcon } from 'lucide-react';
+
 /**
  * TeraLoka — Velocity Chart
  * Phase 2 · Batch 7e4 — Newsroom Analytics
@@ -47,7 +49,7 @@ export function VelocityChart({ data, loading = false }: VelocityChartProps) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-sm font-bold text-text flex items-center gap-2">
-            <span>📈</span>
+            <LineChartIcon size={16} className="text-text-muted shrink-0" aria-hidden />
             <span>Publishing Velocity</span>
           </h3>
           <p className="text-xs text-text-muted mt-0.5">

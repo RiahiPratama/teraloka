@@ -15,6 +15,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState } from 'react';
+import { Check, PenLine } from 'lucide-react';
 import Link from 'next/link';
 import { Card } from '@/components/ui/card';
 import { useApi, ApiError } from '@/lib/api/client';
@@ -56,7 +57,7 @@ export function LastPublishBanner({ velocity }: { velocity: VelocityPoint[] }) {
     days === null
       ? 'Belum ada artikel terbit'
       : days === 0
-        ? 'Terbit hari ini ✓'
+        ? 'Terbit hari ini'
         : `${days} hari sejak publish terakhir`;
 
   return (
@@ -73,7 +74,7 @@ export function LastPublishBanner({ velocity }: { velocity: VelocityPoint[] }) {
         href={HUB_NEW}
         className="shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-md bg-brand-teal text-white text-xs font-bold hover:bg-brand-teal/90 transition-colors"
       >
-        ✍️ Tulis
+        <PenLine size={14} aria-hidden /> Tulis
       </Link>
     </Card>
   );
@@ -250,10 +251,11 @@ export function CoverageRegions() {
       )}
 
       {okCount > 0 && (
-        <p className="text-[11px] text-text-subtle">
+        <p className="text-[11px] text-text-subtle flex items-center gap-1">
+          <Check size={12} className="text-status-healthy shrink-0" aria-hidden />
           {empty.length === 0 && thin.length === 0
-            ? `Semua ${regions.length} daerah ter-cover ✓`
-            : `${okCount} daerah lain cukup ter-cover ✓`}
+            ? `Semua ${regions.length} daerah ter-cover`
+            : `${okCount} daerah lain cukup ter-cover`}
         </p>
       )}
     </Card>
