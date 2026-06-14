@@ -167,6 +167,7 @@ function HubContent() {
   const [articles, setArticles]       = useState<Article[]>([]);
   const [total, setTotal]             = useState(0);
   const [loading, setLoading]         = useState(true);
+  const [fetchError, setFetchError]   = useState(false);  // #5: bedain "gagal load" vs "memang kosong"
   const [actionLoading, setAction]    = useState<string | null>(null);
   const [statusFilter, setStatus]     = useState(initialStatus);
   const [categoryFilter, setCategory] = useState('');
@@ -191,18 +192,21 @@ function HubContent() {
   const fetchArticles = useCallback(async () => {
     if (!token) return;
     setLoading(true);
+    setFetchError(false);
     try {
       const params = new URLSearchParams({ limit: String(limit), page: String(page) });
       if (statusFilter)   params.set('status', statusFilter);
       if (categoryFilter) params.set('category', categoryFilter);
       if (search)         params.set('q', search);
       const res  = await fetch(`${API_URL}/admin/articles?${params}`, { headers: { Authorization: `Bearer ${token}` } });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
+      const data = await res.json().catch(() => null);
+      // #5: cek res.ok + success (521 HTML / 5xx → jangan dianggap "kosong")
+      if (!res.ok || !data?.success) throw new Error(data?.error?.message);
       setArticles(data.data.data);
       setTotal(data.data.total);
     } catch (err: any) {
-      showToast(err.message || 'Gagal memuat artikel', false);
+      setFetchError(true);
+      showToast(err.message || 'Gagal memuat artikel, coba lagi', false);
     } finally {
       setLoading(false);
     }
@@ -232,10 +236,11 @@ function HubContent() {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus }),
       });
-      const data = await res.json();
-      if (!data.success) throw new Error(data.error?.message);
+      const data = await res.json().catch(() => null);
+      // #4: cek res.ok + success → toast jujur (jangan klaim sukses kalau 521/5xx)
+      if (!res.ok || !data?.success) throw new Error(data?.error?.message);
       showToast(`"${title.slice(0, 28)}..." → ${STATUS_STYLE[newStatus]?.label ?? newStatus}`);
-      fetchArticles();
+      fetchArticles();  // 🛡️ refetch = mekanisme koreksi row (dipertahankan)
     } catch (err: any) {
       showToast(err.message || 'Gagal update status', false);
     } finally {
@@ -373,7 +378,22 @@ function HubContent() {
           </div>
         )}
 
-        {!loading && articles.length === 0 && (
+        {/* #5: gagal load → pesan error + retry (BEDA dari "memang kosong" di bawah) */}
+        {!loading && fetchError && (
+          <div style={{ padding: '60px 24px', textAlign: 'center' }}>
+            <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Inbox size={36} color="#EF4444" strokeWidth={1.5} /></div>
+            <p style={{ color: '#EF4444', fontSize: 13, fontWeight: 600 }}>Gagal memuat artikel</p>
+            <button
+              type="button"
+              onClick={() => fetchArticles()}
+              style={{ marginTop: 10, padding: '6px 14px', borderRadius: 8, border: `1px solid ${t.sidebarBorder}`, background: 'transparent', color: t.textPrimary, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}
+            >
+              Coba lagi
+            </button>
+          </div>
+        )}
+
+        {!loading && !fetchError && articles.length === 0 && (
           <div style={{ padding: '60px 24px', textAlign: 'center' }}>
             <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}><Inbox size={36} color={t.textDim} strokeWidth={1.5} /></div>
             <p style={{ color: t.textDim, fontSize: 13 }}>{search ? `Tidak ada hasil untuk "${search}"` : 'Tidak ada artikel'}</p>
