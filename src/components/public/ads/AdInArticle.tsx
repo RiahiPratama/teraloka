@@ -27,11 +27,12 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
+import { useAdFetch } from '@/hooks/useAdFetch';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel, isLabelMandatory } from '@/lib/ads/getAdLabel';
 // SESI 5H Phase 5B (21 Mei 2026): GSAP animated banner DCA-Aligned
@@ -78,24 +79,6 @@ interface Props {
   formatFilter?: AdFormatFilter;
 }
 
-async function fetchActiveAd(
-  position: string,
-  region: string | null,
-  formatFilter?: AdFormatFilter,
-): Promise<Ad | null> {
-  try {
-    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.success) return null;
-    const ads = data.data ?? [];
-    if (!ads.length) return null;
-    return ads[Math.floor(Math.random() * ads.length)];
-  } catch {
-    return null;
-  }
-}
-
 // SESI 11: klik lewat beacon batch (bukan fetch /click langsung)
 function trackAdClick(adId: string) {
   queueClick(adId);
@@ -117,19 +100,18 @@ function truncate(text: string, max: number): string {
 export default function AdInArticle({ formatFilter }: Props = {}) {
   const { region } = useRegion();
 
-  const [ad,      setAd]      = useState<Ad | null>(null);
-  const [loaded,  setLoaded]  = useState(false);
+  // useAdFetch (res.ok + retry + abort) — url ikut region+formatFilter; saat url
+  // berubah hook abort fetch lama → race #5 (data stale ketimpa) beres otomatis.
+  const url = `${API}/public/ads?position=in_article${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
+  const { data, loading } = useAdFetch<Ad>(url);
+  // 🛡️ Random pick di useMemo([data]) — roll 1x per data baru, BUKAN tiap render.
+  const ad = useMemo(() => (data.length ? data[Math.floor(Math.random() * data.length)] : null), [data]);
+
   const [visible, setVisible] = useState(false);
   const [refEl,   setRefEl]   = useState<HTMLElement | null>(null);
 
   // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x)
   const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
-
-  // Re-fetch saat region atau formatFilter berubah
-  useEffect(() => {
-    setLoaded(false);
-    fetchActiveAd('in_article', region, formatFilter).then(a => { setAd(a); setLoaded(true); });
-  }, [region, formatFilter]);
 
   useEffect(() => {
     if (!refEl) return;
@@ -165,7 +147,7 @@ export default function AdInArticle({ formatFilter }: Props = {}) {
   };
 
   // ═══ Skeleton loading ═══
-  if (!loaded) {
+  if (loading) {
     return (
       <>
         <style>{`

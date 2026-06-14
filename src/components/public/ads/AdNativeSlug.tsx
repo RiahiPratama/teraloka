@@ -17,12 +17,13 @@
  */
 
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { Megaphone, Newspaper, ArrowRight } from 'lucide-react';
 import { useAdRotation, type AdFrame } from '@/hooks/useAdRotation';
 import { useRegion, buildRegionParam } from '@/contexts/RegionContext';
 import type { AdFormatFilter } from '@/lib/ad-settings';
 import { buildFormatFilterParam } from '@/lib/ad-settings';
+import { useAdFetch } from '@/hooks/useAdFetch';
 // SESI 11 (31 Mei 2026): viewability impression + click beacon
 import { useAdView } from '@/hooks/useAdView';
 import { queueClick } from '@/lib/adTracking';
@@ -48,24 +49,6 @@ interface Props {
   formatFilter?: AdFormatFilter;
 }
 
-async function fetchActiveAd(
-  position: string,
-  region: string | null,
-  formatFilter?: AdFormatFilter,
-): Promise<Ad | null> {
-  try {
-    const url = `${API}/public/ads?position=${position}${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
-    const res = await fetch(url);
-    const data = await res.json();
-    if (!data.success) return null;
-    const ads = data.data ?? [];
-    if (!ads.length) return null;
-    return ads[Math.floor(Math.random() * ads.length)];
-  } catch {
-    return null;
-  }
-}
-
 // SESI 11: klik lewat beacon batch (bukan fetch /click langsung)
 function trackAdClick(adId: string) {
   queueClick(adId);
@@ -87,22 +70,20 @@ function truncate(text: string, max: number): string {
 export default function AdNativeSlug({ formatFilter }: Props = {}) {
   const { region } = useRegion();
 
-  const [ad, setAd] = useState<Ad | null>(null);
+  // useAdFetch (res.ok + retry + abort) — url ikut region+formatFilter; saat url
+  // berubah hook abort fetch lama → race #5 (data stale ketimpa) beres otomatis.
+  const url = `${API}/public/ads?position=native${buildRegionParam(region)}${buildFormatFilterParam(formatFilter)}`;
+  const { data, loading } = useAdFetch<Ad>(url);
+  // 🛡️ Random pick di useMemo([data]) — roll 1x per data baru, BUKAN tiap render.
+  const ad = useMemo(() => (data.length ? data[Math.floor(Math.random() * data.length)] : null), [data]);
   // SESI 11: sensor impresi viewability (IAB 50%/1s, fire 1x)
   const viewRef = useAdView<HTMLElement>(ad?.id ?? null);
-  const [loaded, setLoaded] = useState(false);
-
-  // Re-fetch saat region atau formatFilter berubah
-  useEffect(() => {
-    setLoaded(false);
-    fetchActiveAd('native', region, formatFilter).then(a => { setAd(a); setLoaded(true); });
-  }, [region, formatFilter]);
 
   // DCA rotation SILENT (Pattern AAA Native Editorial Blend + SESI 5E Phase 2 hybrid)
   const { active: activeFrame, isDCA } = useAdRotation(ad?.creative_frames, 'native');
 
   // Placeholder saat loading atau tidak ada iklan aktif
-  if (!loaded || !ad) {
+  if (loading || !ad) {
     return (
       <div className="mt-5 rounded-2xl p-4" style={{ background: '#FDF6E8', border: '0.5px solid #FAC775', borderLeft: '3px solid #BA7517' }}>
         <div className="flex items-start gap-3">
