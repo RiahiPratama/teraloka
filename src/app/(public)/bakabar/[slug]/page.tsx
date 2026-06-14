@@ -20,6 +20,7 @@ type Props = { params: Promise<{ slug: string }> };
 async function getArticle(slug: string) {
   try {
     const res = await fetch(`${API}/content/articles/${slug}`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;  // 🛡️ 521/5xx → jangan parse HTML; null → notFound
     const data = await res.json();
     if (!data.success) return null;
     return data.data;
@@ -30,6 +31,7 @@ async function getRelatedArticles(category: string, currentSlug: string) {
   if (!category) return [];
   try {
     const res = await fetch(`${API}/content/articles?category=${encodeURIComponent(category)}&limit=4`, { next: { revalidate: 120 } });
+    if (!res.ok) return [];  // 🛡️ sekunder → kosong, artikel utama tetap tayang
     const data = await res.json();
     if (!data.success) return [];
     return (data.data ?? []).filter((a: any) => a.slug !== currentSlug).slice(0, 3);
@@ -39,6 +41,7 @@ async function getRelatedArticles(category: string, currentSlug: string) {
 async function getStats() {
   try {
     const res = await fetch(`${API}/public/stats`, { next: { revalidate: 60 } });
+    if (!res.ok) return null;  // 🛡️ sekunder → null, fallback UI
     const data = await res.json();
     return data.data ?? null;
   } catch { return null; }
@@ -49,6 +52,7 @@ async function getStats() {
 async function getDonationSummary(): Promise<{ total: number | null; donors: number | null }> {
   try {
     const res = await fetch(`${API}/funding/stats/public`, { next: { revalidate: 120 } });
+    if (!res.ok) return { total: null, donors: null };  // 🛡️ sekunder → 'Segera'
     const data = await res.json();
     if (!data.success || !data.data) return { total: null, donors: null };
     return {
