@@ -39,6 +39,15 @@ export interface WatchdogLead {
   created_at:           string;
   updated_at:           string;
   flags?:               Flag[];   // dari response (computed backend) — render-only
+  // Fase 1 enrich SIRUP (NULLABLE — banyak lead null di sebagian field). Render-only.
+  uraian_pekerjaan?:    string | null;
+  volume_raw?:          string | null;
+  volume_qty?:          number | null;
+  volume_unit?:         string | null;
+  unit_price?:          number | null;
+  nama_klpd?:           string | null;
+  lokasi_detail?:       string | null;
+  detail_fetched_at?:   string | null;
 }
 
 // Label NETRAL — bukan vonis. "layak" = layak DITELUSURI lebih lanjut.
@@ -126,6 +135,27 @@ export const TRIASE_FRAMEWORK: TriaseLens[] = [
 export function formatPagu(pagu: number | null): string {
   if (pagu == null) return '—';
   return `Rp ${pagu.toLocaleString('id-ID')}`;
+}
+
+/** True kalau lead udah di-enrich detail SIRUP (status read-only, dari detail_fetched_at). */
+export function isEnriched(lead: WatchdogLead): boolean {
+  return !!lead.detail_fetched_at;
+}
+
+/**
+ * Volume + harga satuan — NETRAL, fakta apa adanya. 🛡️ NO interpretasi (tinggi/mahal),
+ * NO hitung selisih, NO warna alarm. null kalau gak ada data → caller sembunyiin baris.
+ */
+export function formatVolume(lead: WatchdogLead): string | null {
+  const { volume_qty, volume_unit, unit_price, volume_raw } = lead;
+  if (typeof unit_price === 'number' && typeof volume_qty === 'number' && volume_unit) {
+    return `${volume_qty} ${volume_unit} · Rp ${unit_price.toLocaleString('id-ID')} / ${volume_unit}`;
+  }
+  if (typeof volume_qty === 'number' && volume_unit) {
+    return `${volume_qty} ${volume_unit}`;
+  }
+  if (volume_raw && volume_raw.trim()) return volume_raw.trim();
+  return null;
 }
 
 // ─── Radar Smart v1: flag chip presentation ─────────────────────

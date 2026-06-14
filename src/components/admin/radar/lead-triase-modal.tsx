@@ -20,6 +20,8 @@ import {
   STATUS_OPTIONS,
   PRIORITY_OPTIONS,
   TRIASE_FRAMEWORK,
+  isEnriched,
+  formatVolume,
   formatPagu,
   type WatchdogLead,
   type WatchdogStatus,
@@ -94,6 +96,38 @@ export function LeadTriaseModal({ lead, onClose, onSuccess }: Props) {
               </a>
             )}
           </div>
+
+          {/* Detail Paket (SIRUP) — read-only, NETRAL. Cuma render kalau ter-enrich;
+              baris null disembunyiin. 🛡️ unit_price = fakta apa adanya, NO alarm/merah,
+              NO interpretasi. */}
+          {isEnriched(lead) ? (
+            (() => {
+              const volume = formatVolume(lead);
+              const rows: Array<{ label: string; value: string }> = [];
+              if (lead.uraian_pekerjaan) rows.push({ label: 'Uraian', value: lead.uraian_pekerjaan });
+              if (volume) rows.push({ label: 'Volume', value: volume });
+              if (lead.nama_klpd) rows.push({ label: 'K/L/PD', value: lead.nama_klpd });
+              if (lead.lokasi_detail) rows.push({ label: 'Lokasi', value: lead.lokasi_detail });
+              if (rows.length === 0) return null;
+              return (
+                <div className="rounded-lg bg-status-info/5 border border-status-info/20 px-3 py-2.5">
+                  <p className="text-[11px] font-bold uppercase tracking-wide text-text-muted mb-1.5">
+                    Detail Paket (SIRUP)
+                  </p>
+                  <dl className="space-y-1">
+                    {rows.map((r) => (
+                      <div key={r.label} className="flex gap-2 text-xs">
+                        <dt className="text-text-muted shrink-0 w-16">{r.label}</dt>
+                        <dd className="text-text flex-1 min-w-0 break-words">{r.value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              );
+            })()
+          ) : (
+            <p className="text-[11px] text-text-subtle">Detail SIRUP belum ter-enrich.</p>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             <Select

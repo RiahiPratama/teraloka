@@ -34,6 +34,7 @@ import {
   PAGU_PRESETS,
   FLAG_CHIP_CLASS,
   flagTooltip,
+  isEnriched,
   formatPagu,
   type WatchdogLead,
   type Flag,
@@ -292,6 +293,11 @@ export function RadarPanel() {
                     <Badge variant="status" status={PRIORITY_BADGE[lead.priority]}>
                       {PRIORITY_LABEL[lead.priority]}
                     </Badge>
+                    {/* Status data (read-only): lead udah punya detail SIRUP. Netral/abu,
+                        TERPISAH dari chip "Sinyal:" di bawah (status data ≠ sinyal). */}
+                    {isEnriched(lead) && (
+                      <Badge variant="status" status="neutral">✓ Detail</Badge>
+                    )}
                   </div>
                   <p className="text-xs text-text-muted mt-0.5 truncate">
                     {lead.satker} · {formatPagu(lead.pagu)}
