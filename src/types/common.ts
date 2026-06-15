@@ -23,11 +23,37 @@ export interface EmergencyContact {
   relationship: string;
 }
 
+/**
+ * Ticker taxonomy 2-field (sinkron backend teraloka-api Phase 1C).
+ * urgensi → warna/urutan/sticky · kategori → ikon/filter · review_status → antrian verifikasi.
+ * Match enum PERSIS dengan backend — typo = badge gak kerender.
+ */
+export type TickerUrgensi = 'darurat' | 'breaking' | 'normal' | 'promo';
+export type TickerKategori =
+  | 'bahaya'
+  | 'transport'
+  | 'civic'
+  | 'kemanusiaan'
+  | 'berita'
+  | 'komersial';
+export type TickerReviewStatus = 'approved' | 'pending' | 'rejected';
+
+/** Item dari GET /ticker (publik) — backend sudah sort + firewall + cap. */
 export interface TickerItem {
   id: string;
-  priority: 'darurat' | 'kemanusiaan' | 'breaking' | 'transport' | 'promo';
+  urgensi: TickerUrgensi;
+  kategori: TickerKategori;
   text: string;
   link: string | null;
+  source_name: string | null;
+  source_url: string | null;
+  source_timestamp: string | null;
+  created_at: string;
+}
+
+/** Item dari GET /admin/ticker — superset (incl pending/expired/nonaktif). */
+export interface AdminTickerItem extends TickerItem {
+  review_status: TickerReviewStatus;
   is_active: boolean;
   expires_at: string | null;
 }

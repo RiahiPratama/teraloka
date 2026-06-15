@@ -12,13 +12,43 @@ export const COLORS = {
   surface: '#F9FAFB',
 } as const;
 
-export const TICKER_PRIORITY = {
-  darurat: { color: '#DC2626', emoji: '🔴', level: 1 },
-  kemanusiaan: { color: '#2196F3', emoji: '🔵', level: 2 },
-  breaking: { color: '#F59E0B', emoji: '🟡', level: 3 },
-  transport: { color: '#16A34A', emoji: '🟢', level: 4 },
-  promo: { color: '#9CA3AF', emoji: '⚪', level: 5 },
-} as const;
+/**
+ * Ticker taxonomy 2-field (sinkron backend). Pure data — tanpa React/lucide
+ * supaya aman dipakai di server & client component.
+ *
+ * urgensi → warna (Badge status + CSS var buat dot publik). Match enum persis.
+ * kategori → label (ikon lucide di-map di komponen badge, lihat ticker-badges.tsx).
+ *
+ * CATATAN: FE TIDAK me-render urutan dari urgensi — backend yang sort + sticky
+ * darurat + drop promo saat darurat. FE render response apa adanya.
+ */
+import type {
+  TickerUrgensi,
+  TickerKategori,
+} from '@/types/common';
+import type { BadgeStatus } from '@/components/ui/badge';
+
+export const TICKER_URGENSI: Record<
+  TickerUrgensi,
+  { label: string; status: BadgeStatus; dot: string }
+> = {
+  darurat: { label: 'Darurat', status: 'critical', dot: 'var(--color-status-critical)' },
+  breaking: { label: 'Breaking', status: 'warning', dot: 'var(--color-status-warning)' },
+  normal: { label: 'Normal', status: 'info', dot: 'var(--color-status-info)' },
+  promo: { label: 'Promo', status: 'neutral', dot: 'var(--color-text-muted)' },
+};
+
+export const TICKER_KATEGORI: Record<TickerKategori, { label: string }> = {
+  bahaya: { label: 'Bahaya' },
+  transport: { label: 'Transport' },
+  civic: { label: 'Civic' },
+  kemanusiaan: { label: 'Kemanusiaan' },
+  berita: { label: 'Berita' },
+  komersial: { label: 'Komersial' },
+};
+
+/** Kategori yang WAJIB punya expires_at (selaras gatekeep backend). */
+export const TICKER_KATEGORI_REQUIRE_TTL: TickerKategori[] = ['bahaya', 'transport'];
 
 export const LISTING_TIERS = {
   ekonomi: { maxPrice: 800_000, fee: 0, label: 'Ekonomi' },

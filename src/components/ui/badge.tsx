@@ -64,7 +64,7 @@ export type ServiceKey =
   | 'roles';
 
 type BadgeVariant = 'status' | 'service' | 'count';
-type BadgeStatus = 'healthy' | 'warning' | 'critical' | 'info' | 'neutral';
+export type BadgeStatus = 'healthy' | 'warning' | 'critical' | 'info' | 'neutral';
 type BadgeSize = 'xs' | 'sm' | 'md';
 type BadgeStyle = 'solid' | 'soft';
 
