@@ -16,11 +16,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   Activity,
-  Server,
-  Database,
-  KeyRound,
-  MessageCircle,
-  Layers,
   CheckCircle2,
   AlertTriangle,
   XCircle,
@@ -32,54 +27,20 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import {
+  SERVICE_META,
+  GROUPS,
+  TONE_TEXT,
+  TONE_BG,
+  latencyTone,
+  type StatusTone,
+} from '@/components/admin/system-health/shared';
+import { HealthHistorySection } from '@/components/admin/system-health/health-history-section';
 import type {
   DeepHealth,
   HealthServiceKey,
   ServiceHealth,
 } from '@/types/health';
-
-/* ─── Service metadata (label + deskripsi fungsi + ikon) ─── */
-const SERVICE_META: Record<
-  HealthServiceKey,
-  { label: string; desc: string; Icon: LucideIcon }
-> = {
-  self: { label: 'API', desc: 'Backend TeraLoka', Icon: Server },
-  supabase: { label: 'Supabase', desc: 'Database', Icon: Database },
-  fonnte: { label: 'Fonnte', desc: 'WhatsApp OTP', Icon: KeyRound },
-  waha: { label: 'WAHA', desc: 'WhatsApp Notifikasi', Icon: MessageCircle },
-};
-
-/* ─── Grouping (hierarki, bukan 4 kartu flat) ─── */
-const GROUPS: {
-  title: string;
-  desc: string;
-  Icon: LucideIcon;
-  keys: HealthServiceKey[];
-}[] = [
-  { title: 'Core', desc: 'Inti sistem', Icon: Layers, keys: ['self', 'supabase'] },
-  {
-    title: 'Notifikasi WA',
-    desc: 'Kanal WhatsApp',
-    Icon: MessageCircle,
-    keys: ['fonnte', 'waha'],
-  },
-];
-
-/* ─── Tone helpers ─── */
-type StatusTone = 'healthy' | 'warning' | 'critical' | 'neutral';
-
-const TONE_TEXT: Record<StatusTone, string> = {
-  healthy: 'text-status-healthy',
-  warning: 'text-status-warning',
-  critical: 'text-status-critical',
-  neutral: 'text-text-muted',
-};
-const TONE_BG: Record<StatusTone, string> = {
-  healthy: 'bg-status-healthy',
-  warning: 'bg-status-warning',
-  critical: 'bg-status-critical',
-  neutral: 'bg-text-muted',
-};
 
 function statusView(status: string | undefined): {
   label: string;
@@ -94,13 +55,6 @@ function statusView(status: string | undefined): {
   if (!v || v === 'unknown')
     return { label: 'Unknown', tone: 'neutral', Icon: HelpCircle };
   return { label: 'Down', tone: 'critical', Icon: XCircle };
-}
-
-/** Latency → tone by threshold: <100 ijo, 100–500 kuning, >500 merah. */
-function latencyTone(ms: number): StatusTone {
-  if (ms < 100) return 'healthy';
-  if (ms <= 500) return 'warning';
-  return 'critical';
 }
 
 /* ─── WAHA helpers (paling rapuh — device fisik) ─── */
@@ -298,6 +252,9 @@ export default function SystemHealthPage() {
             </div>
           </section>
         ))}
+
+      {/* ─── Level 2 — Riwayat (historis) ─── */}
+      {data && <HealthHistorySection />}
     </div>
   );
 }
