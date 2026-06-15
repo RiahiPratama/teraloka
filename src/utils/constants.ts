@@ -17,11 +17,21 @@ export const COLORS = {
  * supaya aman dipakai di server & client component.
  *
  * urgensi → warna (Badge status + CSS var buat dot publik). Match enum persis.
- * kategori → label (ikon lucide di-map di komponen badge, lihat ticker-badges.tsx).
+ * kategori → label + ikon lucide (SATU sumber, dipakai admin & publik). Ikon ini
+ *   non-client value → aman diimpor di server component (Ticker.tsx) maupun client.
  *
  * CATATAN: FE TIDAK me-render urutan dari urgensi — backend yang sort + sticky
  * darurat + drop promo saat darurat. FE render response apa adanya.
  */
+import {
+  AlertTriangle,
+  Ship,
+  Landmark,
+  HeartHandshake,
+  Newspaper,
+  Tag,
+  type LucideIcon,
+} from 'lucide-react';
 import type {
   TickerUrgensi,
   TickerKategori,
@@ -38,13 +48,16 @@ export const TICKER_URGENSI: Record<
   promo: { label: 'Promo', status: 'neutral', dot: 'var(--color-text-muted)' },
 };
 
-export const TICKER_KATEGORI: Record<TickerKategori, { label: string }> = {
-  bahaya: { label: 'Bahaya' },
-  transport: { label: 'Transport' },
-  civic: { label: 'Civic' },
-  kemanusiaan: { label: 'Kemanusiaan' },
-  berita: { label: 'Berita' },
-  komersial: { label: 'Komersial' },
+export const TICKER_KATEGORI: Record<
+  TickerKategori,
+  { label: string; Icon: LucideIcon }
+> = {
+  bahaya: { label: 'Bahaya', Icon: AlertTriangle },
+  transport: { label: 'Transport', Icon: Ship },
+  civic: { label: 'Civic', Icon: Landmark },
+  kemanusiaan: { label: 'Kemanusiaan', Icon: HeartHandshake },
+  berita: { label: 'Berita', Icon: Newspaper },
+  komersial: { label: 'Komersial', Icon: Tag },
 };
 
 /** Kategori yang WAJIB punya expires_at (selaras gatekeep backend). */

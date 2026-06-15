@@ -1,8 +1,20 @@
-import { TICKER_URGENSI } from '@/utils/constants';
+import { TICKER_URGENSI, TICKER_KATEGORI } from '@/utils/constants';
 import { formatRelative } from '@/utils/format';
 import type { TickerItem } from '@/types/common';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
+
+/**
+ * Buang emoji LEADING dari text (data DB sering diawali emoji jadul, mis.
+ * "🚢 Kapal …"). Cuma yang di awal — emoji bermakna di tengah (mis. "✅ Aman")
+ * dibiarkan. Ikon kategori lucide dirender terpisah di depan, jadi tanpa strip
+ * akan dobel ikon.
+ */
+function stripLeadingEmoji(text: string): string {
+  return text
+    .replace(/^(?:[\p{Extended_Pictographic}\u{1F1E6}-\u{1F1FF}️‍⃣]+\s*)+/u, '')
+    .trimStart();
+}
 
 async function getTickerItems(): Promise<TickerItem[]> {
   try {
@@ -62,6 +74,8 @@ export default async function Ticker() {
           {repeated.map((item, i) => {
             const dot = TICKER_URGENSI[item.urgensi]?.dot ?? 'var(--orange)';
             const showSource = item.kategori === 'bahaya' || !!item.source_name;
+            const KategoriIcon = TICKER_KATEGORI[item.kategori]?.Icon;
+            const cleanText = stripLeadingEmoji(item.text);
 
             return (
               <span
@@ -74,6 +88,11 @@ export default async function Ticker() {
                   aria-hidden="true"
                 />
 
+                {/* Ikon kategori (lucide premium, dekoratif) — ganti emoji jadul */}
+                {KategoriIcon && (
+                  <KategoriIcon size={13} className="flex-shrink-0" aria-hidden="true" />
+                )}
+
                 {/* Teks (link kalau ada) */}
                 {item.link ? (
                   <a
@@ -82,10 +101,10 @@ export default async function Ticker() {
                     rel="noopener noreferrer"
                     className="hover:opacity-80 transition-opacity"
                   >
-                    {item.text}
+                    {cleanText}
                   </a>
                 ) : (
-                  <span>{item.text}</span>
+                  <span>{cleanText}</span>
                 )}
 
                 {/* 🛡️ LOCK #1 — atribusi sumber WAJIB (life-safety, mis. BMKG). */}

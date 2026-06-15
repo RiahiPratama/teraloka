@@ -8,32 +8,14 @@
  *                     normal=info, promo=netral). Reuse <Badge variant="status">.
  *   - KategoriBadge → ikon lucide + label by kategori.
  *
- * Mapping enum ada di constants (TICKER_URGENSI / TICKER_KATEGORI). Ikon lucide
- * di-map di sini (komponen .tsx) supaya constants tetap pure data.
+ * Mapping enum (label + ikon lucide) ada di constants (TICKER_URGENSI /
+ * TICKER_KATEGORI) — SATU sumber, dipakai admin & publik.
  */
 
-import {
-  AlertTriangle,
-  Ship,
-  Landmark,
-  HeartHandshake,
-  Newspaper,
-  Tag,
-  type LucideIcon,
-} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { TICKER_URGENSI, TICKER_KATEGORI } from '@/utils/constants';
 import type { TickerUrgensi, TickerKategori } from '@/types/common';
-
-const KATEGORI_ICON: Record<TickerKategori, LucideIcon> = {
-  bahaya: AlertTriangle,
-  transport: Ship,
-  civic: Landmark,
-  kemanusiaan: HeartHandshake,
-  berita: Newspaper,
-  komersial: Tag,
-};
 
 export function UrgensiBadge({ urgensi }: { urgensi: TickerUrgensi }) {
   const cfg = TICKER_URGENSI[urgensi];
@@ -46,7 +28,7 @@ export function UrgensiBadge({ urgensi }: { urgensi: TickerUrgensi }) {
 
 export function KategoriBadge({ kategori }: { kategori: TickerKategori }) {
   const cfg = TICKER_KATEGORI[kategori];
-  const Icon = KATEGORI_ICON[kategori];
+  const Icon = cfg.Icon;
   return (
     <span
       className={cn(
