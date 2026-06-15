@@ -14,8 +14,10 @@ export interface ServiceHealth {
   /** 'ok' | 'degraded' | 'down' (atau varian lain dari backend). */
   status: string;
   latency_ms?: number;
-  /** Hanya WAHA: status mentah session. */
+  /** Hanya WAHA: status mentah session (WORKING/SCAN_QR_CODE/FAILED/STOPPED). */
   detail?: string;
+  /** Opsional (WAHA): nama session — dirender hanya kalau backend mengirimnya. */
+  session?: string;
 }
 
 export interface DeepHealth {

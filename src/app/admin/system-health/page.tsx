@@ -6,9 +6,11 @@
  * Observability internal (super_admin). Konsumsi backend /health/deep LIVE
  * via PROXY server-side /api/health (HEALTH_SECRET TIDAK pernah ke browser).
  *
- * Final 4 service: self(API), Supabase, Fonnte, WAHA. (Vercel & Upstash di-drop.)
- * 🛡️ a11y: status pakai ikon + label teks + warna (bukan warna doang).
- * 🔴 WAHA: surface detail session (SCAN_QR_CODE/FAILED/STOPPED) + actionable.
+ * Final 4 service, dikelompokkan: Core (API + Supabase) vs Notifikasi WA
+ * (Fonnte + WAHA). 🛡️ a11y: status pakai ikon + label teks + warna (bukan warna
+ * doang). 🔴 WAHA: surface session + detail mentah + actionable.
+ *
+ * Level 1 — stateless, murni dari response. TANPA tabel/cron/migration.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -18,6 +20,7 @@ import {
   Database,
   KeyRound,
   MessageCircle,
+  Layers,
   CheckCircle2,
   AlertTriangle,
   XCircle,
@@ -46,10 +49,37 @@ const SERVICE_META: Record<
   waha: { label: 'WAHA', desc: 'WhatsApp Notifikasi', Icon: MessageCircle },
 };
 
-const SERVICE_ORDER: HealthServiceKey[] = ['self', 'supabase', 'fonnte', 'waha'];
+/* ─── Grouping (hierarki, bukan 4 kartu flat) ─── */
+const GROUPS: {
+  title: string;
+  desc: string;
+  Icon: LucideIcon;
+  keys: HealthServiceKey[];
+}[] = [
+  { title: 'Core', desc: 'Inti sistem', Icon: Layers, keys: ['self', 'supabase'] },
+  {
+    title: 'Notifikasi WA',
+    desc: 'Kanal WhatsApp',
+    Icon: MessageCircle,
+    keys: ['fonnte', 'waha'],
+  },
+];
 
-/* ─── Status → tampilan (ikon + label + tone Badge) ─── */
+/* ─── Tone helpers ─── */
 type StatusTone = 'healthy' | 'warning' | 'critical' | 'neutral';
+
+const TONE_TEXT: Record<StatusTone, string> = {
+  healthy: 'text-status-healthy',
+  warning: 'text-status-warning',
+  critical: 'text-status-critical',
+  neutral: 'text-text-muted',
+};
+const TONE_BG: Record<StatusTone, string> = {
+  healthy: 'bg-status-healthy',
+  warning: 'bg-status-warning',
+  critical: 'bg-status-critical',
+  neutral: 'bg-text-muted',
+};
 
 function statusView(status: string | undefined): {
   label: string;
@@ -66,20 +96,29 @@ function statusView(status: string | undefined): {
   return { label: 'Down', tone: 'critical', Icon: XCircle };
 }
 
-const TONE_TEXT: Record<StatusTone, string> = {
-  healthy: 'text-status-healthy',
-  warning: 'text-status-warning',
-  critical: 'text-status-critical',
-  neutral: 'text-text-muted',
-};
-const TONE_BG: Record<StatusTone, string> = {
-  healthy: 'bg-status-healthy',
-  warning: 'bg-status-warning',
-  critical: 'bg-status-critical',
-  neutral: 'bg-text-muted',
-};
+/** Latency → tone by threshold: <100 ijo, 100–500 kuning, >500 merah. */
+function latencyTone(ms: number): StatusTone {
+  if (ms < 100) return 'healthy';
+  if (ms <= 500) return 'warning';
+  return 'critical';
+}
 
-/* ─── WAHA actionable hint (paling rapuh — device fisik) ─── */
+/* ─── WAHA helpers (paling rapuh — device fisik) ─── */
+function wahaDetailTone(detail: string | undefined): StatusTone {
+  switch ((detail ?? '').toUpperCase()) {
+    case 'WORKING':
+      return 'healthy';
+    case 'SCAN_QR_CODE':
+    case 'STARTING':
+      return 'warning';
+    case 'FAILED':
+    case 'STOPPED':
+      return 'critical';
+    default:
+      return 'neutral';
+  }
+}
+
 function wahaHint(detail: string | undefined): string | null {
   switch ((detail ?? '').toUpperCase()) {
     case 'WORKING':
@@ -95,11 +134,11 @@ function wahaHint(detail: string | undefined): string | null {
   }
 }
 
-/* ─── Relative "Xs lalu" ─── */
-function agoLabel(iso: string): string {
-  const s = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+/* ─── Relative "Xs lalu" (counter hidup) ─── */
+function agoLabel(iso: string, now: number): string {
+  const s = Math.max(0, Math.floor((now - new Date(iso).getTime()) / 1000));
   if (s < 60) return `${s} detik lalu`;
-  if (s < 3600) return `${Math.floor(s / 60)} menit lalu`;
+  if (s < 3600) return `${Math.floor(s / 60)} menit ${s % 60} detik lalu`;
   return `${Math.floor(s / 3600)} jam lalu`;
 }
 
@@ -109,6 +148,7 @@ export default function SystemHealthPage() {
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [now, setNow] = useState(() => Date.now());
 
   const load = useCallback(
     async (manual = false) => {
@@ -144,10 +184,16 @@ export default function SystemHealthPage() {
     return () => clearInterval(id);
   }, [token, load]);
 
+  // Timestamp hidup — tick tiap detik (JS, bukan animasi → aman reduced-motion).
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1_000);
+    return () => clearInterval(id);
+  }, []);
+
   const overall = data ? statusView(data.status) : null;
 
   return (
-    <div className="max-w-4xl mx-auto space-y-5">
+    <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
@@ -199,7 +245,7 @@ export default function SystemHealthPage() {
       {data && overall && (
         <div
           className={cn(
-            'rounded-2xl border p-4 flex items-center gap-4 flex-wrap',
+            'rounded-2xl border p-5 flex items-center gap-4 flex-wrap',
             overall.tone === 'healthy' && 'bg-status-healthy/8 border-status-healthy/25',
             overall.tone === 'warning' && 'bg-status-warning/8 border-status-warning/25',
             overall.tone === 'critical' && 'bg-status-critical/8 border-status-critical/25',
@@ -220,13 +266,13 @@ export default function SystemHealthPage() {
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <overall.Icon size={18} className={TONE_TEXT[overall.tone]} />
-              <span className={cn('text-base font-bold', TONE_TEXT[overall.tone])}>
+              <overall.Icon size={20} className={TONE_TEXT[overall.tone]} />
+              <span className={cn('text-lg font-bold', TONE_TEXT[overall.tone])}>
                 {data.status === 'ok' ? 'Semua sistem normal' : 'Sebagian layanan terganggu'}
               </span>
             </div>
-            <p className="text-xs text-text-muted mt-0.5">
-              Diperiksa {agoLabel(data.checked_at)}
+            <p className="text-xs text-text-muted mt-1 tabular-nums" aria-live="polite">
+              Diperiksa {agoLabel(data.checked_at, now)}
             </p>
           </div>
 
@@ -236,14 +282,49 @@ export default function SystemHealthPage() {
         </div>
       )}
 
-      {/* Service grid */}
-      {data && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {SERVICE_ORDER.map((key) => (
-            <ServiceCard key={key} svcKey={key} svc={data.services?.[key]} />
-          ))}
-        </div>
-      )}
+      {/* Service groups */}
+      {data &&
+        GROUPS.map((g) => (
+          <section key={g.title} className="space-y-2.5">
+            <h2 className="text-[12px] font-bold uppercase tracking-wide text-text-secondary flex items-center gap-2">
+              <g.Icon size={14} className="text-text-muted" />
+              {g.title}
+              <span className="font-medium normal-case text-text-muted">· {g.desc}</span>
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {g.keys.map((key) => (
+                <ServiceCard key={key} svcKey={key} svc={data.services?.[key]} />
+              ))}
+            </div>
+          </section>
+        ))}
+    </div>
+  );
+}
+
+/* ─── Latency meter (visual bar + angka) ─── */
+function LatencyMeter({ ms }: { ms: number }) {
+  const tone = latencyTone(ms);
+  const pct = Math.min(100, Math.max(4, (ms / 1000) * 100));
+  return (
+    <div className="mt-3">
+      <div className="flex items-center justify-between text-xs mb-1.5">
+        <span className="text-text-muted">Latency</span>
+        <span className={cn('font-semibold tabular-nums', TONE_TEXT[tone])}>{ms} ms</span>
+      </div>
+      <div
+        className="h-1.5 w-full rounded-full bg-surface-muted overflow-hidden"
+        role="img"
+        aria-label={`Latency ${ms} milidetik (${tone === 'healthy' ? 'cepat' : tone === 'warning' ? 'sedang' : 'lambat'})`}
+      >
+        <div
+          className={cn(
+            'h-full rounded-full transition-[width] duration-500 motion-reduce:transition-none',
+            TONE_BG[tone]
+          )}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
     </div>
   );
 }
@@ -258,10 +339,17 @@ function ServiceCard({
 }) {
   const meta = SERVICE_META[svcKey];
   const view = statusView(svc?.status);
-  const hint = svcKey === 'waha' ? wahaHint(svc?.detail) : null;
+  const isWaha = svcKey === 'waha';
+  const hint = isWaha ? wahaHint(svc?.detail) : null;
 
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
+    <div
+      className={cn(
+        'rounded-xl border bg-surface p-4',
+        // WAHA dikasih bobot lebih (paling rapuh).
+        isWaha ? 'border-border ring-1 ring-inset ring-border/60' : 'border-border'
+      )}
+    >
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="grid place-items-center h-9 w-9 rounded-lg bg-surface-muted text-text-secondary shrink-0">
@@ -280,25 +368,30 @@ function ServiceCard({
         </Badge>
       </div>
 
-      {/* Latency */}
-      {typeof svc?.latency_ms === 'number' && (
-        <p className="mt-3 text-xs text-text-muted">
-          Latency: <span className="font-semibold text-text-secondary">{svc.latency_ms} ms</span>
-        </p>
-      )}
+      {/* Latency visual */}
+      {typeof svc?.latency_ms === 'number' && <LatencyMeter ms={svc.latency_ms} />}
 
-      {/* 🔴 WAHA actionable */}
-      {hint && (
-        <div className="mt-3 flex items-start gap-2 rounded-lg bg-status-warning/10 border border-status-warning/25 px-3 py-2">
-          <AlertTriangle size={14} className="text-status-warning shrink-0 mt-0.5" />
-          <div className="min-w-0">
+      {/* 🔴 WAHA: session + detail mentah (selalu tampil, bukan cuma "Operational") */}
+      {isWaha && (
+        <div className="mt-3 space-y-2">
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className="text-text-muted">Session</span>
+            <span className="font-semibold text-text-secondary">
+              {svc?.session ?? 'default'}
+            </span>
             {svc?.detail && (
-              <p className="text-[11px] font-bold uppercase tracking-wide text-status-warning">
+              <Badge variant="status" status={wahaDetailTone(svc.detail)} size="xs">
                 {svc.detail}
-              </p>
+              </Badge>
             )}
-            <p className="text-xs text-text-secondary">{hint}</p>
           </div>
+
+          {hint && (
+            <div className="flex items-start gap-2 rounded-lg bg-status-warning/10 border border-status-warning/25 px-3 py-2">
+              <AlertTriangle size={14} className="text-status-warning shrink-0 mt-0.5" />
+              <p className="text-xs text-text-secondary">{hint}</p>
+            </div>
+          )}
         </div>
       )}
     </div>
