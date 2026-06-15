@@ -1,7 +1,8 @@
 'use client';
 
 import { useContext, useState } from 'react';
-import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import Link from 'next/link';
+import { AdminThemeContext, type AdminTheme } from '@/components/admin/AdminThemeContext';
 import type { Donation } from './DonationsTable';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -51,6 +52,8 @@ export default function DonationsBulkActionsToolbar({
   const [rejectReason, setRejectReason] = useState('');
   const [safetyChecked, setSafetyChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  // [REMEDIASI-02C3] Hasil bulk: tahan daftar gagal + reason agar bisa ditindak (verify tunggal)
+  const [bulkResult, setBulkResult] = useState<BulkResult | null>(null);
 
   if (selectedIds.size === 0) return null;
 
@@ -101,6 +104,21 @@ export default function DonationsBulkActionsToolbar({
     setAction(null);
     setRejectReason('');
     setSafetyChecked(false);
+    setBulkResult(null);
+  }
+
+  // [REMEDIASI-02C3] Pisahkan: sukses sebagian → tahan modal, tampilkan daftar gagal
+  function finishBulk(label: string, result: BulkResult) {
+    onComplete();
+    if (result.failed.length > 0) {
+      onToast(false, formatBulkResult(label, result));
+      setBulkResult(result);
+      setSafetyChecked(false);
+    } else {
+      onToast(true, formatBulkResult(label, result));
+      resetModalState();
+      onClear();
+    }
   }
 
   async function handleVerify() {
@@ -110,12 +128,7 @@ export default function DonationsBulkActionsToolbar({
     }
     const ids = pendingDonations.map(d => d.id);
     const result = await callBulkAPI('bulk-verify', { ids });
-    if (result) {
-      onToast(result.failed.length === 0, formatBulkResult('ter-verifikasi', result));
-      resetModalState();
-      onClear();
-      onComplete();
-    }
+    if (result) finishBulk('ter-verifikasi', result);
   }
 
   async function handleReject() {
@@ -132,12 +145,7 @@ export default function DonationsBulkActionsToolbar({
       ids,
       reason: rejectReason.trim(),
     });
-    if (result) {
-      onToast(result.failed.length === 0, formatBulkResult('ditolak', result));
-      resetModalState();
-      onClear();
-      onComplete();
-    }
+    if (result) finishBulk('ditolak', result);
   }
 
   async function handleExport() {
@@ -249,8 +257,12 @@ export default function DonationsBulkActionsToolbar({
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
             }}>
               <h3 style={{ fontSize: 17, fontWeight: 700, color: t.textPrimary }}>
-                {action === 'verify' && `✓ Bulk Verify ${pendingCount} Donasi`}
-                {action === 'reject' && `✗ Bulk Tolak ${pendingCount} Donasi`}
+                {bulkResult
+                  ? `Hasil Bulk — ${bulkResult.failed.length} perlu tindak lanjut`
+                  : (<>
+                      {action === 'verify' && `✓ Bulk Verify ${pendingCount} Donasi`}
+                      {action === 'reject' && `✗ Bulk Tolak ${pendingCount} Donasi`}
+                    </>)}
               </h3>
               <button
                 onClick={() => !submitting && resetModalState()}
@@ -265,8 +277,18 @@ export default function DonationsBulkActionsToolbar({
 
             <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
 
+              {/* [REMEDIASI-02C3] Panel hasil — daftar gagal + reason + link verify tunggal */}
+              {bulkResult && (
+                <BulkFailedPanel
+                  result={bulkResult}
+                  donations={selectedDonations}
+                  t={t}
+                  onClose={() => { resetModalState(); onClear(); }}
+                />
+              )}
+
               {/* Verify flow — HIGH RISK warning */}
-              {action === 'verify' && (
+              {!bulkResult && action === 'verify' && (
                 <>
                   <div style={{
                     background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
@@ -335,7 +357,7 @@ export default function DonationsBulkActionsToolbar({
               )}
 
               {/* Reject flow */}
-              {action === 'reject' && (
+              {!bulkResult && action === 'reject' && (
                 <>
                   <div style={{
                     background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)',
@@ -503,6 +525,87 @@ function DonationPreviewList({ donations, t }: { donations: Donation[]; t: any }
         </div>
       ))}
     </div>
+  );
+}
+
+// [REMEDIASI-02C3] Daftar donasi yang gagal di bulk + alasan + jalan ke verify tunggal
+function BulkFailedPanel({
+  result, donations, t, onClose,
+}: {
+  result: BulkResult; donations: Donation[]; t: AdminTheme; onClose: () => void;
+}) {
+  const labelOf = (id: string) => {
+    const d = donations.find(x => x.id === id) as (Donation & { display_id?: string }) | undefined;
+    return d?.display_id ?? d?.donation_code ?? id.slice(0, 8);
+  };
+  return (
+    <>
+      {result.succeeded.length > 0 && (
+        <div style={{
+          background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+          borderRadius: 12, padding: 12, marginBottom: 14,
+          fontSize: 12, color: '#059669', fontWeight: 600,
+        }}>
+          ✓ {result.succeeded.length} donasi berhasil diproses.
+        </div>
+      )}
+
+      <div style={{
+        background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
+        borderRadius: 12, padding: 14, marginBottom: 14,
+        fontSize: 12, color: '#B45309', lineHeight: 1.5,
+      }}>
+        <strong>{result.failed.length} donasi belum tuntas.</strong> Donasi dengan selisih
+        nominal perlu <strong>verify tunggal</strong> (pilih keputusan di halaman detail).
+      </div>
+
+      <div style={{
+        background: t.navHover, borderRadius: 12, padding: 8,
+        maxHeight: 280, overflowY: 'auto',
+      }}>
+        {result.failed.map(f => (
+          <div key={f.id} style={{
+            display: 'flex', alignItems: 'center', gap: 10,
+            padding: '8px 10px', borderBottom: `1px solid ${t.sidebarBorder}`,
+          }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={{
+                fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
+                color: t.textPrimary, margin: 0,
+              }}>
+                {labelOf(f.id)}
+              </p>
+              <p style={{ fontSize: 11, color: t.textDim, margin: '2px 0 0' }}>
+                {f.reason}
+              </p>
+            </div>
+            <Link
+              href={`/admin/funding/donations/${f.id}`}
+              style={{
+                flexShrink: 0, fontSize: 11, fontWeight: 700, color: '#EC4899',
+                textDecoration: 'none', padding: '6px 10px', borderRadius: 8,
+                border: '1px solid rgba(236,72,153,0.3)', background: 'rgba(236,72,153,0.06)',
+              }}
+            >
+              Verify tunggal →
+            </Link>
+          </div>
+        ))}
+      </div>
+
+      <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
+        <button
+          onClick={onClose}
+          style={{
+            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+            background: `linear-gradient(135deg, #6B7280, #4B5563)`,
+            color: '#fff', fontWeight: 700, fontSize: 14, cursor: 'pointer',
+          }}
+        >
+          Tutup
+        </button>
+      </div>
+    </>
   );
 }
 

@@ -103,6 +103,8 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
 
   // ⭐ Discrepancy: nominal yang masuk ke rekening (input admin)
   const [amountReceived, setAmountReceived] = useState('');
+  // [REMEDIASI-02C3] Keputusan selisih (admin: hanya 2 opsi valid)
+  const [decision, setDecision] = useState<'' | 'accepted_partial' | 'accepted_excess'>('');
 
   // Auth guard
   useEffect(() => {
@@ -143,10 +145,16 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
       return;
     }
 
+    const amountReceivedNum = parseRupiah(amountReceived);
+    // [REMEDIASI-02C3] Selisih nominal → wajib pilih keputusan sebelum verify
+    const isMismatchSubmit = amountReceivedNum > 0 && amountReceivedNum !== donation.total_transfer;
+    if (action === 'verify' && isMismatchSubmit && !decision) {
+      setActionError('Pilih keputusan untuk selisih nominal dulu.');
+      return;
+    }
+
     setSubmitting(true);
     setActionError('');
-
-    const amountReceivedNum = parseRupiah(amountReceived);
 
     try {
       const res = await fetch(`${API}/funding/donations/${id}/verify`, {
@@ -160,6 +168,8 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
           reason: action === 'reject' ? rejectReason.trim() : undefined,
           // ⭐ Kirim amount_received kalau ada
           amount_received: amountReceivedNum > 0 ? amountReceivedNum : undefined,
+          // [REMEDIASI-02C3] Kirim keputusan hanya saat verify mismatch (exact → undefined)
+          discrepancy_decision: (action === 'verify' && isMismatchSubmit && decision) ? decision : undefined,
         }),
       });
 
@@ -173,7 +183,17 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
         setShowRejectModal(false);
         setTimeout(() => router.push('/admin/funding/donations'), 1500);
       } else {
-        setActionError(json?.error?.message || 'Gagal memproses.');
+        // [REMEDIASI-02C3] Error map kontrak backend C2
+        const code = json?.error?.code;
+        if (code === 'DECISION_REQUIRED') {
+          setActionError('Donasi ini selisih nominal — pilih keputusan (terima sebagian / kelebihan jadi tip) lalu verify lagi.');
+        } else if (code === 'VALIDATION_ERROR') {
+          setActionError(json?.error?.message || 'Nominal tidak sesuai jenis keputusan.');
+        } else if (code === 'DECISION_NOT_ALLOWED_ADMIN') {
+          setActionError('Keputusan ini hanya tersedia via jalur penggalang.');
+        } else {
+          setActionError(json?.error?.message || 'Gagal memproses.');
+        }
       }
     } catch {
       setActionError('Koneksi bermasalah.');
@@ -437,7 +457,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
               type="text"
               inputMode="numeric"
               value={amountReceived}
-              onChange={e => setAmountReceived(formatRupiahInput(e.target.value))}
+              onChange={e => { setAmountReceived(formatRupiahInput(e.target.value)); setDecision(''); }}
               placeholder={donation.total_transfer.toLocaleString('id-ID')}
               className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 text-sm font-mono focus:border-[#003526] focus:outline-none focus:ring-2 focus:ring-[#003526]/20"
             />
@@ -464,9 +484,28 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
                     Nominal masuk <strong>{formatRupiah(amountReceivedNum)}</strong> — kurang{' '}
                     <strong>{formatRupiah(Math.abs(discrepancy))}</strong> dari yang seharusnya ({formatRupiah(donation.total_transfer)}).
                   </p>
-                  <p className="text-xs font-bold text-red-700 mt-1.5">
-                    → Disarankan REJECT. Minta donor transfer ulang dengan nominal persis.
-                  </p>
+                  {/* [REMEDIASI-02C3] Picker keputusan — underpaid → accepted_partial */}
+                  <div className="mt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setDecision(decision === 'accepted_partial' ? '' : 'accepted_partial')}
+                      className={`w-full text-left rounded-lg border-2 px-3 py-2.5 transition ${
+                        decision === 'accepted_partial'
+                          ? 'border-red-500 bg-red-100'
+                          : 'border-red-200 bg-white hover:border-red-300'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-red-800">
+                        {decision === 'accepted_partial' ? '✓ ' : ''}Terima sebagian (kurang bayar)
+                      </p>
+                      <p className="text-[11px] text-red-600 mt-0.5">
+                        Kekurangan {formatRupiah(Math.abs(discrepancy))} diterima apa adanya; dana tercatat = nominal diterima.
+                      </p>
+                    </button>
+                    <p className="text-[11px] text-gray-500 mt-1.5">
+                      Atau REJECT (tombol di bawah) untuk minta donor transfer ulang dengan nominal persis.
+                    </p>
+                  </div>
                 </div>
               </div>
             </div>
@@ -482,9 +521,25 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
                     Nominal masuk <strong>{formatRupiah(amountReceivedNum)}</strong> — lebih{' '}
                     <strong>{formatRupiah(discrepancy)}</strong> dari yang seharusnya. Kelebihan dicatat otomatis.
                   </p>
-                  <p className="text-xs text-amber-600 mt-1.5 font-semibold">
-                    → Bisa di-verify. Selisih lebih tersimpan untuk transparansi.
-                  </p>
+                  {/* [REMEDIASI-02C3] Picker keputusan — overpaid → accepted_excess */}
+                  <div className="mt-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setDecision(decision === 'accepted_excess' ? '' : 'accepted_excess')}
+                      className={`w-full text-left rounded-lg border-2 px-3 py-2.5 transition ${
+                        decision === 'accepted_excess'
+                          ? 'border-amber-500 bg-amber-100'
+                          : 'border-amber-200 bg-white hover:border-amber-300'
+                      }`}
+                    >
+                      <p className="text-xs font-bold text-amber-800">
+                        {decision === 'accepted_excess' ? '✓ ' : ''}Terima + kelebihan jadi tip
+                      </p>
+                      <p className="text-[11px] text-amber-600 mt-0.5">
+                        Beneficiary terima penuh; kelebihan {formatRupiah(discrepancy)} dicatat sebagai tip.
+                      </p>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -552,7 +607,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
             <div className="bg-red-600 px-4 py-2 flex items-center gap-2">
               <TrendingDown size={13} className="text-white shrink-0" />
               <p className="text-xs font-bold text-white">
-                KURANG BAYAR {formatRupiah(Math.abs(discrepancy))} — Disarankan REJECT
+                KURANG BAYAR {formatRupiah(Math.abs(discrepancy))} — {decision === 'accepted_partial' ? 'Terima sebagian dipilih' : 'Pilih keputusan atau REJECT'}
               </p>
             </div>
           )}
@@ -560,7 +615,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
             <div className="bg-amber-500 px-4 py-2 flex items-center gap-2">
               <TrendingUp size={13} className="text-white shrink-0" />
               <p className="text-xs font-bold text-white">
-                LEBIH BAYAR {formatRupiah(discrepancy)} — Bisa di-verify, selisih tercatat
+                LEBIH BAYAR {formatRupiah(discrepancy)} — {decision === 'accepted_excess' ? 'Terima kelebihan dipilih' : 'Pilih keputusan dulu'}
               </p>
             </div>
           )}
@@ -582,7 +637,7 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
             </button>
             <button
               onClick={() => handleAction('verify')}
-              disabled={submitting}
+              disabled={submitting || ((isUnderPaid || isOverPaid) && !decision)}
               className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-sm font-bold shadow-md hover:shadow-lg hover:opacity-95 transition-all disabled:opacity-50"
             >
               {submitting ? (

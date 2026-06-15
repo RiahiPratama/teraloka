@@ -451,7 +451,16 @@ export default function AdminDonationsPage() {
         body: JSON.stringify({ action: 'verify' }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal verify');
+      if (!res.ok || !json.success) {
+        // [REMEDIASI-02C3] Donasi selisih → quick-verify tak punya picker; arahkan ke detail
+        if (json?.error?.code === 'DECISION_REQUIRED') {
+          setModal(null);
+          showToast(false, `Donasi ${d.donation_code} selisih nominal — buka detail untuk pilih keputusan`);
+          router.push(`/admin/funding/donations/${d.id}`);
+          return;
+        }
+        throw new Error(json?.error?.message ?? 'Gagal verify');
+      }
       showToast(true, `✓ Donasi ${d.donation_code} ter-verifikasi`);
       setModal(null);
       fetchDonations();
