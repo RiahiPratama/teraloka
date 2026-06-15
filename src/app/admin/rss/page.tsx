@@ -19,7 +19,8 @@ interface RSSArticle {
 }
 
 export default function AdminRSSPage() {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
+  const isSuperAdmin = user?.role === 'super_admin';
   const router = useRouter();
   const [articles, setArticles] = useState<RSSArticle[]>([]);
   const [total, setTotal]       = useState(0);
@@ -28,6 +29,14 @@ export default function AdminRSSPage() {
   const [processing, setProcessing] = useState<string | null>(null);
   const [toast, setToast]       = useState<{ msg: string; type: 'ok' | 'err' } | null>(null);
   const limit = 20;
+
+  // ─── Bulk selection state ───────────────────────────────────────
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Modal konfirmasi bulk (wajib — 387 backlog = destructive).
+  const [bulk, setBulk]                 = useState<{ action: 'reject' | 'delete' } | null>(null);
+  const [bulkReason, setBulkReason]     = useState('');
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkError, setBulkError]       = useState<string | null>(null);
 
   const showToast = (msg: string, type: 'ok' | 'err' = 'ok') => {
     setToast({ msg, type });
@@ -43,6 +52,7 @@ export default function AdminRSSPage() {
       const json = await res.json();
       setArticles(json.data ?? []);
       setTotal(json.meta?.total ?? 0);
+      setSelected(new Set()); // reset seleksi tiap ganti halaman / refresh
     } catch {
       showToast('Gagal memuat artikel RSS', 'err');
     } finally {
@@ -51,6 +61,72 @@ export default function AdminRSSPage() {
   }, [token, page]);
 
   useEffect(() => { if (token) fetchArticles(); }, [fetchArticles, token]);
+
+  // ─── Selection helpers ──────────────────────────────────────────
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allOnPageSelected = articles.length > 0 && articles.every(a => selected.has(a.id));
+
+  const toggleSelectAll = () => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (allOnPageSelected) articles.forEach(a => next.delete(a.id));
+      else articles.forEach(a => next.add(a.id));
+      return next;
+    });
+  };
+
+  // ─── Bulk action ────────────────────────────────────────────────
+  const openBulk = (action: 'reject' | 'delete') => {
+    if (selected.size === 0) return;
+    setBulkReason('');
+    setBulkError(null);
+    setBulk({ action });
+  };
+
+  const submitBulk = async () => {
+    if (!bulk) return;
+    if (bulk.action === 'delete' && bulkReason.trim().length < 5) {
+      setBulkError('Alasan minimal 5 karakter');
+      return;
+    }
+    setBulkSubmitting(true);
+    setBulkError(null);
+    try {
+      const res = await fetch(`${API}/admin/rss/bulk-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          action: bulk.action,
+          article_ids: [...selected],
+          ...(bulk.action === 'delete' ? { reason: bulkReason.trim() } : {}),
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal memproses');
+
+      const r = json.data;
+      const verb = bulk.action === 'delete' ? 'dihapus' : 'ditolak';
+      showToast(
+        `${r.success_count} artikel ${verb}` + (r.failed_count ? `, ${r.failed_count} gagal` : ''),
+        r.failed_count ? 'err' : 'ok',
+      );
+      setBulk(null);
+      setSelected(new Set());
+      fetchArticles();
+    } catch (e) {
+      setBulkError(e instanceof Error ? e.message : 'Gagal memproses');
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
 
   const handleAction = async (id: string, action: 'approve' | 'reject') => {
     setProcessing(id);
@@ -142,12 +218,44 @@ export default function AdminRSSPage() {
         </div>
       </div>
 
+      {/* Bulk selection toolbar */}
+      {!loading && articles.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12, padding: '10px 14px', background: '#0F1623', border: '1px solid #1F2937', borderRadius: 10, flexWrap: 'wrap' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13, color: '#9CA3AF', userSelect: 'none' }}>
+            <input type="checkbox" checked={allOnPageSelected} onChange={toggleSelectAll}
+              style={{ width: 16, height: 16, accentColor: '#1B6B4A', cursor: 'pointer' }} />
+            Pilih semua (halaman ini)
+          </label>
+          <div style={{ flex: 1 }} />
+          {selected.size > 0 && (
+            <>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#FCD34D' }}>{selected.size} terpilih</span>
+              <button onClick={() => openBulk('reject')}
+                style={{ padding: '6px 14px', background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 600, color: '#EF4444' }}>
+                Tolak terpilih
+              </button>
+              {/* Lock #1 lapis FE: render khusus super_admin (selaras gate backend) */}
+              {isSuperAdmin && (
+                <button onClick={() => openBulk('delete')}
+                  style={{ padding: '6px 14px', background: 'rgba(127,29,29,0.35)', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 8, cursor: 'pointer', fontSize: 12, fontWeight: 700, color: '#FCA5A5' }}>
+                  🗑️ Hapus terpilih
+                </button>
+              )}
+              <button onClick={() => setSelected(new Set())}
+                style={{ padding: '6px 12px', background: 'transparent', border: '1px solid #374151', borderRadius: 8, cursor: 'pointer', fontSize: 12, color: '#9CA3AF' }}>
+                Batal
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Empty state */}
       {!loading && articles.length === 0 && (
         <div style={{ textAlign: 'center', padding: '80px 20px', color: '#4B5563' }}>
           <div style={{ fontSize: 48, marginBottom: 16 }}>🎉</div>
           <div style={{ fontSize: 16, fontWeight: 600, color: '#9CA3AF', marginBottom: 8 }}>Semua artikel sudah diproses!</div>
-          <div style={{ fontSize: 13, color: '#6B7280' }}>Cron job akan fetch artikel baru setiap jam.</div>
+          <div style={{ fontSize: 13, color: '#6B7280' }}>Cron job akan fetch artikel baru sekali sehari.</div>
         </div>
       )}
 
@@ -162,7 +270,13 @@ export default function AdminRSSPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         {articles.map(article => (
           <div key={article.id}
-            style={{ background: '#111827', border: '1px solid #1F2937', borderRadius: 12, overflow: 'hidden', display: 'flex', gap: 0 }}>
+            style={{ background: '#111827', border: selected.has(article.id) ? '1px solid #1B6B4A' : '1px solid #1F2937', borderRadius: 12, overflow: 'hidden', display: 'flex', gap: 0 }}>
+
+            {/* Select checkbox */}
+            <div style={{ display: 'flex', alignItems: 'flex-start', padding: '16px 0 0 14px' }}>
+              <input type="checkbox" checked={selected.has(article.id)} onChange={() => toggleSelect(article.id)}
+                style={{ width: 16, height: 16, accentColor: '#1B6B4A', cursor: 'pointer' }} />
+            </div>
 
             {/* Cover image */}
             {article.image_url && (
@@ -235,6 +349,69 @@ export default function AdminRSSPage() {
             style={{ padding: '6px 16px', background: '#1F2937', border: '1px solid #374151', borderRadius: 8, cursor: page === totalPages ? 'not-allowed' : 'pointer', fontSize: 13, color: '#9CA3AF', opacity: page === totalPages ? 0.5 : 1 }}>
             Next →
           </button>
+        </div>
+      )}
+
+      {/* Bulk confirm modal (wajib) */}
+      {bulk && (
+        <div
+          onClick={(e) => { if (e.target === e.currentTarget && !bulkSubmitting) setBulk(null); }}
+          style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(2px)' }}>
+          <div style={{ width: '100%', maxWidth: 460, background: '#0F1623', border: '1px solid #1F2937', borderRadius: 16, overflow: 'hidden', fontFamily: 'system-ui' }}>
+            {/* Header */}
+            <div style={{ padding: '16px 18px', borderBottom: '1px solid #1F2937' }}>
+              <h3 style={{ margin: 0, fontSize: 15, fontWeight: 800, color: '#F9FAFB' }}>
+                {bulk.action === 'delete' ? '🗑️ Hapus Permanen' : 'Tolak Artikel'}
+              </h3>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#9CA3AF' }}>
+                {selected.size} artikel akan {bulk.action === 'delete' ? 'dihapus permanen' : 'ditolak'}.
+              </p>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ margin: 0, fontSize: 12, color: '#9CA3AF', lineHeight: 1.6 }}>
+                {bulk.action === 'delete'
+                  ? 'Baris artikel dihapus permanen dari queue (tidak bisa di-undo). Artikel yang sudah di-approve akan dilewati.'
+                  : 'Artikel ditandai ditolak dan keluar dari queue review. Akan terhapus otomatis oleh retention.'}
+              </p>
+
+              {bulk.action === 'delete' && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  <label style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.5, color: '#E5E7EB' }}>
+                    Alasan <span style={{ color: '#EF4444' }}>*</span>
+                  </label>
+                  <textarea
+                    value={bulkReason}
+                    onChange={(e) => setBulkReason(e.target.value)}
+                    disabled={bulkSubmitting}
+                    rows={3}
+                    placeholder="Min 5 karakter — kenapa batch ini dihapus."
+                    style={{ width: '100%', padding: '8px 10px', borderRadius: 8, background: '#111827', border: '1px solid #1F2937', color: '#F9FAFB', fontSize: 12, resize: 'none', fontFamily: 'system-ui' }}
+                  />
+                  <span style={{ fontSize: 10, color: '#6B7280' }}>{bulkReason.trim().length}/5 min</span>
+                </div>
+              )}
+
+              {bulkError && (
+                <div style={{ padding: '8px 10px', borderRadius: 8, background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)', fontSize: 11, fontWeight: 600, color: '#FCA5A5' }}>
+                  {bulkError}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, padding: '12px 18px', borderTop: '1px solid #1F2937' }}>
+              <button onClick={() => setBulk(null)} disabled={bulkSubmitting}
+                style={{ padding: '7px 14px', background: 'transparent', border: '1px solid #374151', borderRadius: 8, cursor: bulkSubmitting ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 600, color: '#9CA3AF', opacity: bulkSubmitting ? 0.5 : 1 }}>
+                Batal
+              </button>
+              <button onClick={submitBulk} disabled={bulkSubmitting}
+                style={{ padding: '7px 16px', background: bulk.action === 'delete' ? '#991B1B' : '#B45309', border: 'none', borderRadius: 8, cursor: bulkSubmitting ? 'not-allowed' : 'pointer', fontSize: 12, fontWeight: 700, color: '#fff', opacity: bulkSubmitting ? 0.6 : 1 }}>
+                {bulkSubmitting ? 'Memproses...' : (bulk.action === 'delete' ? 'Hapus Permanen' : 'Tolak Sekarang')}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
