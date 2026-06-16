@@ -184,6 +184,7 @@ export default function CampaignHistoryPanel({
                 <th style={hCell(t, 'right')}>Nominal</th>
                 <th style={hCell(t, 'right')}>Total Transfer</th>
                 <th style={hCell(t, 'right')}>Efektif</th>
+                <th style={hCell(t, 'left')}>Masuk</th>
                 <th style={hCell(t, 'left')}>Verified</th>
               </tr>
             </thead>
@@ -231,7 +232,9 @@ export default function CampaignHistoryPanel({
                     <td style={{ ...bCell(t, 'right'), fontVariantNumeric: 'tabular-nums', color: merged ? t.textPrimary : t.textDim }}>
                       {merged ? formatRupiah(merged.effective_amount) : '—'}
                     </td>
-                    <td style={{ ...bCell(t, 'left'), color: t.textDim }}>{fmtDate(d.verified_at)}</td>
+                    {/* [CAMPAIGN-HISTORY-TRANSFER-DATE] Masuk = created_at (waktu donor submit + upload bukti). Proxy tanggal transfer; bukan tanggal mutasi bank. */}
+                    <td style={{ ...bCell(t, 'left'), color: t.textDim, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(d.created_at)}</td>
+                    <td style={{ ...bCell(t, 'left'), color: t.textDim, fontVariantNumeric: 'tabular-nums' }}>{fmtDate(d.verified_at)}</td>
                   </tr>
                 );
               })}
