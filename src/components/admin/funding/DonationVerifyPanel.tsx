@@ -139,11 +139,15 @@ export default function DonationVerifyPanel({
   const [decision, setDecision] = useState<'' | 'accepted_partial' | 'accepted_excess'>('');
 
   useEffect(() => {
-    if (!user || !ADMIN_ROLES.includes(user.role)) return;
+    if (!user || !ADMIN_ROLES.includes(user.role) || !token) return;
 
     async function fetchDonation() {
       try {
-        const res = await fetch(`${API}/funding/donations/${id}`);
+        // [KTP-LEAK-FIX-B-FIX2-FE] Pakai endpoint ADMIN (superset: donor_phone + verifier +
+        // cover_image_url). Endpoint publik /funding/donations/:id sengaja exclude donor_phone.
+        const res = await fetch(`${API}/funding/admin/donations/${id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const json = await res.json();
         if (json.success && json.data) {
           setDonation(json.data);
@@ -161,7 +165,7 @@ export default function DonationVerifyPanel({
       }
     }
     fetchDonation();
-  }, [id, user]);
+  }, [id, user, token]);
 
   async function handleAction(action: 'verify' | 'reject') {
     if (!token || !donation) return;
