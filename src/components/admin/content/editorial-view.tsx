@@ -15,11 +15,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  Check, X, NotebookPen, AlertTriangle, Flame, Zap, Megaphone, Rss, PenLine, Inbox,
+  Check, X, NotebookPen, AlertTriangle, Flame, Zap, Megaphone, Rss, PenLine, Inbox, Sparkles,
 } from 'lucide-react';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
+import { AiDraftModal } from '@/components/admin/content/ai-draft-modal';
 
 interface Article {
   id: string;
@@ -99,6 +100,9 @@ export function EditorialView() {
   const search = useDebounce(searchInput, 400);
   const [page, setPage] = useState(1);
   const [reloadNonce, setReloadNonce] = useState(0);
+
+  // AI-kan draft (fitur AI #1) — target = { id, title }, null = modal tutup
+  const [aiTarget, setAiTarget] = useState<{ id: string; title: string } | null>(null);
 
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -365,6 +369,16 @@ export function EditorialView() {
                   </button>
                 )}
 
+                {a.status === 'draft' && a.category == null && (
+                  <button
+                    onClick={() => setAiTarget({ id: a.id, title: a.title })}
+                    title="AI baca isi draft → saran teaser + kategori"
+                    className="px-2 py-1 rounded-md bg-brand-teal/12 text-brand-teal text-[11px] font-bold inline-flex items-center gap-1"
+                  >
+                    <Sparkles size={12} aria-hidden /> AI-kan
+                  </button>
+                )}
+
                 <a href={`/news/${a.slug}`} target="_blank" rel="noopener noreferrer" className="px-2 py-1 rounded-md bg-surface-muted text-text-muted text-[11px] font-bold no-underline">
                   Lihat
                 </a>
@@ -390,6 +404,16 @@ export function EditorialView() {
           </div>
         </div>
       )}
+
+      {/* AI-kan Draft modal (fitur AI #1) */}
+      <AiDraftModal
+        target={aiTarget}
+        onClose={() => setAiTarget(null)}
+        onApplied={() => {
+          showToast('Teaser & kategori terisi dari AI.');
+          setReloadNonce((n) => n + 1);
+        }}
+      />
     </div>
   );
 }
