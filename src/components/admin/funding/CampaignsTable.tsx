@@ -1,14 +1,16 @@
 'use client';
 
-import { useContext } from 'react';
+import { useContext, useState, Fragment } from 'react';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import FraudBadge from './FraudBadge';
+import CampaignHistoryPanel from './CampaignHistoryPanel';
 
 // ── Icons ─────────────────────────────────────────
 const Icons = {
   Eye:       () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   Check:     () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
   X:         () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>,
+  Chevron:   () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>,
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -119,6 +121,18 @@ export default function CampaignsTable({
 }) {
   const { t } = useContext(AdminThemeContext);
 
+  // [CAMPAIGN-INLINE-HISTORY] Baris yang sedang expand (boleh >1). Toggle per baris.
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  function toggleExpand(id: string) {
+    setExpandedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  // Kolom data + checkbox (untuk colSpan baris expand)
+  const colCount = showBulkCheckbox ? 8 : 7;
+
   if (campaigns.length === 0) {
     return (
       <div style={{
@@ -187,10 +201,11 @@ export default function CampaignsTable({
               const fraudCount = c.fraud_flags_count ?? c.open_flag_count ?? 0;
               const highSevCount = c.high_severity_flags ?? 0;
               const criticalCount = c.critical_flags ?? 0;
+              const isExpanded = expandedIds.has(c.id);
 
               return (
+                <Fragment key={c.id}>
                 <tr
-                  key={c.id}
                   style={{
                     borderBottom: isLast ? 'none' : `1px solid ${t.sidebarBorder}`,
                     background: isSelected ? 'rgba(236,72,153,0.05)' : 'transparent',
@@ -357,6 +372,22 @@ export default function CampaignsTable({
                   {/* Actions */}
                   <td style={tdStyle(t, 'right')}>
                     <div style={{ display: 'inline-flex', gap: 4 }}>
+                      {/* [CAMPAIGN-INLINE-HISTORY] Toggle histori transaksi inline */}
+                      <button
+                        onClick={e => { e.stopPropagation(); toggleExpand(c.id); }}
+                        title={isExpanded ? 'Tutup histori' : 'Histori transaksi'}
+                        style={{
+                          ...actionBtnStyle(t, isExpanded ? 'success' : 'neutral'),
+                        }}
+                      >
+                        <span style={{
+                          display: 'inline-flex',
+                          transform: isExpanded ? 'rotate(180deg)' : 'none',
+                          transition: 'transform 150ms',
+                        }}>
+                          <Icons.Chevron />
+                        </span>
+                      </button>
                       <button
                         onClick={e => { e.stopPropagation(); onRowAction('detail', c); }}
                         title="Detail"
@@ -385,6 +416,23 @@ export default function CampaignsTable({
                     </div>
                   </td>
                 </tr>
+
+                {/* [CAMPAIGN-INLINE-HISTORY] Baris detail histori (lazy, render saat expand) */}
+                {isExpanded && (
+                  <tr>
+                    <td
+                      colSpan={colCount}
+                      style={{
+                        padding: 0,
+                        borderBottom: isLast ? 'none' : `1px solid ${t.sidebarBorder}`,
+                        background: t.deepBg,
+                      }}
+                    >
+                      <CampaignHistoryPanel campaignId={c.id} t={t} />
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               );
             })}
           </tbody>
