@@ -395,6 +395,13 @@ export default function AdminDonationsPage() {
   function switchSort(sort: string) { updateUrl({ sort, page: 1 }); }
 
   function onRowAction(action: 'detail' | 'verify' | 'reject', donation: Donation) {
+    // [C3-ROUTING-FIX] 'detail' → navigate ke halaman [id] (tempat picker C3 selisih
+    // underpaid/overpaid dirender), bukan modal ringkas yang tak punya picker.
+    // Pakai donation.id (UUID); donation_code (mis. "326") akan ditolak rute by-UUID.
+    if (action === 'detail') {
+      router.push(`/admin/funding/donations/${donation.id}`);
+      return;
+    }
     setModal({ type: action, donation });
   }
 
