@@ -6,11 +6,12 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { formatRupiah } from '@/utils/format';
 import { AdminThemeContext, type AdminTheme } from '@/components/admin/AdminThemeContext';
+import TrialBalanceTable, { type TrialBalanceSection } from '@/components/admin/funding/TrialBalanceTable';
 import {
   ArrowLeft, Loader2, CheckCircle2, XCircle, AlertCircle,
   UserRound, Calendar, Phone, Hash, MessageCircle, ImageIcon,
   ExternalLink, ShieldCheck, Calculator, TrendingDown, TrendingUp,
-  Copy, Check, Landmark,
+  Copy, Check, Landmark, ChevronDown,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -113,6 +114,13 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // [BADONASI-FINANCIAL-TABLE] Jurnal akuntansi (accordion, lazy fetch saat expand)
+  const [tbOpen, setTbOpen] = useState(false);
+  const [tb, setTb] = useState<any>(null);
+  const [tbLoading, setTbLoading] = useState(false);
+  const [tbError, setTbError] = useState('');
+  const [tbLoaded, setTbLoaded] = useState(false);
 
   // ⭐ Discrepancy: nominal yang masuk ke rekening (input admin)
   const [amountReceived, setAmountReceived] = useState('');
@@ -224,6 +232,32 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
       .catch(() => {});
   }
 
+  // [BADONASI-FINANCIAL-TABLE] Lazy fetch jurnal Db/Cr (admin trial-balance) sekali saja
+  async function loadTrialBalance() {
+    if (!token) return;
+    setTbLoading(true);
+    setTbError('');
+    try {
+      const res = await fetch(`${API}/funding/admin/donations/${id}/trial-balance`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) setTb(json.data);
+      else setTbError(json?.error?.message || 'Gagal memuat jurnal.');
+    } catch {
+      setTbError('Koneksi bermasalah.');
+    } finally {
+      setTbLoading(false);
+      setTbLoaded(true);
+    }
+  }
+
+  function toggleTrialBalance() {
+    const next = !tbOpen;
+    setTbOpen(next);
+    if (next && !tbLoaded && !tbLoading) loadTrialBalance();
+  }
+
   if (authLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -263,6 +297,17 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
   const statMeta = statusMeta(donation.verification_status);
   const card: React.CSSProperties = { background: t.card, border: `1px solid ${t.cardBorder}` };
   const verifyTextColor = dark ? '#06231A' : '#FFFFFF'; // kontras di atas solid accent
+
+  // [BADONASI-FINANCIAL-TABLE] Map payload books → sections TrialBalanceTable
+  const bookLabel = (p: string) =>
+    p === 'partner' ? 'Buku Partner' : p === 'badonasi' ? 'Buku BADONASI' : p;
+  const tbSections: TrialBalanceSection[] = (tb?.books ?? []).map((b: any) => ({
+    label: bookLabel(b.perspective),
+    rows: b.rows ?? [],
+    total_debit: b.totals?.debit ?? 0,
+    total_credit: b.totals?.credit ?? 0,
+    balanced: !!b.totals?.balanced,
+  }));
 
   // [C3-PREMIUM-UI] Progress kampanye (sekunder) — guard bagi-nol / NaN
   const campTarget = Number(donation.campaigns?.target_amount) || 0;
@@ -663,6 +708,45 @@ export default function AdminDonationDetailPage({ params }: { params: Promise<{ 
           <div className="py-8 text-center rounded-xl" style={{ background: t.cardInner }}>
             <AlertCircle size={24} style={{ color: t.textDim }} className="mx-auto mb-2" />
             <p className="text-sm" style={{ color: t.textMuted }}>Bukti transfer belum di-upload</p>
+          </div>
+        )}
+      </div>
+
+      {/* [BADONASI-FINANCIAL-TABLE] Jurnal Akuntansi · Trial Balance (accordion, lazy, audit) */}
+      <div className="rounded-2xl mb-4 overflow-hidden" style={card}>
+        <button
+          onClick={toggleTrialBalance}
+          className="w-full flex items-center justify-between p-5"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+        >
+          <span className="flex items-center gap-2">
+            <Calculator size={15} style={{ color: t.textMuted }} />
+            <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: t.textMuted }}>
+              Jurnal Akuntansi · Trial Balance
+            </span>
+          </span>
+          <span style={{
+            display: 'inline-flex', color: t.textDim,
+            transform: tbOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms',
+          }}>
+            <ChevronDown size={16} />
+          </span>
+        </button>
+        {tbOpen && (
+          <div className="px-5 pb-5">
+            {tbLoading ? (
+              <p className="text-xs" style={{ color: t.textDim }}>Memuat jurnal…</p>
+            ) : tbError ? (
+              <div className="text-xs rounded-xl px-3 py-2" style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                ⚠ {tbError}
+              </div>
+            ) : (tb?.flags?.no_journal || tbSections.length === 0) ? (
+              <p className="text-xs" style={{ color: t.textDim }}>
+                Jurnal terbit setelah donasi diverifikasi.
+              </p>
+            ) : (
+              <TrialBalanceTable sections={tbSections} t={t} />
+            )}
           </div>
         )}
       </div>
