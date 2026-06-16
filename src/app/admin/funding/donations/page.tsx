@@ -21,6 +21,7 @@ import DonationsAdvancedFiltersDrawer, {
   type DonationFiltersState, EMPTY_DONATION_FILTERS, countActiveDonationFilters,
 } from '@/components/admin/funding/DonationsAdvancedFiltersDrawer';
 import DonationsBulkActionsToolbar from '@/components/admin/funding/DonationsBulkActionsToolbar';
+import DonationVerifyDrawer from '@/components/admin/funding/DonationVerifyDrawer';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 
@@ -172,6 +173,8 @@ export default function AdminDonationsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [modal, setModal] = useState<{ type: 'verify' | 'reject' | 'detail' | 'addNote'; donation: Donation } | null>(null);
+  // [BADONASI-VERIFY-DRAWER] id donasi yang dibuka di drawer verify (null = tertutup)
+  const [drawerId, setDrawerId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [adminNote, setAdminNote] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -395,11 +398,12 @@ export default function AdminDonationsPage() {
   function switchSort(sort: string) { updateUrl({ sort, page: 1 }); }
 
   function onRowAction(action: 'detail' | 'verify' | 'reject', donation: Donation) {
-    // [C3-ROUTING-FIX] 'detail' → navigate ke halaman [id] (tempat picker C3 selisih
-    // underpaid/overpaid dirender), bukan modal ringkas yang tak punya picker.
-    // Pakai donation.id (UUID); donation_code (mis. "326") akan ditolak rute by-UUID.
+    // [BADONASI-VERIFY-DRAWER] 'detail' → buka DRAWER verify (reuse DonationVerifyPanel),
+    // BUKAN navigate. List tetap terlihat di belakang; verify tanpa pindah halaman.
+    // (Deep-link halaman /donations/[id] tetap hidup untuk akses langsung/share.)
+    // Pakai donation.id (UUID) — sama seperti [C3-ROUTING-FIX].
     if (action === 'detail') {
-      router.push(`/admin/funding/donations/${donation.id}`);
+      setDrawerId(donation.id);
       return;
     }
     setModal({ type: action, donation });
@@ -1176,6 +1180,20 @@ export default function AdminDonationsPage() {
           </div>
         </div>
       )}
+
+      {/* [BADONASI-VERIFY-DRAWER] Drawer verify (reuse DonationVerifyPanel). onDone → tutup + refresh list. */}
+      <DonationVerifyDrawer
+        donationId={drawerId}
+        onClose={() => setDrawerId(null)}
+        onDone={() => {
+          setDrawerId(null);
+          fetchDonations();
+          fetchStatusCounts();
+          fetchSmartViewCounts();
+          fetchAccrualStats();
+          setSubNavRefresh(r => r + 1);
+        }}
+      />
 
       {/* Toast */}
       {toast && (
