@@ -15,6 +15,7 @@ import AdvancedFiltersDrawer, {
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
 import CampaignDetailDrawer from '@/components/admin/funding/CampaignDetailDrawer';
+import BeneficiaryKtpGallery from '@/components/admin/funding/BeneficiaryKtpGallery';
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -711,18 +712,8 @@ export default function AdminCampaignsPage() {
                           <p style={{ fontSize: 10, color: t.textMuted, marginBottom: 6, fontWeight: 600 }}>
                             📷 Foto KTP / Identitas ({modal.campaign.beneficiary_id_documents.length})
                           </p>
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 6 }}>
-                            {modal.campaign.beneficiary_id_documents.map((url, i) => (
-                              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                                style={{
-                                  aspectRatio: '1', borderRadius: 8, overflow: 'hidden',
-                                  border: `1px solid ${t.sidebarBorder}`, background: t.navHover,
-                                  display: 'block',
-                                }}>
-                                <img src={url} alt={`KTP ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                              </a>
-                            ))}
-                          </div>
+                          {/* [KTP-LEAK-FIX-LANGKAH-B-FE1] Baca KTP via signed endpoint, bukan URL publik mentah */}
+                          <BeneficiaryKtpGallery campaignId={modal.campaign.id} columns={2} t={t} />
                           <p style={{ fontSize: 10, color: t.textMuted, marginTop: 6, fontStyle: 'italic' }}>
                             Klik gambar untuk view full size
                           </p>
@@ -1190,17 +1181,8 @@ function CampaignDetail({ c, t }: { c: Campaign; t: any }) {
           <p style={{ fontSize: 11, color: t.textMuted, marginBottom: 8, fontStyle: 'italic' }}>
             Hanya terlihat oleh admin. Tidak ditampilkan ke publik.
           </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
-            {c.beneficiary_id_documents.map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noopener noreferrer"
-                style={{
-                  aspectRatio: '1', background: t.navHover, borderRadius: 10, overflow: 'hidden',
-                  border: `1px solid ${t.sidebarBorder}`, display: 'block',
-                }}>
-                <img src={url} alt={`KTP ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              </a>
-            ))}
-          </div>
+          {/* [KTP-LEAK-FIX-LANGKAH-B-FE1] Baca KTP via signed endpoint, bukan URL publik mentah */}
+          <BeneficiaryKtpGallery campaignId={c.id} columns={3} t={t} />
         </div>
       )}
 
