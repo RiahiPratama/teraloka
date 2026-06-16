@@ -14,6 +14,7 @@ import AdvancedFiltersDrawer, {
 } from '@/components/admin/funding/AdvancedFiltersDrawer';
 import BulkActionsToolbar from '@/components/admin/funding/BulkActionsToolbar';
 import FraudFlagsListModal from '@/components/admin/funding/FraudFlagsListModal';   // ← M4-C
+import CampaignDetailDrawer from '@/components/admin/funding/CampaignDetailDrawer';
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -100,6 +101,8 @@ export default function AdminCampaignsPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [modal, setModal] = useState<{ type: 'approve' | 'reject' | 'detail'; campaign: Campaign } | null>(null);
+  // [CAMPAIGN-DETAIL-DRAWER] kampanye yang dibuka di drawer detail (null = tertutup)
+  const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
@@ -288,6 +291,11 @@ export default function AdminCampaignsPage() {
   function switchLayout(view: 'table' | 'list') { updateUrl({ view }); }
 
   function onRowAction(action: 'detail' | 'approve' | 'reject', campaign: Campaign) {
+    // [CAMPAIGN-DETAIL-DRAWER] 'detail' → drawer kanan (list tetap terlihat), bukan modal.
+    if (action === 'detail') {
+      setDetailCampaign(campaign);
+      return;
+    }
     // ⭐ FIX-E-4-B: Reset checklist setiap buka modal approve baru
     if (action === 'approve') {
       setApproveChecklist({
@@ -875,46 +883,52 @@ export default function AdminCampaignsPage() {
                 </>
               )}
 
-              {modal.type === 'detail' && (
-                <>
-                  <CampaignDetail c={modal.campaign} t={t} />
-                  <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
-                    <a href={`/fundraising/${modal.campaign.slug}`} target="_blank" rel="noopener noreferrer"
-                      style={{
-                        flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                        padding: '12px 16px', borderRadius: 12,
-                        background: t.navHover, color: t.textPrimary,
-                        fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                      }}>
-                      Lihat di Publik →
-                    </a>
-                    {modal.campaign.status === 'pending_review' && (
-                      <>
-                        <button onClick={() => setModal({ type: 'reject', campaign: modal.campaign })}
-                          style={{
-                            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
-                            background: 'rgba(239,68,68,0.1)', color: '#EF4444',
-                            fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                          }}>
-                          ✗ Tolak
-                        </button>
-                        <button onClick={() => setModal({ type: 'approve', campaign: modal.campaign })}
-                          style={{
-                            flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
-                            background: 'rgba(16,185,129,0.1)', color: '#10B981',
-                            fontWeight: 600, fontSize: 13, cursor: 'pointer',
-                          }}>
-                          ✓ Approve
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </>
-              )}
+              {/* [CAMPAIGN-DETAIL-DRAWER] Konten 'detail' dipindah ke drawer kanan (di bawah). */}
             </div>
           </div>
         </div>
       )}
+
+      {/* [CAMPAIGN-DETAIL-DRAWER] Detail kampanye via drawer kanan (list tetap terlihat).
+          Tombol Tolak/Approve → tutup drawer + buka modal (logika approve/checklist NOL ubah). */}
+      <CampaignDetailDrawer open={!!detailCampaign} onClose={() => setDetailCampaign(null)}>
+        {detailCampaign && (
+          <div style={{ padding: 24 }}>
+            <CampaignDetail c={detailCampaign} t={t} />
+            <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
+              <a href={`/fundraising/${detailCampaign.slug}`} target="_blank" rel="noopener noreferrer"
+                style={{
+                  flex: 1, display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                  padding: '12px 16px', borderRadius: 12,
+                  background: t.navHover, color: t.textPrimary,
+                  fontSize: 13, fontWeight: 600, textDecoration: 'none',
+                }}>
+                Lihat di Publik →
+              </a>
+              {detailCampaign.status === 'pending_review' && (
+                <>
+                  <button onClick={() => { const c = detailCampaign; setDetailCampaign(null); setModal({ type: 'reject', campaign: c }); }}
+                    style={{
+                      flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                      background: 'rgba(239,68,68,0.1)', color: '#EF4444',
+                      fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                    }}>
+                    ✗ Tolak
+                  </button>
+                  <button onClick={() => { const c = detailCampaign; setDetailCampaign(null); setModal({ type: 'approve', campaign: c }); }}
+                    style={{
+                      flex: 1, padding: '12px 16px', borderRadius: 12, border: 'none',
+                      background: 'rgba(16,185,129,0.1)', color: '#10B981',
+                      fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                    }}>
+                    ✓ Approve
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </CampaignDetailDrawer>
 
       {/* M4-C: Fraud Flags List Modal */}
       <FraudFlagsListModal
