@@ -61,12 +61,19 @@ import type {
 } from '@/types/newsroom-analytics';
 import { LastPublishBanner, ContentGaps, CoverageRegions } from '@/components/admin/content/content-pulse';
 import {
-  LayoutDashboard, NotebookPen, Newspaper, TrendingUp, Radar,
+  LayoutDashboard, NotebookPen, Newspaper, TrendingUp, Radar, Sparkles,
   AlertTriangle, Lock, ClipboardList, Search, type LucideIcon,
 } from 'lucide-react';
 import { RadarPanel } from '@/components/admin/radar/radar-panel';
+import { AiTab } from '@/components/admin/content/ai-tab';
 
-type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution' | 'radar';
+type Tab = 'overview' | 'editorial' | 'newsroom' | 'distribution' | 'ai' | 'radar';
+
+// 🛡️ AI = tab super_admin-only (RUMAH fungsi AI editorial; di-append di bawah,
+// setelah Distribution sebelum Radar). Backend /admin/ai/desk juga super_admin-only.
+const AI_TAB: { key: Tab; label: string; Icon: LucideIcon } = {
+  key: 'ai', label: 'AI', Icon: Sparkles,
+};
 
 // 🛡️ Radar Anggaran = tab super_admin-only (di-append ke visibleTabs di bawah).
 const RADAR_TAB: { key: Tab; label: string; Icon: LucideIcon } = {
@@ -320,7 +327,7 @@ export default function AdminContentPage() {
 
       {/* Tab bar */}
       <div className="flex gap-1 mb-6 border-b border-border overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-        {(isSuperAdmin ? [...TABS, RADAR_TAB] : TABS).map((tab) => (
+        {(isSuperAdmin ? [...TABS, AI_TAB, RADAR_TAB] : TABS).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
@@ -532,6 +539,9 @@ export default function AdminContentPage() {
       {activeTab === 'newsroom' && <NewsroomAnalyticsView />}
 
       {activeTab === 'distribution' && <DistributionMetricsView />}
+
+      {/* 🛡️ AI — super_admin only (double-gate: tab button + konten). RUMAH fungsi AI. */}
+      {activeTab === 'ai' && isSuperAdmin && <AiTab />}
 
       {/* 🛡️ Radar Anggaran — super_admin only (double-gate: tab button + konten) */}
       {activeTab === 'radar' && isSuperAdmin && <RadarPanel />}
