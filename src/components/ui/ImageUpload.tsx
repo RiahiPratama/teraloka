@@ -20,7 +20,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import { FileText, X, Camera, Image as ImageIcon, Loader2, ChevronDown, RefreshCw, Upload } from 'lucide-react';
+import { FileText, X, Camera, Image as ImageIcon, Loader2, ChevronDown, RefreshCw, Upload, CheckCircle2 } from 'lucide-react';
 import { compressImage, triggerHaptic, isMobile, formatFileSize } from '@/utils/pwa-utils';
 import { useToast } from '@/components/ui/Toast';
 
@@ -42,6 +42,12 @@ interface ImageUploadProps {
   label?: string;
   maxFiles?: number;
   maxSizeMB?: number;
+  /**
+   * [KTP-LEAK-FIX-LANGKAH-B-FE2] Mode privat (aditif, default OFF).
+   * ON → emit PATH (bukan public URL) + preview lokal; dipakai utk bucket privat 'kyc'
+   * (KTP penerima). OFF (default) → getPublicUrl seperti biasa (NOL regresi bucket publik).
+   */
+  privateBucket?: boolean;
 }
 
 interface BucketConfig {
@@ -113,6 +119,7 @@ export default function ImageUpload({
   label = '',
   maxFiles,
   maxSizeMB,
+  privateBucket = false,
 }: ImageUploadProps) {
   const limits = BUCKET_LIMITS[bucket];
   const _maxFiles  = maxFiles  ?? limits.maxFiles;
@@ -120,9 +127,14 @@ export default function ImageUpload({
   const _supportsPdf = supportsPdf(bucket);
   const _supportsGif = MIME_BY_BUCKET[bucket].includes('image/gif');
   const _galleryAccept = MIME_BY_BUCKET[bucket];
+  const _private = privateBucket; // [FE2] emit PATH + preview lokal saat ON
 
   const { toast } = useToast();
   const [urls, setUrls] = useState<string[]>(existingUrls);
+  // [FE2] Preview lokal (objectURL) per PATH hasil upload privat — bucket privat tak bisa <img src=path>.
+  const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({});
+  const localPreviewsRef = useRef<Record<string, string>>({});
+  localPreviewsRef.current = localPreviews;
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -133,6 +145,11 @@ export default function ImageUpload({
 
   useEffect(() => {
     setMobile(isMobile());
+  }, []);
+
+  // [FE2] Revoke semua objectURL preview privat saat unmount (cegah memory leak)
+  useEffect(() => () => {
+    Object.values(localPreviewsRef.current).forEach(u => URL.revokeObjectURL(u));
   }, []);
 
   // Sync external changes
@@ -235,6 +252,15 @@ export default function ImageUpload({
         return null;
       }
 
+      // [KTP-LEAK-FIX-LANGKAH-B-FE2] Bucket privat → emit PATH (dibaca via signed-URL admin),
+      // simpan preview lokal utk validasi owner. Bucket publik (default) → getPublicUrl (NOL regresi).
+      if (_private) {
+        setLocalPreviews(prev => ({ ...prev, [fileName]: URL.createObjectURL(file) }));
+        setUploading(prev => prev.filter(u => u.id !== id));
+        triggerHaptic('success');
+        return fileName;
+      }
+
       const { data } = supabase.storage.from(bucket).getPublicUrl(fileName);
 
       // Remove from uploading
@@ -275,6 +301,15 @@ export default function ImageUpload({
     const updated = urls.filter(u => u !== url);
     setUrls(updated);
     onUpload(updated);
+    // [FE2] Revoke + buang preview lokal kalau ada (privat)
+    setLocalPreviews(prev => {
+      const obj = prev[url];
+      if (!obj) return prev;
+      URL.revokeObjectURL(obj);
+      const next = { ...prev };
+      delete next[url];
+      return next;
+    });
   }
 
   function handleDrop(e: React.DragEvent) {
@@ -333,7 +368,23 @@ export default function ImageUpload({
         <div className={`mb-3 grid gap-2 ${_maxFiles === 1 ? 'grid-cols-1' : 'grid-cols-3'}`}>
           {urls.map((url, i) => (
             <div key={i} className="relative group rounded-xl border border-gray-200 bg-gray-50 overflow-hidden">
-              {isPdfUrl(url) ? (
+              {_private ? (
+                localPreviews[url] ? (
+                  // Fresh upload privat → preview lokal (objectURL) untuk validasi owner
+                  <img src={localPreviews[url]} alt={`Upload ${i + 1}`} className="w-full h-32 object-cover" />
+                ) : (
+                  // Tersimpan (path privat, restored) → chip tanpa thumbnail (privat, tak di-render)
+                  <div className="flex items-center gap-3 p-4">
+                    <div className="w-12 h-12 rounded-lg bg-emerald-50 flex items-center justify-center shrink-0">
+                      <CheckCircle2 size={22} className="text-emerald-600" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-semibold text-gray-700 truncate">Tersimpan (rahasia)</p>
+                      <p className="text-xs text-gray-400 truncate">Dokumen privat — tidak ditampilkan di form</p>
+                    </div>
+                  </div>
+                )
+              ) : isPdfUrl(url) ? (
                 <div className="flex items-center gap-3 p-4">
                   <div className="w-12 h-12 rounded-lg bg-red-50 flex items-center justify-center shrink-0">
                     <FileText size={24} className="text-red-500" />

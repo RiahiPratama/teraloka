@@ -1208,8 +1208,12 @@ export default function EditCampaignPage() {
                   📄 Surat Keterangan RT/RW/Kelurahan
                 </p>
               </div>
+              {/* [KTP-LEAK-FIX-LANGKAH-B-FE2] KTP penerima → bucket kyc PRIVAT + emit PATH.
+                  onUpload kini terima PATH (bukan public URL) → beneficiary_id_documents simpan PATH;
+                  admin baca via signed endpoint (FE1). Cover/proof TETAP bucket campaigns publik. */}
               <ImageUpload
-                bucket="campaigns"
+                bucket="kyc"
+                privateBucket
                 label=""
                 maxFiles={3}
                 maxSizeMB={5}

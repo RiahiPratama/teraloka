@@ -1032,22 +1032,14 @@ function InfoSection({ campaign }: { campaign: Campaign }) {
                 Rahasia
               </span>
             </div>
-            <p className="text-[10px] text-blue-700/80 mb-2 leading-relaxed">
-              Hanya kamu (penggalang) dan admin TeraLoka yang bisa lihat. Tidak ditampilkan ke donor publik.
+            {/* [KTP-LEAK-FIX-LANGKAH-B-FE2b] KTP penerima TIDAK lagi dirender ke owner.
+                Identitas pihak yang dibantu (bisa pihak ketiga) → akses berulang = permukaan
+                privasi tak perlu. Owner sudah validasi saat upload (preview FE2); admin
+                verifikasi via signed endpoint (FE1). Tampilkan COUNT saja (teks), bukan <img>. */}
+            <p className="text-[10px] text-blue-700/80 leading-relaxed">
+              {campaign.beneficiary_id_documents.length} dokumen tersimpan &amp; diverifikasi admin TeraLoka.
+              Demi privasi penerima, dokumen tidak ditampilkan di halaman ini.
             </p>
-            <div className="grid grid-cols-3 gap-2">
-              {campaign.beneficiary_id_documents.map((url, i) => (
-                <a
-                  key={i}
-                  href={url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="aspect-square rounded-lg overflow-hidden bg-white hover:ring-2 hover:ring-blue-500 transition-all border border-blue-100"
-                >
-                  <img src={url} alt={`Identitas ${i + 1}`} className="w-full h-full object-cover" />
-                </a>
-              ))}
-            </div>
           </div>
         )}
       </div>
