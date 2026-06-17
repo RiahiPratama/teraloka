@@ -9,7 +9,8 @@
  * rombak struktur.
  *
  *   <AiTab>
- *     ├─ <AiDeskSection/>        ← MVP sekarang
+ *     ├─ <AiDeskSection/>        ← AI Desk (panjang → ringkas + kategori)
+ *     ├─ <AiPenulisSection/>     ← AI Penulis (bahan mentah → draft editorial)
  *     ├─ (nanti) <ViralRadarSection/>
  *     └─ (nanti) <AiHistorySection/>
  *
@@ -18,12 +19,14 @@
  */
 
 import { AiDeskSection } from './ai-desk-section';
+import { AiPenulisSection } from './ai-penulis-section';
 
 export function AiTab() {
   return (
     <div className="space-y-6">
-      {/* MVP: AI Desk. Tambah <SectionAiLain /> di bawah sini saat fungsi baru siap. */}
+      {/* Tambah <SectionAiLain /> di bawah sini saat fungsi baru siap. */}
       <AiDeskSection />
+      <AiPenulisSection />
     </div>
   );
 }
