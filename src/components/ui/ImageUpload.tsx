@@ -23,6 +23,7 @@ import { createClient } from '@/lib/supabase/client';
 import { FileText, X, Camera, Image as ImageIcon, Loader2, ChevronDown, RefreshCw, Upload, CheckCircle2 } from 'lucide-react';
 import { compressImage, triggerHaptic, isMobile, formatFileSize } from '@/utils/pwa-utils';
 import { useToast } from '@/components/ui/Toast';
+import ImagePrivacyEditor from '@/components/ui/ImagePrivacyEditor';
 
 type BucketName =
   | 'listings'
@@ -48,6 +49,12 @@ interface ImageUploadProps {
    * (KTP penerima). OFF (default) → getPublicUrl seperti biasa (NOL regresi bucket publik).
    */
   privateBucket?: boolean;
+  /**
+   * [FOTO-PRIVACY-EDITOR] Editor privasi (aditif, default OFF).
+   * ON → tiap file dipilih lewat editor blur/mosaic/redact/crop dulu (sekuensial) sebelum
+   * upload. Dipakai utk foto PUBLIK (cover + proof). OFF (default) → upload langsung (nol regresi).
+   */
+  privacyEditor?: boolean;
 }
 
 interface BucketConfig {
@@ -120,6 +127,7 @@ export default function ImageUpload({
   maxFiles,
   maxSizeMB,
   privateBucket = false,
+  privacyEditor = false,
 }: ImageUploadProps) {
   const limits = BUCKET_LIMITS[bucket];
   const _maxFiles  = maxFiles  ?? limits.maxFiles;
@@ -128,6 +136,7 @@ export default function ImageUpload({
   const _supportsGif = MIME_BY_BUCKET[bucket].includes('image/gif');
   const _galleryAccept = MIME_BY_BUCKET[bucket];
   const _private = privateBucket; // [FE2] emit PATH + preview lokal saat ON
+  const _editor = privacyEditor;  // [FOTO-PRIVACY-EDITOR] editor blur/mosaic/redact/crop pre-upload
 
   const { toast } = useToast();
   const [urls, setUrls] = useState<string[]>(existingUrls);
@@ -135,6 +144,9 @@ export default function ImageUpload({
   const [localPreviews, setLocalPreviews] = useState<Record<string, string>>({});
   const localPreviewsRef = useRef<Record<string, string>>({});
   localPreviewsRef.current = localPreviews;
+  // [FOTO-PRIVACY-EDITOR] file yang sedang diedit + resolver bridge (queue sekuensial)
+  const [editorFile, setEditorFile] = useState<File | null>(null);
+  const editorResolveRef = useRef<((f: File | null) => void) | null>(null);
   const [uploading, setUploading] = useState<UploadingFile[]>([]);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [mobile, setMobile] = useState(false);
@@ -287,6 +299,24 @@ export default function ImageUpload({
       toast.warning(`Hanya ${remaining} file pertama yang akan diupload (maks ${_maxFiles})`);
     }
 
+    // [FOTO-PRIVACY-EDITOR] Editor ON → tiap file lewat editor dulu (SEKUENSIAL), hasil baru di-upload.
+    // Default OFF → path Promise.all lama (di bawah) tak berubah (nol regresi).
+    if (_editor) {
+      const collected: string[] = [];
+      for (const file of toUpload) {
+        const decided = await openEditor(file); // File (pakai/lewati) | null (batal → skip file ini)
+        if (!decided) continue;
+        const url = await processFile(decided);
+        if (url) collected.push(url);
+      }
+      if (collected.length > 0) {
+        const updated = [...urls, ...collected];
+        setUrls(updated);
+        onUpload(updated);
+      }
+      return;
+    }
+
     const results = await Promise.all(toUpload.map(processFile));
     const newUrls = results.filter((u): u is string => u !== null);
 
@@ -295,6 +325,14 @@ export default function ImageUpload({
       setUrls(updated);
       onUpload(updated);
     }
+  }
+
+  // [FOTO-PRIVACY-EDITOR] Buka editor utk 1 file → resolve dgn File (pakai/lewati) atau null (batal).
+  function openEditor(file: File): Promise<File | null> {
+    return new Promise(resolve => {
+      editorResolveRef.current = resolve;
+      setEditorFile(file);
+    });
   }
 
   function handleRemove(url: string) {
@@ -569,6 +607,32 @@ export default function ImageUpload({
           accept="application/pdf"
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
+        />
+      )}
+
+      {/* [FOTO-PRIVACY-EDITOR] Modal editor privasi (hanya saat privacyEditor ON & ada file di-queue) */}
+      {editorFile && (
+        <ImagePrivacyEditor
+          file={editorFile}
+          onApply={(edited) => {
+            const resolve = editorResolveRef.current;
+            editorResolveRef.current = null;
+            setEditorFile(null);
+            resolve?.(edited);
+          }}
+          onSkip={() => {
+            const resolve = editorResolveRef.current;
+            const original = editorFile;
+            editorResolveRef.current = null;
+            setEditorFile(null);
+            resolve?.(original); // Lewati → upload asli
+          }}
+          onCancel={() => {
+            const resolve = editorResolveRef.current;
+            editorResolveRef.current = null;
+            setEditorFile(null);
+            resolve?.(null); // Batal → skip file ini
+          }}
         />
       )}
     </div>

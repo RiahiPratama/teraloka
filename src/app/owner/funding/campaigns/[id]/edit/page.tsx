@@ -1273,8 +1273,10 @@ export default function EditCampaignPage() {
             </FormField>
 
             <FormField label="Foto Cover Kampanye">
+              {/* [FOTO-PRIVACY-EDITOR] Foto publik → editor blur/mosaic/redact/crop pre-upload */}
               <ImageUpload
                 bucket="campaigns"
+                privacyEditor
                 label=""
                 onUpload={(urls: string[]) => setCoverUrl(urls[0] ?? '')}
                 existingUrls={coverUrl ? [coverUrl] : []}
@@ -1286,8 +1288,10 @@ export default function EditCampaignPage() {
                 Foto lokasi, surat dokter (KTP/NIK diblur), surat keterangan kelurahan. Ditampilkan ke donor untuk transparansi.<br />
                 <strong className="text-amber-700">⚠️ Jangan upload KTP/NIK polos di sini</strong> — KTP penerima sudah di Step 1 (rahasia).
               </p>
+              {/* [FOTO-PRIVACY-EDITOR] Foto publik (cerita/kondisi penerima) → editor pre-upload */}
               <ImageUpload
                 bucket="campaigns"
+                privacyEditor
                 label=""
                 maxFiles={5}
                 maxSizeMB={5}
