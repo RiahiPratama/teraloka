@@ -33,6 +33,7 @@ export interface PendingFeeDonation {
     partner_name: string;
     beneficiary_name: string;
     status: string;
+    creator_id?: string;  // [TAHAP3-FE] penggalang — key settle Path B.5 (/fee-remittances/direct)
   } | null;
 }
 

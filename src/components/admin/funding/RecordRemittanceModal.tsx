@@ -30,6 +30,7 @@ export default function RecordRemittanceModal({
   open,
   donations,
   partnerName,
+  creatorId,
   onClose,
   onSuccess,
   onToast,
@@ -37,6 +38,7 @@ export default function RecordRemittanceModal({
   open: boolean;
   donations: PendingFeeDonation[];
   partnerName: string;
+  creatorId: string;   // [TAHAP3-FE] key settle Path B.5 (penggalang)
   onClose: () => void;
   onSuccess: () => void;
   onToast: (ok: boolean, msg: string) => void;
@@ -75,10 +77,10 @@ export default function RecordRemittanceModal({
   const amountDiff = parsedAmount - totalFeeExpected;
   const hasAmountDiff = Math.abs(amountDiff) > 0.01;
 
+  // [TAHAP3-FE] Submit dikunci ke creatorId (penggalang), bukan partner_name.
   const canSubmit =
     parsedAmount > 0 &&
-    partnerName.trim() !== '' &&
-    donations.length > 0 &&
+    creatorId.trim() !== '' &&
     safetyChecked &&
     !submitting;
 
@@ -93,15 +95,16 @@ export default function RecordRemittanceModal({
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/funding/admin/fees/remittances`, {
+      // [TAHAP3-FE] Path B.5: settle by {creator_id, amount} (FIFO server-side).
+      // DROP donation_ids + partner_name. evidence_url menggantikan receipt_url.
+      const res = await fetch(`${API_URL}/funding/admin/fee-remittances/direct`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          donation_ids: donations.map(d => d.id),
-          partner_name: partnerName.trim(),
+          creator_id: creatorId,
           amount: parsedAmount,
           reference_code: referenceCode.trim() || undefined,
-          receipt_url: receiptUrl.trim() || undefined,
+          evidence_url: receiptUrl.trim() || undefined,
           notes: notes.trim() || undefined,
           remitted_at: new Date(remittedDate).toISOString(),
         }),
@@ -109,10 +112,16 @@ export default function RecordRemittanceModal({
       const json = await res.json();
 
       if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message ?? 'Gagal simpan remittance');
+        const code = json?.error?.code;
+        const friendly =
+          code === 'AMBIGUOUS_PARTNER' ? 'Partner ini terkait >1 penggalang — pilih per penggalang (tab Pending Donasi).'
+          : code === 'NO_DONATIONS_TO_COVER' ? 'Tidak ada fee yang belum di-settle untuk penggalang ini.'
+          : (json?.error?.message ?? 'Gagal simpan remittance');
+        throw new Error(friendly);
       }
 
-      onToast(true, `✓ Remittance ${formatRupiah(parsedAmount)} tercatat untuk ${partnerName}`);
+      const covered = json?.data?.donations_covered;
+      onToast(true, `✓ Remittance ${formatRupiah(parsedAmount)} tercatat untuk ${partnerName}${covered ? ` (${covered} donasi ter-settle)` : ''}`);
       onClose();
       onSuccess();
     } catch (err: any) {
@@ -198,7 +207,7 @@ export default function RecordRemittanceModal({
           {/* Donation Preview List */}
           <div style={{ marginBottom: 16 }}>
             <p style={{ fontSize: 11, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-              Donasi Yang Akan Di-Settle ({donations.length})
+              Donasi Akan Di-Settle FIFO ({donations.length}) · server pilih otomatis sesuai jumlah
             </p>
             <div style={{
               background: t.navHover, borderRadius: 10, padding: 8,

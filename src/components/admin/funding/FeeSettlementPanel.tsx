@@ -60,6 +60,13 @@ const TABS: { key: TabKey; label: string; Icon: typeof Users }[] = [
 function formatRupiah(n: number): string { return 'Rp ' + n.toLocaleString('id-ID'); }
 function shortRupiah(n: number): string { return 'Rp ' + (n ?? 0).toLocaleString('id-ID'); }
 
+// [TAHAP3-FE] creator_id unik dari sekumpulan donasi (Path B.5 = per penggalang).
+function distinctCreators(donations: PendingFeeDonation[]): string[] {
+  const set = new Set<string>();
+  donations.forEach(d => { if (d.campaign?.creator_id) set.add(d.campaign.creator_id); });
+  return Array.from(set);
+}
+
 export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefresh?: () => void }) {
   const { t } = useContext(AdminThemeContext);
 
@@ -80,7 +87,8 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
   const [historyPage, setHistoryPage] = useState(1);
   const [historyLimit] = useState(20);
 
-  const [remitModal, setRemitModal] = useState<{ open: boolean; donations: PendingFeeDonation[]; partnerName: string; }>({ open: false, donations: [], partnerName: '' });
+  // [TAHAP3-FE] creatorId = key settle Path B.5 (per penggalang). partnerName = label tampilan.
+  const [remitModal, setRemitModal] = useState<{ open: boolean; donations: PendingFeeDonation[]; partnerName: string; creatorId: string; }>({ open: false, donations: [], partnerName: '', creatorId: '' });
   const [toast, setToast] = useState<{ ok: boolean; msg: string } | null>(null);
 
   function showToast(ok: boolean, msg: string) {
@@ -165,14 +173,24 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
     return Array.from(set);
   }, [selectedDonations]);
   const selectedTotalFee = useMemo(() => selectedDonations.reduce((sum, d) => sum + (d.operational_fee || 0), 0), [selectedDonations]);
-  const multiPartnerWarning = selectedPartners.length > 1;
-  const canRecordFromSelection = selectedPartners.length === 1 && selectedTotalFee > 0;
+  // [TAHAP3-FE] Gate by creator_id (penggalang), BUKAN partner_name (ambigu — 1 partner_name bisa lintas penggalang).
+  const selectedCreators = useMemo(() => distinctCreators(selectedDonations), [selectedDonations]);
+  const multiPartnerWarning = selectedCreators.length > 1;
+  const canRecordFromSelection = selectedCreators.length === 1 && selectedTotalFee > 0;
 
   // ═══════ Modal ═══════
+  // [TAHAP3-FE] Buka modal terkunci 1 penggalang (creator_id). Kalau partner_name
+  // lintas penggalang (ambigu), tolak — arahkan pakai tab Pending Donasi.
+  function openModalForDonations(donations: PendingFeeDonation[], partnerName: string) {
+    const creators = distinctCreators(donations);
+    if (creators.length === 0) { showToast(false, 'Donasi ini tak punya penggalang (creator_id) — tidak bisa di-settle.'); return; }
+    if (creators.length > 1) { showToast(false, `Donasi "${partnerName}" lintas ${creators.length} penggalang. Pilih per penggalang via tab Pending Donasi.`); return; }
+    setRemitModal({ open: true, donations, partnerName, creatorId: creators[0] });
+  }
   function openRemittanceFromPartner(partnerName: string) {
     const partnerDonations = pendingDonations.filter(d => d.campaign?.partner_name === partnerName && d.operational_fee > 0);
     if (partnerDonations.length === 0) { fetchPendingForPartner(partnerName); return; }
-    setRemitModal({ open: true, donations: partnerDonations, partnerName });
+    openModalForDonations(partnerDonations, partnerName);
   }
   async function fetchPendingForPartner(partnerName: string) {
     const tk = localStorage.getItem('tl_token'); if (!tk) return;
@@ -182,13 +200,13 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
       if (res.ok && json.success) {
         const ds = (json.data as PendingFeeDonation[]).filter(d => d.operational_fee > 0);
         if (ds.length === 0) { showToast(false, 'Tidak ada donasi pending dengan fee > 0 dari partner ini'); return; }
-        setRemitModal({ open: true, donations: ds, partnerName });
+        openModalForDonations(ds, partnerName);
       }
     } catch (err: any) { showToast(false, err.message ?? 'Gagal fetch donasi partner'); }
   }
   function openRemittanceFromSelection() {
     if (!canRecordFromSelection) return;
-    setRemitModal({ open: true, donations: selectedDonations, partnerName: selectedPartners[0] });
+    openModalForDonations(selectedDonations, selectedPartners[0] ?? '');
   }
   function handleRemittanceSuccess() {
     setSelectedIds(new Set());
@@ -251,7 +269,7 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
               {multiPartnerWarning && (
                 <div style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)', borderRadius: 12, padding: 12, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 10 }}>
                   <AlertTriangle size={14} color="#B45309" />
-                  <div style={{ fontSize: 12, color: '#B45309' }}><strong>Pilih donasi dari 1 partner yang sama.</strong>{' '}Saat ini: <strong>{selectedPartners.length} partner</strong> ter-select ({selectedPartners.join(', ')}).</div>
+                  <div style={{ fontSize: 12, color: '#B45309' }}><strong>Pilih donasi dari 1 penggalang yang sama.</strong>{' '}Saat ini: <strong>{selectedCreators.length} penggalang</strong> ter-select ({selectedPartners.join(', ')}).</div>
                 </div>
               )}
               {selectedIds.size > 0 && (
@@ -278,7 +296,7 @@ export default function FeeSettlementPanel({ onSubNavRefresh }: { onSubNavRefres
       )}
 
       {/* Modal */}
-      <RecordRemittanceModal open={remitModal.open} donations={remitModal.donations} partnerName={remitModal.partnerName} onClose={() => setRemitModal({ open: false, donations: [], partnerName: '' })} onSuccess={handleRemittanceSuccess} onToast={showToast} />
+      <RecordRemittanceModal open={remitModal.open} donations={remitModal.donations} partnerName={remitModal.partnerName} creatorId={remitModal.creatorId} onClose={() => setRemitModal({ open: false, donations: [], partnerName: '', creatorId: '' })} onSuccess={handleRemittanceSuccess} onToast={showToast} />
 
       {/* Toast */}
       {toast && (
