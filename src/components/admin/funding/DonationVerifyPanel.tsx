@@ -34,6 +34,48 @@ function parseRupiah(formatted: string): number {
   return Number(formatted.replace(/\D/g, '')) || 0;
 }
 
+// [ADMIN-VERIFY-ASIS] Port computeComponents backend (transaksi-breakdown.ts) untuk PREVIEW LIVE.
+// Display only — angka commit tetap dari response POST verify-asis (backend = SATU SUMBER).
+// Waterfall partial: Beneficiary → Fee → Kode Unik → Tip (tip dikorbankan saat kurang bayar).
+type AsisSplit = {
+  tercatat: number; beneficiary: number; fee: number; tip: number; kode_unik: number;
+  decision: 'exact_match' | 'accepted_partial' | 'accepted_excess';
+};
+function computeComponentsFE(p: {
+  amount: number; received: number; total_transfer: number;
+  operational_fee: number; penggalang_fee: number;
+}): AsisSplit {
+  const amount = p.amount || 0;
+  const received = p.received || 0;
+  const totalTransfer = p.total_transfer || 0;
+  const opFee = p.operational_fee || 0;
+  const pgFee = p.penggalang_fee || 0;
+  const kodeInstructed = Math.max(0, totalTransfer - amount - opFee - pgFee);
+
+  // Decision dari nominal yang BENERAN masuk vs instructed (mirror adminVerifyAsIs).
+  const decision: AsisSplit['decision'] =
+    Math.abs(received - totalTransfer) < 0.01 ? 'exact_match'
+      : received < totalTransfer ? 'accepted_partial'
+        : 'accepted_excess';
+
+  const tercatat = received;
+  let beneficiary = 0, fee = 0, tip = 0, kode_unik = 0;
+  if (decision === 'accepted_partial') {
+    let remaining = tercatat;
+    beneficiary = Math.min(remaining, amount); remaining -= beneficiary;
+    fee = Math.min(remaining, opFee); remaining -= fee;
+    kode_unik = Math.min(remaining, kodeInstructed); remaining -= kode_unik;
+    tip = remaining; // sisa (bisa < penggalang_fee)
+  } else {
+    // exact_match & accepted_excess: komponen penuh; kelebihan (excess) jatuh ke kode_unik.
+    beneficiary = amount;
+    fee = opFee;
+    tip = pgFee;
+    kode_unik = tercatat - amount - opFee - pgFee;
+  }
+  return { tercatat, beneficiary, fee, tip, kode_unik, decision };
+}
+
 // ─── Types ───────────────────────────────────────────────────────
 
 interface DonationDetail {
@@ -237,6 +279,42 @@ export default function DonationVerifyPanel({
     }
   }
 
+  // [ADMIN-VERIFY-ASIS] Tuntasin donasi nyangkut (under_audit/escalated) "apa adanya".
+  // POST nominal masuk → backend split via computeComponents + post jurnal + escalation resolved.
+  async function handleVerifyAsis() {
+    if (!token || !donation) return;
+    const masuk = parseRupiah(amountReceived);
+    if (!(masuk > 0)) {
+      setActionError('Masukkan nominal masuk dulu (lebih dari 0).');
+      return;
+    }
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const res = await fetch(`${API}/funding/admin/donations/${id}/verify-asis`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ amount_received: masuk }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setActionSuccess('✅ Donasi diverifikasi apa adanya. Jurnal sudah ke-post & escalation selesai.');
+        setTimeout(() => onDone?.(), 1500);
+      } else {
+        const code = json?.error?.code;
+        if (code === 'ALREADY_VERIFIED') setActionError('Donasi sudah diverifikasi sebelumnya.');
+        else setActionError(json?.error?.message || 'Gagal verifikasi apa adanya.');
+      }
+    } catch {
+      setActionError('Koneksi bermasalah.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   // [C3-PREMIUM-UI] Salin no rekening tujuan (visual affordance, no logic)
   function copyAccount() {
     const num = donation?.campaigns?.bank_account_number;
@@ -299,6 +377,9 @@ export default function DonationVerifyPanel({
   const isPending = donation.verification_status === 'pending_review' || donation.verification_status === 'pending';
   const isVerified = donation.verification_status === 'verified';
   const isRejected = donation.verification_status === 'rejected';
+  const isUnderAudit = donation.verification_status === 'under_audit';
+  // [ADMIN-VERIFY-ASIS] Tampil utk donasi nyangkut (under_audit, atau escalated yg bukan pending biasa).
+  const showAsis = !isVerified && !isRejected && (isUnderAudit || (!!donation.escalated_to_admin_at && !isPending));
 
   // ⭐ Discrepancy calculation
   const amountReceivedNum = parseRupiah(amountReceived);
@@ -568,12 +649,8 @@ export default function DonationVerifyPanel({
           {(donation.penggalang_fee ?? 0) > 0 && (
             <StrukRow label="Fee penggalang" value={formatRupiah(donation.penggalang_fee!)} t={t} />
           )}
-          {/* [VERIFY-DRAWER-FIX] No. Transaksi (display_id) ≠ Kode unik (numeric). Sebelumnya display_id salah dilabeli "Kode unik". */}
-          <StrukRow
-            label={<span className="inline-flex items-center gap-1.5"><Hash size={11} /> No. Transaksi</span>}
-            value={<span className="font-mono">{donation.display_id ?? donation.donation_code}</span>}
-            t={t}
-          />
+          {/* [VERIFY-DRAWER-FIX2] No. Transaksi (display_id) = identifier, BUKAN uang → pindah ke header drawer.
+              Rincian Transfer tinggal komponen uang murni. Kode unik (numeric) TETAP di sini. */}
           <StrukRow
             label={<span className="inline-flex items-center gap-1.5"><Hash size={11} /> Kode unik</span>}
             value={formatRupiah(donation.kode_unik ?? Math.max(0, donation.total_transfer - donation.amount - donation.operational_fee - (donation.penggalang_fee ?? 0)))}
@@ -641,6 +718,96 @@ export default function DonationVerifyPanel({
                   <span style={{ color: t.textDim }}>Penggalang tidak upload bukti</span>
                 )}
               </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* [ADMIN-VERIFY-ASIS] Verifikasi Apa Adanya — tuntasin donasi nyangkut (under_audit/escalated).
+          Input nominal masuk + PREVIEW split LIVE (computeComponentsFE) → POST verify-asis. */}
+      {showAsis && !actionSuccess && (() => {
+        const masuk = parseRupiah(amountReceived);
+        const split = masuk > 0 ? computeComponentsFE({
+          amount: donation.amount,
+          received: masuk,
+          total_transfer: donation.total_transfer,
+          operational_fee: donation.operational_fee,
+          penggalang_fee: donation.penggalang_fee ?? 0,
+        }) : null;
+        const decMeta: Record<AsisSplit['decision'], { label: string; color: string }> = {
+          exact_match: { label: 'EXACT', color: '#10B981' },
+          accepted_partial: { label: 'PARTIAL', color: '#F59E0B' },
+          accepted_excess: { label: 'EXCESS', color: '#EC4899' },
+        };
+        return (
+          <div className="rounded-2xl p-5 mb-4" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.3)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <ShieldCheck size={15} style={{ color: '#FBBF24' }} />
+              <p className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#FBBF24' }}>
+                Verifikasi Apa Adanya
+              </p>
+            </div>
+            <p className="text-[11px] mb-3" style={{ color: t.textDim }}>
+              Donasi nyangkut (penggalang offline / audit). Catat nominal yang BENERAN masuk — sistem split apa adanya & post jurnal.
+            </p>
+
+            {/* Input nominal masuk (default = amount_received yang dikonfirmasi penggalang) */}
+            <div className="relative mb-3">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-bold" style={{ color: t.textDim }}>Rp</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                value={amountReceived}
+                onChange={e => setAmountReceived(formatRupiahInput(e.target.value))}
+                placeholder={donation.total_transfer.toLocaleString('id-ID')}
+                className="w-full pl-9 pr-4 py-3 rounded-xl text-sm font-mono focus:outline-none"
+                style={{ background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textPrimary, fontVariantNumeric: 'tabular-nums' }}
+              />
+            </div>
+
+            {/* PREVIEW split LIVE — admin liat hasil SEBELUM commit */}
+            {split ? (
+              <div className="rounded-xl p-4 mb-3" style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}` }}>
+                <div className="flex items-center justify-between mb-2.5">
+                  <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: t.textMuted }}>Preview Split</p>
+                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider"
+                    style={{ background: `${decMeta[split.decision].color}22`, color: decMeta[split.decision].color }}>
+                    {decMeta[split.decision].label}
+                  </span>
+                </div>
+                <div className="text-sm space-y-1.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <div className="flex justify-between"><span style={{ color: t.textMuted }}>Beneficiary</span><span className="font-semibold" style={{ color: t.textPrimary }}>{formatRupiah(split.beneficiary)}</span></div>
+                  <div className="flex justify-between"><span style={{ color: t.textMuted }}>Fee TeraLoka</span><span className="font-semibold" style={{ color: t.textPrimary }}>{formatRupiah(split.fee)}</span></div>
+                  <div className="flex justify-between"><span style={{ color: t.textMuted }}>Tip Penggalang</span><span className="font-semibold" style={{ color: t.textPrimary }}>{formatRupiah(split.tip)}</span></div>
+                  <div className="flex justify-between"><span style={{ color: t.textMuted }}>Kode Unik</span><span className="font-semibold" style={{ color: t.textPrimary }}>{formatRupiah(split.kode_unik)}</span></div>
+                  <div className="flex justify-between pt-1.5 mt-0.5" style={{ borderTop: `1px solid ${t.cardBorder}` }}>
+                    <span className="font-bold" style={{ color: t.textPrimary }}>Tercatat (masuk)</span>
+                    <span className="font-extrabold" style={{ color: t.accent }}>{formatRupiah(split.tercatat)}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] mt-2" style={{ color: t.textDim }}>Preview di FE; angka final dari backend saat commit.</p>
+              </div>
+            ) : (
+              <p className="text-[11px] mb-3" style={{ color: t.textDim }}>Masukkan nominal masuk untuk lihat preview split.</p>
+            )}
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowRejectModal(true)}
+                disabled={submitting}
+                className="flex items-center justify-center gap-2 py-3 px-5 rounded-2xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-80"
+                style={{ background: 'transparent', border: `1px solid ${t.cardBorder}`, color: '#F87171' }}
+              >
+                <XCircle size={18} /> Tolak
+              </button>
+              <button
+                onClick={handleVerifyAsis}
+                disabled={submitting || !split}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold shadow-md hover:opacity-95 transition-all disabled:opacity-50"
+                style={{ background: t.accent, color: verifyTextColor }}
+              >
+                {submitting ? <Loader2 size={18} className="animate-spin" /> : <><ShieldCheck size={18} /> Verifikasi Apa Adanya</>}
+              </button>
             </div>
           </div>
         );
