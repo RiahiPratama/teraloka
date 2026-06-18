@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
@@ -60,16 +61,19 @@ function timeAgo(dateStr: string) {
   return `${d} hari lalu`;
 }
 
-export default function AdminListingsPage() {
+function ListingsManager() {
   const { token } = useAuth();
+  const router = useRouter();
+  const sp = useSearchParams();
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [typeFilter, setTypeFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
+  // 🔗 init filter dari URL — deep-link ?type=&status=&q= kebaca saat mount.
+  const [typeFilter, setTypeFilter] = useState(sp.get('type') ?? '');
+  const [statusFilter, setStatusFilter] = useState(sp.get('status') ?? '');
+  const [search, setSearch] = useState(sp.get('q') ?? '');
+  const [searchInput, setSearchInput] = useState(sp.get('q') ?? '');
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
 
   const showToast = (msg: string, ok = true) => {
@@ -101,6 +105,16 @@ export default function AdminListingsPage() {
   }, [token, typeFilter, statusFilter, search]);
 
   useEffect(() => { fetchListings(); }, [fetchListings]);
+
+  // 🔗 sync state → URL (shareable + URL selalu cermin state). Ikut pola BakosCari.
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (typeFilter)    p.set('type', typeFilter);
+    if (statusFilter)  p.set('status', statusFilter);
+    if (search.trim()) p.set('q', search.trim());
+    const qs = p.toString();
+    router.replace(`/admin/listings${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [typeFilter, statusFilter, search, router]);
 
   const updateStatus = async (id: string, status: string, title: string) => {
     if (!token) return;
@@ -367,6 +381,19 @@ export default function AdminListingsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// useSearchParams() butuh Suspense boundary (Next.js) — ikut pola BakosCari/cari/page.tsx.
+export default function AdminListingsPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ minHeight: '60vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8' }}>
+        Memuat…
+      </div>
+    }>
+      <ListingsManager />
+    </Suspense>
   );
 }
 
