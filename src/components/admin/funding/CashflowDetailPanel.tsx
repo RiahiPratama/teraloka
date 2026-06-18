@@ -80,6 +80,7 @@ interface UnderAuditDonation {
   donor_name: string;
   amount: number;
   total_transfer: number;
+  amount_received?: number | null; // [CASHFLOW-ALUR-FIX] yang BENAR diterima (under_audit ≠ instruksi)
   campaign_title: string;
   partner_name: string;
   created_at: string;
@@ -1355,19 +1356,32 @@ function UnderAuditView({
 }: { 
   donations: UnderAuditDonation[]; color: string; t: any;
 }) {
-  const totalBeneficiary = donations.reduce((sum, d) => sum + d.amount, 0);
-  const totalTransfer = donations.reduce((sum, d) => sum + d.total_transfer, 0);
-  
+  // [CASHFLOW-ALUR-FIX] catat apa adanya: yang DITERIMA (amount_received), bukan yang diinstruksikan.
+  // under_audit belum jadi journal → JANGAN commit split beneficiary; tampil "masuk X, menunggu resolusi".
+  const totalTransfer = donations.reduce((sum, d) => sum + (Number(d.total_transfer) || 0), 0); // diinstruksikan
+  const totalReceived = donations.reduce((sum, d) => sum + (Number(d.amount_received) || Number(d.total_transfer) || 0), 0); // diterima
+  const shortfall = Math.max(0, totalTransfer - totalReceived);
+
   return (
     <div>
       {/* Summary */}
-      <div style={{ 
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', 
+      <div style={{
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
         gap: 8, marginBottom: 14,
       }}>
         <SummaryStat label="Donasi Tertahan" value={`${donations.length} donasi`} color={color} t={t} />
-        <SummaryStat label="Hak Beneficiary" value={formatRupiah(totalBeneficiary)} color={color} t={t} highlight />
-        <SummaryStat label="Total Transfer Donor" value={formatRupiah(totalTransfer)} color="#6366F1" t={t} />
+        <SummaryStat label="Diterima (masuk)" value={formatRupiah(totalReceived)} color="#6366F1" t={t} highlight />
+        <SummaryStat label="Hak Beneficiary" value="Menunggu resolusi" color={color} t={t} />
+      </div>
+
+      {/* [CASHFLOW-ALUR-FIX] catatan: diinstruksikan vs diterima + status split */}
+      <div style={{
+        padding: '8px 12px', background: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.25)',
+        borderRadius: 6, marginBottom: 10, fontSize: 11, color: t.textPrimary, lineHeight: 1.5,
+      }}>
+        Masuk <strong>{formatRupiah(totalReceived)}</strong> (diinstruksikan {formatRupiah(totalTransfer)}
+        {shortfall > 0 ? <>, kurang <strong style={{ color: '#DC2626' }}>{formatRupiah(shortfall)}</strong> — menunggu top-up</> : null}).
+        {' '}Split hak beneficiary <strong>belum di-commit</strong> (under_audit belum jadi journal) — menunggu resolusi.
       </div>
 
       <div style={{

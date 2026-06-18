@@ -58,6 +58,12 @@ interface DonationDetail {
   // ⭐ Discrepancy tracking
   amount_received: number | null;
   discrepancy_amount: number | null;
+  // [VERIFY-DRAWER-FIX] kode unik (numeric, dari backend = total_transfer − amount − op_fee − penggalang_fee)
+  kode_unik?: number;
+  // [VERIFY-DRAWER-FIX] konfirmasi penggalang
+  discrepancy_decision?: string | null;
+  confirmed_by_penggalang_at?: string | null;
+  penggalang_proof_url?: string | null;
   // FIX-G-C: Verifier info
   verifier?: {
     id: string;
@@ -339,7 +345,7 @@ export default function DonationVerifyPanel({
         <div className="min-w-0">
           <h1 className="text-2xl font-extrabold" style={{ color: t.textPrimary }}>Review Donasi</h1>
           <p className="text-sm mt-1" style={{ color: t.textDim }}>
-            Kode <span className="font-mono" style={{ color: t.textMuted }}>{donation.display_id ?? donation.donation_code}</span>
+            No. Transaksi <span className="font-mono" style={{ color: t.textMuted }}>{donation.display_id ?? donation.donation_code}</span>
             {' · '}ID <span className="font-mono">{donation.id.slice(0, 8)}…</span>
           </p>
         </div>
@@ -562,19 +568,83 @@ export default function DonationVerifyPanel({
           {(donation.penggalang_fee ?? 0) > 0 && (
             <StrukRow label="Fee penggalang" value={formatRupiah(donation.penggalang_fee!)} t={t} />
           )}
+          {/* [VERIFY-DRAWER-FIX] No. Transaksi (display_id) ≠ Kode unik (numeric). Sebelumnya display_id salah dilabeli "Kode unik". */}
           <StrukRow
-            label={<span className="inline-flex items-center gap-1.5"><Hash size={11} /> Kode unik</span>}
+            label={<span className="inline-flex items-center gap-1.5"><Hash size={11} /> No. Transaksi</span>}
             value={<span className="font-mono">{donation.display_id ?? donation.donation_code}</span>}
             t={t}
           />
+          <StrukRow
+            label={<span className="inline-flex items-center gap-1.5"><Hash size={11} /> Kode unik</span>}
+            value={formatRupiah(donation.kode_unik ?? Math.max(0, donation.total_transfer - donation.amount - donation.operational_fee - (donation.penggalang_fee ?? 0)))}
+            t={t}
+          />
           <div className="flex justify-between items-baseline pt-2.5 mt-1" style={{ borderTop: `1px solid ${t.cardBorder}` }}>
-            <span className="text-sm font-bold" style={{ color: t.textPrimary }}>TOTAL TRANSFER</span>
+            <span className="text-sm font-bold" style={{ color: t.textPrimary }}>Total Diinstruksikan</span>
             <span className="text-base font-extrabold" style={{ color: t.accent, fontVariantNumeric: 'tabular-nums' }}>
               {formatRupiah(donation.total_transfer)}
             </span>
           </div>
         </div>
       </div>
+
+      {/* [VERIFY-DRAWER-FIX] KONFIRMASI PENGGALANG — tampil jika penggalang sudah konfirmasi terima.
+          Admin lihat nominal masuk + selisih SEBELUM ambil keputusan. */}
+      {donation.confirmed_by_penggalang_at && (() => {
+        const masuk = donation.amount_received ?? 0;
+        const selisih = masuk - donation.total_transfer;
+        const sel = selisih < 0
+          ? { label: `KURANG ${formatRupiah(Math.abs(selisih))}`, color: '#EF4444' }
+          : selisih > 0
+            ? { label: `LEBIH ${formatRupiah(selisih)}`, color: '#F59E0B' }
+            : { label: 'PAS', color: '#10B981' };
+        const DECISION_LABEL: Record<string, string> = {
+          awaiting_topup: 'Menunggu top-up donatur',
+          accepted_partial: 'Diterima sebagian (kurang bayar)',
+          accepted_excess: 'Diterima + kelebihan jadi tip',
+          exact_match: 'Sesuai persis',
+          refund_pending: 'Menunggu refund kelebihan',
+        };
+        return (
+          <div className="rounded-2xl p-5 mb-4" style={{ background: 'rgba(139,92,246,0.06)', border: '1px solid rgba(139,92,246,0.3)' }}>
+            <div className="flex items-center gap-2 mb-3">
+              <UserRound size={15} style={{ color: '#A78BFA' }} />
+              <p className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#A78BFA' }}>Konfirmasi Penggalang</p>
+            </div>
+            <div className="text-sm space-y-2.5" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <div className="flex justify-between items-baseline">
+                <span style={{ color: t.textMuted }}>Penggalang lapor masuk</span>
+                <span className="text-base font-extrabold" style={{ color: '#A78BFA' }}>{formatRupiah(masuk)}</span>
+              </div>
+              <div className="flex justify-between items-baseline">
+                <span style={{ color: t.textMuted }}>Selisih vs instruksi</span>
+                <span className="font-bold" style={{ color: sel.color }}>{sel.label}</span>
+              </div>
+              <div className="flex justify-between items-baseline">
+                <span style={{ color: t.textMuted }}>Status</span>
+                <span className="font-semibold" style={{ color: t.textPrimary }}>
+                  {donation.discrepancy_decision ? (DECISION_LABEL[donation.discrepancy_decision] ?? donation.discrepancy_decision) : '—'}
+                </span>
+              </div>
+              <div className="flex justify-between items-baseline">
+                <span style={{ color: t.textMuted }}>Dikonfirmasi</span>
+                <span style={{ color: t.textPrimary }}>{formatFullDate(donation.confirmed_by_penggalang_at)}</span>
+              </div>
+              <div className="flex justify-between items-baseline pt-1">
+                <span style={{ color: t.textMuted }}>Bukti penggalang</span>
+                {donation.penggalang_proof_url ? (
+                  <a href={donation.penggalang_proof_url} target="_blank" rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold hover:opacity-80" style={{ color: '#A78BFA' }}>
+                    Lihat bukti <ExternalLink size={13} />
+                  </a>
+                ) : (
+                  <span style={{ color: t.textDim }}>Penggalang tidak upload bukti</span>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ⭐ Discrepancy Input + Picker C3 (LOGIKA TIDAK DIUBAH) */}
       {isPending && (

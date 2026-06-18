@@ -7,9 +7,11 @@ import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import CashflowFlowDiagram, { type FlowData } from '@/components/admin/funding/CashflowFlowDiagram';
 import CashflowDetailPanel, { type DetailCategory } from '@/components/admin/funding/CashflowDetailPanel';
+import TransaksiBreakdownPanel from '@/components/admin/funding/TransaksiBreakdownPanel';
 import CampaignCashflowTable, { type CampaignCashflow } from '@/components/admin/funding/CampaignCashflowTable';
 import ReconciliationPanel from '@/components/admin/funding/ReconciliationPanel';
 import DisbursementAgingPanel from '@/components/admin/funding/DisbursementAgingPanel';
+import BadonasiTrialBalanceSection from '@/components/admin/funding/BadonasiTrialBalanceSection';
 import Pagination from '@/components/admin/funding/Pagination';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
 
@@ -323,7 +325,8 @@ export default function AdminCashflowPage() {
   const [showSisaBreakdown, setShowSisaBreakdown] = useState(false);
   
   // ⭐ Sesi 12 Phase Final: Inline expansion panel (replace modal)
-  const [expansionPanel, setExpansionPanel] = useState<DetailCategory | null>(null);
+  // [FORENSIK-TABEL-FE] extend panel state: 'total_masuk' → tabel forensik per-transaksi
+  const [expansionPanel, setExpansionPanel] = useState<DetailCategory | 'total_masuk' | null>(null);
 
   // ── AUDIT TRACKING: Universal Search State ──
   const [searchQuery, setSearchQuery] = useState('');
@@ -599,6 +602,9 @@ export default function AdminCashflowPage() {
       {/* Reconciliation — auditor otomatis (donations vs ledger) */}
       <ReconciliationPanel />
 
+      {/* [BADONASI-TB-BUILD] Trial Balance agregat BADONASI (audit/grant): Σ Db = Σ Cr + alarm */}
+      <BadonasiTrialBalanceSection />
+
       {/* Dana belum disalurkan + umur mengendap (transparansi misi sosial) */}
       <DisbursementAgingPanel />
 
@@ -609,14 +615,15 @@ export default function AdminCashflowPage() {
           gap: 12, marginBottom: 24,
         }}>
           <StatCard
-            label="Total Masuk (GROSS)"
-            value={formatRupiah(summary.total_in)}
-            subtext={`${summary.donation_count} donasi · ${summary.donor_count} donatur`}
+            label="Total Masuk (tercatat)"
+            value={formatRupiah((summary as any).total_in_verified ?? summary.total_in)}
+            subtext={`${summary.donation_count} donasi · +Audit ${formatRupiah((summary as any).total_in_under_audit ?? 0)} terpisah`}
             color="#6366F1" t={t}
+            onClick={() => setExpansionPanel(prev => prev === 'total_masuk' ? null : 'total_masuk')}
           />
           <StatCard
             label="Dana Beneficiary"
-            value={formatRupiah((summary as any).total_beneficiary ?? 0)}
+            value={formatRupiah((summary as any).total_beneficiary_verified ?? (summary as any).total_beneficiary ?? 0)}
             subtext="Klik untuk detail + CSV"
             color="#0891B2" t={t}
             onClick={() => setExpansionPanel(prev => prev === 'beneficiary' ? null : 'beneficiary')}
@@ -638,11 +645,11 @@ export default function AdminCashflowPage() {
             }
             onClick={() => setExpansionPanel(prev => prev === 'hak_beneficiary' ? null : 'hak_beneficiary')}
           />
-          {(summary as any).total_beneficiary_under_audit > 0 && (
+          {(summary as any).total_in_under_audit > 0 && (
             <StatCard
               label="Hak Beneficiary Proses Audit"
-              value={formatRupiah((summary as any).total_beneficiary_under_audit ?? 0)}
-              subtext="Dana tertahan · menunggu resolusi audit"
+              value={formatRupiah((summary as any).total_in_under_audit ?? 0)}
+              subtext="Diterima · menunggu resolusi"
               color="#8B5CF6" t={t}
               alert
               onClick={() => setExpansionPanel(prev => prev === 'under_audit' ? null : 'under_audit')}
@@ -651,7 +658,7 @@ export default function AdminCashflowPage() {
           <StatCard
             label="Fee TeraLoka"
             value={formatRupiah(summary.total_fee_remitted)}
-            subtext={`dari expected ${formatRupiah(summary.total_fee_expected)}`}
+            subtext={`dari expected ${formatRupiah((summary as any).total_fee_expected_verified ?? summary.total_fee_expected)}`}
             color="#BE185D" t={t}
             onClick={() => setExpansionPanel(prev => prev === 'fee_teraloka' ? null : 'fee_teraloka')}
           />
@@ -666,7 +673,23 @@ export default function AdminCashflowPage() {
       )}
 
       {/* ⭐ Sesi 12 Phase Final: Inline expansion panel (replace modal) */}
-      {expansionPanel && summary && (
+      {/* [FORENSIK-TABEL-FE] 'total_masuk' → tabel forensik per-transaksi (panel terpisah) */}
+      {expansionPanel === 'total_masuk' && summary && (
+        <TransaksiBreakdownPanel
+          onClose={() => setExpansionPanel(null)}
+          dateFrom={dateRange.from}
+          dateTo={dateRange.to}
+          periodLabel={dateLabel}
+          verifiedTotals={{
+            total_in: (summary as any).total_in_verified ?? summary.total_in,
+            total_beneficiary: (summary as any).total_beneficiary_verified ?? 0,
+            total_fee: (summary as any).total_fee_expected_verified ?? summary.total_fee_expected,
+            total_tip: (summary as any).total_penggalang_fee ?? 0,
+            total_kode_unik: (summary as any).total_kode_unik ?? 0,
+          }}
+        />
+      )}
+      {expansionPanel && expansionPanel !== 'total_masuk' && summary && (
         <CashflowDetailPanel
           category={expansionPanel}
           onClose={() => setExpansionPanel(null)}

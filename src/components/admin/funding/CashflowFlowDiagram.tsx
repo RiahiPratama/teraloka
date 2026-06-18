@@ -24,6 +24,7 @@ export interface FlowData {
   total_in_verified?: number;
   total_in_under_audit?: number;
   total_beneficiary_verified?: number;
+  total_fee_expected_verified?: number; // [CASHFLOW-FE-FINAL] fee corrected (verified, partial=0, excess→kode)
   total_disbursed: number;
   remaining_at_partner: number;
   total_fee_expected: number;
@@ -122,11 +123,11 @@ export default function CashflowFlowDiagram({
               stroke="#EC4899" strokeWidth="3" markerEnd="url(#arrow-pink)" />
         {/* "total transfer" label di atas */}
         <text x="315" y="80" textAnchor="middle" fontSize="10" fill="#EC4899" opacity="0.7">
-          total transfer
+          transfer verified
         </text>
-        {/* Gross amount */}
+        {/* [CASHFLOW-ALUR-FIX] panah = verified saja; under_audit dipisah (note di bawah) */}
         <text x="315" y="95" textAnchor="middle" fontSize="13" fontWeight="700" fill="#EC4899">
-          {formatRupiah(data.total_in)}
+          {formatRupiah(data.total_in_verified ?? data.total_in)}
         </text>
         {/* Dana Beneficiary breakdown di bawah — 2-line layout */}
         <text x="315" y="130" textAnchor="middle" fontSize="9" fill="#10B981" opacity="0.7">
@@ -150,7 +151,7 @@ export default function CashflowFlowDiagram({
               stroke="#EA580C" strokeWidth="3" strokeDasharray="6 4" markerEnd="url(#arrow-orange)" />
         {/* Text ORANGE: dekat arrow, di kiri */}
         <text x="320" y="215" fontSize="12" fontWeight="700" fill="#EA580C" textAnchor="end">
-          {formatRupiah(data.total_fee_expected)}
+          {formatRupiah(data.total_fee_expected_verified ?? data.total_fee_expected)}
         </text>
         <text x="320" y="230" fontSize="9" fill="#EA580C" opacity="0.7" textAnchor="end">
           fee operasional
@@ -226,7 +227,7 @@ export default function CashflowFlowDiagram({
           {formatRupiah(data.total_fee_remitted)}
         </text>
         <text x="340" y="336" textAnchor="middle" fontSize="10" fill="#BE185D" opacity="0.8">
-          dari expected {formatRupiah(data.total_fee_expected)}
+          dari expected {formatRupiah(data.total_fee_expected_verified ?? data.total_fee_expected)}
         </text>
 
         {/* ⭐ PENGGALANG BOX (kanan-bawah Partner, sejajar dengan TERALOKA) */}
@@ -286,7 +287,7 @@ export default function CashflowFlowDiagram({
             textTransform: 'uppercase', letterSpacing: '0.06em',
             marginBottom: 10,
           }}>
-            🎯 Breakdown Aliran Uang (Gross {formatRupiah(data.total_in)}) · Klik card untuk detail + CSV
+            🎯 Breakdown Aliran Uang (tercatat {formatRupiah(data.total_in_verified ?? data.total_in)}) · Klik card untuk detail + CSV
           </p>
           <div style={{
             display: 'grid',
@@ -295,14 +296,14 @@ export default function CashflowFlowDiagram({
           }}>
             <BreakdownItem
               label="Dana Beneficiary"
-              amount={data.total_beneficiary ?? 0}
+              amount={data.total_beneficiary_verified ?? data.total_beneficiary ?? 0}
               color="#10B981"
               sublabel="Untuk penerima manfaat"
               onClick={() => onCardClick?.('beneficiary')}
             />
             <BreakdownItem
               label="Fee TeraLoka"
-              amount={data.total_fee_expected}
+              amount={data.total_fee_expected_verified ?? data.total_fee_expected}
               color="#BE185D"
               sublabel="Kewajiban setor Partner"
               onClick={() => onCardClick?.('fee_teraloka')}
