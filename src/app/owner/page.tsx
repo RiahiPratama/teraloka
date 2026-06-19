@@ -9,7 +9,7 @@ import {
   HeartHandshake, Plus, Inbox, ChevronRight, Loader2,
   Megaphone, FileEdit, Hourglass, CheckCircle2, XCircle,
   Home, Building2, Car, Wrench, Eye, MessageCircle,
-  TrendingUp, AlertTriangle, FileText, BarChart2,
+  TrendingUp, AlertTriangle, FileText, BarChart2, Wallet,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -322,6 +322,15 @@ export default function OwnerDashboard() {
                       <span className="text-center leading-tight">Input Laporan</span>
                     </div>
                   )}
+
+                  {/* 5. ⭐ [PATCH-PENCAIRAN] Pencairan Dana — full-width within grid → inbox global lintas-kampanye */}
+                  <Link
+                    href="/owner/funding/disbursements"
+                    className="col-span-2 flex items-center justify-center gap-2 rounded-xl bg-white/15 backdrop-blur-sm border border-white/20 py-3 px-2 text-[11px] font-bold text-white hover:bg-white/25 transition-colors"
+                  >
+                    <Wallet size={15} />
+                    <span className="text-center leading-tight">Pencairan Dana</span>
+                  </Link>
                 </div>
 
                 {/* ⭐ Laporan Keuangan — full width button */}

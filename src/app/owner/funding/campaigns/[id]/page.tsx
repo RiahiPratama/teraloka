@@ -699,6 +699,15 @@ function ActionButtons({
           <FileText size={15} />
           Buat Laporan Dana
         </Link>
+        {/* [PATCH-PENCAIRAN] Ajukan Pencairan Dana (TARIK dana) — beda dari Buat Laporan Dana (LAPOR pemakaian).
+            Gate = status active/completed (branch ini), samain list page. → list pencairan kampanye. */}
+        <Link
+          href={`/owner/funding/campaigns/${campaign.id}/disbursements`}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border-2 border-[#003526] text-sm font-bold text-[#003526] hover:bg-[#003526]/5 transition-colors"
+        >
+          <Wallet size={15} />
+          Ajukan Pencairan Dana
+        </Link>
       </div>
     );
   }
@@ -721,6 +730,14 @@ function ActionButtons({
         >
           <FileText size={15} />
           Buat Laporan Akhir
+        </Link>
+        {/* [PATCH-PENCAIRAN] Ajukan Pencairan Dana (TARIK dana) — beda dari Buat Laporan Akhir (LAPOR pemakaian). */}
+        <Link
+          href={`/owner/funding/campaigns/${campaign.id}/disbursements`}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border-2 border-[#003526] text-sm font-bold text-[#003526] hover:bg-[#003526]/5 transition-colors"
+        >
+          <Wallet size={15} />
+          Ajukan Pencairan Dana
         </Link>
       </div>
     );
