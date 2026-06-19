@@ -5,8 +5,10 @@
 // Form ajukan pencairan dana (owner)
 //
 // Backend endpoint: POST /funding/my/disbursements
-// Required: amount, disbursed_to, disbursed_at, evidence_urls[]
-//           + (beneficiary_phone OR beneficiary_ktp_url) → one-of
+// Required: amount, disbursed_to, disbursed_at, evidence_urls[], beneficiary_phone.
+//   [KTP-B] Identitas penerima = HP saja (one-of BE terpenuhi via phone; phone WAJIB
+//   di level campaign self/wali → prefill ke sini). beneficiary_ktp_url di-drop dari form.
+//   Bukti adaptif per metode (transfer=struk · cash/goods/service=serah-terima+blur).
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useEffect } from 'react';
@@ -31,6 +33,9 @@ interface CampaignSummary {
   status: string;
   collected_amount: number;
   created_at: string;  // ⭐ Used untuk date input min constraint (validate disbursed_at >= campaign created)
+  // [PENCAIRAN-REDESIGN] prefill penerima (BE balikin via select('*'))
+  beneficiary_name?: string | null;
+  beneficiary_phone?: string | null;
 }
 
 interface FinancialSummary {
@@ -46,6 +51,16 @@ const METHODS = [
   { value: 'goods',    label: 'Barang/Logistik' },
   { value: 'service',  label: 'Layanan/Jasa' },
 ];
+
+// [PENCAIRAN-REDESIGN] Field "Bukti" adaptif per metode — SELALU nulis evidence_urls (1 bucket: donations).
+// blur=true → privacyEditor (foto serah-terima ada wajah → buramkan PRE-upload, pola cover/proof).
+// transfer: struk (no face) → tanpa blur, + field serah-terima opsional terpisah.
+const EVIDENCE_CFG: Record<string, { label: string; hint: string; blur: boolean }> = {
+  transfer: { label: 'Bukti Transfer', hint: 'Minimal 1 file. Struk transfer, screenshot mutasi, atau bukti pembayaran.', blur: false },
+  cash:     { label: 'Bukti/Kuitansi Serah-Terima', hint: 'Minimal 1 file. Foto kuitansi/tanda terima saat dana diserahkan. Wajah penerima bisa diburamkan dulu di editor.', blur: true },
+  goods:    { label: 'Bukti Serah-Terima Barang', hint: 'Minimal 1 file. Foto serah-terima barang ke penerima. Wajah bisa diburamkan dulu di editor.', blur: true },
+  service:  { label: 'Bukti Layanan', hint: 'Minimal 1 file. Foto/dokumen bukti layanan diberikan. Wajah bisa diburamkan dulu di editor.', blur: true },
+};
 
 export default function OwnerCampaignDisbursementNewPage() {
   const router = useRouter();
@@ -68,7 +83,6 @@ export default function OwnerCampaignDisbursementNewPage() {
   const [evidenceUrls, setEvidenceUrls] = useState<string[]>([]);
   const [handoverPhotoUrl, setHandoverPhotoUrl] = useState('');
   const [beneficiaryPhone, setBeneficiaryPhone] = useState('');
-  const [beneficiaryKtpUrl, setBeneficiaryKtpUrl] = useState('');
   const [notes, setNotes] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
@@ -92,6 +106,12 @@ export default function OwnerCampaignDisbursementNewPage() {
         ]);
         if (!campRes.success) throw new Error(campRes?.error?.message || 'Gagal load kampanye');
         setCampaign(campRes.data);
+        // [PENCAIRAN-REDESIGN] Prefill penerima dari data kampanye — EDITABLE (multi-disbursement
+        // bisa ubah; one-of phone cukup → gak perlu re-upload KTP kalau cair ke beneficiary kampanye).
+        if (campRes.data?.beneficiary_name) setDisbursedTo(prev => prev || campRes.data.beneficiary_name);
+        if (campRes.data?.beneficiary_phone) {
+          setBeneficiaryPhone(prev => prev || String(campRes.data.beneficiary_phone).replace(/\D/g, ''));
+        }
         if (finRes.success) setFinancial(finRes.data);
       } catch (err: any) {
         setLoadError(err.message);
@@ -104,15 +124,17 @@ export default function OwnerCampaignDisbursementNewPage() {
 
   const saldo = financial?.saldo ?? 0;
   const overSaldo = amountRaw > saldo;
-  const hasIdentity = beneficiaryPhone.trim() || beneficiaryKtpUrl.trim();
+  // [KTP-B] Identitas penerima = HP saja (one-of BE terpenuhi via phone; phone selalu ada,
+  // prefill dari campaign.beneficiary_phone yg WAJIB self/wali). KTP di-drop (redundan).
+  const hasIdentity = !!beneficiaryPhone.trim();
 
   const validation = (() => {
     if (amountRaw <= 0) return 'Nominal pencairan wajib diisi';
     if (overSaldo) return `Nominal melebihi saldo tersedia (${formatRupiah(saldo)})`;
     if (!disbursedTo.trim()) return 'Nama penerima wajib diisi';
     if (!disbursedAt) return 'Tanggal pencairan wajib diisi';
-    if (evidenceUrls.length === 0) return 'Bukti transfer wajib diupload (minimal 1 file)';
-    if (!hasIdentity) return 'Identitas penerima wajib (nomor HP atau foto KTP)';
+    if (evidenceUrls.length === 0) return 'Bukti wajib diupload (minimal 1 file)';
+    if (!hasIdentity) return 'Nomor HP penerima wajib diisi';
     return '';
   })();
 
@@ -138,7 +160,6 @@ export default function OwnerCampaignDisbursementNewPage() {
           evidence_urls: evidenceUrls,
           handover_photo_url: handoverPhotoUrl || undefined,
           beneficiary_phone: beneficiaryPhone.trim() || undefined,
-          beneficiary_ktp_url: beneficiaryKtpUrl || undefined,
           disbursement_notes: notes.trim() || undefined,
         }),
       });
@@ -287,55 +308,41 @@ export default function OwnerCampaignDisbursementNewPage() {
           </div>
         </Section>
 
-        {/* Form: Evidence */}
-        <Section icon={<FileText size={18} />} title="Bukti Transfer" required>
-          <p className="text-xs text-gray-500 mb-2.5">
-            Minimal 1 file. Boleh upload struk transfer, screenshot mutasi, atau bukti pembayaran lainnya.
-          </p>
-          <ImageUpload
-            bucket="donations"
-            label=""
-            maxFiles={5}
-            maxSizeMB={5}
-            onUpload={(urls: string[]) => setEvidenceUrls(urls)}
-            existingUrls={evidenceUrls}
-          />
-        </Section>
+        {/* Form: Bukti (adaptif per metode) — SELALU isi evidence_urls (1 bucket: donations) */}
+        {(() => {
+          const cfg = EVIDENCE_CFG[method] ?? EVIDENCE_CFG.transfer;
+          return (
+            <Section icon={<FileText size={18} />} title={cfg.label} required>
+              <p className="text-xs text-gray-500 mb-2.5">{cfg.hint}</p>
+              <ImageUpload
+                bucket="donations"
+                label=""
+                maxFiles={5}
+                maxSizeMB={5}
+                privacyEditor={cfg.blur}
+                onUpload={(urls: string[]) => setEvidenceUrls(urls)}
+                existingUrls={evidenceUrls}
+              />
+            </Section>
+          );
+        })()}
 
-        {/* Form: Beneficiary Identity (one-of) */}
+        {/* Form: Beneficiary Identity — [KTP-B] HP saja (prefill dari campaign, editable utk multi-recipient) */}
         <Section icon={<ShieldCheck size={18} />} title="Identitas Penerima" required>
           <p className="text-xs text-gray-500 mb-2.5">
-            <strong>Wajib salah satu</strong>: nomor HP penerima ATAU foto KTP. Untuk audit & anti-fraud.
+            Nomor HP <strong>penerima dana transaksi ini</strong> (boleh HP wali/perwakilan keluarga).
+            Untuk audit & anti-fraud. Sudah terisi dari data kampanye — ubah bila penerima berbeda.
           </p>
-          <div className="space-y-2">
-            <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <Phone size={10} /> Nomor HP Penerima
-              </label>
-              <input
-                type="tel"
-                value={beneficiaryPhone}
-                onChange={e => setBeneficiaryPhone(e.target.value.replace(/\D/g, ''))}
-                placeholder="081234567890"
-                className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono outline-none focus:border-[#003526]"
-              />
-            </div>
-            <div className="text-xs text-gray-400 text-center font-medium">— atau —</div>
-            <div>
-              <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-                <Camera size={10} /> Foto KTP Penerima
-              </label>
-              <ImageUpload
-                bucket="kyc"
-                uploadContext="beneficiary"
-                label=""
-                maxFiles={1}
-                maxSizeMB={5}
-                onUpload={(urls: string[]) => setBeneficiaryKtpUrl(urls[0] ?? '')}
-                existingUrls={beneficiaryKtpUrl ? [beneficiaryKtpUrl] : []}
-              />
-            </div>
-          </div>
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+            <Phone size={10} /> Nomor HP Penerima
+          </label>
+          <input
+            type="tel"
+            value={beneficiaryPhone}
+            onChange={e => setBeneficiaryPhone(e.target.value.replace(/\D/g, ''))}
+            placeholder="081234567890"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono outline-none focus:border-[#003526]"
+          />
           {hasIdentity && (
             <p className="text-xs text-green-700 mt-2 font-medium flex items-center gap-1.5">
               ✓ Identitas penerima sudah valid
@@ -343,17 +350,20 @@ export default function OwnerCampaignDisbursementNewPage() {
           )}
         </Section>
 
-        {/* Form: Handover photo (optional) */}
-        <Section icon={<Camera size={18} />} title="Foto Serah-Terima" hint="Opsional tapi sangat membantu verifikasi">
-          <ImageUpload
-            bucket="donations"
-            label=""
-            maxFiles={1}
-            maxSizeMB={5}
-            onUpload={(urls: string[]) => setHandoverPhotoUrl(urls[0] ?? '')}
-            existingUrls={handoverPhotoUrl ? [handoverPhotoUrl] : []}
-          />
-        </Section>
+        {/* Form: Foto Serah-Terima — opsional, HANYA transfer (non-transfer udah jadi bukti utama di atas) */}
+        {method === 'transfer' && (
+          <Section icon={<Camera size={18} />} title="Foto Serah-Terima" hint="Opsional tapi sangat membantu verifikasi. Wajah penerima bisa diburamkan dulu di editor.">
+            <ImageUpload
+              bucket="donations"
+              label=""
+              maxFiles={1}
+              maxSizeMB={5}
+              privacyEditor
+              onUpload={(urls: string[]) => setHandoverPhotoUrl(urls[0] ?? '')}
+              existingUrls={handoverPhotoUrl ? [handoverPhotoUrl] : []}
+            />
+          </Section>
+        )}
 
         {/* Form: Notes */}
         <Section icon={<FileText size={18} />} title="Catatan" hint="Opsional. Konteks tambahan untuk admin">

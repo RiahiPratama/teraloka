@@ -354,7 +354,11 @@ export default function ImageUpload({
     if (_editor) {
       const collected: string[] = [];
       for (const file of toUpload) {
-        const decided = await openEditor(file); // File (pakai/lewati) | null (batal → skip file ini)
+        // PDF/non-image gak bisa lewat editor canvas (createImageBitmap) → upload langsung.
+        // Cuma image yang masuk editor blur/mosaic/redact/crop.
+        const decided = file.type.startsWith('image/')
+          ? await openEditor(file) // File (pakai/lewati) | null (batal → skip file ini)
+          : file;
         if (!decided) continue;
         const url = await processFile(decided);
         if (url) collected.push(url);
