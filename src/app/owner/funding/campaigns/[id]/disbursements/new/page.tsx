@@ -348,7 +348,6 @@ export default function OwnerCampaignDisbursementNewPage() {
           );
         })()}
 
-
         {/* Form: Foto Serah-Terima — opsional, HANYA transfer (non-transfer udah jadi bukti utama di atas) */}
         {method === 'transfer' && (
           <Section icon={<Camera size={18} />} title="Foto Serah-Terima" hint="Opsional tapi sangat membantu verifikasi. Wajah penerima bisa diburamkan dulu di editor.">
