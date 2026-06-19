@@ -25,6 +25,9 @@ import { compressImage, triggerHaptic, isMobile, formatFileSize } from '@/utils/
 import { useToast } from '@/components/ui/Toast';
 import ImagePrivacyEditor from '@/components/ui/ImagePrivacyEditor';
 
+// [KYC-UPLOAD-OPSI-A] Backend upload endpoint (bucket privat 'kyc' lewat service role).
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
+
 type BucketName =
   | 'listings'
   | 'articles'
@@ -55,6 +58,12 @@ interface ImageUploadProps {
    * upload. Dipakai utk foto PUBLIK (cover + proof). OFF (default) → upload langsung (nol regresi).
    */
   privacyEditor?: boolean;
+  /**
+   * [KYC-UPLOAD-OPSI-A] Context utk upload bucket privat 'kyc' (jadi stem nama file di backend:
+   * `${userId}/${uploadContext}-${ts}.ext`). Wajib di-set saat bucket='kyc' (allowlist BE:
+   * beneficiary | profile | ktp | sim_c | stnk). Diabaikan utk bucket publik.
+   */
+  uploadContext?: string;
 }
 
 interface BucketConfig {
@@ -128,6 +137,7 @@ export default function ImageUpload({
   maxSizeMB,
   privateBucket = false,
   privacyEditor = false,
+  uploadContext,
 }: ImageUploadProps) {
   const limits = BUCKET_LIMITS[bucket];
   const _maxFiles  = maxFiles  ?? limits.maxFiles;
@@ -135,7 +145,9 @@ export default function ImageUpload({
   const _supportsPdf = supportsPdf(bucket);
   const _supportsGif = MIME_BY_BUCKET[bucket].includes('image/gif');
   const _galleryAccept = MIME_BY_BUCKET[bucket];
-  const _private = privateBucket; // [FE2] emit PATH + preview lokal saat ON
+  // [FE2] emit PATH + preview lokal saat ON. [KYC-UPLOAD-OPSI-A] bucket 'kyc' SELALU privat
+  // (backend emit raw path) → preview lokal walau call-site gak set privateBucket.
+  const _private = privateBucket || bucket === 'kyc';
   const _editor = privacyEditor;  // [FOTO-PRIVACY-EDITOR] editor blur/mosaic/redact/crop pre-upload
 
   const { toast } = useToast();
@@ -245,8 +257,46 @@ export default function ImageUpload({
         toast.warning('GIF >1MB akan lebih lambat dimuat di koneksi lambat. Optimalkan kalau perlu.');
       }
 
-      // 2. Upload to Supabase
+      // 2. Upload
       setUploading(prev => prev.map(u => u.id === id ? { ...u, status: 'uploading', progress: 50 } : u));
+
+      // [KYC-UPLOAD-OPSI-A] Bucket privat 'kyc': FE gak punya sesi Supabase (auth.uid null) →
+      // FE-direct ditolak RLS. Upload lewat backend service-role: POST FormData → terima raw path → emit.
+      if (bucket === 'kyc') {
+        const token = typeof window !== 'undefined' ? localStorage.getItem('tl_token') : null;
+        if (!token) {
+          const msg = 'Sesi login tidak ditemukan. Login ulang lalu coba lagi.';
+          setUploading(prev => prev.map(u => u.id === id ? { ...u, status: 'error', error: msg } : u));
+          toast.error(msg); triggerHaptic('error'); return null;
+        }
+        const fd = new FormData();
+        fd.append('file', processedFile);
+        fd.append('context', uploadContext || 'profile');
+        let path: string;
+        try {
+          const res = await fetch(`${API_URL}/me/kyc-docs/upload`, {
+            method: 'POST',
+            headers: { Authorization: `Bearer ${token}` },
+            body: fd,
+          });
+          const json = await res.json().catch(() => null);
+          if (!res.ok || !json?.success || !json?.data?.path) {
+            const msg = `Upload gagal: ${json?.error?.message ?? 'HTTP ' + res.status}`;
+            setUploading(prev => prev.map(u => u.id === id ? { ...u, status: 'error', error: msg } : u));
+            toast.error(msg); triggerHaptic('error'); return null;
+          }
+          path = json.data.path as string;
+        } catch {
+          const msg = 'Koneksi bermasalah saat upload.';
+          setUploading(prev => prev.map(u => u.id === id ? { ...u, status: 'error', error: msg } : u));
+          toast.error(msg); triggerHaptic('error'); return null;
+        }
+        // Emit RAW PATH + preview lokal (bucket privat tak bisa <img src=path>).
+        setLocalPreviews(prev => ({ ...prev, [path]: URL.createObjectURL(file) }));
+        setUploading(prev => prev.filter(u => u.id !== id));
+        triggerHaptic('success');
+        return path;
+      }
 
       const supabase = createClient();
       const ext = processedFile.name.split('.').pop() || 'bin';

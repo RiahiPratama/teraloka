@@ -433,6 +433,7 @@ export default function OwnerProfilePage() {
                 </p>
                 <ImageUpload
                   bucket="kyc"
+                  uploadContext="profile"
                   label=""
                   maxFiles={3}
                   maxSizeMB={5}

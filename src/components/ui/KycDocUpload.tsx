@@ -28,7 +28,6 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useState, useRef, useEffect } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { FileText, X, Camera, Image as ImageIcon, Loader2, CheckCircle2 } from 'lucide-react';
 import { compressImage, triggerHaptic, isMobile, formatFileSize } from '@/utils/pwa-utils';
 import { useToast } from '@/components/ui/Toast';
@@ -37,7 +36,9 @@ import { useToast } from '@/components/ui/Toast';
 // Didefinisikan ulang di sini karena frontend & backend = repo terpisah.
 export type KycDocType = 'ktp' | 'sim_c' | 'stnk' | 'selfie' | 'vehicle_photo';
 
-const KYC_BUCKET = 'kyc';
+// [KYC-UPLOAD-OPSI-A] Upload lewat backend service-role (FE gak punya sesi Supabase →
+// auth.uid() null → FE-direct ke bucket privat 'kyc' ditolak RLS). docType jadi context.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
 const MAX_SIZE_MB = 5; // mirror BUCKET_LIMITS.kyc di ImageUpload
 const ACCEPT_MIMES = 'image/jpeg,image/png,image/webp'; // dokumen = foto statis (no PDF/GIF utk MVP)
 
@@ -140,36 +141,33 @@ export default function KycDocUpload({
 
       setStatus('uploading');
 
-      const supabase = createClient();
-      const ext = (processed.name.split('.').pop() || 'jpg').toLowerCase();
-      const newPath = `${userId}/${docType}-${Date.now()}.${ext}`;
-
-      // Hapus file lama dulu kalau ada (replace) — cegah orphan
-      const oldPath = path;
-      if (oldPath) {
-        await supabase.storage.from(KYC_BUCKET).remove([oldPath]).catch(() => {
-          /* best-effort: gagal hapus lama bukan blocker */
-        });
+      // [KYC-UPLOAD-OPSI-A] POST ke backend (service role) → terima raw path ${userId}/${docType}-ts.ext.
+      const token = typeof window !== 'undefined' ? localStorage.getItem('tl_token') : null;
+      if (!token) {
+        const msg = 'Sesi login tidak ditemukan. Login ulang lalu coba lagi.';
+        setStatus('error'); setErrorMsg(msg); toast.error(msg); triggerHaptic('error'); return;
       }
+      const fd = new FormData();
+      fd.append('file', processed);
+      fd.append('context', docType);
 
-      const { error } = await supabase.storage
-        .from(KYC_BUCKET)
-        .upload(newPath, processed, { cacheControl: '3600', upsert: false });
-
-      if (error) {
-        const msg = `Upload gagal: ${error.message}`;
-        setStatus('error');
-        setErrorMsg(msg);
-        toast.error(msg);
-        triggerHaptic('error');
-        return;
+      const res = await fetch(`${API_URL}/me/kyc-docs/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.success || !json?.data?.path) {
+        const msg = `Upload gagal: ${json?.error?.message ?? 'HTTP ' + res.status}`;
+        setStatus('error'); setErrorMsg(msg); toast.error(msg); triggerHaptic('error'); return;
       }
+      const newPath = json.data.path as string;
 
       setPath(newPath);
       setDisplayName(processed.name);
       setStatus('idle');
       triggerHaptic('success');
-      onChange(newPath); // ← RAW PATH, bukan URL
+      onChange(newPath); // ← RAW PATH dari backend, bukan URL
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Gagal memproses file';
       setStatus('error');
@@ -181,13 +179,8 @@ export default function KycDocUpload({
 
   async function handleRemove() {
     if (busy) return;
-    const target = path;
-    if (target) {
-      const supabase = createClient();
-      await supabase.storage.from(KYC_BUCKET).remove([target]).catch(() => {
-        /* best-effort */
-      });
-    }
+    // [KYC-UPLOAD-OPSI-A] File lama jadi orphan di bucket (hapus storage via FE anon mustahil —
+    // RLS; jadi tanggung jawab backend nanti). FE cukup dereference path dari record.
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     setPreviewUrl(null);
     setPath(null);

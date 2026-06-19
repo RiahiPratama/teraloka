@@ -1214,6 +1214,7 @@ export default function EditCampaignPage() {
               <ImageUpload
                 bucket="kyc"
                 privateBucket
+                uploadContext="beneficiary"
                 label=""
                 maxFiles={3}
                 maxSizeMB={5}

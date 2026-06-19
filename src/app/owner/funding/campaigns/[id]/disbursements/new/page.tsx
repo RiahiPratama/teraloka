@@ -327,6 +327,7 @@ export default function OwnerCampaignDisbursementNewPage() {
               </label>
               <ImageUpload
                 bucket="kyc"
+                uploadContext="beneficiary"
                 label=""
                 maxFiles={1}
                 maxSizeMB={5}
