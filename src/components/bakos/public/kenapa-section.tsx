@@ -35,7 +35,7 @@ export function KenapaSection() {
           <span className="bk-wic" style={{ background: 'var(--bk-purple)' }}>
             <span className="material-symbols-outlined">sailing</span>
           </span>
-          <h3>Paham geografi MalUt</h3>
+          <h3>Paham geografi Maluku Utara</h3>
           <p>Cari kos dekat kampus, pelabuhan, atau rute speedboat. Mudik ke Sofifi/Tobelo? Pilih kos dekat dermaga.</p>
         </div>
       </div>

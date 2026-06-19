@@ -6,8 +6,9 @@
 //   · bulk verify (checkbox borongan) · drawer detail (preserved).
 // GET /admin/listings?type=kos · GET /admin/listings/:id · PATCH verify|status
 // ════════════════════════════════════════════════════════════════
-import { useEffect, useState, useCallback, useContext } from 'react';
+import { useEffect, useState, useCallback, useContext, Suspense } from 'react';
 import { createPortal } from 'react-dom';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import { ShieldCheck, ShieldX, Search, MapPin, Phone, User, BedDouble, History, ExternalLink, AlertTriangle, CheckCheck } from 'lucide-react';
@@ -56,16 +57,21 @@ function facList(f: Record<string, any> | null | undefined): string[] {
   return Object.entries(f).filter(([, v]) => v === true || (typeof v === 'string' && v)).map(([k]) => k.replace(/_/g, ' '));
 }
 
-export default function BakosListingTab() {
+function BakosListingTab() {
   const { t } = useContext(AdminThemeContext);
   const { token } = useAuth();
+  const router = useRouter();
+  const sp = useSearchParams();
+  const spVerif = sp.get('verif') ?? '';
   const [rows, setRows] = useState<KosRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [statusFilter, setStatusFilter] = useState('');
-  const [verifFilter, setVerifFilter] = useState<'' | 'verified' | 'unverified' | 'risk'>('');
-  const [search, setSearch] = useState('');
-  const [searchInput, setSearchInput] = useState('');
+  // 🔗 init filter dari URL — deep-link ?status=&verif=&q= kebaca saat mount.
+  const [statusFilter, setStatusFilter] = useState(sp.get('status') ?? '');
+  const [verifFilter, setVerifFilter] = useState<'' | 'verified' | 'unverified' | 'risk'>(
+    (['verified', 'unverified', 'risk'].includes(spVerif) ? spVerif : '') as '' | 'verified' | 'unverified' | 'risk');
+  const [search, setSearch] = useState(sp.get('q') ?? '');
+  const [searchInput, setSearchInput] = useState(sp.get('q') ?? '');
   const [openId, setOpenId] = useState<string | null>(null);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
@@ -95,6 +101,16 @@ export default function BakosListingTab() {
   }, [token, statusFilter, verifFilter, search]);
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
+
+  // 🔗 sync state → URL (deep-link konsisten dgn /admin/listings). Ikut pola BakosCari.
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (statusFilter)  p.set('status', statusFilter);
+    if (verifFilter)   p.set('verif', verifFilter);
+    if (search.trim()) p.set('q', search.trim());
+    const qs = p.toString();
+    router.replace(`/admin/bakos/listing${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [statusFilter, verifFilter, search, router]);
 
   // 🛡️ Prioritas: kos AKTIF (tayang+dikelola) tapi BELUM diverifikasi = bahaya
   const riskCount = rows.filter(r => r.listing_fee_status === 'active' && !r.is_verified).length;
@@ -237,6 +253,15 @@ export default function BakosListingTab() {
           onChanged={(msg) => { showToast(msg); fetchRows(); }} />
       )}
     </div>
+  );
+}
+
+// useSearchParams() butuh Suspense boundary (Next.js) — ikut pola admin/listings.
+export default function BakosListingTabPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '60px 0', textAlign: 'center', color: '#94A3B8' }}>Memuat…</div>}>
+      <BakosListingTab />
+    </Suspense>
   );
 }
 

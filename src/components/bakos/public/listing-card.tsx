@@ -11,7 +11,7 @@
 
 import { useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { type Listing, TIPE, formatRupiah, facList } from './bakos-links';
+import { type Listing, TIPE, formatRupiah, facList, onImgError } from './bakos-links';
 
 export function ListingCard({ item }: { item: Listing }) {
   const tp = item.kos_type ? TIPE[item.kos_type] : null;
@@ -72,14 +72,14 @@ export function ListingCard({ item }: { item: Listing }) {
             >
               {gallery.map((src, i) => (
                 <div className="bk-kslide" key={i}>
-                  <img src={src} alt={`${item.title} ${i + 1}`} loading="lazy" draggable={false} />
+                  <img src={src} alt={`${item.title} ${i + 1}`} loading="lazy" draggable={false} onError={onImgError} />
                 </div>
               ))}
             </div>
           ) : (
             // ── 1 foto: statis (zoom on hover seperti semula) ──
             <div className="bk-kos-imgzoom">
-              <img src={gallery[0]} alt={item.title} loading="lazy" />
+              <img src={gallery[0]} alt={item.title} loading="lazy" onError={onImgError} />
             </div>
           )
         ) : (

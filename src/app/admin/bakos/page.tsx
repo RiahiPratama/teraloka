@@ -378,6 +378,7 @@ function ClaimReviewModal({ claim, token, onClose, onReviewed, onError }: {
 }) {
   const [note, setNote] = useState('');
   const [loading, setLoading] = useState<'approve' | 'reject' | null>(null);
+  const [confirm, setConfirm] = useState<'approve' | 'reject' | null>(null);
   const [mounted, setMounted] = useState(false);
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { const p = document.body.style.overflow; document.body.style.overflow = 'hidden'; return () => { document.body.style.overflow = p; }; }, []);
@@ -436,14 +437,28 @@ function ClaimReviewModal({ claim, token, onClose, onReviewed, onError }: {
             <textarea value={note} onChange={(e) => setNote(e.target.value)} placeholder="Cth: KTP & sertifikat cocok. / Alasan tolak..." disabled={!!loading}
               style={{ width: '100%', minHeight: 64, padding: '10px 12px', borderRadius: 10, border: '1px solid #CBD5E1', fontSize: 13, color: '#0F172A', outline: 'none', boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
-          <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
-            <button onClick={() => review('reject')} disabled={!!loading} style={{ ...btn, flex: 1, background: '#fff', color: '#DC2626', border: '1.5px solid #DC2626', opacity: loading ? 0.6 : 1 }}>
-              {loading === 'reject' ? 'Memproses…' : 'Tolak'}
-            </button>
-            <button onClick={() => review('approve')} disabled={!!loading} style={{ ...btn, flex: 1, background: 'linear-gradient(135deg, #1B6B4A 0%, #0891B2 100%)', color: '#fff', opacity: loading ? 0.6 : 1 }}>
-              {loading === 'approve' ? 'Memproses…' : 'Setujui'}
-            </button>
-          </div>
+          {confirm === null ? (
+            <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+              <button onClick={() => setConfirm('reject')} disabled={!!loading} style={{ ...btn, flex: 1, background: '#fff', color: '#DC2626', border: '1.5px solid #DC2626' }}>Tolak</button>
+              <button onClick={() => setConfirm('approve')} disabled={!!loading} style={{ ...btn, flex: 1, background: 'linear-gradient(135deg, #1B6B4A 0%, #0891B2 100%)', color: '#fff' }}>Setujui</button>
+            </div>
+          ) : (
+            <div style={{ marginTop: 16 }}>
+              <div style={{ background: confirm === 'approve' ? '#FFFBEB' : '#FEF2F2', border: `1px solid ${confirm === 'approve' ? '#FDE68A' : '#FECACA'}`, borderRadius: 10, padding: '10px 12px', marginBottom: 10 }}>
+                <p style={{ margin: 0, fontSize: 13, fontWeight: 600, lineHeight: 1.5, color: confirm === 'approve' ? '#92400E' : '#991B1B' }}>
+                  {confirm === 'approve'
+                    ? `Yakin? Kepemilikan "${claim.listing_title}" pindah PERMANEN ke ${claim.claimant_name || 'pengaju'}.`
+                    : 'Yakin tolak klaim ini?'}
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => setConfirm(null)} disabled={!!loading} style={{ ...btn, flex: 1, background: '#F1F5F9', color: '#475569' }}>Batal</button>
+                <button onClick={() => review(confirm)} disabled={!!loading} style={{ ...btn, flex: 1, color: '#fff', opacity: loading ? 0.6 : 1, background: confirm === 'approve' ? 'linear-gradient(135deg, #1B6B4A 0%, #0891B2 100%)' : '#DC2626' }}>
+                  {loading ? 'Memproses…' : confirm === 'approve' ? 'Ya, Setujui' : 'Ya, Tolak'}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>, document.body);

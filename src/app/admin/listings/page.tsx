@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback, Suspense } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
+import { AlertTriangle } from 'lucide-react';
+import { Dialog, DialogHeader, DialogFooter } from '@/components/ui/dialog';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -69,6 +71,7 @@ function ListingsManager() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [pendingAction, setPendingAction] = useState<{ id: string; status: string; title: string; label: string } | null>(null);
   // 🔗 init filter dari URL — deep-link ?type=&status=&q= kebaca saat mount.
   const [typeFilter, setTypeFilter] = useState(sp.get('type') ?? '');
   const [statusFilter, setStatusFilter] = useState(sp.get('status') ?? '');
@@ -363,7 +366,7 @@ function ListingsManager() {
                       label="Nonaktifkan"
                       color="#6B7280"
                       loading={actionLoading === listing.id + 'inactive'}
-                      onClick={() => updateStatus(listing.id, 'inactive', listing.title)}
+                      onClick={() => setPendingAction({ id: listing.id, status: 'inactive', title: listing.title, label: 'Nonaktifkan' })}
                     />
                   )}
                   {listing.status !== 'rejected' && listing.status !== 'active' && (
@@ -371,7 +374,7 @@ function ListingsManager() {
                       label="Tolak"
                       color="#EF4444"
                       loading={actionLoading === listing.id + 'rejected'}
-                      onClick={() => updateStatus(listing.id, 'rejected', listing.title)}
+                      onClick={() => setPendingAction({ id: listing.id, status: 'rejected', title: listing.title, label: 'Tolak' })}
                     />
                   )}
                 </div>
@@ -380,6 +383,32 @@ function ListingsManager() {
           })}
         </div>
       )}
+
+      <Dialog open={!!pendingAction} onClose={() => { if (!actionLoading) setPendingAction(null); }} size="sm" ariaLabel="Konfirmasi aksi">
+        <DialogHeader
+          centered
+          tone="danger"
+          icon={<AlertTriangle size={22} />}
+          title={pendingAction ? `${pendingAction.label} listing?` : ''}
+          description={pendingAction ? `"${pendingAction.title}" akan diubah ke status ${STATUS_STYLE[pendingAction.status]?.label ?? pendingAction.status}.` : ''}
+        />
+        <DialogFooter>
+          <button
+            onClick={() => setPendingAction(null)}
+            disabled={!!actionLoading}
+            style={{ padding: '11px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, background: '#F1F5F9', color: '#475569' }}
+          >
+            Batal
+          </button>
+          <button
+            onClick={() => { if (pendingAction) updateStatus(pendingAction.id, pendingAction.status, pendingAction.title).then(() => setPendingAction(null)); }}
+            disabled={!!actionLoading}
+            style={{ padding: '11px', borderRadius: 12, border: 'none', cursor: 'pointer', fontSize: 14, fontWeight: 700, background: '#EF4444', color: '#fff', opacity: actionLoading ? 0.6 : 1 }}
+          >
+            {actionLoading ? 'Memproses…' : (pendingAction?.label ?? 'Lanjut')}
+          </button>
+        </DialogFooter>
+      </Dialog>
     </div>
   );
 }

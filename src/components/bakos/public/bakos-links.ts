@@ -3,6 +3,8 @@
 // PATH: src/components/bakos/public/bakos-links.ts
 // ════════════════════════════════════════════════════════════════
 
+import type { SyntheticEvent } from 'react';
+
 export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 
 export interface Listing {
@@ -95,6 +97,17 @@ export const TIPE: Record<string, { lbl: string; cls: string }> = {
 export function formatRupiah(n: number): string {
   // Rupiah lengkap dgn pemisah ribuan titik: 1250000 → "Rp 1.250.000"
   return `Rp ${Math.round(n).toLocaleString('id-ID')}`;
+}
+
+// 🛡️ placeholder abu-abu + ikon rumah (SVG inline) untuk gambar yang gagal load.
+export const IMG_FALLBACK =
+  "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20width='400'%20height='300'%3E%3Crect%20width='400'%20height='300'%20fill='%23eef0f2'/%3E%3Cpath%20d='M200%20120l-60%2045v70h120v-70z'%20fill='none'%20stroke='%23b8c0c8'%20stroke-width='8'%20stroke-linejoin='round'/%3E%3C/svg%3E";
+
+export function onImgError(e: SyntheticEvent<HTMLImageElement>) {
+  const img = e.currentTarget;
+  if (img.dataset.fb) return;        // cegah loop kalau fallback pun gagal
+  img.dataset.fb = '1';
+  img.src = IMG_FALLBACK;
 }
 
 // 🛡️ facilities = jsonb → bisa array, objek {ac:true}, atau null. Normalisasi ke string[].

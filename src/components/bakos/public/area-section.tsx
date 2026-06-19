@@ -10,7 +10,7 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useRef, useCallback } from 'react';
-import { AREAS, type Listing } from './bakos-links';
+import { AREAS, type Listing, onImgError } from './bakos-links';
 
 // drag-to-scroll (mirror HeroMap) — tarik kartu pakai mouse/jari di HP & desktop
 function useDragScroll() {
@@ -71,7 +71,7 @@ export function AreaSection({ onPick, listings }: { onPick: (q: string) => void;
               onClick={(e) => { if (ds.dragging()) { ds.guardClick(e); return; } onPick(a.q); }}
             >
               <span className="bk-area-photo">
-                <img src={a.photo} alt={a.name} loading="lazy" draggable={false} />
+                <img src={a.photo} alt={a.name} loading="lazy" draggable={false} onError={onImgError} />
                 <span className="bk-area-grad" />
                 {a.tag && <span className="bk-area-tag">{a.tag}</span>}
                 <span className="bk-area-ov">

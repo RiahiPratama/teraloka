@@ -8,6 +8,7 @@
 // ════════════════════════════════════════════════════════════════
 import { useState, useRef } from 'react';
 import { MS } from './types';
+import { onImgError } from '../bakos-links';
 
 export function KosGallery({ photos, title }: { photos: string[]; title: string }) {
   const [active, setActive] = useState(0);          // dot aktif desktop (klik)
@@ -39,7 +40,7 @@ export function KosGallery({ photos, title }: { photos: string[]; title: string 
             <div className="bkd-swipe-track" ref={stripRef} onScroll={onScroll}>
               {photos.map((p, i) => (
                 <div className="bkd-swipe-slide" key={i}>
-                  <img src={p} alt={i === 0 ? title : ''} draggable={false} />
+                  <img src={p} alt={i === 0 ? title : ''} draggable={false} onError={onImgError} />
                 </div>
               ))}
             </div>
@@ -64,7 +65,7 @@ export function KosGallery({ photos, title }: { photos: string[]; title: string 
       <div className={`bkd-grid side-${side.length}`}>
         <div className={`bkd-cell ${side.length ? 'hero' : 'solo'}`} onClick={() => setActive(0)}>
           {photos.length > 0
-            ? <img src={photos[active] || photos[0]} alt={title} />
+            ? <img src={photos[active] || photos[0]} alt={title} onError={onImgError} />
             : <div className="empty"><MS n="apartment" /></div>}
           {photos.length > 1 && (
             <div className="bkd-dots">
@@ -77,7 +78,7 @@ export function KosGallery({ photos, title }: { photos: string[]; title: string 
         </div>
         {side.map((p, i) => (
           <div className="bkd-cell" key={i} onClick={() => setActive(i + 1)}>
-            <img src={p} alt="" />
+            <img src={p} alt="" onError={onImgError} />
             {i === side.length - 1 && extra > 0 && (
               <div className="bkd-more"><MS n="photo_library" /> +{extra} foto</div>
             )}

@@ -26,6 +26,7 @@ export function BakosLanding() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [priceFilter, setPriceFilter] = useState(searchParams.get('filter') || 'all');
   const [kosType, setKosType] = useState(searchParams.get('type') || '');
@@ -54,10 +55,12 @@ export function BakosLanding() {
       // TD-BAKOS-01: kos_type difilter di client (backend belum support).
       if (kosType) results = results.filter((l) => l.kos_type === kosType);
 
+      setError(false);
       setListings(results);
       setTotal(data.meta?.total ?? results.length);
     } catch {
       if (myId !== reqIdRef.current) return;   // jangan timpa state dgn error basi
+      setError(true);
       setListings([]);
       setTotal(0);
     } finally {
@@ -90,7 +93,7 @@ export function BakosLanding() {
       />
 
       <AreaSection listings={listings} onPick={(q) => { setSearchInput(q); scrollToList(); }} />
-      <ListingGrid listings={listings} loading={loading} searchInput={searchInput} onReset={reset} />
+      <ListingGrid listings={listings} loading={loading} searchInput={searchInput} onReset={reset} error={error} onRetry={fetchListings} />
       <KenapaSection />
       <OwnerCtaSection />
 

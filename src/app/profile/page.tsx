@@ -508,7 +508,7 @@ export default function ProfilePage() {
             <div style={{ padding: 8 }}>
               {[
                 { href: '/owner', label: 'Dashboard Owner', Icon: LayoutDashboard },
-                { href: '/owner/listing/new/kos', label: 'Tambah Listing Kos', Icon: Plus },
+                { href: '/owner/bakos/baru', label: 'Tambah Listing Kos', Icon: Plus },
               ].map(({ href, label, Icon }) => (
                 <Link key={href} href={href} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, textDecoration: 'none' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#F6F8F7')}

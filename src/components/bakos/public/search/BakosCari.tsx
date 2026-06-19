@@ -36,6 +36,7 @@ export function BakosCari() {
   const [locationId, setLocationId] = useState(sp.get('location_id') ?? '');
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [total, setTotal] = useState(0);
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -54,10 +55,11 @@ export function BakosCari() {
       const res = await fetch(`${API_URL}/listings?${params.toString()}`);
       const data = await res.json();
       const items: Listing[] = data.data ?? data.listings ?? [];
+      setError(false);
       setListings(items);
       setTotal(data.pagination?.total ?? data.meta?.total ?? data.total ?? items.length);
     } catch {
-      setListings([]); setTotal(0);
+      setError(true); setListings([]); setTotal(0);
     } finally { setLoading(false); }
   }, [locationId]);
 
@@ -143,7 +145,7 @@ export function BakosCari() {
           </div>
         ) : (
           <div className="bkc-results">
-            <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} />
+            <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} error={error} onRetry={() => fetchKos(q, kosType, priceKey)} />
           </div>
         )}
       </div>

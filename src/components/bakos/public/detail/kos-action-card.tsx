@@ -43,11 +43,15 @@ export function KosActionCard({
       });
       const data = await res.json();
       if (data.success) {
-        setSuccess(true);
         const room = selectedRoom ? rooms.find((r) => r.id === selectedRoom) : null;
         const msg = encodeURIComponent(`Halo, saya tertarik dengan kos "${listing.title}"${room ? ` (${room.room_type})` : ''}.\n\nKode: ${data.data.tracking_code}\n\n(via TeraLoka)`);
-        if (data.data.wa_link) window.open(`${data.data.wa_link}${data.data.wa_link.includes('?') ? '&' : '?'}text=${msg}`, '_blank');
-        else if (data.data.owner_phone) window.open(`https://wa.me/${String(data.data.owner_phone).replace(/\D/g, '')}?text=${msg}`, '_blank');
+        // 🛡️ relay-only: JANGAN buka nomor owner mentah. Hanya buka kalau relay (wa_link) tersedia.
+        if (data.data.wa_link) {
+          setSuccess(true);
+          window.open(`${data.data.wa_link}${data.data.wa_link.includes('?') ? '&' : '?'}text=${msg}`, '_blank');
+        } else {
+          alert('Kontak pemilik belum tersedia. Coba lagi nanti.');
+        }
       } else alert(data.error || 'Gagal menghubungi pemilik.');
     } catch { alert('Gagal menghubungi pemilik. Coba lagi.'); }
     finally { setLoading(false); }

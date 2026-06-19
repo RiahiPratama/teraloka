@@ -14,9 +14,11 @@ interface GridProps {
   loading: boolean;
   searchInput: string;
   onReset: () => void;
+  error?: boolean;
+  onRetry?: () => void;
 }
 
-export function ListingGrid({ listings, loading, searchInput, onReset }: GridProps) {
+export function ListingGrid({ listings, loading, searchInput, onReset, error, onRetry }: GridProps) {
   return (
     <section className="bk-sec bk-pt0" id="bk-listings"><div className="bk-wrap">
       <div className="bk-sh">
@@ -42,7 +44,16 @@ export function ListingGrid({ listings, loading, searchInput, onReset }: GridPro
         </div>
       )}
 
-      {!loading && listings.length === 0 && (
+      {!loading && error && (
+        <div className="bk-empty">
+          <span className="material-symbols-outlined">cloud_off</span>
+          <p className="t">Gagal memuat kos</p>
+          <p className="s">Koneksi bermasalah atau server sedang sibuk. Coba lagi sebentar.</p>
+          {onRetry && <button onClick={onRetry}>Coba lagi</button>}
+        </div>
+      )}
+
+      {!loading && !error && listings.length === 0 && (
         <div className="bk-empty">
           <span className="material-symbols-outlined">home_work</span>
           <p className="t">Belum ada kos yang cocok</p>
@@ -51,7 +62,7 @@ export function ListingGrid({ listings, loading, searchInput, onReset }: GridPro
         </div>
       )}
 
-      {!loading && listings.length > 0 && (
+      {!loading && !error && listings.length > 0 && (
         <div className="bk-grid">
           {listings.map((item) => <ListingCard key={item.id} item={item} />)}
         </div>
