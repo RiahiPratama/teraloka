@@ -602,24 +602,18 @@ function AvatarUpload({
   token: string;
 }) {
   const { toast } = useToast();
+  const { updateAvatar } = useAuth();
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function persistAvatar(url: string | null) {
     setSaving(true);
     try {
-      const res = await fetch(`${API}/auth/profile`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ avatar_url: url }),
-      });
-      const json = await res.json();
-      if (!res.ok || !json.success) {
-        throw new Error(json?.error?.message || 'Gagal simpan avatar');
-      }
+      // [AVATAR-FIX] Pakai useAuth.updateAvatar (PATCH /auth/profile + setUser → refresh context
+      // global) → avatar muncul instan di Portal Mitra & semua halaman TANPA reload. Niru pola
+      // DriverAccountShell. (url null = hapus → updateAvatar('') → BE: avatar_url||null = null.)
+      const okRes = await updateAvatar(url ?? '');
+      if (!okRes) throw new Error('Gagal simpan avatar');
       toast.success(url ? 'Avatar berhasil diupdate' : 'Avatar dihapus');
       setEditing(false);
       onUpload();
