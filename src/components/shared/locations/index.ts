@@ -18,7 +18,7 @@
  * CONSUMERS (planned):
  *   - BALAPOR /lapor (citizen submit form) → GeographicScopePicker
  *   - BALAPOR /admin/balapor (admin filter scope) → GeographicScopePicker
- *   - BAKOS /owner/listing/* (kos location) → GeographicScopePicker
+ *   - BAKOS /owner/bakos/* (kos location) → GeographicScopePicker
  *   - BAANTAR /owner/orders (pickup zone) → GeographicScopePicker
  *   - BAJASA /owner/services (service area) → GeographicScopePicker
  *   - BAKABAR /admin/articles (location tag) → GeographicScopePicker
