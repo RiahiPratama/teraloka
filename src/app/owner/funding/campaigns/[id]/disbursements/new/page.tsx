@@ -261,16 +261,37 @@ export default function OwnerCampaignDisbursementNewPage() {
           )}
         </Section>
 
-        {/* Form: Beneficiary */}
+        {/* Form: Penerima Manfaat — nama + kontak HP (merged; alur logis nama → kontak) */}
         <Section icon={<User size={18} />} title="Penerima Manfaat" required>
+          <p className="text-xs text-gray-500 mb-3">
+            Nama & nomor kontak penerima dana (boleh wali/perwakilan keluarga). Terisi dari data kampanye — ubah bila penerima berbeda.
+          </p>
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+            <User size={10} /> Nama Penerima
+          </label>
           <input
             type="text"
             value={disbursedTo}
             onChange={e => setDisbursedTo(e.target.value)}
             placeholder="Nama penerima atau wakil"
             maxLength={200}
-            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526]"
+            className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:border-[#003526] mb-3"
           />
+          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
+            <Phone size={10} /> Nomor HP Penerima
+          </label>
+          <input
+            type="tel"
+            value={beneficiaryPhone}
+            onChange={e => setBeneficiaryPhone(e.target.value.replace(/\D/g, ''))}
+            placeholder="081234567890"
+            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono outline-none focus:border-[#003526]"
+          />
+          {hasIdentity && (
+            <p className="text-xs text-green-700 mt-2 font-medium flex items-center gap-1.5">
+              ✓ Kontak penerima sudah diisi
+            </p>
+          )}
         </Section>
 
         {/* Form: Date + Method */}
@@ -327,28 +348,6 @@ export default function OwnerCampaignDisbursementNewPage() {
           );
         })()}
 
-        {/* Form: Beneficiary Identity — [KTP-B] HP saja (prefill dari campaign, editable utk multi-recipient) */}
-        <Section icon={<ShieldCheck size={18} />} title="Identitas Penerima" required>
-          <p className="text-xs text-gray-500 mb-2.5">
-            Nomor HP <strong>penerima dana transaksi ini</strong> (boleh HP wali/perwakilan keluarga).
-            Untuk audit & anti-fraud. Sudah terisi dari data kampanye — ubah bila penerima berbeda.
-          </p>
-          <label className="text-[10px] font-bold text-gray-500 uppercase tracking-wider flex items-center gap-1.5 mb-1">
-            <Phone size={10} /> Nomor HP Penerima
-          </label>
-          <input
-            type="tel"
-            value={beneficiaryPhone}
-            onChange={e => setBeneficiaryPhone(e.target.value.replace(/\D/g, ''))}
-            placeholder="081234567890"
-            className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-mono outline-none focus:border-[#003526]"
-          />
-          {hasIdentity && (
-            <p className="text-xs text-green-700 mt-2 font-medium flex items-center gap-1.5">
-              ✓ Identitas penerima sudah valid
-            </p>
-          )}
-        </Section>
 
         {/* Form: Foto Serah-Terima — opsional, HANYA transfer (non-transfer udah jadi bukti utama di atas) */}
         {method === 'transfer' && (
