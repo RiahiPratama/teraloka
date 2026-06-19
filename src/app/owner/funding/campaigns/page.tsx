@@ -9,7 +9,7 @@ import {
   HeartHandshake, PlusCircle, ArrowLeft, Search,
   FileEdit, Hourglass, Megaphone, CheckCircle2, XCircle,
   Users, TrendingUp, Clock, Loader2, AlertCircle,
-  Siren, ChevronRight, Trash2,
+  Siren, ChevronRight, Trash2, Wallet, HandCoins,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -30,6 +30,7 @@ interface MyCampaign {
   partner_name?: string;
   target_amount: number;
   collected_amount: number;
+  saldo?: number;  // [C2-SALDO] beneficiary(verified) − disbursed(pending+verified), NO clamp (bisa negatif = anomali)
   donor_count: number;
   deadline?: string | null;
   is_urgent: boolean;
@@ -85,6 +86,7 @@ function MyCampaignsContent() {
   const [error, setError] = useState('');
   const [deleteModal, setDeleteModal] = useState<MyCampaign | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [showPicker, setShowPicker] = useState(false); // [C2-SALDO] picker pencairan
 
   // Fetch data when tab changes or token arrives
   useEffect(() => {
@@ -229,14 +231,25 @@ function MyCampaignsContent() {
               </p>
             </div>
 
-            <Link
-              href="/owner/funding/campaigns/new/info"
-              className="shrink-0 inline-flex items-center gap-1.5 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg hover:opacity-90 transition-opacity"
-            >
-              <PlusCircle size={14} strokeWidth={2.2} />
-              <span className="hidden sm:inline">Galang Baru</span>
-              <span className="sm:hidden">Baru</span>
-            </Link>
+            <div className="shrink-0 flex flex-col gap-2">
+              <Link
+                href="/owner/funding/campaigns/new/info"
+                className="inline-flex items-center justify-center gap-1.5 bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white text-xs font-bold px-3 py-2 rounded-xl shadow-lg hover:opacity-90 transition-opacity"
+              >
+                <PlusCircle size={14} strokeWidth={2.2} />
+                <span className="hidden sm:inline">Galang Baru</span>
+                <span className="sm:hidden">Baru</span>
+              </Link>
+              {/* [C2-SALDO] Picker pencairan — pintu masuk ke disbursement (route dulu yatim). */}
+              <button
+                onClick={() => setShowPicker(true)}
+                className="inline-flex items-center justify-center gap-1.5 bg-white/10 hover:bg-white/20 text-white text-xs font-bold px-3 py-2 rounded-xl border border-white/20 transition-colors"
+              >
+                <HandCoins size={14} strokeWidth={2.2} />
+                <span className="hidden sm:inline">Cairkan Dana</span>
+                <span className="sm:hidden">Cairkan</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -403,6 +416,54 @@ function MyCampaignsContent() {
         </div>
       )}
 
+      {/* [C2-SALDO] Picker Pencairan — cuma kampanye saldo>0 (active/completed). Negatif/nol auto gak eligible. */}
+      {showPicker && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 p-4" onClick={() => setShowPicker(false)}>
+          <div className="w-full max-w-md bg-white rounded-2xl p-5 max-h-[80vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center gap-2 mb-1">
+              <HandCoins size={18} className="text-emerald-600" />
+              <h3 className="text-base font-bold text-gray-900">Cairkan Dana</h3>
+            </div>
+            <p className="text-xs text-gray-500 mb-4">Pilih kampanye yang mau dicairkan. Hanya kampanye dengan <strong>saldo siap cair</strong> yang muncul.</p>
+            {(() => {
+              const eligible = campaigns.filter(
+                (c) => (c.status === 'active' || c.status === 'completed') && typeof c.saldo === 'number' && c.saldo > 0
+              );
+              if (eligible.length === 0) {
+                return <p className="text-xs text-gray-400 text-center py-6">Belum ada kampanye dengan saldo siap cair. Saldo muncul setelah donasi terverifikasi & belum dicairkan penuh.</p>;
+              }
+              return (
+                <div className="space-y-2">
+                  {eligible.map((c) => (
+                    <Link
+                      key={c.id}
+                      href={`/owner/funding/campaigns/${c.id}/disbursements`}
+                      className="flex items-center justify-between gap-3 p-3 rounded-xl border border-gray-200 hover:border-emerald-300 hover:bg-emerald-50/50 transition-colors"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-gray-800 truncate">{c.title || '(Tanpa judul)'}</p>
+                        <p className="text-[10px] text-gray-400">{c.display_id}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-[10px] text-gray-400">Saldo</p>
+                        <p className="text-sm font-bold text-emerald-700">{formatRupiah(c.saldo as number)}</p>
+                      </div>
+                      <ChevronRight size={16} className="text-gray-300 shrink-0" />
+                    </Link>
+                  ))}
+                </div>
+              );
+            })()}
+            <button
+              onClick={() => setShowPicker(false)}
+              className="w-full mt-4 py-2.5 rounded-xl border border-gray-200 text-sm font-bold text-gray-600 hover:bg-gray-50 transition-colors"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -552,6 +613,16 @@ function CampaignCard({
                     {progress.toFixed(0)}%
                   </span>
                 </div>
+                {/* [C2-SALDO] Saldo siap cair (beneficiary − disbursed). Negatif = anomali → merah. */}
+                {typeof campaign.saldo === 'number' && (
+                  <div className="mt-1.5 flex items-center gap-1 text-[10px]">
+                    <Wallet size={10} className={campaign.saldo < 0 ? 'text-red-600' : 'text-emerald-600'} />
+                    <span className="text-gray-500">Saldo siap cair:</span>
+                    <span className={`font-bold ${campaign.saldo < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+                      {formatRupiah(campaign.saldo)}
+                    </span>
+                  </div>
+                )}
               </>
             )}
           </div>
