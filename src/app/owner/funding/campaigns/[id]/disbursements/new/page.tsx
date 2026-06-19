@@ -37,7 +37,7 @@ interface FinancialSummary {
   total_collected: number;
   total_disbursed: number;
   total_disbursed_pending: number;
-  saldo_available: number;
+  saldo: number;  // [SALDO-FIELD-FIX] match BE getMyFinancialSummary (dulu 'saldo_available' → undefined → Rp 0 → form nolak semua)
 }
 
 const METHODS = [
@@ -102,7 +102,7 @@ export default function OwnerCampaignDisbursementNewPage() {
     load();
   }, [campaignId, authLoading, user, router]);
 
-  const saldo = financial?.saldo_available ?? 0;
+  const saldo = financial?.saldo ?? 0;
   const overSaldo = amountRaw > saldo;
   const hasIdentity = beneficiaryPhone.trim() || beneficiaryKtpUrl.trim();
 

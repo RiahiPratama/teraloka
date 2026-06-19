@@ -56,7 +56,7 @@ interface FinancialSummary {
   total_collected: number;
   total_disbursed: number;
   total_disbursed_pending: number;
-  saldo_available: number;
+  saldo: number;  // [SALDO-FIELD-FIX] match BE getMyFinancialSummary (dulu 'saldo_available' → undefined → Rp 0)
 }
 
 const STATUS_META: Record<DisbursementStatus, { label: string; color: string; bg: string; icon: any }> = {
@@ -169,7 +169,7 @@ export default function OwnerCampaignDisbursementsPage() {
     );
   }
 
-  const saldo = financial?.saldo_available ?? 0;
+  const saldo = financial?.saldo ?? 0;
   const canRequest = campaign.status === 'active' || campaign.status === 'completed';
 
   return (
