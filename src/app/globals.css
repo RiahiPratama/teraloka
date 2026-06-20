@@ -64,6 +64,7 @@
   --color-status-warning: #F59E0B;
   --color-status-critical: #EF4444;
   --color-status-info: #3B82F6;
+  --color-status-flagged: #F97316; /* orange-500 — konsisten dgn admin disbursement/fraud "Sedang Direview" */
 
   /* ===== Service Identity Colors — LIGHT MODE defaults =====
      Naming convention (lowercase, no hyphen di dalam key service):

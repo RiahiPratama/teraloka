@@ -59,11 +59,12 @@ interface FinancialSummary {
   saldo: number;  // [SALDO-FIELD-FIX] match BE getMyFinancialSummary (dulu 'saldo_available' → undefined → Rp 0)
 }
 
-const STATUS_META: Record<DisbursementStatus, { label: string; color: string; bg: string; icon: any }> = {
-  pending:  { label: 'Menunggu Review',  color: '#B45309', bg: '#FEF3C7', icon: Hourglass    },
-  verified: { label: 'Terverifikasi',    color: '#047857', bg: '#D1FAE5', icon: CheckCircle2 },
-  rejected: { label: 'Ditolak',          color: '#B91C1C', bg: '#FEE2E2', icon: XCircle      },
-  flagged:  { label: 'Perlu Investigasi', color: '#7C2D12', bg: '#FFEDD5', icon: Flag         },
+// pill = token semantik (presentation). label/icon = konten (jangan ubah teks).
+const STATUS_META: Record<DisbursementStatus, { label: string; icon: any; pill: string }> = {
+  pending:  { label: 'Menunggu Review',   icon: Hourglass,    pill: 'text-status-warning bg-status-warning/10'   },
+  verified: { label: 'Terverifikasi',     icon: CheckCircle2, pill: 'text-status-healthy bg-status-healthy/10'   },
+  rejected: { label: 'Ditolak',           icon: XCircle,      pill: 'text-status-critical bg-status-critical/10' },
+  flagged:  { label: 'Perlu Investigasi', icon: Flag,         pill: 'text-status-flagged bg-status-flagged/10'   },
 };
 
 export default function OwnerCampaignDisbursementsPage() {
@@ -193,21 +194,23 @@ export default function OwnerCampaignDisbursementsPage() {
       </header>
 
       <div className="max-w-3xl mx-auto px-4 py-5 space-y-5">
-        {/* Saldo card */}
-        <div className="bg-gradient-to-br from-[#003526] to-[#0d4d3a] rounded-2xl p-5 text-white">
-          <div className="flex items-center gap-2 mb-2">
-            <Wallet size={16} className="opacity-80" />
-            <p className="text-xs font-semibold opacity-90 uppercase tracking-wide">Saldo Tersedia</p>
+        {/* Saldo hero — anchor tunggal: saldo = angka terbesar di halaman.
+            Token hijau primary, tabular-nums, shadow tinted halus (no border tegas),
+            hijau-only (pink badonasi disimpan utk 1 aksen lain). */}
+        <div className="bg-gradient-to-br from-primary to-primary-light rounded-3xl p-6 text-white shadow-[0_16px_40px_-18px_rgba(0,53,38,0.5)]">
+          <div className="flex items-center gap-2 mb-3">
+            <Wallet size={15} className="text-white/70" />
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/70">Saldo Tersedia</p>
           </div>
-          <p className="text-3xl font-black mb-3">{formatRupiah(saldo)}</p>
-          <div className="grid grid-cols-2 gap-3 pt-3 border-t border-white/20 text-xs">
+          <p className="text-[2.75rem] leading-[1.05] font-black tabular-nums mb-5">{formatRupiah(saldo)}</p>
+          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/15">
             <div>
-              <p className="opacity-70 mb-0.5">Sudah Cair</p>
-              <p className="font-bold">{formatRupiah(stats.totalVerified)}</p>
+              <p className="text-[11px] text-white/55 mb-1">Sudah Cair</p>
+              <p className="text-sm font-bold tabular-nums text-white/95">{formatRupiah(stats.totalVerified)}</p>
             </div>
             <div>
-              <p className="opacity-70 mb-0.5">Pending Review</p>
-              <p className="font-bold">{formatRupiah(stats.totalPending)}</p>
+              <p className="text-[11px] text-white/55 mb-1">Pending Review</p>
+              <p className="text-sm font-bold tabular-nums text-white/95">{formatRupiah(stats.totalPending)}</p>
             </div>
           </div>
         </div>
@@ -216,7 +219,7 @@ export default function OwnerCampaignDisbursementsPage() {
         {canRequest ? (
           <Link
             href={`/owner/funding/campaigns/${campaignId}/disbursements/new`}
-            className="flex items-center justify-center gap-2 bg-[#003526] hover:bg-[#0d4d3a] text-white font-bold py-3.5 px-4 rounded-2xl transition-colors"
+            className="flex items-center justify-center gap-2 bg-[#EC4899] hover:bg-[#DB2777] text-white font-bold py-3.5 px-4 rounded-2xl shadow-[0_10px_26px_-12px_rgba(236,72,153,0.6)] transition-colors"
           >
             <Plus size={18} />
             Ajukan Pencairan Baru
@@ -233,10 +236,10 @@ export default function OwnerCampaignDisbursementsPage() {
         {/* Stats summary */}
         {disbursements.length > 0 && (
           <div className="grid grid-cols-4 gap-2">
-            <StatPill count={stats.pending}  label="Pending"  color="#B45309" />
-            <StatPill count={stats.verified} label="Cair"     color="#047857" />
-            <StatPill count={stats.rejected} label="Ditolak"  color="#B91C1C" />
-            <StatPill count={stats.flagged}  label="Flag"     color="#7C2D12" />
+            <StatPill count={stats.pending}  label="Pending"  colorClass="text-status-warning"  />
+            <StatPill count={stats.verified} label="Cair"     colorClass="text-status-healthy"  />
+            <StatPill count={stats.rejected} label="Ditolak"  colorClass="text-status-critical" />
+            <StatPill count={stats.flagged}  label="Flag"     colorClass="text-status-flagged"  />
           </div>
         )}
 
@@ -267,10 +270,10 @@ export default function OwnerCampaignDisbursementsPage() {
   );
 }
 
-function StatPill({ count, label, color }: { count: number; label: string; color: string }) {
+function StatPill({ count, label, colorClass }: { count: number; label: string; colorClass: string }) {
   return (
     <div className="bg-white rounded-xl p-2.5 text-center border border-gray-100">
-      <p className="text-lg font-black" style={{ color }}>{count}</p>
+      <p className={`text-lg font-black tabular-nums ${colorClass}`}>{count}</p>
       <p className="text-[10px] text-gray-500 uppercase tracking-wide font-semibold">{label}</p>
     </div>
   );
@@ -287,34 +290,31 @@ function DisbursementCard({
   const canEdit = d.status === 'pending';
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-      <div className="p-4">
+    <div className="bg-white rounded-2xl shadow-[0_8px_22px_-16px_rgba(15,23,42,0.18)] overflow-hidden">
+      <div className="p-5">
         <div className="flex items-start justify-between gap-3 mb-3">
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-1.5">
               <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
                 Tahap #{d.stage_number}
               </span>
-              <span
-                className="inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md"
-                style={{ color: meta.color, backgroundColor: meta.bg }}
-              >
+              <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded-md ${meta.pill}`}>
                 <Icon size={11} />
                 {meta.label}
               </span>
             </div>
-            <p className="text-2xl font-black text-gray-900">{formatRupiah(d.amount)}</p>
+            <p className="text-2xl font-black tabular-nums text-gray-900">{formatRupiah(d.amount)}</p>
           </div>
         </div>
 
-        <div className="space-y-1.5 text-xs text-gray-600 mb-3">
+        <div className="space-y-2 text-xs text-gray-500 mb-4">
           <div className="flex items-center gap-2">
             <Banknote size={12} className="text-gray-400" />
-            <span>Ke: <strong className="text-gray-800">{d.disbursed_to}</strong></span>
+            <span>Ke: <strong className="text-gray-700 font-semibold">{d.disbursed_to}</strong></span>
           </div>
           <div className="flex items-center gap-2">
             <Calendar size={12} className="text-gray-400" />
-            <span>{new Date(d.disbursed_at).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</span>
+            <span className="tabular-nums">{new Date(d.disbursed_at).toLocaleDateString('id-ID', { dateStyle: 'medium' })}</span>
           </div>
           {d.evidence_urls && d.evidence_urls.length > 0 && (
             <div className="flex items-center gap-2">
@@ -325,23 +325,23 @@ function DisbursementCard({
         </div>
 
         {d.status === 'rejected' && d.admin_review_notes && (
-          <div className="bg-red-50 border border-red-100 rounded-lg p-2.5 mb-3">
-            <p className="text-[10px] font-bold text-red-700 uppercase mb-0.5">Alasan Ditolak</p>
-            <p className="text-xs text-red-800 leading-relaxed">{d.admin_review_notes}</p>
+          <div className="bg-status-critical/5 rounded-xl p-3 mb-4">
+            <p className="text-[10px] font-bold text-status-critical uppercase tracking-wide mb-1">Alasan Ditolak</p>
+            <p className="text-xs text-gray-700 leading-relaxed">{d.admin_review_notes}</p>
           </div>
         )}
 
         {d.status === 'flagged' && d.admin_review_notes && (
-          <div className="bg-orange-50 border border-orange-100 rounded-lg p-2.5 mb-3">
-            <p className="text-[10px] font-bold text-orange-700 uppercase mb-0.5">Catatan Admin</p>
-            <p className="text-xs text-orange-800 leading-relaxed">{d.admin_review_notes}</p>
+          <div className="bg-status-flagged/5 rounded-xl p-3 mb-4">
+            <p className="text-[10px] font-bold text-status-flagged uppercase tracking-wide mb-1">Catatan Admin</p>
+            <p className="text-xs text-gray-700 leading-relaxed">{d.admin_review_notes}</p>
           </div>
         )}
 
         <div className="flex gap-2 pt-3 border-t border-gray-100">
           <Link
             href={`/owner/funding/campaigns/${campaignId}/disbursements/${d.id}`}
-            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 py-2 px-3 rounded-lg border border-gray-200"
+            className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-gray-700 hover:bg-gray-100 py-2 px-3 rounded-lg border border-gray-100 transition-colors"
           >
             <Eye size={13} />
             Detail
@@ -349,7 +349,7 @@ function DisbursementCard({
           {canEdit && (
             <Link
               href={`/owner/funding/campaigns/${campaignId}/disbursements/${d.id}/edit`}
-              className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 py-2 px-3 rounded-lg"
+              className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-status-warning bg-status-warning/10 hover:bg-status-warning/15 py-2 px-3 rounded-lg transition-colors"
             >
               Edit
             </Link>
@@ -358,7 +358,7 @@ function DisbursementCard({
             <button
               onClick={() => onDelete(d.id)}
               disabled={deleting}
-              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-red-700 bg-red-50 hover:bg-red-100 py-2 px-3 rounded-lg disabled:opacity-50"
+              className="inline-flex items-center justify-center gap-1.5 text-xs font-bold text-status-critical bg-status-critical/10 hover:bg-status-critical/15 py-2 px-3 rounded-lg disabled:opacity-50 transition-colors"
             >
               {deleting ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
             </button>
