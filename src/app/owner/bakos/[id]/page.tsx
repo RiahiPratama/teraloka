@@ -14,12 +14,13 @@
 //    (tanpa kolom baru; promote ke kolom hanya bila jadi filter).
 // ════════════════════════════════════════════════════════════════
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useSosLift } from '@/components/providers/SosLiftProvider';
 import { facList, facLabel, labelsToFacObject, LISTING_FAC_LABEL } from '@/components/bakos/public/bakos-links';
+import { useToast } from '@/components/ui/Toast';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
@@ -38,6 +39,7 @@ export default function OwnerKosEditPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const api = useApi();
+  const { toast } = useToast();
   useSosLift(); // 🛡️ SOS naik di atas save bar; cleanup saat unmount
 
   const [loading, setLoading] = useState(true);
@@ -98,6 +100,24 @@ export default function OwnerKosEditPage() {
     load();
   }, [authLoading, user, load]);
 
+  // ── Dirty tracking (Opsi B): baseline = snapshot data saat load/simpan.
+  //    Status JUJUR sesuai kondisi nyata (bukan timer): tersimpan-nempel / belum / netral.
+  const baselineRef = useRef<string | null>(null);
+  const snapshot = useCallback(() => JSON.stringify({
+    title, description, phone, photos,
+    loc: scope?.id ?? null, coord, address, kosType, electricityType,
+    facilities, kosRules, isNegotiable, landmarks,
+    coupleAllowed, childrenAllowed, petsAllowed,
+  }), [title, description, phone, photos, scope, coord, address, kosType, electricityType, facilities, kosRules, isNegotiable, landmarks, coupleAllowed, childrenAllowed, petsAllowed]);
+
+  // capture baseline 1x saat load selesai (state sudah ter-apply di render loading=false → anti by-reference)
+  useEffect(() => {
+    if (loading || baselineRef.current !== null) return;
+    baselineRef.current = snapshot();
+  }, [loading, snapshot]);
+
+  const dirty = baselineRef.current !== null && snapshot() !== baselineRef.current;
+
   async function handleSave() {
     setSaving(true); setError(null);
     try {
@@ -120,10 +140,11 @@ export default function OwnerKosEditPage() {
         children_allowed: childrenAllowed,
         pets_allowed: petsAllowed,
       });
-      setSavedAt(Date.now());
-      setTimeout(() => setSavedAt(null), 2500);
+      baselineRef.current = snapshot(); // baseline = state tersimpan → dirty reset
+      setSavedAt(Date.now());           // nempel (tanpa timer)
+      toast.success('Perubahan tersimpan');
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Gagal menyimpan.');
+      toast.error(e instanceof ApiError ? e.message : 'Gagal menyimpan.');
     } finally {
       setSaving(false);
     }
@@ -293,9 +314,13 @@ export default function OwnerKosEditPage() {
       <div className="fixed bottom-[calc(60px+env(safe-area-inset-bottom,0px))] md:bottom-0 left-0 right-0 z-40 border-t backdrop-blur" style={{ background: 'rgba(239,237,229,0.92)', borderColor: BAKOS_TOKENS.border }}>
         <div className="max-w-xl mx-auto px-4 py-3">
           {/* B: status di ATAS (center), tombol dapat ruang penuh */}
-          {savedAt
-            ? <p className="flex items-center justify-center gap-1 text-xs font-semibold mb-2" style={{ color: '#15803D' }}><Check size={14} /> Tersimpan</p>
-            : <p className="text-center text-[11px] mb-2" style={{ color: BAKOS_TOKENS.textTertiary }}>Perubahan belum tersimpan</p>}
+          {savedAt && !dirty ? (
+            <p className="flex items-center justify-center gap-1 text-xs font-semibold mb-2" style={{ color: '#15803D' }}><Check size={14} /> Tersimpan</p>
+          ) : dirty ? (
+            <p className="text-center text-[11px] mb-2" style={{ color: BAKOS_TOKENS.textTertiary }}>Perubahan belum tersimpan</p>
+          ) : (
+            <p className="text-center text-[11px] mb-2" style={{ color: BAKOS_TOKENS.textTertiary }}>Ubah data lalu simpan</p>
+          )}
           <div className="flex items-center gap-2">
             <button onClick={handleDelete} className="rounded-xl px-4 py-3 text-sm font-medium border border-red-200 text-red-600 flex items-center justify-center gap-1.5"><Trash2 size={15} /> Hapus</button>
             <button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: BRAND }}>
