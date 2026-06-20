@@ -88,7 +88,6 @@ export default function OwnerCampaignReportNewPage() {
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<UsageItem[]>([newItem()]);
-  const [proofPhotos, setProofPhotos] = useState<string[]>([]);
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
@@ -235,7 +234,7 @@ export default function OwnerCampaignReportNewPage() {
           description: description.trim(),
           amount_used: totalItems,
           items: cleanItems,
-          proof_photos: proofPhotos,
+          proof_photos: [], // [BUANG] bukti umum dihapus — foto per-item (struk/nota) yg jadi bukti. BE opsional (?? []).
         }),
       });
 
@@ -442,30 +441,26 @@ export default function OwnerCampaignReportNewPage() {
             </button>
           )}
 
-          {/* Total Calculator */}
-          <div className="mt-4 pt-4 border-t border-gray-100 bg-gradient-to-br from-[#003526] to-[#0d4d3a] -mx-5 -mb-5 px-5 py-4 rounded-b-2xl text-white">
+          {/* Total Calculator — [OVER-LIMIT] MERAH pas total > sisa pencairan, sub-label langsung jelas */}
+          <div className={`mt-4 pt-4 border-t border-gray-100 -mx-5 -mb-5 px-5 py-4 rounded-b-2xl text-white bg-gradient-to-br ${overDisbursementLimit ? 'from-[#7F1D1D] to-[#B91C1C]' : 'from-[#003526] to-[#0d4d3a]'}`}>
             <div className="flex items-center gap-2 mb-1">
               <Calculator size={14} className="opacity-80" />
               <p className="text-[10px] font-semibold opacity-90 uppercase tracking-wider">Total Pengeluaran</p>
             </div>
             <p className="text-2xl font-black">{formatRupiah(totalItems)}</p>
-            <p className="text-[10px] opacity-70 mt-1">
-              {items.length} item · Otomatis dijadikan nominal laporan
-            </p>
+            {overDisbursementLimit && selectedDisbursement ? (
+              <p className="text-[11px] font-bold mt-1 text-red-100">
+                ⚠ Melebihi sisa Pencairan Tahap {selectedDisbursement.stage_number} (sisa {formatRupiah(selectedDisbursement.remaining)})
+              </p>
+            ) : (
+              <p className="text-[10px] opacity-70 mt-1">
+                {items.length} item · Otomatis dijadikan nominal laporan
+              </p>
+            )}
           </div>
         </div>
 
-        {/* General proof photos */}
-        <Section icon={<Camera size={18} />} title="Foto Bukti Umum" hint="Opsional. Foto kegiatan, struk gabungan, dll.">
-          <ImageUpload
-            bucket="reports"
-            label=""
-            maxFiles={10}
-            maxSizeMB={3}
-            onUpload={(urls: string[]) => setProofPhotos(urls)}
-            existingUrls={proofPhotos}
-          />
-        </Section>
+        {/* [BUANG] "Foto Bukti Umum" dihapus — redundan (tiap item belanja udah punya foto struk/nota sendiri). */}
 
         {/* Submit area */}
         <div className="bg-white rounded-2xl border border-gray-100 p-4 sticky bottom-4 shadow-lg">
@@ -475,7 +470,16 @@ export default function OwnerCampaignReportNewPage() {
               <p className="text-xs text-red-800">{error}</p>
             </div>
           )}
-          {validation && !error && (
+          {/* [OVER-LIMIT] Banner merah INDEPENDEN — nongol segera pas over, gak ke-mask error judul/deskripsi */}
+          {overDisbursementLimit && selectedDisbursement && !error && (
+            <div className="bg-red-50 border border-red-300 rounded-lg p-3 mb-3 flex items-start gap-2">
+              <AlertTriangle size={14} className="text-red-600 flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-red-800 font-bold">
+                Total {formatRupiah(totalItems)} melebihi sisa Pencairan Tahap {selectedDisbursement.stage_number} (sisa {formatRupiah(selectedDisbursement.remaining)}). Kurangi item sampai ≤ sisa.
+              </p>
+            </div>
+          )}
+          {validation && !error && !overDisbursementLimit && (
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3 flex items-start gap-2">
               <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" />
               <p className="text-xs text-amber-800">{validation}</p>
