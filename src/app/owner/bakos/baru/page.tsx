@@ -15,6 +15,7 @@ import { useState, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
+import { useSosLift } from '@/components/providers/SosLiftProvider';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
@@ -41,6 +42,7 @@ function KosFormContent() {
   const router = useRouter();
   const { user } = useAuth();
   const api = useApi();
+  useSosLift(); // 🛡️ SOS naik di atas save bar wizard; cleanup saat unmount
 
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -167,7 +169,7 @@ function KosFormContent() {
   }
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: BAKOS_TOKENS.pageBg }}>
+    <div className="min-h-screen pb-44" style={{ background: BAKOS_TOKENS.pageBg }}>
       <div className="max-w-xl mx-auto px-4 pt-5">
         <button onClick={() => router.push('/owner/bakos')} className="flex items-center gap-1 text-xs mb-3 hover:opacity-70 transition-opacity" style={{ color: BAKOS_TOKENS.textSecondary }}>
           <ChevronLeft size={14} /> Kos Saya
@@ -322,7 +324,7 @@ function KosFormContent() {
       </div>
 
       {/* Sticky nav bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur" style={{ background: 'rgba(239,237,229,0.92)', borderColor: BAKOS_TOKENS.border }}>
+      <div className="fixed bottom-[calc(60px+env(safe-area-inset-bottom,0px))] md:bottom-0 left-0 right-0 z-40 border-t backdrop-blur" style={{ background: 'rgba(239,237,229,0.92)', borderColor: BAKOS_TOKENS.border }}>
         <div className="max-w-xl mx-auto px-4 py-3 flex gap-2">
           {step > 0 && <button onClick={() => setStep(s => s - 1)} className="flex-1 rounded-xl border py-3 text-sm font-medium" style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>← Kembali</button>}
           {step < 2 ? (

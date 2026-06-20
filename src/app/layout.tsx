@@ -10,6 +10,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import ConditionalBottomNav from '@/components/layout/ConditionalBottomNav'
 import { SosFab } from '@/components/balapor/sos-fab' // ← Day 12 Step 6 (10 Mei 2026)
+import { SosLiftProvider } from '@/components/providers/SosLiftProvider'
 
 // ════════════════════════════════════════════════════════════════
 // FONT LOADING — next/font/google (29 Mei 2026)
@@ -188,9 +189,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <AuthProvider>
               <ToastProvider>
                 <ModalProvider>
-                  {children}
-                  <ConditionalBottomNav />
-                  <SosFab />
+                  <SosLiftProvider>
+                    {children}
+                    <ConditionalBottomNav />
+                    <SosFab />
+                  </SosLiftProvider>
                 </ModalProvider>
               </ToastProvider>
             </AuthProvider>

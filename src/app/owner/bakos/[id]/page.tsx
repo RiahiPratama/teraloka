@@ -18,6 +18,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
+import { useSosLift } from '@/components/providers/SosLiftProvider';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
@@ -36,6 +37,7 @@ export default function OwnerKosEditPage() {
   const router = useRouter();
   const { user, isLoading: authLoading } = useAuth();
   const api = useApi();
+  useSosLift(); // 🛡️ SOS naik di atas save bar; cleanup saat unmount
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -157,7 +159,7 @@ export default function OwnerKosEditPage() {
   }
 
   return (
-    <div className="min-h-screen pb-28" style={{ background: BAKOS_TOKENS.pageBg }}>
+    <div className="min-h-screen pb-44" style={{ background: BAKOS_TOKENS.pageBg }}>
       <div className="max-w-xl mx-auto px-4 pt-5">
         <button onClick={() => router.push('/owner/bakos')} className="flex items-center gap-1 text-xs mb-3 hover:opacity-70 transition-opacity" style={{ color: BAKOS_TOKENS.textSecondary }}>
           <ChevronLeft size={14} /> Kos Saya
@@ -287,14 +289,18 @@ export default function OwnerKosEditPage() {
       </div>
 
       {/* Sticky save bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-t backdrop-blur" style={{ background: 'rgba(239,237,229,0.92)', borderColor: BAKOS_TOKENS.border }}>
-        <div className="max-w-xl mx-auto px-4 py-3 flex items-center gap-2">
-          {savedAt && <span className="flex items-center gap-1 text-xs font-semibold mr-auto" style={{ color: '#15803D' }}><Check size={14} /> Tersimpan</span>}
-          {!savedAt && <span className="text-[11px] mr-auto" style={{ color: BAKOS_TOKENS.textTertiary }}>Perubahan belum tersimpan</span>}
-          <button onClick={handleDelete} className="rounded-xl px-3.5 py-2.5 text-sm font-medium border border-red-200 text-red-600 flex items-center gap-1.5"><Trash2 size={15} /> Hapus</button>
-          <button onClick={handleSave} disabled={saving} className="rounded-xl px-6 py-2.5 text-sm font-semibold text-white disabled:opacity-50 flex items-center gap-2" style={{ background: BRAND }}>
-            <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan'}
-          </button>
+      <div className="fixed bottom-[calc(60px+env(safe-area-inset-bottom,0px))] md:bottom-0 left-0 right-0 z-40 border-t backdrop-blur" style={{ background: 'rgba(239,237,229,0.92)', borderColor: BAKOS_TOKENS.border }}>
+        <div className="max-w-xl mx-auto px-4 py-3">
+          {/* B: status di ATAS (center), tombol dapat ruang penuh */}
+          {savedAt
+            ? <p className="flex items-center justify-center gap-1 text-xs font-semibold mb-2" style={{ color: '#15803D' }}><Check size={14} /> Tersimpan</p>
+            : <p className="text-center text-[11px] mb-2" style={{ color: BAKOS_TOKENS.textTertiary }}>Perubahan belum tersimpan</p>}
+          <div className="flex items-center gap-2">
+            <button onClick={handleDelete} className="rounded-xl px-4 py-3 text-sm font-medium border border-red-200 text-red-600 flex items-center justify-center gap-1.5"><Trash2 size={15} /> Hapus</button>
+            <button onClick={handleSave} disabled={saving} className="flex-1 rounded-xl px-6 py-3 text-sm font-semibold text-white disabled:opacity-50 flex items-center justify-center gap-2" style={{ background: BRAND }}>
+              <Save size={16} /> {saving ? 'Menyimpan...' : 'Simpan'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

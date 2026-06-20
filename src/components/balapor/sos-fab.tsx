@@ -21,9 +21,13 @@
 
 import { useState } from 'react';
 import { SosModal } from './sos-modal';
+import { useSosLiftValue } from '@/components/providers/SosLiftProvider';
 
 export function SosFab() {
   const [open, setOpen] = useState(false);
+  // 🛡️ lift: SOS naik di atas sticky save bar. mobile = navbar 60 + save bar ~92 + jarak ≈ 160px;
+  //    desktop (navbar md:hidden) = save bar ~92 + jarak ≈ 108px. (tuning visual)
+  const lift = useSosLiftValue();
 
   return (
     <>
@@ -32,8 +36,8 @@ export function SosFab() {
         onClick={() => setOpen(true)}
         aria-label="Buka tombol SOS darurat"
         title="Tombol darurat"
-        className="
-          fixed bottom-20 md:bottom-6 right-4 md:right-6 z-40
+        className={`
+          fixed ${lift ? 'bottom-[calc(160px+env(safe-area-inset-bottom,0px))] md:bottom-[108px]' : 'bottom-20 md:bottom-6'} right-4 md:right-6 z-40
           grid place-items-center
           h-[52px] w-[52px]
           rounded-full
@@ -43,7 +47,7 @@ export function SosFab() {
           hover:shadow-xl hover:shadow-red-500/40
           hover:-translate-y-1 hover:scale-105 active:scale-95
           transition-all duration-200
-        "
+        `}
       >
         <span className="text-[13px] font-extrabold leading-none tracking-wider">SOS</span>
       </button>
