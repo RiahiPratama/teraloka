@@ -838,10 +838,12 @@ export default async function CampaignPage({ params }: Props) {
                           <div key={idx} className="flex items-center justify-between text-xs">
                             <span className="text-gray-700">
                               {item.name}
-                              {item.qty > 1 && <span className="text-gray-400"> ×{item.qty}</span>}
+                              {item.category && <span className="text-gray-400"> · {item.category}</span>}
                             </span>
                             <span className="font-semibold text-gray-900 font-mono">
-                              {formatRupiah(item.subtotal || item.price * (item.qty || 1))}
+                              {/* [NaN-FIX] item usage_report = {name, amount, category, date, proof_photo}.
+                                  Field lama qty/price/subtotal TAK ADA → undefined×1 = NaN. Baca item.amount. */}
+                              {formatRupiah(Number(item.amount) || 0)}
                             </span>
                           </div>
                         ))}

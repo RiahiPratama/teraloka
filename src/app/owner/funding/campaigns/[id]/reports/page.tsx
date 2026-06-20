@@ -225,6 +225,9 @@ function ReportCard({ r, campaignId }: { r: UsageReport; campaignId: string }) {
   const meta = STATUS_META[r.status];
   const Icon = meta.icon;
   const itemCount = Array.isArray(r.items) ? r.items.length : 0;
+  // [404-FIX] Route /reports/[reportId] TIDAK ADA (cuma /reports + /reports/new) → "Detail"
+  // dulu link ke 404. Owner sudah punya semua data report di list state → tampil inline (NOL BE, NOL route).
+  const [expanded, setExpanded] = useState(false);
 
   return (
     <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -267,23 +270,63 @@ function ReportCard({ r, campaignId }: { r: UsageReport; campaignId: string }) {
         )}
 
         <div className="flex gap-2 pt-3 border-t border-gray-100">
-          <Link
-            href={`/owner/funding/campaigns/${campaignId}/reports/${r.id}`}
+          <button
+            type="button"
+            onClick={() => setExpanded(v => !v)}
+            aria-expanded={expanded}
             className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-gray-700 hover:bg-gray-50 py-2 px-3 rounded-lg border border-gray-200"
           >
             <Eye size={13} />
-            Detail
-          </Link>
+            {expanded ? 'Tutup' : 'Detail'}
+          </button>
           {r.status === 'revision_needed' && (
+            // [404-FIX] Route /reports/[reportId]/edit TIDAK ADA & BE tak punya endpoint update laporan
+            // (owner cuma POST create — tak ada PATCH/PUT). Resubmit revisi = kirim laporan baru via form
+            // create (konsisten desain request-revision yang partner-supportive). Arahkan ke /reports/new.
             <Link
-              href={`/owner/funding/campaigns/${campaignId}/reports/${r.id}/edit`}
+              href={`/owner/funding/campaigns/${campaignId}/reports/new`}
               className="flex-1 inline-flex items-center justify-center gap-1.5 text-xs font-bold text-amber-700 bg-amber-50 hover:bg-amber-100 py-2 px-3 rounded-lg"
             >
               <Edit3 size={13} />
-              Revisi
+              Kirim Ulang
             </Link>
           )}
         </div>
+
+        {expanded && (
+          <div className="mt-3 rounded-xl bg-gray-50 border border-gray-100 p-3">
+            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-2">
+              Rincian Pemakaian
+            </p>
+            {itemCount > 0 ? (
+              <div className="space-y-1.5">
+                {r.items.map((item: any, idx: number) => (
+                  <div key={idx} className="flex items-start justify-between gap-3 text-xs">
+                    <span className="text-gray-700 min-w-0">
+                      {item.name || '—'}
+                      {item.category && <span className="text-gray-400"> · {item.category}</span>}
+                      {item.date && (
+                        <span className="block text-[10px] text-gray-400">
+                          {new Date(item.date).toLocaleDateString('id-ID', { dateStyle: 'medium' })}
+                        </span>
+                      )}
+                    </span>
+                    {/* [NaN-FIX] item = {name, amount, category, date, proof_photo} — baca amount (bukan qty/price) */}
+                    <span className="font-semibold text-gray-900 font-mono shrink-0">
+                      {formatRupiah(Number(item.amount) || 0)}
+                    </span>
+                  </div>
+                ))}
+                <div className="flex items-center justify-between gap-3 text-xs font-bold pt-2 mt-1 border-t border-gray-200">
+                  <span className="text-gray-600">Total</span>
+                  <span className="text-gray-900 font-mono">{formatRupiah(r.amount_used)}</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-400">Tidak ada rincian item.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

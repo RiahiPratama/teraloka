@@ -747,7 +747,11 @@ export default function AdminDisbursementsPage() {
                   <p style={{ fontSize: 12, color: '#64748B' }}>Konteks kampanye tidak tersedia.</p>
                 ) : (() => {
                   const amt = Number(modal.item.amount) || 0;
-                  const over = ctx.saldo !== null && amt > ctx.saldo;
+                  // [SALDO-WARN-FIX] Warning "melebihi saldo" cuma relevan PRE-verify (gate admin approve
+                  // over-saldo). Verified = udah cair (saldo principal_2101_net SUDAH dikurangi pencairan ini
+                  // → amt>saldo selalu true → nyesatin). Rejected = gak jadi cair. Gate ke status actionable.
+                  const isActionable = modal.item.status === 'pending' || modal.item.status === 'flagged';
+                  const over = isActionable && ctx.saldo !== null && amt > ctx.saldo;
                   const verifiedCount = ctx.stages.filter(s => s.status === 'verified').length;
                   return (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
