@@ -19,6 +19,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useSosLift } from '@/components/providers/SosLiftProvider';
+import { facList, facLabel, labelsToFacObject, LISTING_FAC_LABEL } from '@/components/bakos/public/bakos-links';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
@@ -28,7 +29,7 @@ import { ChevronLeft, BedDouble, Trash2, Loader2, AlertCircle, Save, Check, User
 
 const BRAND = BAKOS_TOKENS.accent;
 
-const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam'];
+const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam', 'Air PDAM'];
 const LANDMARKS = ['Dekat kampus', 'Dekat sekolah', 'Dekat rumah sakit', 'Dekat pasar', 'Dekat mall', 'Dekat pelabuhan', 'Dekat kantor pemerintah', 'Dekat masjid', 'Dekat pusat kota', 'Pinggir jalan utama'];
 const RULE_CHIPS = ['Maks 2 orang/kamar', 'Jam malam 22.00', 'Wajib lapor tamu menginap', 'Wajib jaga kebersihan'];
 
@@ -74,7 +75,7 @@ export default function OwnerKosEditPage() {
       setAddress(k.address ?? '');
       setKosType(k.kos_type ?? '');
       setElectricityType(k.electricity_type ?? '');
-      setFacilities(Array.isArray(k.facilities) ? k.facilities : []);
+      setFacilities(facList(k.facilities).map(facLabel)); // object {key:true} → label utk chip (fix data-loss)
       setKosRules(k.kos_rules ?? '');
       setIsNegotiable(!!k.is_negotiable);
       setLandmarks(Array.isArray(k.nearby_landmarks) ? k.nearby_landmarks : []);
@@ -111,7 +112,7 @@ export default function OwnerKosEditPage() {
         address,
         kos_type: kosType,
         electricity_type: electricityType || null,
-        facilities,
+        facilities: labelsToFacObject(facilities, LISTING_FAC_LABEL),
         kos_rules: kosRules || null,
         is_negotiable: isNegotiable,
         nearby_landmarks: landmarks,

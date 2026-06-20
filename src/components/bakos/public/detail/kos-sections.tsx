@@ -5,8 +5,8 @@
 // Tentang · Trust · Fasilitas+Spec · Tipe Kamar · Lokasi(+pin) · Aturan(+tristate) · Ulasan
 // ════════════════════════════════════════════════════════════════
 import dynamic from 'next/dynamic';
-import { facList, formatRupiah } from '@/components/bakos/public/bakos-links';
-import { MS, facIcon, facLabel, type ListingDetail, type Room } from './types';
+import { facList, facLabel, formatRupiah } from '@/components/bakos/public/bakos-links';
+import { MS, facIcon, type ListingDetail, type Room } from './types';
 import { PriceLine } from './kos-action-card';
 
 // 🛡️ Map single-pin dynamic(ssr:false) — Leaflet pecah di SSR.
@@ -101,8 +101,10 @@ export function KosSections({
                 <div className="bkd-room-pr">{formatRupiah(room.price)}<span className="per">/{room.price_period}</span></div>
                 <div className="bkd-room-tags">
                   {room.size_m2 && <span className="bkd-tag">{room.size_m2} m²</span>}
-                  {room.facilities?.slice(0, 4).map((f, i) => <span key={i} className="bkd-tag">{f}</span>)}
-                  {(room.facilities?.length || 0) > 4 && <span className="bkd-tag">+{room.facilities.length - 4}</span>}
+                  {(() => { const rf = facList(room.facilities); return (<>
+                    {rf.slice(0, 4).map((f, i) => <span key={i} className="bkd-tag">{facLabel(f)}</span>)}
+                    {rf.length > 4 && <span className="bkd-tag">+{rf.length - 4}</span>}
+                  </>); })()}
                 </div>
               </div>
             ))}

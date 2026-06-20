@@ -15,6 +15,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { BAKOS_TOKENS, formatRp } from '@/components/bakos/owner/types';
+import { facList, facLabel, labelsToFacObject, ROOM_FAC_LABEL } from '@/components/bakos/public/bakos-links';
 import { ChevronLeft, Plus, Loader2, AlertCircle, Pencil, Trash2, X } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
@@ -34,7 +35,7 @@ function toDraft(r?: Room): Draft {
     room_type: r?.room_type ?? '', description: r?.description ?? '',
     price: r ? String(r.price) : '', price_period: r?.price_period ?? 'bulan',
     total_rooms: r ? String(r.total_rooms) : '1', available_rooms: r ? String(r.available_rooms) : '1',
-    size_m2: r?.size_m2 != null ? String(r.size_m2) : '', facilities: r?.facilities ?? [], photos: r?.photos ?? [],
+    size_m2: r?.size_m2 != null ? String(r.size_m2) : '', facilities: facList(r?.facilities).map(facLabel), photos: r?.photos ?? [],
   };
 }
 
@@ -82,7 +83,7 @@ export default function OwnerKamarPage() {
       price: Number(draft.price), price_period: draft.price_period,
       total_rooms: Number(draft.total_rooms), available_rooms: Number(draft.available_rooms || draft.total_rooms),
       size_m2: draft.size_m2 ? Number(draft.size_m2) : null,
-      facilities: draft.facilities, photos: draft.photos,
+      facilities: labelsToFacObject(draft.facilities, ROOM_FAC_LABEL), photos: draft.photos,
     };
     try {
       if (editingId === 'new') await api.post(`/bakos/owner/listings/${id}/rooms`, body);

@@ -16,6 +16,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
 import { useSosLift } from '@/components/providers/SosLiftProvider';
+import { labelsToFacObject, LISTING_FAC_LABEL, ROOM_FAC_LABEL } from '@/components/bakos/public/bakos-links';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { BAKOS_TOKENS } from '@/components/bakos/owner/types';
@@ -24,7 +25,7 @@ import type { LatLng } from '@/components/bakos/owner/KosMapPickerInner';
 import { ChevronLeft, ChevronDown, Plus, Check, Loader2 } from 'lucide-react';
 
 const BRAND = BAKOS_TOKENS.accent;
-const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam'];
+const SHARED_FACILITIES = ['Dapur bersama', 'Ruang tamu', 'Ruang santai', 'Jemuran', 'Tempat cuci', 'Mushola', 'Taman', 'Area parkir motor', 'Area parkir mobil', 'CCTV area umum', 'Satpam 24 jam', 'Air PDAM'];
 const ROOM_FACILITIES = ['WiFi', 'AC', 'Kamar mandi dalam', 'Kamar mandi luar', 'Kloset duduk', 'Kloset jongkok', 'Shower', 'Water heater', 'Dapur pribadi', 'Kasur', 'Lemari', 'Meja belajar', 'Televisi', 'Jendela', 'Balkon', 'Kipas angin', 'Kulkas'];
 const LANDMARKS = ['Dekat kampus', 'Dekat sekolah', 'Dekat rumah sakit', 'Dekat pasar', 'Dekat mall', 'Dekat pelabuhan', 'Dekat kantor pemerintah', 'Dekat masjid', 'Dekat pusat kota', 'Pinggir jalan utama'];
 const RULE_CHIPS = ['Maks 2 orang/kamar', 'Jam malam 22.00', 'Wajib lapor tamu menginap', 'Wajib jaga kebersihan'];
@@ -107,7 +108,7 @@ function KosFormContent() {
         photos: coverPhotos,
         kos_type: kosType,
         electricity_type: electricityType || null,
-        facilities: sharedFacilities,
+        facilities: labelsToFacObject(sharedFacilities, LISTING_FAC_LABEL),
         kos_rules: kosRules || null,
         is_negotiable: isNegotiable,
         couple_allowed: coupleAllowed,
@@ -125,7 +126,7 @@ function KosFormContent() {
           price: Number(r.price.replace(/\D/g, '')), price_period: r.price_period,
           total_rooms: Number(r.total_rooms), available_rooms: Number(r.available_rooms),
           size_m2: r.size_m2 ? Number(r.size_m2) : null,
-          facilities: r.facilities, photos: r.photos,
+          facilities: labelsToFacObject(r.facilities, ROOM_FAC_LABEL), photos: r.photos,
         });
       }
       setSubmitted(true);

@@ -110,7 +110,7 @@ export function onImgError(e: SyntheticEvent<HTMLImageElement>) {
   img.src = IMG_FALLBACK;
 }
 
-// 🛡️ facilities = jsonb → bisa array, objek {ac:true}, atau null. Normalisasi ke string[].
+// 🛡️ facilities = jsonb → bisa array (legacy), objek {key:true}, atau null. → array KEY.
 export function facList(f: unknown): string[] {
   if (Array.isArray(f)) return f.map(String);
   if (f && typeof f === 'object') {
@@ -119,4 +119,36 @@ export function facList(f: unknown): string[] {
       .map(([k]) => k);
   }
   return [];
+}
+
+// ── Fasilitas KANONIK (key↔label). DB simpan object {key:true} snake_case. ──
+// LISTING (area bersama) — form owner listing-level + filter.
+export const LISTING_FAC_LABEL: Record<string, string> = {
+  parkir_motor: 'Area parkir motor', parkir_mobil: 'Area parkir mobil',
+  dapur_bersama: 'Dapur bersama', ruang_tamu: 'Ruang tamu', ruang_santai: 'Ruang santai',
+  jemuran: 'Jemuran', tempat_cuci: 'Tempat cuci', mushola: 'Mushola', taman: 'Taman',
+  cctv: 'CCTV area umum', satpam: 'Satpam 24 jam', air_pdam: 'Air PDAM',
+};
+// ROOM (per kamar) — form kamar + display detail.
+export const ROOM_FAC_LABEL: Record<string, string> = {
+  ac: 'AC', wifi: 'WiFi', kamar_mandi_dalam: 'Kamar mandi dalam', kamar_mandi_luar: 'Kamar mandi luar',
+  kloset_duduk: 'Kloset duduk', kloset_jongkok: 'Kloset jongkok', shower: 'Shower',
+  water_heater: 'Water heater', dapur_pribadi: 'Dapur pribadi', kasur: 'Kasur', lemari: 'Lemari',
+  meja_belajar: 'Meja belajar', televisi: 'Televisi', jendela: 'Jendela', balkon: 'Balkon',
+  kipas_angin: 'Kipas angin', kulkas: 'Kulkas', listrik_token: 'Listrik token', listrik_included: 'Listrik included',
+};
+const FAC_LABEL: Record<string, string> = { ...LISTING_FAC_LABEL, ...ROOM_FAC_LABEL };
+
+// key → label tampil (fallback: prettify snake_case kalau key tak dikenal).
+export function facLabel(key: string): string {
+  return FAC_LABEL[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+// label[] (pilihan chip owner) → object {key:true} kanonik untuk disimpan ke BE.
+export function labelsToFacObject(labels: string[], dict: Record<string, string>): Record<string, boolean> {
+  const rev: Record<string, string> = {};
+  for (const [key, label] of Object.entries(dict)) rev[label] = key;
+  const out: Record<string, boolean> = {};
+  for (const l of labels) out[rev[l] ?? l.toLowerCase().replace(/\s+/g, '_')] = true;
+  return out;
 }

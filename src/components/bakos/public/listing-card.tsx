@@ -11,7 +11,7 @@
 
 import { useRef, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { type Listing, TIPE, formatRupiah, facList, onImgError } from './bakos-links';
+import { type Listing, TIPE, formatRupiah, facList, facLabel, onImgError } from './bakos-links';
 
 export function ListingCard({ item }: { item: Listing }) {
   const tp = item.kos_type ? TIPE[item.kos_type] : null;
@@ -133,7 +133,7 @@ export function ListingCard({ item }: { item: Listing }) {
         )}
 
         {facs.length > 0 && (
-          <p className="bk-kfacs">{facs.slice(0, 3).join(' · ')}</p>
+          <p className="bk-kfacs">{facs.slice(0, 3).map(facLabel).join(' · ')}</p>
         )}
 
         <div className="bk-kprice">

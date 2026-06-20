@@ -6,7 +6,7 @@
 export interface Room {
   id: string; room_type: string; description: string | null; price: number;
   price_period: string; total_rooms: number; available_rooms: number;
-  size_m2: number | null; facilities: string[]; photos: string[];
+  size_m2: number | null; facilities: unknown; photos: string[];
 }
 
 export interface ListingDetail {
@@ -55,10 +55,7 @@ export function facIcon(raw: string): string {
   return 'check_circle';
 }
 
-export function facLabel(raw: string): string {
-  if (raw.includes('_')) return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-  return raw;
-}
+// 🛡️ facLabel pindah ke bakos-links (single source key→label kanonik).
 
 // ikon kecil reusable
 export function MS({ n }: { n: string }) {
