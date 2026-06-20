@@ -21,7 +21,7 @@ import ImageUpload from '@/components/ui/ImageUpload';
 import {
   ArrowLeft, Loader2, AlertCircle, Wallet, Banknote,
   Calendar, User, Phone, ShieldCheck, FileText, Camera,
-  Send, Info, AlertTriangle, ChevronRight,
+  Send, Info, AlertTriangle, ChevronRight, CheckCircle2, Clock,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -87,6 +87,9 @@ export default function OwnerCampaignDisbursementNewPage() {
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  // [MERGE-SALURKAN-LAPORKAN] Step-1 sukses → success screen jujur (bukan langsung redirect).
+  const [submitted, setSubmitted] = useState(false);
+  const [createdDisbId, setCreatedDisbId] = useState<string | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -169,8 +172,9 @@ export default function OwnerCampaignDisbursementNewPage() {
         throw new Error(json?.error?.message || 'Gagal mengajukan pencairan');
       }
 
-      toast.success('Pencairan berhasil diajukan, menunggu review admin');
-      router.push(`/owner/funding/campaigns/${campaignId}/disbursements?created=1`);
+      toast.success('Pencairan berhasil diajukan, menunggu verifikasi admin');
+      setCreatedDisbId(json.data?.id ?? null);
+      setSubmitted(true);
     } catch (err: any) {
       setError(err.message);
       toast.error(err.message);
@@ -193,6 +197,44 @@ export default function OwnerCampaignDisbursementNewPage() {
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
           <p className="text-sm font-bold text-gray-800 mb-2">{loadError || 'Kampanye tidak ditemukan'}</p>
           <Link href={`/owner/funding/campaigns/${campaignId}/disbursements`} className="text-sm text-[#003526] underline">Kembali</Link>
+        </div>
+      </div>
+    );
+  }
+
+  // [MERGE-SALURKAN-LAPORKAN] Success screen step-1 — JUJUR: laporan pemakaian (step 2) nyusul
+  // SETELAH verify admin (gated). JANGAN tawarin step 2 langsung (jaga sekuens anti-fraud).
+  if (submitted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="bg-white rounded-2xl p-6 max-w-md w-full text-center">
+          <div className="w-14 h-14 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 size={30} className="text-emerald-600" />
+          </div>
+          <h1 className="text-base font-bold text-gray-900 mb-1.5">Penyaluran diajukan</h1>
+          <p className="text-sm text-gray-600 mb-4 flex items-center justify-center gap-1.5">
+            <Clock size={14} className="text-amber-500 shrink-0" /> Menunggu verifikasi admin.
+          </p>
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900 leading-relaxed mb-5 text-left">
+            <strong>Rincian pemakaian dana bisa kamu laporkan setelah pencairan ini diverifikasi admin.</strong>{' '}
+            Begitu statusnya terverifikasi, tombol <strong>"Laporkan Pemakaian"</strong> akan muncul di halaman pencairan.
+          </div>
+          <div className="space-y-2">
+            <button
+              onClick={() => router.push(`/owner/funding/campaigns/${campaignId}/disbursements?created=1`)}
+              className="w-full py-3 rounded-xl bg-[#003526] text-white text-sm font-bold hover:opacity-90 transition-opacity"
+            >
+              Selesai
+            </button>
+            {createdDisbId && (
+              <Link
+                href={`/owner/funding/campaigns/${campaignId}/disbursements/${createdDisbId}`}
+                className="block w-full py-3 rounded-xl border border-gray-200 text-gray-700 text-sm font-bold hover:bg-gray-50 transition-colors"
+              >
+                Lihat status pencairan
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     );

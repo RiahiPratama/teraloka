@@ -18,7 +18,7 @@ import {
   ArrowLeft, Loader2, AlertCircle, Wallet, Calendar, User,
   Phone, FileText, Edit3, Trash2, CheckCircle2, XCircle, Hourglass,
   AlertTriangle, Banknote, Image as ImageIcon, Building2,
-  ShieldCheck, MessageCircle,
+  ShieldCheck, MessageCircle, ChevronRight,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -116,6 +116,9 @@ export default function OwnerDisbursementDetailPage() {
   const [loadError, setLoadError] = useState('');
   const [deleting, setDeleting] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  // [MERGE-SALURKAN-LAPORKAN] Sisa pemakaian (amount − Σ amount_used) dari endpoint existing
+  // verified-with-remaining. null = belum dihitung (status≠verified atau lagi load).
+  const [remaining, setRemaining] = useState<number | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -138,7 +141,27 @@ export default function OwnerDisbursementDetailPage() {
       if (!res.ok || !json.success) {
         throw new Error(json?.error?.message || 'Gagal load detail');
       }
-      setData(json.data);
+      const disb = json.data;
+      setData(disb);
+
+      // [MERGE-SALURKAN-LAPORKAN] Hitung sisa pemakaian — HANYA utk yang verified (gate step 2).
+      // Pakai endpoint existing verified-with-remaining (sumber picker /reports/new). NOL BE baru.
+      if (disb?.status === 'verified') {
+        try {
+          const rRes = await fetch(
+            `${API}/funding/my/campaigns/${campaignId}/disbursements/verified-with-remaining`,
+            { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' },
+          );
+          const rJson = await rRes.json();
+          if (rRes.ok && rJson.success) {
+            const entry = (rJson.data ?? []).find((x: any) => x.id === disbId);
+            // Found → pakai remaining-nya; gak ketemu (belum ada laporan) → sisa = full amount.
+            setRemaining(entry ? Number(entry.remaining) : Number(disb.amount) || 0);
+          }
+        } catch {
+          // non-fatal: kalau gagal, remaining tetap null → tombol gak dipaksa muncul.
+        }
+      }
     } catch (err: any) {
       setLoadError(err.message);
     } finally {
@@ -267,6 +290,35 @@ export default function OwnerDisbursementDetailPage() {
             </div>
           )}
         </div>
+
+        {/* [MERGE-SALURKAN-LAPORKAN] Step 2 entry — Laporkan Pemakaian. Muncul HANYA saat verified
+            (gate anti-fraud) DAN sisa>0. Sisa=0 → "sudah dilaporkan penuh". Non-verified → tak muncul. */}
+        {data.status === 'verified' && remaining !== null && (
+          remaining > 0 ? (
+            <Link
+              href={`/owner/funding/campaigns/${campaignId}/reports/new?disbursement_id=${disbId}`}
+              className="block bg-[#003526] rounded-2xl p-4 text-white hover:opacity-95 active:scale-[0.99] transition-all"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-white/15 flex items-center justify-center shrink-0">
+                  <FileText size={18} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold">Laporkan Pemakaian Dana</p>
+                  <p className="text-[11px] text-white/80 mt-0.5">
+                    Sisa belum dilaporkan: <strong>{formatRupiah(remaining)}</strong>
+                  </p>
+                </div>
+                <ChevronRight size={18} className="text-white/70 shrink-0" />
+              </div>
+            </Link>
+          ) : (
+            <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
+              <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+              <p className="text-xs font-bold text-emerald-800">Pemakaian dana sudah dilaporkan penuh.</p>
+            </div>
+          )
+        )}
 
         {/* Detail Pencairan */}
         <div className="bg-white rounded-2xl border border-gray-100 p-5">

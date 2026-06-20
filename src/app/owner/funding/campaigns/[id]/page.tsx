@@ -565,8 +565,6 @@ export default function CampaignDetailPage() {
             reports={reports}
             totalReported={totalReportedUsage}
             collected={campaign.collected_amount}
-            canCreate={['active', 'completed'].includes(campaign.status)}
-            campaignId={campaign.id}
           />
         )}
 
@@ -692,21 +690,14 @@ function ActionButtons({
           <ExternalLink size={14} />
           Lihat Halaman Publik
         </Link>
-        <Link
-          href={`/owner/funding/campaigns/${campaign.id}/reports/new`}
-          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-sm font-extrabold text-white shadow-md hover:opacity-90 transition-opacity"
-        >
-          <FileText size={15} />
-          Buat Laporan Dana
-        </Link>
-        {/* [PATCH-PENCAIRAN] Ajukan Pencairan Dana (TARIK dana) — beda dari Buat Laporan Dana (LAPOR pemakaian).
-            Gate = status active/completed (branch ini), samain list page. → list pencairan kampanye. */}
+        {/* [MERGE-SALURKAN-LAPORKAN] 1 entry: salurkan dana (step 1 disbursement) → lapor pemakaian
+            (step 2 usage report) nyusul dari halaman pencairan. Tombol "Buat Laporan Dana" lama dihapus. */}
         <Link
           href={`/owner/funding/campaigns/${campaign.id}/disbursements`}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border-2 border-[#003526] text-sm font-bold text-[#003526] hover:bg-[#003526]/5 transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#003526] text-sm font-extrabold text-white shadow-md hover:opacity-90 transition-opacity"
         >
           <Wallet size={15} />
-          Ajukan Pencairan Dana
+          Salurkan & Laporkan
         </Link>
       </div>
     );
@@ -724,20 +715,13 @@ function ActionButtons({
           <ExternalLink size={14} />
           Lihat Halaman Publik
         </Link>
-        <Link
-          href={`/owner/funding/campaigns/${campaign.id}/reports/new`}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-[#003526] text-sm font-bold text-white hover:opacity-90 transition-opacity"
-        >
-          <FileText size={15} />
-          Buat Laporan Akhir
-        </Link>
-        {/* [PATCH-PENCAIRAN] Ajukan Pencairan Dana (TARIK dana) — beda dari Buat Laporan Akhir (LAPOR pemakaian). */}
+        {/* [MERGE-SALURKAN-LAPORKAN] 1 entry (lihat branch active). Tombol "Buat Laporan Akhir" lama dihapus. */}
         <Link
           href={`/owner/funding/campaigns/${campaign.id}/disbursements`}
-          className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white border-2 border-[#003526] text-sm font-bold text-[#003526] hover:bg-[#003526]/5 transition-colors"
+          className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#003526] text-sm font-extrabold text-white shadow-md hover:opacity-90 transition-opacity"
         >
           <Wallet size={15} />
-          Ajukan Pencairan Dana
+          Salurkan & Laporkan
         </Link>
       </div>
     );
@@ -1241,14 +1225,10 @@ function ReportsSection({
   reports,
   totalReported,
   collected,
-  canCreate,
-  campaignId,
 }: {
   reports: UsageReport[];
   totalReported: number;
   collected: number;
-  canCreate: boolean;
-  campaignId: string;
 }) {
   const remaining = Math.max(0, collected - totalReported);
 
@@ -1259,14 +1239,8 @@ function ReportsSection({
           <FileText size={13} />
           Laporan Realisasi Dana
         </h2>
-        {canCreate && (
-          <Link
-            href={`/owner/funding/campaigns/${campaignId}/reports/new`}
-            className="text-[10px] font-bold text-[#BE185D] hover:underline"
-          >
-            + Buat Laporan
-          </Link>
-        )}
+        {/* [MERGE-SALURKAN-LAPORKAN] Entry "+ Buat Laporan" dihapus — lapor pemakaian sekarang
+            CUKUP lewat tombol "Laporkan Pemakaian" di halaman pencairan (gated verified). */}
       </div>
 
       {/* Summary */}

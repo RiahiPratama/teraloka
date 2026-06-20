@@ -10,7 +10,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import { useState, useEffect, useMemo } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter, useParams, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/Toast';
@@ -71,6 +71,7 @@ const newItem = (): UsageItem => ({
 export default function OwnerCampaignReportNewPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const campaignId = params.id as string;
   const { user, isLoading: authLoading } = useAuth();
   const { toast } = useToast();
@@ -114,11 +115,19 @@ export default function OwnerCampaignReportNewPage() {
         if (!campRes.success) throw new Error(campRes?.error?.message || 'Gagal load kampanye');
         setCampaign(campRes.data);
 
-        // Set disbursements + auto-select first available
+        // Set disbursements + preselect
         if (disbRes.success && Array.isArray(disbRes.data)) {
           setDisbursements(disbRes.data);
+          // [MERGE-SALURKAN-LAPORKAN] Preselect dari ?disbursement_id= (dari tombol "Laporkan
+          // Pemakaian") KALAU valid + eligible (remaining>0). Gak ada/gak eligible → fallback
+          // auto-select pertama yg eligible (jalur manual/lama TIDAK berubah).
+          const preselectId = searchParams.get('disbursement_id');
+          const preselect = preselectId
+            ? disbRes.data.find((d: DisbursementOption) => d.id === preselectId && d.remaining > 0)
+            : null;
           const firstAvailable = disbRes.data.find((d: DisbursementOption) => d.remaining > 0);
-          if (firstAvailable) setSelectedDisbId(firstAvailable.id);
+          const chosen = preselect ?? firstAvailable;
+          if (chosen) setSelectedDisbId(chosen.id);
         }
       } catch (err: any) {
         setLoadError(err.message);
