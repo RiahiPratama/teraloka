@@ -58,6 +58,15 @@ export default function ReportReviewModal({
   // Reject flow state
   const [rejectReason, setRejectReason] = useState('');
 
+  // [L3] Lightbox — URL foto bukti yg lagi dizoom (replikasi pola drawer pencairan, lokal).
+  const [lightbox, setLightbox] = useState<string | null>(null);
+
+  // [L-B] Histori pencairan kampanye (fetch existing /admin/disbursements?campaign_id, NON-FATAL).
+  const [disbHist, setDisbHist] = useState<{
+    loading: boolean; total: number;
+    stages: { id: string; stage_number: number; amount: number; status: string }[];
+  } | null>(null);
+
   // Load report detail when modal opens
   useEffect(() => {
     if (!open || !reportId) return;
@@ -82,6 +91,50 @@ export default function ReportReviewModal({
       .catch(err => onToast(false, err.message ?? 'Error'))
       .finally(() => setLoading(false));
   }, [open, reportId, initialMode, onToast]);
+
+  // [L-B] Histori pencairan kampanye — fetch saat report kebuka (butuh campaign_id). Endpoint admin existing, NON-FATAL.
+  useEffect(() => {
+    const campaignId = report?.campaign_id;
+    if (!open || !campaignId) { setDisbHist(null); return; }
+    let cancelled = false;
+    setDisbHist({ loading: true, total: 0, stages: [] });
+    (async () => {
+      const tk = localStorage.getItem('tl_token');
+      try {
+        const res = await fetch(`${API_URL}/funding/admin/disbursements?campaign_id=${campaignId}&limit=100`, {
+          headers: { Authorization: `Bearer ${tk}` },
+        });
+        const json = await res.json();
+        if (cancelled) return;
+        const stages = (json?.success && Array.isArray(json.data))
+          ? json.data.map((d: any) => ({ id: d.id, stage_number: d.stage_number, amount: Number(d.amount) || 0, status: d.status }))
+              .sort((a: any, b: any) => a.stage_number - b.stage_number)
+          : [];
+        const total = stages.filter((s: any) => s.status === 'verified').reduce((a: number, s: any) => a + s.amount, 0);
+        setDisbHist({ loading: false, total, stages });
+      } catch {
+        if (!cancelled) setDisbHist({ loading: false, total: 0, stages: [] });
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [open, report?.campaign_id]);
+
+  // [L2] Drawer terbuka → Esc tutup + body-scroll lock (pola drawer pencairan).
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (lightbox) { setLightbox(null); return; } // [L3] lightbox dulu, baru drawer
+      if (!submitting) onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [open, submitting, onClose, lightbox]);
 
   if (!open) return null;
 
@@ -110,10 +163,12 @@ export default function ReportReviewModal({
     }
   }
 
+  // [L4] Minta Revisi — BE endpoint /reject di-RENAME ke /request-revision (status enum: pending/approved/
+  // revision_needed, NO 'rejected'). Filosofi partner-supportive. URL lama /reject = 404 (broken) → diperbaiki.
   async function handleReject() {
     if (!report) return;
     if (rejectReason.trim().length < 10) {
-      onToast(false, 'Alasan penolakan minimal 10 karakter');
+      onToast(false, 'Alasan revisi minimal 10 karakter');
       return;
     }
     const tk = localStorage.getItem('tl_token');
@@ -121,14 +176,14 @@ export default function ReportReviewModal({
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_URL}/funding/admin/usage-reports/${report.id}/reject`, {
+      const res = await fetch(`${API_URL}/funding/admin/usage-reports/${report.id}/request-revision`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: rejectReason.trim() }),
       });
       const json = await res.json();
-      if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal reject');
-      onToast(true, `✓ Laporan "${report.title}" ditolak`);
+      if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal minta revisi');
+      onToast(true, `✓ Laporan "${report.title}" diminta revisi`);
       onClose();
       onSuccess();
     } catch (err: any) {
@@ -151,22 +206,23 @@ export default function ReportReviewModal({
   const willOverflow = afterApprove > collected && collected > 0;
 
   return (
+    <>
     <div
       onClick={() => !submitting && onClose()}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.75)',
+        position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.6)',
         backdropFilter: 'blur(4px)', zIndex: 60,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        padding: 16, overflowY: 'auto',
+        display: 'flex', justifyContent: 'flex-end',
       }}
     >
       <div
         onClick={e => e.stopPropagation()}
         style={{
-          background: t.mainBg, borderRadius: 16,
-          boxShadow: '0 20px 50px rgba(0,0,0,0.3)',
-          width: '100%', maxWidth: 720, margin: '32px 0', maxHeight: '90vh',
+          background: t.mainBg, borderLeft: `1px solid ${t.sidebarBorder}`,
+          boxShadow: '-12px 0 40px rgba(0,0,0,0.4)',
+          width: 'min(640px, 100vw)', height: '100%',
           overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          animation: 'tlReportDrawerIn 200ms ease-out',
         }}
       >
         {/* Header */}
@@ -183,13 +239,16 @@ export default function ReportReviewModal({
             }}>
               <Icons.Document />
             </div>
-            <div>
-              <h3 style={{ fontSize: 17, fontWeight: 700, color: t.textPrimary }}>
-                📋 Review Laporan
+            <div style={{ minWidth: 0 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 700, color: t.textPrimary }}>
+                Review Laporan {report ? `#${report.report_number}` : ''}
               </h3>
-              <p style={{ fontSize: 11, color: t.textDim, marginTop: 2 }}>
-                {report ? `Laporan #${report.report_number}` : 'Loading...'}
-              </p>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 3 }}>
+                {report && <StatusBadge status={report.status} small />}
+                <p style={{ fontSize: 11, color: t.textDim, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {report?.campaign?.title ?? 'Loading...'}
+                </p>
+              </div>
             </div>
           </div>
           <button
@@ -240,9 +299,51 @@ export default function ReportReviewModal({
                     borderTop: '1px dashed rgba(236,72,153,0.25)',
                   }}>
                     <ContextStat label="Terkumpul" value={shortRupiah(collected)} color={t.textPrimary} t={t} />
-                    <ContextStat label="Sudah Disalurkan" value={shortRupiah(alreadyApproved)} color="#10B981" t={t} />
-                    <ContextStat label="Rate Saat Ini" value={`${rateBefore}%`} color={rateBefore > 0 ? '#10B981' : t.textMuted} t={t} />
+                    <ContextStat label="Realisasi Disetujui" value={shortRupiah(alreadyApproved)} color="#10B981" t={t} />
+                    <ContextStat label="Rate Realisasi" value={`${rateBefore}%`} color={rateBefore > 0 ? '#10B981' : t.textMuted} t={t} />
                   </div>
+                  {/* [L-RELABEL] Akurasi: angka = Σ laporan yg sudah DISETUJUI admin (bukan total pencairan). */}
+                  <p style={{ fontSize: 10, color: t.textMuted, marginTop: 6 }}>
+                    Realisasi = total laporan pemakaian yang sudah disetujui admin.
+                  </p>
+                </div>
+              )}
+
+              {/* [L-B] Histori Pencairan — fetch existing admin, NON-FATAL. Tandai pencairan yg dilaporkan laporan INI. */}
+              {report.campaign_id && (
+                <div style={{ marginBottom: 16 }}>
+                  <p style={sectionLabelStyle(t)}>🏦 Histori Pencairan</p>
+                  {!disbHist || disbHist.loading ? (
+                    <p style={{ fontSize: 12, color: t.textMuted }}>Memuat histori…</p>
+                  ) : disbHist.stages.length === 0 ? (
+                    <p style={{ fontSize: 12, color: t.textMuted }}>Histori pencairan tidak tersedia.</p>
+                  ) : (
+                    <div style={{ border: `1px solid ${t.sidebarBorder}`, borderRadius: 10, overflow: 'hidden' }}>
+                      <div style={{ padding: '8px 12px', background: t.navHover + '40', display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', fontSize: 12 }}>
+                        <span style={{ color: t.textDim, fontWeight: 600 }}>Total Disalurkan (verified)</span>
+                        <span style={{ color: t.textPrimary, fontWeight: 800 }}>
+                          {shortRupiah(disbHist.total)}{' '}
+                          <span style={{ color: t.textMuted, fontWeight: 400 }}>· {disbHist.stages.filter(s => s.status === 'verified').length} pencairan</span>
+                        </span>
+                      </div>
+                      {disbHist.stages.map(s => {
+                        const isThis = s.id === (report as any).disbursement_id;
+                        const sc = ({ pending: '#F59E0B', verified: '#10B981', flagged: '#F97316', rejected: '#EF4444' } as Record<string, string>)[s.status] ?? t.textMuted;
+                        return (
+                          <div key={s.id} style={{
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                            padding: '8px 12px', borderTop: `1px solid ${t.sidebarBorder}`,
+                            background: isThis ? 'rgba(99,102,241,0.12)' : 'transparent',
+                          }}>
+                            <span style={{ fontSize: 12, color: isThis ? '#A5B4FC' : t.textPrimary, fontWeight: isThis ? 700 : 500 }}>
+                              Tahap #{s.stage_number}{isThis ? ' (INI)' : ''} — {shortRupiah(s.amount)}
+                            </span>
+                            <span style={{ fontSize: 11, color: sc, fontWeight: 700, textTransform: 'uppercase' }}>{s.status}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -280,38 +381,59 @@ export default function ReportReviewModal({
                 </span>
               </div>
 
-              {/* Items */}
-              {Array.isArray(report.items) && report.items.length > 0 && (
-                <div style={{ marginBottom: 16 }}>
-                  <p style={sectionLabelStyle(t)}>
-                    📦 Items ({report.items.length})
-                  </p>
-                  <div style={{
-                    border: `1px solid ${t.sidebarBorder}`, borderRadius: 10, overflow: 'hidden',
-                  }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
-                      <thead>
-                        <tr style={{ background: t.navHover + '66' }}>
-                          <th style={{ padding: '8px 10px', textAlign: 'left', fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Nama</th>
-                          <th style={{ padding: '8px 10px', textAlign: 'center', fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', width: 60 }}>Qty</th>
-                          <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', width: 90 }}>Harga</th>
-                          <th style={{ padding: '8px 10px', textAlign: 'right', fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em', width: 100 }}>Total</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {report.items.map((item: any, i: number) => (
-                          <tr key={i} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
-                            <td style={{ padding: '8px 10px', color: t.textPrimary, fontWeight: 600 }}>{item.name ?? '-'}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'center', color: t.textDim }}>{item.qty ?? '-'}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'right', color: t.textDim }}>{item.price ? shortRupiah(item.price) : '-'}</td>
-                            <td style={{ padding: '8px 10px', textAlign: 'right', color: t.textPrimary, fontWeight: 700 }}>{item.total ? shortRupiah(item.total) : '-'}</td>
+              {/* Items — [L1] FIX MAPPING: data item = {name, amount, category, date, proof_photo}.
+                  Modal lama baca qty/price/total (gak ada → "–"). Sekarang render item.amount + kategori + tanggal. */}
+              {Array.isArray(report.items) && report.items.length > 0 && (() => {
+                const itemsSum = report.items.reduce((s: number, it: any) => s + (Number(it.amount) || 0), 0);
+                const mismatch = Math.abs(itemsSum - (Number(report.amount_used) || 0)) > 0.5;
+                const thBase: React.CSSProperties = { padding: '8px 10px', fontSize: 10, fontWeight: 700, color: t.textMuted, textTransform: 'uppercase', letterSpacing: '0.05em' };
+                return (
+                  <div style={{ marginBottom: 16 }}>
+                    <p style={sectionLabelStyle(t)}>
+                      📦 Items ({report.items.length})
+                    </p>
+                    <div style={{ border: `1px solid ${t.sidebarBorder}`, borderRadius: 10, overflow: 'hidden' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                        <thead>
+                          <tr style={{ background: t.navHover + '66' }}>
+                            <th style={{ ...thBase, textAlign: 'left' }}>Nama</th>
+                            <th style={{ ...thBase, textAlign: 'left', width: 90 }}>Kategori</th>
+                            <th style={{ ...thBase, textAlign: 'center', width: 70 }}>Tanggal</th>
+                            <th style={{ ...thBase, textAlign: 'right', width: 100 }}>Nominal</th>
+                            <th style={{ ...thBase, textAlign: 'center', width: 56 }}>Bukti</th>
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {report.items.map((item: any, i: number) => (
+                            <tr key={i} style={{ borderTop: `1px solid ${t.sidebarBorder}` }}>
+                              <td style={{ padding: '8px 10px', color: t.textPrimary, fontWeight: 600 }}>{item.name ?? '-'}</td>
+                              <td style={{ padding: '8px 10px', color: t.textDim }}>{item.category || '-'}</td>
+                              <td style={{ padding: '8px 10px', textAlign: 'center', color: t.textDim }}>
+                                {item.date ? new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: '2-digit' }) : '-'}
+                              </td>
+                              <td style={{ padding: '8px 10px', textAlign: 'right', color: t.textPrimary, fontWeight: 700 }}>{shortRupiah(Number(item.amount) || 0)}</td>
+                              <td style={{ padding: '6px 8px', textAlign: 'center' }}>
+                                <ItemThumb url={item.proof_photo} onOpen={setLightbox} t={t} />
+                              </td>
+                            </tr>
+                          ))}
+                          {/* TOTAL cross-check = Σ amount (harusnya = amount_used) */}
+                          <tr style={{ borderTop: `2px solid ${t.sidebarBorder}`, background: t.navHover + '40' }}>
+                            <td colSpan={3} style={{ padding: '8px 10px', color: t.textMuted, fontWeight: 700 }}>TOTAL</td>
+                            <td style={{ padding: '8px 10px', textAlign: 'right', color: t.textPrimary, fontWeight: 800 }}>{shortRupiah(itemsSum)}</td>
+                            <td />
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    {mismatch && (
+                      <p style={{ fontSize: 11, color: '#F59E0B', marginTop: 6 }}>
+                        ⚠ Σ item {shortRupiah(itemsSum)} ≠ Jumlah Digunakan {shortRupiah(Number(report.amount_used) || 0)}
+                      </p>
+                    )}
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Proof Photos */}
               {Array.isArray(report.proof_photos) && report.proof_photos.length > 0 && (
@@ -419,7 +541,7 @@ export default function ReportReviewModal({
                   }}>
                     <ContextStat label="Rate Before" value={`${rateBefore}%`} color={t.textMuted} t={t} />
                     <ContextStat label="Rate After" value={`${rateAfter}%`} color={willOverflow ? '#F59E0B' : '#10B981'} t={t} />
-                    <ContextStat label="Total Disalurkan" value={shortRupiah(afterApprove)} color={willOverflow ? '#F59E0B' : '#10B981'} t={t} />
+                    <ContextStat label="Total Realisasi" value={shortRupiah(afterApprove)} color={willOverflow ? '#F59E0B' : '#10B981'} t={t} />
                   </div>
                   {willOverflow && (
                     <div style={{
@@ -445,7 +567,7 @@ export default function ReportReviewModal({
                   borderRadius: 12, padding: 14, marginBottom: 16,
                 }}>
                   <p style={{ fontSize: 10, fontWeight: 700, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>
-                    Alasan Penolakan <span style={{ opacity: 0.6 }}>(min 10 karakter)</span>
+                    Alasan Revisi <span style={{ opacity: 0.6 }}>(min 10 karakter) · dikirim ke penggalang</span>
                   </p>
                   <textarea
                     value={rejectReason}
@@ -523,7 +645,7 @@ export default function ReportReviewModal({
                       disabled={submitting}
                       style={btnDangerStyle(submitting)}
                     >
-                      Tolak
+                      Minta Revisi
                     </button>
                     <button
                       onClick={() => setMode('approve')}
@@ -547,7 +669,7 @@ export default function ReportReviewModal({
                   disabled={!safetyChecked || submitting}
                   style={btnSuccessStyle(submitting, safetyChecked)}
                 >
-                  {submitting ? 'Memproses...' : '✓ Approve Laporan'}
+                  {submitting ? 'Memproses...' : '✓ Setujui & Publikasikan'}
                 </button>
               </>
             )}
@@ -562,18 +684,76 @@ export default function ReportReviewModal({
                   disabled={rejectReason.trim().length < 10 || submitting}
                   style={btnDangerStyle(submitting || rejectReason.trim().length < 10)}
                 >
-                  {submitting ? 'Memproses...' : '✗ Tolak Laporan'}
+                  {submitting ? 'Memproses...' : 'Minta Revisi'}
                 </button>
               </>
             )}
           </div>
         )}
       </div>
+      <style>{`@keyframes tlReportDrawerIn { from { transform: translateX(28px); opacity: 0.4 } to { transform: translateX(0); opacity: 1 } }`}</style>
     </div>
+
+    {/* [L3] Lightbox foto bukti — z di atas drawer (70 > 60), Esc/klik-luar/✕ tutup */}
+    {lightbox && (
+      <div
+        onClick={() => setLightbox(null)}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 70, background: 'rgba(0,0,0,0.88)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+        }}
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={lightbox}
+          alt="Preview bukti"
+          onClick={e => e.stopPropagation()}
+          style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }}
+        />
+        <button
+          onClick={() => setLightbox(null)}
+          aria-label="Tutup" title="Tutup (Esc)"
+          style={{
+            position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: 10,
+            background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+            color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <Icons.X />
+        </button>
+      </div>
+    )}
+    </>
   );
 }
 
 // ── Sub-components ───────────────────────────────
+
+// [L3] Thumbnail bukti per-item — PDF → link "PDF"; gambar → thumb (klik = lightbox); gagal load → ⚠. (lokal, replikasi pola drawer pencairan)
+function ItemThumb({ url, onOpen, t }: { url?: string; onOpen: (u: string) => void; t: any }) {
+  const [err, setErr] = useState(false);
+  if (!url) return <span style={{ color: t.textMuted, fontSize: 12 }}>–</span>;
+  const isPdf = url.split('?')[0].toLowerCase().endsWith('.pdf');
+  if (isPdf) {
+    return <a href={url} target="_blank" rel="noreferrer" title="Buka PDF" style={{ fontSize: 10, color: '#0891B2', fontWeight: 700, textDecoration: 'none' }}>📄 PDF</a>;
+  }
+  if (err) {
+    return <span title="Gagal muat" style={{ color: '#F87171', fontSize: 12 }}>⚠</span>;
+  }
+  return (
+    <button
+      onClick={() => onOpen(url)}
+      title="Perbesar"
+      style={{
+        padding: 0, width: 40, height: 40, borderRadius: 6, overflow: 'hidden', cursor: 'zoom-in',
+        border: `1px solid ${t.sidebarBorder}`, background: t.navHover, verticalAlign: 'middle',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={url} alt="Bukti item" onError={() => setErr(true)} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+    </button>
+  );
+}
 
 function ContextStat({ label, value, color, t }: { label: string; value: string; color: string; t: any }) {
   return (
