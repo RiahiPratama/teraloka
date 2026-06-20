@@ -11,9 +11,9 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import './bakos-landing.css';
-import { API_URL, type Listing } from './bakos-links';
+import { API_URL, facLabel, type Listing } from './bakos-links';
 import { HeroSection } from './hero-section';
 import { AreaSection } from './area-section';
 import { ListingGrid } from './listing-grid';
@@ -22,6 +22,7 @@ import { OwnerCtaSection } from './owner-cta-section';
 
 export function BakosLanding() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [listings, setListings] = useState<Listing[]>([]);
   const [total, setTotal] = useState(0);
@@ -30,6 +31,7 @@ export function BakosLanding() {
   const [searchInput, setSearchInput] = useState(searchParams.get('q') || '');
   const [priceFilter, setPriceFilter] = useState(searchParams.get('filter') || 'all');
   const [kosType, setKosType] = useState(searchParams.get('type') || '');
+  const [facilities, setFacilities] = useState<string[]>(searchParams.get('facilities')?.split(',').filter(Boolean) ?? []);
 
   // 🛡️ race-guard: tiap fetch dapat id; cuma fetch TERBARU yang boleh set hasil.
   const reqIdRef = useRef(0);
@@ -43,6 +45,7 @@ export function BakosLanding() {
       if (minStr && minStr !== '0') params.set('min_price', minStr);
       if (maxStr && maxStr !== '99999999') params.set('max_price', maxStr);
       if (searchInput) params.set('q', searchInput);
+      if (facilities.length) params.set('facilities', facilities.join(',')); // filter di BE (OTAK)
 
       const res = await fetch(`${API_URL}/listings?${params}`);
       const data = await res.json();
@@ -66,7 +69,7 @@ export function BakosLanding() {
     } finally {
       if (myId === reqIdRef.current) setLoading(false);
     }
-  }, [priceFilter, searchInput, kosType]);
+  }, [priceFilter, searchInput, kosType, facilities]);
 
   // 🛡️ debounce 300ms: jangan nembak tiap huruf; tunggu user berhenti ngetik.
   useEffect(() => {
@@ -74,7 +77,20 @@ export function BakosLanding() {
     return () => clearTimeout(t);
   }, [fetchListings]);
 
-  const reset = () => { setSearchInput(''); setPriceFilter('all'); setKosType(''); };
+  // 🔗 sync state → URL (shareable + refresh-safe). facilities ikut (pola useSearchParams).
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (searchInput.trim()) p.set('q', searchInput.trim());
+    if (kosType) p.set('type', kosType);
+    if (priceFilter !== 'all') p.set('filter', priceFilter);
+    if (facilities.length) p.set('facilities', facilities.join(','));
+    const qs = p.toString();
+    router.replace(`/bakos${qs ? `?${qs}` : ''}`, { scroll: false });
+  }, [searchInput, kosType, priceFilter, facilities, router]);
+
+  const toggleFac = (k: string) =>
+    setFacilities((prev) => prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]);
+  const reset = () => { setSearchInput(''); setPriceFilter('all'); setKosType(''); setFacilities([]); };
   const scrollToList = () =>
     document.getElementById('bk-listings')?.scrollIntoView({ behavior: 'smooth' });
 
@@ -89,11 +105,14 @@ export function BakosLanding() {
         setKosType={setKosType}
         priceFilter={priceFilter}
         setPriceFilter={setPriceFilter}
+        facilities={facilities}
+        onToggleFac={(k) => { toggleFac(k); scrollToList(); }}
         onSearch={scrollToList}
       />
 
       <AreaSection listings={listings} onPick={(q) => { setSearchInput(q); scrollToList(); }} />
-      <ListingGrid listings={listings} loading={loading} searchInput={searchInput} onReset={reset} error={error} onRetry={fetchListings} />
+      <ListingGrid listings={listings} loading={loading} searchInput={searchInput} onReset={reset} error={error} onRetry={fetchListings}
+        emptyHint={facilities.length ? `Tidak ada kos dengan fasilitas: ${facilities.map(facLabel).join(', ')}. Coba kurangi pilihan.` : undefined} />
       <KenapaSection />
       <OwnerCtaSection />
 

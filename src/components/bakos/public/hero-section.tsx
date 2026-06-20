@@ -7,7 +7,7 @@
 //     PENANDA: BK-HERO-OWNER-CTA.
 // ════════════════════════════════════════════════════════════════
 import Link from 'next/link';
-import { KOS_TYPES, PRICE_FILTERS, QUICK } from './bakos-links';
+import { KOS_TYPES, PRICE_FILTERS, FILTER_FAC, facLabel } from './bakos-links';
 import { HeroMap } from './map/HeroMap';
 
 interface HeroProps {
@@ -19,12 +19,15 @@ interface HeroProps {
   setKosType: (v: string) => void;
   priceFilter: string;
   setPriceFilter: (v: string) => void;
+  facilities: string[];
+  onToggleFac: (key: string) => void;
   onSearch: () => void;
 }
 
 export function HeroSection({
   searchInput, setSearchInput,
-  kosType, setKosType, priceFilter, setPriceFilter, onSearch,
+  kosType, setKosType, priceFilter, setPriceFilter,
+  facilities, onToggleFac, onSearch,
 }: HeroProps) {
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSearch(); };
 
@@ -73,17 +76,22 @@ export function HeroSection({
       </form>
 
       <div className="bk-fcepat">
-        <span>Filter cepat:</span>
-        {QUICK.map((q) => (
-          <button
-            key={q.label}
-            type="button"
-            className={'special' in q && q.special ? 'special' : ''}
-            onClick={() => setSearchInput(q.label)}
-          >
-            <span className="material-symbols-outlined">{q.icon}</span> {q.label}
-          </button>
-        ))}
+        <span>Filter fasilitas:</span>
+        {FILTER_FAC.map((f) => {
+          const on = facilities.includes(f.key);
+          return (
+            <button
+              key={f.key}
+              type="button"
+              aria-pressed={on}
+              className={on ? 'on' : ''}
+              style={on ? { background: 'var(--bk-green, #1B6B4A)', color: '#fff', borderColor: 'var(--bk-green, #1B6B4A)' } : undefined}
+              onClick={() => onToggleFac(f.key)}
+            >
+              <span className="material-symbols-outlined">{f.icon}</span> {facLabel(f.key)}
+            </button>
+          );
+        })}
       </div>
 
       {/* ── STRIP CTA OWNER (BK-HERO-OWNER-CTA) — pintu kedua buat pemilik kos ── */}

@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { API_URL, PRICE_FILTERS, type Listing } from '../bakos-links';
+import { API_URL, PRICE_FILTERS, FILTER_FAC, facLabel, type Listing } from '../bakos-links';
 import { ListingGrid } from '../listing-grid';
 import { CariFilters } from './cari-filters';
 
@@ -34,6 +34,7 @@ export function BakosCari() {
   const [view, setView] = useState<'list' | 'map'>('list');
   // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Bisa di-clear saat user ngetik (mulai cari baru).
   const [locationId, setLocationId] = useState(sp.get('location_id') ?? '');
+  const [facilities, setFacilities] = useState<string[]>(sp.get('facilities')?.split(',').filter(Boolean) ?? []);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -47,6 +48,7 @@ export function BakosCari() {
       if (qVal.trim()) params.set('q', qVal.trim());
       if (kt) params.set('kos_type', kt);
       if (locationId) params.set('location_id', locationId);   // L5-CARI-LOCID — filter per-kelurahan
+      if (facilities.length) params.set('facilities', facilities.join(',')); // filter di BE (OTAK)
       if (pk !== 'all') {
         const [mn, mx] = pk.split('-');
         if (Number(mn) > 0) params.set('min_price', mn);
@@ -61,7 +63,7 @@ export function BakosCari() {
     } catch {
       setError(true); setListings([]); setTotal(0);
     } finally { setLoading(false); }
-  }, [locationId]);
+  }, [locationId, facilities]);
 
   // filter berubah → fetch (q di-debounce, pills langsung)
   useEffect(() => {
@@ -76,9 +78,10 @@ export function BakosCari() {
     if (q.trim()) p.set('q', q.trim());
     if (kosType) p.set('kos_type', kosType);
     if (locationId) p.set('location_id', locationId);   // L5-CARI-LOCID — pertahankan di URL
+    if (facilities.length) p.set('facilities', facilities.join(','));
     const qs = p.toString();
     router.replace(`/bakos/cari${qs ? `?${qs}` : ''}`, { scroll: false });
-  }, [q, kosType, locationId, router]);
+  }, [q, kosType, locationId, facilities, router]);
 
   // sort client-side (BE belum support sort param) — PENANDA BKC-SORT
   const sorted = [...listings].sort((a, b) => {
@@ -94,7 +97,9 @@ export function BakosCari() {
   // kalau lagi di view map tapi tak ada titik (mis. filter berubah) → balik list
   useEffect(() => { if (view === 'map' && !hasMap) setView('list'); }, [view, hasMap]);
 
-  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); setSortKey('relevan'); setLocationId(''); };
+  const toggleFac = (k: string) =>
+    setFacilities((prev) => prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k]);
+  const reset = () => { setQ(''); setKosType(''); setPriceKey('all'); setSortKey('relevan'); setLocationId(''); setFacilities([]); };
 
   return (
     <div className="bkc">
@@ -124,6 +129,20 @@ export function BakosCari() {
         </div>
       </div>
 
+      {/* chip filter fasilitas (multi-select) → kirim key ke ?facilities (BUKAN teks q) */}
+      <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 22px 0', maxWidth: 1180, margin: '0 auto' }}>
+        {FILTER_FAC.map((f) => {
+          const on = facilities.includes(f.key);
+          return (
+            <button key={f.key} type="button" aria-pressed={on} onClick={() => toggleFac(f.key)}
+              style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+                border: `1px solid ${on ? '#1B6B4A' : '#E4E0D5'}`, background: on ? '#1B6B4A' : '#fff', color: on ? '#fff' : '#5b5b58' }}>
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>{f.icon}</span> {facLabel(f.key)}
+            </button>
+          );
+        })}
+      </div>
+
       {/* toggle List ⟷ Peta — muncul HANYA kalau ada kos berbayar (berkoordinat) */}
       {hasMap && (
         <div className="bkc-viewtoggle">
@@ -145,7 +164,8 @@ export function BakosCari() {
           </div>
         ) : (
           <div className="bkc-results">
-            <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} error={error} onRetry={() => fetchKos(q, kosType, priceKey)} />
+            <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} error={error} onRetry={() => fetchKos(q, kosType, priceKey)}
+              emptyHint={facilities.length ? `Tidak ada kos dengan fasilitas: ${facilities.map(facLabel).join(', ')}. Coba kurangi pilihan.` : undefined} />
           </div>
         )}
       </div>

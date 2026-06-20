@@ -152,3 +152,17 @@ export function labelsToFacObject(labels: string[], dict: Record<string, string>
   for (const l of labels) out[rev[l] ?? l.toLowerCase().replace(/\s+/g, '_')] = true;
   return out;
 }
+
+// Chip filter fasilitas publik — KEY kanonik (sinkron whitelist BE FACILITY_KEYS) + ikon.
+// Label via facLabel(). Dipakai landing hero + /cari. ("Dekat speedboat" = lokasi, BUKAN di sini.)
+export const FILTER_FAC: { key: string; icon: string }[] = [
+  { key: 'ac', icon: 'ac_unit' },
+  { key: 'wifi', icon: 'wifi' },
+  { key: 'kamar_mandi_dalam', icon: 'bathroom' },
+  { key: 'parkir_motor', icon: 'two_wheeler' },
+  { key: 'dapur_bersama', icon: 'restaurant' },
+  { key: 'air_pdam', icon: 'water_drop' },
+  { key: 'satpam', icon: 'shield' },
+  { key: 'cctv', icon: 'videocam' },
+  { key: 'mushola', icon: 'mosque' },
+];

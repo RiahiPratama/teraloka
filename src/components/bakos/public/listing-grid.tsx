@@ -16,9 +16,10 @@ interface GridProps {
   onReset: () => void;
   error?: boolean;
   onRetry?: () => void;
+  emptyHint?: string;
 }
 
-export function ListingGrid({ listings, loading, searchInput, onReset, error, onRetry }: GridProps) {
+export function ListingGrid({ listings, loading, searchInput, onReset, error, onRetry, emptyHint }: GridProps) {
   return (
     <section className="bk-sec bk-pt0" id="bk-listings"><div className="bk-wrap">
       <div className="bk-sh">
@@ -57,7 +58,7 @@ export function ListingGrid({ listings, loading, searchInput, onReset, error, on
         <div className="bk-empty">
           <span className="material-symbols-outlined">home_work</span>
           <p className="t">Belum ada kos yang cocok</p>
-          <p className="s">Coba ubah filter atau hapus kata kunci pencarian.</p>
+          <p className="s">{emptyHint ?? 'Coba ubah filter atau hapus kata kunci pencarian.'}</p>
           <button onClick={onReset}>Reset filter</button>
         </div>
       )}
