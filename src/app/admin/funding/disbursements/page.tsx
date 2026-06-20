@@ -979,16 +979,47 @@ export default function AdminDisbursementsPage() {
 
                 <div style={{
                   background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
-                  borderRadius: 12, padding: 16, marginBottom: 20,
+                  borderRadius: 12, padding: '12px 16px', marginBottom: 16,
                 }}>
-                  <p style={{ fontSize: 13, color: '#FBBF24', fontWeight: 700, marginBottom: 6 }}>
+                  <p style={{ fontSize: 13, color: '#FBBF24', fontWeight: 700, marginBottom: 4 }}>
                     ⚠ Tindakan ini posting ke buku besar
                   </p>
-                  <p style={{ fontSize: 13, color: '#CBD5E1', lineHeight: 1.6 }}>
-                    Verifikasi akan <strong style={{ color: '#F8FAFC' }}>posting jurnal ke buku besar</strong>{' '}
-                    (Db Utang Beneficiary <strong>2101</strong> / Cr Kas Partner <strong>1101</strong>) dan{' '}
-                    <strong style={{ color: '#F8FAFC' }}>masuk transparansi publik ke donor</strong>. Lanjut?
+                  <p style={{ fontSize: 12, color: '#CBD5E1', lineHeight: 1.6 }}>
+                    Jurnal di bawah diposting & pencairan <strong style={{ color: '#F8FAFC' }}>masuk transparansi publik ke donor</strong>. Lanjut?
                   </p>
+                </div>
+
+                {/* [JURNAL-VERIFY] Tabel jurnal yg akan diposting — EXACT (= raw amount, basis BE postDisbursementToBeneficiary). */}
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 8 }}>
+                  Jurnal yang akan diposting
+                </p>
+                <div style={{ border: '1px solid rgba(255,255,255,0.1)', borderRadius: 10, overflow: 'hidden', marginBottom: 20 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>
+                    <thead>
+                      <tr style={{ background: 'rgba(255,255,255,0.04)' }}>
+                        <th style={{ textAlign: 'left', padding: '8px 12px', color: '#94A3B8', fontWeight: 700, fontSize: 10, letterSpacing: '0.04em' }}>AKUN</th>
+                        <th style={{ textAlign: 'right', padding: '8px 12px', color: '#94A3B8', fontWeight: 700, fontSize: 10, letterSpacing: '0.04em' }}>DEBIT</th>
+                        <th style={{ textAlign: 'right', padding: '8px 12px', color: '#94A3B8', fontWeight: 700, fontSize: 10, letterSpacing: '0.04em' }}>KREDIT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td style={{ padding: '8px 12px', color: '#F8FAFC' }}><strong style={{ color: '#A5B4FC' }}>2101</strong> Utang Beneficiary</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#F8FAFC' }}>{formatRupiah(Number(modal.item.amount))}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#475569' }}>—</td>
+                      </tr>
+                      <tr style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                        <td style={{ padding: '8px 12px', color: '#F8FAFC' }}><strong style={{ color: '#A5B4FC' }}>1101</strong> Kas Partner</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#475569' }}>—</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#F8FAFC' }}>{formatRupiah(Number(modal.item.amount))}</td>
+                      </tr>
+                      <tr style={{ borderTop: '1px solid rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.03)' }}>
+                        <td style={{ padding: '8px 12px', color: '#94A3B8', fontWeight: 700 }}>TOTAL</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#34D399', fontWeight: 800 }}>{formatRupiah(Number(modal.item.amount))}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'right', color: '#34D399', fontWeight: 800 }}>{formatRupiah(Number(modal.item.amount))}</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
