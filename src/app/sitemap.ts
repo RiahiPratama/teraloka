@@ -11,6 +11,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const staticPages = [
     '', '/bakabar', '/balapor', '/speed', '/ferry', '/ship', '/pelni',
     '/bakos', '/property', '/vehicle', '/services', '/fundraising',
+    '/fundraising/badonasi/galang-dana',
     '/events', '/bills', '/login',
   ];
 

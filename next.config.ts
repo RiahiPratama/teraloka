@@ -36,6 +36,16 @@ const nextConfig: NextConfig = {
   // ════════════════════════════════════════════════════════════════
   async redirects() {
     return [
+      // ─── /owner/funding/campaigns/new/info → /fundraising/badonasi/galang-dana ─
+      // [S2c] Halaman info galang dana dipindah ke route PUBLIK (SEO + anon-readable).
+      // 308 permanent — owner path lama (di-disallow robots) forward ke route publik
+      // indexable. Logic action udah pindah ke <CampaignActionCard>.
+      {
+        source: '/owner/funding/campaigns/new/info',
+        destination: '/fundraising/badonasi/galang-dana',
+        permanent: true,
+      },
+
       // ─── /owner/campaign/* → /owner/funding/campaigns/* ────────
       {
         source: '/owner/campaign/:path*',

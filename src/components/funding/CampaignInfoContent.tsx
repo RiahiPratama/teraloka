@@ -1,10 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/hooks/useAuth';
-import Link from 'next/link';
-import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { useState } from 'react';
+import type { ReactNode } from 'react';
+import { Stethoscope, CloudRainWind, Flower, Baby, UserRound, Home, ChevronDown, ChevronUp } from 'lucide-react';
+
+// ═══════════════════════════════════════════════════════════════
+// CampaignInfoContent — konten INFO galang dana BADONASI (shared).
+//
+// Presentational MURNI: hero + 6 section info + dropdown Anatomi + footer.
+// NOL auth, NOL fetch, NOL router. Bagian AKSI (persetujuan + createMyDraft)
+// di-inject lewat `children` slot (di antara section & footer).
+//
+// Dipakai oleh:
+//   - /owner/funding/campaigns/new/info  (children = action card gated)
+//   - /fundraising/badonasi/galang-dana  (S2 — children = action card gated, route publik+SEO)
+//
+// Dropdown Anatomi: CSS toggle (selalu di DOM, di-hide via class `hidden`),
+// BUKAN conditional mount — biar teks tetap masuk HTML awal & crawlable.
+// ═══════════════════════════════════════════════════════════════
 
 const REQUIREMENTS = [
   {
@@ -49,180 +62,8 @@ const COMMITMENTS = [
   'Identitas donatur dilindungi sesuai preferensi mereka',
 ];
 
-export default function CampaignInfoPage() {
-  const { user, token, isLoading: authLoading } = useAuth();
-  const router = useRouter();
-  const [agreed, setAgreed] = useState(false);
-  const [showAnatomy, setShowAnatomy] = useState(false); // FIX: dropdown anatomi
-
-  // ⭐ FIX-E: KYC profile state
-  const [kycChecking, setKycChecking] = useState(true);
-  const [kycComplete, setKycComplete] = useState<boolean | null>(null);
-
-  // ⭐ FIX-E: Pre-check creator profile on mount
-  // Auto-redirect kalau profile belum lengkap — user ga perlu baca preface
-  // dulu, langsung dibawa ke flow KYC. After complete, return ke sini.
-  useEffect(() => {
-    if (authLoading) return;
-
-    // Belum login? Skip check, biarkan handleLanjut yang handle redirect login
-    if (!user || !token) {
-      setKycChecking(false);
-      return;
-    }
-
-    const checkProfile = async () => {
-      try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/me/creator-profile`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-
-        if (!res.ok) {
-          // Kalau API error, biarkan user lanjut — error akan muncul di backend
-          setKycComplete(true);
-          return;
-        }
-
-        const json = await res.json();
-        const isComplete = json?.data?.is_complete === true;
-        setKycComplete(isComplete);
-
-        // Auto-redirect kalau belum lengkap
-        if (!isComplete) {
-          router.replace(
-            `/owner/profile/complete?return=${encodeURIComponent('/owner/funding/campaigns/new/info')}`
-          );
-        }
-      } catch {
-        // Network error — biarkan user lanjut, backend tetap akan block
-        setKycComplete(true);
-      } finally {
-        setKycChecking(false);
-      }
-    };
-
-    checkProfile();
-  }, [authLoading, user, token, router]);
-
-  // ⭐ Sprint C1: Submit + create draft + redirect ke /[id]/edit
-  // Filosofi: /info = pre-flight check, klik "Saya siap" = commit untuk create draft.
-  // Backend createMyDraft butuh title minimum → auto-generate placeholder.
-  // User customize title + semua field di /[id]/edit page.
-  const [creating, setCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-
-  const handleLanjut = async () => {
-    if (!agreed) return;
-    if (!user) {
-      router.push('/login?redirect=/owner/funding/campaigns/new/info');
-      return;
-    }
-    // Defensive: kalau KYC belum lengkap (race condition), redirect ke complete
-    if (kycComplete === false) {
-      router.push(
-        `/owner/profile/complete?return=${encodeURIComponent('/owner/funding/campaigns/new/info')}`
-      );
-      return;
-    }
-
-    // ⭐ Auto-create draft + redirect ke /edit
-    setCreating(true);
-    setCreateError(null);
-
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
-
-      // ⭐ FIX-DUPLICATE-DRAFT: Smart check — re-use existing empty draft kalau ada.
-      // Mencegah user create banyak draft kosong saat klik "Saya Siap" berkali-kali.
-      // Kriteria "empty draft":
-      //   - Title masih placeholder "Kampanye Baru —*"
-      //   - beneficiary_name kosong/null (tanda user belum isi data apapun)
-      try {
-        const listRes = await fetch(
-          `${apiUrl}/funding/my/campaigns?status=draft&limit=20`,
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        const listJson = await listRes.json();
-
-        if (listRes.ok && listJson.success && Array.isArray(listJson.data)) {
-          const emptyDraft = listJson.data.find((c: any) =>
-            typeof c.title === 'string' &&
-            c.title.startsWith('Kampanye Baru —') &&
-            (!c.beneficiary_name || c.beneficiary_name.trim() === '')
-          );
-
-          if (emptyDraft) {
-            // Re-use existing empty draft, JANGAN create new
-            router.push(`/owner/funding/campaigns/${emptyDraft.id}/edit`);
-            return;
-          }
-        }
-      } catch (checkErr) {
-        // Non-blocking: kalau check gagal (network/etc), tetap lanjut create new
-        console.warn('[campaign/new/info] empty draft check failed, proceeding with new', checkErr);
-      }
-
-      // No empty draft — create new
-      // Generate placeholder title with current date
-      const now = new Date();
-      const dateStr = now.toLocaleDateString('id-ID', {
-        day: 'numeric', month: 'short', year: 'numeric',
-      });
-      const placeholderTitle = `Kampanye Baru — ${dateStr}`;
-
-      const res = await fetch(`${apiUrl}/funding/my/campaigns`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ title: placeholderTitle }),
-      });
-
-      const json = await res.json();
-
-      if (!res.ok || !json.success) {
-        // Profile incomplete (race condition with KYC check)
-        if (json?.error?.code === 'PROFILE_INCOMPLETE') {
-          router.push(
-            `/owner/profile/complete?return=${encodeURIComponent('/owner/funding/campaigns/new/info')}`
-          );
-          return;
-        }
-        throw new Error(json?.error?.message ?? 'Gagal membuat draft kampanye');
-      }
-
-      const draftId = json.data?.id;
-      if (!draftId) {
-        throw new Error('Server tidak mengembalikan ID draft kampanye');
-      }
-
-      // Sukses → redirect ke /[id]/edit untuk lengkapi form
-      router.push(`/owner/funding/campaigns/${draftId}/edit`);
-    } catch (err: any) {
-      console.error('[campaign/new/info] create draft failed:', err);
-      setCreateError(
-        err?.message ?? 'Terjadi kesalahan saat membuat draft. Silakan coba lagi.'
-      );
-      setCreating(false);
-    }
-  };
-
-  // ⭐ FIX-E: Loading state while checking KYC
-  // (mencegah flicker preface-content saat akan auto-redirect)
-  if (authLoading || kycChecking || (user && kycComplete === false)) {
-    return (
-      <div className="min-h-screen bg-[#f9f9f8] flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="animate-spin text-[#003526] mx-auto mb-3" size={32} />
-          <p className="text-sm text-gray-600">
-            {kycComplete === false ? 'Mengarahkan ke halaman verifikasi...' : 'Memuat...'}
-          </p>
-        </div>
-      </div>
-    );
-  }
+export default function CampaignInfoContent({ children }: { children?: ReactNode }) {
+  const [showAnatomy, setShowAnatomy] = useState(false); // dropdown anatomi (CSS toggle)
 
   return (
     <div className="min-h-screen bg-[#f9f9f8]">
@@ -416,7 +257,7 @@ export default function CampaignInfoPage() {
             Bagaimana donasi sampai ke penerima manfaat — transparent untuk donor dan penggalang.
           </p>
 
-          {/* Anatomi Donasi — DROPDOWN (collapsed default) */}
+          {/* Anatomi Donasi — DROPDOWN (collapsed default, CSS toggle biar crawlable) */}
           <button
             onClick={() => setShowAnatomy(!showAnatomy)}
             className="w-full rounded-xl bg-gradient-to-br from-[#003526]/5 to-[#EC4899]/5 border border-[#003526]/10 p-4 mb-4 hover:from-[#003526]/8 hover:to-[#EC4899]/8 transition-all text-left"
@@ -441,76 +282,74 @@ export default function CampaignInfoPage() {
             </div>
           </button>
 
-          {/* Anatomi content — show kalau expanded */}
-          {showAnatomy && (
-            <div className="rounded-xl bg-gradient-to-br from-[#003526]/5 to-[#EC4899]/5 border border-[#003526]/10 p-4 mb-4 animate-in fade-in slide-in-from-top-2 duration-300">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>insights</span>
-                <p className="text-xs font-extrabold text-[#003526] uppercase tracking-wider">
-                  Contoh: Donor donasi Rp 200.000
-                </p>
-              </div>
+          {/* Anatomi content — SELALU di DOM (crawlable), di-hide via class `hidden` kalau collapsed */}
+          <div className={`rounded-xl bg-gradient-to-br from-[#003526]/5 to-[#EC4899]/5 border border-[#003526]/10 p-4 mb-4${showAnatomy ? '' : ' hidden'}`}>
+            <div className="flex items-center gap-2 mb-3">
+              <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>insights</span>
+              <p className="text-xs font-extrabold text-[#003526] uppercase tracking-wider">
+                Contoh: Donor donasi Rp 200.000
+              </p>
+            </div>
 
-              {/* Visual flow */}
-              <div className="bg-white rounded-lg p-3 mb-3">
-                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">
-                  Donor Transfer Total Rp 210.234:
-                </p>
-                <div className="space-y-1.5">
-                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-emerald-50 border border-emerald-100">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-base">👤</span>
-                      <p className="text-xs font-bold text-emerald-900">Penerima Manfaat</p>
-                    </div>
-                    <p className="text-sm font-extrabold text-emerald-700 whitespace-nowrap">Rp 200.000</p>
+            {/* Visual flow */}
+            <div className="bg-white rounded-lg p-3 mb-3">
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2">
+                Donor Transfer Total Rp 210.234:
+              </p>
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-emerald-50 border border-emerald-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">👤</span>
+                    <p className="text-xs font-bold text-emerald-900">Penerima Manfaat</p>
                   </div>
-                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-gray-50 border border-gray-100">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-base">🏢</span>
-                      <p className="text-[11px] text-gray-600">Fee TeraLoka <span className="text-[10px] text-gray-400">(operasional)</span></p>
-                    </div>
-                    <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 4.000</p>
+                  <p className="text-sm font-extrabold text-emerald-700 whitespace-nowrap">Rp 200.000</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-gray-50 border border-gray-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">🏢</span>
+                    <p className="text-[11px] text-gray-600">Fee TeraLoka <span className="text-[10px] text-gray-400">(operasional)</span></p>
                   </div>
-                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-pink-50 border border-pink-100">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-base">💪</span>
-                      <p className="text-[11px] text-gray-600">Fee Penggalang Campaign <span className="text-[10px] text-[#EC4899] font-bold">(opt-in donor)</span></p>
-                    </div>
-                    <p className="text-xs font-bold text-[#BE185D] whitespace-nowrap">Rp 6.000</p>
+                  <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 4.000</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-pink-50 border border-pink-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">💪</span>
+                    <p className="text-[11px] text-gray-600">Fee Penggalang Campaign <span className="text-[10px] text-[#EC4899] font-bold">(opt-in donor)</span></p>
                   </div>
-                  <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-blue-50 border border-blue-100">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-base">🔐</span>
-                      <p className="text-[11px] text-gray-600">Kode Unik <span className="text-[10px] text-gray-400">(verifikasi)</span></p>
-                    </div>
-                    <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 234</p>
+                  <p className="text-xs font-bold text-[#BE185D] whitespace-nowrap">Rp 6.000</p>
+                </div>
+                <div className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-blue-50 border border-blue-100">
+                  <div className="flex items-center gap-2 min-w-0 flex-1">
+                    <span className="text-base">🔐</span>
+                    <p className="text-[11px] text-gray-600">Kode Unik <span className="text-[10px] text-gray-400">(verifikasi)</span></p>
                   </div>
+                  <p className="text-xs font-bold text-gray-700 whitespace-nowrap">Rp 234</p>
                 </div>
               </div>
-
-              {/* Key callout */}
-              <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
-                <p className="text-xs font-extrabold text-emerald-900 mb-1 flex items-center gap-1.5">
-                  <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
-                  Donasi UTUH 100% Sampai ke Penerima
-                </p>
-                <ul className="space-y-1 mt-2">
-                  <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
-                    <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-                    <span>Fee operasional adalah <strong>TAMBAHAN</strong> dari donor — bukan dipotong dari donasi</span>
-                  </li>
-                  <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
-                    <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-                    <span>Donor pilih sendiri untuk opt-in fee penggalang (default OFF)</span>
-                  </li>
-                  <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
-                    <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
-                    <span>Kode unik kecil untuk verifikasi otomatis transfer</span>
-                  </li>
-                </ul>
-              </div>
             </div>
-          )}
+
+            {/* Key callout */}
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-3">
+              <p className="text-xs font-extrabold text-emerald-900 mb-1 flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-sm" style={{ fontVariationSettings: "'FILL' 1" }}>verified</span>
+                Donasi UTUH 100% Sampai ke Penerima
+              </p>
+              <ul className="space-y-1 mt-2">
+                <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                  <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                  <span>Fee operasional adalah <strong>TAMBAHAN</strong> dari donor — bukan dipotong dari donasi</span>
+                </li>
+                <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                  <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                  <span>Donor pilih sendiri untuk opt-in fee penggalang (default OFF)</span>
+                </li>
+                <li className="text-[11px] text-emerald-800 flex items-start gap-1.5 leading-relaxed">
+                  <span className="text-emerald-600 mt-0.5 shrink-0">✓</span>
+                  <span>Kode unik kecil untuk verifikasi otomatis transfer</span>
+                </li>
+              </ul>
+            </div>
+          </div>
 
           {/* Compliance & monitoring */}
           <div className="space-y-2">
@@ -531,76 +370,10 @@ export default function CampaignInfoPage() {
           </div>
         </div>
 
-        {/* Agreement + CTA */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
-          <h2 className="text-sm font-bold text-gray-800">Persetujuan</h2>
+        {/* ── Action slot (di-inject konsumen: persetujuan + createMyDraft gated) ── */}
+        {children}
 
-          <label className="flex cursor-pointer items-start gap-3 bg-gray-50 rounded-xl p-4">
-            <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
-              className="mt-0.5 h-4 w-4 accent-[#EC4899] shrink-0" />
-            <span className="text-sm text-gray-700 leading-relaxed">
-              Saya memahami dan menyetujui semua syarat, ketentuan, dan komitmen transparansi BADONASI TeraLoka di atas. Saya bertanggung jawab penuh atas kebenaran informasi dan penggunaan dana yang saya galang.
-            </span>
-          </label>
-
-          <button
-            onClick={handleLanjut}
-            disabled={!agreed || creating}
-            className="w-full bg-gradient-to-r from-[#003526] to-[#BE185D] hover:from-[#1B6B4A] hover:to-[#EC4899] text-white py-4 rounded-2xl font-bold text-sm disabled:opacity-40 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 shadow-md hover:shadow-lg"
-          >
-            {creating ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Membuat draft kampanye...
-              </>
-            ) : (
-              <>
-                <span className="material-symbols-outlined text-lg">volunteer_activism</span>
-                {user ? 'Saya Siap, Lanjut Buat Campaign →' : 'Login & Lanjut Buat Campaign →'}
-              </>
-            )}
-          </button>
-
-          {/* ⭐ Sprint C1: Error feedback kalau create draft gagal */}
-          {createError && (
-            <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
-              <span className="material-symbols-outlined text-red-600 text-base mt-0.5">error</span>
-              <div className="flex-1">
-                <p className="text-xs font-bold text-red-800 mb-0.5">Gagal membuat draft</p>
-                <p className="text-xs text-red-700 leading-relaxed">{createError}</p>
-              </div>
-              <button
-                onClick={() => setCreateError(null)}
-                className="text-red-600 hover:text-red-800"
-                aria-label="Tutup pesan error"
-              >
-                <span className="material-symbols-outlined text-base">close</span>
-              </button>
-            </div>
-          )}
-
-          {/* Trust signals */}
-          <div className="grid grid-cols-3 gap-2 pt-1">
-            {[
-              { icon: 'verified', text: 'Verifikasi Gratis' },
-              { icon: 'savings', text: 'Donasi Utuh' },
-              { icon: 'visibility', text: 'Transparan 100%' },
-            ].map(t => (
-              <div key={t.text} className="text-center">
-                <span className="material-symbols-outlined text-[#EC4899] text-base" style={{ fontVariationSettings: "'FILL' 1" }}>{t.icon}</span>
-                <p className="text-[10px] text-gray-600 font-semibold mt-0.5 leading-tight">{t.text}</p>
-              </div>
-            ))}
-          </div>
-
-          {!user && (
-            <p className="text-center text-xs text-gray-400">
-              Belum punya akun?{' '}
-              <Link href="/login" className="text-[#EC4899] font-semibold hover:underline">Daftar via WhatsApp</Link>
-            </p>
-          )}
-        </div>
-
+        {/* Footer */}
         <p className="text-center text-xs text-gray-400 pb-4">
           Ada pertanyaan?{' '}
           <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer"
