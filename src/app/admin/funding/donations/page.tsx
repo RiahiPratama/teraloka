@@ -4,6 +4,7 @@ import Link from 'next/link';
 import React, { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { normalizeWaNumber } from '@/utils/format';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
@@ -1212,17 +1213,6 @@ export default function AdminDonationsPage() {
 }
 
 // ── Helpers ──────────────────────────────────────
-
-function normalizeWaNumber(phone: string): string {
-  // Normalize Indonesian phone → wa.me format (no +)
-  // 081234567890 → 6281234567890
-  // +6281234567890 → 6281234567890
-  // 6281234567890 → 6281234567890
-  const cleaned = phone.replace(/\D/g, '');
-  if (cleaned.startsWith('0')) return '62' + cleaned.slice(1);
-  if (cleaned.startsWith('62')) return cleaned;
-  return cleaned;
-}
 
 function shortRupiah(n: number): string {
   // Long format (full precision) — for financial verification context.

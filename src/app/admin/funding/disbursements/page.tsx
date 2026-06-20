@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useContext } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
+import { normalizeWaNumber, maskPhone } from '@/utils/format';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
 import CommandCenterTabs from '@/components/admin/funding/CommandCenterTabs';
 import AdminAuthGuard from '@/components/admin/funding/AdminAuthGuard';
@@ -16,6 +17,7 @@ const Icons = {
   Flag:     () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>,
   Eye:      () => <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>,
   Link:     () => <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>,
+  Send:     () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>,
   Wallet:   () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 12V8H6a2 2 0 0 1-2-2c0-1.1.9-2 2-2h12v4"/><path d="M4 6v12c0 1.1.9 2 2 2h14v-4"/><path d="M18 12a2 2 0 0 0-2 2c0 1.1.9 2 2 2h4v-4h-4z"/></svg>,
   Clock:    () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   AlertTri: () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>,
@@ -125,6 +127,13 @@ export default function AdminDisbursementsPage() {
   });
 
   const [modal, setModal] = useState<{ type: ModalType; item: Disbursement } | null>(null);
+  const [lightbox, setLightbox] = useState<string | null>(null); // [L3] URL gambar yg lagi dizoom
+  const [drawerAction, setDrawerAction] = useState<'verify' | 'flag' | 'reject' | null>(null); // [L4] panel aksi di drawer
+  // [L5] Konteks kampanye (fetch existing admin: disbursements?campaign_id + trial-balance). Non-fatal.
+  const [ctx, setCtx] = useState<{
+    loading: boolean; saldo: number | null; totalDisbursed: number;
+    stages: { id: string; stage_number: number; amount: number; status: string }[];
+  } | null>(null);
   const [actionReason, setActionReason] = useState('');
   const [actionNotes, setActionNotes]   = useState('');
   const [submitting, setSubmitting]     = useState(false);
@@ -183,6 +192,51 @@ export default function AdminDisbursementsPage() {
   useEffect(() => { fetchDisbursements(); }, [fetchDisbursements]);
   useEffect(() => { fetchStats(); }, [fetchStats]);
   useEffect(() => { setSearchInput(urlSearch); }, [urlSearch]);
+
+  // [L2] Drawer/modal terbuka → Esc tutup + body-scroll lock (pola DonationVerifyDrawer).
+  // [L3] Lightbox prioritas: Esc tutup lightbox dulu, baru drawer.
+  useEffect(() => {
+    if (!modal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      if (lightbox) { setLightbox(null); return; }       // lightbox dulu
+      if (drawerAction) { setDrawerAction(null); return; } // panel aksi → balik ke drawer
+      setModal(null);                                      // baru tutup drawer
+    };
+    document.addEventListener('keydown', onKey);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [modal, lightbox, drawerAction]);
+
+  // [L5] Drawer buka → fetch konteks kampanye (saldo + riwayat). 2 endpoint admin existing, NON-FATAL.
+  useEffect(() => {
+    if (!modal || modal.type !== 'detail') { setCtx(null); return; }
+    const campaignId = modal.item.campaign_id;
+    if (!campaignId) { setCtx(null); return; }
+    let cancelled = false;
+    setCtx({ loading: true, saldo: null, totalDisbursed: 0, stages: [] });
+    (async () => {
+      const tk = localStorage.getItem('tl_token');
+      const hdr = { Authorization: `Bearer ${tk}` };
+      const [disbRes, tbRes] = await Promise.all([
+        fetch(`${API_URL}/funding/admin/disbursements?campaign_id=${campaignId}&limit=100`, { headers: hdr }).then(r => r.json()).catch(() => null),
+        fetch(`${API_URL}/funding/admin/campaigns/${campaignId}/trial-balance`, { headers: hdr }).then(r => r.json()).catch(() => null),
+      ]);
+      if (cancelled) return;
+      const stages = (disbRes?.success && Array.isArray(disbRes.data))
+        ? disbRes.data.map((d: any) => ({ id: d.id, stage_number: d.stage_number, amount: Number(d.amount) || 0, status: d.status }))
+            .sort((a: any, b: any) => a.stage_number - b.stage_number)
+        : [];
+      const totalDisbursed = stages.filter((s: any) => s.status === 'verified').reduce((a: number, s: any) => a + s.amount, 0);
+      const saldo = (tbRes?.success && typeof tbRes.data?.principal_2101_net === 'number') ? tbRes.data.principal_2101_net : null;
+      setCtx({ loading: false, saldo, totalDisbursed, stages });
+    })();
+    return () => { cancelled = true; };
+  }, [modal]);
 
   // Debounce search → URL update
   useEffect(() => {
@@ -293,10 +347,13 @@ export default function AdminDisbursementsPage() {
     }
   }
 
+  // [L4] Semua tombol tabel → buka DRAWER (type 'detail'). Kalau tombol aksi (verify/flag/reject),
+  // langsung buka panel aksi-nya di drawer (drawerAction). Detail → cuma drawer, no panel.
   function openModal(type: ModalType, item: Disbursement) {
     setActionReason('');
     setActionNotes('');
-    setModal({ type, item });
+    setModal({ type: 'detail', item });
+    setDrawerAction(type === 'detail' ? null : type);
   }
 
   const totalPages = Math.ceil(total / LIMIT);
@@ -591,155 +648,347 @@ export default function AdminDisbursementsPage() {
         </div>
       )}
 
-      {/* ── Modals ────────────────────────────────────────────── */}
-      {modal && (
+      {/* ── Detail DRAWER (right-slide, pola DonationVerifyDrawer) — L2 ── */}
+      {modal?.type === 'detail' && (
+        <div
+          onClick={() => setModal(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1000,
+            background: 'rgba(0,0,0,0.5)', backdropFilter: 'blur(2px)',
+            display: 'flex', justifyContent: 'flex-end',
+          }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{
+              width: 'min(560px, 100vw)', height: '100%', background: '#0F172A',
+              borderLeft: '1px solid rgba(255,255,255,0.1)',
+              boxShadow: '-12px 0 40px rgba(0,0,0,0.45)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+              animation: 'tlDisbDrawerIn 200ms ease-out',
+            }}
+          >
+            {/* Header */}
+            <div style={{
+              display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between',
+              gap: 12, padding: '14px 20px', borderBottom: '1px solid rgba(255,255,255,0.1)', flexShrink: 0,
+            }}>
+              <div style={{ minWidth: 0 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  Verifikasi Pencairan
+                </p>
+                <h2 style={{ fontSize: 16, fontWeight: 800, color: '#F8FAFC', marginTop: 2 }}>
+                  Pencairan Tahap #{modal.item.stage_number}
+                </h2>
+                <p style={{ fontSize: 12, color: '#94A3B8', marginTop: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {modal.item.campaigns?.title ?? '—'}
+                </p>
+              </div>
+              <button
+                onClick={() => setModal(null)}
+                aria-label="Tutup" title="Tutup (Esc)"
+                style={{
+                  flexShrink: 0, width: 32, height: 32, borderRadius: 8, cursor: 'pointer',
+                  background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+                  color: '#94A3B8', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <Icons.X />
+              </button>
+            </div>
+
+            {/* Scroll area — sections */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Status banner */}
+              <div style={{
+                background: STATUS_CONFIG[modal.item.status].bg,
+                border: `1px solid ${STATUS_CONFIG[modal.item.status].color}40`,
+                borderRadius: 12, padding: 14,
+              }}>
+                <span style={{
+                  background: STATUS_CONFIG[modal.item.status].bg,
+                  color: STATUS_CONFIG[modal.item.status].color,
+                  fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
+                }}>
+                  {STATUS_CONFIG[modal.item.status].label}
+                </span>
+                {modal.item.verified_at && (
+                  <p style={{ fontSize: 11, color: '#94A3B8', marginTop: 8 }}>
+                    Diverifikasi {formatDate(modal.item.verified_at)}
+                  </p>
+                )}
+                {modal.item.admin_review_notes && (
+                  <p style={{ fontSize: 12, color: '#CBD5E1', marginTop: 8, lineHeight: 1.5 }}>
+                    <strong style={{ color: '#94A3B8' }}>Catatan admin:</strong> {modal.item.admin_review_notes}
+                  </p>
+                )}
+              </div>
+
+              {/* Detail Pencairan */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+                <DetailRow label="Nominal" value={formatRupiah(Number(modal.item.amount))} bold />
+                <DetailRow label="Penerima" value={modal.item.disbursed_to} />
+                <DetailRow label="Tanggal Cair" value={formatDate(modal.item.disbursed_at)} />
+                <DetailRow label="Metode" value={modal.item.method} />
+                {modal.item.campaigns?.partner_name && (
+                  <DetailRow label="Mitra" value={modal.item.campaigns.partner_name} />
+                )}
+              </div>
+
+              {/* [L5] Konteks Kampanye — saldo + riwayat pencairan (non-fatal) */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 10 }}>
+                  Konteks Kampanye
+                </p>
+                {!ctx || ctx.loading ? (
+                  <p style={{ fontSize: 12, color: '#64748B' }}>Memuat konteks…</p>
+                ) : (ctx.saldo === null && ctx.stages.length === 0) ? (
+                  <p style={{ fontSize: 12, color: '#64748B' }}>Konteks kampanye tidak tersedia.</p>
+                ) : (() => {
+                  const amt = Number(modal.item.amount) || 0;
+                  const over = ctx.saldo !== null && amt > ctx.saldo;
+                  const verifiedCount = ctx.stages.filter(s => s.status === 'verified').length;
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                      {ctx.saldo !== null && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                          <span style={{ fontSize: 12, color: '#94A3B8' }}>Saldo siap cair kampanye</span>
+                          <span style={{ fontSize: 14, fontWeight: 800, color: over ? '#F87171' : '#34D399' }}>
+                            {formatRupiah(ctx.saldo)}
+                          </span>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                        <span style={{ fontSize: 12, color: '#94A3B8' }}>Total sudah disalurkan</span>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#F8FAFC' }}>
+                          {formatRupiah(ctx.totalDisbursed)} <span style={{ color: '#64748B', fontWeight: 400 }}>· {verifiedCount} pencairan</span>
+                        </span>
+                      </div>
+
+                      {over && (
+                        <div style={{
+                          background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+                          borderRadius: 10, padding: '8px 12px',
+                        }}>
+                          <p style={{ fontSize: 12, color: '#F87171', fontWeight: 700 }}>
+                            ⚠ Nominal pencairan ini ({formatRupiah(amt)}) melebihi saldo siap cair ({formatRupiah(ctx.saldo as number)}).
+                          </p>
+                        </div>
+                      )}
+
+                      {ctx.stages.length > 0 && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 4, marginTop: 2 }}>
+                          {ctx.stages.map(s => {
+                            const isThis = s.id === modal.item.id;
+                            const sc = STATUS_CONFIG[s.status as DisbursementStatus] ?? { color: '#94A3B8', label: s.status };
+                            return (
+                              <div key={s.id} style={{
+                                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                                fontSize: 12, padding: '6px 10px', borderRadius: 8,
+                                background: isThis ? 'rgba(99,102,241,0.12)' : 'transparent',
+                                border: isThis ? '1px solid rgba(99,102,241,0.3)' : '1px solid transparent',
+                              }}>
+                                <span style={{ color: isThis ? '#A5B4FC' : '#CBD5E1', fontWeight: isThis ? 700 : 500 }}>
+                                  Tahap #{s.stage_number}{isThis ? ' (INI)' : ''} — {formatRupiah(s.amount)}
+                                </span>
+                                <span style={{ color: sc.color, fontWeight: 700, fontSize: 11 }}>{sc.label}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Identitas Penerima */}
+              {modal.item.beneficiary_phone && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16, display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Identitas Penerima</p>
+                  {/* [L6-REV] No. HP (MASKED display) + tombol Hubungi compact inline (niru "Kirim Reminder") */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 2 }}>NO. HP PENERIMA</p>
+                      <p style={{ fontSize: 13, color: '#F8FAFC', fontWeight: 600, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}>
+                        {maskPhone(modal.item.beneficiary_phone)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        const phone = modal.item.beneficiary_phone;
+                        if (!phone) return;
+                        const msg = `Halo, ini admin TeraLoka. Kami sedang memverifikasi penyaluran dana ${formatRupiah(Number(modal.item.amount))} untuk kampanye "${modal.item.campaigns?.title ?? '—'}". Mohon konfirmasi Anda sudah menerima dana ini. Terima kasih 🙏`;
+                        window.open(`https://wa.me/${normalizeWaNumber(phone)}?text=${encodeURIComponent(msg)}`, '_blank');
+                      }}
+                      title="Hubungi penerima via WhatsApp"
+                      style={{
+                        flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer',
+                        padding: '7px 12px', borderRadius: 8, whiteSpace: 'nowrap',
+                        background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                        border: 'none', color: '#fff', fontSize: 12, fontWeight: 700,
+                        boxShadow: '0 2px 8px rgba(18,140,126,0.35)', transition: 'all 150ms',
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
+                    >
+                      <Icons.Send /> Hubungi
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Catatan Mitra — SELALU tampil; kosong → fallback (admin tau ada catatan / enggak) */}
+              <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+                <p style={{ fontSize: 11, fontWeight: 700, color: '#94A3B8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>Catatan Mitra</p>
+                {modal.item.disbursement_notes ? (
+                  <p style={{ fontSize: 13, color: '#CBD5E1', lineHeight: 1.6, fontStyle: 'italic' }}>&quot;{modal.item.disbursement_notes}&quot;</p>
+                ) : (
+                  <p style={{ fontSize: 12, color: '#64748B' }}>Tidak ada catatan dari mitra.</p>
+                )}
+              </div>
+
+              {/* Bukti Transfer — thumbnail grid + lightbox (L3) */}
+              {modal.item.evidence_urls && modal.item.evidence_urls.length > 0 && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+                  <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 8 }}>
+                    BUKTI TRANSFER ({modal.item.evidence_urls.length})
+                  </p>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+                    {modal.item.evidence_urls.map((url, i) => (
+                      <ImgThumb key={i} url={url} alt={`Bukti ${i + 1}`} onOpen={setLightbox} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Foto Serah Terima — thumbnail + lightbox (L3) */}
+              {modal.item.handover_photo_url && (
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.08)', paddingTop: 16 }}>
+                  <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 8 }}>FOTO SERAH TERIMA</p>
+                  <div style={{ width: 120 }}>
+                    <ImgThumb url={modal.item.handover_photo_url} alt="Serah-terima" onOpen={setLightbox} />
+                  </div>
+                </div>
+              )}
+
+              {/* [L5] Konteks saldo + riwayat pencairan nyusul */}
+            </div>
+
+            {/* [L4] Action bar sticky — cuma status pending/flagged (verified/rejected = no aksi) */}
+            {(modal.item.status === 'pending' || modal.item.status === 'flagged') && (
+              <div style={{
+                flexShrink: 0, borderTop: '1px solid rgba(255,255,255,0.1)',
+                padding: '14px 20px', display: 'flex', gap: 10, background: '#0F172A',
+              }}>
+                <button
+                  onClick={() => setDrawerAction('reject')}
+                  style={{
+                    flex: 1, padding: '11px', borderRadius: 12, cursor: 'pointer',
+                    background: 'transparent', border: '1px solid rgba(239,68,68,0.4)',
+                    color: '#F87171', fontSize: 13, fontWeight: 700,
+                  }}
+                >
+                  ✕ Tolak
+                </button>
+                {modal.item.status === 'pending' && (
+                  <button
+                    onClick={() => setDrawerAction('flag')}
+                    style={{
+                      flex: 1, padding: '11px', borderRadius: 12, cursor: 'pointer',
+                      background: 'transparent', border: '1px solid rgba(249,115,22,0.4)',
+                      color: '#F97316', fontSize: 13, fontWeight: 700,
+                    }}
+                  >
+                    ⚑ Flag
+                  </button>
+                )}
+                <button
+                  onClick={() => setDrawerAction('verify')}
+                  style={{
+                    flex: 1.4, padding: '11px', borderRadius: 12, cursor: 'pointer',
+                    background: '#10B981', border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
+                  }}
+                >
+                  ✓ Verifikasi
+                </button>
+              </div>
+            )}
+          </div>
+          <style>{`@keyframes tlDisbDrawerIn { from { transform: translateX(28px); opacity: 0.4 } to { transform: translateX(0); opacity: 1 } }`}</style>
+        </div>
+      )}
+
+      {/* ── Lightbox (L3) — gambar besar, Esc/klik-luar tutup. z di atas drawer. ── */}
+      {lightbox && (
+        <div
+          onClick={() => setLightbox(null)}
+          style={{
+            position: 'fixed', inset: 0, zIndex: 1100, background: 'rgba(0,0,0,0.88)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 24,
+          }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightbox}
+            alt="Preview bukti"
+            onClick={e => e.stopPropagation()}
+            style={{ maxWidth: '92vw', maxHeight: '92vh', objectFit: 'contain', borderRadius: 8 }}
+          />
+          <button
+            onClick={() => setLightbox(null)}
+            aria-label="Tutup" title="Tutup (Esc)"
+            style={{
+              position: 'absolute', top: 16, right: 16, width: 40, height: 40, borderRadius: 10,
+              background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.2)',
+              color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}
+          >
+            <Icons.X />
+          </button>
+        </div>
+      )}
+
+      {/* [L4] Panel aksi DI ATAS drawer — verify(2-step)/flag/reject. Gated drawerAction. Batal → balik ke drawer. */}
+      {modal && drawerAction && (
         <div
           style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
-            zIndex: 1000, padding: 24,
+            zIndex: 1050, padding: 24,
           }}
-          onClick={e => { if (e.target === e.currentTarget) { setModal(null); } }}
+          onClick={e => { if (e.target === e.currentTarget) { setDrawerAction(null); } }}
         >
           <div style={{
             background: '#1E293B', borderRadius: 20, padding: 32,
-            width: '100%', maxWidth: modal.type === 'detail' ? 560 : 480,
+            width: '100%', maxWidth: 480,
             maxHeight: '90vh', overflowY: 'auto',
             boxShadow: '0 20px 60px rgba(0,0,0,0.4)',
           }}>
 
-            {/* DETAIL MODAL */}
-            {modal.type === 'detail' && (
+            {/* [L4] VERIFY — konfirmasi 2-step (warning ledger + transparansi) */}
+            {drawerAction === 'verify' && (
               <>
                 <h2 style={{ fontSize: 18, fontWeight: 800, color: '#F8FAFC', marginBottom: 4 }}>
-                  Detail Pencairan — Tahap #{modal.item.stage_number}
+                  Konfirmasi Verifikasi
                 </h2>
-                <p style={{ fontSize: 12, color: '#94A3B8', marginBottom: 24 }}>
-                  {modal.item.campaigns?.title ?? '—'}
-                </p>
-
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-                  <DetailRow label="Nominal" value={formatRupiah(Number(modal.item.amount))} bold />
-                  <DetailRow label="Penerima" value={modal.item.disbursed_to} />
-                  <DetailRow label="Tanggal Cair" value={formatDate(modal.item.disbursed_at)} />
-                  <DetailRow label="Metode" value={modal.item.method} />
-                  <DetailRow label="Status">
-                    <span style={{
-                      background: STATUS_CONFIG[modal.item.status].bg,
-                      color: STATUS_CONFIG[modal.item.status].color,
-                      fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999,
-                    }}>
-                      {STATUS_CONFIG[modal.item.status].label}
-                    </span>
-                  </DetailRow>
-                  {modal.item.campaigns?.partner_name && (
-                    <DetailRow label="Mitra" value={modal.item.campaigns.partner_name} />
-                  )}
-                  {modal.item.disbursement_notes && (
-                    <DetailRow label="Catatan Mitra" value={modal.item.disbursement_notes} />
-                  )}
-                  {modal.item.admin_review_notes && (
-                    <DetailRow label="Catatan Admin" value={modal.item.admin_review_notes} />
-                  )}
-                  {modal.item.beneficiary_phone && (
-                    <DetailRow label="No. HP Penerima" value={modal.item.beneficiary_phone} />
-                  )}
-                  {modal.item.verified_at && (
-                    <DetailRow label="Diverifikasi" value={formatDate(modal.item.verified_at)} />
-                  )}
-
-                  {/* Bukti Transfer */}
-                  {modal.item.evidence_urls?.[0] && (
-                    <div>
-                      <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 8 }}>
-                        BUKTI TRANSFER
-                      </p>
-                      <a
-                        href={modal.item.evidence_urls[0]}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                          padding: '8px 16px', borderRadius: 10,
-                          background: 'rgba(8,145,178,0.15)', color: '#0891B2',
-                          fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                          border: '1px solid rgba(8,145,178,0.3)',
-                        }}
-                      >
-                        <Icons.Link /> Lihat Bukti Transfer
-                      </a>
-                    </div>
-                  )}
-
-                  {/* Foto Serah Terima */}
-                  {modal.item.handover_photo_url && (
-                    <div>
-                      <p style={{ fontSize: 11, color: '#94A3B8', fontWeight: 600, marginBottom: 8 }}>
-                        FOTO SERAH TERIMA
-                      </p>
-                      <a
-                        href={modal.item.handover_photo_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 6,
-                          padding: '8px 16px', borderRadius: 10,
-                          background: 'rgba(16,185,129,0.15)', color: '#10B981',
-                          fontSize: 13, fontWeight: 600, textDecoration: 'none',
-                          border: '1px solid rgba(16,185,129,0.3)',
-                        }}
-                      >
-                        <Icons.Link /> Lihat Foto Serah Terima
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <button
-                  onClick={() => setModal(null)}
-                  style={{
-                    marginTop: 24, width: '100%', padding: '12px',
-                    background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
-                    borderRadius: 12, color: '#94A3B8', fontSize: 13, fontWeight: 600, cursor: 'pointer',
-                  }}
-                >
-                  Tutup
-                </button>
-              </>
-            )}
-
-            {/* VERIFY MODAL */}
-            {modal.type === 'verify' && (
-              <>
-                <h2 style={{ fontSize: 18, fontWeight: 800, color: '#F8FAFC', marginBottom: 4 }}>
-                  Verifikasi Pencairan
-                </h2>
-                <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 24 }}>
-                  Tahap #{modal.item.stage_number} — {modal.item.campaigns?.title ?? '—'}
+                <p style={{ fontSize: 13, color: '#94A3B8', marginBottom: 20 }}>
+                  Tahap #{modal.item.stage_number} — {formatRupiah(Number(modal.item.amount))} kepada {modal.item.disbursed_to}
                 </p>
 
                 <div style={{
-                  background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.25)',
+                  background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.3)',
                   borderRadius: 12, padding: 16, marginBottom: 20,
                 }}>
-                  <p style={{ fontSize: 13, color: '#10B981', fontWeight: 600, marginBottom: 4 }}>
-                    Konfirmasi Pencairan
+                  <p style={{ fontSize: 13, color: '#FBBF24', fontWeight: 700, marginBottom: 6 }}>
+                    ⚠ Tindakan ini posting ke buku besar
                   </p>
-                  <p style={{ fontSize: 13, color: '#94A3B8', lineHeight: 1.6 }}>
-                    Nominal: <strong style={{ color: '#F8FAFC' }}>{formatRupiah(Number(modal.item.amount))}</strong>
-                    {' '}kepada <strong style={{ color: '#F8FAFC' }}>{modal.item.disbursed_to}</strong>
-                    {' '}pada {formatDate(modal.item.disbursed_at)}.
+                  <p style={{ fontSize: 13, color: '#CBD5E1', lineHeight: 1.6 }}>
+                    Verifikasi akan <strong style={{ color: '#F8FAFC' }}>posting jurnal ke buku besar</strong>{' '}
+                    (Db Utang Beneficiary <strong>2101</strong> / Cr Kas Partner <strong>1101</strong>) dan{' '}
+                    <strong style={{ color: '#F8FAFC' }}>masuk transparansi publik ke donor</strong>. Lanjut?
                   </p>
-                  {modal.item.evidence_urls?.[0] && (
-                    <a
-                      href={modal.item.evidence_urls[0]}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{ fontSize: 12, color: '#0891B2', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, textDecoration: 'none' }}
-                    >
-                      <Icons.Link /> Cek Bukti Transfer
-                    </a>
-                  )}
                 </div>
 
                 <div style={{ marginBottom: 20 }}>
@@ -761,7 +1010,7 @@ export default function AdminDisbursementsPage() {
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
-                    onClick={() => setModal(null)}
+                    onClick={() => setDrawerAction(null)}
                     disabled={submitting}
                     style={{
                       flex: 1, padding: '12px', borderRadius: 12, cursor: 'pointer',
@@ -780,14 +1029,14 @@ export default function AdminDisbursementsPage() {
                       border: 'none', color: '#fff', fontSize: 13, fontWeight: 700,
                     }}
                   >
-                    {submitting ? 'Memverifikasi...' : '✓ Verifikasi Pencairan'}
+                    {submitting ? 'Memverifikasi...' : '✓ Konfirmasi Verifikasi'}
                   </button>
                 </div>
               </>
             )}
 
-            {/* REJECT MODAL */}
-            {modal.type === 'reject' && (
+            {/* [L4] REJECT — alasan ≥10 */}
+            {drawerAction === 'reject' && (
               <>
                 <h2 style={{ fontSize: 18, fontWeight: 800, color: '#F8FAFC', marginBottom: 4 }}>
                   Tolak Pencairan
@@ -820,7 +1069,7 @@ export default function AdminDisbursementsPage() {
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
-                    onClick={() => setModal(null)}
+                    onClick={() => setDrawerAction(null)}
                     disabled={submitting}
                     style={{
                       flex: 1, padding: '12px', borderRadius: 12, cursor: 'pointer',
@@ -846,8 +1095,8 @@ export default function AdminDisbursementsPage() {
               </>
             )}
 
-            {/* FLAG MODAL */}
-            {modal.type === 'flag' && (
+            {/* [L4] FLAG — alasan ≥10 */}
+            {drawerAction === 'flag' && (
               <>
                 <h2 style={{ fontSize: 18, fontWeight: 800, color: '#F8FAFC', marginBottom: 4 }}>
                   Flag untuk Review
@@ -890,7 +1139,7 @@ export default function AdminDisbursementsPage() {
 
                 <div style={{ display: 'flex', gap: 10 }}>
                   <button
-                    onClick={() => setModal(null)}
+                    onClick={() => setDrawerAction(null)}
                     disabled={submitting}
                     style={{
                       flex: 1, padding: '12px', borderRadius: 12, cursor: 'pointer',
@@ -981,6 +1230,58 @@ function DetailRow({ label, value, bold, children }: {
         </span>
       )}
     </div>
+  );
+}
+
+// [L3] Thumbnail bukti — PDF → link "Buka PDF"; gambar → thumb (klik = lightbox); gagal load → fallback.
+function ImgThumb({ url, alt, onOpen }: { url: string; alt: string; onOpen: (u: string) => void }) {
+  const [err, setErr] = useState(false);
+  const isPdf = url.split('?')[0].toLowerCase().endsWith('.pdf');
+
+  if (isPdf) {
+    return (
+      <a
+        href={url} target="_blank" rel="noreferrer"
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+          aspectRatio: '1', borderRadius: 10, background: 'rgba(8,145,178,0.12)',
+          border: '1px solid rgba(8,145,178,0.3)', color: '#0891B2', fontSize: 11, fontWeight: 700,
+          textDecoration: 'none',
+        }}
+      >
+        <span style={{ fontSize: 20 }}>📄</span> Buka PDF
+      </a>
+    );
+  }
+
+  if (err) {
+    return (
+      <div style={{
+        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 4,
+        aspectRatio: '1', borderRadius: 10, background: 'rgba(239,68,68,0.08)',
+        border: '1px solid rgba(239,68,68,0.25)', color: '#F87171', fontSize: 11, fontWeight: 600, textAlign: 'center',
+      }}>
+        <span style={{ fontSize: 18 }}>⚠</span> gagal muat
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => onOpen(url)}
+      title="Perbesar"
+      style={{
+        padding: 0, aspectRatio: '1', borderRadius: 10, overflow: 'hidden', cursor: 'zoom-in',
+        border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(255,255,255,0.04)',
+      }}
+    >
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url} alt={alt}
+        onError={() => setErr(true)}
+        style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+      />
+    </button>
   );
 }
 

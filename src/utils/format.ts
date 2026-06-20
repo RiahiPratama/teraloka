@@ -41,6 +41,30 @@ export function formatPhone(phone: string): string {
   return `${clean.slice(0, 4)}-${clean.slice(4, 8)}-${clean.slice(8)}`;
 }
 
+/**
+ * Normalisasi nomor HP Indonesia → format wa.me (62xxx, tanpa +).
+ *   081234567890  → 6281234567890
+ *   +6281234567890 → 6281234567890
+ *   6281234567890  → 6281234567890
+ * Dipakai utk bangun URL https://wa.me/${normalizeWaNumber(phone)}.
+ */
+export function normalizeWaNumber(phone: string): string {
+  const cleaned = (phone ?? '').replace(/\D/g, '');
+  if (cleaned.startsWith('0')) return '62' + cleaned.slice(1);
+  if (cleaned.startsWith('62')) return cleaned;
+  return cleaned;
+}
+
+/**
+ * Mask nomor HP utk DISPLAY (privasi) — tengah ditutup, ujung tetap kelihatan.
+ *   082298821212 → "0822****1212". <8 digit → apa adanya. Nomor penuh tetap dipakai di logic (wa.me).
+ */
+export function maskPhone(phone: string | null | undefined): string {
+  const d = (phone ?? '').replace(/\D/g, '');
+  if (d.length < 8) return d || '—';
+  return `${d.slice(0, 4)}****${d.slice(-4)}`;
+}
+
 /** Truncate text with ellipsis */
 export function truncate(text: string, maxLength: number): string {
   if (text.length <= maxLength) return text;
