@@ -143,6 +143,7 @@ export default function OwnerKosEditPage() {
       baselineRef.current = snapshot(); // baseline = state tersimpan → dirty reset
       setSavedAt(Date.now());           // nempel (tanpa timer)
       toast.success('Perubahan tersimpan');
+      setTimeout(() => router.push('/owner/bakos'), 900); // auto-redirect; jeda biar ✓/toast keliatan (toast persist lintas-route)
     } catch (e) {
       toast.error(e instanceof ApiError ? e.message : 'Gagal menyimpan.');
     } finally {
