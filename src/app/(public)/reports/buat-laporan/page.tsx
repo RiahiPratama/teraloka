@@ -44,6 +44,8 @@ export default function ReportsPage() {
   type Step = 'form' | 'tos' | 'login' | 'submitting' | 'success';
   const [step, setStep]             = useState<Step>('form');
   const [anonymity, setAnonymity]   = useState<'anonim' | 'pseudonym' | 'nama_terang'>('anonim');
+  // [FASE1-FIX4-UNTRACKED-FE-TOGGLE] opsi "benar-benar tidak disimpan" (hanya login + anonim)
+  const [untrackedAnonymity, setUntrackedAnonymity] = useState(false);
   const [identityName, setIdentityName] = useState('');
   const [category, setCategory]     = useState('');
   const [title, setTitle]           = useState('');
@@ -80,6 +82,11 @@ export default function ReportsPage() {
     }
   }, [anonymity, user]);
 
+  // [FASE1-FIX4-UNTRACKED-FE-TOGGLE] reset opsi untracked kalau pindah dari anonim
+  useEffect(() => {
+    if (anonymity !== 'anonim') setUntrackedAnonymity(false);
+  }, [anonymity]);
+
   const handleSubmit = async (authToken: string) => {
     setStep('submitting');
     setSubmitError('');
@@ -98,6 +105,8 @@ export default function ReportsPage() {
           location_id: scope?.id,
           photos,
           notification_opt_in: notifOptIn,
+          // [FASE1-FIX4-UNTRACKED-FE-PAYLOAD] sinyal kontrol; BE gatekeep (anonim + login)
+          untracked_anonymity: anonymity === 'anonim' ? untrackedAnonymity : false,
         }),
       });
       const data = await res.json();
@@ -282,6 +291,30 @@ export default function ReportsPage() {
                     placeholder={`Tulis ${selectedAnonimity.inputLabel.toLowerCase()} kamu...`}
                     className="mt-2 w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-[#EF4444]" />
                 )}
+
+                {/* [FASE1-FIX4-UNTRACKED-FE-TOGGLE] opsi untracked — HANYA kalau login & anonim */}
+                {user && anonymity === 'anonim' && (
+                  <button type="button" onClick={() => setUntrackedAnonymity(v => !v)}
+                    className="mt-2 w-full flex items-start gap-3 rounded-xl border border-gray-200 px-3 py-2.5 text-left hover:bg-gray-50">
+                    <span className={`material-symbols-outlined text-xl mt-0.5 ${untrackedAnonymity ? 'text-[#EF4444]' : 'text-gray-300'}`}
+                      style={{ fontVariationSettings: untrackedAnonymity ? "'FILL' 1" : "'FILL' 0" }}>
+                      {untrackedAnonymity ? 'check_box' : 'check_box_outline_blank'}
+                    </span>
+                    <span className="flex-1">
+                      <span className="block text-xs font-bold text-gray-700">Saya tidak perlu cek status lapor saya</span>
+                      <span className="block text-[11px] text-gray-500 mt-0.5">
+                        Identitas saya BENAR-BENAR tidak disimpan di sistem. Saya tidak bisa cek progress lapor ini di /reports/me.
+                      </span>
+                    </span>
+                  </button>
+                )}
+
+                {/* [FASE1-FIX4-UNTRACKED-FE-DISCLOSURE-FORM] disclosure ringkas — kalau pilih anonim (login atau enggak) */}
+                {anonymity === 'anonim' && (
+                  <p className="mt-2 px-1 text-[11px] leading-relaxed text-gray-500">
+                    Anonim = nama disembunyikan dari publik &amp; tim moderator. Pengelola tertinggi TeraLoka bisa membuka identitas hanya untuk kasus pidana atau lapor palsu (tercatat &amp; bisa diaudit).
+                  </p>
+                )}
               </div>
 
               {/* Kategori 2 kolom */}
@@ -437,6 +470,21 @@ export default function ReportsPage() {
                 <input type="checkbox" checked={tosAccepted} onChange={e => setTosAccepted(e.target.checked)} className="mt-0.5 h-4 w-4 accent-[#EF4444]" />
                 <span className="text-sm text-gray-700">Saya memahami dan menyetujui komitmen di atas serta <a href="/aturan/balapor/ketentuan" target="_blank" rel="noopener noreferrer" className="text-[#EF4444] font-semibold underline">Ketentuan Layanan BALAPOR</a>.</span>
               </label>
+
+              {/* [FASE1-FIX4-UNTRACKED-FE-DISCLOSURE-TOS] disclosure penuh — kalau anonim */}
+              {anonymity === 'anonim' && (
+                <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+                  <p className="text-xs text-amber-800 leading-relaxed flex items-start gap-2">
+                    <span className="material-symbols-outlined text-amber-500 text-sm shrink-0 mt-0.5" style={{ fontVariationSettings: "'FILL' 1" }}>shield_person</span>
+                    <span>Identitasmu disembunyikan dari publik dan tim moderator. Hanya pengelola tertinggi TeraLoka yang bisa membuka identitasmu, dan hanya untuk kasus pidana atau laporan palsu. Setiap pembukaan identitas akan tercatat dan bisa diaudit.</span>
+                  </p>
+                  {untrackedAnonymity && (
+                    <p className="text-xs text-amber-700 leading-relaxed mt-2 pt-2 border-t border-amber-100 font-medium">
+                      Catatan: kamu memilih opsi &apos;Tidak perlu tracking&apos;. Lapor ini TIDAK akan muncul di halaman &apos;Lapor Saya&apos;.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <button onClick={() => setStep('form')} className="flex-1 rounded-xl border border-gray-200 py-3 text-sm font-medium text-gray-600">← Kembali</button>

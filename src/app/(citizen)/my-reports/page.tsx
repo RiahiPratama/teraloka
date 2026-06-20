@@ -527,6 +527,13 @@ function MyReportsContent() {
 
       {/* Content */}
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
+        {/* [FASE1-FIX4-UNTRACKED-FE-BANNER] info: lapor untracked (reporter_id NULL) gak ke-fetch di sini — by design */}
+        <div className="rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+          <p className="text-xs text-amber-800 leading-relaxed flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <span>Lapor yang kamu submit dengan opsi &apos;Tidak perlu tracking&apos; tidak muncul di sini — itu memang sesuai pilihanmu.</span>
+          </p>
+        </div>
         {loading ? (
           <div className="space-y-3">
             {[1, 2, 3].map(i => (
