@@ -213,7 +213,7 @@ export default function OwnerKosEditPage() {
             <Field label="Foto Kos">
               <ImageUpload bucket="listings" label="" onUpload={(urls: string[]) => setPhotos(urls)} existingUrls={photos} maxFiles={5} />
             </Field>
-            <Field label="Nomor WA">
+            <Field label="Nomor WA" hint="Wajib diisi — dipakai tombol kontak penyewa & syarat aktivasi langganan">
               <div className="flex items-center overflow-hidden rounded-xl border bg-white focus-within:border-[#854F0B] focus-within:ring-2 focus-within:ring-[#854F0B]/15 transition" style={{ borderColor: BAKOS_TOKENS.border }}>
                 <span className="flex h-11 items-center border-r px-3 text-sm" style={{ borderColor: BAKOS_TOKENS.border, color: BAKOS_TOKENS.textSecondary }}>+62</span>
                 <input type="tel" value={phone} onChange={e => setPhone(e.target.value.replace(/\D/g, ''))} className="flex-1 h-11 px-3 text-sm outline-none bg-transparent" />
