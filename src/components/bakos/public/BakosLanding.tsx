@@ -107,6 +107,7 @@ export function BakosLanding() {
         setPriceFilter={setPriceFilter}
         facilities={facilities}
         onToggleFac={(k) => { toggleFac(k); scrollToList(); }}
+        onApplyFac={(keys) => { setFacilities(keys); scrollToList(); }}
         onSearch={scrollToList}
       />
 

@@ -166,3 +166,20 @@ export const FILTER_FAC: { key: string; icon: string }[] = [
   { key: 'cctv', icon: 'videocam' },
   { key: 'mushola', icon: 'mosque' },
 ];
+
+// QUICK CHIPS (6 paling dicari) — tampil inline di hero/cari. Sisa fasilitas → modal.
+// Semua key sub-set FILTER_FAC (icon sudah ada). satpam/cctv/dll turun ke modal.
+export const QUICK_FAC: { key: string; icon: string }[] = [
+  { key: 'ac', icon: 'ac_unit' },
+  { key: 'wifi', icon: 'wifi' },
+  { key: 'kamar_mandi_dalam', icon: 'bathroom' },
+  { key: 'parkir_motor', icon: 'two_wheeler' },
+  { key: 'dapur_bersama', icon: 'restaurant' },
+  { key: 'air_pdam', icon: 'water_drop' },
+];
+
+// Grup fasilitas untuk modal "Filter fasilitas" — reuse dict label (= 2 grup industri).
+export const FAC_GROUPS: { title: string; dict: Record<string, string> }[] = [
+  { title: 'Fasilitas Kamar', dict: ROOM_FAC_LABEL },
+  { title: 'Fasilitas Bersama', dict: LISTING_FAC_LABEL },
+];

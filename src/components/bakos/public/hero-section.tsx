@@ -6,9 +6,11 @@
 // L+: headline nowrap "Maluku Utara" + strip CTA owner (supply cold-start).
 //     PENANDA: BK-HERO-OWNER-CTA.
 // ════════════════════════════════════════════════════════════════
+import { useState } from 'react';
 import Link from 'next/link';
-import { KOS_TYPES, PRICE_FILTERS, FILTER_FAC, facLabel } from './bakos-links';
+import { KOS_TYPES, PRICE_FILTERS, QUICK_FAC, facLabel } from './bakos-links';
 import { HeroMap } from './map/HeroMap';
+import { FacilityFilterModal } from './FacilityFilterModal';
 
 interface HeroProps {
   total: number;
@@ -21,14 +23,16 @@ interface HeroProps {
   setPriceFilter: (v: string) => void;
   facilities: string[];
   onToggleFac: (key: string) => void;
+  onApplyFac: (keys: string[]) => void;
   onSearch: () => void;
 }
 
 export function HeroSection({
   searchInput, setSearchInput,
   kosType, setKosType, priceFilter, setPriceFilter,
-  facilities, onToggleFac, onSearch,
+  facilities, onToggleFac, onApplyFac, onSearch,
 }: HeroProps) {
+  const [facModal, setFacModal] = useState(false);
   const handleSubmit = (e: React.FormEvent) => { e.preventDefault(); onSearch(); };
 
   return (
@@ -77,22 +81,37 @@ export function HeroSection({
 
       <div className="bk-fcepat">
         <span>Filter fasilitas:</span>
-        {FILTER_FAC.map((f) => {
+        {QUICK_FAC.map((f) => {
           const on = facilities.includes(f.key);
           return (
             <button
               key={f.key}
               type="button"
               aria-pressed={on}
-              className={on ? 'on' : ''}
-              style={on ? { background: 'var(--bk-green, #1B6B4A)', color: '#fff', borderColor: 'var(--bk-green, #1B6B4A)' } : undefined}
+              className={`bk-fac-chip${on ? ' on' : ''}`}
               onClick={() => onToggleFac(f.key)}
             >
               <span className="material-symbols-outlined">{f.icon}</span> {facLabel(f.key)}
             </button>
           );
         })}
+        {/* tombol buka modal SEMUA fasilitas — badge = jumlah aktif (quick + non-quick) */}
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          className="bk-fac-chip"
+          onClick={() => setFacModal(true)}
+        >
+          <span className="material-symbols-outlined">tune</span> Filter fasilitas{facilities.length ? ` (${facilities.length})` : ''}
+        </button>
       </div>
+
+      <FacilityFilterModal
+        open={facModal}
+        onClose={() => setFacModal(false)}
+        value={facilities}
+        onApply={onApplyFac}
+      />
 
       {/* ── STRIP CTA OWNER (BK-HERO-OWNER-CTA) — pintu kedua buat pemilik kos ── */}
       <Link href="/owner/bakos" className="bk-ownerstrip">

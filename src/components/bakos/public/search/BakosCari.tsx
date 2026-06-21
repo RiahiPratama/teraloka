@@ -11,9 +11,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { API_URL, PRICE_FILTERS, FILTER_FAC, facLabel, type Listing } from '../bakos-links';
+import { API_URL, PRICE_FILTERS, QUICK_FAC, facLabel, type Listing } from '../bakos-links';
 import { ListingGrid } from '../listing-grid';
 import { CariFilters } from './cari-filters';
+import { FacilityFilterModal } from '../FacilityFilterModal';
 
 // 🛡️ Leaflet pecah di SSR → dynamic ssr:false
 const BakosKosMap = dynamic(
@@ -35,6 +36,7 @@ export function BakosCari() {
   // L5-CARI-LOCID — filter kelurahan dari klik peta hero. Bisa di-clear saat user ngetik (mulai cari baru).
   const [locationId, setLocationId] = useState(sp.get('location_id') ?? '');
   const [facilities, setFacilities] = useState<string[]>(sp.get('facilities')?.split(',').filter(Boolean) ?? []);
+  const [facModal, setFacModal] = useState(false);
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -129,9 +131,9 @@ export function BakosCari() {
         </div>
       </div>
 
-      {/* chip filter fasilitas (multi-select) → kirim key ke ?facilities (BUKAN teks q) */}
+      {/* chip filter fasilitas (quick, multi-select) → ?facilities (BUKAN teks q). Sisanya via modal. */}
       <div style={{ display: 'flex', gap: 8, overflowX: 'auto', padding: '10px 22px 0', maxWidth: 1180, margin: '0 auto' }}>
-        {FILTER_FAC.map((f) => {
+        {QUICK_FAC.map((f) => {
           const on = facilities.includes(f.key);
           return (
             <button key={f.key} type="button" aria-pressed={on} onClick={() => toggleFac(f.key)}
@@ -141,7 +143,15 @@ export function BakosCari() {
             </button>
           );
         })}
+        {/* tombol modal SEMUA fasilitas — badge = jumlah aktif (quick + non-quick) */}
+        <button type="button" aria-haspopup="dialog" onClick={() => setFacModal(true)}
+          style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 4, padding: '6px 12px', borderRadius: 999, fontSize: 12, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap',
+            border: '1px solid #1B6B4A', background: '#fff', color: '#1B6B4A' }}>
+          <span className="material-symbols-outlined" style={{ fontSize: 16 }}>tune</span> Filter fasilitas{facilities.length ? ` (${facilities.length})` : ''}
+        </button>
       </div>
+
+      <FacilityFilterModal open={facModal} onClose={() => setFacModal(false)} value={facilities} onApply={setFacilities} />
 
       {/* toggle List ⟷ Peta — muncul HANYA kalau ada kos berbayar (berkoordinat) */}
       {hasMap && (

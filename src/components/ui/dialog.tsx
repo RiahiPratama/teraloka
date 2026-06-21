@@ -9,38 +9,35 @@
  * Features:
  * - Backdrop click → close
  * - Escape key → close
+ * - Tombol X (close) pojok kanan-atas — gated `showClose` (default true)
  * - Body scroll lock saat open
- * - Focus auto ke first interactive element on open
+ * - Focus auto ke first interactive element on open (skip tombol Close)
  * - Size variants (sm/md/lg)
  * - Compositional: Dialog + DialogHeader + DialogBody + DialogFooter
  *
- * Usage:
- *   const [open, setOpen] = useState(false);
+ * CATATAN PADDING (penting):
+ *   Padding horizontal/vertical header·body·footer dipasang via INLINE STYLE,
+ *   BUKAN class padding Tailwind (px / py). Sebab: di konteks BAKOS publik ada reset
+ *   CSS agresif yang nge-strip padding class Tailwind di <div> (gejala: konten
+ *   mepet ke tepi). Inline style menang lawan reset stylesheet → padding konsisten
+ *   di SEMUA konteks (admin + bakos). Caller masih bisa override via prop `style`.
  *
+ * Usage:
  *   <Dialog open={open} onClose={() => setOpen(false)} size="md">
- *     <DialogHeader
- *       icon={<Plus size={18} />}
- *       title="Tambah User Baru"
- *       description="User bisa langsung login via OTP WA"
- *       tone="primary"
- *     />
- *     <DialogBody>
- *       <Input label="Nomor WA" required />
- *       <Input label="Nama" />
- *     </DialogBody>
- *     <DialogFooter>
- *       <Button variant="secondary" onClick={() => setOpen(false)}>Batal</Button>
- *       <Button onClick={handleSubmit}>Simpan</Button>
- *     </DialogFooter>
+ *     <DialogHeader icon={<Plus size={18} />} title="Tambah User" tone="primary" />
+ *     <DialogBody> ... </DialogBody>
+ *     <DialogFooter> ... </DialogFooter>
  *   </Dialog>
  */
 
 import {
   useEffect,
   useRef,
+  type CSSProperties,
   type HTMLAttributes,
   type ReactNode,
 } from 'react';
+import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /* ─── Types ─── */
@@ -57,6 +54,9 @@ export interface DialogProps {
   disableBackdropClose?: boolean;
   /** Disable Escape key close */
   disableEscapeClose?: boolean;
+  /** Tampilkan tombol X (close) di pojok kanan-atas. Default true.
+   *  Set false untuk confirm-dialog yang maksa user milih lewat footer. */
+  showClose?: boolean;
   /** Aria label untuk dialog */
   ariaLabel?: string;
   className?: string;
@@ -69,6 +69,10 @@ const SIZE_STYLES: Record<DialogSize, string> = {
   lg: 'max-w-lg',    // 512px
 };
 
+// Padding inline (lihat CATATAN PADDING). Angka = ekuivalen Tailwind sebelumnya, lega.
+const PAD_X = 24;          // px-6
+const PAD_X_RIGHT_X = 48;  // ruang buat tombol X di header
+
 /* ─── Main Dialog ─── */
 
 export function Dialog({
@@ -77,6 +81,7 @@ export function Dialog({
   size = 'md',
   disableBackdropClose = false,
   disableEscapeClose = false,
+  showClose = true,
   ariaLabel,
   className,
   children,
@@ -103,10 +108,9 @@ export function Dialog({
     };
   }, [open]);
 
-  // Focus first interactive element on open
+  // Focus first interactive element on open (skip tombol Close)
   useEffect(() => {
     if (!open || !panelRef.current) return;
-    // Delay 1 frame biar animation start + DOM ready
     const timer = requestAnimationFrame(() => {
       const focusable = panelRef.current?.querySelector<HTMLElement>(
         'input, textarea, select, button:not([aria-label="Close"])'
@@ -125,7 +129,7 @@ export function Dialog({
   return (
     <div
       className={cn(
-        'fixed inset-0 z-50 flex items-center justify-center p-4',
+        'fixed inset-0 z-[100] flex items-center justify-center p-4',
         'bg-black/60 backdrop-blur-[2px]',
         'animate-in fade-in duration-150'
       )}
@@ -147,6 +151,32 @@ export function Dialog({
         )}
         style={{ animation: 'fadeIn 0.2s ease' }}
       >
+        {/* Tombol X — posisi+ukuran via INLINE STYLE biar tahan reset `.bakos-lp button`.
+            aria-label="Close" → auto-focus primitive otomatis skip tombol ini. */}
+        {showClose && (
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={onClose}
+            className="text-text-muted hover:text-text transition-colors"
+            style={{
+              position: 'absolute',
+              top: 12,
+              right: 12,
+              zIndex: 10,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              height: 32,
+              width: 32,
+              borderRadius: 8,
+              cursor: 'pointer',
+            }}
+          >
+            <X size={18} />
+          </button>
+        )}
+
         {children}
       </div>
     </div>
@@ -156,26 +186,11 @@ export function Dialog({
 /* ─── DialogHeader ─── */
 
 const TONE_STYLES: Record<DialogTone, { iconBg: string; iconColor: string }> = {
-  default: {
-    iconBg: 'bg-surface-muted',
-    iconColor: 'text-text-secondary',
-  },
-  primary: {
-    iconBg: 'bg-brand-teal/10',
-    iconColor: 'text-brand-teal',
-  },
-  warning: {
-    iconBg: 'bg-status-warning/12',
-    iconColor: 'text-status-warning',
-  },
-  danger: {
-    iconBg: 'bg-status-critical/12',
-    iconColor: 'text-status-critical',
-  },
-  info: {
-    iconBg: 'bg-status-info/12',
-    iconColor: 'text-status-info',
-  },
+  default: { iconBg: 'bg-surface-muted', iconColor: 'text-text-secondary' },
+  primary: { iconBg: 'bg-brand-teal/10', iconColor: 'text-brand-teal' },
+  warning: { iconBg: 'bg-status-warning/12', iconColor: 'text-status-warning' },
+  danger:  { iconBg: 'bg-status-critical/12', iconColor: 'text-status-critical' },
+  info:    { iconBg: 'bg-status-info/12', iconColor: 'text-status-info' },
 };
 
 export interface DialogHeaderProps {
@@ -199,8 +214,12 @@ export function DialogHeader({
   const toneStyle = TONE_STYLES[tone];
 
   if (centered) {
+    // padding inline (tahan reset bakos). pt-6/pb-2/px-6 ekuivalen.
+    const centeredPad: CSSProperties = {
+      paddingTop: 24, paddingBottom: 8, paddingLeft: PAD_X, paddingRight: PAD_X,
+    };
     return (
-      <div className={cn('flex flex-col items-center text-center px-6 pt-6 pb-2', className)}>
+      <div className={cn('flex flex-col items-center text-center', className)} style={centeredPad}>
         {icon && (
           <div
             className={cn(
@@ -212,20 +231,20 @@ export function DialogHeader({
             {icon}
           </div>
         )}
-        <h2 className="text-base font-bold text-text leading-tight">
-          {title}
-        </h2>
+        <h2 className="text-base font-bold text-text leading-tight">{title}</h2>
         {description && (
-          <p className="text-sm text-text-muted mt-1.5 leading-relaxed max-w-sm">
-            {description}
-          </p>
+          <p className="text-sm text-text-muted mt-1.5 leading-relaxed max-w-sm">{description}</p>
         )}
       </div>
     );
   }
 
+  // padding inline (tahan reset bakos). pr lebih besar = ruang tombol X.
+  const headerPad: CSSProperties = {
+    paddingTop: 20, paddingBottom: 12, paddingLeft: PAD_X, paddingRight: PAD_X_RIGHT_X,
+  };
   return (
-    <div className={cn('flex items-start gap-3 px-5 pt-5 pb-3', className)}>
+    <div className={cn('flex items-start gap-3', className)} style={headerPad}>
       {icon && (
         <div
           className={cn(
@@ -238,13 +257,9 @@ export function DialogHeader({
         </div>
       )}
       <div className="flex-1 min-w-0 pt-0.5">
-        <h2 className="text-base font-bold text-text leading-tight">
-          {title}
-        </h2>
+        <h2 className="text-base font-bold text-text leading-tight">{title}</h2>
         {description && (
-          <p className="text-xs text-text-muted mt-1 leading-relaxed">
-            {description}
-          </p>
+          <p className="text-xs text-text-muted mt-1 leading-relaxed">{description}</p>
         )}
       </div>
     </div>
@@ -256,14 +271,18 @@ export function DialogHeader({
 export function DialogBody({
   className,
   children,
+  style,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  // padding inline (tahan reset bakos); caller bisa override lewat prop `style`.
+  const bodyPad: CSSProperties = {
+    paddingTop: 12, paddingBottom: 12, paddingLeft: PAD_X, paddingRight: PAD_X,
+    ...style,
+  };
   return (
     <div
-      className={cn(
-        'px-5 py-3 flex flex-col gap-3 overflow-y-auto',
-        className
-      )}
+      className={cn('flex flex-col gap-3 overflow-y-auto', className)}
+      style={bodyPad}
       {...props}
     >
       {children}
@@ -276,15 +295,19 @@ export function DialogBody({
 export function DialogFooter({
   className,
   children,
+  style,
   ...props
 }: HTMLAttributes<HTMLDivElement>) {
+  // padding inline (tahan reset bakos); caller bisa override lewat prop `style`.
+  const footerPad: CSSProperties = {
+    paddingTop: 12, paddingBottom: 20, paddingLeft: PAD_X, paddingRight: PAD_X,
+    marginTop: 8,
+    ...style,
+  };
   return (
     <div
-      className={cn(
-        'flex items-center gap-2 px-5 pt-3 pb-5 mt-2',
-        '[&>button]:flex-1',
-        className
-      )}
+      className={cn('flex items-center gap-2', '[&>button]:flex-1', className)}
+      style={footerPad}
       {...props}
     >
       {children}

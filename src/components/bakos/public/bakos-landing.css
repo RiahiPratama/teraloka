@@ -86,6 +86,35 @@
 .bk-fcepat button:hover{border-color:var(--bk-green);color:var(--bk-green);box-shadow:var(--bk-sh)}
 .bk-fcepat button.special{border-color:var(--bk-toska);color:var(--bk-toska)}
 
+/* ─── CHIP FASILITAS (single source: landing quick-chip + modal) ───
+   selector `button.bk-fac-chip` (0,1,1) sengaja, biar menang atas reset
+   `.bakos-lp button{border:none;background:none}` (by-order). Token mode-aware
+   (--color-*) + fallback hex (cari tanpa --bk-*). Active = bakos green. */
+button.bk-fac-chip{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  padding:7px 14px;border-radius:999px;
+  border:1px solid var(--color-border,#E5E7EB);
+  background:var(--color-surface-muted,#F1F5F9);
+  color:var(--color-text-secondary,#334155);
+  font-size:13px;font-weight:600;line-height:1;cursor:pointer;transition:.15s}
+button.bk-fac-chip .material-symbols-outlined{font-size:16px}
+button.bk-fac-chip:hover{border-color:var(--bk-green,#1B6B4A);color:var(--bk-green,#1B6B4A)}
+button.bk-fac-chip.on{background:var(--bk-green,#1B6B4A);border-color:var(--bk-green,#1B6B4A);color:#fff}
+button.bk-fac-chip .check{display:none}
+button.bk-fac-chip.on .check{display:inline-flex}
+
+/* footer modal — Reset (ghost) / Terapkan (filled). Class juga karena kena reset. */
+button.bk-fac-btn{
+  padding:10px 18px;border-radius:12px;font-size:13.5px;font-weight:700;
+  cursor:pointer;transition:.15s;border:1px solid transparent}
+button.bk-fac-btn.ghost{
+  background:var(--color-surface-muted,#F1F5F9);
+  border-color:var(--color-border,#E5E7EB);
+  color:var(--color-text-secondary,#334155)}
+button.bk-fac-btn.ghost:hover{background:var(--color-surface-elevated,#fff)}
+button.bk-fac-btn.fill{background:var(--bk-green,#1B6B4A);color:#fff}
+button.bk-fac-btn.fill:hover{filter:brightness(1.07)}
+
 /* ─── section header ─── */
 .bk-sec{padding:40px 0}
 .bk-sh{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px}
