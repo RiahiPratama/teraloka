@@ -115,6 +115,18 @@ button.bk-fac-btn.ghost:hover{background:var(--color-surface-elevated,#fff)}
 button.bk-fac-btn.fill{background:var(--bk-green,#1B6B4A);color:#fff}
 button.bk-fac-btn.fill:hover{filter:brightness(1.07)}
 
+/* tombol "Muat lebih banyak" (/cari) — primary AMBER brand BAKOS (acuan: .bk-cari).
+   selector `button.bk-loadmore` (0,1,1) menang atas reset. var(--bk-amber) scoped
+   .bakos-lp → fallback #E8963A (nilai token sama) biar jalan di /cari (.bkc). */
+button.bk-loadmore{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  min-width:240px;padding:13px 28px;border-radius:12px;border:0;cursor:pointer;
+  background:var(--bk-amber,#E8963A);color:#fff;
+  font-weight:800;font-size:14.5px;line-height:1;transition:.15s}
+button.bk-loadmore:hover:not(:disabled){background:var(--bk-amber-d,#b86f1f)}
+button.bk-loadmore:disabled{opacity:.6;cursor:default}
+button.bk-loadmore .material-symbols-outlined{font-size:20px;color:#fff}
+
 /* ─── section header ─── */
 .bk-sec{padding:40px 0}
 .bk-sh{display:flex;justify-content:space-between;align-items:flex-end;margin-bottom:24px}

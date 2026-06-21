@@ -4,6 +4,9 @@
 // BAKOS — Listing Grid (public LP)
 // PATH: src/components/bakos/public/listing-grid.tsx
 // Grid kos + loading skeleton + empty state. Data dari orchestrator.
+// 🛡️ COUNT FIX: teks "N kos ditemukan" ambil dari prop `total` (meta.total BE),
+//    BUKAN listings.length (= jumlah kartu page ini). Kalau total > yg ke-render
+//    → "Menampilkan X dari Y" (jujur, gak nyesatin user soal stok kos).
 // ════════════════════════════════════════════════════════════════
 
 import { type Listing } from './bakos-links';
@@ -17,18 +20,25 @@ interface GridProps {
   error?: boolean;
   onRetry?: () => void;
   emptyHint?: string;
+  total?: number;          // total hasil dari BE (meta.total). Fallback ke listings.length.
 }
 
-export function ListingGrid({ listings, loading, searchInput, onReset, error, onRetry, emptyHint }: GridProps) {
+export function ListingGrid({ listings, loading, searchInput, onReset, error, onRetry, emptyHint, total }: GridProps) {
+  const shown = listings.length;
+  const resolvedTotal = total ?? shown;             // prop kosong → fallback aman
+  const searchSuffix = searchInput ? ` untuk “${searchInput}”` : '';
+  const countLabel =
+    resolvedTotal > shown
+      ? `Menampilkan ${shown} dari ${resolvedTotal} kos${searchSuffix}`
+      : `${resolvedTotal} kos ditemukan${searchSuffix}`;
+
   return (
     <section className="bk-sec bk-pt0" id="bk-listings"><div className="bk-wrap">
       <div className="bk-sh">
         <div>
           <h2>Kos tersedia</h2>
           <p>
-            {loading
-              ? 'Memuat…'
-              : `${listings.length} kos ditemukan${searchInput ? ` untuk “${searchInput}”` : ''}`}
+            {loading ? 'Memuat…' : countLabel}
           </p>
         </div>
       </div>

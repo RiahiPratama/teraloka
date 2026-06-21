@@ -12,6 +12,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
 import './bakos-landing.css';
 import { API_URL, facLabel, type Listing } from './bakos-links';
 import { HeroSection } from './hero-section';
@@ -94,6 +95,16 @@ export function BakosLanding() {
   const scrollToList = () =>
     document.getElementById('bk-listings')?.scrollIntoView({ behavior: 'smooth' });
 
+  // href ke katalog penuh /bakos/cari — bawa state landing yang DIBACA cari:
+  // q, kos_type, facilities. priceFilter di-SKIP (cari tak baca harga dari URL).
+  const cariQs = (() => {
+    const p = new URLSearchParams();
+    if (searchInput.trim()) p.set('q', searchInput.trim());
+    if (kosType) p.set('kos_type', kosType);
+    if (facilities.length) p.set('facilities', facilities.join(','));
+    return p.toString();
+  })();
+
   return (
     <div className="bakos-lp">
       <HeroSection
@@ -113,7 +124,18 @@ export function BakosLanding() {
 
       <AreaSection listings={listings} onPick={(q) => { setSearchInput(q); scrollToList(); }} />
       <ListingGrid listings={listings} loading={loading} searchInput={searchInput} onReset={reset} error={error} onRetry={fetchListings}
+        total={total}
         emptyHint={facilities.length ? `Tidak ada kos dengan fasilitas: ${facilities.map(facLabel).join(', ')}. Coba kurangi pilihan.` : undefined} />
+
+      {/* Opsi A — landing render 30 teratas; sisanya via katalog penuh /bakos/cari. */}
+      {total > listings.length && (
+        <div className="bk-wrap" style={{ textAlign: 'center', margin: '4px 0 44px' }}>
+          <Link href={`/bakos/cari${cariQs ? `?${cariQs}` : ''}`} className="bk-ownerstrip-btn">
+            Lihat semua {total} kos <span className="material-symbols-outlined">arrow_forward</span>
+          </Link>
+        </div>
+      )}
+
       <KenapaSection />
       <OwnerCtaSection />
 

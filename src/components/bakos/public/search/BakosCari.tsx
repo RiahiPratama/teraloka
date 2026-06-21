@@ -41,12 +41,19 @@ export function BakosCari() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [total, setTotal] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const debRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reqRef = useRef(0);   // 🛡️ race-guard — token request, buang hasil basi
+  const pageRef = useRef(1);  // halaman terakhir (ref → hindari stale closure di fetchKos memo)
 
-  const fetchKos = useCallback(async (qVal: string, kt: string, pk: string) => {
-    setLoading(true);
+  // reset=true (filter/q berubah): page 1 + REPLACE. reset=false ("muat lebih"): page+1 + APPEND.
+  const fetchKos = useCallback(async (qVal: string, kt: string, pk: string, reset: boolean = true) => {
+    const myReq = ++reqRef.current;                       // 🛡️ token request ini
+    const nextPage = reset ? 1 : pageRef.current + 1;
+    reset ? setLoading(true) : setLoadingMore(true);
     try {
-      const params = new URLSearchParams({ type: 'kos', page: '1', limit: '24' });
+      const params = new URLSearchParams({ type: 'kos', page: String(nextPage), limit: '24' });
       if (qVal.trim()) params.set('q', qVal.trim());
       if (kt) params.set('kos_type', kt);
       if (locationId) params.set('location_id', locationId);   // L5-CARI-LOCID — filter per-kelurahan
@@ -58,13 +65,23 @@ export function BakosCari() {
       }
       const res = await fetch(`${API_URL}/listings?${params.toString()}`);
       const data = await res.json();
+      if (myReq !== reqRef.current) return;               // 🛡️ hasil basi (filter berubah) → buang
       const items: Listing[] = data.data ?? data.listings ?? [];
+      const more = Boolean(data.meta?.has_more ?? data.pagination?.has_more ?? false);
       setError(false);
-      setListings(items);
+      // append + dedupe-by-id defensif (order BE bisa tie di boundary → cegah dupe key)
+      setListings((prev) => reset
+        ? items
+        : [...prev, ...items.filter((it) => !prev.some((p) => p.id === it.id))]);
+      setHasMore(more);
       setTotal(data.pagination?.total ?? data.meta?.total ?? data.total ?? items.length);
+      pageRef.current = nextPage;
     } catch {
-      setError(true); setListings([]); setTotal(0);
-    } finally { setLoading(false); }
+      if (myReq !== reqRef.current) return;
+      if (reset) { setError(true); setListings([]); setTotal(0); setHasMore(false); }
+    } finally {
+      if (myReq === reqRef.current) { reset ? setLoading(false) : setLoadingMore(false); }
+    }
   }, [locationId, facilities]);
 
   // filter berubah → fetch (q di-debounce, pills langsung)
@@ -174,8 +191,24 @@ export function BakosCari() {
           </div>
         ) : (
           <div className="bkc-results">
-            <ListingGrid listings={sorted} loading={loading} searchInput={q} onReset={reset} error={error} onRetry={() => fetchKos(q, kosType, priceKey)}
+            <ListingGrid listings={sorted} loading={loading} searchInput={q} total={total} onReset={reset} error={error} onRetry={() => fetchKos(q, kosType, priceKey)}
               emptyHint={facilities.length ? `Tidak ada kos dengan fasilitas: ${facilities.map(facLabel).join(', ')}. Coba kurangi pilihan.` : undefined} />
+
+            {/* Muat lebih banyak — hanya kalau masih ada halaman & bukan loading awal */}
+            {hasMore && !loading && (
+              <div style={{ display: 'flex', justifyContent: 'center', margin: '22px 0 8px' }}>
+                <button
+                  type="button"
+                  className="bk-loadmore"
+                  onClick={() => fetchKos(q, kosType, priceKey, false)}
+                  disabled={loadingMore}
+                >
+                  {loadingMore
+                    ? 'Memuat…'
+                    : <><span className="material-symbols-outlined">expand_more</span> Muat lebih banyak</>}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>
