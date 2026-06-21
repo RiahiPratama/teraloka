@@ -17,7 +17,8 @@ const Icons = {
  */
 export interface Donation {
   id: string;
-  donation_code: string;
+  donation_code: string;       // = kode unik (random 100-999, dari total_transfer − amount − fee)
+  display_id?: string;         // [3b] BDN-DON-2026-xxxxx (identitas donasi human-facing)
   campaign_id: string;
   donor_id?: string;
   donor_name: string;
@@ -147,7 +148,7 @@ export default function DonationsTable({
                   />
                 </th>
               )}
-              <th style={thStyle(t, 'left', 110)}>Kode</th>
+              <th style={thStyle(t, 'left', 150)}>ID / Kode</th>
               <th style={thStyle(t, 'left')}>Donor</th>
               <th style={thStyle(t, 'left')}>Kampanye</th>
               <th style={thStyle(t, 'right', 120)}>Jumlah</th>
@@ -194,19 +195,26 @@ export default function DonationsTable({
                     </td>
                   )}
 
-                  {/* Donation Code */}
+                  {/* [3b] ID donasi + kode unik — SETARA (display_id atas, kode unik bawah, badge sama) */}
                   <td style={tdStyle(t, 'left')}>
-                    <span style={{
-                      fontSize: 11, fontFamily: 'monospace',
-                      fontWeight: 700,
-                      color: t.textPrimary,
-                      background: t.navHover,
-                      padding: '3px 8px',
-                      borderRadius: 6,
-                      display: 'inline-block',
-                    }}>
-                      {d.donation_code}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+                      <span style={{
+                        fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
+                        color: t.textPrimary, background: t.navHover,
+                        padding: '3px 8px', borderRadius: 6,
+                        display: 'inline-block', whiteSpace: 'nowrap',
+                      }}>
+                        {d.display_id ?? '—'}
+                      </span>
+                      <span style={{
+                        fontSize: 11, fontFamily: 'monospace', fontWeight: 700,
+                        color: t.textPrimary, background: t.navHover,
+                        padding: '3px 8px', borderRadius: 6,
+                        display: 'inline-block', whiteSpace: 'nowrap',
+                      }}>
+                        Kode: {d.donation_code}
+                      </span>
+                    </div>
                   </td>
 
                   {/* Donor */}
