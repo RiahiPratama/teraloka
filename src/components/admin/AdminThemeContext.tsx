@@ -24,6 +24,7 @@ export type AdminTheme = {
   inputBorder: string// border input/select
   codeText: string   // accent green text (4ADE80 dark / 1B6B4A light)
   deepBg: string     // bg gelap paling dalam (0D1117 / F3F4F6)
+  danger: string     // [AAP] semantic red destruktif — mode-aware (F87171 dark / DC2626 light)
 }
 
 type AdminThemeContextType = {
@@ -53,6 +54,7 @@ export const DARK_THEME: AdminTheme = {
   inputBorder: '#374151',
   codeText: '#4ADE80',
   deepBg: '#0D1117',
+  danger: '#F87171',
 }
 
 export const LIGHT_THEME: AdminTheme = {
@@ -77,6 +79,7 @@ export const LIGHT_THEME: AdminTheme = {
   inputBorder: '#D1D5DB',
   codeText: '#1B6B4A',
   deepBg: '#F3F4F6',
+  danger: '#DC2626',
 }
 
 export const AdminThemeContext = createContext<AdminThemeContextType>({

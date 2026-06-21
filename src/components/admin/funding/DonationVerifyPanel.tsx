@@ -169,6 +169,9 @@ export default function DonationVerifyPanel({
 
   const [showRejectModal, setShowRejectModal] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  // [B1/E2-UI] Batalkan donasi terverifikasi (super_admin) — type-to-confirm display_id.
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelConfirmText, setCancelConfirmText] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
@@ -531,6 +534,31 @@ export default function DonationVerifyPanel({
                   </p>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [B1-E2-UI-SECTION] Batalkan donasi terverifikasi — super_admin only (pola ke-4) */}
+      {isVerified && user.role === 'super_admin' && (
+        <div className="rounded-2xl p-4 mb-4" style={{ background: t.card, border: `1px solid ${t.danger}` }}>
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: t.cardInner }}>
+              <AlertCircle size={18} style={{ color: t.danger }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold mb-1" style={{ color: t.danger }}>Batalkan Donasi (Super Admin)</p>
+              <p className="text-xs leading-relaxed mb-3" style={{ color: t.textMuted }}>
+                Aksi destruktif & tidak bisa di-undo: <strong style={{ color: t.textPrimary }}>reverse jurnal donasi</strong>,
+                turunkan papan skor (collected &amp; donor). <strong style={{ color: t.textPrimary }}>Kalau fee sudah disetor ke yayasan, otomatis ditarik balik</strong> dari kas yayasan.
+              </p>
+              <button
+                onClick={() => { setCancelConfirmText(''); setRejectReason(''); setActionError(''); setShowCancelModal(true); }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+                style={{ background: t.danger, color: '#fff' }}
+              >
+                <XCircle size={16} /> Batalkan (Super Admin)
+              </button>
             </div>
           </div>
         </div>
@@ -1115,6 +1143,65 @@ export default function DonationVerifyPanel({
                 style={{ background: '#DC2626', color: '#fff' }}
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Kirim Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [B1-E2-UI-MODAL] Konfirmasi batalkan donasi terverifikasi (super_admin) — type-to-confirm display_id */}
+      {showCancelModal && donation && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => !submitting && setShowCancelModal(false)}>
+          <div className="rounded-2xl max-w-md w-full p-6" style={{ background: t.card, border: `1px solid ${t.cardBorder}` }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: t.cardInner }}>
+                <AlertCircle size={22} style={{ color: t.danger }} />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: t.textPrimary }}>Batalkan Donasi Terverifikasi</h3>
+            </div>
+            <div className="mb-3 rounded-lg px-3 py-2" style={{ border: `1px solid ${t.danger}` }}>
+              <p className="text-xs font-bold leading-relaxed" style={{ color: t.danger }}>
+                Reverse jurnal + turunkan papan skor + tarik fee dari yayasan (kalau sudah disetor). TIDAK bisa di-undo.
+              </p>
+            </div>
+            <p className="text-sm mb-2 leading-relaxed" style={{ color: t.textMuted }}>
+              Ketik <strong style={{ color: t.textPrimary }}>{donation.display_id ?? donation.donation_code}</strong> untuk konfirmasi:
+            </p>
+            <input
+              value={cancelConfirmText}
+              onChange={e => setCancelConfirmText(e.target.value)}
+              placeholder={donation.display_id ?? donation.donation_code}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none mb-3"
+              style={{ background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textPrimary }}
+            />
+            <textarea
+              value={rejectReason}
+              onChange={e => setRejectReason(e.target.value)}
+              placeholder="Alasan pembatalan (wajib) — mis. donasi fiktif / fraud / permintaan refund."
+              rows={3}
+              maxLength={500}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none"
+              style={{ background: t.inputBg, border: `1px solid ${t.inputBorder}`, color: t.textPrimary }}
+            />
+            <p className="text-right text-xs mt-1" style={{ color: t.textDim }}>{rejectReason.length}/500</p>
+            {actionError && <p className="text-xs mt-2" style={{ color: t.danger }}>{actionError}</p>}
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={() => setShowCancelModal(false)}
+                disabled={submitting}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 hover:opacity-80"
+                style={{ background: t.cardInner, color: t.textPrimary }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => handleAction('reject')}
+                disabled={submitting || !rejectReason.trim() || cancelConfirmText.trim() !== (donation.display_id ?? donation.donation_code)}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-90"
+                style={{ background: t.danger, color: '#fff' }}
+              >
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Batalkan Permanen'}
               </button>
             </div>
           </div>
