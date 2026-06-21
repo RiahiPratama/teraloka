@@ -5,6 +5,7 @@ import { useEffect, useState, useCallback, useContext, useMemo } from 'react';
 import { useSearchParams, useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { AdminThemeContext } from '@/components/admin/AdminThemeContext';
+import { maskPhone, normalizeWaNumber } from '@/utils/format';
 
 import SmartViewsPills, { type SmartViewKey, type SmartViewCounts } from '@/components/admin/funding/SmartViewsPills';
 import CampaignsTable, { type Campaign } from '@/components/admin/funding/CampaignsTable';
@@ -886,6 +887,8 @@ export default function AdminCampaignsPage() {
         {detailCampaign && (
           <div style={{ padding: 24 }}>
             <CampaignDetail c={detailCampaign} t={t} />
+            {/* [PENGGALANG-CONTACT] Section terpisah dari beneficiary — fetch on-open (PII data-min) */}
+            <CreatorContactSection campaignId={detailCampaign.id} t={t} />
             <div style={{ marginTop: 24, display: 'flex', gap: 10 }}>
               <a href={`/fundraising/${detailCampaign.slug}`} target="_blank" rel="noopener noreferrer"
                 style={{
@@ -998,6 +1001,94 @@ function CampaignSummary({ c, t }: { c: Campaign; t: any }) {
           <p style={{ fontWeight: 700, color: t.textPrimary }}>{c.partner_name}</p>
         </div>
       </div>
+    </div>
+  );
+}
+
+// [PENGGALANG-CONTACT] Section nama + HP penggalang (creator). BEDA dari beneficiary.
+// Fetch on-open: mount saat drawer kebuka → GET /admin/campaigns/:id/creator-contact.
+// 🛡️ HP = PII → maskPhone() utk display; nomor penuh CUMA ke wa.me. {null,null} → "—"/hidden.
+function CreatorContactSection({ campaignId, t }: { campaignId: string; t: any }) {
+  const [loading, setLoading] = useState(true);
+  const [contact, setContact] = useState<{ name: string | null; phone: string | null } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    const tk = localStorage.getItem('tl_token');
+    fetch(`${API_URL}/funding/admin/campaigns/${campaignId}/creator-contact`, {
+      headers: { Authorization: `Bearer ${tk}` },
+    })
+      .then(r => r.json())
+      .then(j => { if (alive) setContact(j?.success ? j.data : { name: null, phone: null }); })
+      .catch(() => { if (alive) setContact({ name: null, phone: null }); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [campaignId]);
+
+  const hasAny = !!(contact && (contact.name || contact.phone));
+
+  return (
+    <div style={{
+      marginTop: 20, padding: 14, borderRadius: 12,
+      background: 'rgba(168,85,247,0.05)', border: '1px solid rgba(168,85,247,0.2)',
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+        <p style={{ fontSize: 10, color: '#A855F7', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+          🙋 Penggalang / Pembuat Campaign
+        </p>
+        <span style={{
+          fontSize: 9, fontWeight: 700, color: '#EF4444',
+          background: 'rgba(239,68,68,0.1)', padding: '3px 7px', borderRadius: 6, letterSpacing: '0.5px',
+        }}>
+          RAHASIA
+        </span>
+      </div>
+
+      {loading ? (
+        <p style={{ fontSize: 12, color: t.textMuted }}>Memuat data penggalang…</p>
+      ) : !hasAny ? (
+        <p style={{ fontSize: 12, color: t.textDim }}>Data penggalang tidak tersedia.</p>
+      ) : (
+        <>
+          <div style={{ marginBottom: 10 }}>
+            <p style={{ fontSize: 10, color: t.textMuted, fontWeight: 600, marginBottom: 4 }}>Nama Penggalang</p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: t.textPrimary }}>{contact!.name ?? '—'}</p>
+          </div>
+
+          {contact!.phone ? (
+            // [WA-MATCH] Layout persis tombol "Hubungi" drawer pencairan: masked kiri flex:1, tombol compact kanan
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <p style={{ fontSize: 11, color: t.textMuted, fontWeight: 600, marginBottom: 2 }}>NO. HP PENGGALANG</p>
+                {/* 🛡️ display = MASKED; nomor penuh hanya ke wa.me */}
+                <p style={{ fontSize: 13, fontWeight: 600, color: t.textPrimary, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.04em' }}>
+                  {maskPhone(contact!.phone)}
+                </p>
+              </div>
+              <a
+                href={`https://wa.me/${normalizeWaNumber(contact!.phone)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Hubungi penggalang via WhatsApp"
+                style={{
+                  flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, whiteSpace: 'nowrap',
+                  padding: '7px 12px', borderRadius: 8,
+                  background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                  color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                  boxShadow: '0 2px 8px rgba(18,140,126,0.35)', transition: 'all 150ms',
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.filter = 'brightness(1.08)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.filter = 'none'; }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Hubungi
+              </a>
+            </div>
+          ) : (
+            <p style={{ fontSize: 12, color: t.textDim }}>Nomor HP tidak tersedia.</p>
+          )}
+        </>
+      )}
     </div>
   );
 }
