@@ -20,8 +20,19 @@ const BakosKotaMap = dynamic(
 interface KotaItem { id: string; name: string; type: string; jumlah_kos: number; }
 interface KelPoint {
   location_id: string; kelurahan: string; kecamatan: string | null;
+  pill_id: string;   // id pill (kota_id | 'sofifi') — buat filter marker per-pill
   latitude: number; longitude: number; jumlah_kos: number;
 }
+
+// Label pendek pill (FE-only) — BE tetap kirim nama kanonik penuh. Fallback: nama penuh.
+// Ternate & Sofifi sengaja TIDAK di-map (tampil apa adanya).
+const DISPLAY_LABEL: Record<string, string> = {
+  'Tidore Kepulauan': 'Tidore',
+  'Halmahera Tengah': 'Halteng', 'Halmahera Utara': 'Halut',
+  'Halmahera Selatan': 'Halsel', 'Halmahera Barat': 'Halbar', 'Halmahera Timur': 'Haltim',
+  'Kepulauan Morotai': 'Morotai', 'Kepulauan Sula': 'Sula', 'Pulau Taliabu': 'Taliabu',
+};
+const lbl = (name: string) => DISPLAY_LABEL[name] ?? name;
 
 export function MapSection() {
   const router = useRouter();
@@ -52,8 +63,9 @@ export function MapSection() {
 
   const selKota = useMemo(() => kota.find((k) => k.id === selected), [kota, selected]);
   const hasKos = (selKota?.jumlah_kos ?? 0) > 0;
-  // /sebaran = kelurahan Ternate (satu-satunya kota berisi kos). Tampil hanya jika kota terpilih punya kos.
-  const points = hasKos ? kel : [];
+  // 🛡️ FIX B — marker per-pill: hanya marker yang pill_id == pill terpilih.
+  //    `selected` = id pill (kota_id | 'sofifi'), formatnya SAMA dgn SebaranItem.pill_id.
+  const points = hasKos ? kel.filter((k) => k.pill_id === selected) : [];
 
   const onPick = (location_id: string) =>
     router.push(`/bakos/cari?location_id=${location_id}`);
@@ -78,7 +90,7 @@ export function MapSection() {
               onClick={() => setSelected(k.id)}
             >
               <span className="material-symbols-outlined">location_city</span>
-              {k.name}
+              {lbl(k.name)}
               <span className="b">{k.jumlah_kos}</span>
             </button>
           ))}
@@ -89,7 +101,7 @@ export function MapSection() {
         {selKota && (
           <div className="bkmap-counter">
             <span className="material-symbols-outlined">apartment</span>
-            {hasKos ? `${selKota.jumlah_kos} kos · ${selKota.name}` : selKota.name}
+            {hasKos ? `${selKota.jumlah_kos} kos · ${lbl(selKota.name)}` : lbl(selKota.name)}
           </div>
         )}
 
@@ -105,7 +117,7 @@ export function MapSection() {
         ) : (
           <div className="bkmap-empty">
             <span className="material-symbols-outlined">eco</span>
-            <p className="t">Belum ada kos di {selKota?.name ?? 'wilayah ini'}</p>
+            <p className="t">Belum ada kos di {selKota ? lbl(selKota.name) : 'wilayah ini'}</p>
             <p className="s">BAKOS sedang berkembang. Kos di wilayah ini segera hadir.</p>
             {selKota?.jumlah_kos === 0 && (
               <button onClick={() => { const t = kota.find((k) => k.jumlah_kos > 0); if (t) setSelected(t.id); }}>
