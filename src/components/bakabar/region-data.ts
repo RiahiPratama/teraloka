@@ -193,7 +193,7 @@ export const HERO_CAROUSEL_SLIDES: HeroSlide[] = [
 export const LAYANAN_LIST: LayananListItem[] = [
   { variant: 'bakos', name: 'BAKOS', tagline: 'Komunitas warga MalUt. Diskusi & jaringan tetangga.', icon: '💬', href: '/bakos', cta_label: 'Gabung' },
   { variant: 'bapasiar', name: 'BAPASIAR', tagline: 'Marketplace MalUt. Jual-beli produk lokal.', icon: '🛒', href: '/speed', cta_label: 'Cek' },
-  { variant: 'badonasi', name: 'BADONASI', tagline: 'Galang donasi tetangga. Transparan & verified.', icon: '🤲', href: '/fundraising', cta_label: 'Galang' },
+  { variant: 'badonasi', name: 'BADONASI', tagline: 'Galang donasi tetangga. Transparan & verified.', icon: '🤲', href: '/fundraising/badonasi', cta_label: 'Galang' },
   { variant: 'balapor', name: 'BALAPOR', tagline: 'Lapor masalah sekitar. Identitas terlindungi.', icon: '📢', href: '/balapor', cta_label: 'Lapor' },
 ];
 
@@ -209,7 +209,7 @@ export const TERPOPULER_LIST: DummyArticle[] = [
 // ─── Inline Banner Ads ────────────────────────────────────────
 export const INLINE_BANNERS: InlineBannerAdData[] = [
   { brand_class: 'b-tlkm', badge_label: 'Iklan', badge_style: 'iklan', overline: 'Telkomsel · Halo+ MalUt', title: 'Paket Internet Halo+ 50GB Cuma Rp 99rb/Bulan', body: 'Promo spesial pelanggan Telkomsel Maluku Utara · Sinyal 4G+ di 10 kabupaten/kota', cta_label: 'Aktivasi' },
-  { brand_class: 'b-teraloka', badge_label: 'Layanan', badge_style: 'teraloka', overline: 'TeraLoka · BADONASI', title: 'Galang Donasi untuk Tetangga yang Butuh Bantuan', body: 'Platform crowdfunding khusus Maluku Utara · Transparan & terpercaya', cta_label: 'Mulai Galang', cta_href: '/fundraising' },
+  { brand_class: 'b-teraloka', badge_label: 'Layanan', badge_style: 'teraloka', overline: 'TeraLoka · BADONASI', title: 'Galang Donasi untuk Tetangga yang Butuh Bantuan', body: 'Platform crowdfunding khusus Maluku Utara · Transparan & terpercaya', cta_label: 'Mulai Galang', cta_href: '/fundraising/badonasi' },
   { brand_class: 'b-mandiri', badge_label: 'Iklan', badge_style: 'iklan', overline: 'Bank Mandiri', title: 'KPR Ringan untuk Pegawai Maluku Utara — Bunga 4,75%/Tahun', body: 'Tenor hingga 25 tahun, biaya admin 0%, plafon hingga Rp 1.5 Miliar', cta_label: 'Cek Simulasi' },
   { brand_class: 'b-bumn', badge_label: 'Iklan', badge_style: 'iklan', overline: 'PT PLN · UID Maluku-MalUt', title: 'Promo Tambah Daya Hemat 50% — Khusus Pelanggan Maluku Utara', body: 'Periode 1 Mei - 30 Juni 2026 · Daftar online lewat PLN Mobile', cta_label: 'Daftar Promo' },
   { brand_class: 'b-property2', badge_label: 'Iklan', badge_style: 'iklan', overline: 'Sahid Land MalUt', title: 'Perumahan Subsidi Akehuda — DP 5 Juta, Cicil 15 Tahun', body: 'Lokasi strategis Ternate Selatan · Sertifikat SHM · Lingkungan ramah keluarga', cta_label: 'Survey Lokasi' },

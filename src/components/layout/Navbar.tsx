@@ -10,7 +10,7 @@ import ChangePinModal from '@/components/auth/ChangePinModal';
 const NAV_LINKS = [
   { label: 'BAKABAR',  href: '/bakabar' },
   { label: 'BALAPOR',  href: '/reports' },
-  { label: 'BADONASI', href: '/fundraising' },
+  { label: 'BADONASI', href: '/fundraising/badonasi' },
   { label: 'BAKOS',    href: '/bakos' },
   { label: 'BALAJU',   href: '/balaju' },
 ];

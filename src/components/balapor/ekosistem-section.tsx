@@ -82,7 +82,7 @@ const SERVICES: ServiceCard[] = [
     name: 'BADONASI',
     tagline: 'Donasi & Crowdfunding',
     description: 'Kampanye kemanusiaan transparan. Dana langsung ke rekening mitra penyelenggara, bisa dipantau.',
-    href: '/fundraising',
+    href: '/fundraising/badonasi',
     status: 'active',
     icon: 'volunteer_activism',
     colorVar: '--color-badonasi',

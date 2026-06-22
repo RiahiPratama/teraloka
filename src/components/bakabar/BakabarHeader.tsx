@@ -33,7 +33,7 @@ const NAV_LINKS = [
   { label: 'BALAPOR',  href: '/reports',     Icon: Megaphone },
   { label: 'BAPASIAR', href: '/speed',       Icon: Ship },
   { label: 'BAKOS',    href: '/bakos',         Icon: Home },
-  { label: 'BADONASI', href: '/fundraising', Icon: Heart },
+  { label: 'BADONASI', href: '/fundraising/badonasi', Icon: Heart },
 ];
 
 const WILAYAH_ITEMS = [

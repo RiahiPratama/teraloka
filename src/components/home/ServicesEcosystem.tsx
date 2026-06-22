@@ -8,7 +8,7 @@ const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BADONASI', 'BAKOS'])
 const ACTIVE_HREF: Record<string, string> = {
   'BAKABAR':   '/bakabar',
   'BALAPOR':   '/reports',
-  'BADONASI': '/fundraising',
+  'BADONASI': '/fundraising/badonasi',
   'BAKOS':     '/bakos',
 }
 

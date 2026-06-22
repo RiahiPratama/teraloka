@@ -6,7 +6,7 @@ const PILLS = [
   { icon: '⛵', label: 'Speedboat',  sub: 'Cek antrian',    href: '/bapasiar/speedboat',  color: '#0891B2', bg: 'rgba(8,145,178,0.08)',   border: 'rgba(8,145,178,0.2)'   },
   { icon: '🚢', label: 'Kapal Lokal', sub: 'Rute malam',   href: '/bapasiar/kapal-lokal', color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)',   border: 'rgba(27,107,74,0.18)'  },
   { icon: '🏠', label: 'BAKOS',      sub: 'Kos & properti', href: '/bakos',               color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)',   border: 'rgba(27,107,74,0.18)'  },
-  { icon: '💖', label: 'BADONASI',  sub: 'Donasi aktif',   href: '/fundraising',          color: '#EC4899', bg: 'rgba(236,72,153,0.07)',  border: 'rgba(236,72,153,0.2)'  },
+  { icon: '💖', label: 'BADONASI',  sub: 'Donasi aktif',   href: '/fundraising/badonasi',  color: '#EC4899', bg: 'rgba(236,72,153,0.07)',  border: 'rgba(236,72,153,0.2)'  },
 ]
 
 export default function ServicePills() {

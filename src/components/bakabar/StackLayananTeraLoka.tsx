@@ -46,7 +46,7 @@ const VARIANT_META: Record<ServiceVariant, {
   },
   badonasi: {
     label:    'BADONASI',
-    href:     '/fundraising',
+    href:     '/fundraising/badonasi',
     cta:      'Galang',
     icon:     '🤲',
     gradient: 'linear-gradient(135deg, #EC4899 0%, #BE185D 100%)',
