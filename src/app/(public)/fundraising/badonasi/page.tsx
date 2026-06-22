@@ -29,6 +29,7 @@ import {
   TrendingUp, ShoppingBag, ChevronDown, ArrowRight, Receipt,
 } from 'lucide-react'
 import MalukuUtaraMap from './_components/MalukuUtaraMap'
+import RunningCampaigns from './_components/RunningCampaigns'
 
 export const metadata: Metadata = {
   title: 'BADONASI — Torang Bantu Torang | TeraLoka Maluku Utara',
@@ -214,39 +215,8 @@ export default function BadonasiLandingPage() {
           </div>
         </section>
 
-        {/* ══ EMPTY STATE — jadilah pelopor ══ */}
-        <section className="py-12 md:py-14 px-6 bg-[#F1F5F9]">
-          <div className="max-w-[1200px] mx-auto grid lg:grid-cols-2 gap-8 items-center">
-            <div className="space-y-4">
-              <span className="text-[12px] font-extrabold tracking-[0.18em] text-[#EC4899] block">BELUM ADA CAMPAIGN — JADILAH YANG PERTAMA</span>
-              <h2 className="text-[clamp(26px,4vw,34px)] font-bold text-[#0F172A] leading-tight">Jadilah penggalang pertama di Maluku Utara.</h2>
-              <p className="text-[16px] text-[#64748B] leading-relaxed">Belum ada campaign yang jalan. Itu artinya satu hal: kursi pelopor masih kosong, dan bisa jadi milikmu. Satu langkah darimu bisa jadi awal kebaikan besar.</p>
-              <div className="flex flex-wrap gap-3 pt-1">
-                <Link href={CREATE_CAMPAIGN} className={`inline-flex items-center gap-2 text-white px-7 py-3.5 rounded-xl text-[15px] font-bold hover:scale-[1.03] transition ${SH_PINK}`} style={{ background: 'linear-gradient(135deg,#EC4899,#BE185D)' }}>
-                  <Heart size={19} /> Buat Campaign Pertama
-                </Link>
-                <a href="#cara" className={`inline-flex items-center gap-2 bg-white border border-[#E5E7EB] text-[#0F172A] px-6 py-3.5 rounded-xl text-[15px] font-bold hover:bg-[#F1F5F9] transition ${SH_CARD}`}>Cara Kerja</a>
-              </div>
-            </div>
-            {/* illustration card (imageless) */}
-            <div className={`bg-white rounded-[28px] border border-[#E5E7EB] overflow-hidden ${SH_SOFT}`}>
-              <div className="relative h-40 grid place-items-center" style={{ background: 'linear-gradient(140deg,#FDE3F0,#FAD1E6)' }}>
-                <Heart size={42} className="text-[#EC4899]/70" />
-                <span className="absolute top-4 left-4 inline-flex items-center gap-1.5 bg-white/90 text-[#BE185D] text-[10.5px] font-extrabold tracking-wide px-3 py-1.5 rounded-full">ILUSTRASI — BUKAN CAMPAIGN NYATA</span>
-              </div>
-              <div className="p-6">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F5138] bg-[#E7F2EC] px-2.5 py-1 rounded-full"><BadgeCheck size={13} /> Terverifikasi</span>
-                  <span className="text-[11px] text-[#64748B]">· Kesehatan</span>
-                </div>
-                <h4 className="font-sora font-bold text-[18px] text-[#0F172A] leading-snug">Begini campaign-mu nanti tampil</h4>
-                <p className="text-[13px] text-[#64748B] mt-2 leading-relaxed">Cerita yang menyentuh, progres terbuka, mudah dibagikan ke siapa saja.</p>
-                <div className="mt-4 h-2.5 rounded-full bg-[#F1F5F9] overflow-hidden"><div className="h-full w-[58%] rounded-full" style={{ background: 'linear-gradient(90deg,#EC4899,#BE185D)' }} /></div>
-                <div className="flex justify-between items-end mt-2"><span className="text-[12px] text-[#64748B]">Terkumpul</span><span className="inline-flex items-center gap-1 text-[12px] text-[#64748B]"><Users size={14} /> donatur</span></div>
-              </div>
-            </div>
-          </div>
-        </section>
+        {/* ══ CAMPAIGN SEDANG BERJALAN / EMPTY STATE (auto show-hide via fetch) ══ */}
+        <RunningCampaigns />
 
         {/* ══ FILOSOFI ══ */}
         <section className="py-12 md:py-14 px-6">
