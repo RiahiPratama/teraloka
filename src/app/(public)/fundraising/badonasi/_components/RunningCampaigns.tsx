@@ -80,9 +80,12 @@ export default async function RunningCampaigns() {
             </Link>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+          {/* HP: slider horizontal (swipe, hemat scroll) · Desktop: grid */}
+          <div className="service-scroll flex gap-4 overflow-x-auto pb-1 -mx-6 px-6 sm:mx-0 sm:px-0 sm:overflow-visible sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-5">
             {campaigns.map((c) => (
-              <CampaignCard key={c.id} campaign={c} variant="card" />
+              <div key={c.id} className="snap-start shrink-0 w-[80%] min-[480px]:w-[58%] sm:w-auto sm:shrink">
+                <CampaignCard campaign={c} variant="card" />
+              </div>
             ))}
           </div>
         </div>
