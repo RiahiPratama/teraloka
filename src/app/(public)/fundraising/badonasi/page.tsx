@@ -196,16 +196,16 @@ export default function BadonasiLandingPage() {
 
       <main>
         {/* ══ KATEGORI ══ */}
-        <section className="py-12 md:py-14 px-6">
+        <section className="py-9 md:py-11 px-6">
           <div className="max-w-[1200px] mx-auto">
             <div className="mb-7 max-w-[760px]">
               <span className="text-[12px] font-extrabold tracking-[0.18em] text-[#EC4899] mb-3 block">MULAI DARI HAL TERDEKAT</span>
               <h2 className="text-[clamp(26px,4vw,34px)] font-bold text-[#0F172A]">Apa saja yang bisa kamu galang?</h2>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {KATEGORI.map(({ Icon, t, d, bg, fg }) => (
-                <Link key={t} href={CREATE_CAMPAIGN} className={`group block bg-white rounded-[20px] p-6 border border-[#E5E7EB] transition hover:-translate-y-1.5 ${SH_CARD}`}>
-                  <div className="w-[52px] h-[52px] rounded-2xl grid place-items-center mb-4" style={{ background: bg, color: fg }}><Icon size={26} /></div>
+                <Link key={t} href={CREATE_CAMPAIGN} className={`group block bg-white rounded-2xl p-5 border border-[#E5E7EB] transition hover:-translate-y-1 ${SH_CARD}`}>
+                  <div className="w-11 h-11 rounded-xl grid place-items-center mb-3" style={{ background: bg, color: fg }}><Icon size={22} /></div>
                   <h3 className="font-sora font-bold text-[16px] text-[#0F172A] mb-1">{t}</h3>
                   <p className="text-[13px] text-[#64748B] leading-relaxed">{d}</p>
                   <p className="mt-3 inline-flex items-center gap-1 text-[12px] font-bold text-[#EC4899]">Galang untuk ini <ArrowRight size={13} className="transition group-hover:translate-x-0.5" /></p>
@@ -219,7 +219,7 @@ export default function BadonasiLandingPage() {
         <RunningCampaigns />
 
         {/* ══ FILOSOFI ══ */}
-        <section className="py-12 md:py-14 px-6">
+        <section className="py-9 md:py-11 px-6">
           <div className="max-w-[760px] mx-auto text-center">
             <span className="text-[12px] font-extrabold tracking-[0.18em] text-[#EC4899] mb-4 block">FILOSOFI KAMI</span>
             <h2 className="text-[clamp(26px,4vw,38px)] font-bold leading-[1.18] text-[#0F172A]">Modernitas yang berakar<br />pada <span className="text-[#EC4899]">tradisi torang.</span></h2>
@@ -229,16 +229,16 @@ export default function BadonasiLandingPage() {
         </section>
 
         {/* ══ CARA KERJA ══ */}
-        <section id="cara" className="py-12 md:py-14 px-6 bg-[#F1F5F9] scroll-mt-24">
+        <section id="cara" className="py-9 md:py-11 px-6 bg-[#F1F5F9] scroll-mt-24">
           <div className="max-w-[1200px] mx-auto">
             <div className="text-center max-w-[760px] mx-auto mb-8">
               <span className="text-[12px] font-extrabold tracking-[0.18em] text-[#EC4899] mb-3 block">CARA KERJA</span>
               <h2 className="text-[clamp(26px,4vw,34px)] font-bold text-[#0F172A]">Tiga langkah, semua terbuka.</h2>
             </div>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-3 gap-5">
               {STEPS.map(({ Icon, n, t, d }) => (
-                <div key={n} className={`relative bg-white rounded-[24px] p-7 border border-[#E5E7EB] ${SH_CARD}`}>
-                  <div className="w-14 h-14 rounded-2xl grid place-items-center mb-5 bg-[#FDF2F8] text-[#EC4899]"><Icon size={26} /></div>
+                <div key={n} className={`relative bg-white rounded-[20px] p-6 border border-[#E5E7EB] ${SH_CARD}`}>
+                  <div className="w-12 h-12 rounded-2xl grid place-items-center mb-4 bg-[#FDF2F8] text-[#EC4899]"><Icon size={24} /></div>
                   <h3 className="font-sora font-bold text-[18px] text-[#0F172A] mb-2">{t}</h3>
                   <p className="text-[14px] text-[#64748B] leading-relaxed">{d}</p>
                   <span className="font-sora absolute -top-3.5 -right-3.5 w-9 h-9 rounded-full bg-white border-2 border-[#E5E7EB] grid place-items-center font-bold text-[#EC4899] text-[14px]">{n}</span>
@@ -249,7 +249,7 @@ export default function BadonasiLandingPage() {
         </section>
 
         {/* ══ TRANSPARANSI (contoh) ══ */}
-        <section id="transparansi" className="py-12 md:py-14 px-6 scroll-mt-24">
+        <section id="transparansi" className="py-9 md:py-11 px-6 scroll-mt-24">
           <div className="max-w-[1100px] mx-auto">
             <div className="text-center max-w-[720px] mx-auto mb-9">
               <span className="inline-flex items-center gap-2 bg-[#FDF2F8] text-[#BE185D] px-4 py-1.5 rounded-full text-[11px] font-extrabold tracking-[0.04em]">CONTOH TRANSPARANSI · DEMO</span>
@@ -351,16 +351,16 @@ export default function BadonasiLandingPage() {
         </section>
 
         {/* ══ TRUST PROOF ══ */}
-        <section className="py-12 md:py-14 px-6 bg-[#F1F5F9]">
+        <section className="py-9 md:py-11 px-6 bg-[#F1F5F9]">
           <div className="max-w-[1200px] mx-auto">
             <div className="text-center max-w-[760px] mx-auto mb-8">
               <span className="text-[12px] font-extrabold tracking-[0.18em] text-[#EC4899] mb-3 block">KENAPA PERCAYA SEJAK HARI PERTAMA</span>
               <h2 className="text-[clamp(26px,4vw,34px)] font-bold text-[#0F172A]">Bukan ramai dulu baru bisa dipercaya.</h2>
             </div>
-            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {TRUST.map(({ Icon, t, d }) => (
-                <div key={t} className={`bg-white rounded-[20px] p-6 border border-[#E5E7EB] ${SH_CARD}`}>
-                  <div className="w-12 h-12 rounded-2xl grid place-items-center mb-4 bg-[#FDF2F8] text-[#EC4899]"><Icon size={24} /></div>
+                <div key={t} className={`bg-white rounded-2xl p-5 border border-[#E5E7EB] ${SH_CARD}`}>
+                  <div className="w-11 h-11 rounded-xl grid place-items-center mb-3 bg-[#FDF2F8] text-[#EC4899]"><Icon size={22} /></div>
                   <h3 className="font-sora font-bold text-[15.5px] text-[#0F172A] mb-1.5">{t}</h3>
                   <p className="text-[13px] text-[#64748B] leading-relaxed">{d}</p>
                 </div>
@@ -378,7 +378,7 @@ export default function BadonasiLandingPage() {
         </section>
 
         {/* ══ DARI KITA UNTUK KITA ══ */}
-        <section className="py-12 md:py-14 px-6 text-white relative overflow-hidden" style={{ background: '#0F5138' }}>
+        <section className="py-9 md:py-11 px-6 text-white relative overflow-hidden" style={{ background: '#0F5138' }}>
           <div className="absolute inset-0 opacity-10" style={{ backgroundImage: 'radial-gradient(circle at 2px 2px,#fff 1px,transparent 0)', backgroundSize: '28px 28px' }} />
           <div className="max-w-[1200px] mx-auto relative grid lg:grid-cols-2 gap-12 items-center">
             <div>
@@ -405,7 +405,7 @@ export default function BadonasiLandingPage() {
         </section>
 
         {/* ══ FAQ (semua tertutup) ══ */}
-        <section id="faq" className="py-12 md:py-14 px-6 scroll-mt-24">
+        <section id="faq" className="py-9 md:py-11 px-6 scroll-mt-24">
           <div className="max-w-[1200px] mx-auto">
             <div className="text-center max-w-[760px] mx-auto mb-8">
               <span className="text-[12px] font-extrabold tracking-[0.18em] text-[#EC4899] mb-3 block">PERTANYAAN UMUM</span>
@@ -426,7 +426,7 @@ export default function BadonasiLandingPage() {
         </section>
 
         {/* ══ FINAL CTA ══ */}
-        <section className="px-6 py-12 md:py-14">
+        <section className="px-6 py-9 md:py-11">
           <div className={`max-w-[1200px] mx-auto rounded-[34px] p-8 md:p-12 text-center relative overflow-hidden ${SH_PINK}`} style={{ background: 'linear-gradient(135deg,#EC4899 0%,#BE185D 60%,#9D174D 100%)' }}>
             <div className="absolute top-0 right-0 w-72 h-72 bg-white/12 rounded-full -mr-20 -mt-20 blur-3xl" />
             <div className="absolute bottom-0 left-0 w-72 h-72 bg-white/[.08] rounded-full -ml-20 -mb-20 blur-3xl" />
