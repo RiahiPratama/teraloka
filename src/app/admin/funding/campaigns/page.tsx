@@ -61,7 +61,7 @@ export default function AdminCampaignsPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   // ── URL state ──
   const statusParam = searchParams.get('status');
@@ -102,7 +102,7 @@ export default function AdminCampaignsPage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [drawerOpen, setDrawerOpen] = useState(false);
 
-  const [modal, setModal] = useState<{ type: 'approve' | 'reject' | 'detail'; campaign: Campaign } | null>(null);
+  const [modal, setModal] = useState<{ type: 'approve' | 'reject' | 'detail' | 'recompute'; campaign: Campaign } | null>(null);
   // [CAMPAIGN-DETAIL-DRAWER] kampanye yang dibuka di drawer detail (null = tertutup)
   const [detailCampaign, setDetailCampaign] = useState<Campaign | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -414,6 +414,32 @@ export default function AdminCampaignsPage() {
     } finally { setSubmitting(false); }
   }
 
+  // [RECOMPUTE-SCORE] Sinkronkan papan skor (collected_amount + donor_count) dari ledger.
+  // Non-destruktif (NOL uang/jurnal/status). Endpoint super_admin (gate di BE). BASE: API_URL.
+  async function handleRecompute(c: Campaign) {
+    const tk = localStorage.getItem('tl_token');
+    if (!tk) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_URL}/funding/admin/campaigns/${c.id}/recompute`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${tk}`, 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (!res.ok || !json.success) throw new Error(json?.error?.message ?? 'Gagal sinkronkan papan skor');
+      const data = json.data ?? {};
+      // Update drawer (kalau masih kebuka) → angka baru langsung tampil.
+      setDetailCampaign(prev => prev && prev.id === c.id
+        ? { ...prev, collected_amount: data.collected_amount ?? prev.collected_amount, donor_count: data.donor_count ?? prev.donor_count }
+        : prev);
+      showToast(true, 'Papan skor disinkronkan');
+      setModal(null);
+      fetchCampaigns();
+    } catch (err: any) {
+      showToast(false, err.message);
+    } finally { setSubmitting(false); }
+  }
+
   function handleBulkComplete() {
     fetchCampaigns();
     fetchStatusCounts();
@@ -664,6 +690,7 @@ export default function AdminCampaignsPage() {
                 {modal.type === 'approve' && '✓ Approve Kampanye'}
                 {modal.type === 'reject'  && '✗ Tolak Kampanye'}
                 {modal.type === 'detail'  && 'Detail Kampanye'}
+                {modal.type === 'recompute' && '🔄 Sinkronkan Papan Skor'}
               </h3>
               <button onClick={() => !submitting && setModal(null)}
                 style={{ background: 'transparent', border: 'none', color: t.textDim, cursor: 'pointer', padding: 4 }}>
@@ -875,6 +902,33 @@ export default function AdminCampaignsPage() {
                 </>
               )}
 
+              {/* [RECOMPUTE-SCORE] Konfirmasi ringan, non-destruktif (tanpa type-to-confirm). */}
+              {modal.type === 'recompute' && (
+                <>
+                  <div style={{
+                    background: t.navHover, border: `1px solid ${t.sidebarBorder}`,
+                    borderRadius: 12, padding: 14, marginBottom: 16,
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                  }}>
+                    <div style={{
+                      width: 32, height: 32, borderRadius: 8, background: t.accent, color: '#fff',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, fontSize: 16,
+                    }}>🔄</div>
+                    <div style={{ fontSize: 12, color: t.textPrimary, lineHeight: 1.5 }}>
+                      Sinkronkan papan skor <strong>{modal.campaign.title}</strong>? Re-hitung dana terkumpul &amp; jumlah donatur dari ledger. <strong>Tidak mengubah uang, jurnal, atau status.</strong>
+                    </div>
+                  </div>
+                  <div style={{ marginTop: 20, display: 'flex', gap: 12 }}>
+                    <button onClick={() => setModal(null)} disabled={submitting}
+                      style={cancelBtnStyle(t)}>Batal</button>
+                    <button onClick={() => handleRecompute(modal.campaign)} disabled={submitting}
+                      style={primaryBtnStyle(t.accent, t.accentDim, submitting)}>
+                      {submitting ? 'Menyinkronkan...' : '🔄 Sinkronkan'}
+                    </button>
+                  </div>
+                </>
+              )}
+
               {/* [CAMPAIGN-DETAIL-DRAWER] Konten 'detail' dipindah ke drawer kanan (di bawah). */}
             </div>
           </div>
@@ -920,6 +974,19 @@ export default function AdminCampaignsPage() {
                 </>
               )}
             </div>
+            {/* [RECOMPUTE-SCORE] Alat operasional permanen — super_admin, selalu tampil. */}
+            {user?.role === 'super_admin' && (
+              <button
+                onClick={() => setModal({ type: 'recompute', campaign: detailCampaign })}
+                style={{
+                  width: '100%', marginTop: 10, padding: '12px 16px', borderRadius: 12,
+                  border: `1px solid ${t.accent}`, background: t.navHover, color: t.accent,
+                  fontWeight: 600, fontSize: 13, cursor: 'pointer',
+                  display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                }}>
+                🔄 Sinkronkan Papan Skor
+              </button>
+            )}
           </div>
         )}
       </CampaignDetailDrawer>
