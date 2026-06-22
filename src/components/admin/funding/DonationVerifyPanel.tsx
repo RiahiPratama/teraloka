@@ -17,7 +17,7 @@ import {
   ArrowLeft, Loader2, CheckCircle2, XCircle, AlertCircle,
   UserRound, Calendar, Phone, Hash, MessageCircle, ImageIcon,
   ExternalLink, ShieldCheck, Calculator, TrendingDown, TrendingUp,
-  Copy, Check, Landmark, ChevronDown,
+  Copy, Check, Landmark, ChevronDown, RotateCcw,
 } from 'lucide-react';
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1';
@@ -172,6 +172,8 @@ export default function DonationVerifyPanel({
   // [B1/E2-UI] Batalkan donasi terverifikasi (super_admin) — type-to-confirm display_id.
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelConfirmText, setCancelConfirmText] = useState('');
+  // [B1-RESTORE-UI] Kembalikan donasi rejected → verified (super_admin). Non-destruktif.
+  const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
@@ -274,6 +276,33 @@ export default function DonationVerifyPanel({
         } else {
           setActionError(json?.error?.message || 'Gagal memproses.');
         }
+      }
+    } catch {
+      setActionError('Koneksi bermasalah.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // [B1-RESTORE-UI] Kembalikan donasi rejected → verified (super_admin). Endpoint baru (bukan /verify).
+  // Backend guard rejected-only + Branch A (NO_REVERSAL → pesan "pakai verify normal").
+  async function handleRestore() {
+    if (!token || !donation) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const res = await fetch(`${API}/funding/admin/donations/${id}/restore`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setShowRestoreModal(false);
+        setActionSuccess('✅ Donasi dikembalikan.');
+        setTimeout(() => onDone?.(), 1500);
+      } else {
+        // NOT_REJECTED / NO_REVERSAL (rejected-dari-pending) → pesan dari backend, jangan silent.
+        setActionError(json?.error?.message || 'Gagal mengembalikan donasi.');
       }
     } catch {
       setActionError('Koneksi bermasalah.');
@@ -558,6 +587,30 @@ export default function DonationVerifyPanel({
                 style={{ background: t.danger, color: '#fff' }}
               >
                 <XCircle size={16} /> Batalkan (Super Admin)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [B1-RESTORE-UI-SECTION] Kembalikan donasi rejected → verified — super_admin only (accent, non-destruktif) */}
+      {isRejected && user.role === 'super_admin' && (
+        <div className="rounded-2xl p-4 mb-4" style={{ background: t.card, border: `1px solid ${t.accent}` }}>
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center shrink-0" style={{ background: t.cardInner }}>
+              <RotateCcw size={18} style={{ color: t.accent }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold mb-1" style={{ color: t.accent }}>Kembalikan Donasi (Super Admin)</p>
+              <p className="text-xs leading-relaxed mb-3" style={{ color: t.textMuted }}>
+                Koreksi salah-reject: <strong style={{ color: t.textPrimary }}>aktifkan lagi jurnal asli</strong> &amp; naikkan papan skor (collected &amp; donor). Status kembali <strong style={{ color: t.textPrimary }}>terverifikasi</strong>.
+              </p>
+              <button
+                onClick={() => { setActionError(''); setShowRestoreModal(true); }}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-opacity hover:opacity-90"
+                style={{ background: t.accent, color: '#fff' }}
+              >
+                <RotateCcw size={16} /> Kembalikan Donasi
               </button>
             </div>
           </div>
@@ -1202,6 +1255,43 @@ export default function DonationVerifyPanel({
                 style={{ background: t.danger, color: '#fff' }}
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Batalkan Permanen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [B1-RESTORE-UI-MODAL] Konfirmasi kembalikan donasi (super_admin) — non-destruktif, TANPA type-to-confirm */}
+      {showRestoreModal && donation && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => !submitting && setShowRestoreModal(false)}>
+          <div className="rounded-2xl max-w-md w-full p-6" style={{ background: t.card, border: `1px solid ${t.cardBorder}` }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: t.cardInner }}>
+                <RotateCcw size={22} style={{ color: t.accent }} />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: t.textPrimary }}>Kembalikan Donasi</h3>
+            </div>
+            <p className="text-sm mb-3 leading-relaxed" style={{ color: t.textMuted }}>
+              Kembalikan donasi <strong style={{ color: t.textPrimary }}>{donation.display_id ?? donation.donation_code}</strong> jadi terverifikasi? Jurnal asli diaktifkan lagi &amp; papan skor naik.
+            </p>
+            {actionError && <p className="text-xs mb-2" style={{ color: t.danger }}>{actionError}</p>}
+            <div className="flex gap-2 mt-2">
+              <button
+                onClick={() => setShowRestoreModal(false)}
+                disabled={submitting}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 hover:opacity-80"
+                style={{ background: t.cardInner, color: t.textPrimary }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={() => handleRestore()}
+                disabled={submitting}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-90"
+                style={{ background: t.accent, color: '#fff' }}
+              >
+                {submitting ? <><Loader2 size={16} className="animate-spin" /> Mengembalikan...</> : 'Kembalikan'}
               </button>
             </div>
           </div>
