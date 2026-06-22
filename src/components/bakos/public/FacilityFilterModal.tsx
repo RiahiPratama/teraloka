@@ -61,7 +61,7 @@ export function FacilityFilterModal({ open, onClose, value, onApply }: FacilityF
       <DialogBody>
         {/* INTRO + hairline. rgba eksplisit = dijamin keliatan. pb14/mb14 = jarak pas. */}
         <p
-          className="text-sm leading-relaxed text-text-secondary"
+          className="text-sm leading-relaxed text-gray-700"
           style={{
             paddingBottom: 14,
             marginBottom: 14,
@@ -74,7 +74,7 @@ export function FacilityFilterModal({ open, onClose, value, onApply }: FacilityF
         <div className="flex flex-col gap-6">
           {FAC_GROUPS.map((g) => (
             <div key={g.title}>
-              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-text-muted">
+              <p className="mb-3 text-xs font-bold uppercase tracking-wide text-gray-500">
                 {g.title}
               </p>
               <div className="flex flex-wrap gap-2">
