@@ -376,7 +376,7 @@ export default function CampaignInfoContent({ children }: { children?: ReactNode
         {/* Footer */}
         <p className="text-center text-xs text-gray-400 pb-4">
           Ada pertanyaan?{' '}
-          <a href="https://wa.me/6281234567890" target="_blank" rel="noopener noreferrer"
+          <a href="https://wa.me/6281289539452" target="_blank" rel="noopener noreferrer"
             className="text-[#003526] font-semibold hover:underline">
             Hubungi Tim TeraLoka →
           </a>
