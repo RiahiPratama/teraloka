@@ -17,6 +17,8 @@
 // ════════════════════════════════════════════════════════════════
 
 import { useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { Megaphone } from 'lucide-react';
 // SESI 5E Phase 3c: Kumparan-style disclosure label
 import { getAdLabel } from '@/lib/ads/getAdLabel';
 // SESI 11 Batch 8 (31 Mei 2026): Banner Motion (webM fill)
@@ -98,8 +100,48 @@ export default function DCATopLeaderboard() {
   // loading / kosong / ada-ad → SELALU 252px. Zero shift. (Baris lama
   // `if (loading || !ad) return null` DIHAPUS — dia short-circuit duluan
   // bikin reserve gak pernah jalan.)
-  if (loading || !ad) {
+  // Loading → reserve kosong (anti-CLS). JANGAN gabung dgn !ad: placeholder
+  // saat loading bikin flash lalu ketimpa ad. Reserve invisible aja.
+  if (loading) {
     return <div className="block w-full h-[220px] mb-8" aria-hidden="true" />;
+  }
+
+  // Belum ada ad → placeholder "Pasang Iklan" (corong pengiklan, bukan kotak
+  // putih melompong). Tinggi PERSIS h-[220px]+mb-8 = jaga reserve zero-CLS.
+  // Gaya identik AdSidebarSlug empty-state, tapi layout LANDSCAPE (row).
+  if (!ad) {
+    return (
+      <Link
+        href="/iklan"
+        aria-label="Pasang iklan di BAKABAR"
+        className="flex items-center gap-4 sm:gap-6 w-full h-[220px] mb-8 rounded-xl border border-dashed px-5 sm:px-10 transition-all hover:shadow-md"
+        style={{ borderColor: '#9DD3C0', background: 'linear-gradient(to bottom right, #F0FAF6, #E6F4EF)' }}
+      >
+        <div
+          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-full flex items-center justify-center"
+          style={{ background: '#003526' }}
+        >
+          <Megaphone size={28} strokeWidth={2} color="#fff" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p
+            className="text-[18px] sm:text-[24px] font-extrabold text-[#003526] leading-tight"
+            style={{ fontFamily: 'var(--font-lora), Georgia, serif' }}
+          >
+            Pasang Iklan di BAKABAR
+          </p>
+          <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1 leading-snug">
+            Jangkau pembaca se-Maluku Utara
+          </p>
+        </div>
+        <span
+          className="shrink-0 inline-flex items-center gap-1 text-[12px] sm:text-[14px] font-extrabold text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-md"
+          style={{ background: '#003526' }}
+        >
+          Pasang Sekarang →
+        </span>
+      </Link>
+    );
   }
 
   const isDCA = Array.isArray(ad.creative_frames) && ad.creative_frames.length >= 2;
