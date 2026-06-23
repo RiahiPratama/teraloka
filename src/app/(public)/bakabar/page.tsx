@@ -37,9 +37,8 @@ import HeroWithSidebar from '@/components/bakabar/HeroWithSidebar';
 import DCASkyscraper from '@/components/bakabar/DCASkyscraper';
 import DCATopLeaderboard from '@/components/bakabar/DCATopLeaderboard';
 
-import { HERO_CAROUSEL_SLIDES, TERPOPULER_LIST } from '@/components/bakabar/region-data';
 import type { HeroSlide, DummyArticle } from '@/components/bakabar/region-data';
-import { resolveNav, fetchHeroArticles, fetchTerpopuler, toCarouselArticle } from '@/components/bakabar/bakabar-fetch';
+import { resolveNav, fetchHeroResult, fetchTerpopulerResult, toCarouselArticle } from '@/components/bakabar/bakabar-fetch';
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -75,26 +74,27 @@ export default async function BakabarPage({
 
   // 🔑 await hero + terpopuler (PARALEL) → flush cepat. Below-fold di-stream.
   // Terpopuler timeout 3.5s < hero 9s → gak nambah wall-clock worst-case.
-  const [heroRaw, terpopulerFetched] = await Promise.all([
-    fetchHeroArticles(type, location, q),
-    fetchTerpopuler(5),
+  const [heroRes, terpopulerRes] = await Promise.all([
+    fetchHeroResult(type, location, q),
+    fetchTerpopulerResult(5),
   ]);
-  // 🛡️ Fallback statis kalau API kosong/gagal/521 → sidebar GAK PERNAH kosong.
-  const terpopuler = terpopulerFetched.length ? terpopulerFetched : TERPOPULER_LIST;
 
-  // Hero slide[idx] di-override dgn artikel asli kalau ada; sisanya fallback
-  // ke HERO_CAROUSEL_SLIDES (statis) → hero TIDAK PERNAH kosong.
-  const HERO_COUNT = HERO_CAROUSEL_SLIDES.length;
-  const slides: HeroSlide[] = HERO_CAROUSEL_SLIDES.map((slide, idx) => {
-    const heroReal = heroRaw[idx];
-    const secStart = HERO_COUNT + idx * 2;
-    const secReal = heroRaw.slice(secStart, secStart + 2).map(toCarouselArticle);
-    return {
-      ...slide,
-      hero: heroReal ? toCarouselArticle(heroReal) : slide.hero,
-      secondary: secReal.length === 2 ? (secReal as [DummyArticle, DummyArticle]) : slide.secondary,
-    };
-  });
+  // 🔴 NO MOCK. Slides DIBANGUN dari artikel ASLI saja (chunk 3 = 1 hero + 2 mini).
+  // DB kosong → slides [] → HeroWithSidebar render empty-state JUJUR (bukan berita palsu).
+  const heroArts = heroRes.data.map(toCarouselArticle);
+  const slides: HeroSlide[] = [];
+  for (let i = 0; i < heroArts.length; i += 3) {
+    const hero = heroArts[i];
+    if (!hero) break;
+    const secondary = heroArts.slice(i + 1, i + 3);
+    slides.push({ hero, secondary: secondary as [DummyArticle, DummyArticle] });
+  }
+
+  // Terpopuler ASLI (boleh kosong). State error/empty diteruskan ke HeroWithSidebar.
+  const terpopuler = terpopulerRes.data;
+  // ok:false = API error/521/timeout → empty-state LEMBUT (nada netral, bukan "kosong").
+  const heroError = !heroRes.ok;
+  const terpopulerError = !terpopulerRes.ok;
 
   // PERF (WS-5c): preload gambar LCP (hero slide-0). React 19 emit
   // <link rel=preload as=image fetchpriority=high> ke <head> sebelum render.
@@ -121,7 +121,12 @@ export default async function BakabarPage({
             <DCATopLeaderboard />
 
             {/* ── HERO + ADS sidebar — DI LUAR Suspense → FLUSH DULUAN ── */}
-            <HeroWithSidebar slides={slides} terpopuler={terpopuler} />
+            <HeroWithSidebar
+              slides={slides}
+              terpopuler={terpopuler}
+              heroError={heroError}
+              terpopulerError={terpopulerError}
+            />
 
             {/* ── BELOW-FOLD — STREAM nyusul (region per-boundary) ────── */}
             <Suspense fallback={<BelowFoldFallback />}>

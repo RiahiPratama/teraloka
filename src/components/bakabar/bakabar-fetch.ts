@@ -151,6 +151,55 @@ export async function fetchTerpopuler(limit: number): Promise<DummyArticle[]> {
   }
 }
 
+// ── Result-shaped fetch (BEDAIN sukses-kosong vs error) ─────────
+// fetchHeroArticles/fetchTerpopuler lama collapse semua ke [] → mustahil bedain
+// "DB kosong (sukses)" vs "API error/521". Fungsi baru ini balikin { ok, data }:
+//   ok:true  = res.ok && data.success (data BOLEH kosong → empty-state JUJUR)
+//   ok:false = throw/timeout/!res.ok/!data.success (error → empty-state LEMBUT)
+// Dipakai page.tsx; fetchList lama DIBIARKAN (RegionServer pakai, jangan ubah).
+export type FetchResult<T> = { ok: boolean; data: T[] };
+
+export async function fetchHeroResult(
+  type: string,
+  location: string,
+  q: string,
+): Promise<FetchResult<any>> {
+  const params = new URLSearchParams();
+  if (type === 'viral') params.set('type', 'viral');
+  else if (type === 'nasional') params.set('type', 'nasional');
+  if (location !== 'all') params.set('location', location);
+  if (q) params.set('q', q);
+  try {
+    const res = await fetchWithTimeout(
+      `${API}/content/articles?${params.toString()}&limit=12`,
+      FETCH_OPTS,
+      TIMEOUT_ARTICLE_MS, // konten inti → 9s (§2)
+    );
+    if (!res.ok) return { ok: false, data: [] };
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return { ok: false, data: [] };
+    return { ok: true, data: data.data };
+  } catch {
+    return { ok: false, data: [] };
+  }
+}
+
+export async function fetchTerpopulerResult(limit: number): Promise<FetchResult<DummyArticle>> {
+  try {
+    const res = await fetchWithTimeout(
+      `${API}/content/articles?sort=popular&limit=${limit}`,
+      FETCH_OPTS,
+      TIMEOUT_SECONDARY_MS,
+    );
+    if (!res.ok) return { ok: false, data: [] };
+    const data = await res.json();
+    if (!data?.success || !Array.isArray(data.data)) return { ok: false, data: [] };
+    return { ok: true, data: data.data.map(toCarouselArticle) };
+  } catch {
+    return { ok: false, data: [] };
+  }
+}
+
 // Query per region: nasional → type, region geografis → location.
 export function regionQuery(slug: string): string {
   return slug === 'nasional' ? 'type=nasional' : `location=${encodeURIComponent(slug)}`;

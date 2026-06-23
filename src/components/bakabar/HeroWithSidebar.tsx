@@ -24,7 +24,34 @@ import AdSidebarSlug from '@/components/public/ads/AdSidebarSlug';
 type Props = {
   slides: HeroSlide[];
   terpopuler: DummyArticle[];
+  /** true = API error/521/timeout (BUKAN sekadar kosong) → empty-state nada netral. */
+  heroError?: boolean;
+  terpopulerError?: boolean;
 };
+
+// ─── Empty-state Hero (mirror gaya EmptyRegion: dashed, gray-50, Lora) ──
+// DB kosong (sukses) → "belum ada"; API error → nada lembut "sedang menyiapkan".
+// 🔴 NO mock article, NO link bohong.
+function EmptyHero({ error }: { error?: boolean }) {
+  return (
+    <div
+      className="rounded-lg border border-dashed border-gray-300 bg-gray-50 flex flex-col items-center justify-center text-center px-6"
+      style={{ minHeight: 360 }}
+    >
+      <p
+        className="text-[17px] font-extrabold text-gray-700"
+        style={{ fontFamily: "'Lora', Georgia, serif" }}
+      >
+        {error ? 'Sedang menyiapkan halaman' : 'Belum ada artikel utama'}
+      </p>
+      <p className="text-[13px] text-gray-400 mt-1.5 max-w-sm leading-relaxed">
+        {error
+          ? 'Konten sedang dimuat ulang. Cek lagi sebentar lagi, ya.'
+          : 'Tim redaksi sedang menyiapkan liputan. Konten segera hadir.'}
+      </p>
+    </div>
+  );
+}
 
 const THUMB_BG: Record<string, string> = {
   'thumb-1': 'linear-gradient(135deg, #be123c, #881337)',
@@ -165,7 +192,7 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
 }
 
 // ─── Main HeroWithSidebar ─────────────────────────────────────
-export default function HeroWithSidebar({ slides, terpopuler }: Props) {
+export default function HeroWithSidebar({ slides, terpopuler, heroError, terpopulerError }: Props) {
   const [currentSlide, setCurrentSlide] = useState(0);
   // Hydration-safe time: waktu relatif baru dihitung setelah mount (client).
   const [mounted, setMounted] = useState(false);
@@ -184,6 +211,10 @@ export default function HeroWithSidebar({ slides, terpopuler }: Props) {
       {/* ─── LEFT: Carousel (entire Hero area) ──────────────── */}
       <div className="min-w-0 relative">
 
+        {slides.length === 0 ? (
+          <EmptyHero error={heroError} />
+        ) : (
+        <>
         {/* Slider viewport */}
         <div className="overflow-hidden">
           <div className="flex transition-transform duration-400 ease-out"
@@ -249,6 +280,8 @@ export default function HeroWithSidebar({ slides, terpopuler }: Props) {
             />
           ))}
         </div>
+        </>
+        )}
       </div>
 
       {/* ─── RIGHT: Sidebar 320px (STATIC, gak ikut slide) ──── */}
@@ -267,7 +300,15 @@ export default function HeroWithSidebar({ slides, terpopuler }: Props) {
             <TrendingUp size={13} strokeWidth={2.4} />
             Terpopuler
           </p>
-          {terpopuler.slice(0, 5).map((a, i) => (
+          {terpopuler.length === 0 ? (
+            <p className="text-[12px] text-gray-400 py-2 leading-relaxed"
+              style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
+              {terpopulerError
+                ? 'Sedang menyiapkan, cek lagi nanti.'
+                : 'Belum ada artikel populer.'}
+            </p>
+          ) : (
+            terpopuler.slice(0, 5).map((a, i) => (
             <Link key={a.id} href={`/bakabar/${a.slug}`}
               className="flex items-start gap-2.5 py-2.5 last:border-0 group"
               style={{ borderBottom: '1px solid #D6E4F2' }}>
@@ -280,7 +321,8 @@ export default function HeroWithSidebar({ slides, terpopuler }: Props) {
                 {a.title}
               </p>
             </Link>
-          ))}
+            ))
+          )}
         </div>
 
         {/* BALAPOR CTA */}
