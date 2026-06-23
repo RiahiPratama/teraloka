@@ -59,7 +59,7 @@ export interface PortalGroup {
 
 /* ─── Role config — semantic mapping ke service colors ─── */
 
-interface RoleConfig {
+export interface RoleConfig {
   label: string;
   /** Service key untuk badge color. undefined = neutral gray (service_user) */
   service: ServiceKey | null;
@@ -128,6 +128,14 @@ export const ROLE_CONFIG: Record<UserRole, RoleConfig> = {
     isAdmin: false,
   },
 };
+
+/* ─── Safe lookup — role di luar UserRole union (data legacy / role backend baru
+   belum di-sync ke FE). Fallback neutral + label = RAW role → GAK crash + role-nya
+   KELIHATAN (bukan ilang diam-diam) → admin sadar perlu nambah ke ROLE_CONFIG. ─── */
+export function getRoleConfig(role: string): RoleConfig {
+  const c = (ROLE_CONFIG as Record<string, RoleConfig | undefined>)[role];
+  return c ?? { label: role, service: null, portals: [], isAdmin: false };
+}
 
 /* ─── Role filter options untuk dropdown ─── */
 

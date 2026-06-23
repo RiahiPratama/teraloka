@@ -33,7 +33,7 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { UserAvatar } from './user-avatar';
 import {
-  ROLE_CONFIG,
+  getRoleConfig,
   INVITABLE_ROLES,
   formatPhone,
   lastSeen,
@@ -62,7 +62,7 @@ export interface UserRowProps {
 /* ─── Role Badge ─── */
 
 function RoleBadge({ role }: { role: UserRole }) {
-  const config = ROLE_CONFIG[role];
+  const config = getRoleConfig(role);
 
   // Special cases untuk role yang service=null (super_admin, service_user)
   if (role === 'super_admin') {
@@ -109,7 +109,7 @@ function RoleBadge({ role }: { role: UserRole }) {
 /* ─── Portal Group Pills ─── */
 
 function PortalPills({ role }: { role: UserRole }) {
-  const config = ROLE_CONFIG[role];
+  const config = getRoleConfig(role);
   return (
     <div className="flex flex-wrap gap-1">
       {config.portals.map((p) => (
@@ -335,7 +335,7 @@ function RoleSelect({
   user: User;
   onChangeRole: (user: User, newRole: UserRole) => void;
 }) {
-  const config = ROLE_CONFIG[user.role];
+  const config = getRoleConfig(user.role);
 
   // Determine badge color for select bg (mirror RoleBadge logic)
   const isSuperAdmin = user.role === 'super_admin';
