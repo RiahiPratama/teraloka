@@ -10,7 +10,7 @@
 import { useState, useEffect, useContext } from 'react';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
-import { formatRupiah } from '@/utils/format';
+import { formatRupiah, normalizeWaNumber } from '@/utils/format';
 import { AdminThemeContext, type AdminTheme } from '@/components/admin/AdminThemeContext';
 import TrialBalanceTable, { type TrialBalanceSection } from '@/components/admin/funding/TrialBalanceTable';
 import {
@@ -125,6 +125,11 @@ interface DonationDetail {
     target_amount: number;
     collected_amount: number;
   };
+  // [PENGGALANG-DRAWER] top-level dari endpoint /admin/donations/:id.
+  // penggalang_name = creator user (BUKAN campaigns.partner_name = lembaga). null = creator_id kosong (seed/lama).
+  partner_phone?: string | null;
+  partner_last_seen_at?: string | null;
+  penggalang_name?: string | null;
 }
 
 function formatFullDate(date: string): string {
@@ -750,6 +755,50 @@ export default function DonationVerifyPanel({
             <span className="text-xs" style={{ color: t.textMuted }}>{formatFullDate(donation.created_at)}</span>
           </div>
         </div>
+      </div>
+
+      {/* [PENGGALANG-DRAWER] Penggalang (pembuat campaign) — beda dari Donor & dari partner_name (lembaga).
+          Null-safe: creator_id kosong (seed Posko Gempa dll) → "Penggalang tidak tercatat", gak crash/undefined. */}
+      <div className="rounded-2xl p-4 mb-4" style={card}>
+        <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: t.textMuted }}>Penggalang</p>
+        {(donation.penggalang_name || donation.partner_phone) ? (
+          <>
+            <div className="flex items-center gap-2.5 mb-1.5">
+              <UserRound size={15} style={{ color: t.textDim }} className="shrink-0" />
+              <p className="text-sm font-bold truncate" style={{ color: t.textPrimary }}>
+                {donation.penggalang_name ?? '—'}
+              </p>
+            </div>
+            {donation.partner_phone ? (
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Phone size={15} style={{ color: t.textDim }} className="shrink-0" />
+                  <p className="text-sm font-mono" style={{ color: t.textMuted }}>{maskPhone(donation.partner_phone)}</p>
+                </div>
+                <a
+                  href={`https://wa.me/${normalizeWaNumber(donation.partner_phone)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title="Hubungi penggalang via WhatsApp"
+                  className="inline-flex items-center gap-1.5 shrink-0"
+                  style={{
+                    padding: '6px 12px', borderRadius: 8, whiteSpace: 'nowrap',
+                    background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                    color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                    boxShadow: '0 2px 8px rgba(18,140,126,0.35)',
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                  Hubungi
+                </a>
+              </div>
+            ) : (
+              <p className="text-xs" style={{ color: t.textDim }}>Nomor HP penggalang tidak tersedia.</p>
+            )}
+          </>
+        ) : (
+          <p className="text-sm" style={{ color: t.textDim }}>Penggalang tidak tercatat.</p>
+        )}
       </div>
 
       {/* Rincian Transfer — struk */}
