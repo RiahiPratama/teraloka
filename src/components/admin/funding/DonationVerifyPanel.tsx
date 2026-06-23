@@ -347,6 +347,36 @@ export default function DonationVerifyPanel({
     }
   }
 
+  // [FITUR-B] Resolve excess-audit → L3 verify path (relax scoped + fallback stored amount_received).
+  //   FE gak kirim nominal — BE pakai amount_received yang udah di-hold owner.
+  async function handleResolveExcess(decision: 'accepted_excess' | 'refund_pending') {
+    if (!token || !donation) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const res = await fetch(`${API}/funding/donations/${id}/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'verify', discrepancy_decision: decision }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setActionSuccess(decision === 'accepted_excess'
+          ? '✅ Selisih diterima sebagai bonus — donasi terverifikasi.'
+          : '↩ Keputusan refund dicatat — donasi tetap tahan audit, akuntansi final nyusul.');
+        setTimeout(() => onDone?.(), 1500);
+      } else {
+        const code = json?.error?.code;
+        if (code === 'DECISION_NOT_ALLOWED_ADMIN') setActionError('Keputusan ini tidak tersedia untuk donasi ini.');
+        else setActionError(json?.error?.message || 'Gagal memproses keputusan.');
+      }
+    } catch {
+      setActionError('Koneksi bermasalah.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   // [C3-PREMIUM-UI] Salin no rekening tujuan (visual affordance, no logic)
   function copyAccount() {
     const num = donation?.campaigns?.bank_account_number;
@@ -410,8 +440,14 @@ export default function DonationVerifyPanel({
   const isVerified = donation.verification_status === 'verified';
   const isRejected = donation.verification_status === 'rejected';
   const isUnderAudit = donation.verification_status === 'under_audit';
+  // [FITUR-B] Excess-audit (under_audit + excess_over_threshold) = jalur KHUSUS L3 (Terima Bonus/Refund),
+  //   BUKAN verify-asis. awaiting_topup (under_audit non-excess) tetap verify-asis di bawah.
+  const isExcessRow = donation.escalation_reason === 'excess_over_threshold';
+  const isExcessPending = isExcessRow && isUnderAudit && !donation.discrepancy_decision;
+  const isExcessResolved = isExcessRow && !!donation.discrepancy_decision;
   // [ADMIN-VERIFY-ASIS] Tampil utk donasi nyangkut (under_audit, atau escalated yg bukan pending biasa).
-  const showAsis = !isVerified && !isRejected && (isUnderAudit || (!!donation.escalated_to_admin_at && !isPending));
+  //   EXCLUDE excess-audit (isExcessRow) → excess pakai section khusus, bukan verify-asis.
+  const showAsis = !isVerified && !isRejected && !isExcessRow && (isUnderAudit || (!!donation.escalated_to_admin_at && !isPending));
 
   // ⭐ Discrepancy calculation
   const amountReceivedNum = parseRupiah(amountReceived);
@@ -803,6 +839,57 @@ export default function DonationVerifyPanel({
           </div>
         );
       })()}
+
+      {/* [FITUR-B] Excess-audit belum diputus → admin putusin Terima Bonus / Refund (L3 /verify decision). */}
+      {isExcessPending && !actionSuccess && (() => {
+        const excessAmount = Number(donation.discrepancy_amount)
+          || ((Number(donation.amount_received) || 0) - Number(donation.total_transfer));
+        return (
+          <div className="rounded-2xl p-5 mb-4" style={{ background: 'rgba(190,24,93,0.06)', border: '1px solid rgba(190,24,93,0.3)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <AlertCircle size={15} style={{ color: '#EC4899' }} />
+              <p className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#EC4899' }}>
+                Selisih Lebih — Butuh Keputusan
+              </p>
+            </div>
+            <p className="text-[11px] mb-3" style={{ color: t.textDim }}>
+              Donor transfer <b style={{ color: t.textPrimary }}>+{formatRupiah(excessAmount)}</b> di atas batas audit.
+              Owner gak boleh putusin sendiri — pilih keputusan:
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => handleResolveExcess('accepted_excess')}
+                disabled={submitting}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold shadow-md hover:opacity-95 transition-all disabled:opacity-50"
+                style={{ background: '#BE185D', color: '#fff' }}
+              >
+                {submitting ? <Loader2 size={18} className="animate-spin" /> : <>💰 Terima Bonus</>}
+              </button>
+              <button
+                onClick={() => handleResolveExcess('refund_pending')}
+                disabled={submitting}
+                className="flex items-center justify-center gap-2 py-3 px-5 rounded-2xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-80"
+                style={{ background: 'transparent', border: '1px solid rgba(190,24,93,0.4)', color: '#EC4899' }}
+              >
+                ↩ Refund
+              </button>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* [FITUR-B] Excess-audit udah diputus → indikator (refund_pending tetap under_audit, akuntansi nyusul). */}
+      {isExcessResolved && !actionSuccess && (
+        <div className="rounded-2xl p-4 mb-4" style={{ background: 'rgba(190,24,93,0.06)', border: '1px solid rgba(190,24,93,0.3)' }}>
+          <p className="text-[12px] font-bold" style={{ color: '#EC4899' }}>
+            ✓ Sudah diputus: {donation.discrepancy_decision === 'accepted_excess'
+              ? 'Terima Bonus (selisih jadi donasi)'
+              : donation.discrepancy_decision === 'refund_pending'
+                ? 'Refund — akuntansi final nyusul'
+                : donation.discrepancy_decision}
+          </p>
+        </div>
+      )}
 
       {/* [ADMIN-VERIFY-ASIS] Verifikasi Apa Adanya — tuntasin donasi nyangkut (under_audit/escalated).
           Input nominal masuk + PREVIEW split LIVE (computeComponentsFE) → POST verify-asis. */}

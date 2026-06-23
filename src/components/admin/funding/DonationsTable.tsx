@@ -29,6 +29,7 @@ export interface Donation {
   penggalang_fee?: number;    // ⭐ Sesi 13 Mission 2K: tip opt-in
   total_transfer: number;
   verification_status: string; // pending | verified | rejected | under_audit
+  escalation_reason?: string | null; // [FITUR-B] under_audit + excess_over_threshold → badge "Selisih Lebih"
   verified_at?: string;
   verified_by_role?: string | null;
   rejection_reason?: string;
@@ -159,8 +160,14 @@ export default function DonationsTable({
           </thead>
           <tbody>
             {donations.map((d, idx) => {
-              const statusStyle = STATUS_STYLE[d.verification_status]
-                ?? { bg: t.navHover, text: t.textDim, label: d.verification_status };
+              // [FITUR-B] Excess-audit (under_audit + excess_over_threshold) → badge "Selisih Lebih" (pink),
+              //   bedain dari awaiting_topup (under_audit biasa = "Under Audit" kuning).
+              const isExcessRow = d.verification_status === 'under_audit'
+                && d.escalation_reason === 'excess_over_threshold';
+              const statusStyle = isExcessRow
+                ? { bg: 'rgba(190,24,93,0.15)', text: '#BE185D', label: 'Selisih Lebih' }
+                : STATUS_STYLE[d.verification_status]
+                  ?? { bg: t.navHover, text: t.textDim, label: d.verification_status };
               const isSelected = selectedIds.has(d.id);
               const isLast = idx === donations.length - 1;
               const isPending = d.verification_status === 'pending';

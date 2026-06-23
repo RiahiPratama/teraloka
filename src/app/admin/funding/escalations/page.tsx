@@ -36,9 +36,6 @@ interface EscalatedDonation {
   amount: number;
   total_transfer: number;
   verification_status: string;
-  discrepancy_decision?: string | null;
-  amount_received?: number | null;
-  discrepancy_amount?: number | null;
   escalated_to_admin_at: string;
   escalation_reason: string;
   created_at: string;
@@ -104,29 +101,6 @@ export default function AdminEscalationsPage() {
         fetchEscalated();
         setSubNavRefresh(r => r + 1);
       } else showToast(false, json.error?.message ?? 'Gagal verify');
-    } catch { showToast(false, 'Koneksi bermasalah'); }
-    finally { setVerifyingId(null); }
-  }
-
-  // [FITUR-B-FE] Resolve excess-audit → wire ke L3 (/verify dengan decision).
-  // BE L3 pakai stored amount_received (held) → FE gak usah kirim nominal.
-  async function handleResolveExcess(donationId: string, decision: 'accepted_excess' | 'refund_pending') {
-    if (!token) return;
-    setVerifyingId(donationId);
-    try {
-      const res = await fetch(`${API_URL}/funding/donations/${donationId}/verify`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', decision }),
-      });
-      const json = await res.json();
-      if (json.success) {
-        showToast(true, decision === 'accepted_excess'
-          ? '💰 Selisih diterima sebagai bonus — donasi terverifikasi'
-          : '↩ Keputusan refund dicatat — donasi keluar antrian (akuntansi nyusul)');
-        fetchEscalated();
-        setSubNavRefresh(r => r + 1);
-      } else showToast(false, json.error?.message ?? 'Gagal memproses keputusan');
     } catch { showToast(false, 'Koneksi bermasalah'); }
     finally { setVerifyingId(null); }
   }
@@ -572,7 +546,6 @@ export default function AdminEscalationsPage() {
                   isVerifying={verifyingId === d.id}
                   onVerify={() => handleInlineVerify(d.id)}
                   onReject={() => setRejectModal({ id: d.id, code: d.display_id ?? d.donation_code })}
-                  onResolveExcess={(decision) => handleResolveExcess(d.id, decision)}
                 />
               ))}
             </>
@@ -657,26 +630,14 @@ export default function AdminEscalationsPage() {
 // ═══════════════════════════════════════════════════════════════
 
 function EscalatedDonationCard({
-  donation, t, isVerifying, onVerify, onReject, onResolveExcess,
+  donation, t, isVerifying, onVerify, onReject,
 }: {
   donation: EscalatedDonation; t: any;
   isVerifying?: boolean;
   onVerify?: () => void;
   onReject?: () => void;
-  onResolveExcess?: (decision: 'accepted_excess' | 'refund_pending') => void;
 }) {
-  // [FITUR-B-FE] Bedain excess-audit (selisih duit) vs stale-pending (nunggu lama).
-  const isExcessAudit = donation.escalation_reason === 'excess_over_threshold';
-  const isExcessPending = isExcessAudit
-    && donation.verification_status === 'under_audit'
-    && !donation.discrepancy_decision;
-  const excessAmount = Number(donation.discrepancy_amount)
-    || ((Number(donation.amount_received) || 0) - Number(donation.total_transfer));
-
   const statusMeta = (() => {
-    if (isExcessAudit) {
-      return { label: 'Selisih Lebih', color: '#BE185D', bg: 'rgba(190, 24, 93, 0.15)', Icon: AlertTriangle };
-    }
     switch (donation.verification_status) {
       case 'verified':
         return { label: 'Verified', color: '#10B981', bg: 'rgba(16, 185, 129, 0.15)', Icon: CheckCircle2 };
@@ -750,70 +711,24 @@ function EscalatedDonationCard({
       </div>
 
       <div style={{
-        background: isExcessAudit ? 'rgba(190, 24, 93, 0.08)' : 'rgba(245, 158, 11, 0.1)',
-        border: `1px solid ${isExcessAudit ? 'rgba(190, 24, 93, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
+        background: 'rgba(245, 158, 11, 0.1)',
+        border: '1px solid rgba(245, 158, 11, 0.3)',
         borderRadius: 8,
         padding: '8px 12px',
         marginBottom: 8,
       }}>
-        <p style={{ fontSize: 10, fontWeight: 700, color: isExcessAudit ? '#BE185D' : '#F59E0B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
-          {isExcessAudit ? 'Selisih Lebih — Butuh Keputusan Admin' : 'Alasan Escalation'}
+        <p style={{ fontSize: 10, fontWeight: 700, color: '#F59E0B', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 }}>
+          Alasan Escalation
         </p>
-        {isExcessAudit ? (
-          <p style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.5 }}>
-            Donor transfer <strong>+Rp {excessAmount.toLocaleString('id-ID')}</strong> lebih dari ekspektasi (di atas batas audit). Owner tidak boleh putuskan sendiri.
-          </p>
-        ) : (
-          <p style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.5 }}>
-            {donation.escalation_reason || '—'}
-          </p>
-        )}
-        <p style={{ fontSize: 10, color: isExcessAudit ? '#BE185D' : '#F59E0B', marginTop: 4 }}>
+        <p style={{ fontSize: 11, color: t.textPrimary, lineHeight: 1.5 }}>
+          {donation.escalation_reason || '—'}
+        </p>
+        <p style={{ fontSize: 10, color: '#F59E0B', marginTop: 4 }}>
           Di-escalate {daysSinceEscalated === 0 ? 'hari ini' : `${daysSinceEscalated} hari lalu`}
         </p>
       </div>
 
-      {isExcessPending ? (
-        // [FITUR-B-FE] Excess-audit belum diputus → 2 tombol resolve (wire L3 /verify decision).
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button
-            onClick={() => onResolveExcess?.('accepted_excess')}
-            disabled={isVerifying}
-            style={{
-              flex: 1, padding: '8px', borderRadius: 10, border: 'none',
-              background: '#BE185D', color: '#fff',
-              fontSize: 11, fontWeight: 700, cursor: isVerifying ? 'not-allowed' : 'pointer',
-              opacity: isVerifying ? 0.7 : 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-            }}
-          >
-            {isVerifying ? '...' : '💰 Terima Bonus'}
-          </button>
-          <button
-            onClick={() => onResolveExcess?.('refund_pending')}
-            disabled={isVerifying}
-            style={{
-              flex: 1, padding: '8px', borderRadius: 10, border: '1px solid rgba(190,24,93,0.4)',
-              background: 'rgba(190,24,93,0.1)', color: '#BE185D',
-              fontSize: 11, fontWeight: 700, cursor: isVerifying ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-            }}
-          >
-            ↩ Refund
-          </button>
-          <Link
-            href={`/admin/funding/donations/${donation.id}`}
-            style={{
-              padding: '8px 10px', borderRadius: 10,
-              background: t.navHover, color: t.textDim,
-              fontSize: 11, fontWeight: 600, textDecoration: 'none',
-              display: 'flex', alignItems: 'center', gap: 4,
-              border: `1px solid ${t.sidebarBorder}`,
-            }}
-          >
-            <Eye size={11} /> Detail
-          </Link>
-        </div>
-      ) : donation.verification_status === 'pending' ? (
+      {donation.verification_status === 'pending' ? (
         <div style={{ display: 'flex', gap: 8 }}>
           <button
             onClick={onVerify}
@@ -853,28 +768,17 @@ function EscalatedDonationCard({
           </Link>
         </div>
       ) : (
-        <>
-          {isExcessAudit && donation.discrepancy_decision && (
-            <p style={{ fontSize: 11, fontWeight: 700, color: '#BE185D', marginBottom: 6, textAlign: 'center' }}>
-              ✓ Sudah diputus: {donation.discrepancy_decision === 'accepted_excess'
-                ? 'Terima Bonus'
-                : donation.discrepancy_decision === 'refund_pending'
-                  ? 'Refund (akuntansi nyusul)'
-                  : donation.discrepancy_decision}
-            </p>
-          )}
-          <Link
-            href={`/admin/funding/donations/${donation.id}`}
-            style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-              width: '100%', borderRadius: 10, background: t.navHover,
-              padding: '8px', fontSize: 11, fontWeight: 700, color: t.textPrimary,
-              textDecoration: 'none', border: `1px solid ${t.sidebarBorder}`,
-            }}
-          >
-            <Eye size={12} /> Lihat Detail
-          </Link>
-        </>
+        <Link
+          href={`/admin/funding/donations/${donation.id}`}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            width: '100%', borderRadius: 10, background: t.navHover,
+            padding: '8px', fontSize: 11, fontWeight: 700, color: t.textPrimary,
+            textDecoration: 'none', border: `1px solid ${t.sidebarBorder}`,
+          }}
+        >
+          <Eye size={12} /> Lihat Detail
+        </Link>
       )}
     </div>
   );
