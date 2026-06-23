@@ -22,7 +22,7 @@ import { useState } from 'react';
 import { Shield, AlertTriangle } from 'lucide-react';
 import { ApiError, useApi } from '@/lib/api/client';
 import {
-  ROLE_CONFIG,
+  getRoleConfig,
   userDisplayName,
   type User,
   type UserRole,
@@ -68,7 +68,7 @@ export function UserRoleModal({
     try {
       await api.patch(`/admin/users/${user.id}/role`, { role: newRole });
       onToast(
-        `Role diubah ke ${ROLE_CONFIG[newRole].label}`,
+        `Role diubah ke ${getRoleConfig(newRole).label}`,
         true
       );
       onClose();
@@ -84,8 +84,8 @@ export function UserRoleModal({
 
   if (!user || !newRole) return null;
 
-  const currentRoleConfig = ROLE_CONFIG[user.role];
-  const newRoleConfig = ROLE_CONFIG[newRole];
+  const currentRoleConfig = getRoleConfig(user.role);
+  const newRoleConfig = getRoleConfig(newRole);
   const isElevatingToSuperAdmin = newRole === 'super_admin';
   const displayName = userDisplayName(user);
 
@@ -172,7 +172,7 @@ export function UserRoleModal({
 /* ─── Role chip helper — mini badge dengan label ─── */
 
 function RoleChip({ role }: { role: UserRole }) {
-  const config = ROLE_CONFIG[role];
+  const config = getRoleConfig(role);
 
   // Special case super_admin + service_user (no service color)
   if (role === 'super_admin') {
