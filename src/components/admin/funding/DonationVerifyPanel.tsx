@@ -742,12 +742,31 @@ export default function DonationVerifyPanel({
             )}
           </div>
           {donation.donor_phone && (
-            <div className="flex items-center gap-2.5 mb-1.5">
-              <Phone size={15} style={{ color: t.textDim }} className="shrink-0" />
-              <div className="min-w-0">
-                <p className="text-sm font-mono" style={{ color: t.textMuted }}>{donation.donor_phone}</p>
-                <p className="text-[10px]" style={{ color: t.textDim }}>Publik: {maskPhone(donation.donor_phone)}</p>
+            <div className="flex items-center gap-3 mb-1.5 flex-wrap">
+              <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                <Phone size={15} style={{ color: t.textDim }} className="shrink-0" />
+                <div className="min-w-0">
+                  <p className="text-sm font-mono" style={{ color: t.textMuted }}>{donation.donor_phone}</p>
+                  <p className="text-[10px]" style={{ color: t.textDim }}>Publik: {maskPhone(donation.donor_phone)}</p>
+                </div>
               </div>
+              {/* [DONOR-WA] tombol Hubungi — pola identik penggalang, semua status (gated donor_phone) */}
+              <a
+                href={`https://wa.me/${normalizeWaNumber(donation.donor_phone)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Hubungi donor via WhatsApp"
+                className="inline-flex items-center gap-1.5 shrink-0"
+                style={{
+                  padding: '6px 12px', borderRadius: 8, whiteSpace: 'nowrap',
+                  background: 'linear-gradient(135deg, #25D366 0%, #128C7E 100%)',
+                  color: '#fff', fontSize: 12, fontWeight: 700, textDecoration: 'none',
+                  boxShadow: '0 2px 8px rgba(18,140,126,0.35)',
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Hubungi
+              </a>
             </div>
           )}
           <div className="flex items-center gap-2.5">
