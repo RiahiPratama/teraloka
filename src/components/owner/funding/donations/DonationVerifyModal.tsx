@@ -85,17 +85,25 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
   const isExactMatch = isValidAmount && computedDiscrepancy === 0;
   const isUnderpaid = computedDiscrepancy < 0;
   const isOverpaid = computedDiscrepancy > 0;
+  // [FITUR-B-FE] Threshold PERSIS sama BE L2 gate: excess > Rp50k DAN > 10% nominal (base donation.amount,
+  //   BUKAN total_transfer). Kalau over → owner gak boleh putusin → masuk antrian audit admin.
+  const isExcessOverThreshold = isOverpaid
+    && computedDiscrepancy > 50_000
+    && computedDiscrepancy > 0.10 * Number(donation.amount);
 
   // Display donor name (anonymous-aware)
   const displayDonorName = donation.is_anonymous ? 'Hamba Allah' : donation.donor_name;
 
   // Submit handler
-  async function handleSubmit() {
+  async function handleSubmit(decisionOverride?: DiscrepancyDecision) {
+    // [FITUR-B-FE] decisionOverride dipakai tombol "Lanjut" (excess > threshold) → kirim
+    //   decision pemicu 'accepted_excess' → BE L2 gate escalate (discard decision, set null).
+    const effectiveDecision = decisionOverride ?? decision;
     if (!isValidAmount) {
       setError('Nominal diterima harus diisi dengan angka valid');
       return;
     }
-    if (!isExactMatch && !decision) {
+    if (!isExactMatch && !effectiveDecision) {
       setError('Pilih keputusan untuk selisih nominal');
       return;
     }
@@ -108,7 +116,7 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
         amount_received: receivedNum,
       };
       if (!isExactMatch) {
-        body.decision = decision;
+        body.decision = effectiveDecision;
       }
       if (notes.trim()) {
         body.notes = notes.trim();
@@ -390,40 +398,56 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
           {/* Step: Decision (when mismatch) */}
           {step === 'decision' && (
             <div className="space-y-3 pt-2 border-t border-gray-200">
-              <div className="rounded-lg bg-amber-50 border border-amber-300 p-3">
-                <p className="text-sm font-medium text-amber-900">
-                  Selisih: {computedDiscrepancy > 0 ? '+' : ''}Rp {formatRp(Math.abs(computedDiscrepancy))}
-                </p>
-                <p className="text-xs text-amber-800 mt-1">
-                  Pilih bagaimana Anda menangani selisih ini. Keputusan tercatat di audit trail.
-                </p>
-              </div>
+              {isExcessOverThreshold ? (
+                /* [FITUR-B-FE] excess > threshold → owner gak putusin, masuk antrian audit admin */
+                <div className="rounded-lg bg-pink-50 border border-pink-300 p-3">
+                  <p className="text-sm font-bold text-pink-900">
+                    Selisih besar: +Rp {formatRp(Math.abs(computedDiscrepancy))}
+                  </p>
+                  <p className="text-xs text-pink-800 mt-1">
+                    Donor transfer jauh lebih besar dari nominal. Untuk keamanan, donasi ini akan masuk{' '}
+                    <b>antrian audit admin TeraLoka</b> — tim akan review &amp; putuskan (terima bonus / refund).
+                    Anda tidak perlu memutuskan sendiri.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-lg bg-amber-50 border border-amber-300 p-3">
+                  <p className="text-sm font-medium text-amber-900">
+                    Selisih: {computedDiscrepancy > 0 ? '+' : ''}Rp {formatRp(Math.abs(computedDiscrepancy))}
+                  </p>
+                  <p className="text-xs text-amber-800 mt-1">
+                    Pilih bagaimana Anda menangani selisih ini. Keputusan tercatat di audit trail.
+                  </p>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                {decisionOptions.filter((opt) => opt.show).map((opt) => (
-                  <label
-                    key={opt.value}
-                    className={`flex gap-3 rounded-lg border-2 p-3 cursor-pointer transition ${
-                      decision === opt.value
-                        ? 'border-pink-500 bg-pink-50'
-                        : 'border-gray-200 hover:border-gray-400'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="decision"
-                      value={opt.value}
-                      checked={decision === opt.value}
-                      onChange={() => setDecision(opt.value)}
-                      className="mt-0.5"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-900">{opt.label}</p>
-                      <p className="text-xs text-gray-600 mt-0.5">{opt.desc}</p>
-                    </div>
-                  </label>
-                ))}
-              </div>
+              {!isExcessOverThreshold && (
+                <div className="space-y-2">
+                  {decisionOptions.filter((opt) => opt.show).map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={`flex gap-3 rounded-lg border-2 p-3 cursor-pointer transition ${
+                        decision === opt.value
+                          ? 'border-pink-500 bg-pink-50'
+                          : 'border-gray-200 hover:border-gray-400'
+                      }`}
+                    >
+                      <input
+                        type="radio"
+                        name="decision"
+                        value={opt.value}
+                        checked={decision === opt.value}
+                        onChange={() => setDecision(opt.value)}
+                        className="mt-0.5"
+                      />
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{opt.label}</p>
+                        <p className="text-xs text-gray-600 mt-0.5">{opt.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+              )}
 
               <label className="block">
                 <span className="text-sm font-medium text-gray-700">
@@ -452,14 +476,25 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
                 >
                   ← Kembali
                 </button>
-                <button
-                  onClick={handleSubmit}
-                  disabled={!decision || submitting}
-                  className="flex-1 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-50"
-                  style={{ backgroundColor: '#EC4899' }}
-                >
-                  {submitting ? 'Memproses...' : 'Verifikasi'}
-                </button>
+                {isExcessOverThreshold ? (
+                  <button
+                    onClick={() => handleSubmit('accepted_excess')}
+                    disabled={submitting}
+                    className="flex-1 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-50"
+                    style={{ backgroundColor: '#BE185D' }}
+                  >
+                    {submitting ? 'Memproses...' : 'Lanjut → Antrian Audit'}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleSubmit()}
+                    disabled={!decision || submitting}
+                    className="flex-1 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-50"
+                    style={{ backgroundColor: '#EC4899' }}
+                  >
+                    {submitting ? 'Memproses...' : 'Verifikasi'}
+                  </button>
+                )}
               </div>
             </div>
           )}
@@ -503,7 +538,7 @@ export default function DonationVerifyModal({ donation, isOpen, onClose, onSucce
                   ← Kembali
                 </button>
                 <button
-                  onClick={handleSubmit}
+                  onClick={() => handleSubmit()}
                   disabled={submitting}
                   className="flex-1 rounded-lg px-4 py-2.5 font-medium text-white disabled:opacity-50"
                   style={{ backgroundColor: '#003526' }}
