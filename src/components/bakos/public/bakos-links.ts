@@ -29,6 +29,9 @@ export interface Listing {
   is_verified?: boolean;          // 🛡️ opsional — badge HANYA jika true
   source?: string;                // 🛡️ opsional — 'seed' = belum dikonfirmasi
   room_available?: number | null;
+  // 🛡️ occupancy agregat per-kos (dari searchKos). null = no rooms aktif → no badge.
+  rooms_total?: number | null;
+  rooms_available?: number | null;   // tersedia = total − terisi(aktif+nunggak); 0 = Penuh
   // 🛡️ C-premium-only: pin presisi HANYA utk kos berbayar (BE gate revealed).
   //    Free → null → tak muncul di peta /cari (insentif upgrade).
   latitude?: number | null;

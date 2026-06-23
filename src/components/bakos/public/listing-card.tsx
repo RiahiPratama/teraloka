@@ -136,6 +136,25 @@ export function ListingCard({ item }: { item: Listing }) {
           <p className="bk-kfacs">{facs.slice(0, 3).map(facLabel).join(' · ')}</p>
         )}
 
+        {/* 🛡️ occupancy: badge HANYA kalau ada rooms (rooms_available != null). <span> = aman
+            dari .bakos-lp button-reset. Token --bk-* + fallback hex (jalan di landing & cari). */}
+        {item.rooms_available != null && (
+          <span
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
+              marginTop: 2, padding: '3px 9px', borderRadius: 999, fontSize: 11.5, fontWeight: 700,
+              whiteSpace: 'nowrap',
+              background: item.rooms_available > 0 ? 'var(--bk-green-l, #eaf3ee)' : 'var(--bk-soft, #f1f3f2)',
+              color: item.rooms_available > 0 ? 'var(--bk-green-d, #13503a)' : 'var(--bk-muted, #5d6b64)',
+            }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
+              {item.rooms_available > 0 ? 'meeting_room' : 'do_not_disturb_on'}
+            </span>
+            {item.rooms_available > 0 ? `${item.rooms_available} kamar tersedia` : 'Penuh'}
+          </span>
+        )}
+
         <div className="bk-kprice">
           <span className="amt">{formatRupiah(item.price)}</span>
           <span className="per">/{item.price_period}</span>
