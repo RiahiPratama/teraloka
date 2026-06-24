@@ -37,14 +37,15 @@ const Icons = {
 };
 
 // ⭐ Sesi 13 Mission 2N: Filosofi Cash Flow Real
-// "Semua" = valid only (exclude rejected)
-// "Rejected" = pill terpisah, visual distinct
+// "Semua" = valid only (exclude rejected & refund_paid)
+// "Rejected" + "Refund" = pill terpisah, visual distinct (refund_paid = uang-balik, BUKAN valid)
 const STATUS_TABS = [
   { key: 'pending',     label: 'Pending',     separated: false },
   { key: 'verified',    label: 'Verified',    separated: false },
   { key: 'under_audit', label: 'Tahan Audit', separated: false },
   { key: 'all',         label: 'Semua',       separated: false },
   { key: 'rejected',    label: 'Rejected',    separated: true  }, // visual terpisah
+  { key: 'refund_paid', label: 'Refund',      separated: true  }, // [REFUND-TAB] uang-balik, tiru pola rejected (pink)
 ];
 
 const SORT_OPTIONS = [
@@ -273,7 +274,8 @@ export default function AdminDonationsPage() {
     if (!tk) return;
     // ⭐ Sesi 13 Mission 2J: Include under_audit
     // ⭐ Mission 2M: respect date filter
-    const statuses = ['pending', 'verified', 'rejected', 'under_audit'];
+    // [REFUND-TAB] +refund_paid utk badge tab Refund (count tab doang, BUKAN stat cards/accrual)
+    const statuses = ['pending', 'verified', 'rejected', 'under_audit', 'refund_paid'];
     const dateQs = [
       dateRange.from ? `&from=${encodeURIComponent(dateRange.from)}` : '',
       dateRange.to ? `&to=${encodeURIComponent(dateRange.to)}` : '',
@@ -797,6 +799,15 @@ export default function AdminDonationsPage() {
             ? (statusCounts.pending ?? 0) + (statusCounts.verified ?? 0) + (statusCounts.under_audit ?? 0)
             : (statusCounts[tab.key] ?? 0);
           const isRejected = tab.key === 'rejected';
+          // [REFUND-TAB] refund_paid = pill distinct PINK (uang-balik), tiru pola rejected (red).
+          // accent diparametrik → rejected TETAP identik (isRefund=false → nilai red lama).
+          const isRefund = tab.key === 'refund_paid';
+          const isDistinct = isRejected || isRefund;
+          const aTint04 = isRefund ? 'rgba(236,72,153,0.04)' : 'rgba(239,68,68,0.04)';
+          const aTint30 = isRefund ? 'rgba(236,72,153,0.3)'  : 'rgba(239,68,68,0.3)';
+          const aTint15 = isRefund ? 'rgba(236,72,153,0.15)' : 'rgba(239,68,68,0.15)';
+          const aSolid  = isRefund ? '#BE185D' : '#EF4444';
+          const aDeep   = isRefund ? '#831843' : '#7F1D1D';
           
           return (
             <React.Fragment key={tab.key}>
@@ -816,15 +827,15 @@ export default function AdminDonationsPage() {
                   fontSize: 13, fontWeight: 600,
                   color: active 
                     ? '#fff' 
-                    : (isRejected ? t.textDim : t.textPrimary),
+                    : (isDistinct ? t.textDim : t.textPrimary),
                   background: active 
-                    ? (isRejected ? '#7F1D1D' : '#1F2937')
-                    : (isRejected ? 'rgba(239,68,68,0.04)' : t.mainBg),
-                  border: `1px ${isRejected ? 'dashed' : 'solid'} ${active 
-                    ? (isRejected ? '#7F1D1D' : '#1F2937')
-                    : (isRejected ? 'rgba(239,68,68,0.3)' : t.sidebarBorder)}`,
+                    ? (isDistinct ? aDeep : '#1F2937')
+                    : (isDistinct ? aTint04 : t.mainBg),
+                  border: `1px ${isDistinct ? 'dashed' : 'solid'} ${active
+                    ? (isDistinct ? aDeep : '#1F2937')
+                    : (isDistinct ? aTint30 : t.sidebarBorder)}`,
                   cursor: 'pointer', whiteSpace: 'nowrap',
-                  opacity: isRejected && !active ? 0.85 : 1,
+                  opacity: isDistinct && !active ? 0.85 : 1,
                 }}>
                 {tab.label}
                 <span style={{
@@ -832,12 +843,12 @@ export default function AdminDonationsPage() {
                     ? 'rgba(255,255,255,0.2)' 
                     : (tab.key === 'pending' && count > 0 
                         ? 'rgba(245,158,11,0.15)' 
-                        : (isRejected ? 'rgba(239,68,68,0.15)' : t.navHover)),
+                        : (isDistinct ? aTint15 : t.navHover)),
                   color: active 
                     ? '#fff' 
                     : (tab.key === 'pending' && count > 0 
                         ? '#F59E0B' 
-                        : (isRejected ? '#EF4444' : t.textDim)),
+                        : (isDistinct ? aSolid : t.textDim)),
                   fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 999,
                 }}>
                   {count}
