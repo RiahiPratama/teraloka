@@ -91,6 +91,7 @@ interface DonationDetail {
   display_id?: string;
   message: string | null;
   transfer_proof_url: string | null;
+  refund_proof_url: string | null; // [REFUND-PROOF tahap 2] bukti transfer refund dari penggalang
   verification_status: string;
   rejection_reason: string | null;
   verified_at: string | null;
@@ -1192,6 +1193,47 @@ export default function DonationVerifyPanel({
           </div>
         )}
       </div>
+
+      {/* [REFUND-PROOF tahap 2] Bukti refund (penggalang transfer balik selisih) — admin LIHAT saja.
+          Muncul khusus donasi refund_pending. NOL aksi acc/settle/jurnal (itu tahap 4). */}
+      {donation.discrepancy_decision === 'refund_pending' && (() => {
+        const url = donation.refund_proof_url;
+        const isPdf = !!url && /\.pdf(\?|#|$)/i.test(url);
+        return (
+          <div className="rounded-2xl p-5 mb-4" style={card}>
+            <div className="flex items-center gap-2 mb-3">
+              <ImageIcon size={15} style={{ color: '#EC4899' }} />
+              <p className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#EC4899' }}>Bukti Refund (dari Penggalang)</p>
+            </div>
+            {url ? (
+              isPdf ? (
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-bold transition-colors"
+                  style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}`, color: t.textPrimary }}>
+                  <ExternalLink size={15} /> Buka bukti refund (PDF)
+                </a>
+              ) : (
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="block rounded-xl overflow-hidden transition-colors"
+                  style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}` }}>
+                  <img src={url} alt="Bukti refund"
+                    className="w-full max-h-[500px] object-contain" style={{ background: t.deepBg }} />
+                  <div className="py-2 text-center" style={{ background: t.cardInner, borderTop: `1px solid ${t.cardBorder}` }}>
+                    <p className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: t.textMuted }}>
+                      <ExternalLink size={11} /> Klik untuk ukuran penuh
+                    </p>
+                  </div>
+                </a>
+              )
+            ) : (
+              <div className="py-8 text-center rounded-xl" style={{ background: t.cardInner }}>
+                <AlertCircle size={24} style={{ color: t.textDim }} className="mx-auto mb-2" />
+                <p className="text-sm" style={{ color: t.textMuted }}>Penggalang belum upload bukti refund</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* [BADONASI-FINANCIAL-TABLE] Jurnal Akuntansi · Trial Balance (accordion, lazy, audit) */}
       <div className="rounded-2xl mb-4 overflow-hidden" style={card}>
