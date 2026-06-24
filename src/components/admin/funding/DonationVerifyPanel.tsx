@@ -152,6 +152,7 @@ function statusMeta(status: string): { label: string; color: string } {
     case 'verified':    return { label: 'Terverifikasi',       color: '#10B981' };
     case 'rejected':    return { label: 'Ditolak',             color: '#EF4444' };
     case 'under_audit': return { label: 'Tahan Audit',         color: '#8B5CF6' };
+    case 'refund_paid': return { label: 'Refund Selesai',      color: '#EC4899' };
     default:            return { label: 'Menunggu Verifikasi', color: '#F59E0B' };
   }
 }
@@ -180,6 +181,7 @@ export default function DonationVerifyPanel({
   const [cancelConfirmText, setCancelConfirmText] = useState('');
   // [B1-RESTORE-UI] Kembalikan donasi rejected → verified (super_admin). Non-destruktif.
   const [showRestoreModal, setShowRestoreModal] = useState(false);
+  const [showSettleModal, setShowSettleModal] = useState(false); // [REFUND-SETTLE tahap 4-FE]
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
@@ -378,6 +380,39 @@ export default function DonationVerifyPanel({
       }
     } catch {
       setActionError('Koneksi bermasalah.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // [REFUND-SETTLE tahap 4-FE] Admin acc bukti refund → POST endpoint pelunasan (MONEY, ada konfirmasi).
+  async function handleSettleRefund() {
+    if (!token || !donation) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const res = await fetch(`${API}/funding/admin/donations/${id}/refund-settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setShowSettleModal(false);
+        setActionSuccess('✅ Pelunasan refund tercatat. Donasi → Refund Selesai.');
+        setTimeout(() => onDone?.(), 1500);
+      } else {
+        const code = json?.error?.code;
+        const msg =
+          code === 'INVALID_STATUS'  ? 'Donasi ini tidak sedang menunggu refund (refund_pending).'
+          : code === 'PROOF_REQUIRED'  ? 'Bukti transfer refund belum diupload penggalang.'
+          : code === 'ALREADY_SETTLED' ? 'Refund donasi ini sudah dilunasi sebelumnya.'
+          : json?.error?.message || 'Gagal mencatat pelunasan refund.';
+        setActionError(msg);
+        setShowSettleModal(false);
+      }
+    } catch {
+      setActionError('Koneksi bermasalah.');
+      setShowSettleModal(false);
     } finally {
       setSubmitting(false);
     }
@@ -909,6 +944,46 @@ export default function DonationVerifyPanel({
         );
       })()}
 
+      {/* [BADONASI-FINANCIAL-TABLE] Jurnal Akuntansi · Trial Balance (accordion, lazy, audit).
+          [REORDER-UX] Pindah ke SETELAH Konfirmasi Penggalang (dampak akuntansi kondisi sekarang) — fetch NOL diubah. */}
+      <div className="rounded-2xl mb-4 overflow-hidden" style={card}>
+        <button
+          onClick={toggleTrialBalance}
+          className="w-full flex items-center justify-between p-5"
+          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
+        >
+          <span className="flex items-center gap-2">
+            <Calculator size={15} style={{ color: t.textMuted }} />
+            <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: t.textMuted }}>
+              Jurnal Akuntansi · Trial Balance
+            </span>
+          </span>
+          <span style={{
+            display: 'inline-flex', color: t.textDim,
+            transform: tbOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms',
+          }}>
+            <ChevronDown size={16} />
+          </span>
+        </button>
+        {tbOpen && (
+          <div className="px-5 pb-5">
+            {tbLoading ? (
+              <p className="text-xs" style={{ color: t.textDim }}>Memuat jurnal…</p>
+            ) : tbError ? (
+              <div className="text-xs rounded-xl px-3 py-2" style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                ⚠ {tbError}
+              </div>
+            ) : (tb?.flags?.no_journal || tbSections.length === 0) ? (
+              <p className="text-xs" style={{ color: t.textDim }}>
+                Jurnal terbit setelah donasi diverifikasi.
+              </p>
+            ) : (
+              <TrialBalanceTable sections={tbSections} t={t} />
+            )}
+          </div>
+        )}
+      </div>
+
       {/* [FITUR-B] Excess-audit belum diputus → admin putusin Terima Bonus / Refund (L3 /verify decision). */}
       {isExcessPending && !actionSuccess && (() => {
         const excessAmount = Number(donation.discrepancy_amount)
@@ -1235,44 +1310,60 @@ export default function DonationVerifyPanel({
         );
       })()}
 
-      {/* [BADONASI-FINANCIAL-TABLE] Jurnal Akuntansi · Trial Balance (accordion, lazy, audit) */}
-      <div className="rounded-2xl mb-4 overflow-hidden" style={card}>
-        <button
-          onClick={toggleTrialBalance}
-          className="w-full flex items-center justify-between p-5"
-          style={{ background: 'transparent', border: 'none', cursor: 'pointer' }}
-        >
-          <span className="flex items-center gap-2">
-            <Calculator size={15} style={{ color: t.textMuted }} />
-            <span className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: t.textMuted }}>
-              Jurnal Akuntansi · Trial Balance
-            </span>
-          </span>
-          <span style={{
-            display: 'inline-flex', color: t.textDim,
-            transform: tbOpen ? 'rotate(180deg)' : 'none', transition: 'transform 150ms',
-          }}>
-            <ChevronDown size={16} />
-          </span>
-        </button>
-        {tbOpen && (
-          <div className="px-5 pb-5">
-            {tbLoading ? (
-              <p className="text-xs" style={{ color: t.textDim }}>Memuat jurnal…</p>
-            ) : tbError ? (
-              <div className="text-xs rounded-xl px-3 py-2" style={{ color: '#F87171', background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
-                ⚠ {tbError}
+      {/* [REFUND-SETTLE UX] Aksi pelunasan + hasil — refund_pending. Trial Balance (kondisi sekarang) di ATAS,
+          jurnal pelunasan (hasil) di BAWAH tombol (gated refund_paid). NOL logika uang — display only. */}
+      {donation.discrepancy_decision === 'refund_pending' && (
+        <div className="mb-4">
+          {/* Tombol acc — di BAWAH trial balance (kondisi sekarang), di ATAS hasil pelunasan */}
+          {donation.verification_status === 'refund_paid' ? (
+            <div className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold"
+              style={{ background: 'rgba(236,72,153,0.12)', border: '1px solid rgba(236,72,153,0.35)', color: '#EC4899' }}>
+              <CheckCircle2 size={16} /> Refund selesai — pelunasan tercatat
+            </div>
+          ) : donation.refund_proof_url ? (
+            <button
+              onClick={() => setShowSettleModal(true)}
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold shadow-md hover:opacity-95 transition-all disabled:opacity-50"
+              style={{ background: '#BE185D', color: '#fff' }}
+            >
+              <ShieldCheck size={16} /> Acc Refund / Konfirmasi Pelunasan
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold"
+              style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}`, color: t.textMuted, cursor: 'not-allowed', opacity: 0.7 }}
+            >
+              <AlertCircle size={16} /> Menunggu bukti refund dari penggalang
+            </button>
+          )}
+
+          {/* Hasil pelunasan — BAWAH tombol. refund_paid → jurnal real (deterministik dari nominal donasi); belum → placeholder. */}
+          <div className="mt-3 rounded-2xl p-4" style={card}>
+            <p className="text-[11px] uppercase tracking-wider font-semibold mb-2" style={{ color: t.textMuted }}>
+              Jurnal Pelunasan (setelah ACC)
+            </p>
+            {donation.verification_status === 'refund_paid' ? (
+              <div className="space-y-1.5 text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                {[
+                  { label: 'Dr · 2201 Utang Refund Donor', amt: Number(donation.discrepancy_amount) || 0, dr: true },
+                  { label: 'Cr · 1101 Kas Partner', amt: Number(donation.discrepancy_amount) || 0, dr: false },
+                  { label: 'Dr · 2102 Dana Penelaahan', amt: Number(donation.amount) || 0, dr: true },
+                  { label: 'Cr · 2101 Utang Beneficiary', amt: Number(donation.amount) || 0, dr: false },
+                ].map((r, i) => (
+                  <div key={i} className="flex justify-between" style={{ paddingLeft: r.dr ? 0 : 14 }}>
+                    <span style={{ color: r.dr ? t.textPrimary : t.textMuted }}>{r.label}</span>
+                    <span className="font-semibold" style={{ color: t.textPrimary }}>{formatRupiah(r.amt)}</span>
+                  </div>
+                ))}
               </div>
-            ) : (tb?.flags?.no_journal || tbSections.length === 0) ? (
-              <p className="text-xs" style={{ color: t.textDim }}>
-                Jurnal terbit setelah donasi diverifikasi.
-              </p>
             ) : (
-              <TrialBalanceTable sections={tbSections} t={t} />
+              <p className="text-xs" style={{ color: t.textDim }}>Jurnal pelunasan muncul setelah konfirmasi.</p>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Action error */}
       {actionError && (
@@ -1393,6 +1484,58 @@ export default function DonationVerifyPanel({
                 style={{ background: '#DC2626', color: '#fff' }}
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Kirim Reject'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [REFUND-SETTLE tahap 4-FE] Konfirmasi pelunasan — aksi MONEY, gak bisa dibatalin */}
+      {showSettleModal && donation && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => !submitting && setShowSettleModal(false)}>
+          <div className="rounded-2xl max-w-md w-full p-6" style={{ background: t.card, border: `1px solid ${t.cardBorder}` }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(190,24,93,0.12)' }}>
+                <ShieldCheck size={22} style={{ color: '#BE185D' }} />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: t.textPrimary }}>Konfirmasi Pelunasan Refund</h3>
+            </div>
+
+            <div className="mb-4 rounded-lg px-3 py-2.5" style={{ background: 'rgba(190,24,93,0.08)', border: '1px solid rgba(190,24,93,0.25)' }}>
+              <p className="text-sm font-bold" style={{ color: '#BE185D' }}>
+                Catat pelunasan {formatRupiah(Number(donation.discrepancy_amount) || 0)} ke pembukuan
+              </p>
+            </div>
+
+            <p className="text-sm mb-5 leading-relaxed" style={{ color: t.textMuted }}>
+              Pastikan penggalang BENAR sudah transfer balik selisih ke donor (cek bukti di atas). Aksi ini
+              mencatat jurnal pelunasan (Dr Utang Refund / Cr Kas Partner) &amp; ubah status jadi <b>Refund Selesai</b>.
+              <b style={{ color: t.textPrimary }}> Tidak bisa dibatalkan.</b>
+            </p>
+
+            {actionError && (
+              <div className="mb-3 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
+                {actionError}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowSettleModal(false)}
+                disabled={submitting}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 hover:opacity-80"
+                style={{ background: t.cardInner, color: t.textPrimary }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSettleRefund}
+                disabled={submitting}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-90"
+                style={{ background: '#BE185D', color: '#fff' }}
+              >
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Ya, Catat Pelunasan'}
               </button>
             </div>
           </div>
