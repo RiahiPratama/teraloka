@@ -102,7 +102,7 @@ export default function BadonasiTrialBalanceSection() {
           {data && (
             <span style={{ fontSize: 10, color: t.textDim }}>
               per {new Date(data.generated_at).toLocaleString('id-ID')}
-              {data.reversed_count > 0 ? ` · ${data.reversed_count} reversed (tak dihitung)` : ''}
+              {data.reversed_count > 0 ? ` · ${data.reversed_count} reversed (udah ke-net di books)` : ''}
             </span>
           )}
           {data && sections.length > 0 && (
