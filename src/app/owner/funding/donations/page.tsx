@@ -27,10 +27,11 @@ import {
   ArrowLeft, Inbox, Search, LayoutGrid, Megaphone, Loader2,
   ChevronLeft, ChevronRight, BadgeCheck, X, Clock, Wallet, BarChart3,
   TrendingUp, CheckCircle2, Users, SearchX, PartyPopper, ThumbsUp, Scale,
-  AlertCircle, AlertTriangle, Timer,
+  AlertCircle, AlertTriangle, Timer, Upload,
 } from 'lucide-react';
 import DonationVerifyModal, { DonationForVerify } from '@/components/owner/funding/donations/DonationVerifyModal';
 import DonationRejectModal from '@/components/owner/funding/donations/DonationRejectModal';
+import ImageUpload from '@/components/ui/ImageUpload';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://api.teraloka.com/api/v1';
 
@@ -51,6 +52,7 @@ interface DonationListItem {
   donation_code: string;
   message: string | null;
   transfer_proof_url: string | null;
+  refund_proof_url: string | null;
   verification_status: string;
   verified_by_role: string | null;
   discrepancy_decision: string | null;
@@ -302,6 +304,36 @@ function DonationsPageContent() {
     syncUrl();
   }, [syncUrl]);
 
+  // [REFUND-PROOF tahap 1b] Simpan URL bukti refund (sudah ke-upload ke bucket) → PATCH endpoint 1a.
+  // No-money: cuma nempel URL. Refetch biar preview muncul. Error → balikin pesan ke widget.
+  const handleRefundProofUpload = useCallback(
+    async (donationId: string, url: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!token) return { ok: false, error: 'Sesi berakhir, silakan login ulang.' };
+      try {
+        const res = await fetch(`${API_URL}/funding/my/donations/${donationId}/refund-proof`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refund_proof_url: url }),
+        });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.success) {
+          fetchDonations();
+          return { ok: true };
+        }
+        const code = json?.error?.code;
+        const msg =
+          code === 'INVALID_STATUS' ? 'Donasi ini tidak sedang menunggu refund.'
+          : code === 'FORBIDDEN' ? 'Donasi ini bukan milik kampanye Anda.'
+          : code === 'NOT_FOUND' ? 'Donasi tidak ditemukan.'
+          : json?.error?.message ?? 'Gagal menyimpan bukti refund.';
+        return { ok: false, error: msg };
+      } catch {
+        return { ok: false, error: 'Koneksi bermasalah.' };
+      }
+    },
+    [token, fetchDonations]
+  );
+
   // Auth gate
   if (authLoading) {
     return (
@@ -503,6 +535,7 @@ function DonationsPageContent() {
                   })
                 }
                 onReject={() => setRejectDonation(d)}
+                onRefundProofUpload={handleRefundProofUpload}
               />
             ))}
           </div>
@@ -563,10 +596,12 @@ function DonationCard({
   donation,
   onVerify,
   onReject,
+  onRefundProofUpload,
 }: {
   donation: DonationListItem;
   onVerify: () => void;
   onReject: () => void;
+  onRefundProofUpload: (donationId: string, url: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const status = donation.verification_status;
   const isPending = status === 'pending';
@@ -678,6 +713,11 @@ function DonationCard({
         </div>
       )}
 
+      {/* [REFUND-PROOF tahap 1b] Widget upload bukti refund — HANYA pas donasi nunggu refund. */}
+      {donation.discrepancy_decision === 'refund_pending' && (
+        <RefundProofSection donation={donation} onUpload={onRefundProofUpload} />
+      )}
+
       {/* Message preview */}
       {donation.message && (
         <p className="text-sm text-gray-600 italic mb-3 line-clamp-2">
@@ -710,6 +750,66 @@ function DonationCard({
         <Clock size={13} strokeWidth={2.2} />
         {formatDateTime(donation.created_at)}
       </p>
+    </div>
+  );
+}
+
+// ───── [REFUND-PROOF tahap 1b] Inline RefundProofSection ─────
+// Penggalang upload bukti dia transfer balik selisih ke donatur (donasi refund_pending).
+// Reuse ImageUpload (bucket 'donations' publik → public URL) → PATCH /refund-proof.
+// No-money: cuma nempel URL. Null-safe: belum ada → tombol upload; sudah ada → preview.
+function RefundProofSection({
+  donation,
+  onUpload,
+}: {
+  donation: DonationListItem;
+  onUpload: (donationId: string, url: string) => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+  const proofUrl = localUrl ?? donation.refund_proof_url ?? null;
+
+  async function handleUploaded(urls: string[]) {
+    const url = urls?.[0];
+    if (!url) return;
+    setSubmitting(true);
+    setError(null);
+    const res = await onUpload(donation.id, url);
+    setSubmitting(false);
+    if (res.ok) setLocalUrl(url);
+    else setError(res.error ?? 'Gagal menyimpan bukti refund.');
+  }
+
+  return (
+    <div className="mb-3 rounded-lg border border-pink-200 bg-pink-50 p-3">
+      <p className="text-xs font-bold text-[#BE185D] mb-1.5 flex items-center gap-1.5">
+        <Upload size={13} strokeWidth={2.2} /> Bukti Transfer Refund
+      </p>
+      {proofUrl ? (
+        <div>
+          <a
+            href={proofUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-lg overflow-hidden border border-pink-200"
+          >
+            <img src={proofUrl} alt="Bukti transfer refund" className="w-full max-h-64 object-contain bg-white" />
+          </a>
+          <p className="mt-1.5 text-xs font-semibold text-green-700 flex items-center gap-1">
+            <CheckCircle2 size={13} strokeWidth={2.2} /> Bukti terkirim — menunggu verifikasi admin
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-gray-600 mb-2">
+            Sudah transfer balik selisih ke donatur? Upload bukti transfernya di sini untuk diverifikasi admin.
+          </p>
+          <ImageUpload bucket="donations" maxFiles={1} onUpload={handleUploaded} />
+          {submitting && <p className="text-xs text-gray-500 mt-1.5">Menyimpan bukti…</p>}
+        </>
+      )}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
     </div>
   );
 }
