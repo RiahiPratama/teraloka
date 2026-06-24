@@ -616,6 +616,8 @@ function DonationCard({
     ? { bg: '#D1FAE5', text: '#065F46', label: 'Verified' }
     : isRejected
     ? { bg: '#FEE2E2', text: '#991B1B', label: 'Rejected' }
+    : status === 'refund_paid'
+    ? { bg: '#FCE7F3', text: '#BE185D', label: 'Refund Selesai' } // [REFUND-SETTLE tahap 4-FE]
     : { bg: '#FEF3C7', text: '#854D0E', label: 'Under Audit' };
 
   // Discrepancy display — defensive against undefined/null/string from backend
