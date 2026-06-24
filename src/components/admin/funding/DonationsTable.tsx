@@ -73,6 +73,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
   verified:    { bg: 'rgba(16,185,129,0.15)', text: '#10B981', label: 'Verified' },
   rejected:    { bg: 'rgba(239,68,68,0.15)',  text: '#EF4444', label: 'Rejected' },
   under_audit: { bg: 'rgba(234,179,8,0.15)',  text: '#CA8A04', label: 'Under Audit' },
+  refund_paid: { bg: 'rgba(236,72,153,0.15)', text: '#BE185D', label: 'Refund Selesai' },
 };
 
 const CAMPAIGN_STATUS_LABEL: Record<string, string> = {
