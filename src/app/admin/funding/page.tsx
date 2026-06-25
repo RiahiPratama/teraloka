@@ -132,7 +132,8 @@ export default function BadonasiCommandCenter() {
         campPending, fraudStats, esc,
         statsRes, donSmart, campSmart, donStatsToday, feeSum,
         recentDon,
-        donUnderAudit,  // ⭐ Mission 2O: fetch under_audit donations
+        donUnderAudit,  // ⭐ Mission 2O: under_audit (count via meta.total)
+        cashSum,        // [OVERVIEW-OTAK] amounts dari getCashflowSummary (NOL hitung di FE)
       ] = await Promise.all([
         fetch(`${API_URL}/funding/admin/donations?status=pending&limit=1`, { headers }).then(r => r.json()).catch(() => null),
         fetch(`${API_URL}/funding/admin/donations?status=pending&sv=verify_urgent&limit=1`, { headers }).then(r => r.json()).catch(() => null),
@@ -148,15 +149,15 @@ export default function BadonasiCommandCenter() {
         fetch(`${API_URL}/funding/admin/fees/summary`, { headers }).then(r => r.json()).catch(() => null),
         // Recent donations for activity feed
         fetch(`${API_URL}/funding/admin/donations?limit=10&sort=created_at:desc`, { headers }).then(r => r.json()).catch(() => null),
-        // ⭐ Mission 2O: Under audit donations (limit=1000 untuk sum amount)
-        fetch(`${API_URL}/funding/admin/donations?status=under_audit&limit=1000`, { headers }).then(r => r.json()).catch(() => null),
+        // ⭐ Mission 2O: Under audit (count via meta.total; amount dari OTAK summary, bukan sum FE)
+        fetch(`${API_URL}/funding/admin/donations?status=under_audit&limit=1`, { headers }).then(r => r.json()).catch(() => null),
+        // [OVERVIEW-OTAK] amounts (pending/under_audit) dari getCashflowSummary — satu sumber, NOL hitung di FE
+        fetch(`${API_URL}/funding/admin/cashflow/summary`, { headers }).then(r => r.json()).catch(() => null),
       ]);
 
-      // ⭐ Mission 2O: Sum amount under_audit dari data array
-      const underAuditData = donUnderAudit?.data ?? [];
-      const underAuditAmount = Array.isArray(underAuditData)
-        ? underAuditData.reduce((sum: number, d: any) => sum + (Number(d.amount) || 0), 0)
-        : 0;
+      // [OVERVIEW-OTAK] Amount under_audit dari getCashflowSummary (beneficiary = uang NYATA, konsisten cashflow/recon).
+      //   BUANG Σ d.amount FE-compute (itu principal-dijanjikan, overstate 200rb vs 100rb nyata). Count tetap meta.total.
+      const underAuditAmount = Number(cashSum?.data?.total_beneficiary_under_audit) || 0;
       const underAuditCount = donUnderAudit?.meta?.total ?? 0;
 
       setStats({
@@ -170,7 +171,7 @@ export default function BadonasiCommandCenter() {
         pendingEscalations:  esc?.meta?.total ?? 0,
         totalRaised:         statsRes?.data?.total_collected ?? 0,
         activeCampaigns:     statsRes?.data?.active_campaigns ?? 0,
-        pendingAmount:       donStatsToday?.stats?.pending_amount ?? 0,
+        pendingAmount:       Number(cashSum?.data?.total_beneficiary_pending) || 0,  // [OVERVIEW-OTAK] dari summary (stats.pending_amount gak ada di BE → dulu 0)
         feePendingAmount:    feeSum?.data?.total_pending ?? 0,
         underAuditAmount,    // ⭐ Mission 2O
         underAuditCount,     // ⭐ Mission 2O
