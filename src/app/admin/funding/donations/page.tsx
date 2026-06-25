@@ -309,47 +309,45 @@ export default function AdminDonationsPage() {
     const tk = localStorage.getItem('tl_token');
     if (!tk) return;
     try {
-      // Fetch each status with high limit untuk dapat semua amount
-      // ⭐ Sesi 13 Mission 2J: Include under_audit
       // ⭐ Mission 2M: respect date filter
-      const statuses = ['pending', 'verified', 'rejected', 'under_audit'];
       const dateQs = [
         dateRange.from ? `&from=${encodeURIComponent(dateRange.from)}` : '',
         dateRange.to ? `&to=${encodeURIComponent(dateRange.to)}` : '',
       ].join('');
+
+      // [TAB-STAT-OTAK] 4 angka utama = WAJAH ambil dari OTAK (getCashflowSummary, beneficiary-based = recon).
+      //   NOL hitung di FE. Pindah dari raw d.amount (sumber kebenaran kedua) → satu sumber.
+      const sumQs = dateQs ? `?${dateQs.slice(1)}` : '';
+      const summary = await fetch(`${API_URL}/funding/admin/cashflow/summary${sumQs}`, {
+        headers: { Authorization: `Bearer ${tk}` },
+      }).then(r => r.json()).catch(() => null);
+      const s = summary?.data ?? {};
+
+      // Counts tetap dari meta.total list endpoint (JANGAN diutak). Rejected amount = riwayat (di luar
+      //   4 card OTAK; summary tak punya field rejected-beneficiary) → tetap raw amount.
+      const statuses = ['pending', 'verified', 'rejected', 'under_audit'];
       const results = await Promise.all(
-        statuses.map(s =>
-          fetch(`${API_URL}/funding/admin/donations?status=${s}&limit=1000${dateQs}`, {
+        statuses.map(st =>
+          fetch(`${API_URL}/funding/admin/donations?status=${st}&limit=1000${dateQs}`, {
             headers: { Authorization: `Bearer ${tk}` },
           }).then(r => r.json()).catch(() => null)
         )
       );
-
-      // Sum amount per status
-      const sumByStatus = (data: any[] | undefined) => {
-        if (!Array.isArray(data)) return 0;
-        return data.reduce((acc, d) => acc + (Number(d.amount) || 0), 0);
-      };
-
-      const pendingData = results[0]?.data ?? [];
-      const verifiedData = results[1]?.data ?? [];
       const rejectedData = results[2]?.data ?? [];
-      const underAuditData = results[3]?.data ?? [];
-
-      const pendingAmount = sumByStatus(pendingData);
-      const aktualAmount = sumByStatus(verifiedData);
-      const rejectedAmount = sumByStatus(rejectedData);
-      const underAuditAmount = sumByStatus(underAuditData);
-      // ⭐ Mission 2N: Filosofi Cash Flow Real LOCKED
-      // Total Tercatat = pending + verified + under_audit (EXCLUDE rejected)
-      // Rejected = riwayat terpisah, tidak masuk hitungan
-      const accrualAmount = pendingAmount + aktualAmount + underAuditAmount;
+      const rejectedAmount = (Array.isArray(rejectedData) ? rejectedData : [])
+        .reduce((acc: number, d: any) => acc + (Number(d.amount) || 0), 0);
 
       const pendingCount = results[0]?.meta?.total ?? 0;
       const aktualCount = results[1]?.meta?.total ?? 0;
       const rejectedCount = results[2]?.meta?.total ?? 0;
       const underAuditCount = results[3]?.meta?.total ?? 0;
       const accrualCount = pendingCount + aktualCount + underAuditCount;
+
+      // [TAB-STAT-OTAK] Amounts dari OTAK (beneficiary-based, konsisten recon/cashflow).
+      const aktualAmount = Number(s.total_beneficiary_verified) || 0;        // Dana Donasi
+      const underAuditAmount = Number(s.total_beneficiary_under_audit) || 0; // Tahan Audit
+      const pendingAmount = Number(s.total_beneficiary_pending) || 0;        // Pending
+      const accrualAmount = Number(s.total_beneficiary_recorded) || 0;       // Total Tercatat = verified+under_audit+pending
 
       setAccrualStats({
         accrualAmount, accrualCount,
