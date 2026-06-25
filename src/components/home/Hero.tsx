@@ -7,8 +7,13 @@ import { useState, useEffect } from 'react'
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 const HERO_PHOTO_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
 
+// Pra-launch (Jun 2026): slot UTAMA Hero (dulu Speedboat) sekarang dipakai BALAJU —
+// modul live, strategic (narik opang/Pemda). Transport disembunyikan dari landing.
+// Kalau transport mau dimunculin lagi pas launch, ambil JSX speedboat dari git history.
+
 const POPULAR_TAGS = [
-  { label: 'Speedboat Ternate–Sidangoli', href: '/speed' },
+  // Pra-launch: tag Speedboat disembunyikan (fokus 5 modul live)
+  // { label: 'Speedboat Ternate–Sidangoli', href: '/speed' },
   { label: 'Kos di Akehuda', href: '/bakos?area=akehuda' },
   { label: 'Berita Hari Ini', href: '/bakabar' },
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
@@ -16,19 +21,20 @@ const POPULAR_TAGS = [
 
 const SERVICE_PILLS = [
   {
-    icon: '📰', label: 'BAKABAR', sub: 'Berita Lokal',
-    href: '/bakabar', color: '#4F46E5', bg: 'rgba(79,70,229,0.07)', border: 'rgba(79,70,229,0.15)',
+    iconPath: 'M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2M18 14h-8M15 18h-5M10 6h8v4h-8Z', label: 'BAKABAR', sub: 'Berita Lokal',
+    href: '/bakabar', color: '#8B5CF6', bg: 'rgba(139,92,246,0.08)', border: 'rgba(139,92,246,0.15)',
+  },
+  // Pra-launch: slot SPEEDBOAT diganti BALAPOR (modul live) — 4 pill live, no gap.
+  {
+    iconPath: 'm3 11 19-9-9 19-2-8-8-2z', label: 'BALAPOR', sub: 'Laporan Publik',
+    href: '/reports', color: '#DC2626', bg: 'rgba(220,38,38,0.07)', border: 'rgba(220,38,38,0.15)',
   },
   {
-    icon: '⛵', label: 'SPEEDBOAT', sub: 'Jadwal & Tiket',
-    href: '/speed', color: '#0891B2', bg: 'rgba(8,145,178,0.07)', border: 'rgba(8,145,178,0.15)',
+    iconPath: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10', label: 'KOS', sub: 'Cari & Sewa Kos',
+    href: '/bakos', color: '#D97706', bg: 'rgba(217,119,6,0.08)', border: 'rgba(217,119,6,0.15)',
   },
   {
-    icon: '🏠', label: 'KOS', sub: 'Cari & Sewa Kos',
-    href: '/bakos', color: '#1B6B4A', bg: 'rgba(27,107,74,0.07)', border: 'rgba(27,107,74,0.15)',
-  },
-  {
-    icon: '💖', label: 'DONASI', sub: 'Bantu Sesama',
+    iconPath: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z', label: 'DONASI', sub: 'Bantu Sesama',
     href: '/fundraising', color: '#EC4899', bg: 'rgba(236,72,153,0.07)', border: 'rgba(236,72,153,0.15)',
   },
 ]
@@ -178,12 +184,12 @@ export default function Hero() {
             lineHeight: 1.06, letterSpacing: '-0.02em',
             color: 'var(--text)', marginBottom: 12,
           }}>
-            Temukan Apa Saja di <span style={{ color: 'var(--cyan)' }}>Maluku Utara</span>
+            Maluku Utara dalam <span style={{ color: 'var(--cyan)' }}>Satu Platform</span>
           </h1>
 
           <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--text-muted)', marginBottom: 20, maxWidth: 380 }}>
-            Berita, transportasi, kos, hingga bantuan —
-            <br />semua dalam satu pencarian.
+            Cari berita lokal, lapor masalah publik, cari kos,
+            <br />hingga berdonasi — tanpa pindah aplikasi.
           </p>
 
           {/* Search */}
@@ -201,7 +207,7 @@ export default function Hero() {
             </svg>
             <input value={search} onChange={e => setSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
-              type="search" placeholder="Cari speedboat, kos, berita, atau layanan..."
+              type="search" placeholder="Cari kos, berita, donasi, atau layanan..."
               style={{ flex: 1, border: 'none', outline: 'none', background: 'transparent', fontSize: 13.5, color: 'var(--text)', fontFamily: 'inherit' }} />
             <button type="submit" style={{
               width: 40, height: 40, borderRadius: 99, flexShrink: 0,
@@ -280,9 +286,11 @@ export default function Hero() {
                       width: 32, height: 32, borderRadius: 8,
                       background: pill.bg,
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
-                      fontSize: 16,
                     }}>
-                      {pill.icon}
+                      <svg viewBox="0 0 24 24" width={17} height={17} fill="none" stroke={pill.color}
+                        strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                        {pill.iconPath.split(' M').map((seg, i) => <path key={i} d={i === 0 ? seg : 'M' + seg} />)}
+                      </svg>
                     </div>
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 800, color: pill.color, lineHeight: 1.2 }}>
@@ -302,8 +310,8 @@ export default function Hero() {
         {/* RIGHT — floating cards (desktop only) */}
         <div className="hero-photo" style={{ position: 'relative', height: 500 }}>
 
-          {/* Card UTAMA — Speedboat */}
-          <Link href="/speed" className="float-card" style={{
+          {/* Card UTAMA — BALAJU (Ojek Lokal) — modul live, strategic narik opang */}
+          <Link href="/balaju" className="float-card" style={{
             position: 'absolute', bottom: '2%', left: '-8%',
             textDecoration: 'none',
             background: 'rgba(255,255,255,0.97)',
@@ -319,30 +327,34 @@ export default function Hero() {
             <div style={{ marginBottom: 12 }}>
               <span style={{
                 fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
-                background: '#0891B2', color: '#fff', padding: '3px 10px', borderRadius: 99,
-              }}>UTAMA · BAPASIAR</span>
+                background: '#0F766E', color: '#fff', padding: '3px 10px', borderRadius: 99,
+              }}>UTAMA · BALAJU</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <div style={{
                 width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                background: 'rgba(8,145,178,0.1)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22,
-              }}>⛵</div>
+                background: 'rgba(15,118,110,0.12)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg viewBox="0 0 24 24" width={22} height={22} fill="none" stroke="#0F766E"
+                  strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                </svg>
+              </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Speedboat Hari Ini</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Ternate → Sidangoli</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Ojek Lokal TeraLoka</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Antar barang &amp; penumpang</div>
               </div>
             </div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 8 }}>🕐 14:00 WIT</div>
-            <div style={{ fontSize: 22, fontWeight: 800, color: '#0891B2', letterSpacing: '-0.02em', marginBottom: 12 }}>
-              Rp 75.000
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
+              Driver lokal siap melayani warga Ternate
             </div>
             <div style={{
               display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              background: 'rgba(8,145,178,0.08)', borderRadius: 10, padding: '8px 12px',
+              background: 'rgba(15,118,110,0.1)', borderRadius: 10, padding: '8px 12px',
             }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: '#0891B2' }}>Lihat Jadwal</span>
-              <span style={{ fontSize: 14, color: '#0891B2' }}>→</span>
+              <span style={{ fontSize: 12, fontWeight: 700, color: '#0F766E' }}>Selengkapnya</span>
+              <span style={{ fontSize: 14, color: '#0F766E' }}>→</span>
             </div>
           </Link>
 
@@ -362,12 +374,12 @@ export default function Hero() {
           >
             <span style={{
               fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.07em',
-              color: '#1B6B4A', background: 'rgba(27,107,74,0.1)',
+              color: '#D97706', background: 'rgba(217,119,6,0.1)',
               padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 8,
             }}>BAKOS</span>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>Kos Akehuda</div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>Mulai Rp 450rb/bulan</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: '#1B6B4A' }}>Cari Kos →</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: '#D97706' }}>Cari Kos →</div>
           </Link>
 
           {/* Card Kecil — BADONASI */}

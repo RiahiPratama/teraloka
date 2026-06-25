@@ -2,6 +2,10 @@ import Link from 'next/link'
 
 const API = process.env.NEXT_PUBLIC_API_URL ?? 'https://api.teraloka.com/api/v1'
 
+// Pra-launch: kartu Speedboat disembunyikan (route /bapasiar/speedboat belum ada → 404).
+// Flip ke true + ganti grid ke md:grid-cols-3 pas BAPASIAR live.
+const SHOW_SPEEDBOAT = false
+
 async function getPublicStats() {
   try {
     const res = await fetch(`${API}/funding/stats/public`, { next: { revalidate: 300 } })
@@ -41,10 +45,10 @@ export default async function ContextualServices() {
             fontSize: 'clamp(22px, 3vw, 28px)',
             fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text)',
           }}>
-            Butuh sesuatu hari ini?
+            Mulai dari Sini
           </h2>
           <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 4 }}>
-            Layanan yang paling relevan untukmu saat ini.
+            Akses cepat layanan yang paling sering dibutuhkan warga.
           </p>
         </div>
 
@@ -67,7 +71,8 @@ export default async function ContextualServices() {
           }}
         >
 
-          {/* Card 1: Speedboat (BAPASIAR) */}
+          {/* Card 1: Speedboat (BAPASIAR) — disembunyikan pra-launch (route belum ada) */}
+          {SHOW_SPEEDBOAT && (
           <div
             className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
             style={{
@@ -114,12 +119,13 @@ export default async function ContextualServices() {
               Lihat Jadwal →
             </Link>
           </div>
+          )}
 
           {/* Card 2: Kos (BAKOS) */}
           <div
             className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
             style={{
-              background: 'var(--primary)', borderRadius: 20, overflow: 'hidden',
+              background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)', borderRadius: 20, overflow: 'hidden',
               minWidth: 'min(85vw, 320px)',
             }}
           >
@@ -150,7 +156,7 @@ export default async function ContextualServices() {
               display: 'block', textDecoration: 'none',
               background: '#fff',
               padding: '12px 20px',
-              fontSize: 13, fontWeight: 800, color: 'var(--primary)',
+              fontSize: 13, fontWeight: 800, color: '#B45309',
               textAlign: 'center',
             }}>
               Cari Kos →
@@ -215,6 +221,48 @@ export default async function ContextualServices() {
               position: 'relative',
             }}>
               Lihat Donasi →
+            </Link>
+          </div>
+
+          {/* Card 4: Ojek Lokal (BALAJU) — modul live, orange */}
+          <div
+            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            style={{
+              background: 'linear-gradient(135deg, #0F766E 0%, #134E4A 100%)',
+              borderRadius: 20, overflow: 'hidden',
+              minWidth: 'min(85vw, 320px)',
+            }}
+          >
+            <div style={{ padding: '20px 20px 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 16 }}>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12,
+                  background: 'rgba(255,255,255,0.18)',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                }}>
+                  <svg viewBox="0 0 24 24" width={20} height={20} fill="none" stroke="#fff" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                  </svg>
+                </div>
+                <div>
+                  <p style={{ fontSize: 13, fontWeight: 700, color: '#fff' }}>Ojek Lokal TeraLoka</p>
+                  <p style={{ fontSize: 11, color: 'rgba(255,255,255,0.85)' }}>Antar barang &amp; penumpang</p>
+                </div>
+              </div>
+              <div style={{ marginBottom: 16 }}>
+                <p style={{ fontSize: 13, color: 'rgba(255,255,255,0.92)', lineHeight: 1.55 }}>
+                  Driver lokal siap mengantar di sekitar Ternate &amp; kota terdekat.
+                </p>
+              </div>
+            </div>
+            <Link href="/balaju" style={{
+              display: 'block', textDecoration: 'none',
+              background: '#fff',
+              padding: '12px 20px',
+              fontSize: 13, fontWeight: 800, color: '#0F766E',
+              textAlign: 'center',
+            }}>
+              Pesan Sekarang →
             </Link>
           </div>
         </div>

@@ -170,7 +170,7 @@ export default function CTASection() {
                 ))}
               </div>
               <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 500 }}>
-                10.000+ warga bergabung
+                Baru diluncurkan di Ternate
               </span>
             </div>
           </div>

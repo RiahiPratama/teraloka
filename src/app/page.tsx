@@ -12,6 +12,10 @@ import SocialProof        from '@/components/home/SocialProof'
 import CTASection         from '@/components/home/CTASection'
 import Footer             from '@/components/layout/Footer'
 
+// Pra-launch (Jun 2026): KapalLokalCard (→ /ship, transport) disembunyikan biar
+// landing fokus 5 modul live. Route /ship LIVE (bukan 404) — flip ke true pas transport prominent.
+const SHOW_KAPAL_CARD = false
+
 export default function HomePage() {
   return (
     <>
@@ -25,10 +29,12 @@ export default function HomePage() {
         {/* 03 — Hero: desktop split layout + mobile 1 kolom */}
         <Hero />
 
-        {/* 04 — Kapal Lokal Card: MOBILE ONLY */}
-        <div className="md:hidden" style={{ padding: '12px 16px' }}>
-          <KapalLokalCard />
-        </div>
+        {/* 04 — Kapal Lokal Card: MOBILE ONLY — disembunyikan pra-launch (fokus 5 modul live) */}
+        {SHOW_KAPAL_CARD && (
+          <div className="md:hidden" style={{ padding: '12px 16px' }}>
+            <KapalLokalCard />
+          </div>
+        )}
 
         {/* 05 — Service Pills: MOBILE ONLY */}
         <div className="md:hidden">
