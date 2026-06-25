@@ -74,6 +74,7 @@ const STATUS_STYLE: Record<string, { bg: string; text: string; label: string }> 
   rejected:    { bg: 'rgba(239,68,68,0.15)',  text: '#EF4444', label: 'Rejected' },
   under_audit: { bg: 'rgba(234,179,8,0.15)',  text: '#CA8A04', label: 'Under Audit' },
   refund_paid: { bg: 'rgba(236,72,153,0.15)', text: '#BE185D', label: 'Refund Selesai' },
+  topup_paid:  { bg: 'rgba(6,182,212,0.15)',  text: '#0891B2', label: 'Topup Lunas' },
 };
 
 const CAMPAIGN_STATUS_LABEL: Record<string, string> = {

@@ -46,6 +46,7 @@ const STATUS_TABS = [
   { key: 'all',         label: 'Semua',       separated: false },
   { key: 'rejected',    label: 'Rejected',    separated: true  }, // visual terpisah
   { key: 'refund_paid', label: 'Refund',      separated: true  }, // [REFUND-TAB] uang-balik, tiru pola rejected (pink)
+  { key: 'topup_paid',  label: 'Topup',       separated: true  }, // [TOPUP-TAB] lunas-penuh, cyan
 ];
 
 const SORT_OPTIONS = [
@@ -274,8 +275,8 @@ export default function AdminDonationsPage() {
     if (!tk) return;
     // ⭐ Sesi 13 Mission 2J: Include under_audit
     // ⭐ Mission 2M: respect date filter
-    // [REFUND-TAB] +refund_paid utk badge tab Refund (count tab doang, BUKAN stat cards/accrual)
-    const statuses = ['pending', 'verified', 'rejected', 'under_audit', 'refund_paid'];
+    // [REFUND-TAB]/[TOPUP-TAB] +refund_paid/+topup_paid utk badge tab (count tab doang, BUKAN stat cards/accrual)
+    const statuses = ['pending', 'verified', 'rejected', 'under_audit', 'refund_paid', 'topup_paid'];
     const dateQs = [
       dateRange.from ? `&from=${encodeURIComponent(dateRange.from)}` : '',
       dateRange.to ? `&to=${encodeURIComponent(dateRange.to)}` : '',
@@ -800,12 +801,13 @@ export default function AdminDonationsPage() {
           // [REFUND-TAB] refund_paid = pill distinct PINK (uang-balik), tiru pola rejected (red).
           // accent diparametrik → rejected TETAP identik (isRefund=false → nilai red lama).
           const isRefund = tab.key === 'refund_paid';
-          const isDistinct = isRejected || isRefund;
-          const aTint04 = isRefund ? 'rgba(236,72,153,0.04)' : 'rgba(239,68,68,0.04)';
-          const aTint30 = isRefund ? 'rgba(236,72,153,0.3)'  : 'rgba(239,68,68,0.3)';
-          const aTint15 = isRefund ? 'rgba(236,72,153,0.15)' : 'rgba(239,68,68,0.15)';
-          const aSolid  = isRefund ? '#BE185D' : '#EF4444';
-          const aDeep   = isRefund ? '#831843' : '#7F1D1D';
+          const isTopup = tab.key === 'topup_paid';  // [TOPUP-TAB] cyan
+          const isDistinct = isRejected || isRefund || isTopup;
+          const aTint04 = isTopup ? 'rgba(6,182,212,0.04)' : isRefund ? 'rgba(236,72,153,0.04)' : 'rgba(239,68,68,0.04)';
+          const aTint30 = isTopup ? 'rgba(6,182,212,0.3)'  : isRefund ? 'rgba(236,72,153,0.3)'  : 'rgba(239,68,68,0.3)';
+          const aTint15 = isTopup ? 'rgba(6,182,212,0.15)' : isRefund ? 'rgba(236,72,153,0.15)' : 'rgba(239,68,68,0.15)';
+          const aSolid  = isTopup ? '#0891B2' : isRefund ? '#BE185D' : '#EF4444';
+          const aDeep   = isTopup ? '#164E63' : isRefund ? '#831843' : '#7F1D1D';
           
           return (
             <React.Fragment key={tab.key}>

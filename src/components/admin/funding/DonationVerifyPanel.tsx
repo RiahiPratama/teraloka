@@ -92,6 +92,7 @@ interface DonationDetail {
   message: string | null;
   transfer_proof_url: string | null;
   refund_proof_url: string | null; // [REFUND-PROOF tahap 2] bukti transfer refund dari penggalang
+  topup_proof_url: string | null;  // [TOPUP-PROOF tahap 5] bukti transfer topup dari penggalang
   verification_status: string;
   rejection_reason: string | null;
   verified_at: string | null;
@@ -153,6 +154,7 @@ function statusMeta(status: string): { label: string; color: string } {
     case 'rejected':    return { label: 'Ditolak',             color: '#EF4444' };
     case 'under_audit': return { label: 'Tahan Audit',         color: '#8B5CF6' };
     case 'refund_paid': return { label: 'Refund Selesai',      color: '#EC4899' };
+    case 'topup_paid':  return { label: 'Topup Lunas',         color: '#06B6D4' };
     default:            return { label: 'Menunggu Verifikasi', color: '#F59E0B' };
   }
 }
@@ -182,6 +184,7 @@ export default function DonationVerifyPanel({
   // [B1-RESTORE-UI] Kembalikan donasi rejected → verified (super_admin). Non-destruktif.
   const [showRestoreModal, setShowRestoreModal] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false); // [REFUND-SETTLE tahap 4-FE]
+  const [showTopupModal, setShowTopupModal] = useState(false);   // [TOPUP-SETTLE tahap 5]
   const [submitting, setSubmitting] = useState(false);
   const [actionError, setActionError] = useState('');
   const [actionSuccess, setActionSuccess] = useState('');
@@ -413,6 +416,39 @@ export default function DonationVerifyPanel({
     } catch {
       setActionError('Koneksi bermasalah.');
       setShowSettleModal(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // [TOPUP-SETTLE tahap 5] Admin acc bukti topup → POST endpoint pelunasan topup (mirror handleSettleRefund).
+  async function handleSettleTopup() {
+    if (!token || !donation) return;
+    setSubmitting(true);
+    setActionError('');
+    try {
+      const res = await fetch(`${API}/funding/admin/donations/${id}/topup-settle`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setShowTopupModal(false);
+        setActionSuccess('✅ Pelunasan topup tercatat. Donasi → Topup Lunas.');
+        setTimeout(() => onDone?.(), 1500);
+      } else {
+        const code = json?.error?.code;
+        const msg =
+          code === 'INVALID_STATUS'  ? 'Donasi ini tidak sedang menunggu topup (awaiting_topup).'
+          : code === 'PROOF_REQUIRED'  ? 'Bukti transfer topup belum diupload penggalang.'
+          : code === 'ALREADY_SETTLED' ? 'Topup donasi ini sudah dilunasi sebelumnya.'
+          : json?.error?.message || 'Gagal mencatat pelunasan topup.';
+        setActionError(msg);
+        setShowTopupModal(false);
+      }
+    } catch {
+      setActionError('Koneksi bermasalah.');
+      setShowTopupModal(false);
     } finally {
       setSubmitting(false);
     }
@@ -1365,6 +1401,110 @@ export default function DonationVerifyPanel({
         </div>
       )}
 
+      {/* [TOPUP-PROOF tahap 5] Bukti topup (donor lunasin kekurangan, penggalang upload) — admin LIHAT. Cyan. */}
+      {donation.discrepancy_decision === 'awaiting_topup' && (() => {
+        const url = donation.topup_proof_url;
+        const isPdf = !!url && /\.pdf(\?|#|$)/i.test(url);
+        return (
+          <div className="rounded-2xl p-5 mb-4" style={card}>
+            <div className="flex items-center gap-2 mb-3">
+              <ImageIcon size={15} style={{ color: '#06B6D4' }} />
+              <p className="text-[11px] uppercase tracking-wider font-semibold" style={{ color: '#06B6D4' }}>Bukti Topup (dari Penggalang)</p>
+            </div>
+            {url ? (
+              isPdf ? (
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 py-4 rounded-xl text-sm font-bold transition-colors"
+                  style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}`, color: t.textPrimary }}>
+                  <ExternalLink size={15} /> Buka bukti topup (PDF)
+                </a>
+              ) : (
+                <a href={url} target="_blank" rel="noopener noreferrer"
+                  className="block rounded-xl overflow-hidden transition-colors"
+                  style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}` }}>
+                  <img src={url} alt="Bukti topup"
+                    className="w-full max-h-[500px] object-contain" style={{ background: t.deepBg }} />
+                  <div className="py-2 text-center" style={{ background: t.cardInner, borderTop: `1px solid ${t.cardBorder}` }}>
+                    <p className="text-xs font-semibold inline-flex items-center gap-1" style={{ color: t.textMuted }}>
+                      <ExternalLink size={11} /> Klik untuk ukuran penuh
+                    </p>
+                  </div>
+                </a>
+              )
+            ) : (
+              <div className="py-8 text-center rounded-xl" style={{ background: t.cardInner }}>
+                <AlertCircle size={24} style={{ color: t.textDim }} className="mx-auto mb-2" />
+                <p className="text-sm" style={{ color: t.textMuted }}>Penggalang belum upload bukti topup</p>
+              </div>
+            )}
+          </div>
+        );
+      })()}
+
+      {/* [TOPUP-SETTLE tahap 5] Aksi pelunasan topup + jurnal — awaiting_topup. Tombol di bawah TB, jurnal gated topup_paid. */}
+      {donation.discrepancy_decision === 'awaiting_topup' && (
+        <div className="mb-4">
+          {donation.verification_status === 'topup_paid' ? (
+            <div className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold"
+              style={{ background: 'rgba(6,182,212,0.12)', border: '1px solid rgba(6,182,212,0.35)', color: '#06B6D4' }}>
+              <CheckCircle2 size={16} /> Topup lunas — pelunasan tercatat
+            </div>
+          ) : donation.topup_proof_url ? (
+            <button
+              onClick={() => setShowTopupModal(true)}
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold shadow-md hover:opacity-95 transition-all disabled:opacity-50"
+              style={{ background: '#0891B2', color: '#fff' }}
+            >
+              <ShieldCheck size={16} /> Acc Topup / Konfirmasi Pelunasan
+            </button>
+          ) : (
+            <button
+              disabled
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-bold"
+              style={{ background: t.cardInner, border: `1px solid ${t.cardBorder}`, color: t.textMuted, cursor: 'not-allowed', opacity: 0.7 }}
+            >
+              <AlertCircle size={16} /> Menunggu bukti topup dari penggalang
+            </button>
+          )}
+
+          {/* Jurnal pelunasan topup — gated topup_paid. Rekonstruksi deterministik dari field donasi (discrepancy_amount preserved). */}
+          <div className="mt-3 rounded-2xl p-4" style={card}>
+            <p className="text-[11px] uppercase tracking-wider font-semibold mb-2" style={{ color: t.textMuted }}>
+              Jurnal Pelunasan Topup (setelah ACC)
+            </p>
+            {donation.verification_status === 'topup_paid' ? (() => {
+              const tt = Number(donation.total_transfer) || 0;
+              const topup = Math.abs(Number(donation.discrepancy_amount) || 0);   // shortfall = topup masuk
+              const parkir = tt - topup;                                          // received-awal (clear 2102)
+              const benef = Number(donation.amount) || 0;
+              const fee = Number(donation.operational_fee) || 0;
+              const tip = Number(donation.penggalang_fee) || 0;
+              const kode = (donation.kode_unik != null ? Number(donation.kode_unik) : (tt - benef - fee - tip));
+              return (
+                <div className="space-y-1.5 text-sm" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  {[
+                    { label: 'Dr · 1101 Kas Partner (topup)', amt: topup, dr: true },
+                    { label: 'Dr · 2102 Dana Penelaahan (clear)', amt: parkir, dr: true },
+                    { label: 'Cr · 2101 Utang Beneficiary', amt: benef, dr: false },
+                    { label: 'Cr · 2301 Utang Fee BADONASI', amt: fee, dr: false },
+                    { label: 'Cr · 4101 Tip Penggalang', amt: tip, dr: false },
+                    { label: 'Cr · 4102 Kode Unik', amt: kode, dr: false },
+                  ].map((r, i) => (
+                    <div key={i} className="flex justify-between" style={{ paddingLeft: r.dr ? 0 : 14 }}>
+                      <span style={{ color: r.dr ? t.textPrimary : t.textMuted }}>{r.label}</span>
+                      <span className="font-semibold" style={{ color: t.textPrimary }}>{formatRupiah(r.amt)}</span>
+                    </div>
+                  ))}
+                </div>
+              );
+            })() : (
+              <p className="text-xs" style={{ color: t.textDim }}>Jurnal pelunasan muncul setelah konfirmasi.</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Action error */}
       {actionError && (
         <div className="rounded-xl p-3 mb-4 flex items-start gap-2" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.25)' }}>
@@ -1534,6 +1674,58 @@ export default function DonationVerifyPanel({
                 disabled={submitting}
                 className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-90"
                 style={{ background: '#BE185D', color: '#fff' }}
+              >
+                {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Ya, Catat Pelunasan'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* [TOPUP-SETTLE tahap 5] Konfirmasi pelunasan topup — aksi MONEY, gak bisa dibatalin. Cyan. */}
+      {showTopupModal && donation && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.6)' }}
+          onClick={() => !submitting && setShowTopupModal(false)}>
+          <div className="rounded-2xl max-w-md w-full p-6" style={{ background: t.card, border: `1px solid ${t.cardBorder}` }} onClick={e => e.stopPropagation()}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-11 h-11 rounded-full flex items-center justify-center" style={{ background: 'rgba(6,182,212,0.12)' }}>
+                <ShieldCheck size={22} style={{ color: '#06B6D4' }} />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: t.textPrimary }}>Konfirmasi Pelunasan Topup</h3>
+            </div>
+
+            <div className="mb-4 rounded-lg px-3 py-2.5" style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.25)' }}>
+              <p className="text-sm font-bold" style={{ color: '#06B6D4' }}>
+                Catat pelunasan topup {formatRupiah(Math.abs(Number(donation.discrepancy_amount) || 0))} → donasi LUNAS PENUH {formatRupiah(Number(donation.total_transfer) || 0)}
+              </p>
+            </div>
+
+            <p className="text-sm mb-5 leading-relaxed" style={{ color: t.textMuted }}>
+              Pastikan donor BENAR sudah transfer kekurangan ke penggalang (cek bukti di atas). Aksi ini
+              mencatat jurnal pelunasan penuh (Dr Kas+Penelaahan / Cr Beneficiary+Fee+Tip+Kode) &amp; ubah status jadi <b>Topup Lunas</b>.
+              <b style={{ color: t.textPrimary }}> Tidak bisa dibatalkan.</b>
+            </p>
+
+            {actionError && (
+              <div className="mb-3 rounded-lg px-3 py-2 text-xs" style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.25)', color: '#F87171' }}>
+                {actionError}
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowTopupModal(false)}
+                disabled={submitting}
+                className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50 hover:opacity-80"
+                style={{ background: t.cardInner, color: t.textPrimary }}
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSettleTopup}
+                disabled={submitting}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-colors disabled:opacity-50 hover:opacity-90"
+                style={{ background: '#0891B2', color: '#fff' }}
               >
                 {submitting ? <Loader2 size={16} className="animate-spin" /> : 'Ya, Catat Pelunasan'}
               </button>

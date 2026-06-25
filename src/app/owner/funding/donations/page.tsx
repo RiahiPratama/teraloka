@@ -53,6 +53,7 @@ interface DonationListItem {
   message: string | null;
   transfer_proof_url: string | null;
   refund_proof_url: string | null;
+  topup_proof_url: string | null;
   verification_status: string;
   verified_by_role: string | null;
   discrepancy_decision: string | null;
@@ -334,6 +335,35 @@ function DonationsPageContent() {
     [token, fetchDonations]
   );
 
+  // [TOPUP-PROOF tahap 5] Penggalang upload bukti donor topup → PATCH /topup-proof (mirror refund).
+  const handleTopupProofUpload = useCallback(
+    async (donationId: string, url: string): Promise<{ ok: boolean; error?: string }> => {
+      if (!token) return { ok: false, error: 'Sesi berakhir, silakan login ulang.' };
+      try {
+        const res = await fetch(`${API_URL}/funding/my/donations/${donationId}/topup-proof`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ topup_proof_url: url }),
+        });
+        const json = await res.json().catch(() => null);
+        if (res.ok && json?.success) {
+          fetchDonations();
+          return { ok: true };
+        }
+        const code = json?.error?.code;
+        const msg =
+          code === 'INVALID_STATUS' ? 'Donasi ini tidak sedang menunggu topup.'
+          : code === 'FORBIDDEN' ? 'Donasi ini bukan milik kampanye Anda.'
+          : code === 'NOT_FOUND' ? 'Donasi tidak ditemukan.'
+          : json?.error?.message ?? 'Gagal menyimpan bukti topup.';
+        return { ok: false, error: msg };
+      } catch {
+        return { ok: false, error: 'Koneksi bermasalah.' };
+      }
+    },
+    [token, fetchDonations]
+  );
+
   // Auth gate
   if (authLoading) {
     return (
@@ -536,6 +566,7 @@ function DonationsPageContent() {
                 }
                 onReject={() => setRejectDonation(d)}
                 onRefundProofUpload={handleRefundProofUpload}
+                onTopupProofUpload={handleTopupProofUpload}
               />
             ))}
           </div>
@@ -597,11 +628,13 @@ function DonationCard({
   onVerify,
   onReject,
   onRefundProofUpload,
+  onTopupProofUpload,
 }: {
   donation: DonationListItem;
   onVerify: () => void;
   onReject: () => void;
   onRefundProofUpload: (donationId: string, url: string) => Promise<{ ok: boolean; error?: string }>;
+  onTopupProofUpload: (donationId: string, url: string) => Promise<{ ok: boolean; error?: string }>;
 }) {
   const status = donation.verification_status;
   const isPending = status === 'pending';
@@ -720,6 +753,11 @@ function DonationCard({
         <RefundProofSection donation={donation} onUpload={onRefundProofUpload} />
       )}
 
+      {/* [TOPUP-PROOF tahap 5] Widget upload bukti topup — HANYA pas donasi nunggu topup. */}
+      {donation.discrepancy_decision === 'awaiting_topup' && (
+        <TopupProofSection donation={donation} onUpload={onTopupProofUpload} />
+      )}
+
       {/* Message preview */}
       {donation.message && (
         <p className="text-sm text-gray-600 italic mb-3 line-clamp-2">
@@ -806,6 +844,65 @@ function RefundProofSection({
         <>
           <p className="text-xs text-gray-600 mb-2">
             Sudah transfer balik selisih ke donatur? Upload bukti transfernya di sini untuk diverifikasi admin.
+          </p>
+          <ImageUpload bucket="donations" maxFiles={1} onUpload={handleUploaded} />
+          {submitting && <p className="text-xs text-gray-500 mt-1.5">Menyimpan bukti…</p>}
+        </>
+      )}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+    </div>
+  );
+}
+
+// ───── [TOPUP-PROOF tahap 5] Inline TopupProofSection ─────
+// Penggalang upload bukti donor udah transfer kekurangan (lunasin topup), donasi awaiting_topup.
+// Reuse ImageUpload (bucket 'donations' publik) → PATCH /topup-proof. Cyan. No-money.
+function TopupProofSection({
+  donation,
+  onUpload,
+}: {
+  donation: DonationListItem;
+  onUpload: (donationId: string, url: string) => Promise<{ ok: boolean; error?: string }>;
+}) {
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [localUrl, setLocalUrl] = useState<string | null>(null);
+  const proofUrl = localUrl ?? donation.topup_proof_url ?? null;
+
+  async function handleUploaded(urls: string[]) {
+    const url = urls?.[0];
+    if (!url) return;
+    setSubmitting(true);
+    setError(null);
+    const res = await onUpload(donation.id, url);
+    setSubmitting(false);
+    if (res.ok) setLocalUrl(url);
+    else setError(res.error ?? 'Gagal menyimpan bukti topup.');
+  }
+
+  return (
+    <div className="mb-3 rounded-lg border border-cyan-200 bg-cyan-50 p-3">
+      <p className="text-xs font-bold text-[#0891B2] mb-1.5 flex items-center gap-1.5">
+        <Upload size={13} strokeWidth={2.2} /> Bukti Transfer Topup
+      </p>
+      {proofUrl ? (
+        <div>
+          <a
+            href={proofUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block rounded-lg overflow-hidden border border-cyan-200"
+          >
+            <img src={proofUrl} alt="Bukti transfer topup" className="w-full max-h-64 object-contain bg-white" />
+          </a>
+          <p className="mt-1.5 text-xs font-semibold text-green-700 flex items-center gap-1">
+            <CheckCircle2 size={13} strokeWidth={2.2} /> Bukti terkirim — menunggu verifikasi admin
+          </p>
+        </div>
+      ) : (
+        <>
+          <p className="text-xs text-gray-600 mb-2">
+            Donatur sudah transfer kekurangannya? Upload bukti transfer topup di sini untuk diverifikasi admin.
           </p>
           <ImageUpload bucket="donations" maxFiles={1} onUpload={handleUploaded} />
           {submitting && <p className="text-xs text-gray-500 mt-1.5">Menyimpan bukti…</p>}
