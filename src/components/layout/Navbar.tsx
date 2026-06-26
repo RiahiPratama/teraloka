@@ -11,8 +11,8 @@ const NAV_LINKS = [
   { label: 'BAKABAR',  href: '/bakabar' },
   { label: 'BALAPOR',  href: '/reports' },
   { label: 'BADONASI', href: '/fundraising/badonasi' },
-  { label: 'BAKOS',    href: '/bakos' },
   { label: 'BALAJU',   href: '/balaju' },
+  { label: 'BAKOS',    href: '/bakos' },
 ];
 
 const PLACEHOLDERS = [
@@ -112,6 +112,20 @@ function IconActivity({ className = ICON }: IconProps) {
     </svg>
   );
 }
+function IconBolt({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z" />
+    </svg>
+  );
+}
+function IconList({ className = ICON }: IconProps) {
+  return (
+    <svg {...svgBase} className={className}>
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  );
+}
 
 export default function Navbar() {
   const router = useRouter();
@@ -134,6 +148,7 @@ export default function Navbar() {
   const [changePinOpen, setChangePinOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [aktivitasOpen, setAktivitasOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
 
@@ -177,6 +192,7 @@ export default function Navbar() {
 
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? 'hidden' : '';
+    if (!mobileMenuOpen) setAktivitasOpen(false);
     return () => { document.body.style.overflow = ''; };
   }, [mobileMenuOpen]);
 
@@ -293,8 +309,10 @@ export default function Navbar() {
                   <button onClick={() => setDropdownOpen(v => !v)}
                     className="flex items-center gap-2 rounded-full px-3 py-2 text-[13px] font-semibold transition-all hover:bg-gray-100/70"
                     style={{ color: 'var(--text-muted)' }}>
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[#1B6B4A] text-xs font-bold text-white shrink-0">
-                      {user.name ? user.name[0].toUpperCase() : '+'}
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full overflow-hidden bg-[#1B6B4A] text-xs font-bold text-white shrink-0">
+                      {user.avatar_url
+                        ? <img src={user.avatar_url} alt={user.name ?? 'Avatar'} className="h-full w-full object-cover" />
+                        : (user.name ? user.name[0].toUpperCase() : '+')}
                     </div>
                     <span className="hidden md:block max-w-[100px] truncate">
                       {user.name ?? (user.phone ? '+' + user.phone.slice(-4) : 'Akun')}
@@ -310,9 +328,11 @@ export default function Navbar() {
                       <div className="px-4 py-4 border-b border-gray-100"
                         style={{ background: 'linear-gradient(135deg, #f8fffe, #f0fdf9)' }}>
                         <div className="flex items-center gap-3">
-                          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#1B6B4A] text-base font-bold text-white shrink-0"
+                          <div className="flex h-10 w-10 items-center justify-center rounded-full overflow-hidden bg-[#1B6B4A] text-base font-bold text-white shrink-0"
                             style={{ boxShadow: '0 4px 12px rgba(27,107,74,0.3)' }}>
-                            {user.name ? user.name[0].toUpperCase() : '+'}
+                            {user.avatar_url
+                              ? <img src={user.avatar_url} alt={user.name ?? 'Avatar'} className="h-full w-full object-cover" />
+                              : (user.name ? user.name[0].toUpperCase() : '+')}
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-bold text-gray-800 truncate">{user.name ?? 'Pengguna'}</p>
@@ -364,8 +384,10 @@ export default function Navbar() {
                 </div>
                 {/* Mobile avatar */}
                 <button onClick={() => setMobileMenuOpen(v => !v)}
-                  className="flex md:hidden h-8 w-8 items-center justify-center rounded-full bg-[#1B6B4A] text-xs font-bold text-white shrink-0">
-                  {user.name ? user.name[0].toUpperCase() : '+'}
+                  className="flex md:hidden h-8 w-8 items-center justify-center rounded-full overflow-hidden bg-[#1B6B4A] text-xs font-bold text-white shrink-0">
+                  {user.avatar_url
+                    ? <img src={user.avatar_url} alt={user.name ?? 'Avatar'} className="h-full w-full object-cover" />
+                    : (user.name ? user.name[0].toUpperCase() : '+')}
                 </button>
               </>
             ) : (
@@ -402,17 +424,26 @@ export default function Navbar() {
         <div className="fixed inset-0 z-[65] md:hidden"
           onClick={() => setMobileMenuOpen(false)}
           style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }}>
-          <div className="absolute top-0 left-0 right-0 bg-white pb-8 px-6 rounded-b-3xl shadow-2xl"
-            style={{ paddingTop: 'calc(44px + 60px + 16px)' }}
+          <div className="absolute top-0 left-0 right-0 bg-white px-6 rounded-b-3xl shadow-2xl"
+            style={{
+              paddingTop: 'calc(44px + 20px)',
+              paddingBottom: 'calc(24px + env(safe-area-inset-bottom, 0px))',
+              maxHeight: '100dvh',
+              overflowY: 'auto',
+              overscrollBehavior: 'contain',
+              WebkitOverflowScrolling: 'touch',
+            }}
             onClick={e => e.stopPropagation()}>
 
             {/* ─── User Profile Header (kalau login) ─────────────── */}
             {user && (
               <div className="flex items-center gap-3 mb-5 pb-5 border-b border-gray-100">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1B6B4A] font-bold text-white text-lg">
-                  {user.name ? user.name[0].toUpperCase() : '+'}
+                <div className="flex h-12 w-12 items-center justify-center rounded-full overflow-hidden bg-[#1B6B4A] font-bold text-white text-lg">
+                  {user.avatar_url
+                    ? <img src={user.avatar_url} alt={user.name ?? 'Avatar'} className="h-full w-full object-cover" />
+                    : (user.name ? user.name[0].toUpperCase() : '+')}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="flex-1 min-w-0 pr-10">
                   <p className="font-bold text-gray-800 text-base truncate">{user.name ?? 'Pengguna'}</p>
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold mt-0.5"
                     style={{ background: roleMeta.bg, color: roleMeta.color }}>
@@ -422,7 +453,92 @@ export default function Navbar() {
               </div>
             )}
 
-            {/* ─── Navigasi: Beranda + Service tiles ─────────────── */}
+            {/* ─── Akun Saya + Admin (kalau login) — di ATAS ─────── */}
+            {user && (
+              <>
+                {/* Personal account */}
+                <div className="mb-4">
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                    Akun Saya
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Link href="/profile" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconUser className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Profil Saya
+                    </Link>
+                    <button onClick={() => { setChangePinOpen(true); setMobileMenuOpen(false); }}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconLock className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Ganti PIN
+                    </button>
+                    <Link href="/owner" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconStore className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Portal Mitra
+                    </Link>
+                    <Link href="/profile/donations" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconHeart className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Donasi Saya
+                    </Link>
+                    <Link href="/my-reports" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
+                      <IconMegaphone className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Laporan Saya
+                    </Link>
+                    <Link href="/owner/funding/campaigns/new/info" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border"
+                      style={{ color: '#1B6B4A', borderColor: '#1B6B4A', background: 'rgba(27,107,74,0.05)' }}>
+                      <IconHeart className="h-[18px] w-[18px] shrink-0" /> Ajukan Campaign
+                    </Link>
+                  </div>
+
+                  {/* Aktivitasku — accordion (Orderanku + Campaignku) */}
+                  <div className="mt-2">
+                    <button
+                      onClick={() => setAktivitasOpen(v => !v)}
+                      aria-expanded={aktivitasOpen}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100"
+                    >
+                      <IconActivity className="h-[18px] w-[18px] shrink-0 text-gray-400" />
+                      <span className="flex-1 text-left">Aktivitasku</span>
+                      <svg className={`h-4 w-4 shrink-0 text-gray-400 transition-transform ${aktivitasOpen ? 'rotate-180' : ''}`}
+                        fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+
+                    {aktivitasOpen && (
+                      <div className="mt-1.5 ml-3 pl-3 border-l border-gray-100 flex flex-col gap-1.5">
+                        <Link href="/aktivitas" onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+                          <IconBolt className="h-[16px] w-[16px] shrink-0 text-[#0F766E]" /> Orderanku
+                        </Link>
+                        <Link href="/owner/funding/campaigns" onClick={() => setMobileMenuOpen(false)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50">
+                          <IconList className="h-[16px] w-[16px] shrink-0 text-[#EC4899]" /> Campaignku
+                        </Link>
+                        {/* Orderanku → /aktivitas = riwayat transaksi semua layanan (BALAJU dll, filter Semua/per-modul).
+                            BUKAN /balaju/pesan (itu halaman pesan/booking ojek baru). */}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Admin section (only if admin role) */}
+                {isAdmin && (
+                  <div className="mb-4">
+                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{ color: roleMeta.bg }}>
+                      Tools Admin
+                    </p>
+                    <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
+                      className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border"
+                      style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}15` }}>
+                      <IconCog className="h-[18px] w-[18px] shrink-0" /> Admin Dashboard
+                    </Link>
+                  </div>
+                )}
+
+              </>
+            )}
+
+            {/* ─── Navigasi: Beranda + Service tiles — di BAWAH ───── */}
             <div className="mb-5">
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
                 Jelajahi TeraLoka
@@ -446,76 +562,12 @@ export default function Navbar() {
               </div>
             </div>
 
-            {/* ─── Akun User (kalau login) ───────────────────────── */}
+            {/* Logout (login) / Masuk–Daftar (non-login) — paling bawah */}
             {user ? (
-              <>
-                {/* Personal account */}
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
-                    Akun Saya
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Link href="/profile" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <IconUser className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Profil Saya
-                    </Link>
-                    <Link href="/profile/donations" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <IconHeart className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Donasi Saya
-                    </Link>
-                    <Link href="/aktivitas" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <IconActivity className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Aktivitasku
-                    </Link>
-                    <Link href="/my-reports" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <IconMegaphone className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Laporan Saya
-                    </Link>
-                    <button onClick={() => { setChangePinOpen(true); setMobileMenuOpen(false); }}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <IconLock className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Ganti PIN
-                    </button>
-                  </div>
-                </div>
-
-                {/* Penggalang section */}
-                <div className="mb-4">
-                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
-                    Galang Dana
-                  </p>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Link href="/owner" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 border border-gray-100">
-                      <IconStore className="h-[18px] w-[18px] shrink-0 text-gray-400" /> Portal Mitra
-                    </Link>
-                    <Link href="/owner/funding/campaigns/new/info" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-medium border"
-                      style={{ color: '#1B6B4A', borderColor: '#1B6B4A', background: 'rgba(27,107,74,0.05)' }}>
-                      <IconHeart className="h-[18px] w-[18px] shrink-0" /> Ajukan Campaign
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Admin section (only if admin role) */}
-                {isAdmin && (
-                  <div className="mb-4">
-                    <p className="text-[10px] font-bold uppercase tracking-wider mb-2 px-1" style={{ color: roleMeta.bg }}>
-                      Tools Admin
-                    </p>
-                    <Link href="/admin" onClick={() => setMobileMenuOpen(false)}
-                      className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-semibold border"
-                      style={{ color: roleMeta.bg, borderColor: roleMeta.bg, background: `${roleMeta.bg}15` }}>
-                      <IconCog className="h-[18px] w-[18px] shrink-0" /> Admin Dashboard
-                    </Link>
-                  </div>
-                )}
-
-                {/* Logout */}
-                <button onClick={handleLogout}
-                  className="flex w-full items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors">
-                  <IconLogout className="h-[18px] w-[18px] shrink-0" /> Keluar
-                </button>
-              </>
+              <button onClick={handleLogout}
+                className="flex w-full items-center justify-center gap-2 py-3 rounded-2xl text-sm font-semibold text-red-500 border border-red-100 hover:bg-red-50 transition-colors">
+                <IconLogout className="h-[18px] w-[18px] shrink-0" /> Keluar
+              </button>
             ) : (
               <div className="flex gap-3">
                 <Link href="/login" onClick={() => setMobileMenuOpen(false)}
@@ -531,6 +583,19 @@ export default function Navbar() {
               </div>
             )}
           </div>
+
+          {/* Tombol X — di luar panel scroll, tetap nempel pojok kanan-atas */}
+          <button
+            onClick={() => setMobileMenuOpen(false)}
+            aria-label="Tutup menu"
+            className="absolute right-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-gray-600 shadow-sm hover:bg-gray-200 active:scale-95 transition"
+            style={{ top: 'calc(44px + 20px)' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M18 6 6 18M6 6l12 12" />
+            </svg>
+          </button>
         </div>
       )}
 

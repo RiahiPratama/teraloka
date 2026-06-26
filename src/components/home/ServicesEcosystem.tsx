@@ -1,15 +1,35 @@
 'use client'
 
 import Link from 'next/link'
-import { SERVICES } from '@/lib/data/services'
+import { SERVICES, type Service } from '@/lib/data/services'
 
-const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BADONASI', 'BAKOS'])
+const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BADONASI', 'BAKOS', 'BALAJU'])
+
+// Pra-launch (Jun 2026): landing cuma nampilin layanan live. Layanan "Segera"
+// + tombol "Lihat Semua" (→ /layanan, route belum ada) disembunyikan via flag —
+// gampang diaktifin lagi pas launch tanpa hapus kode/route.
+const SHOW_COMING_SOON = false
 
 const ACTIVE_HREF: Record<string, string> = {
   'BAKABAR':   '/bakabar',
   'BALAPOR':   '/reports',
   'BADONASI': '/fundraising/badonasi',
   'BAKOS':     '/bakos',
+  'BALAJU':    '/balaju',
+}
+
+// BALAJU belum ada di SERVICES (lib/data/services.ts) — didefinisikan lokal biar
+// muncul sebagai modul live ke-5 di grid (apa adanya, tanpa badge "Segera").
+const BALAJU_SVC: Service = {
+  name: 'BALAJU',
+  sub: 'Ojek Lokal',
+  href: '/balaju',
+  iconPath: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+  carouselBg: 'rgba(15,118,110,0.08)',
+  carouselStroke: '#0F766E',
+  gridBg: 'rgba(15,118,110,0.08)',
+  gridBorder: 'rgba(15,118,110,0.15)',
+  gridStroke: '#0F766E',
 }
 
 export default function ServicesEcosystem() {
@@ -29,9 +49,9 @@ export default function ServicesEcosystem() {
         </p>
       </div>
 
-      {/* Fix: 2 kolom mobile → 3 kolom tablet → 5 kolom desktop */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-        {SERVICES.map(svc => {
+      {/* 2 kolom mobile → 5 kolom desktop (pra-launch: 5 modul live = 4 + BALAJU) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        {[...SERVICES.filter(svc => SHOW_COMING_SOON || ACTIVE.has(svc.name)), BALAJU_SVC].map(svc => {
           const isActive = ACTIVE.has(svc.name)
           const href = ACTIVE_HREF[svc.name] || svc.href
 
@@ -118,7 +138,8 @@ export default function ServicesEcosystem() {
           )
         })}
 
-        {/* Lihat Semua Layanan */}
+        {/* Lihat Semua Layanan — disembunyikan pra-launch (route /layanan belum ada) */}
+        {SHOW_COMING_SOON && (
         <Link href="/layanan" style={{ textDecoration: 'none' }}>
           <div style={{
             display: 'flex', alignItems: 'center', gap: 12,
@@ -156,6 +177,7 @@ export default function ServicesEcosystem() {
             <span style={{ fontSize: 14, color: 'var(--primary)', flexShrink: 0 }}>→</span>
           </div>
         </Link>
+        )}
       </div>
     </section>
   )

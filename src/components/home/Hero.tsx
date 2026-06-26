@@ -14,7 +14,7 @@ const HERO_PHOTO_URL = process.env.NEXT_PUBLIC_HERO_BG_URL || ''
 const POPULAR_TAGS = [
   // Pra-launch: tag Speedboat disembunyikan (fokus 5 modul live)
   // { label: 'Speedboat Ternate–Sidangoli', href: '/speed' },
-  { label: 'Kos di Akehuda', href: '/bakos?area=akehuda' },
+  { label: 'Kos di Kalumpang', href: '/bakos?area=kalumpang' },
   { label: 'Berita Hari Ini', href: '/bakabar' },
   { label: 'Donasi Kemanusiaan', href: '/fundraising' },
 ]
@@ -39,29 +39,22 @@ const SERVICE_PILLS = [
   },
 ]
 
-const FALLBACK_SPOTS = [
-  { emoji: '🌊', label: 'Laut Maluku', pos: { top: '18%', left: '22%' } },
-  { emoji: '🏝️', label: 'Tidore',      pos: { top: '58%', left: '15%' } },
-  { emoji: '⛵', label: 'Ternate',     pos: { top: '72%', left: '62%' } },
-  { emoji: '🌺', label: 'Halmahera',  pos: { top: '25%', left: '68%' } },
-]
-
 export default function Hero() {
   const router = useRouter()
-  const [search, setSearch]               = useState('')
+  const [search, setSearch] = useState('')
   const [searchFocused, setSearchFocused] = useState(false)
-  const [weather, setWeather]             = useState<any>(null)
+  const [weather, setWeather] = useState<any>(null)
   // ⭐ FIX: mounted flag — render SERVICE_PILLS client-only
   // Browser extensions (Dark Reader dll) memodifikasi DOM sebelum React hydrate
   // menyebabkan SSR vs client mismatch. Client-only render = no mismatch.
-  const [mounted, setMounted]             = useState(false)
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
     setMounted(true)
     fetch(`${API}/public/weather`)
       .then(r => r.json())
       .then(d => { if (d.success) setWeather(d.data) })
-      .catch(() => {})
+      .catch(() => { })
   }, [])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -113,32 +106,6 @@ export default function Hero() {
                 transform: `rotate(${-3 + i * 1.5}deg)`,
               }} />
             ))}
-            <div style={{
-              position: 'absolute', inset: 0, zIndex: 2,
-              display: 'flex', flexDirection: 'column',
-              alignItems: 'center', justifyContent: 'center',
-            }}>
-              <div style={{ fontSize: 56, marginBottom: 12, filter: 'drop-shadow(0 8px 24px rgba(0,0,0,0.3))' }}>🌊</div>
-              <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                Maluku Utara
-              </p>
-              <p style={{ color: 'rgba(255,255,255,0.3)', fontSize: 10, marginTop: 4 }}>
-                Set NEXT_PUBLIC_HERO_BG_URL di Vercel
-              </p>
-            </div>
-            {FALLBACK_SPOTS.map((spot, i) => (
-              <div key={i} style={{ position: 'absolute', ...spot.pos, zIndex: 3 }}>
-                <div style={{
-                  background: 'rgba(255,255,255,0.12)', backdropFilter: 'blur(8px)',
-                  border: '1px solid rgba(255,255,255,0.2)',
-                  borderRadius: 10, padding: '5px 10px',
-                  display: 'flex', alignItems: 'center', gap: 5,
-                }}>
-                  <span style={{ fontSize: 13 }}>{spot.emoji}</span>
-                  <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.8)', fontWeight: 600 }}>{spot.label}</span>
-                </div>
-              </div>
-            ))}
           </div>
         )}
 
@@ -184,12 +151,11 @@ export default function Hero() {
             lineHeight: 1.06, letterSpacing: '-0.02em',
             color: 'var(--text)', marginBottom: 12,
           }}>
-            Maluku Utara dalam <span style={{ color: 'var(--cyan)' }}>Satu Platform</span>
+            Gerbang Digital <span style={{ color: 'var(--cyan)' }}>Maluku Utara</span>
           </h1>
 
           <p style={{ fontSize: 15, lineHeight: 1.65, color: 'var(--text-muted)', marginBottom: 20, maxWidth: 380 }}>
-            Cari berita lokal, lapor masalah publik, cari kos,
-            <br />hingga berdonasi — tanpa pindah aplikasi.
+            Cari berita lokal, lapor masalah publik, cari kos-kosan, pesan ojek, hingga berdonasi — tanpa pindah aplikasi.
           </p>
 
           {/* Search */}
@@ -203,7 +169,7 @@ export default function Hero() {
           }}>
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none"
               stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
-              <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+              <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
             </svg>
             <input value={search} onChange={e => setSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)} onBlur={() => setSearchFocused(false)}
@@ -215,7 +181,7 @@ export default function Hero() {
               display: 'flex', alignItems: 'center', justifyContent: 'center',
             }}>
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
+                <circle cx="11" cy="11" r="8" /><path d="M21 21l-4.35-4.35" />
               </svg>
             </button>
           </form>
@@ -224,7 +190,7 @@ export default function Hero() {
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: 'var(--text-muted)' }}>
               <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="var(--primary)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" />
               </svg>
               Ternate, Maluku Utara
             </span>
@@ -259,50 +225,50 @@ export default function Hero() {
             visibility: mounted ? 'visible' : 'hidden',
           }}>
             {SERVICE_PILLS.map(pill => (
-                <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
-                  <div
-                    style={{
-                      background: '#fff',
-                      border: `1.5px solid ${pill.border}`,
-                      borderRadius: 14,
-                      padding: '12px 10px',
-                      display: 'flex', flexDirection: 'column', gap: 6,
-                      boxShadow: '0 2px 8px rgba(0,53,38,0.05)',
-                      transition: 'all 0.15s',
-                      cursor: 'pointer',
-                    }}
-                    onMouseEnter={e => {
-                      ;(e.currentTarget as HTMLElement).style.background = pill.bg
-                      ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
-                      ;(e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,53,38,0.1)'
-                    }}
-                    onMouseLeave={e => {
-                      ;(e.currentTarget as HTMLElement).style.background = '#fff'
-                      ;(e.currentTarget as HTMLElement).style.transform = 'none'
-                      ;(e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,53,38,0.05)'
-                    }}
-                  >
-                    <div style={{
-                      width: 32, height: 32, borderRadius: 8,
-                      background: pill.bg,
-                      display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    }}>
-                      <svg viewBox="0 0 24 24" width={17} height={17} fill="none" stroke={pill.color}
-                        strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-                        {pill.iconPath.split(' M').map((seg, i) => <path key={i} d={i === 0 ? seg : 'M' + seg} />)}
-                      </svg>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: pill.color, lineHeight: 1.2 }}>
-                        {pill.label}
-                      </div>
-                      <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 1 }}>
-                        {pill.sub}
-                      </div>
-                    </div>
-                    <div style={{ fontSize: 11, color: pill.color }}>→</div>
+              <Link key={pill.href} href={pill.href} style={{ textDecoration: 'none' }}>
+                <div
+                  style={{
+                    background: '#fff',
+                    border: `1.5px solid ${pill.border}`,
+                    borderRadius: 14,
+                    padding: '12px 10px',
+                    display: 'flex', flexDirection: 'column', gap: 6,
+                    boxShadow: '0 2px 8px rgba(0,53,38,0.05)',
+                    transition: 'all 0.15s',
+                    cursor: 'pointer',
+                  }}
+                  onMouseEnter={e => {
+                    ; (e.currentTarget as HTMLElement).style.background = pill.bg
+                      ; (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
+                      ; (e.currentTarget as HTMLElement).style.boxShadow = '0 6px 20px rgba(0,53,38,0.1)'
+                  }}
+                  onMouseLeave={e => {
+                    ; (e.currentTarget as HTMLElement).style.background = '#fff'
+                      ; (e.currentTarget as HTMLElement).style.transform = 'none'
+                      ; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(0,53,38,0.05)'
+                  }}
+                >
+                  <div style={{
+                    width: 32, height: 32, borderRadius: 8,
+                    background: pill.bg,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <svg viewBox="0 0 24 24" width={17} height={17} fill="none" stroke={pill.color}
+                      strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                      {pill.iconPath.split(' M').map((seg, i) => <path key={i} d={i === 0 ? seg : 'M' + seg} />)}
+                    </svg>
                   </div>
-                </Link>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: pill.color, lineHeight: 1.2 }}>
+                      {pill.label}
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-light)', marginTop: 1 }}>
+                      {pill.sub}
+                    </div>
+                  </div>
+                  <div style={{ fontSize: 11, color: pill.color }}>→</div>
+                </div>
+              </Link>
             ))}
           </div>
         </div>
@@ -328,7 +294,7 @@ export default function Hero() {
               <span style={{
                 fontSize: 9, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em',
                 background: '#0F766E', color: '#fff', padding: '3px 10px', borderRadius: 99,
-              }}>UTAMA · BALAJU</span>
+              }}>BALAJU</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 10 }}>
               <div style={{
@@ -342,8 +308,8 @@ export default function Hero() {
                 </svg>
               </div>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Ojek Lokal TeraLoka</div>
-                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Antar barang &amp; penumpang</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--text)' }}>Ojek Lokal</div>
+                <div style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 2 }}>Antar penumpang &amp; barang</div>
               </div>
             </div>
             <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 12, lineHeight: 1.5 }}>
@@ -378,7 +344,7 @@ export default function Hero() {
               padding: '2px 8px', borderRadius: 99, display: 'inline-block', marginBottom: 8,
             }}>BAKOS</span>
             <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--text)', marginBottom: 3 }}>Kos Akehuda</div>
-            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>Mulai Rp 450rb/bulan</div>
+            <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 10 }}>Mulai Rp 750rb/bulan</div>
             <div style={{ fontSize: 12, fontWeight: 700, color: '#D97706' }}>Cari Kos →</div>
           </Link>
 

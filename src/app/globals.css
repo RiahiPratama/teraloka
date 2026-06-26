@@ -101,6 +101,12 @@
   --color-bakos-muted: #FFFBEB;
   --color-bakos-strong: #78350F;
 
+  /* LAYANAN — BALAUNDRY = laundry marketplace. Royal blue (blue-600),
+     sengaja beda dari --color-balaju (#0F766E, mobilitas) biar tidak kembar. */
+  --color-balaundry: #2563EB;
+  --color-balaundry-muted: #EFF6FF;
+  --color-balaundry-strong: #1D4ED8;
+
   --color-properti: #10B981;
   --color-properti-muted: #ECFDF5;
   --color-properti-strong: #065F46;
@@ -244,6 +250,11 @@
   --color-bakos: #FBBF24;
   --color-bakos-muted: rgba(251, 191, 36, 0.08);
   --color-bakos-strong: #FDE68A;
+
+  /* BALAUNDRY — varian dark (lebih terang biar kontras). */
+  --color-balaundry: #3B82F6;
+  --color-balaundry-muted: rgba(37, 99, 235, 0.15);
+  --color-balaundry-strong: #60A5FA;
 
   --color-properti: #34D399;
   --color-properti-muted: rgba(52, 211, 153, 0.08);

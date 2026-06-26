@@ -39,11 +39,11 @@ export const SERVICES: Service[] = [
     sub: 'Berita Lokal',
     href: '/bakabar',
     iconPath: 'M4 22h16a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2v16a2 2 0 0 1-2 2Zm0 0a2 2 0 0 1-2-2v-9c0-1.1.9-2 2-2h2M18 14h-8M15 18h-5M10 6h8v4h-8Z',
-    carouselBg: 'rgba(79,70,229,0.08)',
-    carouselStroke: '#4F46E5',
-    gridBg: 'rgba(79,70,229,0.07)',
-    gridBorder: 'rgba(79,70,229,0.12)',
-    gridStroke: '#4F46E5',
+    carouselBg: 'rgba(139,92,246,0.1)',
+    carouselStroke: '#8B5CF6',
+    gridBg: 'rgba(139,92,246,0.08)',
+    gridBorder: 'rgba(139,92,246,0.15)',
+    gridStroke: '#8B5CF6',
   },
 
   // 2. BALAPOR — Laporan Publik (red: urgency, action)
@@ -95,11 +95,11 @@ export const SERVICES: Service[] = [
     sub: 'Kos-Kosan',
     href: '/bakos',
     iconPath: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10',
-    carouselBg: 'rgba(5,150,105,0.1)',
-    carouselStroke: '#059669',
-    gridBg: 'rgba(5,150,105,0.09)',
-    gridBorder: 'rgba(5,150,105,0.12)',
-    gridStroke: '#059669',
+    carouselBg: 'rgba(217,119,6,0.1)',
+    carouselStroke: '#D97706',
+    gridBg: 'rgba(217,119,6,0.09)',
+    gridBorder: 'rgba(217,119,6,0.15)',
+    gridStroke: '#D97706',
   },
 
   // 6. Properti — Jual Beli Sewa (cyan: real estate, sky/sea)

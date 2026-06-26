@@ -35,15 +35,13 @@ const NAV_ITEMS = [
   },
   // Cari — special center button, ditangani terpisah
   {
-    key: 'speed',
-    label: 'BAPASIAR',
-    href: '/speed',
+    key: 'balaju',
+    label: 'BALAJU',
+    href: '/balaju',
     icon: (active: boolean) => (
       <svg viewBox="0 0 24 24" width={22} height={22} fill="none"
         stroke={active ? 'var(--primary)' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M2 16c3-3.5 7-5 12-4.5l7 1.5-1 5H2z"/>
-        <path d="M2 16h20"/>
-        <path d="M3 19.5c4.5-1 9-1 13 0"/>
+        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>
       </svg>
     ),
   },
@@ -89,7 +87,7 @@ export default function BottomNav() {
   function isActive(key: string) {
     if (key === 'home') return pathname === '/'
     if (key === 'news') return pathname.startsWith('/bakabar')
-    if (key === 'speed') return pathname.startsWith('/speed') || pathname.startsWith('/ship') || pathname.startsWith('/ferry')
+    if (key === 'balaju') return pathname.startsWith('/balaju')
     if (key === 'akun') return pathname === '/profile' || pathname.startsWith('/profile/') || pathname === '/my-reports'
     return false
   }
@@ -98,7 +96,7 @@ export default function BottomNav() {
 
   // Insert items dengan slot kosong di tengah untuk tombol Cari
   const leftItems = NAV_ITEMS.slice(0, 2)   // Home, BAKABAR
-  const rightItems = NAV_ITEMS.slice(2)     // BAPASIAR, Akun
+  const rightItems = NAV_ITEMS.slice(2)     // BALAJU, Akun
 
   return (
     <>
@@ -147,20 +145,25 @@ export default function BottomNav() {
               )}
             </form>
 
-            {/* Quick shortcuts */}
-            <div className="grid grid-cols-2 gap-2">
+            {/* Quick shortcuts — layanan TeraLoka */}
+            <div className="grid grid-cols-3 gap-2">
               {[
-                { icon: '⛵', label: 'Speedboat Ternate', href: '/speed' },
-                { icon: '🏠', label: 'Kos di Akehuda', href: '/bakos?area=akehuda' },
-                { icon: '📰', label: 'Berita Terkini', href: '/bakabar' },
-                { icon: '💚', label: 'Donasi Aktif', href: '/fundraising' },
+                { label: 'BALAPOR',  href: '/reports',              color: '#DC2626', bg: 'rgba(220,38,38,0.1)',  icon: 'm3 11 19-9-9 19-2-8-8-2z' },
+                { label: 'BADONASI', href: '/fundraising/badonasi', color: '#EC4899', bg: 'rgba(236,72,153,0.1)', icon: 'M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z' },
+                { label: 'BAKOS',    href: '/bakos',                color: '#D97706', bg: 'rgba(217,119,6,0.1)',  icon: 'M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z M9 22V12h6v10' },
               ].map(s => (
                 <Link key={s.href} href={s.href}
                   onClick={() => setSearchOpen(false)}
-                  className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                  className="flex flex-col items-center justify-center gap-2 px-2 py-3 rounded-xl hover:bg-gray-50 transition-colors"
                   style={{ border: '1px solid var(--border-light)' }}>
-                  <span className="text-base">{s.icon}</span>
-                  <span className="truncate text-xs font-semibold">{s.label}</span>
+                  <span className="flex items-center justify-center rounded-lg shrink-0"
+                    style={{ width: 36, height: 36, background: s.bg }}>
+                    <svg viewBox="0 0 24 24" width={20} height={20} fill="none"
+                      stroke={s.color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d={s.icon} />
+                    </svg>
+                  </span>
+                  <span className="text-xs font-semibold text-gray-700">{s.label}</span>
                 </Link>
               ))}
             </div>

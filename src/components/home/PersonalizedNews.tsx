@@ -90,10 +90,11 @@ export default async function PersonalizedNews() {
               <div style={{ width: '100%', height: '100%', background: 'linear-gradient(135deg, #003526, #0891B2)' }} />
             )}
             <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.1) 50%, transparent 100%)' }} />
+            {/* BERITA UTAMA — pojok kiri-atas */}
+            <div style={{ position: 'absolute', top: 16, left: 16, display: 'inline-flex', background: 'rgba(0,53,38,0.9)', borderRadius: 99, padding: '4px 11px', zIndex: 2 }}>
+              <span style={{ fontSize: 10, fontWeight: 800, color: '#95d3ba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>BERITA UTAMA</span>
+            </div>
             <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '24px 24px 20px' }}>
-              <div style={{ display: 'inline-flex', background: 'rgba(0,53,38,0.9)', borderRadius: 99, padding: '3px 10px', marginBottom: 10 }}>
-                <span style={{ fontSize: 10, fontWeight: 800, color: '#95d3ba', textTransform: 'uppercase', letterSpacing: '0.5px' }}>BERITA UTAMA</span>
-              </div>
               <h3 className="font-sora" style={{ fontSize: 'clamp(16px, 3vw, 20px)', fontWeight: 800, color: '#fff', lineHeight: 1.3, marginBottom: 8 }}>
                 {featured.title}
               </h3>

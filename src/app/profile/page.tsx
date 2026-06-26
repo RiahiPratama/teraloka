@@ -8,8 +8,10 @@ import {
   ChevronLeft, Phone, ShieldCheck, ShieldAlert, Clock, Crown, Settings2,
   Home, Ship, User as UserIcon, LayoutDashboard, Users, Newspaper, Plus,
   ClipboardList, HeartHandshake, LogOut, ArrowRight, Check, Loader2, Camera, Trash2, X,
+  Lock, Receipt, Megaphone,
 } from 'lucide-react';
 import ImageUpload from '@/components/ui/ImageUpload';
+import ChangePinModal from '@/components/auth/ChangePinModal';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL;
 
@@ -54,6 +56,7 @@ export default function ProfilePage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState('');
+  const [changePinOpen, setChangePinOpen] = useState(false);
 
   // Phone (untuk user tanpa nomor — login Google)
   const [phoneInput, setPhoneInput] = useState('');
@@ -470,6 +473,22 @@ export default function ProfilePage() {
           >
             {saved ? <><Check size={16} /> Tersimpan!</> : saving ? <><Loader2 size={15} style={{ animation: 'spin 0.8s linear infinite' }} /> Menyimpan...</> : 'Simpan Nama'}
           </button>
+
+          {/* Ganti PIN */}
+          <button
+            onClick={() => setChangePinOpen(true)}
+            style={{
+              marginTop: 10, width: '100%', padding: '13px', borderRadius: 12,
+              border: `1.5px solid ${C.line}`, background: '#fff', color: C.ink,
+              fontSize: 14, fontWeight: 700, cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7,
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = '#F6F8F7'; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = '#fff'; }}
+          >
+            <Lock size={16} color={C.muted} /> Ganti PIN
+          </button>
         </div>
 
         {/* Akses Cepat Admin */}
@@ -530,6 +549,17 @@ export default function ProfilePage() {
               <h2 style={{ fontSize: 13, fontWeight: 700, color: C.ink }}>Aktivitas Saya</h2>
             </div>
             <div style={{ padding: 8 }}>
+              {/* Orderanku — riwayat transaksi semua layanan */}
+              <Link href="/aktivitas" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background 0.15s' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#F6F8F7')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                <Receipt size={17} color={C.muted} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Orderanku</div>
+                  <div style={{ fontSize: 11, color: C.faint }}>Riwayat transaksi semua layanan</div>
+                </div>
+                <ArrowRight size={15} color="#D1D5DB" />
+              </Link>
               {user.role === 'service_user' && (
                 <Link href="/my-reports" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background 0.15s' }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = '#F6F8F7')}
@@ -552,6 +582,17 @@ export default function ProfilePage() {
                 </div>
                 <ArrowRight size={15} color="#D1D5DB" />
               </Link>
+              {/* Campaignku — campaign yang dibuat */}
+              <Link href="/owner/funding/campaigns" style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '11px 12px', borderRadius: 10, textDecoration: 'none', transition: 'background 0.15s' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = '#F6F8F7')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}>
+                <Megaphone size={17} color={C.muted} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: '#374151' }}>Campaignku</div>
+                  <div style={{ fontSize: 11, color: C.faint }}>Kelola campaign yang kamu buat</div>
+                </div>
+                <ArrowRight size={15} color="#D1D5DB" />
+              </Link>
             </div>
           </div>
         )}
@@ -570,6 +611,8 @@ export default function ProfilePage() {
         >
           <LogOut size={16} /> Keluar dari TeraLoka
         </button>
+
+        <ChangePinModal open={changePinOpen} onClose={() => setChangePinOpen(false)} />
       </div>
     </div>
   );
