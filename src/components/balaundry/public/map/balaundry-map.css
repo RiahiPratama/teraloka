@@ -1,0 +1,91 @@
+/* ════════════════════════════════════════════════════════════════
+   BALAUNDRY Map — picker + frame + marker. Scope .blmap-*
+   PATH: src/components/balaundry/public/map/balaundry-map.css
+   Clone bakos-map.css. Brand = var(--color-balaundry) (royal blue), neutral
+   greys kept. NO hardcode brand hex, NO ijo/amber bakos.
+   ════════════════════════════════════════════════════════════════ */
+
+/* ── frame ── */
+.blmap-frame { position: relative; border-radius: 18px; overflow: hidden; border: 1px solid #E8ECEF;
+  background: #F4F6F8; min-height: 460px; }
+.blmap-leaflet { border-radius: 18px; overflow: hidden; }
+.blmap-leaflet .leaflet-container { touch-action: pan-y; background: #E8EEF0; }
+
+/* counter badge */
+.blmap-counter { position: absolute; top: 14px; left: 14px; z-index: 500;
+  display: inline-flex; align-items: center; gap: 6px; background: var(--color-balaundry-strong); color: #fff;
+  font-size: 13px; font-weight: 700; padding: 8px 14px; border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(0,0,0,.18); }
+.blmap-counter .material-symbols-outlined { font-size: 17px; }
+
+/* explore button */
+.blmap-explore { position: absolute; bottom: 14px; right: 14px; z-index: 500;
+  display: inline-flex; align-items: center; gap: 6px; background: var(--color-balaundry); color: #fff;
+  border: 0; font-family: inherit; font-size: 13px; font-weight: 700; padding: 10px 16px;
+  border-radius: 12px; cursor: pointer; box-shadow: 0 6px 16px -6px rgba(37,99,235,.5); transition: transform .15s; }
+.blmap-explore:hover { transform: translateY(-1px); }
+.blmap-explore .material-symbols-outlined { font-size: 17px; }
+
+/* loading + empty */
+.blmap-loading { height: 460px; display: flex; align-items: center; justify-content: center;
+  color: #94A3B8; font-size: 13px; }
+.blmap-empty { min-height: 460px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; text-align: center; padding: 32px; gap: 4px; }
+.blmap-empty .material-symbols-outlined { font-size: 48px; color: var(--color-balaundry); opacity: .55; margin-bottom: 8px; }
+.blmap-empty .t { font-size: 16px; font-weight: 700; color: #334155; margin: 0; }
+.blmap-empty .s { font-size: 13px; color: #94A3B8; margin: 0 0 12px; max-width: 320px; }
+.blmap-empty button { background: var(--color-balaundry); color: #fff; border: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; padding: 9px 18px; border-radius: 10px; cursor: pointer; }
+
+/* ── marker pin (Leaflet divIcon) — lingkaran royal blue + angka ── */
+.blmap-circle { width: 100%; height: 100%; border-radius: 50%; background: var(--color-balaundry);
+  border: 3px solid #fff; box-shadow: 0 2px 8px rgba(0,0,0,.3);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0; cursor: pointer; transition: transform .12s; line-height: 1; }
+.blmap-circle:hover { transform: scale(1.08); }
+.blmap-circle .blmap-h-ic { width: 13px; height: 13px; margin-bottom: 1px; }
+.blmap-circle .blmap-cnum { color: #fff; font-weight: 800; font-size: 12px;
+  text-shadow: 0 1px 1px rgba(0,0,0,.35); }
+.blmap-circle.lg { background: var(--color-balaundry-strong); }
+.blmap-circle.lg .blmap-h-ic { width: 15px; height: 15px; }
+.blmap-circle.lg .blmap-cnum { font-size: 14px; }
+.leaflet-div-icon { background: transparent !important; border: none !important; }
+.blmap-tip { font-size: 12px !important; }
+
+/* ════════════════════════════════════════════════════════════════
+   HERO variant — peta di dalam hero (.bl-heromap)
+   ════════════════════════════════════════════════════════════════ */
+.bl-heromap { width: 100%; min-width: 0; }   /* 🛡️ grid containment — cegah chip min-content meledakin track */
+.bl-heromap-pick { display: flex; gap: 6px; margin-bottom: 10px; overflow-x: auto;
+  padding-bottom: 2px; scrollbar-width: none; cursor: grab; }
+.bl-heromap-pick::-webkit-scrollbar { display: none; }
+.bl-heromap-pick > * { flex: 0 0 auto; }     /* chip gak shrink → scroll dalam cap, gak dorong kolom */
+.bl-heromap-frame { position: relative; z-index: 0; border-radius: 16px; overflow: hidden;
+  border: 1px solid var(--bl-line, #E8ECEF); background: #F4F6F8; min-height: 340px;
+  box-shadow: 0 18px 44px -28px rgba(37,99,235,.45); }
+
+/* chips */
+.blmap-chip { display: inline-flex; align-items: center; gap: 6px; border: 1px solid #E8ECEF;
+  background: #fff; color: #334155; font-weight: 700; font-size: 12px; font-family: inherit;
+  padding: 6px 10px; border-radius: 999px; cursor: pointer; transition: all .15s; white-space: nowrap; }
+.blmap-chip .b { background: #F1F5F9; color: #475569; font-size: 10px; font-weight: 800;
+  padding: 1px 6px; border-radius: 999px; min-width: 16px; text-align: center; }
+.blmap-chip:hover { border-color: var(--color-balaundry); color: var(--color-balaundry-strong); }
+.blmap-chip.on { background: var(--color-balaundry); border-color: var(--color-balaundry); color: #fff; }
+.blmap-chip.on .b { background: rgba(255,255,255,.24); color: #fff; }
+.blmap-chip.empty { border-style: dashed; color: #94A3B8; }
+.blmap-chip.empty .b { background: #F1F5F9; color: #94A3B8; }
+.blmap-chip.empty.on { background: #64748B; border-color: #64748B; border-style: solid; color: #fff; }
+.blmap-chip.skel { width: 96px; height: 31px; border-radius: 999px; background: #EEF1F4;
+  border-color: transparent; pointer-events: none; }
+
+.blmap-counter.sm { top: 10px; left: 10px; font-size: 12px; padding: 6px 11px; }
+.blmap-counter.sm .material-symbols-outlined { font-size: 15px; }
+.blmap-explore.sm { bottom: 10px; right: 10px; padding: 8px 13px; font-size: 12px; }
+.blmap-loading.sm, .blmap-empty.sm { min-height: 340px; }
+.blmap-empty.sm .material-symbols-outlined { font-size: 38px; }
+.blmap-empty.sm .t { font-size: 14px; }
+
+@media (max-width: 600px) {
+  .bl-heromap-frame, .blmap-loading.sm, .blmap-empty.sm { min-height: 300px; }
+}
