@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import { Bike } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 
 // 14 Mei 2026 — Sprint 2A Batch 1: route migration /news → /bakabar
@@ -39,10 +40,8 @@ const NAV_ITEMS = [
     label: 'BALAJU',
     href: '/balaju',
     icon: (active: boolean) => (
-      <svg viewBox="0 0 24 24" width={22} height={22} fill="none"
-        stroke={active ? 'var(--primary)' : '#9CA3AF'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>
-      </svg>
+      <Bike width={22} height={22} fill="none"
+        stroke={active ? 'var(--primary)' : '#9CA3AF'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
     ),
   },
   {

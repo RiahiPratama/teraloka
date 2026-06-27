@@ -114,28 +114,28 @@ export default function DCATopLeaderboard() {
       <Link
         href="/iklan"
         aria-label="Pasang iklan di BAKABAR"
-        className="flex items-center gap-4 sm:gap-6 w-full h-[220px] mb-8 rounded-xl border border-dashed px-5 sm:px-10 transition-all hover:shadow-md"
+        className="flex flex-col sm:flex-row items-center justify-center sm:justify-start text-center sm:text-left gap-2 sm:gap-6 w-full h-[220px] mb-8 rounded-xl border border-dashed px-4 sm:px-10 transition-all hover:shadow-md"
         style={{ borderColor: '#9DD3C0', background: 'linear-gradient(to bottom right, #F0FAF6, #E6F4EF)' }}
       >
         <div
-          className="w-14 h-14 sm:w-16 sm:h-16 shrink-0 rounded-full flex items-center justify-center"
+          className="w-12 h-12 sm:w-16 sm:h-16 shrink-0 rounded-full flex items-center justify-center"
           style={{ background: '#003526' }}
         >
-          <Megaphone size={28} strokeWidth={2} color="#fff" />
+          <Megaphone size={26} strokeWidth={2} color="#fff" />
         </div>
-        <div className="flex-1 min-w-0">
+        <div className="sm:flex-1 min-w-0">
           <p
-            className="text-[18px] sm:text-[24px] font-extrabold text-[#003526] leading-tight"
+            className="text-[16px] sm:text-[24px] font-extrabold text-[#003526] leading-tight"
             style={{ fontFamily: 'var(--font-lora), Georgia, serif' }}
           >
             Pasang Iklan di BAKABAR
           </p>
-          <p className="text-[12px] sm:text-[14px] text-gray-500 mt-1 leading-snug">
+          <p className="text-[12px] sm:text-[14px] text-gray-500 mt-0.5 sm:mt-1 leading-snug">
             Jangkau pembaca se-Maluku Utara
           </p>
         </div>
         <span
-          className="shrink-0 inline-flex items-center gap-1 text-[12px] sm:text-[14px] font-extrabold text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-md"
+          className="shrink-0 inline-flex items-center gap-1 text-[12px] sm:text-[14px] font-extrabold text-white px-4 py-2 sm:px-5 sm:py-2.5 rounded-md mt-1 sm:mt-0"
           style={{ background: '#003526' }}
         >
           Pasang Sekarang →
