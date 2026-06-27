@@ -29,35 +29,6 @@ import {
 } from './bakabar-fetch';
 import type { RegionConfig } from './region-data';
 
-// ─── Empty-state region (no dummy) ────────────────────────────────
-// Region tanpa artikel real → tampil jujur, BUKAN headline palsu yang
-// 404 pas diklik (editorial integrity). IDENTIK dgn BakabarShell lama.
-function EmptyRegion({ region }: { region: RegionConfig }) {
-  return (
-    <section className="my-12">
-      <div className="flex justify-between items-center mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-1 h-[30px] rounded-sm" style={{ background: '#8B5CF6' }} />
-          <h2
-            className="font-extrabold tracking-[-0.6px] text-gray-900"
-            style={{ fontFamily: "'Lora', Georgia, serif", fontSize: 28 }}
-          >
-            {region.label}
-          </h2>
-        </div>
-      </div>
-      <div className="rounded-lg border border-dashed border-gray-300 bg-gray-50 py-12 px-6 text-center">
-        <p className="text-[15px] font-semibold text-gray-600">
-          Belum ada berita untuk wilayah {region.short_label}.
-        </p>
-        <p className="text-[13px] text-gray-400 mt-1">
-          Tim redaksi sedang menyiapkan liputan. Cek lagi nanti, ya.
-        </p>
-      </div>
-    </section>
-  );
-}
-
 export default async function RegionServer({
   region,
   house,
@@ -73,7 +44,10 @@ export default async function RegionServer({
   ]);
 
   const real = rawArts.map(toRegionArticle);
-  if (!real.length) return <EmptyRegion region={region} />;
+  // Section kosong → sembunyikan total (collapse senyap). Bukan pesan "belum ada":
+  // section berisi di bawahnya naik natural; urutan REGIONS (di BelowFold) tak diubah →
+  // pas region ini nanti diisi, otomatis muncul lagi di posisi urutan aslinya.
+  if (!real.length) return null;
 
   // Props ke RegionSection PERSIS sama kayak yang dulu dikirim BakabarShell.
   return (
