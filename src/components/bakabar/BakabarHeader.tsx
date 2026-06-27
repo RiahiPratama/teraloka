@@ -12,7 +12,7 @@ import {
   Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare, Construction,
   Scale,
   // Layanan
-  Megaphone, Home, Heart,
+  Megaphone, Home, Heart, Bike,
   // Avatar dropdown
   User, FileText, Briefcase, Sparkles, Settings, LogOut, Search, ChevronDown,
   Menu, X,
@@ -30,44 +30,43 @@ import {
 // ════════════════════════════════════════════════════════════════
 
 const NAV_LINKS = [
-  { label: 'BAKABAR',  href: '/bakabar',     Icon: Newspaper },
-  { label: 'BALAPOR',  href: '/reports',     Icon: Megaphone },
-  { label: 'BAPASIAR', href: '/speed',       Icon: Ship },
-  { label: 'BAKOS',    href: '/bakos',         Icon: Home },
+  { label: 'BALAPOR', href: '/reports', Icon: Megaphone },
   { label: 'BADONASI', href: '/fundraising/badonasi', Icon: Heart },
+  { label: 'BALAJU', href: '/balaju', Icon: Bike },
+  { label: 'BAKOS', href: '/bakos', Icon: Home },
 ];
 
 const WILAYAH_ITEMS = [
-  { key: 'nasional', label: 'Nasional',     Icon: Globe },
-  { key: 'ternate',  label: 'Ternate',      Icon: MapPin },
-  { key: 'tidore',   label: 'Tidore',       Icon: MapPin },
-  { key: 'sofifi',   label: 'Sofifi',       Icon: Building2 },
-  { key: 'halbar',   label: 'Halbar',       Icon: MapPin },
-  { key: 'halut',    label: 'Halut',        Icon: MapPin },
-  { key: 'halteng',  label: 'Halteng',      Icon: MapPin },
-  { key: 'halsel',   label: 'Halsel',       Icon: MapPin },
-  { key: 'haltim',   label: 'Haltim',       Icon: MapPin },
-  { key: 'morotai',  label: 'Kep. Morotai', Icon: Anchor },
-  { key: 'sula',     label: 'Kep. Sula',    Icon: Anchor },
-  { key: 'taliabu',  label: 'P. Taliabu',   Icon: Anchor },
-  { key: 'viral',    label: 'Viral Medsos', Icon: Flame },
+  { key: 'nasional', label: 'Nasional', Icon: Globe },
+  { key: 'ternate', label: 'Ternate', Icon: MapPin },
+  { key: 'tidore', label: 'Tidore', Icon: MapPin },
+  { key: 'sofifi', label: 'Sofifi', Icon: Building2 },
+  { key: 'halbar', label: 'Halbar', Icon: MapPin },
+  { key: 'halut', label: 'Halut', Icon: MapPin },
+  { key: 'halteng', label: 'Halteng', Icon: MapPin },
+  { key: 'halsel', label: 'Halsel', Icon: MapPin },
+  { key: 'haltim', label: 'Haltim', Icon: MapPin },
+  { key: 'morotai', label: 'Kep. Morotai', Icon: Anchor },
+  { key: 'sula', label: 'Kep. Sula', Icon: Anchor },
+  { key: 'taliabu', label: 'P. Taliabu', Icon: Anchor },
+  { key: 'viral', label: 'Viral Medsos', Icon: Flame },
 ];
 
 const TOPIK_ITEMS = [
-  { key: 'berita',       label: 'Berita',       Icon: Newspaper },
-  { key: 'politik',      label: 'Politik',      Icon: Landmark },
-  { key: 'hukum',        label: 'Hukum',        Icon: Scale },
-  { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet },
-  { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake },
+  { key: 'berita', label: 'Berita', Icon: Newspaper },
+  { key: 'politik', label: 'Politik', Icon: Landmark },
+  { key: 'hukum', label: 'Hukum', Icon: Scale },
+  { key: 'ekonomi', label: 'Ekonomi', Icon: Wallet },
+  { key: 'sosial', label: 'Sosial', Icon: HeartHandshake },
   { key: 'transportasi', label: 'Transportasi', Icon: Ship },
   { key: 'infrastruktur', label: 'Infrastruktur', Icon: Construction },
-  { key: 'olahraga',     label: 'Olahraga',     Icon: Trophy },
-  { key: 'kesehatan',    label: 'Kesehatan',    Icon: Stethoscope },
-  { key: 'pendidikan',   label: 'Pendidikan',   Icon: GraduationCap },
-  { key: 'budaya',       label: 'Budaya',       Icon: Drama },
-  { key: 'teknologi',    label: 'Teknologi',    Icon: Cpu },
-  { key: 'cuaca',        label: 'Cuaca',        Icon: Cloud },
-  { key: 'opini',        label: 'Opini',        Icon: MessageSquare },
+  { key: 'olahraga', label: 'Olahraga', Icon: Trophy },
+  { key: 'kesehatan', label: 'Kesehatan', Icon: Stethoscope },
+  { key: 'pendidikan', label: 'Pendidikan', Icon: GraduationCap },
+  { key: 'budaya', label: 'Budaya', Icon: Drama },
+  { key: 'teknologi', label: 'Teknologi', Icon: Cpu },
+  { key: 'cuaca', label: 'Cuaca', Icon: Cloud },
+  { key: 'opini', label: 'Opini', Icon: MessageSquare },
 ];
 
 const PLACEHOLDERS = [
@@ -80,12 +79,12 @@ const PLACEHOLDERS = [
 ];
 
 const ROLE_META: Record<string, { label: string; color: string; bg: string }> = {
-  super_admin:     { label: 'Super Admin',     color: '#fff',    bg: '#E8963A' },
-  admin_content:   { label: 'Admin Konten',    color: '#fff',    bg: '#0891B2' },
-  admin_transport: { label: 'Admin Transport', color: '#fff',    bg: '#6366F1' },
-  admin_listing:   { label: 'Admin Listing',   color: '#fff',    bg: '#8B5CF6' },
-  admin_funding:   { label: 'Admin Funding',   color: '#fff',    bg: '#1B6B4A' },
-  user:            { label: 'Pengguna',        color: '#374151', bg: '#E5E7EB' },
+  super_admin: { label: 'Super Admin', color: '#fff', bg: '#E8963A' },
+  admin_content: { label: 'Admin Konten', color: '#fff', bg: '#0891B2' },
+  admin_transport: { label: 'Admin Transport', color: '#fff', bg: '#6366F1' },
+  admin_listing: { label: 'Admin Listing', color: '#fff', bg: '#8B5CF6' },
+  admin_funding: { label: 'Admin Funding', color: '#fff', bg: '#1B6B4A' },
+  user: { label: 'Pengguna', color: '#374151', bg: '#E5E7EB' },
 };
 
 export default function BakabarHeader() {
@@ -103,8 +102,8 @@ export default function BakabarHeader() {
   }
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [avatarOpen, setAvatarOpen]         = useState(false);
-  const [searchQuery,    setSearchQuery]    = useState('');
+  const [avatarOpen, setAvatarOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   // v5a (4 Jun): grid header 5-kolom (align skyscraper) HANYA di ≥1400px
   // (breakpoint sama dgn skyscraper). Di bawah → 1 kolom full-width, biar
@@ -118,12 +117,12 @@ export default function BakabarHeader() {
     return () => mq.removeEventListener('change', onChange);
   }, []);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const avatarRef      = useRef<HTMLDivElement>(null);
+  const avatarRef = useRef<HTMLDivElement>(null);
 
   function navigateBakabar(nav?: string, topic?: string) {
     const params = new URLSearchParams();
-    if (nav && nav !== 'terbaru')  params.set('nav', nav);
-    if (topic)                     params.set('topic', topic);
+    if (nav && nav !== 'terbaru') params.set('nav', nav);
+    if (topic) params.set('topic', topic);
     const qs = params.toString();
     router.push(qs ? `/bakabar?${qs}` : '/bakabar');
     setMobileMenuOpen(false);
