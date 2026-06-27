@@ -911,10 +911,15 @@ export default function EditArticlePage() {
             }}>
               <ImageUpload
                 bucket="articles"
+                privacyEditor
                 label="Foto Cover"
                 onUpload={(urls: string[]) => setCoverImageUrl(urls[0] ?? '')}
                 existingUrls={coverImageUrl ? [coverImageUrl] : []}
               />
+              <p style={{ fontSize: 11, color: t.textDim, marginTop: 6, lineHeight: 1.5 }}>
+                🔒 Ada wajah korban, anak, atau saksi? Drag kotak di atas wajah untuk
+                memburamkan sebelum simpan — wajah asli tidak ikut ter-upload.
+              </p>
 
               {coverImageUrl && (
                 <div style={{ marginTop: 12 }}>
