@@ -106,6 +106,8 @@
   --color-balaundry: #2563EB;
   --color-balaundry-muted: #EFF6FF;
   --color-balaundry-strong: #1D4ED8;
+  --color-balaundry-surya: #F39423;   /* aksen CTA hangat (surya) */
+  --color-balaundry-surya-2: #FFB45C;
 
   --color-properti: #10B981;
   --color-properti-muted: #ECFDF5;
@@ -255,6 +257,8 @@
   --color-balaundry: #3B82F6;
   --color-balaundry-muted: rgba(37, 99, 235, 0.15);
   --color-balaundry-strong: #60A5FA;
+  --color-balaundry-surya: #FBA94C;
+  --color-balaundry-surya-2: #FFC880;
 
   --color-properti: #34D399;
   --color-properti-muted: rgba(52, 211, 153, 0.08);
