@@ -59,7 +59,7 @@ export default function Hero() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    if (search.trim()) router.push(`/bakabar?q=${encodeURIComponent(search.trim())}`)
+    if (search.trim()) router.push(`/cari?q=${encodeURIComponent(search.trim())}`)
   }
 
   const weatherText = weather

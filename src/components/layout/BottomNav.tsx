@@ -78,7 +78,7 @@ export default function BottomNav() {
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
     if (searchQuery.trim()) {
-      router.push(`/bakabar?q=${encodeURIComponent(searchQuery.trim())}`)
+      router.push(`/cari?q=${encodeURIComponent(searchQuery.trim())}`)
       setSearchOpen(false)
       setSearchQuery('')
     }
