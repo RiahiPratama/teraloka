@@ -27,6 +27,7 @@
 import {
   Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
   Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare, Construction,
+  Scale,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -42,6 +43,7 @@ export type Category = {
 export const CATEGORIES: Category[] = [
   { key: 'berita',       label: 'Berita',       Icon: Newspaper,      color: '#1B6B4A' },
   { key: 'politik',      label: 'Politik',      Icon: Landmark,       color: '#7C3AED' },
+  { key: 'hukum',        label: 'Hukum',        Icon: Scale,          color: '#334155' },
   { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet,         color: '#059669' },
   { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake, color: '#0891B2' },
   { key: 'transportasi', label: 'Transportasi', Icon: Ship,           color: '#0284C7' },

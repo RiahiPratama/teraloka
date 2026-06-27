@@ -48,7 +48,7 @@ const STATUS_TABS = [
 
 const CATEGORIES = [
   'berita', 'transportasi', 'sosial', 'kesehatan',
-  'pendidikan', 'ekonomi', 'lingkungan', 'olahraga',
+  'pendidikan', 'ekonomi', 'lingkungan', 'olahraga', 'hukum',
 ];
 
 /** Badge style per status (Tailwind tokens). */

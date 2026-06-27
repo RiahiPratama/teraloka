@@ -10,6 +10,7 @@ import {
   // Topik
   Newspaper, Landmark, Wallet, HeartHandshake, Ship, Trophy,
   Stethoscope, GraduationCap, Drama, Cpu, Cloud, MessageSquare, Construction,
+  Scale,
   // Layanan
   Megaphone, Home, Heart,
   // Avatar dropdown
@@ -55,6 +56,7 @@ const WILAYAH_ITEMS = [
 const TOPIK_ITEMS = [
   { key: 'berita',       label: 'Berita',       Icon: Newspaper },
   { key: 'politik',      label: 'Politik',      Icon: Landmark },
+  { key: 'hukum',        label: 'Hukum',        Icon: Scale },
   { key: 'ekonomi',      label: 'Ekonomi',      Icon: Wallet },
   { key: 'sosial',       label: 'Sosial',       Icon: HeartHandshake },
   { key: 'transportasi', label: 'Transportasi', Icon: Ship },

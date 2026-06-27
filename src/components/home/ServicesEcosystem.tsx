@@ -5,6 +5,18 @@ import { SERVICES, type Service } from '@/lib/data/services'
 
 const ACTIVE = new Set(['BAKABAR', 'BALAPOR', 'BADONASI', 'BAKOS', 'BALAJU'])
 
+// Sub-label ringkas KHUSUS grid ini. Kartu 2-kolom di mobile sempit, sub 2-kata
+// ("Berita Lokal", "Donasi Kemanusiaan") wrap jadi 2 baris & "Kos-Kosan" patah di
+// tanda hubung. Pakai versi 1-kata biar 1 baris rapi. services.ts dibiarkan UTUH
+// supaya komponen lain yang pakai svc.sub gak ikut berubah.
+const SHORT_SUB: Record<string, string> = {
+  BAKABAR:  'Berita',
+  BALAPOR:  'Laporan',
+  BADONASI: 'Donasi',
+  BAKOS:    'Kos-kosan',
+  BALAJU:   'Ojek',
+}
+
 // Pra-launch (Jun 2026): landing cuma nampilin layanan live. Layanan "Segera"
 // + tombol "Lihat Semua" (→ /layanan, route belum ada) disembunyikan via flag —
 // gampang diaktifin lagi pas launch tanpa hapus kode/route.
@@ -90,14 +102,13 @@ export default function ServicesEcosystem() {
                   {svc.name}
                 </div>
                 <div style={{ fontSize: 11, color: 'var(--text-light)', marginTop: 2 }}>
-                  {svc.sub}
+                  {SHORT_SUB[svc.name] ?? svc.sub}
                 </div>
               </div>
 
-              {/* Arrow / Soon badge */}
-              {isActive ? (
-                <span style={{ fontSize: 14, color: 'var(--text-light)', flexShrink: 0 }}>→</span>
-              ) : (
+              {/* Badge "Segera" buat card inactive (absolute, gak ganggu layout).
+                  Card aktif sengaja TANPA panah → teks sub lega, mayoritas muat 1 baris. */}
+              {!isActive && (
                 <span style={{
                   position: 'absolute', top: -7, right: 8,
                   fontSize: 8, fontWeight: 800, letterSpacing: '0.3px',

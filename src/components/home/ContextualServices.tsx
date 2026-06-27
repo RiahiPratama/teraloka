@@ -74,11 +74,11 @@ export default async function ContextualServices() {
           {/* Card 1: Speedboat (BAPASIAR) — disembunyikan pra-launch (route belum ada) */}
           {SHOW_SPEEDBOAT && (
           <div
-            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            className="snap-start md:snap-align-none flex-shrink-0 md:flex-shrink"
             style={{
               background: '#fff', borderRadius: 20,
               border: '1px solid var(--border-light)', overflow: 'hidden',
-              minWidth: 'min(85vw, 320px)',
+              minWidth: 'min(84vw, 300px)',
             }}
           >
             <div style={{ padding: '20px 20px 0' }}>
@@ -123,10 +123,10 @@ export default async function ContextualServices() {
 
           {/* Card 2: Kos (BAKOS) */}
           <div
-            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            className="snap-start md:snap-align-none flex-shrink-0 md:flex-shrink"
             style={{
               background: 'linear-gradient(135deg, #D97706 0%, #B45309 100%)', borderRadius: 20, overflow: 'hidden',
-              minWidth: 'min(85vw, 320px)',
+              minWidth: 'min(84vw, 300px)',
             }}
           >
             <div style={{ padding: '20px 20px 0' }}>
@@ -165,12 +165,12 @@ export default async function ContextualServices() {
 
           {/* Card 3: Donasi (BADONASI) — full pink solid, signature service */}
           <div
-            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            className="snap-start md:snap-align-none flex-shrink-0 md:flex-shrink"
             style={{
               background: 'linear-gradient(135deg, #BE185D 0%, #EC4899 100%)',
               borderRadius: 20, overflow: 'hidden',
               position: 'relative',
-              minWidth: 'min(85vw, 320px)',
+              minWidth: 'min(84vw, 300px)',
             }}
           >
             {/* Subtle decoration */}
@@ -226,11 +226,11 @@ export default async function ContextualServices() {
 
           {/* Card 4: Ojek Lokal (BALAJU) — modul live, orange */}
           <div
-            className="snap-center md:snap-align-none flex-shrink-0 md:flex-shrink"
+            className="snap-start md:snap-align-none flex-shrink-0 md:flex-shrink"
             style={{
               background: 'linear-gradient(135deg, #0F766E 0%, #134E4A 100%)',
               borderRadius: 20, overflow: 'hidden',
-              minWidth: 'min(85vw, 320px)',
+              minWidth: 'min(84vw, 300px)',
             }}
           >
             <div style={{ padding: '20px 20px 0' }}>
