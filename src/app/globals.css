@@ -487,3 +487,22 @@ h1, h2, h3, h4, .font-sora { font-family: var(--font-sora), sans-serif; }
     padding-top: 0 !important;
   }
 }
+
+/* ════════════════════════════════════════════════════════════════
+   FOOTER MOBILE GATE (27 Jun 2026)
+   ────────────────────────────────────────────────────────────────
+   Di MOBILE (≤768px = area BottomNav), footer cuma muncul di HALAMAN
+   UTAMA. Buka layanan apapun (bakabar/bakos/balaju/cari/fundraising/
+   reports/dll) → footer SEMBUNYI, biar app-like (BottomNav jadi navigasi).
+
+   Cara kerja: homepage (src/app/page.tsx) render <Footer/> SENDIRI tanpa
+   .bk-chrome-foot → TIDAK kena. Halaman layanan dapat footer via
+   PublicChrome (.bk-chrome-foot, ConditionalChrome.tsx) → di-hide.
+   Desktop (≥769px) TIDAK terpengaruh — footer tampil di semua halaman.
+
+   Catatan: ini lebih luas dari blok BK-IMMERSIVE di atas (yg cuma hide
+   di halaman immersive). Blok ini hide footer di SEMUA halaman layanan.
+   ════════════════════════════════════════════════════════════════ */
+@media (max-width: 768px) {
+  .bk-chrome-foot { display: none !important; }
+}
