@@ -38,7 +38,7 @@ const NAV_ITEMS = [
   {
     key: 'balaju',
     label: 'BALAJU',
-    href: '/balaju',
+    href: '/balaju/pesan',
     icon: (active: boolean) => (
       <Bike width={22} height={22} fill="none"
         stroke={active ? 'var(--primary)' : '#9CA3AF'} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
