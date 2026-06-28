@@ -62,7 +62,7 @@ export default function PWAInstallBanner() {
     <div
       className="md:hidden"
       style={{
-        margin: '0 16px 16px',
+        margin: '16px 16px 16px',
         background: 'linear-gradient(135deg, #003526 0%, #1B6B4A 100%)',
         borderRadius: 16,
         padding: '14px 16px',
