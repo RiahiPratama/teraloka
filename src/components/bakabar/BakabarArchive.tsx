@@ -16,7 +16,6 @@ import DCASkyscraper from './DCASkyscraper';
 import DCATopLeaderboard from './DCATopLeaderboard';
 import ArchiveInFeedAd from './ArchiveInFeedAd';
 import DCAInlineBanner from './DCAInlineBanner';
-import { getCategory } from '@/lib/categories';
 
 export type ArchiveArticle = {
   id:               string;
@@ -63,7 +62,6 @@ function resolveTeaser(a: ArchiveArticle): string {
 }
 
 function ArticleCard({ a }: { a: ArchiveArticle }) {
-  const cat = getCategory(a.category);
   const meta = timeAgo(a.published_at || a.created_at);
   const teaser = resolveTeaser(a);
   return (
@@ -79,14 +77,6 @@ function ArticleCard({ a }: { a: ArchiveArticle }) {
             loading="lazy"
             className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
           />
-        )}
-        {cat && (
-          <span
-            className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-white text-[10px] font-bold uppercase tracking-wide"
-            style={{ background: cat.color }}
-          >
-            {cat.label}
-          </span>
         )}
       </div>
       <div className="flex flex-col flex-1 p-3.5">

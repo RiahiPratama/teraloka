@@ -108,12 +108,6 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
           <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(180deg, transparent 50%, rgba(0,0,0,0.4) 100%)' }} />
 
           <div className="absolute top-4 left-4 z-[3] flex gap-2">
-            {hero.category && (
-              <span className="backdrop-blur-md px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase"
-                style={{ background: 'rgba(255,255,255,0.95)', color: '#EF4444' }}>
-                {hero.category}
-              </span>
-            )}
             {hero.is_viral && (
               <span className="px-2.5 py-1 rounded-sm text-[10px] font-extrabold tracking-widest uppercase flex items-center gap-1"
                 style={{ background: '#F59E0B', color: '#fff' }}>
@@ -161,12 +155,6 @@ function HeroSlideContent({ slide, slideIdx, mounted }: { slide: HeroSlide; slid
                 <div className="absolute inset-0 pointer-events-none" style={{
                   background: 'radial-gradient(ellipse at 70% 30%, rgba(255,255,255,0.12) 0%, transparent 50%)',
                 }} />
-                {a.category && (
-                  <span className="absolute top-2 left-2 z-[2] backdrop-blur-md px-2 py-0.5 rounded-sm text-[9px] font-extrabold tracking-widest uppercase"
-                    style={{ background: 'rgba(255,255,255,0.95)', color: '#EF4444' }}>
-                    {a.category}
-                  </span>
-                )}
               </div>
               <h4 className="text-[14px] font-bold leading-[1.3] tracking-[-0.2px] text-gray-900 mb-1.5 line-clamp-3 group-hover:text-[#003526] transition-colors"
                 style={{ fontFamily: "var(--font-lora), Georgia, serif" }}>
