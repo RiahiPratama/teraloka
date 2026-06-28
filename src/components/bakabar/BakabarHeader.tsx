@@ -103,6 +103,9 @@ export default function BakabarHeader() {
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [avatarOpen, setAvatarOpen] = useState(false);
+  // Foto profil gagal load (URL rusak) → fallback ke inisial (bukan broken-image).
+  const [avatarError, setAvatarError] = useState(false);
+  useEffect(() => { setAvatarError(false); }, [user?.avatar_url]); // retry pas foto ganti
   const [searchQuery, setSearchQuery] = useState('');
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   // v5a (4 Jun): grid header 5-kolom (align skyscraper) HANYA di ≥1400px
@@ -236,8 +239,8 @@ export default function BakabarHeader() {
                 {/* Spacer kiri (push Search ke tengah) — desktop only, mobile search full-width */}
                 <div className="hidden md:block flex-1 min-w-0" />
 
-                {/* Search di TENGAH (max 500px) */}
-                <form onSubmit={handleSearch} className="flex-1 min-w-0" style={{ maxWidth: 500 }}>
+                {/* Search di TENGAH (max 500px) — mobile: mepet avatar dikasih jarak (mr-1) */}
+                <form onSubmit={handleSearch} className="flex-1 min-w-0 mr-1 md:mr-0" style={{ maxWidth: 500 }}>
                   <div
                     className="flex items-center gap-2 rounded-full px-4 py-2 transition-all"
                     style={{ background: '#F1F5F9', border: '1.5px solid transparent' }}
@@ -257,7 +260,7 @@ export default function BakabarHeader() {
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
                       placeholder={PLACEHOLDERS[placeholderIdx]}
-                      className="flex-1 bg-transparent outline-none text-[14px] text-gray-800 placeholder:text-gray-400"
+                      className="flex-1 min-w-0 bg-transparent outline-none text-[14px] text-gray-800 placeholder:text-gray-400 truncate"
                       aria-label="Pencarian"
                     />
                     {searchQuery && (
@@ -282,8 +285,10 @@ export default function BakabarHeader() {
                         aria-label="Akun saya"
                         aria-expanded={avatarOpen}
                       >
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#1B6B4A] text-xs font-bold text-white">
-                          {user.name ? user.name[0].toUpperCase() : '+'}
+                        <div className="flex h-8 w-8 items-center justify-center rounded-full overflow-hidden bg-[#1B6B4A] text-xs font-bold text-white">
+                          {user.avatar_url && !avatarError
+                            ? <img src={user.avatar_url} alt={user.name ?? 'Avatar'} onError={() => setAvatarError(true)} className="h-full w-full object-cover" />
+                            : (user.name ? user.name[0].toUpperCase() : '+')}
                         </div>
                         <span className="hidden md:inline text-[13px] font-semibold text-gray-800 truncate max-w-[100px]">
                           {user.name ?? 'Pengguna'}
@@ -306,8 +311,10 @@ export default function BakabarHeader() {
 
                           {/* Header: avatar + nama + role */}
                           <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-100" style={{ background: 'linear-gradient(135deg, #faf5ff 0%, #ffffff 100%)' }}>
-                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#1B6B4A] font-bold text-white text-base shrink-0">
-                              {user.name ? user.name[0].toUpperCase() : '+'}
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full overflow-hidden bg-[#1B6B4A] font-bold text-white text-base shrink-0">
+                              {user.avatar_url && !avatarError
+                                ? <img src={user.avatar_url} alt={user.name ?? 'Avatar'} onError={() => setAvatarError(true)} className="h-full w-full object-cover" />
+                                : (user.name ? user.name[0].toUpperCase() : '+')}
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-gray-800 text-sm truncate">{user.name ?? 'Pengguna'}</p>
