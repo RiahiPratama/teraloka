@@ -10,14 +10,19 @@
 // memory (bitmap.close() saat unmount).
 
 import { useEffect, useRef, useState } from 'react';
-import { X, Droplet, Grid3x3, SquareDashedBottom, Crop, Undo2, RotateCcw, Check } from 'lucide-react';
+import { X, Droplet, Grid3x3, SquareDashedBottom, Crop, Undo2, RotateCcw, Check, Paintbrush } from 'lucide-react';
 
-type Mode = 'blur' | 'mosaic' | 'redact' | 'crop';
+type Mode = 'blur' | 'mosaic' | 'redact' | 'crop' | 'brush';
 interface Rect { x: number; y: number; w: number; h: number }
-interface Op { type: 'blur' | 'mosaic' | 'redact'; rect: Rect }
+interface Pt { x: number; y: number }
+// Op kotak (existing) — TIDAK berubah. BrushOp = additive (sapuan freehand).
+interface RectOp { type: 'blur' | 'mosaic' | 'redact'; rect: Rect }
+interface BrushOp { type: 'brush'; points: Pt[]; radius: number }
+type Op = RectOp | BrushOp;
 
 const MODES: { key: Mode; label: string; Icon: any }[] = [
   { key: 'blur',   label: 'Blur',        Icon: Droplet },
+  { key: 'brush',  label: 'Kuas',        Icon: Paintbrush },
   { key: 'mosaic', label: 'Mosaic',      Icon: Grid3x3 },
   { key: 'redact', label: 'Kotak Hitam', Icon: SquareDashedBottom },
   { key: 'crop',   label: 'Crop',        Icon: Crop },
@@ -28,6 +33,27 @@ function normRect(a: { x: number; y: number }, b: { x: number; y: number }): Rec
 }
 
 function applyOp(ctx: CanvasRenderingContext2D, bmp: ImageBitmap, op: Op) {
+  // ── Brush (additive) — bake blur sepanjang sapuan (union lingkaran titik) ──
+  // Flatten ke pixel SAMA kayak kotak (di-draw ke base → ikut toBlob). Wajah asli hilang.
+  if (op.type === 'brush') {
+    const blurPx = Math.max(8, Math.round(Math.min(bmp.width, bmp.height) * 0.02));
+    const tmp = document.createElement('canvas');
+    tmp.width = bmp.width; tmp.height = bmp.height;
+    const tctx = tmp.getContext('2d')!;
+    tctx.filter = `blur(${blurPx}px)`;
+    tctx.drawImage(bmp, 0, 0);
+    tctx.filter = 'none';
+    ctx.save();
+    ctx.beginPath();
+    for (const p of op.points) {
+      ctx.moveTo(p.x + op.radius, p.y);
+      ctx.arc(p.x, p.y, op.radius, 0, Math.PI * 2);
+    }
+    ctx.clip();
+    ctx.drawImage(tmp, 0, 0);
+    ctx.restore();
+    return;
+  }
   const { x, y, w, h } = op.rect;
   if (op.type === 'redact') {
     ctx.fillStyle = '#000';
@@ -77,6 +103,14 @@ export default function ImagePrivacyEditor({
   const overlayRef = useRef<HTMLCanvasElement>(null);
   const bmpRef = useRef<ImageBitmap | null>(null);
   const dragRef = useRef<{ start: { x: number; y: number }; cur: { x: number; y: number } } | null>(null);
+  const strokeRef = useRef<Pt[] | null>(null); // sapuan brush in-progress (mode 'brush')
+
+  // Radius kuas — skala ke ukuran gambar (slider di-skip; default wajar).
+  function brushRadius(): number {
+    const bmp = bmpRef.current;
+    if (!bmp) return 24;
+    return Math.max(14, Math.round(Math.min(bmp.width, bmp.height) * 0.045));
+  }
 
   const [ready, setReady] = useState(false);
   const [mode, setMode] = useState<Mode>('blur');
@@ -127,7 +161,17 @@ export default function ImagePrivacyEditor({
     ctx.setLineDash([]);
     ctx.lineWidth = lw;
     ctx.strokeStyle = 'rgba(74,222,128,0.9)';
-    for (const op of ops) ctx.strokeRect(op.rect.x, op.rect.y, op.rect.w, op.rect.h);
+    for (const op of ops) {
+      if (op.type === 'brush') {
+        // outline halus area sapuan (blur-nya sendiri sudah keliatan di base)
+        ctx.save();
+        ctx.fillStyle = 'rgba(74,222,128,0.18)';
+        for (const p of op.points) { ctx.beginPath(); ctx.arc(p.x, p.y, op.radius, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore();
+      } else {
+        ctx.strokeRect(op.rect.x, op.rect.y, op.rect.w, op.rect.h);
+      }
+    }
 
     if (crop) {
       ctx.save();
@@ -155,6 +199,16 @@ export default function ImagePrivacyEditor({
       }
       ctx.restore();
     }
+
+    // Live preview sapuan brush in-progress (mode 'brush')
+    const stroke = strokeRef.current;
+    if (stroke && stroke.length) {
+      const r = brushRadius();
+      ctx.save();
+      ctx.fillStyle = 'rgba(74,222,128,0.35)';
+      for (const p of stroke) { ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+    }
   }
 
   // Re-bake + overlay saat state berubah
@@ -177,15 +231,29 @@ export default function ImagePrivacyEditor({
   function onDown(e: React.PointerEvent) {
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const p = toImg(e);
+    if (mode === 'brush') { strokeRef.current = [p]; redrawOverlay(); return; }
     dragRef.current = { start: p, cur: p };
     redrawOverlay();
   }
   function onMove(e: React.PointerEvent) {
+    if (mode === 'brush') {
+      if (!strokeRef.current) return;
+      strokeRef.current.push(toImg(e));
+      redrawOverlay();
+      return;
+    }
     if (!dragRef.current) return;
     dragRef.current.cur = toImg(e);
     redrawOverlay();
   }
   function onUp() {
+    if (mode === 'brush') {
+      const s = strokeRef.current;
+      strokeRef.current = null;
+      if (s && s.length) setOps(prev => [...prev, { type: 'brush', points: s, radius: brushRadius() }]);
+      else redrawOverlay();
+      return;
+    }
     const d = dragRef.current;
     dragRef.current = null;
     if (!d) return;
@@ -292,7 +360,9 @@ export default function ImagePrivacyEditor({
 
       {/* Hint */}
       <p className="text-center text-[11px] px-4 pb-1 shrink-0" style={{ color: '#9CA3AF' }}>
-        Drag kotak di wajah / plat / dokumen. Bisa beberapa area. {crop ? 'Crop aktif.' : ''}
+        {mode === 'brush'
+          ? 'Sapu (tahan + geser) di wajah / area sensitif — mouse atau sentuh layar. Bisa beberapa sapuan.'
+          : 'Drag kotak di wajah / plat / dokumen. Bisa beberapa area.'} {crop ? 'Crop aktif.' : ''}
       </p>
 
       {/* Footer */}
