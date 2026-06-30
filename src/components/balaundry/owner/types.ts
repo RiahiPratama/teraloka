@@ -88,6 +88,35 @@ export interface OwnerService {
   updated_at: string;
 }
 
+// Orders / POS (orders.ts)
+export type DeliveryMode = 'dropoff' | 'pickup_delivery';
+export type PaymentStatus = 'unpaid' | 'paid';
+
+// Item snapshot beku dari BE — field opsional, render apa adanya (NOL compute).
+export interface OrderItemSnapshot {
+  service_id?: string;
+  name?: string;
+  qty: number;
+  note?: string | null;
+  price?: number;     // harga snapshot dari BE (display only)
+  subtotal?: number;  // dari BE — JANGAN dihitung di FE
+}
+
+export interface Order {
+  id: string;
+  display_id: string;
+  business_id?: string;
+  order_status: string;
+  total: number;             // 🔴 SUMBER TUNGGAL total = response BE. NOL compute FE.
+  payment_status?: string;
+  delivery_mode?: string;
+  staff_id?: string | null;
+  customer_contact?: { name?: string | null; wa?: string | null } | null;
+  items?: OrderItemSnapshot[];
+  note?: string | null;
+  created_at: string;
+}
+
 // Staff / POS PIN (staff.ts) — StaffPublic, NO pin_hash (anti-leak).
 export type StaffRole = 'kasir' | 'manager';
 
