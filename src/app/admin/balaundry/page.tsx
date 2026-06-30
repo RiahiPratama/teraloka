@@ -8,6 +8,7 @@
 // Tahap A: CTA & daftar laundry belum live (Tahap B) → CTA disabled "segera".
 // ════════════════════════════════════════════════════════════════
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useApi, ApiError } from '@/lib/api/client';
 import type { OverviewStats } from '@/lib/balaundry-links';
 import { MetricCard } from '@/components/balaundry/admin/MetricCard';
@@ -128,14 +129,13 @@ export default function BalaundryCommandCenter() {
                 value={data.businesses.pending_verify}
                 highlight
                 action={
-                  <span
-                    className="inline-flex cursor-not-allowed items-center gap-1.5 rounded-lg bg-surface-muted px-3 py-1.5 text-xs font-semibold text-text-subtle"
-                    title="Daftar verifikasi tersedia di tahap berikutnya"
+                  <Link
+                    href="/admin/balaundry/laundry?filter=pending"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-balaundry-surya px-3 py-1.5 text-xs font-semibold text-white no-underline transition-opacity hover:opacity-90"
                   >
                     <span className="material-symbols-outlined text-[16px]">task_alt</span>
                     Verifikasi sekarang
-                    <span className="rounded bg-surface px-1 py-0.5 text-[9px] uppercase">soon</span>
-                  </span>
+                  </Link>
                 }
               />
               <MetricCard icon="check_circle" label="Aktif" value={data.businesses.active} />

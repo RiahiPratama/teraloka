@@ -120,6 +120,40 @@ export interface OverviewStats {
   staff_total: number;
 }
 
+// ─── Admin: Business full (laundry.businesses, dari GET /admin/balaundry/businesses) ──
+// select('*') → full row. Render apa adanya. SoT: BALAUNDRY-SCHEMA-REFERENCE.md §2.
+export interface Business {
+  id: string;
+  owner_id: string;              // uuid (BUKAN nama — list tidak join users)
+  display_id: string | null;     // BLD-BIZ-YYYY-NNNNN
+  name: string;
+  slug: string | null;
+  location_id: string;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  whatsapp: string | null;
+  operating_hours: unknown;      // jsonb
+  photos: unknown;               // jsonb
+  cover_image_url: string | null;
+  subscription_tier: string;     // free|basic|pro|bisnis (denormal cache)
+  listing_tier: string;          // normal|featured
+  is_active: boolean;
+  is_verified: boolean;
+  verified_at: string | null;
+  verified_by: string | null;
+  rating_avg: number;
+  rating_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+// Row list admin = Business full + 2 enrich count (services/orders).
+export interface AdminBusinessRow extends Business {
+  services_count: number;
+  orders_count: number;
+}
+
 // Path builders (opsional — konsistensi).
 export const directoryUrl = (params: string) => `${API_URL}/balaundry/directory${params ? `?${params}` : ''}`;
 export const detailUrl = (slug: string) => `${API_URL}/balaundry/laundry/${encodeURIComponent(slug)}`;

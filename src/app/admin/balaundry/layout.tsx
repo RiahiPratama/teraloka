@@ -32,7 +32,7 @@ interface TabDef {
 // href di sini final; Tahap B/D tinggal bikin folder + page.tsx lalu flip enabled:true.
 const TABS: TabDef[] = [
   { key: 'overview', label: 'Overview', icon: 'dashboard', href: '/admin/balaundry', match: 'exact', enabled: true },
-  { key: 'laundry', label: 'Laundry', icon: 'local_laundry_service', href: '/admin/balaundry/laundry', match: 'prefix', enabled: false }, // Tahap B
+  { key: 'laundry', label: 'Laundry', icon: 'local_laundry_service', href: '/admin/balaundry/laundry', match: 'prefix', enabled: true }, // Tahap B ✓
   { key: 'langganan', label: 'Langganan', icon: 'workspace_premium', href: '/admin/balaundry/langganan', match: 'prefix', enabled: false }, // Tahap D
 ];
 
