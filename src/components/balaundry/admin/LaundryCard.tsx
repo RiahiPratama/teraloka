@@ -16,6 +16,11 @@ interface LaundryCardProps {
   onVerify: (row: AdminBusinessRow) => void;
   onReject: (row: AdminBusinessRow) => void;
   onToggleStatus: (row: AdminBusinessRow) => void;
+  /** Multi-select (bulk-verify) */
+  selected?: boolean;
+  onToggleSelect?: (row: AdminBusinessRow) => void;
+  /** Disable checkbox (mis. udah capai cap 100 & row ini belum kepilih). */
+  selectDisabled?: boolean;
 }
 
 function Badge({
@@ -51,14 +56,42 @@ function Meta({ icon, children }: { icon: string; children: React.ReactNode }) {
   );
 }
 
-export function LaundryCard({ row, busy = false, onVerify, onReject, onToggleStatus }: LaundryCardProps) {
+export function LaundryCard({
+  row,
+  busy = false,
+  onVerify,
+  onReject,
+  onToggleStatus,
+  selected = false,
+  onToggleSelect,
+  selectDisabled = false,
+}: LaundryCardProps) {
+  const selectable = Boolean(onToggleSelect);
   return (
-    <div className="rounded-xl border border-border bg-surface p-4">
-      {/* ── Header: nama + badges ── */}
+    <div
+      className={cn(
+        'rounded-xl border bg-surface p-4 transition-colors',
+        selected ? 'border-balaundry ring-1 ring-balaundry/30' : 'border-border',
+      )}
+    >
+      {/* ── Header: checkbox + nama + badges ── */}
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h3 className="truncate text-sm font-bold text-text">{row.name}</h3>
-          <p className="mt-0.5 font-mono text-xs text-text-subtle">{row.display_id ?? '—'}</p>
+        <div className="flex min-w-0 items-start gap-2.5">
+          {selectable && (
+            <input
+              type="checkbox"
+              checked={selected}
+              disabled={selectDisabled && !selected}
+              onChange={() => onToggleSelect?.(row)}
+              aria-label={`Pilih ${row.name}`}
+              title={selectDisabled && !selected ? 'Maksimal 100 per bulk' : undefined}
+              className="mt-0.5 h-4 w-4 shrink-0 accent-balaundry disabled:opacity-40"
+            />
+          )}
+          <div className="min-w-0">
+            <h3 className="truncate text-sm font-bold text-text">{row.name}</h3>
+            <p className="mt-0.5 font-mono text-xs text-text-subtle">{row.display_id ?? '—'}</p>
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
           {row.is_verified ? (

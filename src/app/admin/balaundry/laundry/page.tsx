@@ -17,8 +17,10 @@ import type { AdminBusinessRow, Business } from '@/lib/balaundry-links';
 import { LaundryFilterBar, type TriFilter } from '@/components/balaundry/admin/LaundryFilterBar';
 import { LaundryCard } from '@/components/balaundry/admin/LaundryCard';
 import { ConfirmModal } from '@/components/balaundry/admin/ConfirmModal';
+import { BulkResultModal, type BulkVerifyResult } from '@/components/balaundry/admin/BulkResultModal';
 
 const PAGE_SIZE = 20;
+const BULK_MAX = 100; // mirror BE admin-engine.ts:214 — >100 ditolak 400.
 
 type ActionType = 'verify' | 'reject' | 'suspend' | 'activate';
 interface ModalState {
@@ -65,6 +67,13 @@ function LaundryListPage() {
 
   const [modal, setModal] = useState<ModalState | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // ── Bulk-verify (multi-select) ──
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkSubmitting, setBulkSubmitting] = useState(false);
+  const [bulkResult, setBulkResult] = useState<BulkVerifyResult | null>(null);
+  const [bulkNameMap, setBulkNameMap] = useState<Record<string, string>>({});
 
   // ── Debounce search → reset ke halaman 1 ──
   useEffect(() => {
@@ -161,6 +170,65 @@ function LaundryListPage() {
     }
   };
 
+  // ── Selection (cap BULK_MAX) ──
+  const atCap = selected.size >= BULK_MAX;
+  const toggleSelect = (row: AdminBusinessRow) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(row.id)) next.delete(row.id);
+      else if (next.size < BULK_MAX) next.add(row.id);
+      return next;
+    });
+  };
+  const pageIds = rows.map((r) => r.id);
+  const allPageSelected = pageIds.length > 0 && pageIds.every((id) => selected.has(id));
+  const toggleSelectPage = () => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (allPageSelected) {
+        pageIds.forEach((id) => next.delete(id));
+      } else {
+        for (const id of pageIds) {
+          if (next.size >= BULK_MAX) break;
+          next.add(id);
+        }
+      }
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  // ── Bulk-verify: POST → tampil partial-failure → refresh ──
+  const handleBulkConfirm = async (note: string) => {
+    const ids = [...selected];
+    if (ids.length === 0) return;
+    // Snapshot nama buat baris gagal (rows berubah setelah refresh).
+    const nameMap: Record<string, string> = {};
+    for (const id of ids) nameMap[id] = rows.find((r) => r.id === id)?.name ?? id;
+
+    setBulkSubmitting(true);
+    try {
+      const result = await api.post<BulkVerifyResult>(
+        '/admin/balaundry/businesses/bulk-verify',
+        { business_ids: ids, verified: true, note: note || undefined },
+      );
+      setBulkNameMap(nameMap);
+      setBulkResult(result);
+      setBulkConfirm(false);
+      clearSelection();
+      setReloadKey((k) => k + 1); // refresh otoritatif (BE re-sort/re-filter)
+      if (result.failed > 0) {
+        toast.warning(`${result.succeeded} sukses, ${result.failed} gagal.`);
+      } else {
+        toast.success(`${result.succeeded} laundry terverifikasi.`);
+      }
+    } catch (e) {
+      toast.error(e instanceof ApiError ? e.message : 'Gagal verifikasi massal.');
+    } finally {
+      setBulkSubmitting(false);
+    }
+  };
+
   const cfg = modal ? MODAL_CONFIG[modal.type] : null;
 
   return (
@@ -225,6 +293,22 @@ function LaundryListPage() {
       {/* ── List ── */}
       {!loading && !error && rows.length > 0 && (
         <>
+          {/* Toolbar select-all (halaman ini) */}
+          <div className="flex items-center justify-between gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-text-muted">
+              <input
+                type="checkbox"
+                checked={allPageSelected}
+                onChange={toggleSelectPage}
+                className="h-4 w-4 accent-balaundry"
+              />
+              Pilih semua (halaman ini)
+            </label>
+            {selected.size > 0 && (
+              <span className="text-xs text-text-subtle">{selected.size}/{BULK_MAX} dipilih</span>
+            )}
+          </div>
+
           <div className="space-y-3">
             {rows.map((row) => (
               <LaundryCard
@@ -234,6 +318,9 @@ function LaundryListPage() {
                 onVerify={askVerify}
                 onReject={askReject}
                 onToggleStatus={askToggle}
+                selected={selected.has(row.id)}
+                onToggleSelect={toggleSelect}
+                selectDisabled={atCap}
               />
             ))}
           </div>
@@ -263,7 +350,34 @@ function LaundryListPage() {
         </>
       )}
 
-      {/* ── Confirm modal ── */}
+      {/* ── Bulk action bar (sticky, muncul saat ada pilihan) ── */}
+      {selected.size > 0 && (
+        <div className="sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-balaundry/40 bg-surface p-3 shadow-lg">
+          <span className="text-sm font-semibold text-text">
+            {selected.size} dipilih
+            <span className="ml-1 font-normal text-text-subtle">(maks {BULK_MAX})</span>
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={clearSelection}
+              className="rounded-lg border border-border bg-surface px-3 py-2 text-sm font-medium text-text-muted transition-colors hover:text-text"
+            >
+              Bersihkan
+            </button>
+            <button
+              type="button"
+              onClick={() => setBulkConfirm(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-balaundry px-3 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+            >
+              <span className="material-symbols-outlined text-[18px]">verified</span>
+              Verifikasi terpilih
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Confirm modal (per-row) ── */}
       {modal && cfg && (
         <ConfirmModal
           open
@@ -278,6 +392,38 @@ function LaundryListPage() {
           noteLabel={cfg.noteLabel}
           notePlaceholder="Tulis di sini…"
           submitting={submitting}
+        />
+      )}
+
+      {/* ── Confirm modal (bulk-verify) ── */}
+      {bulkConfirm && (
+        <ConfirmModal
+          open
+          onClose={() => setBulkConfirm(false)}
+          onConfirm={handleBulkConfirm}
+          title={`Verifikasi ${selected.size} laundry?`}
+          description={
+            selected.size >= 20
+              ? 'Aksi massal — proses bisa lama (BE throttle notif ~1.2 dtk/laundry). Tunggu sampai selesai.'
+              : 'Verifikasi semua laundry terpilih sekaligus.'
+          }
+          icon="verified"
+          tone="primary"
+          confirmLabel="Verifikasi terpilih"
+          confirmTone="balaundry"
+          noteLabel="Catatan (opsional)"
+          notePlaceholder="Tulis di sini…"
+          submitting={bulkSubmitting}
+        />
+      )}
+
+      {/* ── Hasil bulk (partial-failure) ── */}
+      {bulkResult && (
+        <BulkResultModal
+          open
+          onClose={() => setBulkResult(null)}
+          result={bulkResult}
+          nameById={bulkNameMap}
         />
       )}
     </div>
