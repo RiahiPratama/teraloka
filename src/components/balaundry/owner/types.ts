@@ -117,6 +117,47 @@ export interface Order {
   created_at: string;
 }
 
+// Subscription (owner.ts) — 🔴 BE single source: harga/maxOutlets/fitur dari /tiers.
+export interface EffectiveSubscription {
+  owner_id?: string;
+  tier: string;
+  effective_tier: string;
+  spec?: unknown;
+  db_status: string;
+  paid_until: string | null;
+  is_expired: boolean;
+}
+
+export interface TierSpecFeatures {
+  waReminder: boolean;
+  priorityListing: boolean;
+  analytics: boolean;
+}
+
+export interface TierSpec {
+  tier: string;
+  label: string;
+  tagline: string;
+  priceMonthly: number;
+  maxOutlets: number;
+  features: TierSpecFeatures;
+}
+
+export interface SubscriptionTiers {
+  current_tier: string;
+  effective_tier: string;
+  is_expired: boolean;
+  can_upgrade_to: string[];
+  tiers: TierSpec[];
+}
+
+export interface UpgradeRequestResult {
+  target_tier: string;
+  amount: number;
+  // Shape rekening/instruksi tergantung BE — render defensif (string | objek).
+  payment_instructions: unknown;
+}
+
 // Staff / POS PIN (staff.ts) — StaffPublic, NO pin_hash (anti-leak).
 export type StaffRole = 'kasir' | 'manager';
 
