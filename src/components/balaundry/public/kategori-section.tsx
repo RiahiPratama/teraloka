@@ -1,20 +1,21 @@
 'use client';
 
 // ════════════════════════════════════════════════════════════════
-// BALAUNDRY — Kategori (.cats). Port 1:1 mockup. Statis. Material Symbols.
+// BALAUNDRY — Kategori (.cats). Statis display (no link — cari belum ada).
+// Tiap icon punya animasi hover/touch sendiri (data-anim). Material Symbols.
 // PATH: src/components/balaundry/public/kategori-section.tsx
+// 🛡️ Link dimatiin (cari = Tahap C). data-anim → CSS per kategori.
 // ════════════════════════════════════════════════════════════════
 
-import Link from 'next/link';
 import { Reveal } from './reveal';
 
 const KATEGORI = [
-  { key: 'kiloan',   icon: 'dry_cleaning',      label: 'Cuci Kiloan' },
-  { key: 'express',  icon: 'bolt',              label: 'Express' },
-  { key: 'setrika',  icon: 'iron',              label: 'Setrika' },
-  { key: 'bedcover', icon: 'bed',               label: 'Bed Cover' },
-  { key: 'sepatu',   icon: 'footprint',         label: 'Sepatu' },
-  { key: 'karpet',   icon: 'cleaning_services', label: 'Karpet' },
+  { key: 'kiloan',   icon: 'dry_cleaning',      label: 'Cuci Kiloan', anim: 'swing' },
+  { key: 'express',  icon: 'bolt',              label: 'Express',     anim: 'flash' },
+  { key: 'setrika',  icon: 'iron',              label: 'Setrika',     anim: 'iron'  },
+  { key: 'bedcover', icon: 'bed',               label: 'Bed Cover',   anim: 'bounce'},
+  { key: 'sepatu',   icon: 'footprint',         label: 'Sepatu',      anim: 'step'  },
+  { key: 'karpet',   icon: 'cleaning_services', label: 'Karpet',      anim: 'sweep' },
 ];
 
 export function KategoriSection() {
@@ -28,10 +29,10 @@ export function KategoriSection() {
       <div className="cats">
         {KATEGORI.map((k, i) => (
           <Reveal key={k.key} delay={(i % 3) === 1 ? 1 : (i % 3) === 2 ? 2 : undefined}>
-            <Link href={`/balaundry/cari?kategori=${k.key}`} className="cat">
+            <div className="cat" data-anim={k.anim} tabIndex={0} role="button" aria-label={k.label}>
               <div className="ci"><span className="material-symbols-outlined">{k.icon}</span></div>
               <b>{k.label}</b>
-            </Link>
+            </div>
           </Reveal>
         ))}
       </div>

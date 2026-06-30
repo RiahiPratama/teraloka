@@ -173,19 +173,74 @@
 /* categories */
 .balaundry-lp .cats{display:grid;grid-template-columns:repeat(6,1fr);gap:15px}
 .balaundry-lp .cat{display:block;background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px 12px;text-align:center;cursor:pointer;
-  transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .25s}
-.balaundry-lp .cat:hover{transform:translateY(-6px);box-shadow:0 22px 40px -20px rgba(37,99,235,.45);border-color:var(--royal-2)}
-.balaundry-lp .cat .ci{width:54px;height:54px;border-radius:16px;background:var(--muted);color:var(--royal);display:grid;place-items:center;margin:0 auto 11px;transition:.25s}
-.balaundry-lp .cat:hover .ci{background:var(--royal);color:#fff;transform:rotate(-6deg) scale(1.06)}
-.balaundry-lp .cat .ci .material-symbols-outlined{font-size:27px}
-.balaundry-lp .cat b{font-size:13.5px;font-weight:700;color:var(--royal-ink)}
+  outline:none;transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s,border-color .25s,background .25s}
+/* hover (desktop) / active (tap mobile) / focus → CARD BIRU penuh */
+.balaundry-lp .cat:hover,.balaundry-lp .cat:focus-visible,.balaundry-lp .cat:active{
+  transform:translateY(-6px);border-color:transparent;
+  background:linear-gradient(150deg,var(--royal-2),var(--royal) 65%,var(--royal-strong));
+  box-shadow:0 22px 44px -18px rgba(37,99,235,.6)}
+.balaundry-lp .cat .ci{width:54px;height:54px;border-radius:16px;background:var(--muted);color:var(--royal);display:grid;place-items:center;margin:0 auto 11px;
+  transition:background .25s,color .25s,transform .25s cubic-bezier(.2,.8,.2,1)}
+/* icon box → putih transparan, icon → putih */
+.balaundry-lp .cat:hover .ci,.balaundry-lp .cat:focus-visible .ci,.balaundry-lp .cat:active .ci{background:rgba(255,255,255,.2);color:#fff}
+.balaundry-lp .cat .ci .material-symbols-outlined{font-size:27px;display:inline-block}
+.balaundry-lp .cat b{font-size:13.5px;font-weight:700;color:var(--royal-ink);transition:color .25s}
+/* teks → putih */
+.balaundry-lp .cat:hover b,.balaundry-lp .cat:focus-visible b,.balaundry-lp .cat:active b{color:#fff}
 
-/* steps */
-.balaundry-lp .steps{display:grid;grid-template-columns:repeat(4,1fr);gap:22px;position:relative}
-.balaundry-lp .stp .n{width:50px;height:50px;border-radius:15px;background:linear-gradient(135deg,var(--royal-2),var(--royal-strong));
-  color:#fff;font-weight:900;font-size:21px;display:grid;place-items:center;margin-bottom:15px;box-shadow:0 14px 28px -12px rgba(37,99,235,.6)}
-.balaundry-lp .stp h4{font-size:16.5px;font-weight:800;color:var(--royal-ink);margin-bottom:6px}
-.balaundry-lp .stp p{font-size:14px;color:var(--ink-soft)}
+/* === animasi icon per kategori (hover/focus/touch trigger) === */
+/* trigger: hover (desktop) + active (tap mobile) + focus-visible (keyboard) */
+.balaundry-lp .cat[data-anim] .ci .material-symbols-outlined{transform-origin:center}
+/* swing — hanger ayun (Cuci Kiloan) */
+.balaundry-lp .cat[data-anim="swing"]:hover .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="swing"]:active .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="swing"]:focus-visible .ci .material-symbols-outlined{animation:bl-swing .7s ease-in-out}
+@keyframes bl-swing{0%,100%{transform:rotate(0)}25%{transform:rotate(-14deg)}60%{transform:rotate(10deg)}80%{transform:rotate(-5deg)}}
+/* flash — bolt getar energetik (Express) */
+.balaundry-lp .cat[data-anim="flash"]:hover .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="flash"]:active .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="flash"]:focus-visible .ci .material-symbols-outlined{animation:bl-flash .5s ease-in-out}
+@keyframes bl-flash{0%,100%{transform:scale(1)}20%{transform:scale(1.25) rotate(-8deg)}40%{transform:scale(.92) rotate(6deg)}60%{transform:scale(1.18) rotate(-4deg)}80%{transform:scale(.97)}}
+/* iron — geser maju-mundur (Setrika) */
+.balaundry-lp .cat[data-anim="iron"]:hover .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="iron"]:active .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="iron"]:focus-visible .ci .material-symbols-outlined{animation:bl-iron .6s ease-in-out 2}
+@keyframes bl-iron{0%,100%{transform:translateX(0)}30%{transform:translateX(-6px)}70%{transform:translateX(6px)}}
+/* bounce — pantul halus (Bed Cover) */
+.balaundry-lp .cat[data-anim="bounce"]:hover .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="bounce"]:active .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="bounce"]:focus-visible .ci .material-symbols-outlined{animation:bl-bounce .65s cubic-bezier(.3,1.4,.5,1)}
+@keyframes bl-bounce{0%,100%{transform:translateY(0)}40%{transform:translateY(-9px)}70%{transform:translateY(-3px)}}
+/* step — melangkah (Sepatu) */
+.balaundry-lp .cat[data-anim="step"]:hover .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="step"]:active .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="step"]:focus-visible .ci .material-symbols-outlined{animation:bl-step .6s ease-in-out}
+@keyframes bl-step{0%{transform:translate(0,0)}25%{transform:translate(-4px,-5px) rotate(-8deg)}50%{transform:translate(0,0)}75%{transform:translate(4px,-5px) rotate(8deg)}100%{transform:translate(0,0)}}
+/* sweep — goyang sapu (Karpet) */
+.balaundry-lp .cat[data-anim="sweep"]:hover .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="sweep"]:active .ci .material-symbols-outlined,
+.balaundry-lp .cat[data-anim="sweep"]:focus-visible .ci .material-symbols-outlined{animation:bl-sweep .7s ease-in-out}
+@keyframes bl-sweep{0%,100%{transform:rotate(0)}30%{transform:rotate(-18deg)}65%{transform:rotate(14deg)}}
+
+/* steps — timeline + alur (bl-flow). Mobile: angka-kiri/teks-kanan + garis urut 1→4 */
+.balaundry-lp .bl-flow{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:22px}
+.balaundry-lp .bl-flow-line{position:absolute;top:25px;left:12.5%;right:12.5%;height:3px;border-radius:3px;
+  background:linear-gradient(90deg,var(--royal-2),var(--royal-strong));
+  transform:scaleX(0);transform-origin:left center;transition:transform 1.1s cubic-bezier(.2,.7,.2,1) .2s;z-index:0}
+.balaundry-lp .bl-flow.in .bl-flow-line{transform:scaleX(1)}
+.balaundry-lp .bl-step{position:relative;z-index:1;text-align:center;opacity:0;transform:translateY(22px);
+  transition:opacity .6s cubic-bezier(.2,.7,.2,1),transform .6s cubic-bezier(.2,.7,.2,1);
+  transition-delay:calc(var(--i) * .14s + .15s)}
+.balaundry-lp .bl-flow.in .bl-step{opacity:1;transform:none}
+.balaundry-lp .bl-step-num{width:52px;height:52px;border-radius:16px;margin:0 auto 14px;display:grid;place-items:center;
+  color:#fff;font-weight:900;font-size:21px;background:linear-gradient(135deg,var(--royal-2),var(--royal-strong));
+  box-shadow:0 12px 26px -10px rgba(37,99,235,.6),0 3px 8px rgba(37,99,235,.25);position:relative}
+.balaundry-lp .bl-step-num::after{content:'';position:absolute;inset:-5px;border-radius:20px;border:2px solid var(--royal-2);opacity:0;transform:scale(.85)}
+.balaundry-lp .bl-flow.in .bl-step-num::after{animation:bl-ring .9s ease-out calc(var(--i) * .14s + .4s) both}
+@keyframes bl-ring{0%{opacity:.5;transform:scale(.85)}100%{opacity:0;transform:scale(1.15)}}
+.balaundry-lp .bl-step-body h4{display:flex;align-items:center;justify-content:center;gap:7px;font-size:16.5px;font-weight:800;color:var(--royal-ink);margin-bottom:6px}
+.balaundry-lp .bl-step-body h4 .material-symbols-outlined{font-size:19px;color:var(--royal)}
+.balaundry-lp .bl-step-body p{font-size:14px;color:var(--ink-soft);line-height:1.55;max-width:30ch;margin:0 auto}
 
 /* why */
 .balaundry-lp .why{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
@@ -197,6 +252,8 @@
 .balaundry-lp .wc .wi .material-symbols-outlined{font-size:27px}
 .balaundry-lp .wc h4{font-size:18.5px;font-weight:800;color:var(--royal-ink);margin-bottom:8px}
 .balaundry-lp .wc p{font-size:14.5px;color:var(--ink-soft)}
+/* dots carousel — desktop hidden (mobile only) */
+.balaundry-lp .why-dots{display:none}
 
 /* delivery band */
 .balaundry-lp .dband{background:linear-gradient(135deg,#fff,var(--muted));border:1px solid var(--line);border-radius:24px;
@@ -233,6 +290,10 @@
   .balaundry-lp .washer,.balaundry-lp .drum,.balaundry-lp .door .water,.balaundry-lp .truck,
   .balaundry-lp .oband .bubbles2 i,.balaundry-lp h1 .hl::after{animation:none}
   .balaundry-lp .lc:hover,.balaundry-lp .cat:hover{transform:none}
+  .balaundry-lp .cat[data-anim] .ci .material-symbols-outlined{animation:none !important}
+  .balaundry-lp .bl-step{opacity:1;transform:none;transition:none}
+  .balaundry-lp .bl-flow-line{transform:none;transition:none}
+  .balaundry-lp .bl-step-num::after{animation:none}
 }
 
 /* ═══ responsive ═══ */
@@ -245,10 +306,37 @@
 @media(max-width:820px){
   .balaundry-lp .oband{grid-template-columns:1fr;padding:34px 26px}
   .balaundry-lp .oband .vis{display:none}
-  .balaundry-lp .steps{grid-template-columns:1fr 1fr}
   .balaundry-lp .why{grid-template-columns:1fr}
 }
 @media(max-width:740px){.balaundry-lp .dband{grid-template-columns:1fr;text-align:center}.balaundry-lp .dband .tags{justify-content:center}}
 @media(max-width:600px){.balaundry-lp .cards{grid-template-columns:1fr}.balaundry-lp .wrap{padding:0 18px}}
 @media(max-width:520px){.balaundry-lp .cats{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:480px){.balaundry-lp .steps{grid-template-columns:1fr}}
+/* MOBILE timeline (≤640px): angka KIRI + teks KANAN + garis urut VERTIKAL 1→4 */
+@media(max-width:640px){
+  .balaundry-lp .bl-flow{grid-template-columns:1fr;gap:0;padding-left:4px}
+  .balaundry-lp .bl-flow-line{top:26px;bottom:26px;left:30px;right:auto;width:3px;height:auto;
+    transform:scaleY(0);transform-origin:top center}
+  .balaundry-lp .bl-flow.in .bl-flow-line{transform:scaleY(1)}
+  .balaundry-lp .bl-step{display:grid;grid-template-columns:54px 1fr;gap:16px;text-align:left;align-items:start;padding-bottom:30px}
+  .balaundry-lp .bl-step:last-child{padding-bottom:0}
+  .balaundry-lp .bl-step-num{margin:0;width:54px;height:54px}
+  .balaundry-lp .bl-step-body{padding-top:5px}
+  .balaundry-lp .bl-step-body h4{justify-content:flex-start}
+  .balaundry-lp .bl-step-body p{max-width:none;margin:0}
+
+  /* === KENAPA jadi carousel swipe + dots (mobile) === */
+  .balaundry-lp .why{
+    display:flex;grid-template-columns:none;gap:14px;
+    overflow-x:auto;scroll-snap-type:x mandatory;-webkit-overflow-scrolling:touch;
+    padding:4px 4px 8px;margin:0 -18px;padding-left:18px;padding-right:18px;
+    scrollbar-width:none}
+  .balaundry-lp .why::-webkit-scrollbar{display:none}
+  /* tiap kartu (Reveal wrapper) = 1 slide, lebar ~85% biar kartu sebelah keintip */
+  .balaundry-lp .why > .reveal{flex:0 0 85%;scroll-snap-align:center}
+  .balaundry-lp .why .wc{height:100%}
+  /* dots tampil */
+  .balaundry-lp .why-dots{display:flex;justify-content:center;gap:8px;margin-top:18px}
+  .balaundry-lp .why-dot{width:8px;height:8px;border-radius:999px;border:0;padding:0;cursor:pointer;
+    background:var(--line);transition:width .25s,background .25s}
+  .balaundry-lp .why-dot.on{width:24px;background:var(--royal)}
+}
