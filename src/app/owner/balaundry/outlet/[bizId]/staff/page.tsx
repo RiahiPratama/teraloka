@@ -1,0 +1,301 @@
+'use client';
+
+// ════════════════════════════════════════════════════════════════
+// BALAUNDRY Owner — Kelola staff POS (Tahap C1)
+// PATH: src/app/owner/balaundry/outlet/[bizId]/staff/page.tsx
+// ────────────────────────────────────────────────────────────────
+// GET   /balaundry/owner/businesses/:bizId/staff   → StaffPublic[]
+// POST  /balaundry/owner/businesses/:bizId/staff   {name, role, pin, user_id?}
+// PATCH /balaundry/owner/staff/:staffId            {name?, role?, is_active?, pin?}
+// 🛡️ PIN: BE TIDAK balikin pin_hash → set/reset ONLY, gak ada "lihat PIN".
+//    Input type=password 4-6 digit. State PIN dibuang begitu form ditutup.
+//    NOL log PIN, NOL localStorage. NOL business logic — validasi PIN di BE.
+// useApi (Bearer auto). Material Symbols. Royal blue var(--color-balaundry).
+// ════════════════════════════════════════════════════════════════
+
+import { useEffect, useState, useCallback } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { useApi, ApiError } from '@/lib/api/client';
+import { useToast } from '@/components/ui/Toast';
+import { Icon, Spinner, FullScreen, AuthGate } from '@/components/balaundry/owner/ui';
+import type { StaffPublic, StaffRole } from '@/components/balaundry/owner/types';
+
+const ROLES: StaffRole[] = ['kasir', 'manager'];
+const ROLE_LABEL: Record<string, string> = { kasir: 'Kasir', manager: 'Manager' };
+const INPUT = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[var(--color-balaundry)] focus:ring-2 focus:ring-[var(--color-balaundry-muted)] placeholder:text-slate-400';
+const PIN_RE = /^\d{4,6}$/;
+
+interface FormState { id: string | null; name: string; role: StaffRole; pin: string; }
+const emptyForm: FormState = { id: null, name: '', role: 'kasir', pin: '' };
+
+export default function StaffPage() {
+  const { bizId } = useParams<{ bizId: string }>();
+  const { user, isLoading: authLoading } = useAuth();
+  const api = useApi();
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const [list, setList] = useState<StaffPublic[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [forbidden, setForbidden] = useState(false);
+
+  const [form, setForm] = useState<FormState | null>(null); // null = tertutup → PIN state ikut terbuang
+  const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setLoading(true); setError(null); setForbidden(false);
+      setList(await api.get<StaffPublic[]>(`/balaundry/owner/businesses/${bizId}/staff`));
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 403) setForbidden(true);
+      else setError(e instanceof ApiError ? e.message : 'Gagal memuat, coba lagi.');
+    } finally {
+      setLoading(false);
+    }
+  }, [api, bizId]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { setLoading(false); return; }
+    load();
+  }, [authLoading, user, load]);
+
+  // Create: PIN wajib 4-6 digit. Edit: PIN opsional (kosong = tidak ganti).
+  const isEdit = !!form?.id;
+  const pinOk = !!form && (isEdit ? (form.pin === '' || PIN_RE.test(form.pin)) : PIN_RE.test(form.pin));
+  const canSubmit = !!form && form.name.trim().length >= 2 && pinOk;
+
+  function closeForm() {
+    // Tutup → buang state form termasuk PIN (jangan tahan PIN di memori).
+    setForm(null);
+    setFormError('');
+  }
+
+  async function handleSubmit() {
+    if (!form || !canSubmit || submitting) return;
+    setSubmitting(true); setFormError('');
+    try {
+      if (form.id) {
+        // Edit: kirim PIN hanya bila diisi (reset). Kosong = pertahankan PIN lama di BE.
+        const body: { name: string; role: StaffRole; pin?: string } = {
+          name: form.name.trim(),
+          role: form.role,
+        };
+        if (form.pin) body.pin = form.pin;
+        await api.patch<StaffPublic>(`/balaundry/owner/staff/${form.id}`, body);
+        toast.success('Staff diperbarui');
+      } else {
+        await api.post<StaffPublic>(`/balaundry/owner/businesses/${bizId}/staff`, {
+          name: form.name.trim(),
+          role: form.role,
+          pin: form.pin,
+        });
+        toast.success('Staff ditambahkan');
+      }
+      closeForm(); // PIN state terbuang di sini
+      await load();
+    } catch (e) {
+      setFormError(e instanceof ApiError ? e.message : 'Gagal menyimpan. Coba lagi.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function toggleActive(staff: StaffPublic) {
+    if (togglingId) return;
+    setTogglingId(staff.id);
+    setList((prev) => prev?.map((s) => s.id === staff.id ? { ...s, is_active: !s.is_active } : s) ?? prev);
+    try {
+      await api.patch<StaffPublic>(`/balaundry/owner/staff/${staff.id}`, { is_active: !staff.is_active });
+    } catch (e) {
+      setList((prev) => prev?.map((s) => s.id === staff.id ? { ...s, is_active: staff.is_active } : s) ?? prev);
+      toast.error(e instanceof ApiError ? e.message : 'Gagal mengubah status.');
+    } finally {
+      setTogglingId(null);
+    }
+  }
+
+  if (authLoading) return <FullScreen><Spinner /></FullScreen>;
+  if (!user) return <AuthGate redirect={`/owner/balaundry/outlet/${bizId}/staff`} message="Masuk dulu untuk kelola staff" />;
+
+  return (
+    <div className="min-h-screen pb-16 bg-slate-50">
+      <div className="max-w-xl mx-auto px-4 pt-5">
+        <button
+          onClick={() => router.push(`/owner/balaundry/outlet/${bizId}`)}
+          className="flex items-center gap-1 text-xs mb-3 text-slate-500 hover:opacity-70 transition-opacity"
+        >
+          <Icon name="chevron_left" size={16} /> Detail outlet
+        </button>
+
+        <div className="flex items-center justify-between gap-3 mb-5">
+          <h1 className="text-[22px] font-bold tracking-tight text-slate-900">Kelola Staff</h1>
+          {!forbidden && (
+            <button
+              onClick={() => { setForm({ ...emptyForm }); setFormError(''); }}
+              className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl text-white active:scale-95 transition-transform"
+              style={{ background: 'var(--color-balaundry)' }}
+            >
+              <Icon name="add" size={16} /> Tambah
+            </button>
+          )}
+        </div>
+
+        {loading && <ListSkeleton />}
+
+        {!loading && forbidden && (
+          <EmptyBox icon="lock" title="Bukan outlet Anda" subtitle="Outlet ini bukan milik akun kamu." />
+        )}
+
+        {!loading && !forbidden && error && (
+          <div className="rounded-2xl p-4 flex items-start gap-3 bg-red-50 border border-red-200">
+            <Icon name="error" size={18} className="text-red-600 shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="text-xs font-semibold text-red-800">{error}</p>
+              <button onClick={load} className="text-xs font-semibold text-red-700 underline mt-1">Coba lagi</button>
+            </div>
+          </div>
+        )}
+
+        {!loading && !forbidden && !error && list && (
+          list.length === 0 ? (
+            <EmptyBox icon="badge" title="Belum ada staff" subtitle='Tap "Tambah" untuk menambah staff POS.' />
+          ) : (
+            <div className="space-y-3">
+              {list.map((staff) => (
+                <div key={staff.id} className="rounded-2xl p-4 bg-white border border-slate-200">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{staff.name}</p>
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: 'var(--color-balaundry-muted)', color: 'var(--color-balaundry)' }}>{ROLE_LABEL[staff.role] ?? staff.role}</span>
+                        {staff.pin_set_at
+                          ? <span className="text-[11px] text-slate-400 inline-flex items-center gap-0.5"><Icon name="lock" size={12} /> PIN aktif</span>
+                          : <span className="text-[11px] text-amber-600 inline-flex items-center gap-0.5"><Icon name="lock_open" size={12} /> PIN belum di-set</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
+                    <button
+                      onClick={() => { setForm({ id: staff.id, name: staff.name, role: (staff.role as StaffRole) ?? 'kasir', pin: '' }); setFormError(''); }}
+                      className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: 'var(--color-balaundry)' }}>
+                      <Icon name="edit" size={14} /> Edit
+                    </button>
+                    <button onClick={() => toggleActive(staff)} disabled={togglingId === staff.id} className="inline-flex items-center gap-2 disabled:opacity-50">
+                      <span className="text-[11px] font-medium text-slate-500">{staff.is_active ? 'Aktif' : 'Nonaktif'}</span>
+                      <span className="relative inline-block w-9 h-5 rounded-full transition-colors" style={{ background: staff.is_active ? 'var(--color-balaundry)' : 'var(--color-border)' }}>
+                        <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform" style={{ transform: staff.is_active ? 'translateX(16px)' : 'none' }} />
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+      </div>
+
+      {/* Form modal (tambah / edit) */}
+      {form && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={() => !submitting && closeForm()}>
+          <div className="w-full sm:max-w-md bg-white rounded-t-2xl sm:rounded-2xl p-5 space-y-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900">{isEdit ? 'Edit Staff' : 'Tambah Staff'}</h2>
+              <button onClick={() => !submitting && closeForm()} className="text-slate-400"><Icon name="close" size={20} /></button>
+            </div>
+
+            <Field label="Nama">
+              <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nama staff" className={INPUT} />
+            </Field>
+
+            <Field label="Peran">
+              <ChipRow options={ROLES} active={form.role} labels={ROLE_LABEL} onTap={(v) => setForm({ ...form, role: v as StaffRole })} />
+            </Field>
+
+            <Field
+              label={isEdit ? 'Reset PIN' : 'PIN (4–6 digit)'}
+              hint={isEdit ? 'Opsional — isi hanya bila ingin set/ganti PIN. Kosongkan kalau tetap.' : 'PIN untuk login POS. Tidak ditampilkan setelah disimpan.'}
+            >
+              <input
+                type="password"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={6}
+                value={form.pin}
+                onChange={(e) => setForm({ ...form, pin: e.target.value.replace(/\D/g, '').slice(0, 6) })}
+                placeholder={isEdit ? '••••' : '4–6 digit angka'}
+                className={INPUT}
+              />
+              {form.pin !== '' && !PIN_RE.test(form.pin) && (
+                <p className="mt-1 text-[11px] text-amber-600">PIN harus 4–6 digit angka.</p>
+              )}
+            </Field>
+
+            {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700">{formError}</p>}
+
+            <button
+              onClick={handleSubmit}
+              disabled={!canSubmit || submitting}
+              className="w-full rounded-xl py-3 text-sm font-semibold text-white disabled:opacity-40 flex items-center justify-center gap-2"
+              style={{ background: 'var(--color-balaundry)' }}
+            >
+              {submitting ? <><Spinner size={16} /> Menyimpan…</> : (isEdit ? 'Simpan Perubahan' : 'Tambah Staff')}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChipRow({ options, active, labels, onTap }: { options: string[]; active: string; labels?: Record<string, string>; onTap: (v: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const on = active === o;
+        return (
+          <button key={o} type="button" onClick={() => onTap(o)}
+            className={`rounded-full px-3 py-1.5 text-xs font-medium border transition active:scale-95 ${on ? 'text-white' : ''}`}
+            style={on
+              ? { background: 'var(--color-balaundry)', borderColor: 'var(--color-balaundry)' }
+              : { background: 'var(--color-surface)', borderColor: 'var(--color-border)', color: 'var(--color-text-muted)' }}>
+            {labels?.[o] ?? o}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <label className="text-[13px] font-semibold text-slate-800">{label}</label>
+      {hint && <p className="text-[11px] mb-1.5 text-slate-400">{hint}</p>}
+      <div className={hint ? '' : 'mt-1.5'}>{children}</div>
+    </div>
+  );
+}
+
+function EmptyBox({ icon, title, subtitle }: { icon: string; title: string; subtitle: string }) {
+  return (
+    <div className="py-16 text-center rounded-2xl bg-white border border-slate-200">
+      <Icon name={icon} size={40} className="mx-auto mb-3 text-slate-300" />
+      <p className="text-sm font-semibold text-slate-800">{title}</p>
+      <p className="text-xs mt-1 text-slate-500">{subtitle}</p>
+    </div>
+  );
+}
+
+function ListSkeleton() {
+  return (
+    <div className="animate-pulse space-y-3">
+      {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-24 rounded-2xl bg-slate-200" />)}
+    </div>
+  );
+}

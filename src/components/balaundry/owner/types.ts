@@ -6,6 +6,14 @@
 // NOL hitung ulang, NOL business logic. Mirror pola components/bakos/owner/types.
 // ════════════════════════════════════════════════════════════════
 
+// ─── Brand constant (PENGECUALIAN HEX TERDOKUMENTASI) ─────────────────
+// SATU-SATUNYA hex yang diizinkan di owner BALAUNDRY: konstanta brand untuk
+// komponen pihak-ketiga yang BUTUH string warna konkret (GeographicScopePicker
+// melakukan math dark-lift, var(--...) tidak bisa dipakai). Mirror pola bakos
+// (BAKOS_TOKENS.accent = '#854F0B'). Nilai = var(--color-balaundry) light
+// (globals.css:106). HEX DI JSX/style TETAP HARAM — pakai var(--color-balaundry).
+export const BALAUNDRY_BRAND = '#2563EB';
+
 // GET /balaundry/owner/overview
 export interface OwnerSubscriptionSummary {
   tier: string;
@@ -78,4 +86,18 @@ export interface OwnerService {
   is_active: boolean;
   created_at: string;
   updated_at: string;
+}
+
+// Staff / POS PIN (staff.ts) — StaffPublic, NO pin_hash (anti-leak).
+export type StaffRole = 'kasir' | 'manager';
+
+export interface StaffPublic {
+  id: string;
+  business_id: string;
+  user_id: string | null;
+  name: string;
+  role: string;            // StaffRole — string mentah dari BE
+  is_active: boolean;
+  pin_set_at: string | null;
+  created_at: string;
 }

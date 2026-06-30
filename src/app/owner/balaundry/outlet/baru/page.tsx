@@ -9,7 +9,7 @@
 // useApi (Bearer auto). Material Symbols. Royal blue var(--color-balaundry).
 // ════════════════════════════════════════════════════════════════
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useApi, ApiError } from '@/lib/api/client';
@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/Toast';
 import ImageUpload from '@/components/ui/ImageUpload';
 import { GeographicScopePicker, type LocationScope, type LocationBreadcrumb } from '@/components/shared/locations';
 import { Icon, Spinner, FullScreen, AuthGate } from '@/components/balaundry/owner/ui';
+import { BALAUNDRY_BRAND } from '@/components/balaundry/owner/types';
 
 const INPUT = 'w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm outline-none transition focus:border-[var(--color-balaundry)] focus:ring-2 focus:ring-[var(--color-balaundry-muted)] placeholder:text-slate-400';
 
@@ -25,13 +26,6 @@ export default function OutletBaruPage() {
   const api = useApi();
   const router = useRouter();
   const { toast } = useToast();
-
-  // Brand color konkret untuk prop GeographicScopePicker (butuh string warna utk
-  // dark-lift math). Dibaca dari CSS var saat mount → NOL hardcode hex di source.
-  const [brand, setBrand] = useState<string>('');
-  useEffect(() => {
-    setBrand(getComputedStyle(document.documentElement).getPropertyValue('--color-balaundry').trim());
-  }, []);
 
   const [name, setName] = useState('');
   const [scope, setScope] = useState<LocationScope | null>(null);
@@ -100,7 +94,7 @@ export default function OutletBaruPage() {
               onChange={(s, bc?: LocationBreadcrumb) => { setScope(s); setScopeLabel(bc?.display_short ?? ''); }}
               allowedTypes={['kelurahan', 'desa']}
               allowGps
-              brandColor={brand || undefined}
+              brandColor={BALAUNDRY_BRAND}
               placeholder="Cari kelurahan / desa..."
             />
             {scopeLabel && (
