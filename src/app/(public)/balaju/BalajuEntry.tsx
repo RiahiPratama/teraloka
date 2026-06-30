@@ -69,10 +69,11 @@ const SERVICES: {
   Icon: LucideIcon;
   name: string;
   desc: string;
+  hidden?: boolean; // true = disembunyiin dari UI publik (belum siap launch)
 }[] = [
-  { id: 'ride_bike', Icon: Bike, name: 'BALAJU Ojek', desc: 'Ojek cepat & hemat' },
-  { id: 'ride_car', Icon: Car, name: 'BALAJU Mobil', desc: 'Nyaman beramai-ramai' },
-  { id: 'courier', Icon: Package, name: 'BALAJU Kurir', desc: 'Kirim barang cepat & aman' },
+  { id: 'ride_bike', Icon: Bike, name: 'BALAJU OJOL', desc: 'Ojek online cepat & hemat' },
+  { id: 'ride_car', Icon: Car, name: 'BALAJU Mobil', desc: 'Nyaman beramai-ramai', hidden: true },
+  { id: 'courier', Icon: Package, name: 'BALAJU Kurir', desc: 'Kirim barang cepat & aman', hidden: true },
 ];
 
 const TRUST: { Icon: LucideIcon; label: string }[] = [
@@ -345,7 +346,7 @@ export function BalajuEntry() {
         <section className="mb-6">
           <h2 className="bl-display mb-3 text-sm font-bold uppercase tracking-wide text-[var(--bl-forest-d)]">Pilih Layanan</h2>
           <div className="space-y-2.5">
-            {SERVICES.map((s) => {
+            {SERVICES.filter((s) => !s.hidden).map((s) => {
               const active = service === s.id;
               const Icon = s.Icon;
               return (
