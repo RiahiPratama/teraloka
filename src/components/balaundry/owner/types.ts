@@ -46,3 +46,36 @@ export interface OwnerOverview {
   summary: OwnerSummaryStats;
   businesses: OwnerBusinessCard[];
 }
+
+// GET /balaundry/owner/businesses/:bizId/dashboard
+export interface BusinessDashboardRecentOrder {
+  display_id: string;
+  order_status: string;
+  total: number;
+  created_at: string;
+}
+
+export interface BusinessDashboard {
+  business_id: string;
+  status_breakdown: Record<string, number>;
+  revenue: { completed_total: number; today: number; this_month: number };
+  payment: { paid: number; unpaid: number };
+  recent_orders: BusinessDashboardRecentOrder[];
+}
+
+// Services (owner) — GET/POST/PATCH /balaundry/owner/businesses/:bizId/services
+export type ServiceType = 'reguler' | 'express' | 'satuan' | 'kiloan';
+export type ServiceUnit = 'kg' | 'pcs';
+
+export interface OwnerService {
+  id: string;
+  business_id: string;
+  name: string;
+  type: string;   // ServiceType — string mentah dari BE
+  unit: string;   // ServiceUnit
+  price: number;
+  est_hours: number | null;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
