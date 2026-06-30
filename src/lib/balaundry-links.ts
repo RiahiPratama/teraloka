@@ -100,6 +100,26 @@ export function onImgError(e: SyntheticEvent<HTMLImageElement>) {
   img.src = IMG_FALLBACK;
 }
 
+// ─── Admin: Command Center overview (GET /admin/balaundry/overview) ───
+// Shape PERSIS kontrak BE (PRD §3). FE render apa adanya — NOL business logic.
+export interface OverviewStats {
+  businesses: {
+    total: number;
+    verified: number;
+    pending_verify: number;
+    active: number;
+    inactive: number;
+  };
+  orders: {
+    total: number;
+    active: number;
+    completed: number;
+    today: number;
+  };
+  services_total: number;
+  staff_total: number;
+}
+
 // Path builders (opsional — konsistensi).
 export const directoryUrl = (params: string) => `${API_URL}/balaundry/directory${params ? `?${params}` : ''}`;
 export const detailUrl = (slug: string) => `${API_URL}/balaundry/laundry/${encodeURIComponent(slug)}`;
